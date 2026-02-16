@@ -1,0 +1,12 @@
+{
+    "name": "printflow",
+    "version": "1.0.0",
+    "description": "Printing Shop PWA",
+    "scripts": {
+        "build": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css",
+        "watch": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css --watch"
+    },
+    "devDependencies": {
+        "tailwindcss": "^3.4.15"
+    }
+}

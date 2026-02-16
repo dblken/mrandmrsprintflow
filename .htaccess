@@ -1,0 +1,96 @@
+# Enable URL Rewriting
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /printflow/
+
+    # Login/Register: GET -> home (modal); POST -> still handled by .php
+    RewriteCond %{REQUEST_METHOD} =GET
+    RewriteRule ^login/?$ /printflow/?auth_modal=login [R=302,L,QSA]
+    RewriteCond %{REQUEST_METHOD} =GET
+    RewriteRule ^register/?$ /printflow/?auth_modal=register [R=302,L,QSA]
+    RewriteRule ^login/?$ public/login.php [L,QSA]
+    RewriteRule ^register/?$ public/register.php [L,QSA]
+
+    # Clean URLs: /printflow/products/ -> public/products.php (and so on)
+    RewriteRule ^products/?$ public/products.php [L,QSA]
+    RewriteRule ^faq/?$ public/faq.php [L,QSA]
+    RewriteRule ^logout/?$ public/logout.php [L,QSA]
+    RewriteRule ^forgot-password/?$ public/forgot-password.php [L,QSA]
+    RewriteRule ^reset-password/?$ public/reset-password.php [L,QSA]
+    RewriteRule ^google-auth/?$ public/google-auth.php [L,QSA]
+    RewriteRule ^404\.php$ public/404.php [L]
+    RewriteRule ^403\.php$ public/403.php [L]
+    RewriteRule ^500\.php$ public/500.php [L]
+
+    # Home: /printflow/ or /printflow/index/ -> public/index.php
+    RewriteRule ^index/?$ public/index.php [L,QSA]
+    RewriteRule ^$ public/index.php [L,QSA]
+
+    # Remove .php extension for other requests (e.g. under public/)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L]
+
+    # Fallback: non-public paths -> public directory
+    RewriteCond %{REQUEST_URI} !^/printflow/public/
+    RewriteCond %{REQUEST_URI} !^/printflow/admin/
+    RewriteCond %{REQUEST_URI} !^/printflow/staff/
+    RewriteCond %{REQUEST_URI} !^/printflow/customer/
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
+</IfModule>
+
+# Security Headers
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # XSS Protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Content Type Sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# PHP Settings
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 50M
+    php_value post_max_size 50M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Custom Error Pages
+ErrorDocument 404 /printflow/public/404.php
+ErrorDocument 403 /printflow/public/403.php
+ErrorDocument 500 /printflow/public/500.php
+
+# Cache Control for Static Assets
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+# Gzip Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "(\.env|\.git|composer\.json|composer\.lock|package\.json|package-lock\.json|\.htaccess)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
