@@ -22,6 +22,7 @@ if (isset($_GET['mark_read'])) {
 $notifications = db_query("SELECT * FROM notifications WHERE user_id = ? AND user_type = 'Customer' ORDER BY created_at DESC LIMIT 50", 'i', [$customer_id]);
 
 $page_title = 'Notifications - PrintFlow';
+$use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

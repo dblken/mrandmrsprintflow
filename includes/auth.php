@@ -110,7 +110,7 @@ function get_logged_in_user() {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_user($email, $password) {
-    $result = db_query("SELECT * FROM users WHERE email = ? AND status = 'Activated'", 's', [$email]);
+    $result = db_query("SELECT * FROM users WHERE email = ? AND status IN ('Activated', 'Pending')", 's', [$email]);
     
     if (empty($result)) {
         return ['success' => false, 'message' => 'Invalid email or password'];
@@ -127,14 +127,20 @@ function login_user($email, $password) {
     $_SESSION['user_type'] = $user['role']; // 'Admin' or 'Staff'
     $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
     $_SESSION['user_email'] = $user['email'];
+    $_SESSION['user_status'] = $user['status']; // 'Activated' or 'Pending'
     
     // Log activity
     // log_activity($user['user_id'], 'Login', 'User logged in');
     
-    // Determine redirect based on role
-    $redirect = $user['role'] === 'Admin'
-        ? AUTH_REDIRECT_BASE . '/admin/dashboard.php'
-        : AUTH_REDIRECT_BASE . '/staff/dashboard.php';
+    // Determine redirect based on role and status
+    if ($user['role'] === 'Admin') {
+        $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
+    } elseif ($user['status'] === 'Pending') {
+        // Pending staff can only see profile to complete their information
+        $redirect = AUTH_REDIRECT_BASE . '/staff/profile.php';
+    } else {
+        $redirect = AUTH_REDIRECT_BASE . '/staff/dashboard.php';
+    }
     
     return [
         'success' => true,

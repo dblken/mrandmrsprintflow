@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Staff');
+require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
@@ -39,74 +40,90 @@ $products = db_query($sql, $types, $params);
 $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' ORDER BY category ASC");
 
 $page_title = 'Products & Inventory - Staff';
-require_once __DIR__ . '/../includes/header.php';
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?></title>
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+</head>
+<body>
 
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">Products & Inventory</h1>
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
-        <!-- Filters -->
-        <div class="card mb-6">
-            <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                    <input type="text" name="search" class="input-field" placeholder="Name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select name="category" class="input-field">
-                        <option value="">All Categories</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($cat['category']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="flex items-end">
-                    <button type="submit" class="btn-primary w-full">Apply Filters</button>
-                </div>
-            </form>
-        </div>
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1 class="page-title">Products & Inventory</h1>
+        </header>
 
-        <!-- Products Table -->
-        <div class="card">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b-2">
-                            <th class="text-left py-3">SKU</th>
-                            <th class="text-left py-3">Name</th>
-                            <th class="text-left py-3">Category</th>
-                            <th class="text-left py-3">Price</th>
-                            <th class="text-left py-3">Stock</th>
-                            <th class="text-left py-3">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($products as $product): ?>
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="py-3 font-mono text-xs"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                <td class="py-3 font-medium"><?php echo htmlspecialchars($product['name']); ?></td>
-                                <td class="py-3"><?php echo htmlspecialchars($product['category']); ?></td>
-                                <td class="py-3 font-semibold"><?php echo format_currency($product['price']); ?></td>
-                                <td class="py-3">
-                                    <?php if ($product['stock_quantity'] < 10): ?>
-                                        <span class="text-red-600 font-bold"><?php echo $product['stock_quantity']; ?></span>
-                                        <span class="text-xs text-red-600">LOW</span>
-                                    <?php else: ?>
-                                        <span class="text-green-600"><?php echo $product['stock_quantity']; ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="py-3"><?php echo status_badge($product['status'], 'order'); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+        <main>
+            <!-- Filters -->
+            <div class="card">
+                <form method="GET" style="display:grid; grid-template-columns:1fr 1fr auto; gap:16px; align-items:flex-end;">
+                    <div>
+                        <label>Search</label>
+                        <input type="text" name="search" class="input-field" placeholder="Name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                    <div>
+                        <label>Category</label>
+                        <select name="category" class="input-field">
+                            <option value="">All Categories</option>
+                            <?php foreach ($categories as $cat): ?>
+                                <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($cat['category']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Apply Filters</button>
+                </form>
             </div>
-        </div>
+
+            <!-- Products Table -->
+            <div class="card">
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($products as $product): ?>
+                                <tr>
+                                    <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
+                                    <td style="font-weight:500;"><?php echo htmlspecialchars($product['name']); ?></td>
+                                    <td><?php echo htmlspecialchars($product['category']); ?></td>
+                                    <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
+                                    <td>
+                                        <?php if ($product['stock_quantity'] < 10): ?>
+                                            <span style="color:#dc2626; font-weight:700;"><?php echo $product['stock_quantity']; ?></span>
+                                            <span style="font-size:11px; color:#dc2626; font-weight:600;">LOW</span>
+                                        <?php else: ?>
+                                            <span style="color:#16a34a;"><?php echo $product['stock_quantity']; ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo status_badge($product['status'], 'order'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+</body>
+</html>

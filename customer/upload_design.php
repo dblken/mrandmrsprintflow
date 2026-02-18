@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $orders = db_query("SELECT order_id, order_date, status FROM orders WHERE customer_id = ? AND status NOT IN ('Completed', 'Cancelled') ORDER BY order_date DESC", 'i', [$customer_id]);
 
 $page_title = 'Upload Design - PrintFlow';
+$use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

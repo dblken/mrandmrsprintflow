@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="lp-hero">
-    <?php $nav_header_class = 'bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100 lp-hero-nav'; require __DIR__ . '/../includes/nav-header.php'; ?>
+    <?php $nav_header_class = 'lp-hero-nav sticky top-0 z-50'; require __DIR__ . '/../includes/nav-header.php'; ?>
     <div class="lp-wrap">
         <div class="lp-hero-inner">
             <div class="lp-hero-content">

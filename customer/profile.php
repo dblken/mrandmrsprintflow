@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 }
 
 $page_title = 'My Profile - PrintFlow';
+$use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

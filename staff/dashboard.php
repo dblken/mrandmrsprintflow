@@ -9,6 +9,9 @@ require_once __DIR__ . '/../includes/functions.php';
 
 // Require staff access
 require_role('Staff');
+require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+$current_user = get_logged_in_user();
 
 // Get dashboard statistics
 $pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
@@ -36,103 +39,139 @@ $recent_orders = db_query("
     LIMIT 10
 ");
 
+// Get low-stock products for inventory alerts (view-only)
+$low_stock = db_query("
+    SELECT name, sku, stock_quantity, category 
+    FROM products 
+    WHERE status = 'Activated' AND stock_quantity < 10 
+    ORDER BY stock_quantity ASC LIMIT 5
+");
+
 $page_title = 'Staff Dashboard - PrintFlow';
-require_once __DIR__ . '/../includes/header.php';
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?></title>
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <style>
+        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .stat-value { font-size: 32px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+        .stat-sub { font-size: 12px; color: #9ca3af; }
+    </style>
+</head>
+<body>
 
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4">
-        <!-- Welcome Section -->
-        <div class="card mb-8">
-            <h1 class="text-3xl font-bold mb-2">Staff Dashboard</h1>
-            <p class="text-gray-600">Welcome, <?php echo htmlspecialchars($current_user['first_name']); ?>!</p>
-        </div>
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
-        <!-- Order Statistics -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="card border-l-4 border-yellow-500">
-                <p class="text-gray-600 text-sm mb-1">Pending Orders</p>
-                <p class="text-3xl font-bold text-yellow-600"><?php echo $pending_orders; ?></p>
-                <p class="text-xs text-gray-500 mt-2">Awaiting processing</p>
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1 class="page-title">Dashboard</h1>
+            <span style="font-size:14px; color:#6b7280;">Welcome, <?php echo htmlspecialchars($current_user['first_name']); ?>!</span>
+        </header>
+
+        <main>
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">⏳ Pending Orders</div>
+                    <div class="stat-value"><?php echo $pending_orders; ?></div>
+                    <div class="stat-sub">Awaiting processing</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">🔄 Processing</div>
+                    <div class="stat-value"><?php echo $processing_orders; ?></div>
+                    <div class="stat-sub">Currently in progress</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">✅ Ready for Pickup</div>
+                    <div class="stat-value"><?php echo $ready_orders; ?></div>
+                    <div class="stat-sub">Ready for customers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">📦 Completed Today</div>
+                    <div class="stat-value"><?php echo $today_completed; ?></div>
+                    <div class="stat-sub">Orders finished today</div>
+                </div>
             </div>
 
-            <div class="card border-l-4 border-blue-500">
-                <p class="text-gray-600 text-sm mb-1">Processing</p>
-                <p class="text-3xl font-bold text-blue-600"><?php echo $processing_orders; ?></p>
-                <p class="text-xs text-gray-500 mt-2">Currently in progress</p>
-            </div>
-
-            <div class="card border-l-4 border-green-500">
-                <p class="text-gray-600 text-sm mb-1">Ready for Pickup</p>
-                <p class="text-3xl font-bold text-green-600"><?php echo $ready_orders; ?></p>
-                <p class="text-xs text-gray-500 mt-2">Ready for customers</p>
-            </div>
-
-            <div class="card border-l-4 border-gray-500">
-                <p class="text-gray-600 text-sm mb-1">Completed Today</p>
-                <p class="text-3xl font-bold text-gray-600"><?php echo $today_completed; ?></p>
-                <p class="text-xs text-gray-500 mt-2">Orders finished today</p>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <a href="orders.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">📦</div>
-                <h3 class="font-bold text-lg mb-2">Manage Orders</h3>
-                <p class="text-gray-600 text-sm">View and update order status</p>
-            </a>
-
-            <a href="products.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">📦</div>
-                <h3 class="font-bold text-lg mb-2">View Products</h3>
-                <p class="text-gray-600 text-sm">Check inventory levels</p>
-            </a>
-
-            <a href="notifications.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">🔔</div>
-                <h3 class="font-bold text-lg mb-2">Notifications</h3>
-                <p class="text-gray-600 text-sm">View system alerts</p>
-            </a>
-        </div>
-
-        <!-- Recent Orders -->
-        <div class="card">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-2xl font-bold">Recent Orders</h2>
-                <a href="orders.php" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm">View All →</a>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b">
-                            <th class="text-left py-3">Order #</th>
-                            <th class="text-left py-3">Customer</th>
-                            <th class="text-left py-3">Date</th>
-                            <th class="text-left py-3">Amount</th>
-                            <th class="text-left py-3">Status</th>
-                            <th class="text-left py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recent_orders as $order): ?>
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="py-3 font-medium">#<?php echo $order['order_id']; ?></td>
-                                <td class="py-3"><?php echo htmlspecialchars($order['customer_name']); ?></td>
-                                <td class="py-3"><?php echo format_date($order['order_date']); ?></td>
-                                <td class="py-3"><?php echo format_currency($order['total_amount']); ?></td>
-                                <td class="py-3"><?php echo status_badge($order['status'], 'order'); ?></td>
-                                <td class="py-3">
-                                    <a href="order_details.php?id=<?php echo $order['order_id']; ?>" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Update</a>
-                                </td>
+            <!-- Inventory Alerts (View-Only) -->
+            <?php if (!empty($low_stock)): ?>
+            <div class="card" style="border-left:4px solid #f59e0b;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                    <h2 style="display:flex; align-items:center; gap:8px;">⚠️ Low Stock Alerts</h2>
+                    <a href="products" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>SKU</th>
+                                <th>Category</th>
+                                <th>Stock</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($low_stock as $item): ?>
+                            <tr>
+                                <td style="font-weight:500;"><?php echo htmlspecialchars($item['name']); ?></td>
+                                <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($item['sku']); ?></td>
+                                <td><?php echo htmlspecialchars($item['category']); ?></td>
+                                <td><span style="color:#ef4444; font-weight:700;"><?php echo $item['stock_quantity']; ?></span> <span style="font-size:10px; background:#fef2f2; color:#ef4444; padding:2px 6px; border-radius:4px; font-weight:600;">CRITICAL</span></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+            <?php endif; ?>
+
+            <!-- Recent Orders -->
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h2>Recent Orders</h2>
+                    <a href="orders" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recent_orders as $order): ?>
+                                <tr>
+                                    <td style="font-weight:500;">#<?php echo $order['order_id']; ?></td>
+                                    <td><?php echo htmlspecialchars($order['customer_name']); ?></td>
+                                    <td><?php echo format_date($order['order_date']); ?></td>
+                                    <td style="font-weight:600;"><?php echo format_currency($order['total_amount']); ?></td>
+                                    <td><?php echo status_badge($order['status'], 'order'); ?></td>
+                                    <td>
+                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">Update</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+</body>
+</html>

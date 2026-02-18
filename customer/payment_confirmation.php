@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 }
 
 $page_title = 'Payment Confirmation - PrintFlow';
+$use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

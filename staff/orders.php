@@ -8,24 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Staff');
-
-// Get filter parameters
-$status_filter = $_GET['status'] ?? '';
-
-// Build query
-$sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
-$params = [];
-$types = '';
-
-if (!empty($status_filter)) {
-    $sql .= " AND o.status = ?";
-    $params[] = $status_filter;
-    $types .= 's';
-}
-
-$sql .= " ORDER BY o.order_date DESC LIMIT 50";
-
-$orders = db_query($sql, $types, $params);
+require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
@@ -49,71 +32,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     }
 }
 
+// Get filter parameters
+$status_filter = $_GET['status'] ?? '';
+
+// Build query
+$sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
+$params = [];
+$types = '';
+
+if (!empty($status_filter)) {
+    $sql .= " AND o.status = ?";
+    $params[] = $status_filter;
+    $types .= 's';
+}
+
+$sql .= " ORDER BY o.order_date DESC LIMIT 50";
+
+$orders = db_query($sql, $types, $params);
+
 $page_title = 'Orders - Staff';
-require_once __DIR__ . '/../includes/header.php';
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?></title>
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+</head>
+<body>
 
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">Orders Management</h1>
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
-        <?php if (isset($_GET['success'])): ?>
-            <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-                Order status updated successfully!
-            </div>
-        <?php endif; ?>
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1 class="page-title">Orders Management</h1>
+        </header>
 
-        <!-- Filter -->
-        <div class="card mb-6">
-            <form method="GET" class="flex gap-4 items-end">
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-                    <select name="status" class="input-field">
-                        <option value="">All Statuses</option>
-                        <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                        <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
-                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
-                        <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
-                    </select>
+        <main>
+            <?php if (isset($_GET['success'])): ?>
+                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px;">
+                    Order status updated successfully!
                 </div>
-                <button type="submit" class="btn-primary">Apply Filter</button>
-            </form>
-        </div>
+            <?php endif; ?>
 
-        <!-- Orders Table -->
-        <div class="card">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b-2">
-                            <th class="text-left py-3">Order #</th>
-                            <th class="text-left py-3">Customer</th>
-                            <th class="text-left py-3">Date</th>
-                            <th class="text-left py-3">Total</th>
-                            <th class="text-left py-3">Status</th>
-                            <th class="text-right py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($orders as $order): ?>
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="py-3 font-medium">#<?php echo $order['order_id']; ?></td>
-                                <td class="py-3"><?php echo htmlspecialchars($order['customer_name']); ?></td>
-                                <td class="py-3"><?php echo format_date($order['order_date']); ?></td>
-                                <td class="py-3 font-semibold"><?php echo format_currency($order['total_amount']); ?></td>
-                                <td class="py-3"><?php echo status_badge($order['status'], 'order'); ?></td>
-                                <td class="py-3 text-right">
-                                    <a href="order_details.php?id=<?php echo $order['order_id']; ?>" class="text-indigo-600 hover:text-indigo-700 font-medium">
-                                        View/Update
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <!-- Filter -->
+            <div class="card">
+                <form method="GET" style="display:flex; gap:16px; align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label>Filter by Status</label>
+                        <select name="status" class="input-field">
+                            <option value="">All Statuses</option>
+                            <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                            <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
+                            <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
+                            <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Apply Filter</button>
+                </form>
             </div>
-        </div>
+
+            <!-- Orders Table -->
+            <div class="card">
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($orders as $order): ?>
+                                <tr>
+                                    <td style="font-weight:500;">#<?php echo $order['order_id']; ?></td>
+                                    <td><?php echo htmlspecialchars($order['customer_name']); ?></td>
+                                    <td><?php echo format_date($order['order_date']); ?></td>
+                                    <td style="font-weight:600;"><?php echo format_currency($order['total_amount']); ?></td>
+                                    <td><?php echo status_badge($order['status'], 'order'); ?></td>
+                                    <td style="text-align:right;">
+                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">
+                                            View/Update
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+</body>
+</html>

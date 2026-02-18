@@ -31,7 +31,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     width: 100%;
     max-width: 28rem;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow-y: hidden; /* Removed scrollbar as requested */
     background: #fff;
     border-radius: 1rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -43,76 +43,79 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     opacity: 1;
     visibility: visible;
 }
-.auth-modal-register { max-width: 36rem; }
-.auth-modal-close {
-    position: absolute;
-    right: 1rem;
-    top: 1rem;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    background: none;
-    border: none;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: color 0.2s, background 0.2s;
-}
-.auth-modal-close:hover {
-    color: #1e293b;
-    background: #f1f5f9;
-}
-.auth-modal-inner { padding: 2rem 1.5rem; }
-.auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #0f172a; }
-.auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #64748b; }
-.auth-modal .input-field {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    box-sizing: border-box;
-}
-.auth-modal .input-field:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-}
-.auth-modal label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
-.auth-modal .auth-alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
-.auth-modal .auth-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
-.auth-modal .auth-btn-submit { width: 100%; padding: 0.625rem 1rem; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; }
-.auth-modal .auth-btn-submit:hover { opacity: 0.95; }
-.auth-modal .auth-switch { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: #64748b; }
-.auth-modal .auth-switch a { color: #4f46e5; font-weight: 500; text-decoration: none; }
-.auth-modal .auth-switch a:hover { text-decoration: underline; }
-.auth-modal .auth-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 480px) { .auth-modal .auth-grid2 { grid-template-columns: 1fr; } }
-.auth-modal .auth-field { margin-bottom: 1rem; }
-.auth-modal .auth-field-row { margin-bottom: 1rem; }
-.auth-modal .auth-google-wrap { margin-bottom: 1rem; }
-.auth-modal .auth-btn-google {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.6rem 1rem;
-    background: #fff;
-    border: 1px solid #dadce0;
-    border-radius: 0.5rem;
-    color: #3c4043;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.15s, border-color 0.15s;
-}
-.auth-modal .auth-btn-google:hover { background: #f8f9fa; border-color: #d2d4d6; }
-.auth-modal .auth-divider { display: flex; align-items: center; margin: 1rem 0; font-size: 0.8125rem; color: #64748b; }
-.auth-modal .auth-divider::before, .auth-modal .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
-.auth-modal .auth-divider span { padding: 0 0.75rem; }
+    .auth-modal-register { max-width: 50rem; } /* Widened for 3-col layout */
+    .auth-modal-close {
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        background: none;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: color 0.2s, background 0.2s;
+    }
+    .auth-modal-close:hover {
+        color: #1e293b;
+        background: #f1f5f9;
+    }
+    .auth-modal-inner { padding: 2rem 1.5rem; }
+    .auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #0f172a; text-align: center; }
+    .auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #64748b; text-align: center; }
+    .auth-modal .input-field {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+    .auth-modal .input-field:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+    .auth-modal label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
+    .auth-modal .auth-alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
+    .auth-modal .auth-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
+    .auth-modal .auth-btn-submit { width: 100%; padding: 0.625rem 1rem; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; }
+    .auth-modal .auth-btn-submit:hover { opacity: 0.95; }
+    .auth-modal .auth-switch { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: #64748b; }
+    .auth-modal .auth-switch a { color: #4f46e5; font-weight: 500; text-decoration: none; }
+    .auth-modal .auth-switch a:hover { text-decoration: underline; }
+    .auth-modal .auth-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .auth-modal .auth-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { 
+        .auth-modal .auth-grid2, .auth-modal .auth-grid3 { grid-template-columns: 1fr; } 
+    }
+    .auth-modal .auth-field { margin-bottom: 1rem; }
+    .auth-modal .auth-field-row { margin-bottom: 1rem; }
+    .auth-modal .auth-google-wrap { margin-bottom: 1rem; }
+    .auth-modal .auth-btn-google {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        background: #fff;
+        border: 1px solid #dadce0;
+        border-radius: 0.5rem;
+        color: #3c4043;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .auth-modal .auth-btn-google:hover { background: #f8f9fa; border-color: #d2d4d6; }
+    .auth-modal .auth-divider { display: flex; align-items: center; margin: 1rem 0; font-size: 0.8125rem; color: #64748b; }
+    .auth-modal .auth-divider::before, .auth-modal .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+    .auth-modal .auth-divider span { padding: 0 0.75rem; }
 </style>
 
 <div class="auth-modal-backdrop" id="auth-modal-backdrop" aria-hidden="true"></div>
@@ -165,7 +168,8 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         <div id="auth-register-message"></div>
         <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/">
             <?php echo csrf_field(); ?>
-            <div class="auth-grid2">
+            <!-- 3-Column Names -->
+            <div class="auth-grid3">
                 <div class="auth-field">
                     <label for="auth-first_name">First Name <span style="color:#dc2626;">*</span></label>
                     <input type="text" id="auth-first_name" name="first_name" class="input-field" required>
@@ -174,12 +178,14 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     <label for="auth-middle_name">Middle Name</label>
                     <input type="text" id="auth-middle_name" name="middle_name" class="input-field">
                 </div>
-            </div>
-            <div class="auth-grid2">
                 <div class="auth-field">
                     <label for="auth-last_name">Last Name <span style="color:#dc2626;">*</span></label>
                     <input type="text" id="auth-last_name" name="last_name" class="input-field" required>
                 </div>
+            </div>
+
+            <!-- 2-Column Gender/Contact -->
+            <div class="auth-grid2">
                 <div class="auth-field">
                     <label for="auth-gender">Gender</label>
                     <select id="auth-gender" name="gender" class="input-field">
@@ -189,19 +195,24 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                         <option value="Other">Other</option>
                     </select>
                 </div>
+                <div class="auth-field">
+                    <label for="auth-contact">Contact Number</label>
+                    <input type="tel" id="auth-contact" name="contact_number" class="input-field" placeholder="+63 123 456 7890">
+                </div>
             </div>
-            <div class="auth-field">
-                <label for="auth-email-reg">Email Address <span style="color:#dc2626;">*</span></label>
-                <input type="email" id="auth-email-reg" name="email" class="input-field" placeholder="you@example.com" required>
+
+            <!-- 2-Column Email/DOB -->
+            <div class="auth-grid2">
+                <div class="auth-field">
+                    <label for="auth-email-reg">Email Address <span style="color:#dc2626;">*</span></label>
+                    <input type="email" id="auth-email-reg" name="email" class="input-field" placeholder="you@example.com" required>
+                </div>
+                <div class="auth-field">
+                    <label for="auth-dob">Date of Birth</label>
+                    <input type="date" id="auth-dob" name="dob" class="input-field">
+                </div>
             </div>
-            <div class="auth-field">
-                <label for="auth-contact">Contact Number</label>
-                <input type="tel" id="auth-contact" name="contact_number" class="input-field" placeholder="+63 123 456 7890">
-            </div>
-            <div class="auth-field">
-                <label for="auth-dob">Date of Birth</label>
-                <input type="date" id="auth-dob" name="dob" class="input-field">
-            </div>
+
             <div class="auth-grid2">
                 <div class="auth-field">
                     <label for="auth-password-reg">Password <span style="color:#dc2626;">*</span></label>

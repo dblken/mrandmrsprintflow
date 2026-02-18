@@ -34,68 +34,72 @@ $recent_orders = db_query("
 ", 'i', [$customer_id]);
 
 $page_title = 'Customer Dashboard - PrintFlow';
+$use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4">
-        <!-- Welcome Section -->
-        <div class="card mb-8">
-            <h1 class="text-3xl font-bold mb-2">Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>!</h1>
-            <p class="text-gray-600">Track your orders and manage your account</p>
+<div class="min-h-screen py-8">
+    <div class="container mx-auto px-4" style="max-width:1100px;">
+
+        <!-- Welcome Banner -->
+        <div class="ct-welcome">
+            <h1>Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>!</h1>
+            <p>Track your orders and manage your account</p>
         </div>
 
-        <!-- Order Status Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="card border-l-4 border-yellow-500">
-                <p class="text-gray-600 text-sm mb-1">Pending</p>
-                <p class="text-3xl font-bold text-yellow-600"><?php echo $pending_orders; ?></p>
+        <!-- Stats -->
+        <div class="ct-stats">
+            <div class="ct-stat-card yellow">
+                <p class="ct-stat-label">Pending</p>
+                <p class="ct-stat-value"><?php echo $pending_orders; ?></p>
             </div>
-
-            <div class="card border-l-4 border-blue-500">
-                <p class="text-gray-600 text-sm mb-1">Processing</p>
-                <p class="text-3xl font-bold text-blue-600"><?php echo $processing_orders; ?></p>
+            <div class="ct-stat-card blue">
+                <p class="ct-stat-label">Processing</p>
+                <p class="ct-stat-value"><?php echo $processing_orders; ?></p>
             </div>
-
-            <div class="card border-l-4 border-green-500">
-                <p class="text-gray-600 text-sm mb-1">Ready for Pickup</p>
-                <p class="text-3xl font-bold text-green-600"><?php echo $ready_orders; ?></p>
+            <div class="ct-stat-card green">
+                <p class="ct-stat-label">Ready for Pickup</p>
+                <p class="ct-stat-value"><?php echo $ready_orders; ?></p>
             </div>
-
-            <div class="card border-l-4 border-gray-500">
-                <p class="text-gray-600 text-sm mb-1">Total Orders</p>
-                <p class="text-3xl font-bold text-gray-600"><?php echo $total_orders; ?></p>
+            <div class="ct-stat-card gray">
+                <p class="ct-stat-label">Total Orders</p>
+                <p class="ct-stat-value"><?php echo $total_orders; ?></p>
             </div>
         </div>
 
         <!-- Quick Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <a href="products.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">🛍️</div>
-                <h3 class="font-bold text-lg mb-2">Browse Products</h3>
-                <p class="text-gray-600 text-sm">Explore our printing services</p>
+        <div class="ct-actions">
+            <a href="products.php" class="ct-action-card">
+                <div class="ct-action-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.5rem;height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                </div>
+                <h3 class="ct-action-title">Browse Products</h3>
+                <p class="ct-action-desc">Explore our printing services</p>
             </a>
-
-            <a href="orders.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">📦</div>
-                <h3 class="font-bold text-lg mb-2">Track Orders</h3>
-                <p class="text-gray-600 text-sm">View your order history</p>
+            <a href="orders.php" class="ct-action-card">
+                <div class="ct-action-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.5rem;height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                </div>
+                <h3 class="ct-action-title">Track Orders</h3>
+                <p class="ct-action-desc">View your order history</p>
             </a>
-
-            <a href="upload_design.php" class="card text-center hover:shadow-lg transition cursor-pointer">
-                <div class="text-4xl mb-3">🎨</div>
-                <h3 class="font-bold text-lg mb-2">Upload Design</h3>
-                <p class="text-gray-600 text-sm">Submit your custom designs</p>
+            <a href="upload_design.php" class="ct-action-card">
+                <div class="ct-action-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.5rem;height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                </div>
+                <h3 class="ct-action-title">Upload Design</h3>
+                <p class="ct-action-desc">Submit your custom designs</p>
             </a>
         </div>
 
         <!-- Recent Orders -->
-        <div class="card">
-            <h2 class="text-2xl font-bold mb-4">Recent Orders</h2>
+        <div class="card" style="border-radius:1rem;">
+            <h2 class="ct-section-title">Recent Orders</h2>
 
             <?php if (empty($recent_orders)): ?>
-                <div class="text-center py-8">
-                    <p class="text-gray-600 mb-4">You haven't placed any orders yet</p>
+                <div class="ct-empty">
+                    <div class="ct-empty-icon">📦</div>
+                    <p>You haven't placed any orders yet</p>
                     <a href="products.php" class="btn-primary">Start Shopping</a>
                 </div>
             <?php else: ?>
@@ -113,14 +117,14 @@ require_once __DIR__ . '/../includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($recent_orders as $order): ?>
-                                <tr class="border-b hover:bg-gray-50">
+                                <tr class="border-b">
                                     <td class="py-3 font-medium">#<?php echo $order['order_id']; ?></td>
                                     <td class="py-3"><?php echo format_date($order['order_date']); ?></td>
-                                    <td class="py-3"><?php echo format_currency($order['total_amount']); ?></td>
+                                    <td class="py-3 font-bold" style="color:#7c3aed;"><?php echo format_currency($order['total_amount']); ?></td>
                                     <td class="py-3"><?php echo status_badge($order['payment_status'], 'payment'); ?></td>
                                     <td class="py-3"><?php echo status_badge($order['status'], 'order'); ?></td>
                                     <td class="py-3">
-                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">View</a>
+                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" class="ct-view-link">View →</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -129,7 +133,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="mt-4 text-center">
-                    <a href="orders.php" class="text-indigo-600 hover:text-indigo-700 font-medium">View All Orders →</a>
+                    <a href="orders.php" class="ct-view-link">View All Orders →</a>
                 </div>
             <?php endif; ?>
         </div>

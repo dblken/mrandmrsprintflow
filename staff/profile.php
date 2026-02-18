@@ -2,7 +2,6 @@
 /**
  * Staff Profile Page
  * PrintFlow - Printing Shop PWA
- * (Code similar to customer profile but for staff members)
  */
 
 require_once __DIR__ . '/../includes/auth.php';
@@ -74,130 +73,165 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 }
 
 $page_title = 'My Profile - Staff';
-require_once __DIR__ . '/../includes/header.php';
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?></title>
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <style>
+        .alert-error { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .alert-success { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+        @media (max-width: 900px) { .profile-grid { grid-template-columns:1fr; } }
+        .info-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+        @media (max-width: 768px) { .info-grid { grid-template-columns:1fr; } }
+        .info-item p:first-child { font-size:12px; color:#9ca3af; margin-bottom:4px; }
+        .info-item p:last-child { font-size:14px; font-weight:600; color:#1f2937; }
+        textarea.input-field { resize: vertical; min-height: 80px; }
+    </style>
+</head>
+<body>
 
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">My Profile</h1>
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
-        <?php if ($error): ?>
-            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-                <?php echo htmlspecialchars($error); ?>
-            </div>
-        <?php endif; ?>
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1 class="page-title">My Profile</h1>
+        </header>
 
-        <?php if ($success): ?>
-            <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-                <?php echo htmlspecialchars($success); ?>
-            </div>
-        <?php endif; ?>
+        <main>
+            <?php if (isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending'): ?>
+                <div style="background:linear-gradient(135deg, #fef3c7, #fde68a); border:1px solid #f59e0b; border-radius:12px; padding:20px 24px; margin-bottom:20px; display:flex; align-items:center; gap:16px;">
+                    <div style="font-size:32px;">⏳</div>
+                    <div>
+                        <h3 style="font-weight:700; color:#92400e; margin-bottom:4px; font-size:16px;">Account Pending Approval</h3>
+                        <p style="font-size:13px; color:#92400e; line-height:1.5;">Please complete your profile information below. Once submitted, an administrator will review and approve your account. You'll then have full access to the staff panel.</p>
+                    </div>
+                </div>
+            <?php endif; ?>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Profile Information -->
-            <div class="card">
-                <h2 class="text-xl font-bold mb-4">Profile Information</h2>
-                
-                <form method="POST" action="">
-                    <?php echo csrf_field(); ?>
-                    <input type="hidden" name="update_profile" value="1">
+            <?php if ($error): ?>
+                <div class="alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+
+            <?php if ($success): ?>
+                <div class="alert-success"><?php echo htmlspecialchars($success); ?></div>
+            <?php endif; ?>
+
+            <div class="profile-grid">
+                <!-- Profile Information -->
+                <div class="card">
+                    <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Profile Information</h2>
                     
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
-                            <input type="text" name="first_name" class="input-field" required value="<?php echo htmlspecialchars($user['first_name']); ?>">
+                    <form method="POST" action="">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="update_profile" value="1">
+                        
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
+                            <div>
+                                <label>First Name *</label>
+                                <input type="text" name="first_name" class="input-field" required value="<?php echo htmlspecialchars($user['first_name']); ?>">
+                            </div>
+                            <div>
+                                <label>Middle Name</label>
+                                <input type="text" name="middle_name" class="input-field" value="<?php echo htmlspecialchars($user['middle_name'] ?? ''); ?>">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
-                            <input type="text" name="middle_name" class="input-field" value="<?php echo htmlspecialchars($user['middle_name'] ?? ''); ?>">
+
+                        <div style="margin-bottom:16px;">
+                            <label>Last Name *</label>
+                            <input type="text" name="last_name" class="input-field" required value="<?php echo htmlspecialchars($user['last_name']); ?>">
                         </div>
-                    </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
-                        <input type="text" name="last_name" class="input-field" required value="<?php echo htmlspecialchars($user['last_name']); ?>">
-                    </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Email</label>
+                            <input type="email" class="input-field" value="<?php echo htmlspecialchars($user['email']); ?>" disabled style="background:#f3f4f6; cursor:not-allowed;">
+                            <p style="font-size:11px; color:#9ca3af; margin-top:4px;">Email cannot be changed</p>
+                        </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <input type="email" class="input-field bg-gray-100" value="<?php echo htmlspecialchars($user['email']); ?>" disabled>
-                        <p class="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                    </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Contact Number</label>
+                            <input type="tel" name="contact_number" class="input-field" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
+                        </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
-                        <input type="tel" name="contact_number" class="input-field" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
-                    </div>
+                        <div style="margin-bottom:20px;">
+                            <label>Address</label>
+                            <textarea name="address" class="input-field"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
+                        </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                        <textarea name="address" class="input-field" rows="3"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
-                    </div>
+                        <button type="submit" class="btn-primary">Update Profile</button>
+                    </form>
+                </div>
 
-                    <button type="submit" class="btn-primary">Update Profile</button>
-                </form>
-            </div>
-
-            <!-- Change Password -->
-            <div class="card">
-                <h2 class="text-xl font-bold mb-4">Change Password</h2>
-                
-                <form method="POST" action="">
-                    <?php echo csrf_field(); ?>
-                    <input type="hidden" name="change_password" value="1">
+                <!-- Change Password -->
+                <div class="card">
+                    <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Change Password</h2>
                     
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Current Password *</label>
-                        <input type="password" name="current_password" class="input-field" required>
-                    </div>
+                    <form method="POST" action="">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="change_password" value="1">
+                        
+                        <div style="margin-bottom:16px;">
+                            <label>Current Password *</label>
+                            <input type="password" name="current_password" class="input-field" required>
+                        </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">New Password *</label>
-                        <input type="password" name="new_password" class="input-field" required minlength="8">
-                        <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
-                    </div>
+                        <div style="margin-bottom:16px;">
+                            <label>New Password *</label>
+                            <input type="password" name="new_password" class="input-field" required minlength="8">
+                            <p style="font-size:11px; color:#9ca3af; margin-top:4px;">Minimum 8 characters</p>
+                        </div>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password *</label>
-                        <input type="password" name="confirm_password" class="input-field" required minlength="8">
-                    </div>
+                        <div style="margin-bottom:20px;">
+                            <label>Confirm New Password *</label>
+                            <input type="password" name="confirm_password" class="input-field" required minlength="8">
+                        </div>
 
-                    <button type="submit" class="btn-primary">Change Password</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Staff Information -->
-        <div class="card mt-6">
-            <h2 class="text-xl font-bold mb-4">Staff Information</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                    <p class="text-gray-600">Staff ID</p>
-                    <p class="font-semibold">#<?php echo $user['user_id']; ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Role</p>
-                    <p class="font-semibold"><?php echo htmlspecialchars($user['role']); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Position</p>
-                    <p class="font-semibold"><?php echo htmlspecialchars($user['position'] ?? 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Account Status</p>
-                    <p><?php echo status_badge($user['status'], 'order'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Joined</p>
-                    <p class="font-semibold"><?php echo format_date($user['created_at']); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Last Updated</p>
-                    <p class="font-semibold"><?php echo format_datetime($user['updated_at']); ?></p>
+                        <button type="submit" class="btn-primary">Change Password</button>
+                    </form>
                 </div>
             </div>
-        </div>
+
+            <!-- Staff Information -->
+            <div class="card" style="margin-top:24px;">
+                <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Staff Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <p>Staff ID</p>
+                        <p>#<?php echo $user['user_id']; ?></p>
+                    </div>
+                    <div class="info-item">
+                        <p>Role</p>
+                        <p><?php echo htmlspecialchars($user['role']); ?></p>
+                    </div>
+                    <div class="info-item">
+                        <p>Position</p>
+                        <p><?php echo htmlspecialchars($user['position'] ?? 'N/A'); ?></p>
+                    </div>
+                    <div class="info-item">
+                        <p>Account Status</p>
+                        <p><?php echo status_badge($user['status'], 'order'); ?></p>
+                    </div>
+                    <div class="info-item">
+                        <p>Joined</p>
+                        <p><?php echo format_date($user['created_at']); ?></p>
+                    </div>
+                    <div class="info-item">
+                        <p>Last Updated</p>
+                        <p><?php echo format_datetime($user['updated_at']); ?></p>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+</body>
+</html>
