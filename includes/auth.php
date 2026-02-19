@@ -156,7 +156,7 @@ function login_user($email, $password) {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_customer($email, $password) {
-    $result = db_query("SELECT * FROM customers WHERE email = ? AND status = 'Activated'", 's', [$email]);
+    $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
     
     if (empty($result)) {
         return ['success' => false, 'message' => 'Invalid email or password'];
@@ -195,7 +195,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['success' => false, 'message' => 'Invalid email from Google'];
     }
-    $existing = db_query("SELECT * FROM customers WHERE email = ? AND status = 'Activated'", 's', [$email]);
+    $existing = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
     if (!empty($existing)) {
         $customer = $existing[0];
         $_SESSION['user_id'] = $customer['customer_id'];
@@ -205,7 +205,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, status) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?, 'Activated')";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?)";
     $cid = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
     if (!$cid) {
         return ['success' => false, 'message' => 'Could not create account. Please try again.'];
@@ -256,8 +256,8 @@ function register_customer($data) {
     $password_hash = password_hash($data['password'], PASSWORD_BCRYPT);
     
     // Insert customer
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Activated')";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     
     $result = db_execute($sql, 'ssssssss', [
         $data['first_name'],

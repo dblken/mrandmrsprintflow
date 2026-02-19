@@ -44,7 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
 }
 
 // Get all users
-$users = db_query("SELECT * FROM users ORDER BY created_at DESC");
+$page = max(1, (int)($_GET['page'] ?? 1));
+$per_page = 10;
+$total_users = db_query("SELECT COUNT(*) as total FROM users")[0]['total'];
+$total_pages = max(1, ceil($total_users / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+$users = db_query("SELECT * FROM users ORDER BY created_at DESC LIMIT $per_page OFFSET $offset");
 
 $page_title = 'User & Staff Management - Admin';
 ?>
@@ -269,6 +275,7 @@ $page_title = 'User & Staff Management - Admin';
                         </tbody>
                     </table>
                 </div>
+                <?php echo render_pagination($page, $total_pages); ?>
             </div>
         </main>
     </div>

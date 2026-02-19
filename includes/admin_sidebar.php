@@ -3,6 +3,15 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Admin';
 $user_initial = strtoupper(substr($user_name, 0, 1));
+
+// Get profile picture for sidebar
+$sidebar_profile_pic = '';
+if (isset($_SESSION['user_id'])) {
+    $sidebar_user = db_query("SELECT profile_picture FROM users WHERE user_id = ?", 'i', [$_SESSION['user_id']]);
+    if (!empty($sidebar_user) && !empty($sidebar_user[0]['profile_picture'])) {
+        $sidebar_profile_pic = '/printflow/public/assets/uploads/profiles/' . $sidebar_user[0]['profile_picture'];
+    }
+}
 ?>
 
 <aside class="sidebar">
@@ -46,6 +55,12 @@ $user_initial = strtoupper(substr($user_name, 0, 1));
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
                 Inventory
+            </a>
+            <a href="storefront_management" class="nav-item <?php echo $current_page === 'storefront_management.php' ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                </svg>
+                Storefront
             </a>
             <a href="reports" class="nav-item <?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,23 +116,56 @@ $user_initial = strtoupper(substr($user_name, 0, 1));
                 Backup & Restore
             </a>
         </div>
+
+        <!-- Account -->
+        <div class="nav-section">
+            <div class="nav-section-title">Account</div>
+            <a href="profile" class="nav-item <?php echo $current_page === 'profile.php' ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                My Profile
+            </a>
+        </div>
     </nav>
     
     <div class="sidebar-footer">
-        <a href="profile" class="user-profile" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 6px; transition: background 0.2s;">
-            <div class="user-avatar">
-                <?php echo $user_initial; ?>
-            </div>
-            <div class="user-info">
-                <div class="user-name-display"><?php echo htmlspecialchars($user_name); ?></div>
-                <div class="user-role">Admin Manager</div>
-            </div>
-        </a>
-        <a href="/printflow/logout/" class="logout-btn">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-            Log out
-        </a>
+        <div style="display:flex; align-items:center; gap:10px; width:100%;">
+            <a href="profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                <div class="user-avatar" style="flex-shrink:0; overflow:hidden;">
+                    <?php if ($sidebar_profile_pic): ?>
+                        <img src="<?php echo $sidebar_profile_pic; ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
+                    <?php else: ?>
+                        <?php echo $user_initial; ?>
+                    <?php endif; ?>
+                </div>
+                <div class="user-info" style="min-width:0;">
+                    <div class="user-name-display" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($user_name); ?></div>
+                    <div class="user-role">Admin Manager</div>
+                </div>
+            </a>
+            <button onclick="document.getElementById('logoutModal').style.display='flex'" title="Log out" style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; color:#6b7280; transition:all 0.2s; text-decoration:none; background:none; border:none; cursor:pointer;" onmouseover="this.style.background='#fee2e2';this.style.color='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#6b7280'">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+            </button>
+        </div>
     </div>
 </aside>
+
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white; border-radius:16px; padding:32px; width:100%; max-width:380px; margin:16px; box-shadow:0 25px 50px rgba(0,0,0,0.25); text-align:center;">
+        <div style="width:56px; height:56px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+            <svg width="28" height="28" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+        </div>
+        <h3 style="font-size:18px; font-weight:700; color:#1f2937; margin:0 0 8px;">Log Out</h3>
+        <p style="font-size:14px; color:#6b7280; margin:0 0 24px;">Are you sure you want to log out of your admin account?</p>
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('logoutModal').style.display='none'" style="flex:1; padding:10px; border:1px solid #e5e7eb; background:white; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">Cancel</button>
+            <a href="/printflow/logout/" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
+        </div>
+    </div>
+</div>

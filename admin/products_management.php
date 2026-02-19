@@ -49,7 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 }
 
 // Get all products
-$products = db_query("SELECT * FROM products ORDER BY created_at DESC");
+$page = max(1, (int)($_GET['page'] ?? 1));
+$per_page = 10;
+$total_products = db_query("SELECT COUNT(*) as total FROM products")[0]['total'];
+$total_pages = max(1, ceil($total_products / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+$products = db_query("SELECT * FROM products ORDER BY created_at DESC LIMIT $per_page OFFSET $offset");
 
 $page_title = 'Products Management - Admin';
 ?>
@@ -133,6 +139,7 @@ $page_title = 'Products Management - Admin';
                         </tbody>
                     </table>
                 </div>
+                <?php echo render_pagination($page, $total_pages); ?>
             </div>
         </main>
     </div>

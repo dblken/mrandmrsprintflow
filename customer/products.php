@@ -79,7 +79,14 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php foreach ($products as $product): ?>
                     <div class="ct-product-card">
                         <div class="ct-product-img">
-                            <span>📦</span>
+                            <?php if (!empty($product['product_image'])): ?>
+                                <img src="/printflow/public/assets/uploads/products/<?php echo $product['product_image']; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" style="width:100%;height:100%;object-fit:cover;">
+                            <?php else: ?>
+                                <span>📦</span>
+                            <?php endif; ?>
+                            <?php if ($product['is_featured']): ?>
+                                <span style="position:absolute;top:10px;right:10px;background:#fbbf24;color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">FEATURED</span>
+                            <?php endif; ?>
                         </div>
                         <div class="ct-product-body">
                             <span class="ct-product-category"><?php echo htmlspecialchars($product['category']); ?></span>

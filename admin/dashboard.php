@@ -44,13 +44,19 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-        /* Dashboard Specific Styles */
-        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-        .stat-value { font-size: 32px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
-        .stat-change { font-size: 13px; font-weight: 500; }
-        .stat-change.positive { color: #10b981; }
-        .stat-change.negative { color: #ef4444; }
-        
+        /* KPI Row - matches reports page */
+        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+        @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+        .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
+        .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
+        .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
+        .kpi-value { font-size:26px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+
         /* Charts */
         .chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
         .chart-title { font-size: 18px; font-weight: 600; color: #1f2937; }
@@ -92,27 +98,27 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         </header>
 
         <main>
-            <!-- Stats Cards -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">📊 Total customers</div>
-                    <div class="stat-value"><?php echo number_format($total_customers); ?></div>
-                    <div class="stat-change positive">↗ 2.5%</div>
+            <!-- KPI Summary Row (matches reports page style) -->
+            <div class="kpi-row">
+                <div class="kpi-card indigo">
+                    <div class="kpi-label">Total Customers</div>
+                    <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
+                    <div class="kpi-sub">All registered users</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">💰 Total revenue</div>
-                    <div class="stat-value">₱<?php echo $total_revenue > 0 ? number_format($total_revenue / 1000000, 2) . ' M' : '0.00 M'; ?></div>
-                    <div class="stat-change positive">↗ 0.5%</div>
+                <div class="kpi-card emerald">
+                    <div class="kpi-label">Total Revenue</div>
+                    <div class="kpi-value">₱<?php echo $total_revenue > 0 ? number_format($total_revenue, 2) : '0.00'; ?></div>
+                    <div class="kpi-sub">From paid orders</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">📦 Total orders</div>
-                    <div class="stat-value"><?php echo number_format($total_orders); ?></div>
-                    <div class="stat-change negative">↘ 0.2%</div>
+                <div class="kpi-card amber">
+                    <div class="kpi-label">Total Orders</div>
+                    <div class="kpi-value"><?php echo number_format($total_orders); ?></div>
+                    <div class="kpi-sub">All time orders</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">↩️ Total returns</div>
-                    <div class="stat-value"><?php echo number_format($total_returns); ?></div>
-                    <div class="stat-change positive">↗ 0.12%</div>
+                <div class="kpi-card rose">
+                    <div class="kpi-label">Total Returns</div>
+                    <div class="kpi-value"><?php echo number_format($total_returns); ?></div>
+                    <div class="kpi-sub">Returned items</div>
                 </div>
             </div>
             
