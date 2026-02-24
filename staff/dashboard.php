@@ -77,6 +77,17 @@ $page_title = 'Staff Dashboard - PrintFlow';
         </header>
 
         <main>
+            <!-- POS Quick Actions -->
+            <div class="card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid #6366f1;">
+                <div>
+                    <h2 style="margin-bottom: 4px;">Walk-in Transactions</h2>
+                    <p style="color: #64748b; font-size: 14px; margin: 0;">Process new in-store orders and walk-in customers quickly.</p>
+                </div>
+                <a href="pos.php" style="background: #6366f1; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;">
+                    <i class="fas fa-cash-register"></i> Open POS
+                </a>
+            </div>
+
             <!-- Stats Cards -->
             <div class="stats-grid">
                 <div class="stat-card">

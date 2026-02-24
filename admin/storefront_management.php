@@ -16,7 +16,7 @@ $error = '';
 // Handle Image Upload & Updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     
-    // Toggle Featured Status
+
     if (isset($_POST['toggle_featured'])) {
         $product_id = (int)$_POST['product_id'];
         $current_status = (int)$_POST['current_status'];
@@ -63,28 +63,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
     }
 }
 
-// Get all activated products
+// Get ALL products (storefront manages images/featured for all products)
 $page = max(1, (int)($_GET['page'] ?? 1));
-$per_page = 10;
-$search = $_GET['search'] ?? '';
+$per_page = 15;
+$search = trim($_GET['search'] ?? '');
+$filter_stock = $_GET['stock'] ?? '';
 
-$where = "WHERE status = 'Activated'";
+$where = "WHERE 1=1";
 $params = [];
 $types = '';
 
 if ($search) {
-    $where .= " AND (name LIKE ? OR category LIKE ?)";
+    $where .= " AND (name LIKE ? OR category LIKE ? OR sku LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
-    $types .= "ss";
+    $params[] = "%$search%";
+    $types .= "sss";
 }
 
-$total_products = db_query("SELECT COUNT(*) as total FROM products $where", $types, $params)[0]['total'];
+if ($filter_stock === 'low') {
+    $where .= " AND stock_quantity <= 10 AND stock_quantity > 0";
+} elseif ($filter_stock === 'out') {
+    $where .= " AND stock_quantity <= 0";
+}
+
+$total_products = db_query("SELECT COUNT(*) as total FROM products $where", $types, $params)[0]['total'] ?? 0;
 $total_pages = max(1, ceil($total_products / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$products = db_query("SELECT * FROM products $where ORDER BY is_featured DESC, name ASC LIMIT $per_page OFFSET $offset", $types, $params);
+$products = db_query("SELECT * FROM products $where ORDER BY is_featured DESC, stock_quantity ASC, name ASC LIMIT $per_page OFFSET $offset", $types, $params);
+
+// Stock summary counts
+$stock_summary = db_query("SELECT 
+    SUM(CASE WHEN stock_quantity <= 0 THEN 1 ELSE 0 END) as out_of_stock,
+    SUM(CASE WHEN stock_quantity > 0 AND stock_quantity <= 10 THEN 1 ELSE 0 END) as low_stock
+    FROM products")[0] ?? ['out_of_stock' => 0, 'low_stock' => 0];
 
 $page_title = 'Storefront Management - Admin';
 ?>
@@ -95,7 +109,6 @@ $page_title = 'Storefront Management - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .product-card-row {
@@ -135,6 +148,73 @@ $page_title = 'Storefront Management - Admin';
         }
         .featured-star.active { color: #fbbf24; fill: #fbbf24; }
         .featured-star:hover { transform: scale(1.1); }
+        </style>
+        <style>
+        /* Add Product Modal */
+        #add-product-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        #add-product-modal-overlay.active { display: flex; }
+        #add-product-modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 580px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #add-product-modal .modal-hdr {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #add-product-modal .modal-bdy { padding: 24px; }
+        #add-product-modal .fg { margin-bottom: 16px; }
+        #add-product-modal .fg label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+        }
+        #add-product-modal .fg input,
+        #add-product-modal .fg select,
+        #add-product-modal .fg textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        #add-product-modal .fg input:focus,
+        #add-product-modal .fg select:focus,
+        #add-product-modal .fg textarea:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+        #add-product-modal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        #add-product-modal .modal-ftr {
+            display: flex; gap: 12px; margin-top: 20px;
+        }
+        #add-product-modal .modal-ftr button {
+            flex: 1; padding: 11px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+        }
+        @media(max-width:560px) { #add-product-modal .row2 { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -143,26 +223,55 @@ $page_title = 'Storefront Management - Admin';
     <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <div class="main-content">
-        <header>
-            <h1 class="page-title">Storefront Management</h1>
-            <div class="search-box">
-                <form method="GET" style="display:flex; gap:10px;">
-                    <input type="text" name="search" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" class="input-field" style="width:250px;">
-                    <button type="submit" class="btn-secondary">Search</button>
-                </form>
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h1 class="page-title" style="margin:0;">Storefront Management</h1>
+            <div style="display:flex; gap:12px; align-items:center;">
+                <div class="search-box">
+                    <form method="GET" style="display:flex; gap:10px;">
+                        <input type="text" name="search" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" class="input-field" style="width:200px; height:38px;">
+                        <select name="stock" class="input-field" style="height:38px; width:150px;">
+                            <option value="">All Stock</option>
+                            <option value="low" <?php echo $filter_stock === 'low' ? 'selected' : ''; ?>>Low Stock (≤10)</option>
+                            <option value="out" <?php echo $filter_stock === 'out' ? 'selected' : ''; ?>>Out of Stock</option>
+                        </select>
+                        <button type="submit" class="btn-secondary" style="height:38px; padding:0 15px;">Filter</button>
+                    </form>
+                </div>
+                <a href="/printflow/admin/products_management.php" 
+                   class="btn-primary"
+                   style="height:38px; padding:0 20px; display:inline-flex; align-items:center; text-decoration:none;">
+                    + Add New Product
+                </a>
             </div>
         </header>
 
         <main>
             <?php if ($success): ?>
-                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-                    <?php echo htmlspecialchars($success); ?>
+                <div style="background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
+                    ✓ <?php echo htmlspecialchars($success); ?>
                 </div>
             <?php endif; ?>
             <?php if ($error): ?>
-                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-                    <?php echo htmlspecialchars($error); ?>
+                <div style="background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
+                    ✗ <?php echo htmlspecialchars($error); ?>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($stock_summary['out_of_stock'] > 0 || $stock_summary['low_stock'] > 0): ?>
+            <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+                <?php if ($stock_summary['out_of_stock'] > 0): ?>
+                <div style="background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; padding:10px 16px; border-radius:8px; font-size:14px; font-weight:600;">
+                    ⚠️ <?php echo $stock_summary['out_of_stock']; ?> product(s) are <strong>out of stock</strong>
+                    &mdash; <a href="?stock=out" style="color:#dc2626; text-decoration:underline;">View</a>
+                </div>
+                <?php endif; ?>
+                <?php if ($stock_summary['low_stock'] > 0): ?>
+                <div style="background:#fffbeb; border:1px solid #fcd34d; color:#92400e; padding:10px 16px; border-radius:8px; font-size:14px; font-weight:600;">
+                    ⚠️ <?php echo $stock_summary['low_stock']; ?> product(s) have <strong>low stock</strong> (≤10 units)
+                    &mdash; <a href="?stock=low" style="color:#92400e; text-decoration:underline;">View</a>
+                </div>
+                <?php endif; ?>
+            </div>
             <?php endif; ?>
 
             <div class="card">
@@ -200,9 +309,21 @@ $page_title = 'Storefront Management - Admin';
 
                             <!-- Details -->
                             <div>
-                                <h3 style="font-size:16px; font-weight:600; color:#1f2937; margin:0 0 4px;"><?php echo htmlspecialchars($product['name']); ?></h3>
-                                <p style="font-size:13px; color:#6b7280; margin:0 0 4px;"><?php echo htmlspecialchars($product['category']); ?> • <?php echo format_currency($product['price']); ?></p>
-                                <p style="font-size:12px; color:#9ca3af; margin:0;"><?php echo htmlspecialchars(substr($product['description'], 0, 80)); ?>...</p>
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                                    <h3 style="font-size:15px; font-weight:600; color:#1f2937; margin:0;"><?php echo htmlspecialchars($product['name']); ?></h3>
+                                    <?php if ($product['status'] === 'Deactivated'): ?>
+                                        <span style="background:#f3f4f6; color:#6b7280; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px;">DEACTIVATED</span>
+                                    <?php endif; ?>
+                                    <?php if ($product['stock_quantity'] <= 0): ?>
+                                        <span style="background:#fef2f2; color:#dc2626; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px;">⚠ OUT OF STOCK</span>
+                                    <?php elseif ($product['stock_quantity'] <= 10): ?>
+                                        <span style="background:#fffbeb; color:#92400e; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px;">⚠ LOW STOCK (<?php echo $product['stock_quantity']; ?>)</span>
+                                    <?php else: ?>
+                                        <span style="background:#f0fdf4; color:#166534; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px;">✓ In Stock (<?php echo $product['stock_quantity']; ?>)</span>
+                                    <?php endif; ?>
+                                </div>
+                                <p style="font-size:13px; color:#6b7280; margin:0 0 2px;"><?php echo htmlspecialchars($product['category']); ?> • <?php echo format_currency($product['price']); ?></p>
+                                <p style="font-size:11px; color:#9ca3af; margin:0;">SKU: <?php echo htmlspecialchars($product['sku'] ?? '—'); ?></p>
                             </div>
 
                             <!-- Featured Toggle -->
@@ -222,13 +343,17 @@ $page_title = 'Storefront Management - Admin';
 
                             <!-- Actions -->
                             <div style="text-align:right;">
-                                <a href="products_management.php?edit=<?php echo $product['product_id']; ?>" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">Edit Details</a>
+                                <a href="/printflow/admin/products_management.php?edit=<?php echo $product['product_id']; ?>" 
+                                   class="btn-secondary" 
+                                   style="padding:6px 12px; font-size:13px; text-decoration:none; display:inline-block;">
+                                    ✏ Edit Details
+                                </a>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 
-                <?php echo render_pagination($page, $total_pages, ['search' => $search]); ?>
+                <?php echo render_pagination($page, $total_pages, array_filter(['search' => $search, 'stock' => $filter_stock])); ?>
             </div>
         </main>
     </div>

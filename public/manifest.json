@@ -2,7 +2,7 @@
   "name": "PrintFlow - Printing Shop",
   "short_name": "PrintFlow",
   "description": "Pickup-only printing shop for tarpaulins, t-shirts, stickers, and custom designs",
-  "start_url": "/printflow/public/index.php",
+  "start_url": "/printflow/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4F46E5",

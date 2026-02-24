@@ -189,7 +189,7 @@ $page_title = 'Customers Management - Admin';
                         <tbody id="customersTableBody">
                             <?php foreach ($customers as $customer): ?>
                                 <tr class="border-b hover:bg-gray-50 customer-row">
-                                    <td class="py-3">#<?php echo $customer['customer_id']; ?></td>
+                                    <td class="py-3"><?php echo $customer['customer_id']; ?></td>
                                     <td class="py-3 font-medium name-cell">
                                         <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                                     </td>

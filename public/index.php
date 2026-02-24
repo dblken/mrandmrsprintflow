@@ -1,13 +1,17 @@
 <?php
-/**
- * Home Page / Landing Page
- * PrintFlow - Printing Shop PWA
- * Uses standalone landing.css for layout and colors.
- */
-
 $page_title = 'PrintFlow - Your Trusted Printing Shop';
 $use_landing_css = true;
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+// Fetch featured products for the homepage showcase
+$featured_products = db_query(
+    "SELECT product_id, name, category, price, description, product_image, stock_quantity 
+     FROM products 
+     WHERE is_featured = 1 AND status = 'Activated'
+     ORDER BY name ASC LIMIT 6"
+) ?: [];
 ?>
 
 <section class="lp-hero">
@@ -16,7 +20,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="lp-hero-inner">
             <div class="lp-hero-content">
                 <p class="lp-hero-tag">Professional Printing Solutions</p>
-                <h1 class="lp-hero-title">Print Your Ideas <span>with Precision</span></h1>
+                <h1 class="lp-hero-title">Print Your Ideas<br><span>with Precision</span></h1>
                 <p class="lp-hero-desc">Transform your creative vision into reality. High-quality printing for tarpaulins, apparel, stickers, and custom designs—delivered on time.</p>
                 <div class="lp-hero-btns">
                     <?php if (!is_logged_in()): ?>
@@ -74,6 +78,63 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </section>
+
+<?php if (!empty($featured_products)): ?>
+<section class="lp-section lp-section-white" id="lp-featured">
+    <div class="lp-wrap">
+        <div class="lp-heading-wrap">
+            <p class="lp-heading-label">Handpicked For You</p>
+            <h2 class="lp-heading">Featured Products</h2>
+            <p class="lp-heading-desc">Our most popular printing products — ready to order with fast turnaround.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1.5rem; margin-top:2rem;">
+            <?php foreach ($featured_products as $fp): ?>
+            <div style="background:white; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.08); overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s;"
+                 onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,0.14)'"
+                 onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(0,0,0,0.08)'">
+                <!-- Image -->
+                <div style="width:100%; height:180px; background:linear-gradient(135deg,#f0f4ff 0%,#e8edff 100%); display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;">
+                    <?php if (!empty($fp['product_image'])): ?>
+                        <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
+                             alt="<?php echo htmlspecialchars($fp['name']); ?>"
+                             style="width:100%; height:100%; object-fit:cover;">
+                    <?php else: ?>
+                        <span style="font-size:48px; opacity:0.35;">📦</span>
+                    <?php endif; ?>
+                    <span style="position:absolute; top:10px; right:10px; background:#fbbf24; color:white; font-size:10px; font-weight:800; padding:3px 9px; border-radius:20px; letter-spacing:0.05em;">⭐ FEATURED</span>
+                    <?php if ($fp['stock_quantity'] <= 0): ?>
+                        <span style="position:absolute; top:10px; left:10px; background:rgba(239,68,68,0.9); color:white; font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;">Out of Stock</span>
+                    <?php endif; ?>
+                </div>
+                <!-- Info -->
+                <div style="padding:16px 18px 20px; flex:1; display:flex; flex-direction:column;">
+                    <p style="font-size:11px; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.06em; margin:0 0 4px;"><?php echo htmlspecialchars($fp['category']); ?></p>
+                    <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0 0 6px; line-height:1.3;"><?php echo htmlspecialchars($fp['name']); ?></h3>
+                    <p style="font-size:13px; color:#6b7280; margin:0 0 14px; flex:1; line-height:1.5;"><?php echo htmlspecialchars(mb_substr($fp['description'] ?? '', 0, 70)); ?><?php echo mb_strlen($fp['description'] ?? '') > 70 ? '…' : ''; ?></p>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:auto; gap:10px;">
+                        <span style="font-size:18px; font-weight:800; color:#4F46E5;">₱<?php echo number_format($fp['price'], 2); ?></span>
+                        <?php if ($fp['stock_quantity'] > 0): ?>
+                            <a href="<?php echo $url_products; ?>"
+                               style="background:#4F46E5; color:white; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap;"
+                               onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4F46E5'">
+                                Order Now
+                            </a>
+                        <?php else: ?>
+                            <span style="color:#9ca3af; font-size:13px; font-weight:500;">Unavailable</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div style="text-align:center; margin-top:2.5rem;">
+            <a href="<?php echo $url_products; ?>" class="lp-btn lp-btn-outline">View All Products →</a>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <section class="lp-section lp-section-white">
     <div class="lp-wrap">

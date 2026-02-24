@@ -20,9 +20,10 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
 // Build query
-$sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email 
+$sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email, b.branch_name 
         FROM orders o 
         LEFT JOIN customers c ON o.customer_id = c.customer_id 
+        LEFT JOIN branches b ON o.branch_id = b.id 
         WHERE 1=1";
 $params = [];
 $types = '';
@@ -47,8 +48,8 @@ if (!empty($search)) {
     $types .= 'ss';
 }
 
-// Count total results
-$count_sql = str_replace("SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email", "SELECT COUNT(*) as total", $sql);
+// Count total results - wrap as subquery to avoid GROUP BY issues with JOINs
+$count_sql = "SELECT COUNT(*) as total FROM ({$sql}) as count_wrap";
 $total_orders = db_query($count_sql, $types, $params)[0]['total'];
 $total_pages = max(1, ceil($total_orders / $per_page));
 $page = min($page, $total_pages);
@@ -193,6 +194,7 @@ $page_title = 'Orders Management - Admin';
                                 <th class="px-4 py-3 w-[10%]">Order #</th>
                                 <th class="px-4 py-3 w-[25%]">Customer</th>
                                 <th class="px-4 py-3 w-[15%]">Date</th>
+                                <th class="px-4 py-3 w-[15%]">Branch</th>
                                 <th class="px-4 py-3 w-[10%]">Total</th>
                                 <th class="px-4 py-3 w-[10%]">Payment</th>
                                 <th class="px-4 py-3 w-[15%]">Status</th>
@@ -202,17 +204,18 @@ $page_title = 'Orders Management - Admin';
                         <tbody>
                             <?php if (empty($orders)): ?>
                                 <tr>
-                                    <td colspan="7" class="py-8 text-center text-gray-500">No orders found</td>
+                                    <td colspan="8" class="py-8 text-center text-gray-500">No orders found</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($orders as $order): ?>
                                     <tr class="border-b hover:bg-gray-50">
-                                        <td class="px-4 py-3 font-medium">#<?php echo $order['order_id']; ?></td>
+                                        <td class="px-4 py-3 font-medium"><?php echo $order['order_id']; ?></td>
                                         <td class="px-4 py-3">
                                             <div class="font-medium text-gray-900 truncate" style="max-width: 200px;"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                                             <div class="text-xs text-gray-500 truncate" style="max-width: 200px;"><?php echo htmlspecialchars($order['customer_email']); ?></div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap"><?php echo format_date($order['order_date']); ?></td>
+                                        <td class="px-4 py-3 whitespace-nowrap"><?php echo htmlspecialchars($order['branch_name'] ?? 'Main Branch'); ?></td>
                                         <td class="px-4 py-3 font-semibold whitespace-nowrap"><?php echo format_currency($order['total_amount']); ?></td>
                                         <td class="px-4 py-3 whitespace-nowrap"><?php echo status_badge($order['payment_status'], 'payment'); ?></td>
                                         <td class="px-4 py-3 whitespace-nowrap"><?php echo status_badge($order['status'], 'order'); ?></td>
@@ -270,6 +273,7 @@ $page_title = 'Orders Management - Admin';
                     <div>
                         <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Order #<span x-text="order?.order_id"></span></h3>
                         <p style="font-size:13px;color:#6b7280;margin:2px 0 0;" x-text="order?.order_date"></p>
+                        <p style="font-size:12px;color:#4F46E5;margin:3px 0 0;font-weight:600;"><span x-text="order?.branch_name"></span></p>
                     </div>
                     <button @click="showModal = false" style="width:32px;height:32px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -334,6 +338,12 @@ $page_title = 'Orders Management - Admin';
                                     <tr style="border-top:1px solid #f3f4f6;">
                                         <td style="padding:10px 14px;">
                                             <div x-text="item.product_name" style="font-weight:500;color:#1f2937;"></div>
+                                            <template x-if="item.variant_name">
+                                                <div style="margin-top:3px;">
+                                                    <span x-text="'📐 ' + item.variant_name"
+                                                          style="display:inline-flex;align-items:center;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;"></span>
+                                                </div>
+                                            </template>
                                             <div x-text="item.category" style="font-size:11px;color:#9ca3af;"></div>
                                         </td>
                                         <td style="padding:10px 14px;text-align:center;" x-text="item.quantity"></td>
@@ -360,6 +370,27 @@ $page_title = 'Orders Management - Admin';
                     </div>
                 </template>
 
+                <!-- Status Update Panel -->
+                <div style="padding:0 24px 20px;" x-show="order && !loading">
+                    <h4 style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px;">Update Order Status</h4>
+                    <div x-show="statusUpdateMsg" x-text="statusUpdateMsg"
+                         :style="statusUpdateError ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;' : 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;'"></div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select x-model="selectedStatus"
+                                style="flex:1;height:38px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 10px;">
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Ready for Pickup">Ready for Pickup</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                        <button @click="updateStatus()"
+                                :disabled="updatingStatus"
+                                style="padding:8px 20px;background:#4F46E5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;"
+                                x-text="updatingStatus ? 'Updating…' : 'Update Status'"></button>
+                    </div>
+                </div>
+
                 <!-- Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;">
                     <button @click="showModal = false" class="btn-secondary">Close</button>
@@ -377,11 +408,16 @@ function orderModal() {
         errorMsg: '',
         order: null,
         items: [],
+        selectedStatus: 'Pending',
+        updatingStatus: false,
+        statusUpdateMsg: '',
+        statusUpdateError: false,
 
         openModal(orderId) {
             this.showModal = true;
             this.loading = true;
             this.errorMsg = '';
+            this.statusUpdateMsg = '';
             this.order = null;
             this.items = [];
 
@@ -392,6 +428,7 @@ function orderModal() {
                     if (data.success) {
                         this.order = data.order;
                         this.items = data.items;
+                        this.selectedStatus = data.order.status;
                     } else {
                         this.errorMsg = data.error || 'Failed to load order details.';
                     }
@@ -401,6 +438,38 @@ function orderModal() {
                     this.errorMsg = 'Network error. Please try again.';
                     console.error('Order details fetch error:', err);
                 });
+        },
+
+        async updateStatus() {
+            if (!this.order) return;
+            this.updatingStatus = true;
+            this.statusUpdateMsg = '';
+            try {
+                const resp = await fetch('/printflow/admin/api_update_order_status.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        order_id: this.order.order_id,
+                        status: this.selectedStatus,
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.statusUpdateMsg = data.message;
+                    this.statusUpdateError = false;
+                    this.order.status = this.selectedStatus;
+                    // Reload page to refresh KPI counts
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    this.statusUpdateMsg = data.error || 'Update failed.';
+                    this.statusUpdateError = true;
+                }
+            } catch (e) {
+                this.statusUpdateMsg = 'Network error.';
+                this.statusUpdateError = true;
+            }
+            this.updatingStatus = false;
         },
 
         statusBadge(status, type) {

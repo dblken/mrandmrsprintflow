@@ -4,14 +4,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Staff';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending';
+require_once __DIR__ . '/shop_config.php';
 ?>
 
 <aside class="sidebar">
     <div class="sidebar-header">
         <a href="<?php echo $is_pending ? 'profile' : 'dashboard'; ?>" class="logo">
-            <div class="logo-icon">P</div>
-            <span>PrintFlow</span>
+            <?php echo get_logo_html('30px'); ?>
+            <span><?php echo $shop_name; ?></span>
         </a>
+        <button id="global-sidebar-toggle" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:16px; padding:4px;" title="Toggle Sidebar">
+            <i class="fas fa-chevron-left" id="sidebar-toggle-icon"></i>
+        </button>
     </div>
     
     <nav class="sidebar-nav">
@@ -42,6 +46,12 @@ $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'P
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
                 Dashboard
+            </a>
+            <a href="pos.php" class="nav-item <?php echo $current_page === 'pos.php' ? 'active' : ''; ?>" style="color: #6366f1; font-weight: 500;">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                POS (Walk-in)
             </a>
             <a href="orders" class="nav-item <?php echo in_array($current_page, ['orders.php', 'order_details.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,3 +104,38 @@ $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'P
         </a>
     </div>
 </aside>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('global-sidebar-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const toggleIcon = document.getElementById('sidebar-toggle-icon');
+    
+    // Check localStorage for saved state
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+        if (toggleIcon) {
+            toggleIcon.classList.remove('fa-chevron-left');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    }
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+            
+            if (toggleIcon) {
+                if (isCollapsed) {
+                    toggleIcon.classList.remove('fa-chevron-left');
+                    toggleIcon.classList.add('fa-chevron-right');
+                } else {
+                    toggleIcon.classList.remove('fa-chevron-right');
+                    toggleIcon.classList.add('fa-chevron-left');
+                }
+            }
+        });
+    }
+});
+</script>

@@ -3,6 +3,7 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Admin';
 $user_initial = strtoupper(substr($user_name, 0, 1));
+require_once __DIR__ . '/shop_config.php';
 
 // Get profile picture for sidebar
 $sidebar_profile_pic = '';
@@ -17,8 +18,8 @@ if (isset($_SESSION['user_id'])) {
 <aside class="sidebar">
     <div class="sidebar-header">
         <a href="dashboard" class="logo">
-            <div class="logo-icon">P</div>
-            <span>PrintFlow</span>
+            <?php echo get_logo_html('30px'); ?>
+            <span><?php echo $shop_name; ?></span>
         </a>
     </div>
     
@@ -61,6 +62,12 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                 </svg>
                 Storefront
+            </a>
+            <a href="branches_management" class="nav-item <?php echo $current_page === 'branches_management.php' ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                Branches
             </a>
             <a href="reports" class="nav-item <?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,3 +176,19 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </div>
 </div>
+
+<script>
+// Sidebar scroll persistence
+(function() {
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+    var saved = sessionStorage.getItem('sidebarScroll');
+    if (saved !== null) nav.scrollTop = parseInt(saved, 10);
+    nav.querySelectorAll('a.nav-item').forEach(function(link) {
+        link.addEventListener('click', function() {
+            sessionStorage.setItem('sidebarScroll', nav.scrollTop);
+        });
+    });
+})();
+</script>
+

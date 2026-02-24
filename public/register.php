@@ -1,6 +1,6 @@
 <?php
 /**
- * Customer Registration Page
+ * Customer Registration Page (handles both modal AJAX and direct form POST)
  * PrintFlow - Printing Shop PWA
  */
 
@@ -26,47 +26,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
     } else {
-        $first_name = sanitize($_POST['first_name'] ?? '');
-        $middle_name = sanitize($_POST['middle_name'] ?? '');
-        $last_name = sanitize($_POST['last_name'] ?? '');
-        $email = sanitize($_POST['email'] ?? '');
-        $contact_number = sanitize($_POST['contact_number'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
-        $gender = sanitize($_POST['gender'] ?? '');
-        $dob = sanitize($_POST['dob'] ?? '');
+        $reg_type = $_POST['reg_type'] ?? ''; // 'direct' or 'legacy'
         
-        // Validation
-        if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
-            $error = 'Please fill in all required fields';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = 'Please enter a valid email address';
-        } elseif (strlen($password) < 8) {
-            $error = 'Password must be at least 8 characters';
-        } elseif ($password !== $confirm_password) {
-            $error = 'Passwords do not match';
-        } else {
-            $data = [
-                'first_name' => $first_name,
-                'middle_name' => $middle_name,
-                'last_name' => $last_name,
-                'email' => $email,
-                'contact_number' => $contact_number,
-                'password' => $password,
-                'gender' => $gender,
-                'dob' => $dob
-            ];
+        if ($reg_type === 'direct') {
+            // New Direct registration (no validation)
+            $identifier_type = sanitize($_POST['identifier_type'] ?? '');
+            $identifier      = sanitize($_POST['identifier'] ?? '');
+            $password        = $_POST['password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
             
-            $result = register_customer($data);
-            
-            if ($result['success']) {
-                redirect('/printflow/customer/dashboard.php');
+            if (empty($identifier_type) || empty($identifier) || empty($password)) {
+                $error = 'Please fill in all fields.';
+            } elseif (strlen($password) < 8) {
+                $error = 'Password must be at least 8 characters.';
+            } elseif ($password !== $confirm_password) {
+                $error = 'Passwords do not match.';
             } else {
-                $error = $result['message'];
+                $result = register_customer_direct($identifier_type, $identifier, $password);
+                if ($result['success']) {
+                    redirect('/printflow/customer/dashboard.php');
+                } else {
+                    $error = $result['message'];
+                }
+            }
+        } else {
+            // Legacy registration (keep for backward compat)
+            $first_name = sanitize($_POST['first_name'] ?? '');
+            $last_name  = sanitize($_POST['last_name'] ?? '');
+            $email      = sanitize($_POST['email'] ?? '');
+            $password   = $_POST['password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
+            
+            if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
+                $error = 'Please fill in all required fields';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error = 'Please enter a valid email address';
+            } elseif (strlen($password) < 8) {
+                $error = 'Password must be at least 8 characters';
+            } elseif ($password !== $confirm_password) {
+                $error = 'Passwords do not match';
+            } else {
+                $data = [
+                    'first_name' => $first_name,
+                    'middle_name' => sanitize($_POST['middle_name'] ?? ''),
+                    'last_name' => $last_name,
+                    'email' => $email,
+                    'contact_number' => sanitize($_POST['contact_number'] ?? ''),
+                    'password' => $password,
+                    'gender' => sanitize($_POST['gender'] ?? ''),
+                    'dob' => sanitize($_POST['dob'] ?? ''),
+                ];
+                $result = register_customer($data);
+                if ($result['success']) {
+                    redirect('/printflow/customer/dashboard.php');
+                } else {
+                    $error = $result['message'];
+                }
             }
         }
     }
-    // Redirect back with modal params so modal can open with error (for modal flow)
+    // Redirect back with error for modal flow
     if ($error) {
         $return_path = '/printflow/';
         if (!empty($_SERVER['HTTP_REFERER'])) {
@@ -81,181 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// If accessed directly (GET), show simple register page
 $page_title = 'Register - PrintFlow';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="container mx-auto px-4 py-12">
-    <div class="max-w-2xl mx-auto">
-        <!-- Registration Card -->
-        <div class="card">
-            <div class="text-center mb-6">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-                <p class="text-gray-600">Join PrintFlow and start ordering custom prints</p>
-            </div>
-
-            <?php if ($error): ?>
-                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-                    <?php echo htmlspecialchars($error); ?>
-                </div>
-            <?php endif; ?>
-
-            <form method="POST" action="">
-                <?php echo csrf_field(); ?>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- First Name -->
-                    <div>
-                        <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">
-                            First Name <span class="text-red-500">*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="first_name" 
-                            name="first_name" 
-                            class="input-field" 
-                            required 
-                            value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>"
-                        >
-                    </div>
-
-                    <!-- Middle Name -->
-                    <div>
-                        <label for="middle_name" class="block text-sm font-medium text-gray-700 mb-2">
-                            Middle Name
-                        </label>
-                        <input 
-                            type="text" 
-                            id="middle_name" 
-                            name="middle_name" 
-                            class="input-field"
-                            value="<?php echo htmlspecialchars($_POST['middle_name'] ?? ''); ?>"
-                        >
-                    </div>
-
-                    <!-- Last Name -->
-                    <div>
-                        <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">
-                            Last Name <span class="text-red-500">*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="last_name" 
-                            name="last_name" 
-                            class="input-field" 
-                            required
-                            value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>"
-                        >
-                    </div>
-
-                    <!-- Gender -->
-                    <div>
-                        <label for="gender" class="block text-sm font-medium text-gray-700 mb-2">
-                            Gender
-                        </label>
-                        <select id="gender" name="gender" class="input-field">
-                            <option value="">Select Gender</option>
-                            <option value="Male" <?php echo (($_POST['gender'] ?? '') === 'Male') ? 'selected' : ''; ?>>Male</option>
-                            <option value="Female" <?php echo (($_POST['gender'] ?? '') === 'Female') ? 'selected' : ''; ?>>Female</option>
-                            <option value="Other" <?php echo (($_POST['gender'] ?? '') === 'Other') ? 'selected' : ''; ?>>Other</option>
-                        </select>
-                    </div>
-
-                    <!-- Date of Birth -->
-                    <div>
-                        <label for="dob" class="block text-sm font-medium text-gray-700 mb-2">
-                            Date of Birth
-                        </label>
-                        <input 
-                            type="date" 
-                            id="dob" 
-                            name="dob" 
-                            class="input-field"
-                            value="<?php echo htmlspecialchars($_POST['dob'] ?? ''); ?>"
-                        >
-                    </div>
-
-                    <!-- Contact Number -->
-                    <div>
-                        <label for="contact_number" class="block text-sm font-medium text-gray-700 mb-2">
-                            Contact Number
-                        </label>
-                        <input 
-                            type="tel" 
-                            id="contact_number" 
-                            name="contact_number" 
-                            class="input-field" 
-                            placeholder="+63 123 456 7890"
-                            value="<?php echo htmlspecialchars($_POST['contact_number'] ?? ''); ?>"
-                        >
-                    </div>
-                </div>
-
-                <!-- Email -->
-                <div class="mt-4">
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address <span class="text-red-500">*</span>
-                    </label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        class="input-field" 
-                        placeholder="you@example.com" 
-                        required
-                        value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
-                    >
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <!-- Password -->
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                            Password <span class="text-red-500">*</span>
-                        </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            class="input-field" 
-                            placeholder="••••••••" 
-                            required
-                            minlength="8"
-                        >
-                        <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
-                    </div>
-
-                    <!-- Confirm Password -->
-                    <div>
-                        <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-2">
-                            Confirm Password <span class="text-red-500">*</span>
-                        </label>
-                        <input 
-                            type="password" 
-                            id="confirm_password" 
-                            name="confirm_password" 
-                            class="input-field" 
-                            placeholder="••••••••" 
-                            required
-                            minlength="8"
-                        >
-                    </div>
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="w-full btn-primary mt-6">
-                    Create Account
-                </button>
-            </form>
-
-            <!-- Login Link -->
-            <div class="mt-6 text-center">
-                <p class="text-sm text-gray-600">
-                    Already have an account? 
-                    <a href="<?php echo $url_login ?? '/printflow/login/'; ?>" class="text-primary-600 font-medium hover:text-primary-700">Sign in</a>
-                </p>
-            </div>
+<div style="min-height:100vh; background: linear-gradient(135deg, #00151b 0%, #00232b 60%, #003a47 100%); display:flex; align-items:center; justify-content:center; padding:2rem;">
+    <div style="background:white; border-radius:1.25rem; padding:2.5rem 2rem; max-width:400px; width:100%; text-align:center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <div style="width:60px;height:60px;background:#53C5E0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
+            <svg style="width:28px;height:28px;color:white;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
         </div>
+        <h1 style="font-size:1.5rem;font-weight:800;color:#111827;margin-bottom:0.5rem;">Create Account</h1>
+        <p style="color:#6b7280;margin-bottom:1.5rem;font-size:0.95rem;">Click below to open the registration form.</p>
+        <a href="/printflow/?auth_modal=register" style="display:inline-block;padding:0.75rem 2rem;background:#53C5E0;color:white;border-radius:0.625rem;font-weight:600;font-size:0.95rem;text-decoration:none;transition:background 0.2s;">Register Now</a>
+        <p style="margin-top:1.25rem;font-size:0.875rem;color:#9ca3af;">Already have an account? <a href="/printflow/?auth_modal=login" style="color:#53C5E0;font-weight:600;">Login</a></p>
     </div>
 </div>
 

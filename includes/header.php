@@ -12,6 +12,8 @@ $user_type = get_user_type();
 $is_logged_in = is_logged_in();
 $unread_count = $is_logged_in ? get_unread_notification_count(get_user_id(), $user_type) : 0;
 
+require_once __DIR__ . '/shop_config.php';
+
 // Determine base URL and asset path (works for /printflow/ and /printflow/public/)
 $base_url = '/printflow';
 $script_name = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
@@ -47,8 +49,13 @@ $url_google_auth    = $base_url . '/google-auth/';
     <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="<?php echo $asset_base; ?>/assets/images/favicon.png">
-    <link rel="apple-touch-icon" href="<?php echo $asset_base; ?>/assets/images/icon-192.png">
+    <?php if (!empty($shop_logo_url)): ?>
+        <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>">
+        <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>">
+    <?php else: ?>
+        <link rel="icon" type="image/png" href="<?php echo $asset_base; ?>/assets/images/favicon.png">
+        <link rel="apple-touch-icon" href="<?php echo $asset_base; ?>/assets/images/icon-192.png">
+    <?php endif; ?>
     
     <!-- Tailwind CSS - path works from both /printflow/ and /printflow/public/ -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">
@@ -73,6 +80,9 @@ $url_google_auth    = $base_url . '/google-auth/';
         body:not(.lp-page) #main-header .text-2xl.font-bold { color: #4F46E5; }
         body:not(.lp-page) #main-header .btn-gradient-primary { background: linear-gradient(to right, #4F46E5, #A855F7); color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; }
         .nav-link.active { color: #4F46E5; border-bottom: 2px solid #4F46E5; }
+        .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; border: 1px solid #d1d5db; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
+        .pwa-install-btn:hover { color: #4F46E5; border-color: #4F46E5; background: rgba(79,70,229,0.05); }
+        .pwa-install-btn.hidden { display: none !important; }
         /* Landing-page nav needs flex layout too */
         #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
         #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }

@@ -2,7 +2,7 @@
 /**
  * Admin Reports & Analytics Page
  * PrintFlow - Printing Shop PWA
- * Professional reports with real data, charts, and per-report CSV export
+ * Professional reports with real data, charts, and print support
  */
 
 require_once __DIR__ . '/../includes/auth.php';
@@ -46,6 +46,15 @@ try {
     ) ?: [];
 } catch (Exception $e) { $status_data = []; }
 
+// Status color mapping (used by chart)
+$statusColors = [
+    'Pending' => '#f59e0b',
+    'Processing' => '#3b82f6',
+    'Ready for Pickup' => '#06b6d4',
+    'Completed' => '#10b981',
+    'Cancelled' => '#ef4444'
+];
+
 // ── Daily Revenue (for chart) ──────────────────────────
 try {
     $daily_rev = db_query(
@@ -55,6 +64,37 @@ try {
         'ss', [$from, $to . ' 23:59:59']
     ) ?: [];
 } catch (Exception $e) { $daily_rev = []; }
+
+// ── Top Selling Products (filtered by date range, with all-time fallback) ───────
+$top_products_alltime = false;
+try {
+    $top_products = db_query(
+        "SELECT p.name AS product_name, p.sku,
+                SUM(oi.quantity) as qty_sold,
+                SUM(oi.quantity * oi.unit_price) as revenue
+         FROM order_items oi
+         JOIN products p ON oi.product_id = p.product_id
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.order_date BETWEEN ? AND ?
+         GROUP BY p.product_id, p.name, p.sku
+         ORDER BY qty_sold DESC LIMIT 10",
+        'ss', [$from, $to . ' 23:59:59']
+    ) ?: [];
+    
+    // Fallback: show all-time data if no results in selected period
+    if (empty($top_products)) {
+        $top_products = db_query(
+            "SELECT p.name AS product_name, p.sku,
+                    SUM(oi.quantity) as qty_sold,
+                    SUM(oi.quantity * oi.unit_price) as revenue
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.product_id
+             GROUP BY p.product_id, p.name, p.sku
+             ORDER BY qty_sold DESC LIMIT 10"
+        ) ?: [];
+        if (!empty($top_products)) $top_products_alltime = true;
+    }
+} catch (Exception $e) { $top_products = []; }
 
 // ── Top Customers ──────────────────────────────────────
 try {
@@ -91,17 +131,27 @@ try {
     $out_of_stock = db_query("SELECT COUNT(*) as cnt FROM materials WHERE current_stock <= 0")[0]['cnt'] ?? 0;
 } catch (Exception $e) { $low_stock = []; $total_materials = $out_of_stock = 0; }
 
-// ── Recent Orders ──────────────────────────────────────
+// ── Recent Orders (paginated) ──────────────────────────
+$txn_page = max(1, (int)($_GET['txn_page'] ?? 1));
+$txn_per_page = 10;
 try {
+    $txn_count = db_query(
+        "SELECT COUNT(*) as cnt FROM orders o
+         WHERE o.order_date BETWEEN ? AND ?",
+        'ss', [$from, $to . ' 23:59:59']
+    )[0]['cnt'] ?? 0;
+    $txn_total_pages = max(1, ceil($txn_count / $txn_per_page));
+    $txn_page = min($txn_page, $txn_total_pages);
+    $txn_offset = ($txn_page - 1) * $txn_per_page;
     $recent_orders = db_query(
         "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
                 o.order_date, o.total_amount, o.payment_status, o.status
          FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id
          WHERE o.order_date BETWEEN ? AND ?
-         ORDER BY o.order_date DESC LIMIT 15",
+         ORDER BY o.order_date DESC LIMIT $txn_per_page OFFSET $txn_offset",
         'ss', [$from, $to . ' 23:59:59']
     ) ?: [];
-} catch (Exception $e) { $recent_orders = []; }
+} catch (Exception $e) { $recent_orders = []; $txn_count = 0; $txn_total_pages = 1; }
 
 $page_title = 'Reports & Analytics - Admin';
 ?>
@@ -120,22 +170,26 @@ $page_title = 'Reports & Analytics - Admin';
         @media (max-width:900px) { .rpt-grid { grid-template-columns:1fr; } }
 
         .rpt-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:0; overflow:hidden; }
-        .rpt-card-header { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #f3f4f6; }
-        .rpt-card-header h3 { font-size:15px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; margin:0; }
+        .rpt-card-header { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #f3f4f6; flex-wrap:wrap; gap:12px; }
+        #card-sales .rpt-card-header { flex-wrap:nowrap; }
+        .rpt-card-header h3 { font-size:15px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; margin:0; white-space:nowrap; flex-shrink:0; }
         .rpt-card-header .header-icon { width:18px; height:18px; color:#6366f1; flex-shrink:0; }
+        #card-sales .rpt-card-header .chart-filters { display:flex; align-items:center; gap:10px; flex-shrink:1; min-width:0; }
         .rpt-card-body { padding:18px 22px 22px; }
 
-        .export-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:12px; font-weight:600; color:#374151; cursor:pointer; transition:all .2s; text-decoration:none; }
-        .export-btn:hover { background:#eef2ff; border-color:#c7d2fe; color:#4f46e5; }
-        .export-btn svg { width:14px; height:14px; }
+        .print-section-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:12px; font-weight:600; color:#374151; cursor:pointer; transition:all .2s; text-decoration:none; white-space:nowrap; flex-shrink:0; }
+        .print-section-btn:hover { background:#eef2ff; border-color:#c7d2fe; color:#4f46e5; }
+        .print-section-btn svg { width:14px; height:14px; }
 
-        /* ─── Date Filter ─── */
-        .date-filter { display:inline-flex; align-items:center; gap:10px; padding:10px 18px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; margin-bottom:24px; flex-wrap:wrap; }
-        .date-filter label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; }
-        .date-filter input[type=date] { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#fff; }
-        .date-filter input[type=date]:focus { outline:none; border-color:#6366f1; }
-        .date-filter button { padding:7px 18px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:background .2s; }
-        .date-filter button:hover { background:#4f46e5; }
+        /* ─── Date Filter (inline: title left, controls right) ─── */
+        .date-filter-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+        .date-filter-bar h2 { font-size:16px; font-weight:700; color:#1f2937; margin:0; }
+        .date-filter-controls { display:inline-flex; align-items:center; gap:10px; padding:8px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; flex-wrap:wrap; }
+        .date-filter-controls label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; }
+        .date-filter-controls input[type=date] { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#fff; }
+        .date-filter-controls input[type=date]:focus { outline:none; border-color:#6366f1; }
+        .date-filter-controls button { padding:7px 18px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:background .2s; }
+        .date-filter-controls button:hover { background:#4f46e5; }
 
         /* ─── KPI Row ─── */
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
@@ -174,11 +228,45 @@ $page_title = 'Reports & Analytics - Admin';
 
         /* ─── Chart Canvas ─── */
         .chart-wrap { position:relative; width:100%; height:220px; }
+        .chart-loading { position:absolute; inset:0; background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; z-index:2; border-radius:8px; }
+        .chart-loading.hidden { display:none; }
+        .chart-loading-spinner { width:28px; height:28px; border:3px solid #e5e7eb; border-top-color:#6366f1; border-radius:50%; animation:chart-spin .7s linear infinite; }
+        @keyframes chart-spin { to { transform:rotate(360deg); } }
+        .chart-nodata { position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:#9ca3af; font-size:13px; z-index:1; }
+        .chart-nodata.visible { display:flex; }
+        .chart-wrap-tall { position:relative; width:100%; height:280px; }
+
+        /* ─── Period Toggle Tabs ─── */
+        .period-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+        .period-tab { padding:4px 11px; border-radius:6px; font-size:11px; font-weight:600; border:1px solid #e5e7eb; background:#f9fafb; color:#6b7280; cursor:pointer; transition:all .15s; }
+        .period-tab:hover { border-color:#6366f1; color:#6366f1; }
+        .period-tab.active { background:#6366f1; border-color:#6366f1; color:#fff; }
+        .chart-select { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-weight:600; background:#fff; color:#374151; width:auto; min-width:4em; max-width:100%; }
+        .chart-filters { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+        .chart-filter-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
+        .chart-filter-group { display:flex; gap:8px; align-items:center; }
 
         /* ─── Full Width ─── */
         .rpt-full { grid-column:1/-1; }
 
         .no-data { text-align:center; padding:32px 16px; color:#9ca3af; font-size:13px; }
+
+        /* ─── Print Styles ─── */
+        @media print {
+            .sidebar, .mobile-header, header, .no-print, .date-filter-controls, .print-section-btn { display: none !important; }
+            .main-content { margin-left: 0 !important; padding-top: 0 !important; }
+            .dashboard-container { display: block !important; }
+            .rpt-card { break-inside: avoid; border: 1px solid #ddd !important; margin-bottom: 16px; }
+            .rpt-grid { display: block !important; }
+            .rpt-grid > * { margin-bottom: 20px; }
+            .kpi-row { grid-template-columns: repeat(4, 1fr) !important; }
+            body { background: white !important; }
+            .print-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            .print-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+            .print-header p { font-size: 12px; color: #6b7280; }
+            canvas { max-height: 200px !important; }
+        }
+        .print-header { display: none; }
     </style>
 </head>
 <body>
@@ -189,20 +277,32 @@ $page_title = 'Reports & Analytics - Admin';
     <div class="main-content">
         <header>
             <h1 class="page-title">Reports & Analytics</h1>
+            <button class="btn-secondary no-print" onclick="window.print()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Print Report
+            </button>
         </header>
 
         <main>
-            <!-- Date Range Filter -->
-            <form method="GET" class="date-filter">
-                <label>From</label>
-                <input type="date" name="from" value="<?php echo $from; ?>">
-                <label>To</label>
-                <input type="date" name="to" value="<?php echo $to; ?>">
-                <button type="submit">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline; vertical-align:-2px; margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    Apply
-                </button>
-            </form>
+            <!-- Print Header (visible only when printing) -->
+            <div class="print-header">
+                <h2>PrintFlow - Reports & Analytics</h2>
+                <p>Period: <?php echo date('M d, Y', strtotime($from)); ?> – <?php echo date('M d, Y', strtotime($to)); ?> | Generated on <?php echo date('F j, Y g:i A'); ?></p>
+            </div>
+
+            <!-- Date Range Filter (inline) -->
+            <div class="date-filter-bar no-print">
+                <form method="GET" class="date-filter-controls">
+                    <label>From</label>
+                    <input type="date" name="from" value="<?php echo $from; ?>">
+                    <label>To</label>
+                    <input type="date" name="to" value="<?php echo $to; ?>">
+                    <button type="submit">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline; vertical-align:-2px; margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Apply
+                    </button>
+                </form>
+            </div>
 
             <!-- KPI Summary Row -->
             <div class="kpi-row">
@@ -232,103 +332,172 @@ $page_title = 'Reports & Analytics - Admin';
             <div class="rpt-grid">
 
                 <!-- ═══ SALES REVENUE CHART ═══ -->
-                <div class="rpt-card">
+                <div class="rpt-card" id="card-sales">
                     <div class="rpt-card-header">
                         <h3>
                             <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                             Sales Revenue
                         </h3>
-                        <a href="reports_export?report=sales&from=<?php echo $from; ?>&to=<?php echo $to; ?>" class="export-btn">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            CSV
-                        </a>
+                        <div class="chart-filters">
+                            <label class="chart-filter-label">Period</label>
+                            <select id="rpt-chart-period" class="chart-select">
+                                <option value="today">Today</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                                <option value="6months">Last 6 Months</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                            <span id="rpt-year-month" class="chart-filter-group">
+                                <select id="rpt-chart-month" class="chart-select" style="display:none;" title="Month">
+                                    <?php foreach (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $i => $m): ?>
+                                    <option value="<?php echo $i+1; ?>" <?php echo ($i+1)==date('n')?'selected':''; ?>><?php echo $m; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <select id="rpt-chart-year" class="chart-select" title="Year">
+                                    <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
+                                    <option value="<?php echo $y; ?>" <?php echo $y==date('Y')?'selected':''; ?>><?php echo $y; ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                            </span>
+                        </div>
+                        <button class="print-section-btn no-print" onclick="printCard('card-sales')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
                     </div>
                     <div class="rpt-card-body">
-                        <?php if (empty($daily_rev)): ?>
-                            <div class="no-data">No sales data for this period</div>
-                        <?php else: ?>
-                            <div class="chart-wrap"><canvas id="salesChart"></canvas></div>
-                        <?php endif; ?>
+                        <div class="chart-wrap" id="rpt-sales-chart-wrap">
+                            <div class="chart-loading hidden" id="rpt-sales-loading">
+                                <div class="chart-loading-spinner"></div>
+                            </div>
+                            <div class="chart-nodata" id="rpt-sales-nodata">
+                                <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                <span>No sales data for this period</span>
+                            </div>
+                            <canvas id="salesChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ═══ ORDER STATUS BREAKDOWN ═══ -->
-                <div class="rpt-card">
+                <div class="rpt-card" id="card-status">
                     <div class="rpt-card-header">
                         <h3>
                             <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             Order Status
                         </h3>
-                        <a href="reports_export?report=orders&from=<?php echo $from; ?>&to=<?php echo $to; ?>" class="export-btn">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            CSV
-                        </a>
+                        <button class="print-section-btn no-print" onclick="printCard('card-status')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
                     </div>
                     <div class="rpt-card-body">
-                        <?php if (empty($status_data)): ?>
-                            <div class="no-data">No orders in this period</div>
-                        <?php else: ?>
-                            <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
-                        <?php endif; ?>
+                        <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
                     </div>
                 </div>
 
-                <!-- ═══ TOP CUSTOMERS ═══ -->
-                <div class="rpt-card">
+                <!-- ═══ TOP CUSTOMERS (Horizontal Bar Chart + Table) ═══ -->
+                <div class="rpt-card" id="card-customers">
                     <div class="rpt-card-header">
                         <h3>
                             <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             Top Customers
                         </h3>
-                        <a href="reports_export?report=customers&from=<?php echo $from; ?>&to=<?php echo $to; ?>" class="export-btn">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            CSV
-                        </a>
+                        <button class="print-section-btn no-print" onclick="printCard('card-customers')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
                     </div>
                     <div class="rpt-card-body">
-                        <?php if (empty($top_customers)): ?>
-                            <div class="no-data">No customer data for this period</div>
+                        <?php if (!empty($top_customers)): ?>
+                            <div class="chart-wrap-tall"><canvas id="customersChart"></canvas></div>
+                            <div style="overflow-x:auto; margin-top:16px;">
+                                <table class="rpt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Customer</th>
+                                            <th class="num">Orders</th>
+                                            <th class="num">Total Spent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($top_customers as $i => $tc): ?>
+                                        <tr>
+                                            <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
+                                            <td>
+                                                <div style="font-weight:600;"><?php echo htmlspecialchars($tc['name']); ?></div>
+                                                <div style="font-size:11px; color:#9ca3af;"><?php echo htmlspecialchars($tc['email']); ?></div>
+                                            </td>
+                                            <td class="num"><?php echo $tc['orders']; ?></td>
+                                            <td class="num" style="color:#059669; font-weight:700;">₱<?php echo number_format((float)$tc['spent'], 2); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                         <?php else: ?>
+                            <div class="no-data">No customer data for this period</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- ═══ TOP SELLING PRODUCTS ═══ -->
+                <div class="rpt-card" id="card-products">
+                    <div class="rpt-card-header">
+                        <h3>
+                            <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                            Top Selling Products
+                        </h3>
+                        <button class="print-section-btn no-print" onclick="printCard('card-products')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
+                    </div>
+                    <div class="rpt-card-body">
+                        <?php if (!empty($top_products)): ?>
+                        <?php if ($top_products_alltime): ?>
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;">
+                            📊 Showing <strong>all-time</strong> top sellers (no sales data in selected period)
+                        </div>
+                        <?php endif; ?>
                         <div style="overflow-x:auto;">
                             <table class="rpt-table">
                                 <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Customer</th>
-                                        <th class="num">Orders</th>
-                                        <th class="num">Total Spent</th>
-                                    </tr>
+                                    <tr><th>#</th><th>Product</th><th class="num">Qty Sold</th><th class="num">Revenue</th></tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($top_customers as $i => $tc): ?>
+                                    <?php foreach ($top_products as $i => $tp): ?>
                                     <tr>
                                         <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
                                         <td>
-                                            <div style="font-weight:600;"><?php echo htmlspecialchars($tc['name']); ?></div>
-                                            <div style="font-size:11px; color:#9ca3af;"><?php echo htmlspecialchars($tc['email']); ?></div>
+                                            <div style="font-weight:600;"><?php echo htmlspecialchars($tp['product_name']); ?></div>
+                                            <div style="font-size:11px; color:#9ca3af;"><?php echo htmlspecialchars($tp['sku'] ?? ''); ?></div>
                                         </td>
-                                        <td class="num"><?php echo $tc['orders']; ?></td>
-                                        <td class="num" style="color:#059669; font-weight:700;">₱<?php echo number_format((float)$tc['spent'], 2); ?></td>
+                                        <td class="num"><?php echo (int)$tp['qty_sold']; ?></td>
+                                        <td class="num" style="color:#059669; font-weight:700;">₱<?php echo number_format((float)$tp['revenue'], 2); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
+                        <?php else: ?>
+                        <div class="no-data">No product sales for this period</div>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- ═══ INVENTORY ALERTS ═══ -->
-                <div class="rpt-card">
+                <!-- ═══ INVENTORY ALERTS (Bar Chart + Table) ═══ -->
+                <div class="rpt-card" id="card-inventory">
                     <div class="rpt-card-header">
                         <h3>
                             <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                             Inventory Alerts
                         </h3>
-                        <a href="reports_export?report=inventory&from=<?php echo $from; ?>&to=<?php echo $to; ?>" class="export-btn">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            CSV
-                        </a>
+                        <button class="print-section-btn no-print" onclick="printCard('card-inventory')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
                     </div>
                     <div class="rpt-card-body">
                         <?php if (empty($low_stock)): ?>
@@ -337,54 +506,55 @@ $page_title = 'Reports & Analytics - Admin';
                                 All stock levels are healthy!
                             </div>
                         <?php else: ?>
-                        <div style="overflow-x:auto;">
-                            <table class="rpt-table">
-                                <thead>
-                                    <tr>
-                                        <th>Material</th>
-                                        <th>Category</th>
-                                        <th class="num">Stock</th>
-                                        <th style="width:100px;">Level</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($low_stock as $ls):
-                                        $pct = (float)$ls['opening_stock'] > 0 ? ((float)$ls['current_stock'] / (float)$ls['opening_stock']) * 100 : 0;
-                                        $barClass = $pct <= 0 ? 'danger' : ($pct <= 20 ? 'warning' : 'good');
-                                    ?>
-                                    <tr>
-                                        <td style="font-weight:600;">
-                                            <?php echo htmlspecialchars($ls['material_name']); ?>
-                                            <span style="font-size:10px; color:#9ca3af; font-weight:400;"><?php echo htmlspecialchars($ls['unit']); ?></span>
-                                        </td>
-                                        <td style="font-size:12px; color:#6b7280;"><?php echo htmlspecialchars($ls['category_name']); ?></td>
-                                        <td class="num" style="color:<?php echo $pct <= 0 ? '#ef4444' : '#d97706'; ?>;">
-                                            <?php echo number_format((float)$ls['current_stock'], 1); ?>
-                                            <span style="color:#9ca3af; font-weight:400;">/<?php echo number_format((float)$ls['opening_stock'], 1); ?></span>
-                                        </td>
-                                        <td>
-                                            <div class="stock-bar"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo max($pct, 2); ?>%;"></div></div>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                            <div class="chart-wrap-tall"><canvas id="inventoryChart"></canvas></div>
+                            <div style="overflow-x:auto; margin-top:16px;">
+                                <table class="rpt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Material</th>
+                                            <th>Category</th>
+                                            <th class="num">Stock</th>
+                                            <th style="width:100px;">Level</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($low_stock as $ls):
+                                            $pct = (float)$ls['opening_stock'] > 0 ? ((float)$ls['current_stock'] / (float)$ls['opening_stock']) * 100 : 0;
+                                            $barClass = $pct <= 0 ? 'danger' : ($pct <= 20 ? 'warning' : 'good');
+                                        ?>
+                                        <tr>
+                                            <td style="font-weight:600;" title="<?php echo htmlspecialchars($ls['material_name']); ?>">
+                                                <?php echo mb_strlen($ls['material_name']) > 10 ? htmlspecialchars(mb_substr($ls['material_name'], 0, 10)) . '...' : htmlspecialchars($ls['material_name']); ?>
+                                                <span style="font-size:10px; color:#9ca3af; font-weight:400;"><?php echo htmlspecialchars($ls['unit']); ?></span>
+                                            </td>
+                                            <td style="font-size:12px; color:#6b7280;"><?php echo htmlspecialchars($ls['category_name']); ?></td>
+                                            <td class="num" style="color:<?php echo $pct <= 0 ? '#ef4444' : '#d97706'; ?>;">
+                                                <?php echo number_format((float)$ls['current_stock'], 1); ?>
+                                                <span style="color:#9ca3af; font-weight:400;">/<?php echo number_format((float)$ls['opening_stock'], 1); ?></span>
+                                            </td>
+                                            <td>
+                                                <div class="stock-bar"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo max($pct, 2); ?>%;"></div></div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </div>
 
                 <!-- ═══ RECENT TRANSACTIONS (FULL WIDTH) ═══ -->
-                <div class="rpt-card rpt-full">
+                <div class="rpt-card rpt-full" id="card-transactions">
                     <div class="rpt-card-header">
                         <h3>
                             <svg class="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                             Recent Transactions
                         </h3>
-                        <a href="reports_export?report=sales&from=<?php echo $from; ?>&to=<?php echo $to; ?>" class="export-btn">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            Export All
-                        </a>
+                        <button class="print-section-btn no-print" onclick="printCard('card-transactions')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </button>
                     </div>
                     <div class="rpt-card-body" style="padding:0;">
                         <?php if (empty($recent_orders)): ?>
@@ -421,7 +591,7 @@ $page_title = 'Reports & Analytics - Admin';
                                         };
                                     ?>
                                     <tr>
-                                        <td style="font-weight:700; color:#6366f1;">#<?php echo $ro['order_id']; ?></td>
+                                        <td style="font-weight:700; color:#6366f1;"><?php echo $ro['order_id']; ?></td>
                                         <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
                                         <td style="white-space:nowrap; color:#6b7280;"><?php echo date('M d, Y', strtotime($ro['order_date'])); ?></td>
                                         <td class="num" style="font-weight:700;">₱<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
@@ -432,6 +602,10 @@ $page_title = 'Reports & Analytics - Admin';
                                 </tbody>
                             </table>
                         </div>
+                        <?php
+                            $txn_params = ['from' => $from, 'to' => $to];
+                            echo render_pagination($txn_page, $txn_total_pages, array_merge($txn_params, ['txn_page' => $txn_page]));
+                        ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -442,16 +616,34 @@ $page_title = 'Reports & Analytics - Admin';
 </div>
 
 <script>
+// ─── Print Single Card Function ───────────────────────
+function printCard(cardId) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    const printWin = window.open('', '_blank');
+    // Get all stylesheets from the page
+    const styles = Array.from(document.querySelectorAll('link[rel=stylesheet], style')).map(el => el.outerHTML).join('\n');
+    printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Print Report</title>${styles}
+        <style>
+            body { padding: 20px; background: white; }
+            .rpt-card { border: none !important; box-shadow: none !important; }
+            .rpt-card-header { border-bottom: 2px solid #e5e7eb !important; }
+            .print-section-btn, .no-print { display: none !important; }
+            @media print { body { padding: 0; } }
+        </style>
+    </head><body>${card.outerHTML}</body></html>`);
+    printWin.document.close();
+    printWin.onload = function() { printWin.print(); };
+}
+
 // ─── Sales Revenue Line Chart ─────────────────────────
-<?php if (!empty($daily_rev)): ?>
 const salesCtx = document.getElementById('salesChart').getContext('2d');
-new Chart(salesCtx, {
+const salesChart = new Chart(salesCtx, {
     type: 'line',
-    data: {
-        labels: <?php echo json_encode(array_map(fn($d) => date('M d', strtotime($d['day'])), $daily_rev)); ?>,
-        datasets: [{
+    data: { labels: [], datasets: [
+        {
             label: 'Revenue (₱)',
-            data: <?php echo json_encode(array_map(fn($d) => (float)$d['total'], $daily_rev)); ?>,
+            data: [],
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99,102,241,.08)',
             borderWidth: 2.5,
@@ -459,10 +651,11 @@ new Chart(salesCtx, {
             tension: 0.35,
             pointBackgroundColor: '#6366f1',
             pointRadius: 3,
-            pointHoverRadius: 5
+            pointHoverRadius: 5,
+            yAxisID: 'y'
         }, {
             label: 'Orders',
-            data: <?php echo json_encode(array_map(fn($d) => (int)$d['cnt'], $daily_rev)); ?>,
+            data: [],
             borderColor: '#10b981',
             backgroundColor: 'transparent',
             borderWidth: 2,
@@ -471,23 +664,84 @@ new Chart(salesCtx, {
             pointRadius: 2,
             pointHoverRadius: 4,
             yAxisID: 'y1'
-        }]
-    },
+        }
+    ]},
     options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
         scales: {
-            y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => '₱' + v.toLocaleString() }, grid: { color: '#f3f4f6' } },
+            y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => '₱' + v.toLocaleString() }, grid: { color: '#f3f4f6' } },
             y1: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
-            x: { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+            x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
         }
     }
 });
-<?php endif; ?>
+
+async function loadRptSalesChart(period) {
+    const loadingEl = document.getElementById('rpt-sales-loading');
+    const noDataEl = document.getElementById('rpt-sales-nodata');
+    const yearEl = document.getElementById('rpt-chart-year');
+    const monthEl = document.getElementById('rpt-chart-month');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (noDataEl) noDataEl.classList.remove('visible');
+    const year = yearEl ? yearEl.value : new Date().getFullYear();
+    const month = monthEl ? monthEl.value : new Date().getMonth() + 1;
+    let url = 'api_revenue_chart.php?period=' + period + '&year=' + year;
+    if (period === 'monthly') url += '&month=' + month;
+    try {
+        const resp = await fetch(url, { credentials: 'same-origin' });
+        const text = await resp.text();
+        let data;
+        try { data = JSON.parse(text); } catch(e) {
+            console.error('Chart API returned non-JSON:', text.substring(0, 200));
+            if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
+            return;
+        }
+        if (data.error) console.warn('Chart API error:', data.error, data.message || '');
+        const labels  = data.labels  || [];
+        const revenue = data.revenue || [];
+        const orders  = data.orders  || [];
+        salesChart.data.labels           = labels;
+        salesChart.data.datasets[0].data = revenue;
+        salesChart.data.datasets[1].data = orders;
+        salesChart.update();
+        if (noDataEl) noDataEl.classList.toggle('visible', labels.length === 0);
+    } catch(e) {
+        console.error('loadRptSalesChart error:', e);
+        if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
+    } finally {
+        if (loadingEl) loadingEl.classList.add('hidden');
+    }
+}
+
+function updateRptChartYearMonthVisibility(period) {
+    const wrap = document.getElementById('rpt-year-month');
+    const monthEl = document.getElementById('rpt-chart-month');
+    if (!wrap) return;
+    wrap.style.display = ['monthly','6months','yearly'].includes(period) ? 'flex' : 'none';
+    if (monthEl) monthEl.style.display = period === 'monthly' ? 'inline-block' : 'none';
+}
+
+function getRptChartPeriod() {
+    const sel = document.getElementById('rpt-chart-period');
+    return sel ? sel.value : 'monthly';
+}
+
+document.getElementById('rpt-chart-period')?.addEventListener('change', () => {
+    const period = getRptChartPeriod();
+    updateRptChartYearMonthVisibility(period);
+    loadRptSalesChart(period);
+});
+document.getElementById('rpt-chart-year')?.addEventListener('change', () => loadRptSalesChart(getRptChartPeriod()));
+document.getElementById('rpt-chart-month')?.addEventListener('change', () => loadRptSalesChart(getRptChartPeriod()));
+
+updateRptChartYearMonthVisibility('monthly');
+loadRptSalesChart('monthly');
 
 // ─── Order Status Doughnut Chart ──────────────────────
+// Best: Doughnut/Pie chart — shows proportional distribution of order statuses
 <?php if (!empty($status_data)): ?>
 const statusCtx = document.getElementById('statusChart').getContext('2d');
 const statusColors = {
@@ -512,6 +766,89 @@ new Chart(statusCtx, {
         cutout: '60%',
         plugins: {
             legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } }
+        }
+    }
+});
+<?php endif; ?>
+
+// ─── Top Customers Horizontal Bar Chart ───────────────
+// Best: Horizontal bar chart — clearly ranks customers by spending, easy label readability
+<?php if (!empty($top_customers)): ?>
+const custCtx = document.getElementById('customersChart').getContext('2d');
+new Chart(custCtx, {
+    type: 'bar',
+    data: {
+        labels: <?php echo json_encode(array_map(fn($c) => mb_strlen($c['name']) > 10 ? mb_substr($c['name'], 0, 10) . '...' : $c['name'], $top_customers)); ?>,
+        datasets: [{
+            label: 'Total Spent (₱)',
+            data: <?php echo json_encode(array_map(fn($c) => (float)$c['spent'], $top_customers)); ?>,
+            backgroundColor: [
+                'rgba(99,102,241,0.8)', 'rgba(139,92,246,0.8)', 'rgba(168,85,247,0.8)',
+                'rgba(192,132,252,0.7)', 'rgba(196,181,253,0.7)', 'rgba(167,139,250,0.6)',
+                'rgba(129,140,248,0.6)', 'rgba(165,180,252,0.5)', 'rgba(199,210,254,0.5)',
+                'rgba(224,231,255,0.5)'
+            ],
+            borderRadius: 6,
+            borderSkipped: false
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: ctx => '₱' + ctx.parsed.x.toLocaleString(undefined, {minimumFractionDigits: 2})
+                }
+            }
+        },
+        scales: {
+            x: { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => '₱' + v.toLocaleString() }, grid: { color: '#f3f4f6' } },
+            y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+    }
+});
+<?php endif; ?>
+
+// ─── Inventory Alerts Bar Chart ───────────────────────
+// Best: Grouped horizontal bar chart — compares current vs opening stock, highlights danger levels
+<?php if (!empty($low_stock)): ?>
+const invCtx = document.getElementById('inventoryChart').getContext('2d');
+new Chart(invCtx, {
+    type: 'bar',
+    data: {
+        labels: <?php echo json_encode(array_map(fn($ls) => mb_strlen($ls['material_name']) > 10 ? mb_substr($ls['material_name'], 0, 10) . '...' : $ls['material_name'], $low_stock)); ?>,
+        datasets: [{
+            label: 'Current Stock',
+            data: <?php echo json_encode(array_map(fn($ls) => (float)$ls['current_stock'], $low_stock)); ?>,
+            backgroundColor: <?php echo json_encode(array_map(function($ls) {
+                $pct = (float)$ls['opening_stock'] > 0 ? ((float)$ls['current_stock'] / (float)$ls['opening_stock']) * 100 : 0;
+                if ($pct <= 0) return 'rgba(239,68,68,0.8)';
+                if ($pct <= 20) return 'rgba(245,158,11,0.8)';
+                return 'rgba(5,150,105,0.8)';
+            }, $low_stock)); ?>,
+            borderRadius: 6,
+            borderSkipped: false
+        }, {
+            label: 'Opening Stock',
+            data: <?php echo json_encode(array_map(fn($ls) => (float)$ls['opening_stock'], $low_stock)); ?>,
+            backgroundColor: 'rgba(229,231,235,0.6)',
+            borderRadius: 6,
+            borderSkipped: false
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+        },
+        scales: {
+            x: { beginAtZero: true, ticks: { font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+            y: { ticks: { font: { size: 11 } }, grid: { display: false } }
         }
     }
 });

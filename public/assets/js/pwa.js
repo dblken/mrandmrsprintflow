@@ -6,18 +6,22 @@
 // Register service worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/printflow/public/sw.js')
+        navigator.serviceWorker.register('/printflow/public/sw.js', {
+            updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
+        })
             .then((registration) => {
                 console.log('[PWA] Service Worker registered:', registration.scope);
 
-                // Check for updates
+                // If a new SW is waiting, activate it right away
+                if (registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
-                    console.log('[PWA] New Service Worker found');
-
+                    console.log('[PWA] New Service Worker found — activating');
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New service worker available, show update notification
                             showUpdateNotification();
                         }
                     });
@@ -38,53 +42,57 @@ function showUpdateNotification() {
 
 // Install prompt handling
 let deferredPrompt;
+const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+// Capture the install prompt when the browser fires it
 window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('[PWA] Install prompt triggered');
-
-    // Prevent automatic prompt
+    console.log('[PWA] Install prompt captured');
     e.preventDefault();
     deferredPrompt = e;
-
-    // Show custom install button
-    showInstallButton();
+    // Button is already visible — nothing extra needed
 });
 
-function showInstallButton() {
-    const installButton = document.getElementById('install-button');
-    if (installButton) {
-        installButton.style.display = 'block';
-
-        installButton.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log('[PWA] User choice:', outcome);
-
-                deferredPrompt = null;
-                installButton.style.display = 'none';
-            }
-        });
-    }
+function hideInstallButton() {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.style.display = 'none';
 }
 
-// Detect app installation
+// Wire up click handler once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('pwa-install-btn');
+    if (!btn) return;
+
+    // Already running as installed PWA → hide button
+    if (_isStandalone) {
+        hideInstallButton();
+        return;
+    }
+
+    btn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            // Chrome / Edge — trigger native install dialog
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('[PWA] Install outcome:', outcome);
+            deferredPrompt = null;
+            if (outcome === 'accepted') hideInstallButton();
+        } else if (_isIOS) {
+            // iOS Safari — show manual instruction
+            alert('To install PrintFlow on iOS:\n\n1. Tap the Share button (\uf0e4) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+        } else {
+            // Fallback for browsers where prompt hasn't fired yet
+            alert('To install PrintFlow:\n\nOpen this page in Chrome or Edge and look for the install icon in the address bar, or revisit this page in a supported browser.');
+        }
+    });
+});
+
+// Hide button once app is installed
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App installed successfully');
     deferredPrompt = null;
-
-    // Hide install button
-    const installButton = document.getElementById('install-button');
-    if (installButton) {
-        installButton.style.display = 'none';
-    }
+    hideInstallButton();
 });
-
-// Check if app is already installed
-if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-    console.log('[PWA] App is running in standalone mode');
-}
 
 // Push notification subscription (optional)
 async function subscribeToPushNotifications() {

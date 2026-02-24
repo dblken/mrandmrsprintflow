@@ -52,6 +52,23 @@ function db_prepare($sql, $types = '', $params = []) {
  * @return array|false
  */
 function db_query($sql, $types = '', $params = []) {
+    global $conn;
+
+    // No params: use query() directly (avoids get_result() which requires mysqlnd)
+    if (empty($types) && empty($params)) {
+        $result = $conn->query($sql);
+        if (!$result) {
+            error_log("Database query error: " . $conn->error);
+            return false;
+        }
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $result->free();
+        return $rows;
+    }
+
     $stmt = db_prepare($sql, $types, $params);
     if (!$stmt) return false;
     
@@ -62,6 +79,7 @@ function db_query($sql, $types = '', $params = []) {
     
     $result = $stmt->get_result();
     if (!$result) {
+        error_log("Database get_result failed (mysqlnd may be missing): " . $stmt->error);
         return false;
     }
     

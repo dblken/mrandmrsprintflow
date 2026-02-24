@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         if (empty($first_name) || empty($last_name)) {
             $error = 'First name and last name are required';
         } else {
-            $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
+            $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ?, is_profile_complete = 1 WHERE customer_id = ?",
                 'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
             
             if ($result) {
@@ -84,6 +84,25 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="min-h-screen bg-gray-50 py-8">
     <div class="container mx-auto px-4">
         <h1 class="text-3xl font-bold text-gray-900 mb-6">My Profile</h1>
+
+        <?php
+        $flash_warning = $_SESSION['flash_warning'] ?? '';
+        unset($_SESSION['flash_warning']);
+        $needs_completion = !is_profile_complete();
+        if ($needs_completion || $flash_warning || isset($_GET['complete_profile'])):
+        ?>
+        <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:2px solid #f59e0b;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <span style="font-size:1.5rem;">⚠️</span>
+                <div>
+                    <p style="font-weight:700;color:#92400e;font-size:1rem;margin:0;">Complete Your Profile</p>
+                    <p style="color:#78350f;font-size:0.85rem;margin:0.25rem 0 0 0;">
+                        <?php echo $flash_warning ?: 'Please fill in your real name and contact details below before placing orders.'; ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">

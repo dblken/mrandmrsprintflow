@@ -25,9 +25,11 @@ $order_result = db_query("
            CONCAT(c.first_name, ' ', c.last_name) as customer_name,
            c.email as customer_email, 
            c.contact_number as customer_phone,
-           c.first_name as cust_first
+           c.first_name as cust_first,
+           b.branch_name
     FROM orders o 
     LEFT JOIN customers c ON o.customer_id = c.customer_id 
+    LEFT JOIN branches b ON o.branch_id = b.id
     WHERE o.order_id = ?
 ", 'i', [$order_id]);
 
@@ -38,11 +40,13 @@ if (empty($order_result)) {
 
 $order = $order_result[0];
 
-// Get order items
+// Get order items with variant info
 $items = db_query("
-    SELECT oi.*, p.name as product_name, p.sku, p.category
+    SELECT oi.*, p.name as product_name, p.sku, p.category,
+           pv.variant_name
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.product_id
+    LEFT JOIN product_variants pv ON pv.variant_id = oi.variant_id
     WHERE oi.order_id = ?
 ", 'i', [$order_id]);
 
@@ -51,14 +55,15 @@ $formatted_items = [];
 if (!empty($items)) {
     foreach ($items as $item) {
         $formatted_items[] = [
-            'product_name' => $item['product_name'] ?? 'Unknown Product',
-            'sku' => $item['sku'] ?? '—',
-            'category' => $item['category'] ?? '—',
-            'quantity' => (int)$item['quantity'],
-            'unit_price' => (float)$item['unit_price'],
-            'subtotal' => (float)($item['quantity'] * $item['unit_price']),
+            'product_name'         => $item['product_name'] ?? 'Unknown Product',
+            'variant_name'         => $item['variant_name'] ?? '',
+            'sku'                  => $item['sku'] ?? '—',
+            'category'             => $item['category'] ?? '—',
+            'quantity'             => (int)$item['quantity'],
+            'unit_price'           => (float)$item['unit_price'],
+            'subtotal'             => (float)($item['quantity'] * $item['unit_price']),
             'unit_price_formatted' => format_currency($item['unit_price']),
-            'subtotal_formatted' => format_currency($item['quantity'] * $item['unit_price']),
+            'subtotal_formatted'   => format_currency($item['quantity'] * $item['unit_price']),
         ];
     }
 }
@@ -74,6 +79,7 @@ echo json_encode([
         'order_date' => format_datetime($order['order_date']),
         'total_amount' => format_currency($order['total_amount']),
         'status' => $order['status'],
+        'branch_name' => $order['branch_name'] ?? 'Main Branch',
         'payment_status' => $order['payment_status'],
         'payment_reference' => $order['payment_reference'] ?? '',
         'notes' => $order['notes'] ?? '',

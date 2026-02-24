@@ -10,17 +10,18 @@ module.exports = {
         extend: {
             colors: {
                 primary: {
-                    DEFAULT: '#4F46E5',
-                    50: '#EDEEFE',
-                    100: '#DDD9FD',
-                    200: '#BBB3FB',
-                    300: '#9A8EF9',
-                    400: '#7868F7',
-                    500: '#4F46E5',
-                    600: '#3F38B7',
-                    700: '#2F2A89',
-                    800: '#201C5B',
-                    900: '#100E2E',
+                    DEFAULT: '#53C5E0',
+                    50: '#eef9fb',
+                    100: '#d5f1f6',
+                    200: '#aee0ee',
+                    300: '#7acae3',
+                    400: '#53C5E0',
+                    500: '#32a1c4',
+                    600: '#2a82a3',
+                    700: '#266986',
+                    800: '#235770',
+                    900: '#00232b',
+                    950: '#00151b',
                 },
                 secondary: {
                     DEFAULT: '#10B981',
@@ -36,8 +37,8 @@ module.exports = {
                     900: '#032519',
                 },
                 accent: {
-                    purple: '#A855F7',
-                    pink: '#EC4899',
+                    purple: '#32a1c4', // Replaced with a darker blue from the scale to keep gradients within the blue family
+                    pink: '#53C5E0',
                     cyan: '#06B6D4',
                     orange: '#F97316',
                 }
@@ -78,8 +79,8 @@ module.exports = {
                 xs: '2px',
             },
             boxShadow: {
-                'glow': '0 0 20px rgba(79, 70, 229, 0.3)',
-                'glow-sm': '0 0 10px rgba(79, 70, 229, 0.2)',
+                'glow': '0 0 20px rgba(83, 197, 224, 0.3)',
+                'glow-sm': '0 0 10px rgba(83, 197, 224, 0.2)',
                 'card': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                 'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
             },

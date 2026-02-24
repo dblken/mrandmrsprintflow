@@ -81,6 +81,12 @@ $materials = $selected_cat
     : [];
 
 $page_title = 'Inventory Management - Admin';
+
+// Summary stats
+$stat_categories = db_query("SELECT COUNT(*) as c FROM material_categories")[0]['c'] ?? 0;
+$stat_materials  = db_query("SELECT COUNT(*) as c FROM materials")[0]['c'] ?? 0;
+$stat_low        = db_query("SELECT COUNT(*) as c FROM materials WHERE current_stock <= 0")[0]['c'] ?? 0;
+$stat_total_stock = db_query("SELECT SUM(current_stock) as s FROM materials")[0]['s'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -91,6 +97,28 @@ $page_title = 'Inventory Management - Admin';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
+        /* KPI Row */
+        .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+        @media(max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+        .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
+        .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
+        .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
+        .kpi-value { font-size:26px; font-weight:800; color:#1f2937; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+
+        /* Matching product-style action buttons */
+        .btn-action { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:70px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; transition:all 0.2s; cursor:pointer; text-decoration:none; white-space:nowrap; }
+        .btn-action.purple { color:#7c3aed; border-color:#7c3aed; }
+        .btn-action.purple:hover { background:#7c3aed; color:#fff; }
+        .btn-action.red { color:#ef4444; border-color:#ef4444; }
+        .btn-action.red:hover { background:#ef4444; color:#fff; }
+        .btn-action.blue { color:#3b82f6; border-color:#3b82f6; }
+        .btn-action.blue:hover { background:#3b82f6; color:#fff; }
+
         .tab-bar { display:inline-flex; gap:0; background:#e0e7ff; border-radius:50px; padding:4px; border:2px solid #6366f1; }
         .tab-btn { padding:10px 28px; border:none; background:transparent; border-radius:50px; font-weight:600; font-size:13px; cursor:pointer; color:#6366f1; transition:all .25s ease; display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
         .tab-btn:hover { background:rgba(99,102,241,.1); }
@@ -113,11 +141,6 @@ $page_title = 'Inventory Management - Admin';
         .mini-form .field input, .mini-form .field select { padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#fff; }
         .mini-form .field input:focus, .mini-form .field select:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
         .action-btns { display:flex; gap:6px; }
-        .btn-sm { padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; border:none; cursor:pointer; transition:all .15s; }
-        .btn-edit { background:#ede9fe; color:#7c3aed; }
-        .btn-edit:hover { background:#ddd6fe; }
-        .btn-del { background:#fef2f2; color:#ef4444; }
-        .btn-del:hover { background:#fee2e2; }
         .empty-state { text-align:center; padding:48px 20px; color:#9ca3af; }
         .empty-state svg { width:48px; height:48px; margin:0 auto 12px; opacity:.4; }
         .cat-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#f3f4f6; border-radius:20px; font-size:13px; font-weight:500; border:2px solid transparent; text-decoration:none; color:#374151; transition:all .2s; }
@@ -144,7 +167,31 @@ $page_title = 'Inventory Management - Admin';
                 <div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px; font-weight:500;"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
 
-            <!-- Tab Row: pill toggle left, monthly view link right -->
+            <!-- KPI Summary Cards -->
+            <div class="kpi-row">
+                <div class="kpi-card indigo">
+                    <div class="kpi-label">Categories</div>
+                    <div class="kpi-value"><?php echo $stat_categories; ?></div>
+                    <div class="kpi-sub">Material types</div>
+                </div>
+                <div class="kpi-card emerald">
+                    <div class="kpi-label">Materials</div>
+                    <div class="kpi-value"><?php echo $stat_materials; ?></div>
+                    <div class="kpi-sub">All tracked items</div>
+                </div>
+                <div class="kpi-card rose">
+                    <div class="kpi-label">Out of Stock</div>
+                    <div class="kpi-value"><?php echo $stat_low; ?></div>
+                    <div class="kpi-sub">Zero stock items</div>
+                </div>
+                <div class="kpi-card amber">
+                    <div class="kpi-label">Total Stock</div>
+                    <div class="kpi-value"><?php echo number_format((float)$stat_total_stock, 0); ?></div>
+                    <div class="kpi-sub">Combined units</div>
+                </div>
+            </div>
+
+            <!-- Tab Row -->
             <div class="tab-row">
                 <div class="tab-bar">
                     <button class="tab-btn active" onclick="switchTab('categories')">
@@ -200,17 +247,17 @@ $page_title = 'Inventory Management - Admin';
                                     $cnt = $mat_count[0]['cnt'] ?? 0;
                                 ?>
                                 <tr>
-                                    <td style="font-weight:600; color:#6b7280;">#<?php echo $cat['category_id']; ?></td>
+                                    <td style="font-weight:600; color:#6b7280;"><?php echo $cat['category_id']; ?></td>
                                     <td style="font-weight:600;"><?php echo htmlspecialchars($cat['category_name']); ?></td>
                                     <td><span class="badge-unit"><?php echo $cnt; ?> types</span></td>
                                     <td style="font-size:12px; color:#9ca3af;"><?php echo date('M j, Y', strtotime($cat['created_at'])); ?></td>
                                     <td>
                                         <div class="action-btns" style="justify-content:flex-end;">
-                                            <button class="btn-sm btn-edit" onclick="editCategory(<?php echo $cat['category_id']; ?>, '<?php echo addslashes($cat['category_name']); ?>')">Edit</button>
+                                            <button class="btn-action blue" onclick="editCategory(<?php echo $cat['category_id']; ?>, '<?php echo addslashes($cat['category_name']); ?>')">Edit</button>
                                             <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this category and ALL its materials?');">
                                                 <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="category_id" value="<?php echo $cat['category_id']; ?>">
-                                                <button type="submit" name="delete_category" class="btn-sm btn-del">Delete</button>
+                                                <button type="submit" name="delete_category" class="btn-action red">Delete</button>
                                             </form>
                                         </div>
                                     </td>
@@ -290,7 +337,7 @@ $page_title = 'Inventory Management - Admin';
                             <tbody>
                                 <?php foreach ($materials as $mat): ?>
                                 <tr>
-                                    <td style="font-weight:600; color:#6b7280;">#<?php echo $mat['material_id']; ?></td>
+                                    <td style="font-weight:600; color:#6b7280;"><?php echo $mat['material_id']; ?></td>
                                     <td style="font-weight:700;"><?php echo htmlspecialchars($mat['material_name']); ?></td>
                                     <td class="stock-val"><?php echo number_format((float)$mat['opening_stock'], 2); ?></td>
                                     <td>
@@ -302,11 +349,11 @@ $page_title = 'Inventory Management - Admin';
                                     <td style="font-size:12px; color:#9ca3af;"><?php echo date('M j, Y', strtotime($mat['created_at'])); ?></td>
                                     <td>
                                         <div class="action-btns" style="justify-content:flex-end;">
-                                            <button class="btn-sm btn-edit" onclick="editMaterial(<?php echo $mat['material_id']; ?>, '<?php echo addslashes($mat['material_name']); ?>', <?php echo $mat['opening_stock']; ?>, '<?php echo addslashes($mat['unit']); ?>')">Edit</button>
+                                            <button class="btn-action blue" onclick="editMaterial(<?php echo $mat['material_id']; ?>, '<?php echo addslashes($mat['material_name']); ?>', <?php echo $mat['opening_stock']; ?>, '<?php echo addslashes($mat['unit']); ?>')">Edit</button>
                                             <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this material and all its stock history?');">
                                                 <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="material_id" value="<?php echo $mat['material_id']; ?>">
-                                                <button type="submit" name="delete_material" class="btn-sm btn-del">Delete</button>
+                                                <button type="submit" name="delete_material" class="btn-action red">Delete</button>
                                             </form>
                                         </div>
                                     </td>

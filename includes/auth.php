@@ -128,6 +128,7 @@ function login_user($email, $password) {
     $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['user_status'] = $user['status']; // 'Activated' or 'Pending'
+    $_SESSION['branch_id'] = $user['branch_id'] ?? null;
     
     // Log activity
     // log_activity($user['user_id'], 'Login', 'User logged in');
@@ -158,6 +159,19 @@ function login_user($email, $password) {
 function login_customer($email, $password) {
     $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
     
+    // Also try phone-based accounts (contact_number match or phone@phone.local email)
+    if (empty($result)) {
+        $phone_clean = preg_replace('/[\s\-\(\)]/', '', $email);
+        if (preg_match('/^(\+63|0)9\d{9}$/', $phone_clean)) {
+            // Try by contact_number
+            $result = db_query("SELECT * FROM customers WHERE contact_number = ?", 's', [$phone_clean]);
+            if (empty($result)) {
+                // Try by generated email placeholder
+                $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$phone_clean . '@phone.local']);
+            }
+        }
+    }
+
     if (empty($result)) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
@@ -281,6 +295,75 @@ function register_customer($data) {
     }
     
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];
+}
+
+/**
+ * Register customer directly via email or phone (no validation)
+ * @param string $type 'email' or 'phone'
+ * @param string $identifier The email or phone number
+ * @param string $password The password
+ * @return array ['success' => bool, 'message' => string]
+ */
+function register_customer_direct($type, $identifier, $password) {
+    // Determine email and contact_number
+    if ($type === 'email') {
+        $email = $identifier;
+        $contact_number = null;
+    } else {
+        $email = $identifier . '@phone.local'; // placeholder for NOT NULL constraint
+        $contact_number = $identifier;
+    }
+
+    // Check if already exists
+    $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
+    if (!empty($existing)) {
+        return ['success' => false, 'message' => 'Account already exists. Please login.'];
+    }
+    if ($contact_number) {
+        $existing2 = db_query("SELECT customer_id FROM customers WHERE contact_number = ?", 's', [$contact_number]);
+        if (!empty($existing2)) {
+            return ['success' => false, 'message' => 'Phone number already registered. Please login.'];
+        }
+    }
+
+    $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, is_profile_complete) 
+            VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0)";
+
+    $result = db_execute($sql, 'sssss', [
+        'Customer',   // placeholder first_name
+        '',           // placeholder last_name
+        $email,
+        $contact_number,
+        $password_hash
+    ]);
+
+    if ($result) {
+        // Auto-login after registration
+        $_SESSION['user_id'] = $result;
+        $_SESSION['user_type'] = 'Customer';
+        $_SESSION['user_name'] = 'Customer';
+        $_SESSION['user_email'] = $email;
+        
+        return ['success' => true, 'message' => 'Registration successful!'];
+    }
+
+    return ['success' => false, 'message' => 'Registration failed. Please try again.'];
+}
+
+/**
+ * Check if customer profile is complete (has real name, etc.)
+ * @param int|null $customer_id
+ * @return bool
+ */
+function is_profile_complete($customer_id = null) {
+    if ($customer_id === null) $customer_id = get_user_id();
+    if (!$customer_id || get_user_type() !== 'Customer') return true;
+    
+    $result = db_query("SELECT is_profile_complete FROM customers WHERE customer_id = ?", 'i', [$customer_id]);
+    if (empty($result)) return true;
+    return (bool)$result[0]['is_profile_complete'];
 }
 
 /**

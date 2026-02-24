@@ -12,7 +12,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 .auth-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 9998;
+    z-index: 99998;
     background: rgba(15, 23, 42, 0.6);
     opacity: 0;
     visibility: hidden;
@@ -27,11 +27,11 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    z-index: 9999;
+    z-index: 99999;
     width: 100%;
     max-width: 28rem;
     max-height: 90vh;
-    overflow-y: hidden; /* Removed scrollbar as requested */
+    overflow-y: auto;
     background: #fff;
     border-radius: 1rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -43,7 +43,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     opacity: 1;
     visibility: visible;
 }
-    .auth-modal-register { max-width: 50rem; } /* Widened for 3-col layout */
+    .auth-modal-register { max-width: 28rem; }
     .auth-modal-close {
         position: absolute;
         right: 1rem;
@@ -85,14 +85,10 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .auth-modal .auth-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
     .auth-modal .auth-btn-submit { width: 100%; padding: 0.625rem 1rem; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; }
     .auth-modal .auth-btn-submit:hover { opacity: 0.95; }
+    .auth-modal .auth-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
     .auth-modal .auth-switch { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: #64748b; }
     .auth-modal .auth-switch a { color: #4f46e5; font-weight: 500; text-decoration: none; }
     .auth-modal .auth-switch a:hover { text-decoration: underline; }
-    .auth-modal .auth-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .auth-modal .auth-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-    @media (max-width: 640px) { 
-        .auth-modal .auth-grid2, .auth-modal .auth-grid3 { grid-template-columns: 1fr; } 
-    }
     .auth-modal .auth-field { margin-bottom: 1rem; }
     .auth-modal .auth-field-row { margin-bottom: 1rem; }
     .auth-modal .auth-google-wrap { margin-bottom: 1rem; }
@@ -116,6 +112,30 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .auth-modal .auth-divider { display: flex; align-items: center; margin: 1rem 0; font-size: 0.8125rem; color: #64748b; }
     .auth-modal .auth-divider::before, .auth-modal .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
     .auth-modal .auth-divider span { padding: 0 0.75rem; }
+    /* OTP register tabs */
+    .reg-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-radius: 0.5rem; overflow: hidden; border: 1px solid #e2e8f0; }
+    .reg-tab { flex: 1; padding: 0.6rem 0.75rem; text-align: center; font-size: 0.875rem; font-weight: 600; background: #f8fafc; color: #64748b; border: none; cursor: pointer; transition: all 0.2s; }
+    .reg-tab.active { background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; }
+    .reg-tab:not(.active):hover { background: #eef2ff; color: #4f46e5; }
+    .reg-otp-row { display: flex; gap: 0.5rem; align-items: flex-end; }
+    .reg-otp-row .input-field { flex: 1; }
+    .reg-otp-btn { padding: 0.5rem 1rem; background: #4f46e5; color: #fff; border: none; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+    .reg-otp-btn:hover { opacity: 0.9; }
+    .reg-otp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .reg-step { display: none; }
+    .reg-step.active { display: block; }
+    .reg-code-inputs { display: flex; gap: 0.4rem; justify-content: center; margin: 1rem 0; }
+    .reg-code-inputs input { width: 2.5rem; height: 2.8rem; text-align: center; font-size: 1.25rem; font-weight: 700; border: 2px solid #e2e8f0; border-radius: 0.5rem; }
+    .reg-code-inputs input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+    .reg-verified { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.75rem; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; }
+    .reg-dev-code { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
+    .reg-countdown { font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; text-align: center; }
+    .reg-step-indicator { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1.25rem; font-size: 0.75rem; color: #94a3b8; }
+    .reg-step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; background: #e2e8f0; color: #64748b; }
+    .reg-step-dot.active { background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; }
+    .reg-step-dot.done { background: #22c55e; color: #fff; }
+    .reg-step-line { width: 2rem; height: 2px; background: #e2e8f0; }
+    .reg-step-line.done { background: #22c55e; }
 </style>
 
 <div class="auth-modal-backdrop" id="auth-modal-backdrop" aria-hidden="true"></div>
@@ -159,73 +179,49 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     </div>
 </div>
 
-<!-- Register Modal -->
+<!-- Register Modal — 2-Step OTP Flow -->
 <div class="auth-modal auth-modal-register" id="auth-modal-register" role="dialog" aria-labelledby="auth-register-title" aria-modal="true" aria-hidden="true">
     <button type="button" class="auth-modal-close" data-auth-close aria-label="Close">&times;</button>
     <div class="auth-modal-inner">
         <h2 id="auth-register-title">Create Account</h2>
-        <p class="auth-modal-sub">Join PrintFlow and start ordering custom prints</p>
+        <p class="auth-modal-sub">Join PrintFlow — verify your email or phone to get started</p>
         <div id="auth-register-message"></div>
-        <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/">
+
+        <!-- Step indicator (Removed) -->
+
+        <!-- ═══ DIRECT REGISTRATION FORM ═══ -->
+        <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/" id="reg-form-final">
             <?php echo csrf_field(); ?>
-            <!-- 3-Column Names -->
-            <div class="auth-grid3">
-                <div class="auth-field">
-                    <label for="auth-first_name">First Name <span style="color:#dc2626;">*</span></label>
-                    <input type="text" id="auth-first_name" name="first_name" class="input-field" required>
-                </div>
-                <div class="auth-field">
-                    <label for="auth-middle_name">Middle Name</label>
-                    <input type="text" id="auth-middle_name" name="middle_name" class="input-field">
-                </div>
-                <div class="auth-field">
-                    <label for="auth-last_name">Last Name <span style="color:#dc2626;">*</span></label>
-                    <input type="text" id="auth-last_name" name="last_name" class="input-field" required>
-                </div>
+            <input type="hidden" name="reg_type" value="direct">
+            <input type="hidden" name="identifier_type" id="reg-h-type" value="email">
+
+            <!-- Tabs -->
+            <div class="reg-tabs">
+                <button type="button" class="reg-tab active" id="reg-tab-email" onclick="regSwitchTab('email')">Email</button>
+                <button type="button" class="reg-tab" id="reg-tab-phone" onclick="regSwitchTab('phone')">Phone</button>
             </div>
 
-            <!-- 2-Column Gender/Contact -->
-            <div class="auth-grid2">
-                <div class="auth-field">
-                    <label for="auth-gender">Gender</label>
-                    <select id="auth-gender" name="gender" class="input-field">
-                        <option value="">Select</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="auth-field">
-                    <label for="auth-contact">Contact Number</label>
-                    <input type="tel" id="auth-contact" name="contact_number" class="input-field" placeholder="+63 123 456 7890">
-                </div>
+            <!-- Identifier input -->
+            <div class="auth-field">
+                <label id="reg-id-label" for="reg-identifier">Email Address</label>
+                <input type="text" id="reg-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
             </div>
 
-            <!-- 2-Column Email/DOB -->
-            <div class="auth-grid2">
-                <div class="auth-field">
-                    <label for="auth-email-reg">Email Address <span style="color:#dc2626;">*</span></label>
-                    <input type="email" id="auth-email-reg" name="email" class="input-field" placeholder="you@example.com" required>
-                </div>
-                <div class="auth-field">
-                    <label for="auth-dob">Date of Birth</label>
-                    <input type="date" id="auth-dob" name="dob" class="input-field">
-                </div>
+            <!-- Password fields -->
+            <div class="auth-field">
+                <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8">
+                <p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b;">Min 8 characters</p>
+            </div>
+            
+            <div class="auth-field">
+                <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
             </div>
 
-            <div class="auth-grid2">
-                <div class="auth-field">
-                    <label for="auth-password-reg">Password <span style="color:#dc2626;">*</span></label>
-                    <input type="password" id="auth-password-reg" name="password" class="input-field" placeholder="••••••••" required minlength="8">
-                    <p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b;">Min 8 characters</p>
-                </div>
-                <div class="auth-field">
-                    <label for="auth-confirm_password">Confirm Password <span style="color:#dc2626;">*</span></label>
-                    <input type="password" id="auth-confirm_password" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
-                </div>
-            </div>
-            <button type="submit" class="auth-btn-submit" style="margin-top:1rem;">Create Account</button>
+            <button type="submit" class="auth-btn-submit" style="margin-top:1.5rem;">Create Account</button>
         </form>
+
         <p class="auth-switch">Already have an account? <a href="#" data-auth-open="login">Sign in</a></p>
     </div>
 </div>
@@ -259,7 +255,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (!text) return;
         var el = document.getElementById('auth-' + modalName + '-message');
         if (!el) return;
-        el.innerHTML = '<div class="auth-alert-' + type + '">' + (type === 'error' ? escapeHtml(text) : escapeHtml(text)) + '</div>';
+        el.innerHTML = '<div class="auth-alert-' + type + '">' + escapeHtml(text) + '</div>';
     }
     function escapeHtml(s) {
         var div = document.createElement('div');
@@ -286,6 +282,45 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         openModal(authModal);
         if (authError) showMessage(authModal === 'login' ? 'login' : 'register', 'error', authError);
         if (authSuccess) showMessage(authModal === 'login' ? 'login' : 'register', 'success', authSuccess);
+    }
+
+    // ═══ Registration logic ═══
+    window.regSwitchTab = function(type) {
+        document.getElementById('reg-h-type').value = type;
+        
+        if (type === 'email') {
+            document.getElementById('reg-tab-email').classList.add('active');
+            document.getElementById('reg-tab-phone').classList.remove('active');
+            document.getElementById('reg-id-label').textContent = 'Email Address';
+            document.getElementById('reg-identifier').placeholder = 'you@example.com';
+            document.getElementById('reg-identifier').type = 'email';
+        } else {
+            document.getElementById('reg-tab-phone').classList.add('active');
+            document.getElementById('reg-tab-email').classList.remove('active');
+            document.getElementById('reg-id-label').textContent = 'Phone Number';
+            document.getElementById('reg-identifier').placeholder = '09171234567';
+            document.getElementById('reg-identifier').type = 'tel';
+        }
+    };
+
+    // Password validation before submit
+    var finalForm = document.getElementById('reg-form-final');
+    if (finalForm) {
+        finalForm.addEventListener('submit', function(e) {
+            var pw = document.getElementById('reg-password').value;
+            var cpw = document.getElementById('reg-confirm-pw').value;
+            var msgEl = document.getElementById('auth-register-message');
+            if (pw.length < 8) {
+                e.preventDefault();
+                msgEl.innerHTML = '<div class="auth-alert-error">Password must be at least 8 characters.</div>';
+                return;
+            }
+            if (pw !== cpw) {
+                e.preventDefault();
+                msgEl.innerHTML = '<div class="auth-alert-error">Passwords do not match.</div>';
+                return;
+            }
+        });
     }
 })();
 </script>

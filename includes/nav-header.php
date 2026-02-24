@@ -4,6 +4,7 @@
  * Used by header.php (non-landing) and index.php (landing, inside hero).
  */
 $nav_header_class = $nav_header_class ?? 'bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100';
+require_once __DIR__ . '/shop_config.php';
 ?>
 <header class="<?php echo htmlspecialchars($nav_header_class); ?>" id="main-header">
     <nav class="container mx-auto px-4 py-4">
@@ -11,12 +12,20 @@ $nav_header_class = $nav_header_class ?? 'bg-white/95 backdrop-blur-md shadow-lg
             <!-- Logo -->
             <div class="flex items-center space-x-3">
                 <a href="<?php echo $url_index; ?>" class="flex items-center space-x-2 group">
-                    <div class="relative">
-                        <svg class="w-10 h-10 text-primary-600 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                        </svg>
-                    </div>
-                    <span class="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-purple bg-clip-text text-transparent">PrintFlow</span>
+                    <?php if (!empty($shop_logo_url)): ?>
+                        <img src="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>"
+                             alt="<?php echo $shop_name; ?>"
+                             style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;transition:transform 0.3s;flex-shrink:0;"
+                             class="group-hover:scale-105">
+                        <span class="text-xl font-bold bg-gradient-to-r from-primary-600 to-accent-purple bg-clip-text text-transparent"><?php echo $shop_name; ?></span>
+                    <?php else: ?>
+                        <div class="relative">
+                            <svg class="w-10 h-10 text-primary-600 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                        </div>
+                        <span class="text-2xl font-bold bg-gradient-to-r from-primary-600 to-accent-purple bg-clip-text text-transparent"><?php echo $shop_name; ?></span>
+                    <?php endif; ?>
                 </a>
             </div>
 
@@ -133,6 +142,13 @@ $nav_header_class = $nav_header_class ?? 'bg-white/95 backdrop-blur-md shadow-lg
                         </div>
                     </div>
                 <?php else: ?>
+                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app"
+                        style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.45rem 1rem;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:0.82rem;font-weight:700;border:none;border-radius:8px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 10px rgba(34,197,94,0.35);white-space:nowrap;"
+                        onmouseover="this.style.boxShadow='0 4px 16px rgba(34,197,94,0.5)';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.boxShadow='0 2px 10px rgba(34,197,94,0.35)';this.style.transform='translateY(0)'">
+                        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Install App
+                    </button>
                     <a href="#" data-auth-modal="login" class="text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200">Login</a>
                     <a href="#" data-auth-modal="register" class="btn-gradient-primary px-5 py-2 text-sm">Register</a>
                 <?php endif; ?>
