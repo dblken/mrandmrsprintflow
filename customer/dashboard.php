@@ -25,6 +25,17 @@ $processing_orders = $processing_orders_result[0]['count'] ?? 0;
 $ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Ready for Pickup'", 'i', [$customer_id]);
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
+// Get job orders requiring payment attention
+$payment_attention_jobs = db_query("
+    SELECT * FROM job_orders 
+    WHERE customer_id = ? 
+    AND (
+        (status = 'TO_PAY' AND payment_proof_status IN ('NONE', 'REJECTED'))
+        OR payment_proof_status = 'SUBMITTED'
+    )
+    ORDER BY created_at DESC
+", 'i', [$customer_id]) ?: [];
+
 // Get recent orders
 $recent_orders = db_query("
     SELECT * FROM orders 
@@ -66,6 +77,48 @@ require_once __DIR__ . '/../includes/header.php';
                 <p class="ct-stat-value"><?php echo $total_orders; ?></p>
             </div>
         </div>
+
+        <!-- Payments Due Alert -->
+        <?php if (!empty($payment_attention_jobs)): ?>
+        <div class="mb-8 bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
+            <div class="bg-red-50 border-b border-red-200 px-6 py-4 flex items-center gap-3">
+                <svg class="text-red-500 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h2 class="text-red-800 font-bold text-lg m-0">Action Required: Custom Job Payments</h2>
+            </div>
+            <div class="divide-y divide-gray-100">
+                <?php foreach ($payment_attention_jobs as $job): ?>
+                <div class="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 <?php echo ($job['payment_proof_status'] ?? 'NONE') === 'REJECTED' ? 'bg-red-50' : ''; ?>">
+                    <div>
+                        <div class="font-bold text-gray-900 mb-1">Job #<?php echo $job['id']; ?> - <?php echo htmlspecialchars($job['service_type']); ?></div>
+                        <div class="text-sm text-gray-600 mb-2">Total Amount: <span class="font-semibold text-gray-900">₱<?php echo number_format($job['estimated_total'], 2); ?></span></div>
+                        
+                        <?php if (($job['payment_proof_status'] ?? 'NONE') === 'REJECTED'): ?>
+                            <div class="text-sm text-red-600 px-3 py-2 rounded-md inline-block" style="background-color: #fee2e2;">
+                                <span class="font-bold">Payment Rejected:</span> <?php echo htmlspecialchars($job['payment_rejection_reason'] ?? 'Invalid proof attached.'); ?>
+                            </div>
+                        <?php elseif (($job['payment_proof_status'] ?? 'NONE') === 'SUBMITTED'): ?>
+                            <div class="text-sm text-blue-600 px-3 py-2 rounded-md inline-block font-semibold" style="background-color: #eff6ff;">
+                                Proof Submitted - Pending Staff Verification
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <?php if (in_array($job['payment_proof_status'] ?? 'NONE', ['NONE', 'REJECTED'])): ?>
+                            <a href="job_payment.php?id=<?php echo $job['id']; ?>" class="inline-flex items-center gap-2 font-bold py-2 px-6 rounded-lg transition-colors" style="background-color: #ef4444; color: white; text-decoration: none;">
+                                Pay Now
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            </a>
+                        <?php else: ?>
+                            <a href="job_payment.php?id=<?php echo $job['id']; ?>" class="inline-flex items-center gap-2 font-bold py-2 px-6 rounded-lg transition-colors" style="border: 1px solid #d1d5db; color: #374151; text-decoration: none; background-color: #f9fafb;">
+                                View Details
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Quick Actions -->
         <div class="ct-actions">

@@ -14,12 +14,12 @@ $customer_id = get_user_id();
 // Mark notification as read
 if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
-    db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $customer_id]);
+    db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND customer_id = ?", 'ii', [$notification_id, $customer_id]);
     redirect('/printflow/customer/notifications.php');
 }
 
 // Get all notifications
-$notifications = db_query("SELECT * FROM notifications WHERE user_id = ? AND user_type = 'Customer' ORDER BY created_at DESC LIMIT 50", 'i', [$customer_id]);
+$notifications = db_query("SELECT * FROM notifications WHERE customer_id = ? ORDER BY created_at DESC LIMIT 50", 'i', [$customer_id]);
 
 $page_title = 'Notifications - PrintFlow';
 $use_customer_css = true;

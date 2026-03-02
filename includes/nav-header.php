@@ -63,29 +63,41 @@ require_once __DIR__ . '/shop_config.php';
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php elseif (is_customer()): ?>
-                        <a href="<?php echo $base_url; ?>/customer/dashboard.php" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+                        <a href="<?php echo $base_url; ?>/customer/dashboard.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Dashboard
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
-                        <a href="<?php echo $base_url; ?>/customer/products.php" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+                        <a href="<?php echo $base_url; ?>/public/services.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            Services
+                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                        </a>
+                        <a href="<?php echo $base_url; ?>/customer/products.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Products
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
-                        <a href="<?php echo $base_url; ?>/customer/orders.php" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+                        <a href="<?php echo $base_url; ?>/customer/orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             My Orders
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php endif; ?>
                 <?php else: ?>
-<a href="<?php echo $url_index; ?>" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+<a href="<?php echo $url_index; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Home
                         <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                     </a>
-<a href="<?php echo $url_products; ?>" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+<a href="<?php echo $base_url; ?>/public/services.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            Services
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                    </a>
+<a href="<?php echo $base_url; ?>/public/about.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            About
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                    </a>
+<a href="<?php echo $url_products; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Products
                         <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                     </a>
-<a href="<?php echo $url_faq; ?>" class="nav-link text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200 relative group">
+<a href="<?php echo $url_faq; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             FAQ
                         <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                     </a>
@@ -95,6 +107,19 @@ require_once __DIR__ . '/shop_config.php';
             <!-- Right Side Icons -->
             <div class="flex items-center space-x-4">
                 <?php if ($is_logged_in): ?>
+                    <!-- Cart icon (customer only) -->
+                    <?php if (is_customer()): ?>
+                    <a href="<?php echo $base_url; ?>/customer/cart.php" title="My Cart" class="relative transition-colors duration-200" style="color:inherit;">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <?php
+                        $cart_count = isset($_SESSION['cart']) ? array_sum(array_column($_SESSION['cart'], 'quantity')) : 0;
+                        if ($cart_count > 0): ?>
+                        <span style="position:absolute;top:-6px;right:-6px;background:#32a1c4;color:#fff;font-size:0.6rem;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;"><?php echo $cart_count; ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <?php endif; ?>
                     <!-- Notifications -->
                     <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/notifications.php" class="relative text-gray-700 hover:text-primary-600 transition-colors duration-200">
                         <svg class="w-6 h-6 hover:animate-bounce-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,16 +150,27 @@ require_once __DIR__ . '/shop_config.php';
                              x-transition:leave="transition ease-in duration-150"
                              x-transition:leave-start="opacity-100 scale-100"
                              x-transition:leave-end="opacity-0 scale-95"
-                             class="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100">
-                            <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200">
-                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             class="absolute right-0 mt-2 w-44 rounded-xl py-1 z-50"
+                             style="background:#0a2530;border:1px solid rgba(83,197,224,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+                            <div style="padding:0.75rem 1rem 0.5rem;border-bottom:1px solid rgba(83,197,224,0.12);">
+                                <p style="font-size:0.8125rem;font-weight:700;color:#fff;margin:0;"><?php echo htmlspecialchars($current_user['first_name'] ?? ''); ?></p>
+                                <p style="font-size:0.7rem;color:rgba(255,255,255,0.45);margin:0;"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></p>
+                            </div>
+                            <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php"
+                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
+                               onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
+                               onmouseout="this.style.background='';this.style.color='rgba(255,255,255,0.8)'">
+                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
-                                Profile Settings
+                                Profile
                             </a>
-                            <hr class="my-2 border-gray-100">
-                            <a href="<?php echo $url_logout; ?>" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200">
-                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div style="height:1px;background:rgba(83,197,224,0.1);margin:0.25rem 0;"></div>
+                            <a href="<?php echo $url_logout; ?>"
+                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(239,68,68,0.85);transition:all 0.15s;"
+                               onmouseover="this.style.background='rgba(239,68,68,0.08)';this.style.color='#ef4444'"
+                               onmouseout="this.style.background='';this.style.color='rgba(239,68,68,0.85)'">
+                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.7;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                                 </svg>
                                 Logout
@@ -149,7 +185,7 @@ require_once __DIR__ . '/shop_config.php';
                         <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         Install App
                     </button>
-                    <a href="#" data-auth-modal="login" class="text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200">Login</a>
+                    <a href="#" data-auth-modal="login" class="font-medium transition-colors duration-200" style="color:inherit;">Login</a>
                     <a href="#" data-auth-modal="register" class="btn-gradient-primary px-5 py-2 text-sm">Register</a>
                 <?php endif; ?>
 
@@ -157,3 +193,20 @@ require_once __DIR__ . '/shop_config.php';
         </div>
     </nav>
 </header>
+<script>
+(function(){
+    var p = window.location.pathname.toLowerCase();
+    document.querySelectorAll('a.nav-link').forEach(function(a){
+        var h = (a.getAttribute('href') || '').toLowerCase().replace(/\/$/, '');
+        // Detect home links by checking if href is the base URL (not a sub-page)
+        var isHome = (h === '/printflow' || h === '' || /\/index\.php$/.test(h));
+        if (isHome) {
+            if (p === '/printflow/' || p === '/printflow' || p.endsWith('/index.php')) a.classList.add('nav-active');
+        } else {
+            var seg = h.split('/').filter(Boolean).pop() || '';
+            seg = seg.replace('.php', '');
+            if (seg && p.indexOf('/' + seg) !== -1) a.classList.add('nav-active');
+        }
+    });
+}());
+</script>

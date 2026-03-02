@@ -54,7 +54,19 @@ $items = db_query("
 $formatted_items = [];
 if (!empty($items)) {
     foreach ($items as $item) {
+        $tarp_details = null;
+        if (strtoupper($item['category'] ?? '') === 'TARPAULIN' || strtoupper($item['category'] ?? '') === 'TARPAULIN (FT)') {
+            $t_res = db_query("
+                SELECT otd.*, r.roll_code, r.width_ft as roll_width
+                FROM order_tarp_details otd
+                LEFT JOIN inv_rolls r ON otd.roll_id = r.id
+                WHERE otd.order_item_id = ?
+            ", 'i', [$item['order_item_id']]);
+            $tarp_details = $t_res[0] ?? null;
+        }
+
         $formatted_items[] = [
+            'order_item_id'        => $item['order_item_id'],
             'product_name'         => $item['product_name'] ?? 'Unknown Product',
             'variant_name'         => $item['variant_name'] ?? '',
             'sku'                  => $item['sku'] ?? '—',
@@ -64,6 +76,7 @@ if (!empty($items)) {
             'subtotal'             => (float)($item['quantity'] * $item['unit_price']),
             'unit_price_formatted' => format_currency($item['unit_price']),
             'subtotal_formatted'   => format_currency($item['quantity'] * $item['unit_price']),
+            'tarp_details'         => $tarp_details
         ];
     }
 }

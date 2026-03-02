@@ -49,7 +49,7 @@ $featured_products = db_query(
     </div>
 </section>
 
-<section class="lp-section" id="lp-services">
+<section class="lp-section-light" id="lp-services">
     <div class="lp-wrap">
         <div class="lp-heading-wrap">
             <p class="lp-heading-label">What We Offer</p>
@@ -80,7 +80,7 @@ $featured_products = db_query(
 </section>
 
 <?php if (!empty($featured_products)): ?>
-<section class="lp-section lp-section-white" id="lp-featured">
+<section class="lp-section" id="lp-featured">
     <div class="lp-wrap">
         <div class="lp-heading-wrap">
             <p class="lp-heading-label">Handpicked For You</p>
@@ -88,45 +88,89 @@ $featured_products = db_query(
             <p class="lp-heading-desc">Our most popular printing products — ready to order with fast turnaround.</p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1.5rem; margin-top:2rem;">
-            <?php foreach ($featured_products as $fp): ?>
-            <div style="background:white; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.08); overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s;"
-                 onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,0.14)'"
-                 onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(0,0,0,0.08)'">
-                <!-- Image -->
-                <div style="width:100%; height:180px; background:linear-gradient(135deg,#f0f4ff 0%,#e8edff 100%); display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;">
-                    <?php if (!empty($fp['product_image'])): ?>
-                        <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
-                             alt="<?php echo htmlspecialchars($fp['name']); ?>"
-                             style="width:100%; height:100%; object-fit:cover;">
-                    <?php else: ?>
-                        <span style="font-size:48px; opacity:0.35;">📦</span>
-                    <?php endif; ?>
-                    <span style="position:absolute; top:10px; right:10px; background:#fbbf24; color:white; font-size:10px; font-weight:800; padding:3px 9px; border-radius:20px; letter-spacing:0.05em;">⭐ FEATURED</span>
-                    <?php if ($fp['stock_quantity'] <= 0): ?>
-                        <span style="position:absolute; top:10px; left:10px; background:rgba(239,68,68,0.9); color:white; font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;">Out of Stock</span>
-                    <?php endif; ?>
-                </div>
-                <!-- Info -->
-                <div style="padding:16px 18px 20px; flex:1; display:flex; flex-direction:column;">
-                    <p style="font-size:11px; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.06em; margin:0 0 4px;"><?php echo htmlspecialchars($fp['category']); ?></p>
-                    <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0 0 6px; line-height:1.3;"><?php echo htmlspecialchars($fp['name']); ?></h3>
-                    <p style="font-size:13px; color:#6b7280; margin:0 0 14px; flex:1; line-height:1.5;"><?php echo htmlspecialchars(mb_substr($fp['description'] ?? '', 0, 70)); ?><?php echo mb_strlen($fp['description'] ?? '') > 70 ? '…' : ''; ?></p>
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:auto; gap:10px;">
-                        <span style="font-size:18px; font-weight:800; color:#4F46E5;">₱<?php echo number_format($fp['price'], 2); ?></span>
-                        <?php if ($fp['stock_quantity'] > 0): ?>
-                            <a href="<?php echo $url_products; ?>"
-                               style="background:#4F46E5; color:white; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap;"
-                               onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4F46E5'">
-                                Order Now
-                            </a>
+        <!-- Infinite auto-scroll carousel -->
+        <style>
+        @keyframes lp-marquee {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .lp-carousel-outer {
+            overflow: hidden;
+            position: relative;
+            margin-top: 2rem;
+            -webkit-mask: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+            mask: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+        }
+        .lp-carousel-track {
+            display: flex;
+            gap: 1.5rem;
+            width: max-content;
+            animation: lp-marquee 38s linear infinite;
+        }
+        .lp-carousel-outer:hover .lp-carousel-track {
+            animation-play-state: paused;
+        }
+        .lp-carousel-item {
+            width: 280px;
+            flex-shrink: 0;
+            background: var(--lp-surface);
+            border: 1px solid var(--lp-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform .4s cubic-bezier(.34,1.56,.64,1), box-shadow .4s, border-color .4s;
+            position: relative;
+            cursor: pointer;
+        }
+        .lp-carousel-item:hover {
+            transform: scale(1.08) translateY(-10px);
+            box-shadow: 0 28px 55px rgba(0,0,0,.55), 0 0 35px rgba(83,197,224,.18);
+            border-color: rgba(83,197,224,.45);
+            z-index: 10;
+        }
+        </style>
+
+        <div class="lp-carousel-outer">
+            <div class="lp-carousel-track">
+                <?php foreach (array_merge($featured_products, $featured_products) as $fp): ?>
+                <div class="lp-carousel-item">
+                    <div class="lp-prod-img">
+                        <?php if (!empty($fp['product_image'])): ?>
+                            <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
+                                 alt="<?php echo htmlspecialchars($fp['name']); ?>"
+                                 style="width:100%; height:100%; object-fit:cover;">
                         <?php else: ?>
-                            <span style="color:#9ca3af; font-size:13px; font-weight:500;">Unavailable</span>
+                            <span class="lp-prod-placeholder">📦</span>
+                        <?php endif; ?>
+                        <span style="position:absolute; top:10px; right:10px; background:#fbbf24; color:#1a1a1a; font-size:10px; font-weight:800; padding:3px 9px; border-radius:20px; letter-spacing:.05em;">⭐ Featured</span>
+                        <?php if ($fp['stock_quantity'] <= 0): ?>
+                            <span style="position:absolute; top:10px; left:10px; background:rgba(239,68,68,.9); color:white; font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;">Out of Stock</span>
                         <?php endif; ?>
                     </div>
+                    <div class="lp-prod-content">
+                        <div class="lp-prod-meta">
+                            <span class="lp-prod-cat"><?php echo htmlspecialchars($fp['category']); ?></span>
+                            <?php if ($fp['stock_quantity'] > 0): ?>
+                                <span class="lp-prod-stock-ok">● In Stock</span>
+                            <?php else: ?>
+                                <span class="lp-prod-stock-out">● Out of Stock</span>
+                            <?php endif; ?>
+                        </div>
+                        <h3 class="lp-prod-title"><?php echo htmlspecialchars($fp['name']); ?></h3>
+                        <p class="lp-prod-desc"><?php echo htmlspecialchars(mb_substr($fp['description'] ?? '', 0, 70)); ?><?php echo mb_strlen($fp['description'] ?? '') > 70 ? '…' : ''; ?></p>
+                        <div class="lp-prod-footer">
+                            <span class="lp-prod-price">₱<?php echo number_format($fp['price'], 2); ?></span>
+                            <?php if ($fp['stock_quantity'] > 0): ?>
+                                <a href="<?php echo $url_products; ?>" class="lp-btn lp-btn-primary" style="padding:.5rem 1.1rem; font-size:.8rem; box-shadow:none;">Order Now</a>
+                            <?php else: ?>
+                                <span style="color:var(--lp-muted); font-size:.8rem;">Unavailable</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
+                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
         </div>
 
         <div style="text-align:center; margin-top:2.5rem;">
@@ -136,7 +180,7 @@ $featured_products = db_query(
 </section>
 <?php endif; ?>
 
-<section class="lp-section lp-section-white">
+<section class="lp-section-light">
     <div class="lp-wrap">
         <div class="lp-two-col">
             <div class="lp-order-2">
@@ -169,7 +213,7 @@ $featured_products = db_query(
     </div>
 </section>
 
-<section class="lp-section-dark">
+<section class="lp-section-cta">
     <div class="lp-wrap">
         <div class="lp-cta-inner">
             <h2 class="lp-cta-title">Ready to Bring Your Ideas to Life?</h2>

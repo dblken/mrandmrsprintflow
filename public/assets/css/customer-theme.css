@@ -4,13 +4,13 @@
    ============================================================ */
 
 :root {
-    --ct-purple: #7c3aed;
-    --ct-purple-dark: #6d28d9;
-    --ct-purple-light: #a78bfa;
-    --ct-purple-50: #f5f3ff;
-    --ct-purple-100: #ede9fe;
-    --ct-purple-200: #ddd6fe;
-    --ct-bg: #fafafa;
+    --ct-purple: #32a1c4;       /* teal primary */
+    --ct-purple-dark: #2a82a3;  /* teal dark */
+    --ct-purple-light: #53c5e0; /* teal light */
+    --ct-purple-50: #e8f7fb;
+    --ct-purple-100: #c4ecf7;
+    --ct-purple-200: #8dd8ef;
+    --ct-bg: #f5f9fa;
     --ct-white: #ffffff;
     --ct-text: #1f2937;
     --ct-text-muted: #6b7280;
@@ -23,60 +23,96 @@ body.customer-theme {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* ===== Header redesign ===== */
+/* ===== Header redesign — dark primary nav with radial glow ===== */
 body.customer-theme #main-header {
-    background: var(--ct-white) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .06) !important;
-    border-bottom: 1px solid var(--ct-border);
+    background: #00151b !important;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.25) !important;
+    border-bottom: 1px solid rgba(83,197,224,0.15) !important;
+    position: relative;
+    overflow: visible;
 }
 
-body.customer-theme #main-header a.nav-link {
-    color: var(--ct-text) !important;
+/* Radial glow in center of header */
+body.customer-theme #main-header::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 120px;
+    background: radial-gradient(ellipse at center, rgba(50,161,196,0.18) 0%, rgba(83,197,224,0.06) 50%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+body.customer-theme #main-header > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Nav links */
+body.customer-theme #main-header a.nav-link,
+body.customer-theme #main-header a {
+    color: rgba(255,255,255,0.82) !important;
     font-weight: 500;
     position: relative;
 }
 
 body.customer-theme #main-header a.nav-link:hover {
-    color: var(--ct-purple) !important;
+    color: #53c5e0 !important;
 }
 
+body.customer-theme #main-header a.nav-link.nav-active,
 body.customer-theme #main-header a.nav-link.active {
-    color: var(--ct-purple) !important;
-    border-bottom-color: var(--ct-purple) !important;
+    color: #53c5e0 !important;
 }
 
-/* Logo */
-body.customer-theme #main-header .text-2xl.font-bold {
-    background: linear-gradient(135deg, var(--ct-purple), var(--ct-purple-light)) !important;
+body.customer-theme #main-header a.nav-link.nav-active > span:last-child {
+    width: 100% !important;
+}
+
+/* Logo text */
+body.customer-theme #main-header .text-2xl.font-bold,
+body.customer-theme #main-header .text-xl.font-bold {
+    background: linear-gradient(135deg, #53c5e0, #a3e8f7) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     color: transparent !important;
 }
 
 body.customer-theme #main-header svg.w-10 {
-    color: var(--ct-purple) !important;
+    color: #53c5e0 !important;
 }
 
 /* User avatar */
 body.customer-theme #main-header .w-10.h-10.bg-gradient-to-br {
-    background: linear-gradient(135deg, var(--ct-purple), var(--ct-purple-light)) !important;
+    background: linear-gradient(135deg, #32a1c4, #53c5e0) !important;
+    border: 2px solid rgba(83,197,224,0.4);
 }
 
-/* Register / CTA button */
-body.customer-theme #main-header .btn-gradient-primary {
-    background: var(--ct-purple) !important;
-    border-radius: 2rem;
-    font-weight: 600;
+/* username text beside avatar */
+body.customer-theme #main-header .hidden.md\:block {
+    color: rgba(255,255,255,0.82) !important;
 }
 
-body.customer-theme #main-header .btn-gradient-primary:hover {
-    background: var(--ct-purple-dark) !important;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+/* Chevron in user dropdown button */
+body.customer-theme #main-header button svg {
+    color: rgba(255,255,255,0.6) !important;
+}
+
+/* Notification icon */
+body.customer-theme #main-header .text-gray-700 {
+    color: rgba(255,255,255,0.75) !important;
+}
+
+body.customer-theme #main-header .text-gray-700:hover {
+    color: #53c5e0 !important;
 }
 
 /* Notification badge */
 body.customer-theme #main-header .absolute.-top-1 {
-    background: var(--ct-purple) !important;
+    background: #ef4444 !important;
 }
 
 /* ===== Buttons ===== */
@@ -250,7 +286,7 @@ body.customer-theme .ct-more-info:hover {
 
 /* ===== Welcome Banner ===== */
 body.customer-theme .ct-welcome {
-    background: linear-gradient(135deg, var(--ct-purple), #9333ea);
+    background: linear-gradient(135deg, #00232b, #0e7490);
     color: var(--ct-white);
     border-radius: 1rem;
     padding: 2rem 2.5rem;

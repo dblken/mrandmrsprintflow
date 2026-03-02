@@ -28,6 +28,7 @@ function save_cfg($path, $data) {
 $payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
 $shop_cfg   = load_cfg($logo_dir . 'shop_config.json');
 $footer_cfg = load_cfg($logo_dir . 'footer_config.json');
+$about_cfg  = load_cfg($logo_dir . 'about_config.json');
 
 // Load branches for address selector
 $branches = db_query("SELECT id, branch_name AS name FROM branches ORDER BY branch_name") ?: [];
@@ -140,6 +141,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 
         save_cfg($logo_dir . 'footer_config.json', $footer_cfg);
         $success = 'Footer info saved!';
+    }
+
+    // Save About Page Config
+    if (isset($_POST['save_about'])) {
+        $values = [];
+        $v_titles = $_POST['about_value_title'] ?? [];
+        $v_descs  = $_POST['about_value_desc'] ?? [];
+        $v_icons  = $_POST['about_value_icon'] ?? [];
+        foreach ($v_titles as $i => $vt) {
+            $vt = sanitize($vt);
+            if ($vt !== '') {
+                $values[] = ['title' => $vt, 'desc' => sanitize($v_descs[$i] ?? ''), 'icon' => sanitize($v_icons[$i] ?? 'star')];
+            }
+        }
+        $team = [];
+        $t_names  = $_POST['about_team_name'] ?? [];
+        $t_roles  = $_POST['about_team_role'] ?? [];
+        $t_photos = $_POST['about_team_photo'] ?? [];
+        foreach ($t_names as $i => $tn) {
+            $tn = sanitize($tn);
+            if ($tn !== '') {
+                $photo = sanitize($t_photos[$i] ?? '');
+                if (!empty($_FILES['about_team_photo_upload']['name'][$i])) {
+                    $ext = strtolower(pathinfo($_FILES['about_team_photo_upload']['name'][$i], PATHINFO_EXTENSION));
+                    if (in_array($ext, ['jpg','jpeg','png','webp'])) {
+                        $fname = 'team_' . time() . '_' . $i . '.' . $ext;
+                        $tp_dir = $logo_dir . 'team/';
+                        if (!is_dir($tp_dir)) mkdir($tp_dir, 0755, true);
+                        move_uploaded_file($_FILES['about_team_photo_upload']['tmp_name'][$i], $tp_dir . $fname);
+                        $photo = $fname;
+                    }
+                }
+                $team[] = ['name' => $tn, 'role' => sanitize($t_roles[$i] ?? ''), 'photo' => $photo];
+            }
+        }
+        $about_cfg = [
+            'tagline'       => sanitize($_POST['about_tagline'] ?? ''),
+            'hero_subtitle' => sanitize($_POST['about_hero_subtitle'] ?? ''),
+            'mission'       => sanitize($_POST['about_mission'] ?? ''),
+            'vision'        => sanitize($_POST['about_vision'] ?? ''),
+            'founding_year' => sanitize($_POST['about_founding_year'] ?? ''),
+            'team_size'     => sanitize($_POST['about_team_size'] ?? ''),
+            'projects_done' => sanitize($_POST['about_projects_done'] ?? ''),
+            'happy_clients' => sanitize($_POST['about_happy_clients'] ?? ''),
+            'values'        => $values,
+            'team_members'  => $team,
+        ];
+        save_cfg($logo_dir . 'about_config.json', $about_cfg);
+        $success = 'About page content saved!';
+        $about_cfg = load_cfg($logo_dir . 'about_config.json');
     }
 }
 
@@ -414,7 +465,120 @@ Stickers &amp; Decals"><?php
                     </form>
                 </div>
 
+                <!-- About Page Content -->
+                <div class="settings-card" style="grid-column:1/-1;">
+                    <div class="settings-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
+                        About Page Content
+                    </div>
+                    <form method="POST" enctype="multipart/form-data">
+                        <?php echo csrf_field(); ?>
 
+                        <!-- Hero -->
+                        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;">Hero Section</p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Tagline (Hero Heading)</label>
+                                <input type="text" name="about_tagline" value="<?php echo htmlspecialchars($about_cfg['tagline'] ?? ''); ?>" placeholder="Your Trusted Printing Partner Since Day One">
+                            </div>
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Hero Subtitle</label>
+                                <input type="text" name="about_hero_subtitle" value="<?php echo htmlspecialchars($about_cfg['hero_subtitle'] ?? ''); ?>" placeholder="Short description under the tagline">
+                            </div>
+                        </div>
+
+                        <!-- Stats -->
+                        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;">Stats Bar</p>
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;">
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Founding Year</label>
+                                <input type="text" name="about_founding_year" value="<?php echo htmlspecialchars($about_cfg['founding_year'] ?? ''); ?>" placeholder="e.g. 2018">
+                            </div>
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Team Size</label>
+                                <input type="text" name="about_team_size" value="<?php echo htmlspecialchars($about_cfg['team_size'] ?? ''); ?>" placeholder="e.g. 25+">
+                            </div>
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Projects Done</label>
+                                <input type="text" name="about_projects_done" value="<?php echo htmlspecialchars($about_cfg['projects_done'] ?? ''); ?>" placeholder="e.g. 10,000+">
+                            </div>
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Happy Clients</label>
+                                <input type="text" name="about_happy_clients" value="<?php echo htmlspecialchars($about_cfg['happy_clients'] ?? ''); ?>" placeholder="e.g. 5,000+">
+                            </div>
+                        </div>
+
+                        <!-- Mission & Vision -->
+                        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;">Mission & Vision</p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Mission Statement</label>
+                                <textarea name="about_mission" rows="4" placeholder="Our mission is to..."><?php echo htmlspecialchars($about_cfg['mission'] ?? ''); ?></textarea>
+                            </div>
+                            <div class="f-group" style="margin-bottom:0;">
+                                <label>Vision Statement</label>
+                                <textarea name="about_vision" rows="4" placeholder="Our vision is to..."><?php echo htmlspecialchars($about_cfg['vision'] ?? ''); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Values -->
+                        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;">Core Values <span style="font-weight:400;color:#9ca3af;">(up to 6)</span></p>
+                        <div id="about-values-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:10px;">
+                            <?php
+                            $ab_values = $about_cfg['values'] ?? [['title'=>'','desc'=>'','icon'=>'star']];
+                            foreach ($ab_values as $av):
+                            ?>
+                            <div class="about-value-row" style="display:grid;grid-template-columns:1fr 2fr auto;gap:10px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
+                                <div class="f-group" style="margin-bottom:0;">
+                                    <label>Title</label>
+                                    <input type="text" name="about_value_title[]" value="<?php echo htmlspecialchars($av['title']??''); ?>" placeholder="e.g. Quality First">
+                                    <input type="hidden" name="about_value_icon[]" value="<?php echo htmlspecialchars($av['icon']??'star'); ?>">
+                                </div>
+                                <div class="f-group" style="margin-bottom:0;">
+                                    <label>Description</label>
+                                    <input type="text" name="about_value_desc[]" value="<?php echo htmlspecialchars($av['desc']??''); ?>" placeholder="Short description">
+                                </div>
+                                <button type="button" onclick="this.closest('.about-value-row').remove()" style="margin-top:20px;padding:7px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <button type="button" id="add-about-value" style="padding:7px 14px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;cursor:pointer;color:#374151;margin-bottom:20px;">+ Add Value</button>
+
+                        <!-- Team Members -->
+                        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;">Team Members <span style="font-weight:400;color:#9ca3af;">(optional)</span></p>
+                        <div id="about-team-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:10px;">
+                            <?php
+                            $ab_team = $about_cfg['team_members'] ?? [];
+                            foreach ($ab_team as $i => $tm):
+                            ?>
+                            <div class="about-team-row" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;position:relative;">
+                                <button type="button" onclick="this.closest('.about-team-row').remove()" style="position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:5px;cursor:pointer;font-size:11px;">✕</button>
+                                <div class="f-group">
+                                    <label>Full Name</label>
+                                    <input type="text" name="about_team_name[]" value="<?php echo htmlspecialchars($tm['name']??''); ?>" placeholder="e.g. Maria Santos">
+                                </div>
+                                <div class="f-group">
+                                    <label>Role / Position</label>
+                                    <input type="text" name="about_team_role[]" value="<?php echo htmlspecialchars($tm['role']??''); ?>" placeholder="e.g. Founder & CEO">
+                                </div>
+                                <div class="f-group" style="margin-bottom:0;">
+                                    <label>Photo <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+                                    <input type="file" name="about_team_photo_upload[<?php echo $i; ?>]" accept="image/*">
+                                    <input type="hidden" name="about_team_photo[]" value="<?php echo htmlspecialchars($tm['photo']??''); ?>">
+                                    <?php if (!empty($tm['photo'])): ?>
+                                        <img src="/printflow/public/assets/uploads/team/<?php echo htmlspecialchars($tm['photo']); ?>" style="width:50px;height:50px;border-radius:50%;object-fit:cover;margin-top:6px;border:2px solid #e5e7eb;">
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <button type="button" id="add-about-team" style="padding:7px 14px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;cursor:pointer;color:#374151;margin-bottom:4px;">+ Add Team Member</button>
+
+                        <div class="section-save" style="margin-top:20px;">
+                            <button type="submit" name="save_about" class="btn-save-sm">Save About Page</button>
+                        </div>
+                    </form>
+                </div>
 
             </div>
         </main>
@@ -570,6 +734,34 @@ document.getElementById('btnCrop')?.addEventListener('click', function() {
         }
         closeCropper();
     }
+});
+
+// About Page — Add Value Row
+document.getElementById('add-about-value')?.addEventListener('click', function() {
+    var list = document.getElementById('about-values-list');
+    var row = document.createElement('div');
+    row.className = 'about-value-row';
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:10px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;';
+    row.innerHTML = '<div class="f-group" style="margin-bottom:0;"><label>Title</label><input type="text" name="about_value_title[]" placeholder="e.g. Quality First"><input type="hidden" name="about_value_icon[]" value="star"></div>' +
+        '<div class="f-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="about_value_desc[]" placeholder="Short description"></div>' +
+        '<button type="button" onclick="this.closest(\'.about-value-row\').remove()" style="margin-top:20px;padding:7px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>';
+    list.appendChild(row);
+    row.querySelector('input[type="text"]').focus();
+});
+
+// About Page — Add Team Member Row
+document.getElementById('add-about-team')?.addEventListener('click', function() {
+    var list = document.getElementById('about-team-list');
+    var idx = list.querySelectorAll('.about-team-row').length;
+    var row = document.createElement('div');
+    row.className = 'about-team-row';
+    row.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;position:relative;';
+    row.innerHTML = '<button type="button" onclick="this.closest(\'.about-team-row\').remove()" style="position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:5px;cursor:pointer;font-size:11px;">✕</button>' +
+        '<div class="f-group"><label>Full Name</label><input type="text" name="about_team_name[]" placeholder="e.g. Maria Santos"></div>' +
+        '<div class="f-group"><label>Role / Position</label><input type="text" name="about_team_role[]" placeholder="e.g. Founder & CEO"></div>' +
+        '<div class="f-group" style="margin-bottom:0;"><label>Photo <span style="font-weight:400;color:#9ca3af;">(optional)</span></label><input type="file" name="about_team_photo_upload[' + idx + ']" accept="image/*"><input type="hidden" name="about_team_photo[]" value=""></div>';
+    list.appendChild(row);
+    row.querySelector('input[type="text"]').focus();
 });
 </script>
 

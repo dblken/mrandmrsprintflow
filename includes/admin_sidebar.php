@@ -27,49 +27,56 @@ if (isset($_SESSION['user_id'])) {
         <!-- Business Management -->
         <div class="nav-section">
             <div class="nav-section-title">Business</div>
-            <a href="dashboard" class="nav-item <?php echo $current_page === 'dashboard.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/dashboard.php" class="nav-item <?php echo $current_page === 'dashboard.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
                 Dashboard
             </a>
-            <a href="orders_management" class="nav-item <?php echo $current_page === 'orders_management.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/orders_management.php" class="nav-item <?php echo $current_page === 'orders_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
-                Orders
+                Store Orders
             </a>
-            <a href="customers_management" class="nav-item <?php echo $current_page === 'customers_management.php' ? 'active' : ''; ?>">
+
+            <a href="/printflow/admin/customers_management.php" class="nav-item <?php echo $current_page === 'customers_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                 </svg>
                 Customers
             </a>
-            <a href="products_management" class="nav-item <?php echo $current_page === 'products_management.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/products_management.php" class="nav-item <?php echo $current_page === 'products_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                 </svg>
                 Products
             </a>
-            <a href="inventory_management" class="nav-item <?php echo in_array($current_page, ['inventory_management.php', 'inventory_monthly.php']) ? 'active' : ''; ?>">
+            <a href="/printflow/admin/inv_items_management.php" class="nav-item <?php echo in_array($current_page, ['inv_items_management.php', 'inventory_management.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
-                Inventory
+                Inventory Items
             </a>
-            <a href="storefront_management" class="nav-item <?php echo $current_page === 'storefront_management.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/inv_transactions_ledger.php" class="nav-item <?php echo in_array($current_page, ['inv_transactions_ledger.php', 'inventory_monthly.php']) ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Inventory Ledger
+            </a>
+            <a href="/printflow/admin/storefront_management.php" class="nav-item <?php echo $current_page === 'storefront_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                 </svg>
                 Storefront
             </a>
-            <a href="branches_management" class="nav-item <?php echo $current_page === 'branches_management.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/branches_management.php" class="nav-item <?php echo $current_page === 'branches_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
                 Branches
             </a>
-            <a href="reports" class="nav-item <?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/reports.php" class="nav-item <?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>

@@ -1,0 +1,21 @@
+{
+    "tagline": "Your Trusted Printing Partner Since Day One",
+    "hero_subtitle": "We bring creativity and color to life — from vibrant tarpaulins to precision stickers, custom apparel to large-format prints.",
+    "mission": "To deliver exceptional printing solutions that empower businesses and individuals to communicate their message with clarity, creativity, and impact.",
+    "vision": "To be the most trusted printing partner in the region, known for quality, speed, and innovative print technology.",
+    "founding_year": "2018",
+    "team_size": "25+",
+    "projects_done": "10,000+",
+    "happy_clients": "5,000+",
+    "values": [
+        {"title": "Quality First", "desc": "Every print goes through rigorous quality checks before delivery.", "icon": "star"},
+        {"title": "Fast Turnaround", "desc": "We respect your deadlines and deliver on time, every time.", "icon": "clock"},
+        {"title": "Creative Excellence", "desc": "Our design team brings fresh ideas and bold creativity to every project.", "icon": "sparkle"},
+        {"title": "Customer Care", "desc": "Your satisfaction is our priority — we are here before, during, and after every order.", "icon": "heart"}
+    ],
+    "team_members": [
+        {"name": "Maria Santos", "role": "Founder & CEO", "photo": ""},
+        {"name": "Juan dela Cruz", "role": "Head of Production", "photo": ""},
+        {"name": "Ana Reyes", "role": "Lead Designer", "photo": ""}
+    ]
+}

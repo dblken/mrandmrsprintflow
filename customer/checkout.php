@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 $ok = db_execute(
                     "INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price)
                      VALUES (?, ?, ?, ?, ?)",
-                    'iiid', [$order_id, $it['product_id'], $it['variant_id'], $it['quantity'], $it['unit_price']]
+                    'iiiid', [$order_id, $it['product_id'], $it['variant_id'], $it['quantity'], $it['unit_price']]
                 );
                 if (!$ok) {
                     throw new RuntimeException('Failed to insert order item.');

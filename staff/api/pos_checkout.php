@@ -125,6 +125,55 @@ try {
     
     $conn->commit();
     
+    // 4. Automatic Job Order Creation for Production Items
+    try {
+        require_once __DIR__ . '/../../includes/JobOrderService.php';
+        foreach ($processed_items as $pi) {
+            $p = db_query("SELECT category, dimensions FROM products WHERE product_id = ?", 'i', [$pi['product_id']]);
+            if (empty($p)) continue;
+            $cat = $p[0]['category'];
+            
+            // Basic Mapping POS Category -> Service Type
+            $service = null;
+            if ($cat === 'Tarpaulin') $service = 'Tarpaulin Printing';
+            elseif ($cat === 'T-Shirt' || $cat === 'Apparel') $service = 'T-shirt Printing';
+            elseif ($cat === 'Sintraboard') $service = 'Stickers on Sintraboard';
+            elseif ($cat === 'Merchandise') $service = 'Souvenirs';
+            
+            if ($service) {
+                // Parse dimensions (e.g. "2x3")
+                $width = 0; $height = 0;
+                if (!empty($p[0]['dimensions'])) {
+                    $dims = explode('x', strtolower($p[0]['dimensions']));
+                    $width = (float)($dims[0] ?? 0);
+                    $height = (float)($dims[1] ?? 0);
+                }
+
+                JobOrderService::createOrder([
+                    'order_id'        => $order_id,
+                    'customer_id'     => $db_customer_id,
+                    'job_title'       => $service . ": " . $pi['sku'],
+                    'service_type'    => $service,
+                    'width_ft'        => $width,
+                    'height_ft'       => $height,
+                    'quantity'        => $pi['qty'],
+                    'total_sqft'      => $width * $height * $pi['qty'],
+                    'price_per_sqft'  => 0,
+                    'price_per_piece' => $pi['price'],
+                    'estimated_total' => $pi['price'] * $pi['qty'],
+                    'notes'           => "Auto-created from POS Order #$order_id",
+                    'due_date'        => date('Y-m-d H:i:s', strtotime('+2 days')),
+                    'priority'        => 'NORMAL',
+                    'artwork_path'    => null,
+                    'created_by'      => $_SESSION['user_id']
+                ]);
+            }
+        }
+    } catch (Exception $e) {
+        // Log error but don't fail the whole transaction since order is already committed
+        error_log("POS Job Auto-create failed: " . $e->getMessage());
+    }
+    
     echo json_encode([
         'success' => true,
         'message' => 'Checkout complete',

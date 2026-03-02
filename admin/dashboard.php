@@ -76,39 +76,61 @@ try {
     ) ?: [];
 } catch (Exception $e) { $recent_orders = []; }
 
-// ── Low Stock Alerts ──────────────────────────────────
+// ── Low Stock Alerts (NEW SYSTEM) ─────────────────────
 try {
-    $low_stock = db_query(
-        "SELECT m.material_name, m.current_stock, m.opening_stock, m.unit,
-                mc.category_name
-         FROM materials m
-         JOIN material_categories mc ON m.category_id = mc.category_id
-         WHERE m.current_stock <= m.opening_stock * 0.2
-         ORDER BY m.current_stock ASC LIMIT 5"
+    // Requires InventoryManager to get real-time SOH
+    require_once __DIR__ . '/../includes/InventoryManager.php';
+    
+    $all_items = db_query(
+        "SELECT i.id, i.name as material_name, i.reorder_level as low_limit, i.unit_of_measure as unit,
+                ic.name as category_name
+         FROM inv_items i
+         LEFT JOIN inv_categories ic ON i.category_id = ic.id
+         WHERE i.status = 'ACTIVE' AND i.reorder_level > 0"
     ) ?: [];
+    
+    $low_stock = [];
+    foreach ($all_items as $item) {
+        $soh = InventoryManager::getStockOnHand($item['id']);
+        if ($soh <= $item['low_limit']) {
+            $item['current_stock'] = $soh;
+            // Calculate ratio so we can sort (lowest relative stock first)
+            $item['ratio'] = $soh / $item['low_limit'];
+            $low_stock[] = $item;
+        }
+    }
+    // Sort by ratio ASC
+    usort($low_stock, fn($a, $b) => $a['ratio'] <=> $b['ratio']);
+    $low_stock = array_slice($low_stock, 0, 5);
 } catch (Exception $e) { $low_stock = []; }
 
 // ── Top Customers (by spending) ───────────────────────
 try {
     $top_customers = db_query(
-        "SELECT CONCAT(c.first_name, ' ', c.last_name) as name,
-                COUNT(o.order_id) as orders, SUM(o.total_amount) as spent
-         FROM customers c JOIN orders o ON c.customer_id = o.customer_id
-         WHERE o.payment_status = 'Paid'
-         GROUP BY c.customer_id ORDER BY spent DESC LIMIT 5"
+        "SELECT customer_name as name, COUNT(id) as orders, SUM(spent) as spent
+         FROM (
+             SELECT CONCAT(c.first_name, ' ', c.last_name) COLLATE utf8mb4_unicode_ci as customer_name, o.order_id as id, o.total_amount as spent
+             FROM customers c JOIN orders o ON c.customer_id = o.customer_id
+             WHERE o.payment_status = 'Paid'
+             UNION ALL
+             SELECT customer_name COLLATE utf8mb4_unicode_ci, id, amount_paid as spent
+             FROM job_orders
+             WHERE payment_status = 'PAID' AND customer_name IS NOT NULL AND customer_name != ''
+         ) as all_orders
+         GROUP BY customer_name ORDER BY spent DESC LIMIT 5"
     ) ?: [];
 } catch (Exception $e) { $top_customers = []; }
 
 // ── Top Selling Products (by quantity sold) ────────────
 try {
     $top_products = db_query(
-        "SELECT p.product_name, p.sku,
+        "SELECT p.name as product_name, p.sku,
                 SUM(oi.quantity) as qty_sold,
                 SUM(oi.quantity * oi.unit_price) as revenue
          FROM order_items oi
          JOIN products p ON oi.product_id = p.product_id
          JOIN orders o ON oi.order_id = o.order_id
-         GROUP BY p.product_id, p.product_name, p.sku
+         GROUP BY p.product_id, p.name, p.sku
          ORDER BY qty_sold DESC LIMIT 5"
     ) ?: [];
 } catch (Exception $e) { $top_products = []; }
@@ -141,9 +163,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
         /* Dashboard Grid */
         .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
-        .dash-grid-3 { grid-template-columns:1fr 1fr 1fr; }
-        @media (max-width:1200px) { .dash-grid-3 { grid-template-columns:1fr 1fr; } }
-        @media (max-width:1024px) { .dash-grid, .dash-grid-3 { grid-template-columns:1fr; } }
+        @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
         .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; }
         .dash-card-title { font-size:15px; font-weight:700; color:#1f2937; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
         .dash-card-title svg { width:18px; height:18px; color:#6366f1; }
@@ -282,8 +302,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 </div>
             </div>
 
-            <!-- Category Sales + Top Customers + Top Selling Products -->
-            <div class="dash-grid dash-grid-3">
+            <!-- Category Sales + Top Performers -->
+            <div class="dash-grid">
                 <!-- Sales by Product Category -->
                 <div class="dash-card">
                     <div class="dash-card-title">
@@ -307,57 +327,63 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     <?php endif; ?>
                 </div>
 
-                <!-- Top Customers -->
-                <div class="dash-card">
-                    <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Top Customers
+                <!-- Top Performers (Interchangeable) -->
+                <div class="dash-card" x-data="{ tab: 'products' }">
+                    <div class="dash-card-title" style="justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                            Top Performers
+                        </span>
+                        <div style="display: flex; gap: 4px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
+                            <button @click="tab = 'products'" :style="tab === 'products' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#6366f1;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Products</button>
+                            <button @click="tab = 'customers'" :style="tab === 'customers' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#6366f1;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Customers</button>
+                        </div>
                     </div>
-                    <?php if (!empty($top_customers)): ?>
-                    <table class="mini-table">
-                        <thead><tr><th>#</th><th>Customer</th><th>Orders</th><th style="text-align:right;">Spent</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($top_customers as $i => $tc): ?>
-                            <tr>
-                                <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
-                                <td style="font-weight:600;"><?php echo htmlspecialchars($tc['name']); ?></td>
-                                <td><?php echo $tc['orders']; ?></td>
-                                <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tc['spent'], 2); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    <?php else: ?>
-                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No customer data yet</div>
-                    <?php endif; ?>
-                </div>
 
-                <!-- Top Selling Products -->
-                <div class="dash-card">
-                    <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-                        Top Selling Products
+                    <!-- Products Tab -->
+                    <div x-show="tab === 'products'">
+                        <?php if (!empty($top_products)): ?>
+                        <table class="mini-table">
+                            <thead><tr><th>#</th><th>Product</th><th>Qty Sold</th><th style="text-align:right;">Revenue</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($top_products as $i => $tp): ?>
+                                <tr>
+                                    <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
+                                    <td style="font-weight:600;" title="<?php echo htmlspecialchars($tp['product_name']); ?>">
+                                        <?php echo mb_strlen($tp['product_name']) > 25 ? htmlspecialchars(mb_substr($tp['product_name'], 0, 25)) . '...' : htmlspecialchars($tp['product_name']); ?>
+                                        <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($tp['sku'] ?? ''); ?></div>
+                                    </td>
+                                    <td><?php echo (int)$tp['qty_sold']; ?></td>
+                                    <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tp['revenue'], 2); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product sales data yet</div>
+                        <?php endif; ?>
                     </div>
-                    <?php if (!empty($top_products)): ?>
-                    <table class="mini-table">
-                        <thead><tr><th>#</th><th>Product</th><th>Qty Sold</th><th style="text-align:right;">Revenue</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($top_products as $i => $tp): ?>
-                            <tr>
-                                <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
-                                <td style="font-weight:600;" title="<?php echo htmlspecialchars($tp['product_name']); ?>">
-                                    <?php echo mb_strlen($tp['product_name']) > 18 ? htmlspecialchars(mb_substr($tp['product_name'], 0, 18)) . '...' : htmlspecialchars($tp['product_name']); ?>
-                                    <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($tp['sku'] ?? ''); ?></div>
-                                </td>
-                                <td><?php echo (int)$tp['qty_sold']; ?></td>
-                                <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tp['revenue'], 2); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    <?php else: ?>
-                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product sales data yet</div>
-                    <?php endif; ?>
+
+                    <!-- Customers Tab -->
+                    <div x-show="tab === 'customers'" style="display: none;">
+                        <?php if (!empty($top_customers)): ?>
+                        <table class="mini-table">
+                            <thead><tr><th>#</th><th>Customer</th><th>Orders</th><th style="text-align:right;">Spent</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($top_customers as $i => $tc): ?>
+                                <tr>
+                                    <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($tc['name']); ?></td>
+                                    <td><?php echo $tc['orders']; ?></td>
+                                    <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tc['spent'], 2); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No customer data yet</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -405,22 +431,27 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     </div>
                     <?php if (!empty($low_stock)): ?>
                     <table class="mini-table">
-                        <thead><tr><th>Material</th><th>Stock</th><th>Level</th></tr></thead>
+                        <thead><tr><th>Material</th><th>Stock</th><th>Status</th></tr></thead>
                         <tbody>
                             <?php foreach ($low_stock as $ls):
-                                $pct = (float)$ls['opening_stock'] > 0 ? ((float)$ls['current_stock'] / (float)$ls['opening_stock']) * 100 : 0;
-                                $barClass = $pct <= 0 ? 'danger' : ($pct <= 20 ? 'warning' : 'good');
+                                $stock = (float)$ls['current_stock'];
+                                $limit = (float)$ls['low_limit'];
+                                $pct = $limit > 0 ? ($stock / $limit) * 100 : 0;
+                                $barClass = $stock <= 0 ? 'danger' : 'warning';
                             ?>
                             <tr>
                                 <td style="font-weight:600;" title="<?php echo htmlspecialchars($ls['material_name']); ?>">
-                                    <?php echo mb_strlen($ls['material_name']) > 10 ? htmlspecialchars(mb_substr($ls['material_name'], 0, 10)) . '...' : htmlspecialchars($ls['material_name']); ?>
-                                    <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($ls['category_name']); ?></div>
+                                    <?php echo mb_strlen($ls['material_name']) > 15 ? htmlspecialchars(mb_substr($ls['material_name'], 0, 15)) . '...' : htmlspecialchars($ls['material_name']); ?>
+                                    <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($ls['category_name'] ?: 'General'); ?></div>
                                 </td>
-                                <td style="color:<?php echo $pct <= 0 ? '#ef4444' : '#d97706'; ?>; font-weight:600; white-space:nowrap;">
-                                    <?php echo number_format((float)$ls['current_stock'], 1); ?> / <?php echo number_format((float)$ls['opening_stock'], 1); ?> <?php echo htmlspecialchars($ls['unit']); ?>
+                                <td style="color:<?php echo $stock <= 0 ? '#ef4444' : '#d97706'; ?>; font-weight:700; white-space:nowrap;">
+                                    <?php echo number_format($stock, 1); ?> <small><?php echo htmlspecialchars($ls['unit']); ?></small>
                                 </td>
                                 <td>
-                                    <div class="stock-bar"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo max($pct, 2); ?>%;"></div></div>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <div class="stock-bar" style="width:50px;"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo min(100, max($pct, 10)); ?>%;"></div></div>
+                                        <span style="font-size:10px; font-weight:700; color:#ef4444;">LOW</span>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

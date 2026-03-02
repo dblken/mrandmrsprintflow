@@ -11,6 +11,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/variant_functions.php';
+require_once __DIR__ . '/../includes/TarpaulinService.php';
 
 require_role('Admin');
 
@@ -45,6 +46,28 @@ if (empty($order)) {
 }
 $order = $order[0];
 
+// --- Safeguard: Check if all roll-based items have production specs ---
+if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
+    $missing_specs = db_query("
+        SELECT p.name 
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        LEFT JOIN order_tarp_details otd ON oi.order_item_id = otd.order_item_id
+        WHERE oi.order_id = ? 
+        AND (p.category LIKE '%TARPAULIN%' OR p.category LIKE '%STKR%')
+        AND otd.order_item_id IS NULL
+    ", 'i', [$order_id]);
+
+    if (!empty($missing_specs)) {
+        $names = array_column($missing_specs, 'name');
+        echo json_encode([
+            'success' => false,
+            'error'   => "Production specs missing for: " . implode(', ', $names) . ". Please configure dimensions and rolls first.",
+        ]);
+        exit;
+    }
+}
+
 // --- Material deduction when marking Completed ---
 if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
     $deduction = deduct_materials_by_variant($order_id);
@@ -52,6 +75,19 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
         echo json_encode([
             'success' => false,
             'error'   => implode(' ', $deduction['errors']),
+        ]);
+        exit;
+    }
+
+    // --- Tarpaulin Roll Deduction ---
+    try {
+        TarpaulinService::deductInventoryForOrder($order_id);
+    } catch (Exception $e) {
+        // We log it but maybe continue? Or block?
+        // Blocking is safer if the user wants strict inventory control.
+        echo json_encode([
+            'success' => false,
+            'error'   => "Tarpaulin deduction failed: " . $e->getMessage(),
         ]);
         exit;
     }

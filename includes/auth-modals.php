@@ -8,15 +8,15 @@ $auth_error = isset($_GET['error']) ? $_GET['error'] : '';
 $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 ?>
 <style>
-/* Lightweight modal: solid overlay (no blur), short transitions, no scale */
+/* Auth Modals — dark navy/teal theme matching landing page */
 .auth-modal-backdrop {
     position: fixed;
     inset: 0;
     z-index: 99998;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(0, 10, 18, 0.78);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.12s ease-out, visibility 0.12s ease-out;
+    transition: opacity 0.14s ease-out, visibility 0.14s ease-out;
 }
 .auth-modal-backdrop.is-open {
     opacity: 1;
@@ -32,12 +32,13 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     max-width: 28rem;
     max-height: 90vh;
     overflow-y: auto;
-    background: #fff;
+    background: #00232b;
+    border: 1px solid rgba(255,255,255,.09);
     border-radius: 1rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 30px 70px rgba(0,0,0,.65), 0 0 50px rgba(83,197,224,.07);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.12s ease-out, visibility 0.12s ease-out;
+    transition: opacity 0.14s ease-out, visibility 0.14s ease-out;
 }
 .auth-modal.is-open {
     opacity: 1;
@@ -61,36 +62,44 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         transition: color 0.2s, background 0.2s;
     }
     .auth-modal-close:hover {
-        color: #1e293b;
-        background: #f1f5f9;
+        color: #e0f2fe;
+        background: rgba(255,255,255,.08);
     }
     .auth-modal-inner { padding: 2rem 1.5rem; }
-    .auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #0f172a; text-align: center; }
-    .auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #64748b; text-align: center; }
+    .auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #ffffff; text-align: center; }
+    .auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #94a3b8; text-align: center; }
     .auth-modal .input-field {
         width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #e2e8f0;
+        padding: 0.55rem 0.85rem;
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.1);
         border-radius: 0.5rem;
         font-size: 1rem;
+        color: #e0f2fe;
         box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
+    .auth-modal .input-field::placeholder { color: #475569; }
     .auth-modal .input-field:focus {
         outline: none;
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        border-color: #32a1c4;
+        box-shadow: 0 0 0 3px rgba(83, 197, 224, 0.2);
+        background: rgba(255,255,255,.09);
     }
-    .auth-modal label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
-    .auth-modal .auth-alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
-    .auth-modal .auth-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
-    .auth-modal .auth-btn-submit { width: 100%; padding: 0.625rem 1rem; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; font-weight: 500; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; }
-    .auth-modal .auth-btn-submit:hover { opacity: 0.95; }
-    .auth-modal .auth-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .auth-modal label { display: block; font-size: 0.875rem; font-weight: 500; color: #94a3b8; margin-bottom: 0.375rem; }
+    .auth-modal .auth-alert-error { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.35); color: #fca5a5; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
+    .auth-modal .auth-alert-success { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: #86efac; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
+    .auth-modal .auth-btn-submit { width: 100%; padding: 0.7rem 1rem; background: #32a1c4; color: #fff; font-weight: 600; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; transition: background .2s, box-shadow .2s; }
+    .auth-modal .auth-btn-submit:hover { background: #2a82a3; box-shadow: 0 0 24px rgba(83,197,224,.4); }
+    .auth-modal .auth-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
     .auth-modal .auth-switch { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: #64748b; }
-    .auth-modal .auth-switch a { color: #4f46e5; font-weight: 500; text-decoration: none; }
-    .auth-modal .auth-switch a:hover { text-decoration: underline; }
+    .auth-modal .auth-switch a { color: #53C5E0; font-weight: 600; text-decoration: none; }
+    .auth-modal .auth-switch a:hover { color: #7acae3; }
     .auth-modal .auth-field { margin-bottom: 1rem; }
-    .auth-modal .auth-field-row { margin-bottom: 1rem; }
+    .auth-modal .auth-field-row { margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+    .auth-modal .auth-field-row label { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #94a3b8; }
+    .auth-modal .auth-field-row a { font-size: 0.875rem; color: #53C5E0; }
+    .auth-modal input[type="checkbox"] { accent-color: #32a1c4; }
     .auth-modal .auth-google-wrap { margin-bottom: 1rem; }
     .auth-modal .auth-btn-google {
         display: flex;
@@ -99,42 +108,42 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         gap: 0.5rem;
         width: 100%;
         padding: 0.6rem 1rem;
-        background: #fff;
-        border: 1px solid #dadce0;
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.12);
         border-radius: 0.5rem;
-        color: #3c4043;
+        color: #e0f2fe;
         font-size: 0.9375rem;
         font-weight: 500;
         text-decoration: none;
         transition: background 0.15s, border-color 0.15s;
     }
-    .auth-modal .auth-btn-google:hover { background: #f8f9fa; border-color: #d2d4d6; }
-    .auth-modal .auth-divider { display: flex; align-items: center; margin: 1rem 0; font-size: 0.8125rem; color: #64748b; }
-    .auth-modal .auth-divider::before, .auth-modal .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+    .auth-modal .auth-btn-google:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.25); }
+    .auth-modal .auth-divider { display: flex; align-items: center; margin: 1rem 0; font-size: 0.8125rem; color: #475569; }
+    .auth-modal .auth-divider::before, .auth-modal .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.08); }
     .auth-modal .auth-divider span { padding: 0 0.75rem; }
     /* OTP register tabs */
-    .reg-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-radius: 0.5rem; overflow: hidden; border: 1px solid #e2e8f0; }
-    .reg-tab { flex: 1; padding: 0.6rem 0.75rem; text-align: center; font-size: 0.875rem; font-weight: 600; background: #f8fafc; color: #64748b; border: none; cursor: pointer; transition: all 0.2s; }
-    .reg-tab.active { background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; }
-    .reg-tab:not(.active):hover { background: #eef2ff; color: #4f46e5; }
+    .reg-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-radius: 0.5rem; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
+    .reg-tab { flex: 1; padding: 0.6rem 0.75rem; text-align: center; font-size: 0.875rem; font-weight: 600; background: rgba(255,255,255,.03); color: #64748b; border: none; cursor: pointer; transition: all 0.2s; }
+    .reg-tab.active { background: #32a1c4; color: #fff; }
+    .reg-tab:not(.active):hover { background: rgba(83,197,224,.1); color: #53C5E0; }
     .reg-otp-row { display: flex; gap: 0.5rem; align-items: flex-end; }
     .reg-otp-row .input-field { flex: 1; }
-    .reg-otp-btn { padding: 0.5rem 1rem; background: #4f46e5; color: #fff; border: none; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+    .reg-otp-btn { padding: 0.5rem 1rem; background: #32a1c4; color: #fff; border: none; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
     .reg-otp-btn:hover { opacity: 0.9; }
     .reg-otp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .reg-step { display: none; }
     .reg-step.active { display: block; }
     .reg-code-inputs { display: flex; gap: 0.4rem; justify-content: center; margin: 1rem 0; }
-    .reg-code-inputs input { width: 2.5rem; height: 2.8rem; text-align: center; font-size: 1.25rem; font-weight: 700; border: 2px solid #e2e8f0; border-radius: 0.5rem; }
-    .reg-code-inputs input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
-    .reg-verified { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.75rem; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; }
-    .reg-dev-code { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
+    .reg-code-inputs input { width: 2.5rem; height: 2.8rem; text-align: center; font-size: 1.25rem; font-weight: 700; background: rgba(255,255,255,.05); border: 2px solid rgba(255,255,255,.12); border-radius: 0.5rem; color: #e0f2fe; }
+    .reg-code-inputs input:focus { border-color: #32a1c4; outline: none; box-shadow: 0 0 0 3px rgba(83,197,224,.2); }
+    .reg-verified { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.75rem; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: #86efac; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; }
+    .reg-dev-code { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.25); color: #fbbf24; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
     .reg-countdown { font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; text-align: center; }
-    .reg-step-indicator { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1.25rem; font-size: 0.75rem; color: #94a3b8; }
-    .reg-step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; background: #e2e8f0; color: #64748b; }
-    .reg-step-dot.active { background: linear-gradient(to right, #4f46e5, #7c3aed); color: #fff; }
+    .reg-step-indicator { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1.25rem; font-size: 0.75rem; color: #64748b; }
+    .reg-step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; background: rgba(255,255,255,.08); color: #64748b; }
+    .reg-step-dot.active { background: #32a1c4; color: #fff; }
     .reg-step-dot.done { background: #22c55e; color: #fff; }
-    .reg-step-line { width: 2rem; height: 2px; background: #e2e8f0; }
+    .reg-step-line { width: 2rem; height: 2px; background: rgba(255,255,255,.08); }
     .reg-step-line.done { background: #22c55e; }
 </style>
 
@@ -171,7 +180,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     <input type="checkbox" name="remember" style="width:1rem;height:1rem;">
                     <span>Remember me</span>
                 </label>
-                <a href="<?php echo $url_forgot_password ?? $base_url . '/forgot-password/'; ?>" style="font-size:0.875rem;color:#4f46e5;">Forgot password?</a>
+                <a href="<?php echo $url_forgot_password ?? $base_url . '/forgot-password/'; ?>" style="font-size:0.875rem;color:#53C5E0;">Forgot password?</a>
             </div>
             <button type="submit" class="auth-btn-submit">Sign In</button>
         </form>
@@ -236,6 +245,9 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     var authSuccess = <?php echo json_encode($auth_success); ?>;
 
     function openModal(name) {
+        // Close any already-open modal first so switching between login/register works
+        if (loginModal) { loginModal.classList.remove('is-open'); loginModal.setAttribute('aria-hidden', 'true'); }
+        if (registerModal) { registerModal.classList.remove('is-open'); registerModal.setAttribute('aria-hidden', 'true'); }
         var modal = name === 'register' ? registerModal : loginModal;
         if (!modal) return;
         backdrop.classList.add('is-open');

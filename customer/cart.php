@@ -24,9 +24,19 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen py-8">
-    <div class="container mx-auto px-4" style="max-width:900px;">
-        <h1 class="ct-page-title">My Cart</h1>
+<div class="min-h-screen" style="background:#f5f9fa;">
+    <!-- Page Header Banner -->
+    <div style="background:linear-gradient(135deg,#00232b,#0e7490);padding:2rem 0;margin-bottom:2rem;">
+        <div class="container mx-auto px-4" style="max-width:900px;">
+            <p style="font-size:0.75rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.35rem;">My Account</p>
+            <h1 style="font-size:1.75rem;font-weight:800;color:#fff;margin:0;letter-spacing:-0.02em;">Shopping Cart
+                <?php if (!empty($cart)): ?>
+                <span style="font-size:1rem;font-weight:500;color:rgba(255,255,255,0.55);margin-left:.5rem;"><?php echo count($cart); ?> item<?php echo count($cart) !== 1 ? 's' : ''; ?></span>
+                <?php endif; ?>
+            </h1>
+        </div>
+    </div>
+    <div class="container mx-auto px-4" style="max-width:900px;padding-bottom:3rem;">
 
         <?php if (empty($cart)): ?>
             <div class="ct-empty">

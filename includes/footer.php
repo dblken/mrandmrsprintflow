@@ -45,7 +45,7 @@ function _ft_detect_social(string $url): array {
 
     <!-- Footer: layout and design (self-contained so it always displays correctly) -->
     <style>
-        .ft-footer { width: 100%; background: #1e293b; color: #e2e8f0; margin-top: 2.5rem; box-sizing: border-box; }
+        .ft-footer { width: 100%; background: #00151b; color: #e2e8f0; margin-top: 2.5rem; box-sizing: border-box; border-top: none; }
         .ft-wrap { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem; box-sizing: border-box; }
         .ft-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
         @media (min-width: 768px) { .ft-grid { grid-template-columns: repeat(4, 1fr); gap: 2.5rem; } }
@@ -60,9 +60,9 @@ function _ft_detect_social(string $url): array {
         .ft-ico-svg { flex-shrink: 0; width: 15px; height: 15px; color: #53C5E0; margin-top: 1px; }
         .ft-social { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
         .ft-social a { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: rgba(255,255,255,0.08); color: #e2e8f0; border-radius: 50%; text-decoration: none; transition: background 0.2s, color 0.2s; font-size: 0.75rem; font-weight: 700; }
-        .ft-social a:hover { background: #53C5E0; color: #fff; }
+        .ft-social a:hover { background: #32a1c4; color: #fff; }
         .ft-social svg { width: 18px; height: 18px; display: block; }
-        .ft-hr { border: 0; border-top: 1px solid rgba(255,255,255,0.12); margin: 2rem 0 1.25rem 0; }
+        .ft-hr { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 2rem 0 1.25rem 0; }
         .ft-bottom { display: flex; flex-direction: column; gap: 0.5rem; text-align: center; font-size: 0.8125rem; color: #94a3b8; }
         @media (min-width: 768px) { .ft-bottom { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; } }
     </style>
@@ -178,21 +178,33 @@ function _ft_detect_social(string $url): array {
     <!-- Alpine.js for dropdowns -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-    <?php if (!empty($use_landing_css)): ?>
-    <!-- Hero nav: hide header on scroll; scroll hint at bottom; scroll-to-top lower right -->
+    <!-- Scroll to Top (all non-admin pages) -->
+    <?php if (!is_admin() && !is_staff()): ?>
+    <?php if (empty($use_landing_css)): ?>
+    <style>
+    #lp-scroll-top{position:fixed;bottom:2rem;right:2rem;width:2.75rem;height:2.75rem;background:#00232b;color:#53C5E0;border:1px solid rgba(83,197,224,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:40;transition:all .3s;cursor:pointer;text-decoration:none;}
+    #lp-scroll-top svg{width:1.25rem;height:1.25rem;}
+    #lp-scroll-top:hover{background:#32a1c4;color:#fff;box-shadow:0 0 18px rgba(50,161,196,0.45);}
+    #lp-scroll-top.lp-scroll-top-hidden{opacity:0;transform:translateY(20px);pointer-events:none;}
+    </style>
+    <?php endif; ?>
+    <a href="#" class="lp-scroll-top lp-scroll-top-hidden" id="lp-scroll-top" aria-label="Scroll to top">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+    </a>
+    <?php endif; ?>
+
     <script>
     (function() {
+        var isLanding = document.documentElement.classList.contains('lp-page');
         var header = document.getElementById('main-header');
         var hint = document.getElementById('lp-scroll-hint');
         var scrollTopBtn = document.getElementById('lp-scroll-top');
-        var hideThreshold = 120;
-        var showThreshold = 50;
         var scrollTopShowAt = 200;
         function update() {
             var y = window.scrollY;
-            if (header && header.classList.contains('lp-hero-nav')) {
-                if (y > hideThreshold) header.classList.add('lp-header-hidden');
-                else if (y <= showThreshold) header.classList.remove('lp-header-hidden');
+            if (isLanding && header && header.classList.contains('lp-hero-nav')) {
+                if (y > 120) header.classList.add('lp-header-hidden');
+                else if (y <= 50) header.classList.remove('lp-header-hidden');
             }
             if (hint) {
                 if (y > 80) hint.classList.add('lp-scroll-hint-hidden');
@@ -213,7 +225,6 @@ function _ft_detect_social(string $url): array {
         update();
     })();
     </script>
-    <?php endif; ?>
 
     <!-- PWA -->
     <script src="<?php echo $base_url; ?>/public/assets/js/pwa.js"></script>

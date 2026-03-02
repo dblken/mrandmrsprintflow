@@ -321,12 +321,74 @@ body.lp-page {
 
 .lp-section-white {
     padding: 6rem 0;
-    background: var(--lp-bg2);
+    background: #f8fafc;
 }
 
 .lp-section-dark {
     padding: 6rem 0;
     background: linear-gradient(180deg, var(--lp-bg2) 0%, var(--lp-bg) 100%);
+}
+
+.lp-section-cta {
+    padding: 6rem 0;
+    background: linear-gradient(135deg, #0e3d4d 0%, #0a5c70 50%, #0e3d4d 100%);
+    position: relative;
+    overflow: hidden;
+}
+.lp-section-cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(50,161,196,0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.lp-section-light {
+    padding: 6rem 0;
+    background: #f8fafc;
+}
+
+/* Text & component overrides inside light sections */
+.lp-section-light .lp-heading-label {
+    color: var(--lp-accent);
+}
+.lp-section-light .lp-heading {
+    color: #0f172a;
+}
+.lp-section-light .lp-heading-desc {
+    color: #475569;
+}
+.lp-section-light .lp-card {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 2px 16px rgba(0,0,0,.06);
+}
+.lp-section-light .lp-card:hover {
+    box-shadow: 0 10px 32px rgba(0,0,0,.12);
+    border-color: rgba(83,197,224,.4);
+}
+.lp-section-light .lp-card-icon {
+    background: rgba(83,197,224,.12);
+}
+.lp-section-light .lp-card-title {
+    color: #0f172a;
+}
+.lp-section-light .lp-card-text {
+    color: #475569;
+}
+.lp-section-light .lp-card-link {
+    color: var(--lp-accent);
+}
+.lp-section-light .lp-feature-box {
+    background: linear-gradient(135deg, rgba(83,197,224,.08), rgba(50,161,196,.04));
+    border-color: rgba(83,197,224,.25);
+}
+.lp-section-light .lp-feature-box-title,
+.lp-section-light .lp-list-title {
+    color: #0f172a;
+}
+.lp-section-light .lp-list-desc {
+    color: #475569;
 }
 
 /* ---------- headings ---------- */

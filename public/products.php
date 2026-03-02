@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Public Products Page
  * PrintFlow - Printing Shop PWA
@@ -30,541 +30,227 @@ if (!empty($search)) {
     $types .= 'ss';
 }
 
-$sql .= " ORDER BY name ASC";
+$sql .= " ORDER BY category ASC, name ASC";
 $products = db_query($sql, $types, $params);
 
 // Get all categories
 $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' ORDER BY category ASC");
 
-// Get featured products for the slideshow
-$featured_products = db_query("SELECT * FROM products WHERE status = 'Activated' AND is_featured = 1 AND product_image IS NOT NULL ORDER BY name ASC LIMIT 5");
+// Get featured products for the hero carousel
+$featured_products = db_query("SELECT * FROM products WHERE status = 'Activated' AND is_featured = 1 AND product_image IS NOT NULL ORDER BY name ASC LIMIT 8");
+
+// Group products by category
+$products_by_category = [];
+foreach (($products ?: []) as $p) {
+    $products_by_category[$p['category'] ?? 'Other'][] = $p;
+}
 
 $page_title = 'Products - PrintFlow';
+$use_landing_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<!-- Remove explicit nav-header include, as header.php already provides it for non-landing pages -->
-
-<!-- Swiper CSS & JS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-
-<style>
-    body { background-color: #ffffff; color: #1f2937; }
-    
-    /* Slideshow Styles */
-    .slideshow-container {
-        position: relative;
-        overflow: hidden;
-        border-radius: 1rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        background: #f8fafc;
-    }
-    .slide {
-        display: none;
-        animation: fade 0.8s;
-        height: 400px;
-    }
-    .slide.active {
-        display: block;
-    }
-    .slide img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .slide-content {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: linear-gradient(transparent, rgba(0, 35, 43, 0.9));
-        padding: 4rem 2rem 2rem;
-        color: white;
-    }
-    .slide-title { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
-    .slide-desc { font-size: 1rem; opacity: 0.9; max-width: 600px; }
-    .slide-btn-prev, .slide-btn-next {
-        cursor: pointer;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 48px;
-        height: 48px;
-        background: rgba(255,255,255,0.8);
-        color: #00232b;
-        font-weight: bold;
-        font-size: 1.5rem;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        border: none;
-        z-index: 10;
-    }
-    .slide-btn-prev:hover, .slide-btn-next:hover {
-        background: #53C5E0;
-        color: white;
-    }
-    .slide-btn-prev { left: 1rem; }
-    .slide-btn-next { right: 1rem; }
-    .slide-dots {
-        position: absolute;
-        bottom: 1rem;
-        right: 2rem;
-        display: flex;
-        gap: 0.5rem;
-    }
-    .dot {
-        cursor: pointer;
-        height: 10px;
-        width: 10px;
-        margin: 0 2px;
-        background-color: rgba(255,255,255,0.5);
-        border-radius: 50%;
-        display: inline-block;
-        transition: background-color 0.3s ease;
-    }
-    .dot.active, .dot:hover { background-color: #53C5E0; }
-
-    /* Interactive Swiper Products Setup */
-    .swiper-container {
-        width: 100%;
-        padding-top: 30px;
-        padding-bottom: 60px;
-        overflow: hidden;
-    }
-    .swiper-slide {
-        background-color: #0d0d0d;
-        border: 1px solid #222;
-        border-radius: 16px;
-        width: 300px;
-        display: flex;
-        flex-direction: column;
-        color: white;
-        position: relative;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-        transition: border-color 0.3s ease;
-    }
-    .swiper-slide::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        border-radius: 16px;
-        background: radial-gradient(circle at 0% 0%, var(--card-glow, rgba(255,255,255,0.05)) 0%, transparent 60%);
-        pointer-events: none;
-        z-index: 0;
-    }
-    .swiper-slide::after {
-        content: "";
-        position: absolute;
-        top: 15px; left: 15px;
-        width: 20px; height: 20px;
-        border-radius: 4px;
-        background: var(--card-glow-solid, #333);
-        box-shadow: 0 0 15px var(--card-glow, transparent);
-        z-index: 1;
-    }
-    .swiper-slide:nth-child(3n+1) {
-        --card-glow: rgba(65, 105, 225, 0.4);
-        --card-glow-solid: #4169e1;
-    }
-    .swiper-slide:nth-child(3n+2) {
-        --card-glow: rgba(200, 200, 200, 0.3);
-        --card-glow-solid: #e0e0e0;
-    }
-    .swiper-slide:nth-child(3n) {
-        --card-glow: rgba(46, 139, 87, 0.4);
-        --card-glow-solid: #2e8b57;
-    }
-    
-    .swiper-slide-active {
-        border-color: rgba(255,255,255,0.2) !important;
-    }
-
-    /* Product Card Internals matching the Dark Theme */
-    .prod-card-body {
-        padding: 50px 20px 25px 20px; /* top padding to clear the 20x20 glow box */
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        position: relative;
-        z-index: 2;
-    }
-    .prod-card-name {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #fff;
-        margin-bottom: 10px;
-    }
-    .prod-card-price {
-        font-size: 2rem;
-        font-weight: 800;
-        color: #fff;
-        margin-bottom: 5px;
-        display: flex;
-        align-items: baseline;
-    }
-    .prod-card-price span {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #888;
-        margin-left: 4px;
-    }
-    .prod-card-desc {
-        font-size: 0.85rem;
-        color: #888;
-        line-height: 1.6;
-        margin-bottom: 20px;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        flex: 1;
-        min-height: 60px;
-    }
-    .prod-card-btn {
-        display: block;
-        text-align: center;
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
-        background: #222;
-        color: #fff;
-        border: 1px solid #333;
-    }
-    .swiper-slide-active .prod-card-btn {
-        background: #fff;
-        color: #000;
-    }
-    .prod-card-btn:hover {
-        opacity: 0.9;
-    }
-    .prod-img-box {
-        width: 100%;
-        height: 130px;
-        border-radius: 8px;
-        overflow: hidden;
-        margin-bottom: 15px;
-        border: 1px solid rgba(255,255,255,0.05);
-        background: #1a1a1a;
-    }
-    .prod-img-box img {
-        width: 100%; height: 100%; object-fit: cover;
-    }
-
-    /* Badge */
-    .feature-badge {
-        position: absolute;
-        top: 15px; right: 15px;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: #ccc;
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding: 4px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.05em;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-
-    /* Search / Filter bar */
-    .filter-bar {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 1rem;
-        padding: 1.25rem 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-    .filter-input-wrap {
-        position: relative;
-        flex: 1 1 200px;
-        min-width: 160px;
-    }
-    .filter-input-wrap svg {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 18px;
-        height: 18px;
-        color: #9ca3af;
-        pointer-events: none;
-    }
-    .filter-input {
-        width: 100%;
-        padding: 0.65rem 0.875rem 0.65rem 2.5rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.625rem;
-        font-size: 0.9375rem;
-        background: white;
-        color: #1f2937;
-        outline: none;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .filter-input:focus {
-        border-color: #53C5E0;
-        box-shadow: 0 0 0 3px rgba(83,197,224,0.15);
-    }
-    .filter-select {
-        padding: 0.65rem 2rem 0.65rem 0.875rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.625rem;
-        font-size: 0.9375rem;
-        background: white;
-        color: #1f2937;
-        outline: none;
-        cursor: pointer;
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        background-size: 14px;
-        flex: 0 1 160px;
-        transition: border-color 0.2s;
-    }
-    .filter-select:focus { border-color: #53C5E0; }
-    .filter-btn {
-        background: #53C5E0;
-        color: white;
-        border: none;
-        padding: 0.65rem 1.5rem;
-        border-radius: 0.625rem;
-        font-weight: 600;
-        font-size: 0.9375rem;
-        cursor: pointer;
-        transition: background 0.2s;
-        white-space: nowrap;
-    }
-    .filter-btn:hover { background: #32a1c4; }
-
-    /* Responsive */
-    @media (max-width: 640px) {
-        .swiper-slide { width: 260px; }
-        .slide { height: 240px; }
-        .slide-title { font-size: 1.25rem; }
-        .filter-bar { flex-direction: column; gap: 0.75rem; }
-        .filter-input-wrap, .filter-select, .filter-btn { width: 100%; flex: unset; }
-    }
-
-    @keyframes fade {
-        from {opacity: .4}
-        to   {opacity: 1}
-    }
-</style>
-
-<main class="min-h-screen py-8">
-    <div class="container mx-auto px-4 max-w-7xl">
-        
-        <?php if (!empty($featured_products)): ?>
-        <!-- Slideshow Section -->
-        <div class="mb-12">
-            <h2 class="text-3xl font-extrabold text-gray-900 mb-6 relative inline-block">
-                Featured Highlights
-                <div class="absolute -bottom-2 left-0 w-1/3 h-1 bg-primary-500 rounded-full"></div>
-            </h2>
-            
-            <div class="slideshow-container">
-                <?php foreach ($featured_products as $index => $fp): ?>
-                <div class="slide fade" data-index="<?php echo $index; ?>">
-                    <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>" alt="<?php echo htmlspecialchars($fp['name']); ?>">
-                    <div class="slide-content">
-                        <span class="inline-block px-3 py-1 bg-primary-500 text-white text-xs font-bold uppercase tracking-wider rounded-full mb-3 shadow-lg">Featured</span>
-                        <h2 class="slide-title"><?php echo htmlspecialchars($fp['name']); ?></h2>
-                        <p class="slide-desc"><?php echo htmlspecialchars(mb_substr($fp['description'] ?? '', 0, 150)); ?>...</p>
-                        <div class="mt-4">
-                            <a href="/printflow/customer/order.php?product_id=<?php echo $fp['product_id']; ?>" class="btn px-8 py-3 rounded-lg font-bold text-gray-900 bg-white hover:bg-gray-100 transition shadow-lg">Order Now for ₱<?php echo number_format($fp['price'], 2); ?></a>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-                
-                <button class="slide-btn-prev" onclick="plusSlides(-1)">&#10094;</button>
-                <button class="slide-btn-next" onclick="plusSlides(1)">&#10095;</button>
-                
-                <div class="slide-dots">
-                    <?php foreach ($featured_products as $index => $fp): ?>
-                        <span class="dot" onclick="currentSlide(<?php echo $index; ?>)"></span>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Header & Filters -->
-        <div class="text-center mb-8 mt-10 pt-8 border-t border-gray-100">
-            <h1 class="text-3xl font-extrabold text-gray-900 mb-1 tracking-tight">Products <span style="color:#53C5E0;">&amp; Services</span></h1>
-            <p class="text-gray-400 text-base mb-6">Browse our complete catalog. Swipe to explore.</p>
-
-            <!-- Filter Bar -->
-            <form method="GET" action="" id="filter-form">
-                <div class="filter-bar">
-                    <div class="filter-input-wrap">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        <input type="text" id="search-input" name="search" class="filter-input" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" autocomplete="off">
-                    </div>
-                    <select name="category" id="category-select" class="filter-select">
-                        <option value="">All Categories</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($cat['category']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <button type="submit" class="filter-btn">Filter</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Products Horizontal Train Grid -->
-        <?php if (empty($products)): ?>
-            <div class="text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm">
-                <div class="w-20 h-20 mx-auto bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <h3 class="text-xl font-bold text-gray-900 mb-2">No products found</h3>
-                <p class="text-gray-500 max-w-sm mx-auto">We couldn't find any products matching your current filters. Try adjusting your search.</p>
-                <?php if(!empty($search) || !empty($category)): ?>
-                    <a href="products.php" class="inline-block mt-4 text-primary-600 font-semibold hover:text-primary-700">Clear all filters</a>
+<!-- ============================================================
+     HERO — mini hero matching about/services style
+     ============================================================ -->
+<section class="lp-mini-hero" style="padding-top:0; padding-bottom:5rem;">
+    <?php $nav_header_class = 'lp-hero-nav sticky top-0 z-50'; require __DIR__ . '/../includes/nav-header.php'; ?>
+    <div class="lp-mini-hero-inner" style="padding-top:4rem;">
+        <div class="lp-wrap" style="text-align:center;">
+            <p class="lp-hero-tag" style="margin-bottom:1.25rem;">✦ Our Catalog</p>
+            <h1 style="font-size:clamp(2.2rem,5vw,3.5rem); font-weight:800; color:#fff; letter-spacing:-0.03em; margin-bottom:1.25rem; line-height:1.1;">
+                Browse Our <span style="color:var(--lp-accent-l);">Products</span>
+            </h1>
+            <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:540px; margin:0 auto 2.5rem; line-height:1.7;">
+                From tarpaulins to T-shirts, stickers to signage — find the perfect print solution for your next project.
+            </p>
+            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+                <a href="#products-grid" class="lp-btn lp-btn-primary">Browse All Products</a>
+                <?php if (!is_logged_in()): ?>
+                <a href="#" data-auth-modal="register" class="lp-btn lp-btn-outline">Get Started Free</a>
                 <?php endif; ?>
             </div>
-        <?php else: ?>
-            <div class="swiper-container mt-6">
-                <div class="swiper-wrapper">
-                    <?php foreach ($products as $index => $product): ?>
-                        <div class="swiper-slide">
-                            <?php if ($product['is_featured'] ?? 0): ?>
-                                <div class="feature-badge">★ POPULAR</div>
-                            <?php endif; ?>
-                            
-                            <div class="prod-card-body">
-                                <div class="prod-card-name"><?php echo htmlspecialchars($product['category']); ?></div>
-                                <div class="prod-card-price">₱<?php echo number_format($product['price'], 2); ?> <span>/ start</span></div>
-                                <div class="prod-card-desc"><?php echo htmlspecialchars($product['description']); ?></div>
-                                
-                                <?php if (!empty($product['product_image'])): ?>
-                                <div class="prod-img-box">
-                                    <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($product['product_image']); ?>" alt="Product">
-                                </div>
-                                <?php endif; ?>
+        </div>
+    </div>
+</section>
 
-                                <?php if (is_logged_in() && is_customer()): ?>
-                                    <a href="/printflow/customer/order.php?product_id=<?php echo $product['product_id']; ?>" class="prod-card-btn">Order Now</a>
-                                <?php else: ?>
-                                    <a href="#" data-auth-modal="login" class="prod-card-btn">Login to Order</a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+<!-- ============================================================
+     FILTER BAR
+     ============================================================ -->
+<section id="products-grid" style="background:#fff;padding:2rem 0;border-bottom:1px solid #e2e8f0;">
+    <div class="lp-wrap">
+        <form method="GET" action="" id="filter-form">
+            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:1rem;padding:1.125rem 1.5rem;">
+                <div style="position:relative;flex:1 1 220px;min-width:160px;">
+                    <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:#9ca3af;pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="search-input" name="search" placeholder="Search products…"
+                           value="<?php echo htmlspecialchars($search); ?>"
+                           style="width:100%;padding:.65rem .875rem .65rem 2.4rem;border:1px solid #e5e7eb;border-radius:.625rem;font-size:.9375rem;background:#fff;color:#1f2937;outline:none;box-sizing:border-box;transition:border-color .2s,box-shadow .2s;"
+                           onfocus="this.style.borderColor='#32a1c4';this.style.boxShadow='0 0 0 3px rgba(50,161,196,0.12)'"
+                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
                 </div>
+                <select name="category" id="category-select"
+                        style="padding:.65rem 2rem .65rem .875rem;border:1px solid #e5e7eb;border-radius:.625rem;font-size:.9375rem;background:#fff url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e&quot;) no-repeat right .75rem center/14px;color:#1f2937;outline:none;cursor:pointer;appearance:none;flex:0 1 180px;transition:border-color .2s;"
+                        onfocus="this.style.borderColor='#32a1c4'" onblur="this.style.borderColor='#e5e7eb'">
+                    <option value="">All Categories</option>
+                    <?php foreach (($categories ?: []) as $cat): ?>
+                        <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($cat['category']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" style="background:#32a1c4;color:#fff;border:none;padding:.65rem 1.5rem;border-radius:.625rem;font-weight:700;font-size:.9375rem;cursor:pointer;transition:background .2s;white-space:nowrap;" onmouseover="this.style.background='#2a82a3'" onmouseout="this.style.background='#32a1c4'">Filter</button>
+                <?php if (!empty($search) || !empty($category)): ?>
+                    <a href="products.php" style="font-size:.875rem;color:#64748b;font-weight:500;white-space:nowrap;text-decoration:underline;">Clear</a>
+                <?php endif; ?>
             </div>
-            
-            <div class="mt-8 flex justify-center text-center">
-                <p class="text-sm text-gray-500 max-w-lg mx-auto">
-                    Swipe horizontally to view all our products. We offer high-quality printing solutions for individuals and businesses alike.
-                </p>
-            </div>
+        </form>
+    </div>
+</section>
+
+<!-- ============================================================
+     PRODUCTS BY CATEGORY (alternating sections)
+     ============================================================ -->
+<?php if (empty($products_by_category)): ?>
+<section style="background:#f8fafc;padding:5rem 0;">
+    <div class="lp-wrap" style="text-align:center;">
+        <div style="width:80px;height:80px;background:#e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
+            <svg style="width:36px;height:36px;color:#94a3b8;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h3 style="font-size:1.25rem;font-weight:700;color:#374151;margin-bottom:.5rem;">No products found</h3>
+        <p style="color:#9ca3af;max-width:320px;margin:0 auto;">Try adjusting your search or filter criteria.</p>
+        <?php if (!empty($search) || !empty($category)): ?>
+            <a href="products.php" style="display:inline-block;margin-top:1.25rem;color:#32a1c4;font-weight:600;text-decoration:underline;">Clear all filters</a>
         <?php endif; ?>
     </div>
-</main>
+</section>
+<?php else: ?>
+<?php
+$section_i = 0;
+foreach ($products_by_category as $cat_name => $cat_products):
+    $dark = ($section_i % 2 === 0);
+    $section_i++;
+    $bg = $dark ? 'var(--lp-bg2)' : '#f8fafc';
+    $card_bg = $dark ? 'var(--lp-surface)' : '#fff';
+    $card_border = $dark ? '1px solid rgba(83,197,224,0.12)' : '1px solid #e2e8f0';
+    $heading_col = $dark ? '#fff' : '#0f172a';
+    $sub_col = $dark ? 'var(--lp-muted)' : '#64748b';
+    $name_col = $dark ? '#fff' : '#0f172a';
+    $desc_col = $dark ? 'var(--lp-muted)' : '#64748b';
+?>
+<section style="padding:4rem 0;background:<?php echo $bg; ?>;">
+    <div class="lp-wrap">
+        <!-- Category heading -->
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap;">
+            <div style="flex:1;">
+                <h2 style="font-size:1.6rem;font-weight:800;color:<?php echo $heading_col; ?>;letter-spacing:-0.02em;margin:0 0 .25rem;">
+                    <?php echo htmlspecialchars($cat_name); ?>
+                </h2>
+                <p style="font-size:.875rem;color:<?php echo $sub_col; ?>;margin:0;"><?php echo count($cat_products); ?> product<?php echo count($cat_products) !== 1 ? 's' : ''; ?> available</p>
+            </div>
+            <div style="height:3px;flex:1;max-width:220px;background:linear-gradient(90deg,var(--lp-accent),transparent);border-radius:2px;opacity:.5;"></div>
+        </div>
+
+        <!-- Card grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1.5rem;">
+            <?php foreach ($cat_products as $product): ?>
+            <div style="background:<?php echo $card_bg; ?>;border:<?php echo $card_border; ?>;border-radius:1.125rem;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s;cursor:default;"
+                 onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 12px 36px rgba(50,161,196,0.18)';"
+                 onmouseout="this.style.transform='';this.style.boxShadow='';">
+
+                <!-- Image -->
+                <?php if (!empty($product['product_image'])): ?>
+                <div style="width:100%;aspect-ratio:4/3;overflow:hidden;position:relative;background:#1a2535;">
+                    <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($product['product_image']); ?>"
+                         alt="<?php echo htmlspecialchars($product['name']); ?>"
+                         style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
+                         onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <?php if ($product['is_featured'] ?? 0): ?>
+                    <span style="position:absolute;top:.75rem;left:.75rem;background:var(--lp-accent);color:#fff;font-size:.65rem;font-weight:800;letter-spacing:.08em;padding:.25rem .7rem;border-radius:20px;text-transform:uppercase;">★ Popular</span>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <div style="width:100%;aspect-ratio:4/3;background:<?php echo $dark ? '#001a22' : '#f1f5f9'; ?>;display:flex;align-items:center;justify-content:center;position:relative;">
+                    <svg style="width:52px;height:52px;color:<?php echo $dark ? '#1e4a5c' : '#cbd5e1'; ?>;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <?php if ($product['is_featured'] ?? 0): ?>
+                    <span style="position:absolute;top:.75rem;left:.75rem;background:var(--lp-accent);color:#fff;font-size:.65rem;font-weight:800;letter-spacing:.08em;padding:.25rem .7rem;border-radius:20px;text-transform:uppercase;">★ Popular</span>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <!-- Body -->
+                <div style="padding:1.25rem;display:flex;flex-direction:column;flex:1;gap:.5rem;">
+                    <div style="font-size:.75rem;font-weight:700;color:var(--lp-accent);text-transform:uppercase;letter-spacing:.07em;"><?php echo htmlspecialchars($product['category']); ?></div>
+                    <h3 style="font-size:1.0625rem;font-weight:700;color:<?php echo $name_col; ?>;margin:0;line-height:1.3;"><?php echo htmlspecialchars($product['name']); ?></h3>
+                    <?php if (!empty($product['description'])): ?>
+                    <p style="font-size:.875rem;color:<?php echo $desc_col; ?>;line-height:1.6;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1;"><?php echo htmlspecialchars($product['description']); ?></p>
+                    <?php else: ?>
+                    <div style="flex:1;"></div>
+                    <?php endif; ?>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;padding-top:.875rem;border-top:1px solid <?php echo $dark ? 'rgba(83,197,224,0.1)' : '#f1f5f9'; ?>;">
+                        <div>
+                            <div style="font-size:1.5rem;font-weight:800;color:<?php echo $dark ? '#fff' : '#0f172a'; ?>;line-height:1;">₱<?php echo number_format($product['price'], 2); ?></div>
+                            <div style="font-size:.75rem;color:<?php echo $desc_col; ?>;margin-top:2px;">Starting price</div>
+                        </div>
+                        <?php if (is_logged_in() && is_customer()): ?>
+                            <a href="/printflow/customer/order.php?product_id=<?php echo $product['product_id']; ?>"
+                               style="display:inline-flex;align-items:center;gap:.4rem;background:var(--lp-accent);color:#fff;padding:.55rem 1.125rem;border-radius:.625rem;font-size:.875rem;font-weight:700;transition:background .2s;"
+                               onmouseover="this.style.background='#2a82a3'" onmouseout="this.style.background='var(--lp-accent)'">
+                                Order
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            </a>
+                        <?php else: ?>
+                            <a href="#" data-auth-modal="login"
+                               style="display:inline-flex;align-items:center;gap:.4rem;background:<?php echo $dark ? 'rgba(50,161,196,0.15)' : '#eef7fa'; ?>;color:var(--lp-accent);padding:.55rem 1.125rem;border-radius:.625rem;font-size:.875rem;font-weight:700;transition:background .2s;border:1px solid rgba(50,161,196,0.25);"
+                               onmouseover="this.style.background='var(--lp-accent)';this.style.color='#fff'" onmouseout="this.style.background='<?php echo $dark ? 'rgba(50,161,196,0.15)' : '#eef7fa'; ?>'; this.style.color='var(--lp-accent)'">
+                                Order
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endforeach; ?>
+<?php endif; ?>
+
+<!-- CTA -->
+<section class="lp-section-cta">
+    <div class="lp-wrap">
+        <div class="lp-cta-inner">
+            <h2 class="lp-cta-title">Ready to Place Your Order?</h2>
+            <p class="lp-cta-desc">Get in touch or create an account to start ordering high-quality prints today.</p>
+            <div class="lp-cta-btns">
+                <?php if (!is_logged_in()): ?>
+                    <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
+                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-outline">View Services</a>
+                <?php else: ?>
+                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-primary">View All Services</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</section>
 
 <script>
-    // Slideshow Logic
-    let slideIndex = 0;
-    let slideInterval;
-    const slides = document.querySelectorAll(".slide");
-    const dots = document.querySelectorAll(".dot");
-
-    function showSlides(n) {
-        if (!slides.length) return;
-        
-        if (n >= slides.length) {slideIndex = 0}
-        if (n < 0) {slideIndex = slides.length - 1}
-        
-        slides.forEach(slide => slide.classList.remove('active'));
-        dots.forEach(dot => dot.classList.remove('active'));
-        
-        slides[slideIndex].classList.add('active');
-        if(dots.length) dots[slideIndex].classList.add('active');
-    }
-
-    function plusSlides(n) {
-        clearInterval(slideInterval);
-        showSlides(slideIndex += n);
-        startSlideshow();
-    }
-
-    function currentSlide(n) {
-        clearInterval(slideInterval);
-        showSlides(slideIndex = n);
-        startSlideshow();
-    }
-
-    function startSlideshow() {
-        if (slides.length > 1) {
-            slideInterval = setInterval(function() {
-                showSlides(++slideIndex);
-            }, 5000); // Change image every 5 seconds
-        }
-    }
-
-    // Initialize slideshow
-    if(slides.length > 0) {
-        showSlides(slideIndex);
-        startSlideshow();
-    }
-
-    // Initialize Swiper Coverflow
-    if (document.querySelector('.swiper-container')) {
-        new Swiper('.swiper-container', {
-            effect: 'coverflow',
-            grabCursor: true,
-            centeredSlides: true,
-            slidesPerView: 'auto',
-            initialSlide: 1, // Start at the second slide to instantly show the center focus correctly
-            coverflowEffect: {
-                rotate: 0,
-                stretch: 0,
-                depth: 100,
-                modifier: 2,
-                slideShadows: true,
-                scale: 0.88
-            },
-            keyboard: {
-                enabled: true,
-            },
-        });
-    }
-
-    // Realtime search: debounce 350ms then submit filter form
-    const searchInput = document.getElementById('search-input');
-    const categorySelect = document.getElementById('category-select');
-    const filterForm   = document.getElementById('filter-form');
-
+    // Realtime search debounce
+    var searchInput = document.getElementById('search-input');
+    var categorySelect = document.getElementById('category-select');
+    var filterForm = document.getElementById('filter-form');
     if (searchInput && filterForm) {
-        let debounceTimer;
+        var debounceTimer;
         searchInput.addEventListener('input', function() {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(function() {
-                filterForm.submit();
-            }, 380);
+            debounceTimer = setTimeout(function(){ filterForm.submit(); }, 420);
         });
     }
     if (categorySelect && filterForm) {
-        categorySelect.addEventListener('change', function() {
-            filterForm.submit();
-        });
+        categorySelect.addEventListener('change', function(){ filterForm.submit(); });
     }
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/auth-modals.php'; ?>

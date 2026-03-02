@@ -77,9 +77,19 @@ $url_google_auth    = $base_url . '/google-auth/';
         body:not(.lp-page) #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }
         body:not(.lp-page) #main-header a { color: #374151; font-weight: 500; }
         body:not(.lp-page) #main-header a:hover { color: #4F46E5; }
+        body:not(.lp-page) #main-header a.nav-link { color: #374151; }
+        body:not(.lp-page) #main-header a.nav-link:hover { color: #4F46E5; }
         body:not(.lp-page) #main-header .text-2xl.font-bold { color: #4F46E5; }
         body:not(.lp-page) #main-header .btn-gradient-primary { background: linear-gradient(to right, #4F46E5, #A855F7); color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; }
-        .nav-link.active { color: #4F46E5; border-bottom: 2px solid #4F46E5; }
+        /* Active nav link — mirrors hover state (non-hero pages) */
+        a.nav-link.nav-active { color: #2a82a3 !important; }
+        a.nav-link.nav-active > span:last-child { width: 100% !important; }
+        /* Dark hero nav: force white text overriding Tailwind text-gray-700 */
+        html.lp-page #main-header.lp-hero-nav a,
+        html.lp-page #main-header.lp-hero-nav a.nav-link { color: rgba(255,255,255,0.85) !important; }
+        html.lp-page #main-header.lp-hero-nav a.nav-link:hover { color: #53C5E0 !important; }
+        html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active { color: #53C5E0 !important; }
+        html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active > span:last-child { width: 100% !important; }
         .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; border: 1px solid #d1d5db; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
         .pwa-install-btn:hover { color: #4F46E5; border-color: #4F46E5; background: rgba(79,70,229,0.05); }
         .pwa-install-btn.hidden { display: none !important; }

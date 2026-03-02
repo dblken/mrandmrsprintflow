@@ -5,8 +5,8 @@
  * Handles all AJAX requests for inventory operations
  */
 
-require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role('Admin');
 
@@ -19,28 +19,28 @@ try {
 
         // ─── Categories ───────────────────────────────────
         case 'get_categories':
-            $cats = db_query("SELECT * FROM material_categories ORDER BY category_name ASC");
+            $cats = db_query("SELECT id as category_id, name as category_name FROM inv_categories ORDER BY name ASC");
             echo json_encode(['success' => true, 'data' => $cats ?: []]);
             break;
 
         case 'create_category':
             $name = sanitize($_POST['category_name'] ?? '');
             if (empty($name)) throw new Exception('Category name is required');
-            $id = db_execute("INSERT INTO material_categories (category_name) VALUES (?)", 's', [$name]);
+            $id = db_execute("INSERT INTO inv_categories (name) VALUES (?)", 's', [$name]);
             echo json_encode(['success' => true, 'category_id' => $id]);
             break;
 
         case 'delete_category':
             $id = (int)($_POST['category_id'] ?? 0);
             if (!$id) throw new Exception('Invalid category');
-            db_execute("DELETE FROM material_categories WHERE category_id = ?", 'i', [$id]);
+            db_execute("DELETE FROM inv_categories WHERE id = ?", 'i', [$id]);
             echo json_encode(['success' => true]);
             break;
 
         // ─── Materials ────────────────────────────────────
         case 'get_materials':
             $cat_id = (int)($_GET['category_id'] ?? 0);
-            $sql = "SELECT * FROM materials";
+            $sql = "SELECT id as material_id, name as material_name, unit_of_measure as unit FROM inv_items";
             $params = [];
             $types = '';
             if ($cat_id) {
@@ -48,7 +48,7 @@ try {
                 $params[] = $cat_id;
                 $types = 'i';
             }
-            $sql .= " ORDER BY material_name ASC";
+            $sql .= " ORDER BY name ASC";
             $mats = db_query($sql, $types, $params);
             echo json_encode(['success' => true, 'data' => $mats ?: []]);
             break;
@@ -95,7 +95,7 @@ try {
 
             // Get materials in this category
             $materials = db_query(
-                "SELECT material_id, material_name, opening_stock, unit FROM materials WHERE category_id = ? ORDER BY material_name ASC",
+                "SELECT id as material_id, name as material_name, unit_of_measure as unit FROM inv_items WHERE category_id = ? ORDER BY name ASC",
                 'i', [$cat_id]
             );
 
@@ -107,10 +107,11 @@ try {
 
                 // Get all movements for this material in this month
                 $movements = db_query(
-                    "SELECT DAY(movement_date) as day_num, quantity_change 
-                     FROM material_stock_movements 
-                     WHERE material_id = ? AND MONTH(movement_date) = ? AND YEAR(movement_date) = ?
-                     ORDER BY movement_date ASC",
+                    "SELECT DAY(transaction_date) as day_num, SUM(IF(direction='IN', quantity, -quantity)) as quantity_change 
+                     FROM inventory_transactions 
+                     WHERE item_id = ? AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?
+                     GROUP BY day_num
+                     ORDER BY day_num ASC",
                     'iii', [$mid, $month, $year]
                 );
 
@@ -125,10 +126,10 @@ try {
                 $result[] = [
                     'material_id'   => $mid,
                     'material_name' => $mat['material_name'],
-                    'opening_stock' => (float)$mat['opening_stock'],
+                    'opening_stock' => 0, // Simplified for now since opening is a txn
                     'unit'          => $mat['unit'],
                     'days'          => $day_data,
-                    'total_stock'   => (float)$mat['opening_stock'] + $total_change
+                    'total_stock'   => InventoryManager::getStockOnHand($mid)
                 ];
             }
 
@@ -154,33 +155,29 @@ try {
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) throw new Exception('Invalid date format');
 
             if ($qty == 0) {
-                // Remove the movement if quantity is zero
+                // Not strictly supported by ledger to just 'delete' a movement, 
+                // but we can delete the manual adjustment for that date
                 db_execute(
-                    "DELETE FROM material_stock_movements WHERE material_id = ? AND movement_date = ?",
+                    "DELETE FROM inventory_transactions WHERE item_id = ? AND transaction_date = ? AND ref_type = 'adjustment_manual'",
                     'is', [$mid, $date]
                 );
             } else {
-                // Upsert: insert or update on duplicate key
-                global $conn;
-                $stmt = $conn->prepare(
-                    "INSERT INTO material_stock_movements (material_id, movement_date, quantity_change, notes)
-                     VALUES (?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE quantity_change = VALUES(quantity_change), notes = VALUES(notes)"
-                );
-                $stmt->bind_param('isds', $mid, $date, $qty, $notes);
-                $stmt->execute();
-                $stmt->close();
+                // Record via InventoryManager
+                // Mapping: negative quantity in UI means usage (OUT), positive means IN
+                $direction = $qty > 0 ? 'IN' : 'OUT';
+                $abs_qty = abs($qty);
+                
+                // Idempotency: try to update existing manual adjustment for that day or insert new
+                $existing = db_query("SELECT id FROM inventory_transactions WHERE item_id = ? AND transaction_date = ? AND ref_type = 'adjustment_manual'", 'is', [$mid, $date]);
+                
+                if (!empty($existing)) {
+                    db_execute("UPDATE inventory_transactions SET quantity = ?, direction = ? WHERE id = ?", 'dsi', [$abs_qty, $direction, $existing[0]['id']]);
+                } else {
+                    InventoryManager::recordTransaction($mid, $direction, $abs_qty, null, 'adjustment_manual', null, null, $notes, null, $date);
+                }
             }
 
-            // Recalculate current_stock
-            $total = db_query(
-                "SELECT COALESCE(SUM(quantity_change), 0) as total FROM material_stock_movements WHERE material_id = ?",
-                'i', [$mid]
-            );
-            $mat = db_query("SELECT opening_stock FROM materials WHERE material_id = ?", 'i', [$mid]);
-            $new_stock = ((float)($mat[0]['opening_stock'] ?? 0)) + ((float)($total[0]['total'] ?? 0));
-            db_execute("UPDATE materials SET current_stock = ? WHERE material_id = ?", 'di', [$new_stock, $mid]);
-
+            $new_stock = InventoryManager::getStockOnHand($mid);
             echo json_encode(['success' => true, 'new_total' => $new_stock]);
             break;
 

@@ -345,6 +345,54 @@ $page_title = 'Orders Management - Admin';
                                                 </div>
                                             </template>
                                             <div x-text="item.category" style="font-size:11px;color:#9ca3af;"></div>
+                                            
+                                            <!-- Tarpaulin/Sticker Specific Specs (Roll-based) -->
+                                            <template x-if="item.category && (item.category.toUpperCase().includes('TARPAULIN') || item.category.toUpperCase().includes('STKR'))">
+                                                <div style="margin-top:8px;">
+                                                    <div x-show="!item.editingTarp" style="font-size:12px; background:#f0fdf4; padding:8px; border-radius:8px; border:1px solid #dcfce7;">
+                                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                                            <div>
+                                                                <template x-if="item.tarp_details">
+                                                                    <div>
+                                                                        <span style="color:#166534; font-weight:600;" x-text="item.tarp_details.width_ft + ' x ' + item.tarp_details.height_ft + ' ft'"></span>
+                                                                        <span style="color:#6b7280; margin-left:8px;" x-text="'Roll: ' + (item.tarp_details.roll_code || 'Not Assigned')"></span>
+                                                                    </div>
+                                                                </template>
+                                                                <template x-if="!item.tarp_details">
+                                                                    <span style="color:#991b1b; font-weight:600;">Dimensions not set</span>
+                                                                </template>
+                                                            </div>
+                                                            <button @click="startTarpEdit(item)" style="font-size:11px; color:#4F46E5; background:none; border:none; cursor:pointer; font-weight:600; text-decoration:underline;">Configure</button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div x-show="item.editingTarp" style="font-size:12px; background:#fff; padding:12px; border-radius:12px; border:1px solid #e5e7eb; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+                                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                                                            <div>
+                                                                <label style="display:block; font-size:10px; color:#6b7280; margin-bottom:2px;">Width (FT)</label>
+                                                                <input type="number" x-model="item.tempWidth" @change="fetchRolls(item)" style="width:100% !important; height:32px; border:1px solid #e5e7eb; border-radius:6px; padding:0 8px;">
+                                                            </div>
+                                                            <div>
+                                                                <label style="display:block; font-size:10px; color:#6b7280; margin-bottom:2px;">Height (FT)</label>
+                                                                <input type="number" x-model="item.tempHeight" style="width:100% !important; height:32px; border:1px solid #e5e7eb; border-radius:6px; padding:0 8px;">
+                                                            </div>
+                                                        </div>
+                                                        <div style="margin-bottom:8px;">
+                                                            <label style="display:block; font-size:10px; color:#6b7280; margin-bottom:2px;">Inventory Roll</label>
+                                                            <select x-model="item.tempRollId" style="width:100% !important; height:32px; border:1px solid #e5e7eb; border-radius:6px; padding:0 8px; display:block;">
+                                                                <option value="">Select a Roll</option>
+                                                                <template x-for="roll in item.availableRolls || []" :key="roll.id">
+                                                                    <option :value="roll.id" x-text="roll.roll_code + ' (' + roll.remaining_length_ft + ' ft left)'"></option>
+                                                                </template>
+                                                            </select>
+                                                        </div>
+                                                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                                            <button @click="item.editingTarp = false" style="padding:4px 10px; font-size:11px; background:#f3f4f6; border-radius:6px; border:none; cursor:pointer;">Cancel</button>
+                                                            <button @click="saveTarpSpecs(item)" style="padding:4px 10px; font-size:11px; background:#4F46E5; color:white; border-radius:6px; border:none; cursor:pointer;" :disabled="item.savingTarp">Save</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
                                         </td>
                                         <td style="padding:10px 14px;text-align:center;" x-text="item.quantity"></td>
                                         <td style="padding:10px 14px;text-align:right;color:#6b7280;" x-text="item.unit_price_formatted"></td>
@@ -427,7 +475,15 @@ function orderModal() {
                     this.loading = false;
                     if (data.success) {
                         this.order = data.order;
-                        this.items = data.items;
+                        this.items = data.items.map(i => ({
+                            ...i,
+                            editingTarp: false,
+                            savingTarp: false,
+                            tempWidth: i.tarp_details?.width_ft || 0,
+                            tempHeight: i.tarp_details?.height_ft || 0,
+                            tempRollId: i.tarp_details?.roll_id || '',
+                            availableRolls: []
+                        }));
                         this.selectedStatus = data.order.status;
                     } else {
                         this.errorMsg = data.error || 'Failed to load order details.';
@@ -438,6 +494,60 @@ function orderModal() {
                     this.errorMsg = 'Network error. Please try again.';
                     console.error('Order details fetch error:', err);
                 });
+        },
+
+        startTarpEdit(item) {
+            item.editingTarp = true;
+            if (item.tempWidth > 0 && item.availableRolls.length === 0) {
+                this.fetchRolls(item);
+            }
+        },
+
+        fetchRolls(item) {
+            if (!item.tempWidth || item.tempWidth <= 0) return;
+            fetch('/printflow/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        item.availableRolls = data.rolls;
+                    }
+                });
+        },
+
+        async saveTarpSpecs(item) {
+            if (!item.tempWidth || !item.tempHeight || !item.tempRollId) {
+                alert('Please fill all tarpaulin specifications.');
+                return;
+            }
+            item.savingTarp = true;
+            try {
+                const resp = await fetch('/printflow/admin/api_save_tarp_specs.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        order_item_id: item.order_item_id,
+                        roll_id: item.tempRollId,
+                        width_ft: item.tempWidth,
+                        height_ft: item.tempHeight,
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    item.tarp_details = {
+                        width_ft: item.tempWidth,
+                        height_ft: item.tempHeight,
+                        roll_id: item.tempRollId,
+                        roll_code: item.availableRolls.find(r => r.id == item.tempRollId)?.roll_code || 'Assigned'
+                    };
+                    item.editingTarp = false;
+                } else {
+                    alert(data.error || 'Failed to save specifications.');
+                }
+            } catch (e) {
+                alert('Network error.');
+            }
+            item.savingTarp = false;
         },
 
         async updateStatus() {

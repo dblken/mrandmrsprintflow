@@ -36,6 +36,7 @@
     RewriteCond %{REQUEST_URI} !^/printflow/admin/
     RewriteCond %{REQUEST_URI} !^/printflow/staff/
     RewriteCond %{REQUEST_URI} !^/printflow/customer/
+    RewriteCond %{REQUEST_URI} !^/printflow/uploads/
     RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
 

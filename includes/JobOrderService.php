@@ -1,0 +1,380 @@
+<?php
+/**
+ * Job Order Service
+ * Handles life cycle of job orders (create, assign, deduct).
+ * PrintFlow v2
+ */
+
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/InventoryManager.php';
+require_once __DIR__ . '/RollService.php';
+
+class JobOrderService {
+
+    /**
+     * Create a new job order with materials.
+     */
+    public static function createOrder($orderData, $materials = []) {
+        global $conn;
+        
+        $conn->begin_transaction();
+        try {
+            // 1. Insert Job Order
+            $requiredPayment = self::calculateRequiredPayment($orderData['customer_id'], $orderData['estimated_total']);
+            $sql = "INSERT INTO job_orders (order_id, customer_id, job_title, service_type, width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece, estimated_total, required_payment, notes, due_date, priority, artwork_path, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("iisssddiddddssssi", 
+                $orderData['order_id'],
+                $orderData['customer_id'], 
+                $orderData['job_title'],
+                $orderData['service_type'], 
+                $orderData['width_ft'], 
+                $orderData['height_ft'], 
+                $orderData['quantity'], 
+                $orderData['total_sqft'], 
+                $orderData['price_per_sqft'], 
+                $orderData['price_per_piece'], 
+                $orderData['estimated_total'], 
+                $requiredPayment,
+                $orderData['notes'], 
+                $orderData['due_date'],
+                $orderData['priority'],
+                $orderData['artwork_path'], 
+                $orderData['created_by']
+            );
+            
+            if (!$stmt->execute()) throw new Exception("Failed to create job order.");
+            $orderId = $stmt->insert_id;
+            $stmt->close();
+
+            // 2. Insert Required Materials (placeholders + capture unit cost)
+            if (!empty($materials)) {
+                $materialSql = "INSERT INTO job_order_materials (job_order_id, item_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment) VALUES (?, ?, ?, ?, ?, ?)";
+                $mStmt = $conn->prepare($materialSql);
+                foreach ($materials as $m) {
+                    $item = InventoryManager::getItem($m['item_id']);
+                    $cost = $item['unit_cost'] ?? 0;
+                    $mStmt->bind_param("iidsdd", $orderId, $m['item_id'], $m['quantity'], $m['uom'], $m['computed_len'], $cost);
+                    $mStmt->execute();
+                }
+                $mStmt->close();
+            }
+
+            $conn->commit();
+            return $orderId;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Assign a specific roll to a job order material item.
+     */
+    public static function assignRoll($jomId, $rollId) {
+        $sql = "UPDATE job_order_materials SET roll_id = ? WHERE id = ? AND deducted_at IS NULL";
+        return db_execute($sql, 'ii', [$rollId, $jomId]);
+    }
+
+    /**
+     * Add a material to a job order with advanced metadata.
+     */
+    public static function addMaterial($orderId, $itemId, $qty, $uom, $rollId = null, $notes = '', $metadata = null) {
+        $item = InventoryManager::getItem($itemId);
+        if (!$item) throw new Exception("Item not found.");
+        
+        $cost = $item['unit_cost'] ?? 0;
+        $track_by_roll = $item['track_by_roll'];
+        
+        // Calculate computed length if track_by_roll
+        $computed_len = 0;
+        if ($track_by_roll) {
+            // For roll-based, if uom is ft, quantity is often the length
+            // But we might have separate height/qty in metadata
+            if (isset($metadata['height_ft'])) {
+                $computed_len = $metadata['height_ft'] * $qty;
+            } else {
+                $computed_len = ($uom === 'ft') ? $qty : 0;
+            }
+        }
+
+        $metaJson = $metadata ? json_encode($metadata) : null;
+
+        // Check for duplicates
+        if ($rollId) {
+            $exists = db_query("SELECT id FROM job_order_materials WHERE job_order_id = ? AND item_id = ? AND roll_id = ?", 'iii', [$orderId, $itemId, $rollId]);
+        } else {
+            $exists = db_query("SELECT id FROM job_order_materials WHERE job_order_id = ? AND item_id = ? AND roll_id IS NULL", 'ii', [$orderId, $itemId]);
+        }
+        
+        if (!empty($exists)) {
+            return $exists[0]['id']; // Return existing ID instead of creating duplicate
+        }
+
+        $sql = "INSERT INTO job_order_materials (job_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        return db_execute($sql, 'iiidsddss', [$orderId, $itemId, $rollId, $qty, $uom, $computed_len, $cost, $notes, $metaJson]);
+    }
+
+    /**
+     * Preview the impact on a specific roll or item before assignment.
+     */
+    public static function previewImpact($itemId, $rollId = null, $qty = 0, $height = 0) {
+        $item = InventoryManager::getItem($itemId);
+        if (!$item) return null;
+
+        $totalStock = InventoryManager::getStockOnHand($itemId);
+        $required = 0;
+
+        if ($item['track_by_roll']) {
+            $required = $height > 0 ? ($height * $qty) : $qty;
+            if ($rollId) {
+                $roll = RollService::getRoll($rollId);
+                return [
+                    'item_name' => $item['name'],
+                    'roll_code' => $roll['roll_code'] ?? "#$rollId",
+                    'before' => $roll['remaining_length_ft'],
+                    'required' => $required,
+                    'after' => $roll['remaining_length_ft'] - $required,
+                    'is_sufficient' => ($roll['remaining_length_ft'] >= $required)
+                ];
+            }
+        } else {
+            $required = $qty;
+        }
+
+        return [
+            'item_name' => $item['name'],
+            'before' => $totalStock,
+            'required' => $required,
+            'after' => $totalStock - $required,
+            'is_sufficient' => ($totalStock >= $required)
+        ];
+    }
+
+    /**
+     * Remove a material from a job order.
+     */
+    public static function removeMaterial($jomId) {
+        // Can only remove if not yet deducted
+        $sql = "DELETE FROM job_order_materials WHERE id = ? AND deducted_at IS NULL";
+        return db_execute($sql, 'i', [$jomId]);
+    }
+
+    /**
+     * Get material readiness status for an order.
+     */
+    public static function getMaterialReadiness($orderId) {
+        $order = self::getOrder($orderId);
+        if (!$order) return 'MISSING';
+
+        $status = 'READY';
+        foreach ($order['materials'] as $m) {
+            $stock = InventoryManager::getStockOnHand($m['item_id']);
+            $required = $m['track_by_roll'] ? $m['computed_required_length_ft'] : $m['quantity'];
+            
+            if ($stock <= 0) {
+                return 'MISSING';
+            } elseif ($stock < $required) {
+                $status = 'LOW';
+            }
+        }
+        return $status;
+    }
+
+    /**
+     * Calculate internal material cost for a job.
+     */
+    public static function calculateJobCost($orderId) {
+        $sql = "SELECT SUM(
+                    (CASE WHEN computed_required_length_ft > 0 THEN computed_required_length_ft ELSE quantity END) 
+                    * unit_cost_at_assignment
+                ) as total_cost 
+                FROM job_order_materials WHERE job_order_id = ?";
+        $res = db_query($sql, 'i', [$orderId]);
+        return $res[0]['total_cost'] ?? 0;
+    }
+
+    /**
+     * Set job order status and trigger logic.
+     */
+    public static function updateStatus($orderId, $newStatus, $machineId = null) {
+        global $conn;
+        
+        $order = db_query("SELECT * FROM job_orders WHERE id = ?", 'i', [$orderId]);
+        if (!$order) throw new Exception("Order not found.");
+        $order = $order[0];
+
+        $conn->begin_transaction();
+        try {
+            // Materials are now handled at TO_PAY stage, so we don't block APPROVED.
+            if ($newStatus === 'IN_PRODUCTION') {
+                // Payment check removed per user request
+            }
+
+            if ($newStatus === 'COMPLETED') {
+                self::processDeductions($orderId);
+                if ($order['customer_id']) {
+                    self::updateCustomerStatus($order['customer_id']);
+                }
+            }
+
+            $sql = "UPDATE job_orders SET status = ?, machine_id = ? WHERE id = ?";
+            db_execute($sql, 'sii', [$newStatus, $machineId ?: $order['machine_id'], $orderId]);
+
+            $conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Idempotent deduction for all materials in an order.
+     */
+    private static function processDeductions($orderId) {
+        $materials = db_query("SELECT * FROM job_order_materials WHERE job_order_id = ? AND deducted_at IS NULL", 'i', [$orderId]);
+        if (!$materials) return;
+
+        foreach ($materials as $m) {
+            $item = InventoryManager::getItem($m['item_id']);
+            if (!$item) continue;
+
+            if ($item['track_by_roll']) {
+                $rollId = $m['roll_id'];
+
+                // If no specific roll assigned, auto-pick the oldest open roll for this item
+                if (!$rollId) {
+                    $autoRoll = db_query(
+                        "SELECT id FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' ORDER BY received_at ASC LIMIT 1",
+                        'i', [$m['item_id']]
+                    );
+                    $rollId = $autoRoll[0]['id'] ?? null;
+                }
+
+                if ($rollId) {
+                    $lengthNeeded = $m['computed_required_length_ft'] ?: $m['quantity'];
+                    // Check if roll has enough — if not, split across available rolls
+                    $remaining = $lengthNeeded;
+                    $openRolls = db_query(
+                        "SELECT id, remaining_length_ft FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' ORDER BY received_at ASC",
+                        'i', [$m['item_id']]
+                    ) ?: [];
+                    foreach ($openRolls as $roll) {
+                        if ($remaining <= 0) break;
+                        $deductAmt = min($remaining, (float)$roll['remaining_length_ft']);
+                        if ($deductAmt <= 0) continue;
+                        RollService::deductFromRoll($roll['id'], $deductAmt, $orderId, null);
+                        $remaining -= $deductAmt;
+                    }
+                    // If any remainder couldn't be deducted from rolls, just record a ledger entry
+                    if ($remaining > 0) {
+                        InventoryManager::issueStock($m['item_id'], $remaining, 'ft', 'JOB_ORDER', $orderId, "Generic deduction for Job #{$orderId} (Rolls exhausted)", true, true);
+                    }
+                } else {
+                    // No rolls exist at all — record generic ledger entry only
+                    InventoryManager::issueStock($m['item_id'], $m['computed_required_length_ft'] ?: $m['quantity'], 'ft', 'JOB_ORDER', $orderId, "Generic deduction for Job #{$orderId} (No rolls in stock)", true, true);
+                }
+                db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
+            } else {
+                // Non-roll deduction — bypass stock check on job completion since we always record the deduction
+                InventoryManager::issueStock(
+                    $m['item_id'], 
+                    $m['quantity'], 
+                    $m['uom'], 
+                    'JOB_ORDER', 
+                    $orderId, 
+                    "Deducted for Job #{$orderId}",
+                    false, // not roll-tracked, so no roll check
+                    true // allow_negative_bypass
+                );
+                // Mark as deducted
+                db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
+            }
+        }
+    }
+
+    public static function getOrder($id) {
+        $sql = "SELECT jo.*, 
+                       c.customer_type, c.transaction_count,
+                       CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
+                       c.contact_number as customer_contact
+                FROM job_orders jo
+                LEFT JOIN customers c ON jo.customer_id = c.customer_id
+                WHERE jo.id = ?";
+        
+        $order = db_query($sql, 'i', [$id]);
+        if (!$order) return null;
+        $order = $order[0];
+        $order['materials'] = db_query(
+            "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
+                    (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
+             FROM job_order_materials m 
+             JOIN inv_items i ON m.item_id = i.id 
+             LEFT JOIN inv_rolls r ON m.roll_id = r.id 
+             WHERE m.job_order_id = ?", 
+            'i', [$id]
+        ) ?: [];
+
+        // Parse JSON metadata for each material
+        foreach ($order['materials'] as &$m) {
+            $m['metadata'] = $m['metadata'] ? json_decode($m['metadata'], true) : null;
+        }
+
+        $order['files'] = db_query(
+            "SELECT id, file_path, file_name, file_type, uploaded_at FROM job_order_files WHERE job_order_id = ?",
+            'i', [$id]
+        ) ?: [];
+
+        return $order;
+    }
+
+    /**
+     * Calculate required payment based on customer classification.
+     */
+    public static function calculateRequiredPayment($customerId, $totalAmount) {
+        if (!$customerId) return $totalAmount; // Walk-in is 100%
+
+        $res = db_query("SELECT customer_type FROM customers WHERE customer_id = ?", 'i', [$customerId]);
+        if (!$res) return $totalAmount;
+
+        $type = $res[0]['customer_type'];
+        if ($type === 'REGULAR') {
+            return $totalAmount * 0.5; // 50% for regulars
+        }
+        return $totalAmount; // 100% for new
+    }
+
+    /**
+     * Update customer stats and classification.
+     */
+    public static function updateCustomerStatus($customerId) {
+        // Increment count
+        db_execute("UPDATE customers SET transaction_count = transaction_count + 1 WHERE customer_id = ?", 'i', [$customerId]);
+        
+        // Check for upgrade
+        $res = db_query("SELECT transaction_count FROM customers WHERE customer_id = ?", 'i', [$customerId]);
+        if ($res && $res[0]['transaction_count'] >= 5) {
+            db_execute("UPDATE customers SET customer_type = 'REGULAR' WHERE customer_id = ?", 'i', [$customerId]);
+        }
+    }
+
+    /**
+     * Pause production for a job order.
+     */
+    public static function pauseProduction($orderId, $notes = '') {
+        $sql = "UPDATE job_orders SET status = 'PENDING', notes = CONCAT(IFNULL(notes, ''), '\n[PAUSED] ', ?) WHERE id = ?";
+        return db_execute($sql, 'si', [$notes, $orderId]);
+    }
+
+    /**
+     * Cancel a job order.
+     */
+    public static function cancelOrder($orderId, $reason = '') {
+        $sql = "UPDATE job_orders SET status = 'CANCELLED', notes = CONCAT(IFNULL(notes, ''), '\n[CANCELLED] ', ?) WHERE id = ?";
+        return db_execute($sql, 'si', [$reason, $orderId]);
+    }
+}

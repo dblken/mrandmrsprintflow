@@ -29,7 +29,11 @@ try {
                 "SELECT DATE_FORMAT(order_date, '%H:00') as label,
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
-                 FROM orders
+                 FROM (
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     UNION ALL
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                 ) combined
                  WHERE DATE(order_date) = CURDATE()
                  GROUP BY HOUR(order_date), DATE_FORMAT(order_date, '%H:00')
                  ORDER BY HOUR(order_date)"
@@ -42,7 +46,11 @@ try {
                 "SELECT DATE_FORMAT(order_date, '%a %d') as label,
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
-                 FROM orders
+                 FROM (
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     UNION ALL
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                 ) combined
                  WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
                  GROUP BY DATE(order_date), DATE_FORMAT(order_date, '%a %d')
                  ORDER BY DATE(order_date)"
@@ -53,7 +61,11 @@ try {
         case 'monthly':
             $rows = db_query(
                 "SELECT DATE(order_date) as dt, COALESCE(SUM(total_amount), 0) as revenue, COUNT(*) as orders
-                 FROM orders
+                 FROM (
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     UNION ALL
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                 ) combined
                  WHERE MONTH(order_date) = $month AND YEAR(order_date) = $year
                  GROUP BY DATE(order_date)
                  ORDER BY dt"
@@ -67,7 +79,11 @@ try {
                         DATE_FORMAT(order_date, '%b %Y') as label,
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
-                 FROM orders
+                 FROM (
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     UNION ALL
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                 ) combined
                  WHERE order_date >= DATE_SUB(CONCAT($year,'-',$month,'-01'), INTERVAL 5 MONTH)
                    AND order_date <= LAST_DAY(CONCAT($year,'-',$month,'-01'))
                  GROUP BY YEAR(order_date), MONTH(order_date), DATE_FORMAT(order_date, '%b %Y')
@@ -81,7 +97,11 @@ try {
                 "SELECT MONTH(order_date) as m, DATE_FORMAT(order_date, '%b') as label,
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
-                 FROM orders
+                 FROM (
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     UNION ALL
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                 ) combined
                  WHERE YEAR(order_date) = $year
                  GROUP BY MONTH(order_date), DATE_FORMAT(order_date, '%b')
                  ORDER BY m"
