@@ -34,6 +34,7 @@
     # Fallback: non-public paths -> public directory
     RewriteCond %{REQUEST_URI} !^/printflow/public/
     RewriteCond %{REQUEST_URI} !^/printflow/admin/
+    RewriteCond %{REQUEST_URI} !^/printflow/manager/
     RewriteCond %{REQUEST_URI} !^/printflow/staff/
     RewriteCond %{REQUEST_URI} !^/printflow/customer/
     RewriteCond %{REQUEST_URI} !^/printflow/uploads/

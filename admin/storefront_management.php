@@ -228,7 +228,7 @@ $page_title = 'Storefront Management - Admin';
             <div style="display:flex; gap:12px; align-items:center;">
                 <div class="search-box">
                     <form method="GET" style="display:flex; gap:10px;">
-                        <input type="text" name="search" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" class="input-field" style="width:200px; height:38px;">
+                        <input type="text" name="search" id="searchInput" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" class="input-field" style="width:200px; height:38px;">
                         <select name="stock" class="input-field" style="height:38px; width:150px;">
                             <option value="">All Stock</option>
                             <option value="low" <?php echo $filter_stock === 'low' ? 'selected' : ''; ?>>Low Stock (≤10)</option>
@@ -283,7 +283,9 @@ $page_title = 'Storefront Management - Admin';
                 </div>
 
                 <?php if (empty($products)): ?>
-                    <div style="padding:40px; text-align:center; color:#6b7280;">No products found.</div>
+                    <div id="emptyProductsMessage" style="padding:40px; text-align:center; color:#6b7280;">
+                        <?php echo $search ? 'No products found matching "' . htmlspecialchars($search) . '"' : 'No products found.'; ?>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($products as $product): ?>
                         <div class="product-card-row">
@@ -353,11 +355,59 @@ $page_title = 'Storefront Management - Admin';
                     <?php endforeach; ?>
                 <?php endif; ?>
                 
-                <?php echo render_pagination($page, $total_pages, array_filter(['search' => $search, 'stock' => $filter_stock])); ?>
+                <div id="storefrontPagination">
+                    <?php echo render_pagination($page, $total_pages, array_filter(['search' => $search, 'stock' => $filter_stock])); ?>
+                </div>
             </div>
         </main>
     </div>
 </div>
+
+<script>
+// Real-time Search for Storefront Management
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const productRows = document.querySelectorAll('.product-card-row');
+    const emptyMessage = document.getElementById('emptyProductsMessage');
+    const pagination = document.getElementById('storefrontPagination');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            let visibleCount = 0;
+            
+            productRows.forEach(row => {
+                const productText = row.textContent.toLowerCase();
+                
+                if (productText.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Handle empty state and pagination
+            if (searchTerm && visibleCount === 0) {
+                if (emptyMessage) {
+                    emptyMessage.textContent = `No products found matching "${e.target.value}"`;
+                    emptyMessage.style.display = 'block';
+                }
+                if (pagination) pagination.style.display = 'none';
+            } else if (visibleCount === 0 && !searchTerm) {
+                if (emptyMessage) {
+                    emptyMessage.textContent = 'No products found.';
+                    emptyMessage.style.display = 'block';
+                }
+                if (pagination) pagination.style.display = 'none';
+            } else {
+                if (emptyMessage) emptyMessage.style.display = 'none';
+                if (pagination) pagination.style.display = searchTerm ? 'none' : '';
+            }
+        });
+    }
+});
+</script>
 
 </body>
 </html>

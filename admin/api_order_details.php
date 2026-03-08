@@ -8,9 +8,14 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
-header('Content-Type: application/json');
+if (isset($_GET['customer_id'])) {
+    $cust_id = (int)$_GET['customer_id'];
+    $orders = db_query("SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? ORDER BY order_date DESC", "i", [$cust_id]) ?: [];
+    echo json_encode(['success' => true, 'data' => $orders]);
+    exit;
+}
 
 $order_id = (int)($_GET['id'] ?? 0);
 

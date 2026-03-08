@@ -84,14 +84,18 @@ class InventoryManager {
     }
 
     /**
-     * Issues stock for non-roll items (OUT).
+     * Issues stock (OUT).
+     * For roll-tracked items, uses FIFO deduction across rolls automatically.
+     * For non-roll items, records a simple OUT transaction.
      */
     public static function issueStock($itemId, $quantity, $uom = null, $refType = 'ADJUSTMENT', $refId = null, $notes = '', $ignoreRollCheck = false, $allowNegativeBypass = false) {
         $item = self::getItem($itemId);
         if (!$item) throw new Exception("Item not found.");
         
+        // For roll-tracked items, route through FIFO deduction
         if ($item['track_by_roll'] && !$ignoreRollCheck) {
-            throw new Exception("Use RollService::deductFromRoll for roll-tracked items.");
+            require_once __DIR__ . '/RollService.php';
+            return RollService::deductFIFO($itemId, $quantity, $refType, $refId, $notes);
         }
 
         $soh = self::getStockOnHand($itemId);

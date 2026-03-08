@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Customer Dashboard
  * PrintFlow - Printing Shop PWA
@@ -25,7 +25,7 @@ $processing_orders = $processing_orders_result[0]['count'] ?? 0;
 $ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Ready for Pickup'", 'i', [$customer_id]);
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
-// Get job orders requiring payment attention
+// Get customizations requiring payment attention
 $payment_attention_jobs = db_query("
     SELECT * FROM job_orders 
     WHERE customer_id = ? 
@@ -49,15 +49,18 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen py-8">
+<!-- Page Hero Banner -->
+<div style="background:#00151b;position:relative;overflow:hidden;padding:2.75rem 0 3.5rem;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:220px;background:radial-gradient(ellipse at center,rgba(50,161,196,0.18) 0%,rgba(83,197,224,0.06) 50%,transparent 75%);pointer-events:none;z-index:0;"></div>
+    <div class="container mx-auto px-4" style="max-width:1100px;position:relative;z-index:1;text-align:center;">
+        <p style="font-size:0.7rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.12em;margin:0 0 .6rem;">My Account</p>
+        <h1 style="font-size:clamp(1.75rem,3.5vw,2.75rem);font-weight:800;color:#fff;letter-spacing:-0.03em;margin:0 0 .75rem;line-height:1.1;">Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>!</h1>
+        <p style="font-size:0.9rem;color:rgba(255,255,255,0.45);max-width:480px;margin:0 auto;line-height:1.65;">Track your orders, manage your cart, and stay updated on all your print jobs.</p>
+    </div>
+</div>
+
+<div class="min-h-screen" style="background:#f5f9fa;padding-top:2.5rem;padding-bottom:3rem;">
     <div class="container mx-auto px-4" style="max-width:1100px;">
-
-        <!-- Welcome Banner -->
-        <div class="ct-welcome">
-            <h1>Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>!</h1>
-            <p>Track your orders and manage your account</p>
-        </div>
-
         <!-- Stats -->
         <div class="ct-stats">
             <div class="ct-stat-card yellow">
@@ -83,7 +86,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="mb-8 bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
             <div class="bg-red-50 border-b border-red-200 px-6 py-4 flex items-center gap-3">
                 <svg class="text-red-500 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <h2 class="text-red-800 font-bold text-lg m-0">Action Required: Custom Job Payments</h2>
+                <h2 class="text-red-800 font-bold text-lg m-0">Action Required: Customization Payments</h2>
             </div>
             <div class="divide-y divide-gray-100">
                 <?php foreach ($payment_attention_jobs as $job): ?>

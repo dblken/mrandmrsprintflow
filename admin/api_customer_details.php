@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 header('Content-Type: application/json');
 
@@ -27,11 +27,13 @@ try {
     $data = [
         'customer_id' => $c['customer_id'],
         'first_name' => $c['first_name'],
+        'middle_name' => $c['middle_name'] ?? '',
         'last_name' => $c['last_name'],
         'email' => $c['email'],
-        'phone' => $c['contact_number'] ?? 'N/A',
-        'address' => $c['address'] ?? 'N/A',
-        'created_at' => date('M j, Y g:i A', strtotime($c['created_at'])),
+        'contact_number' => $c['contact_number'] ?? '',
+        'dob' => $c['dob'] ? date('m/d/Y', strtotime($c['dob'])) : '',
+        'gender' => $c['gender'] ?? '',
+        'created_at' => date('M j, Y', strtotime($c['created_at'])),
         'initial' => strtoupper(substr($c['first_name'], 0, 1))
     ];
 

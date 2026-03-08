@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -20,11 +20,25 @@ try {
             $type = sanitize($_GET['type'] ?? '');
             $start_date = sanitize($_GET['start_date'] ?? '');
             $end_date = sanitize($_GET['end_date'] ?? '');
+            $sort = sanitize($_GET['sort'] ?? 'transaction_date');
+            $dir  = strtoupper(sanitize($_GET['dir'] ?? 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
             
-            $sql = "SELECT t.*, i.name as item_name, i.unit_of_measure as unit, CONCAT(u.first_name, ' ', u.last_name) as created_by_name
+            $sort_map = [
+                'id' => 't.id',
+                'transaction_date' => 't.transaction_date',
+                'item_name' => 'i.name',
+                'direction' => 't.direction',
+                'quantity' => 't.quantity'
+            ];
+            $orderBy = $sort_map[$sort] ?? 't.transaction_date';
+
+            $sql = "SELECT t.*, i.name as item_name, i.unit_of_measure as unit, 
+                           CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+                           r.roll_code as roll_code
                     FROM inventory_transactions t
                     JOIN inv_items i ON t.item_id = i.id
                     LEFT JOIN users u ON t.created_by = u.user_id
+                    LEFT JOIN inv_rolls r ON t.roll_id = r.id
                     WHERE 1=1";
             $params = [];
             $types = '';
@@ -51,7 +65,7 @@ try {
                 $types .= 'ss';
             }
             
-            $sql .= " ORDER BY t.transaction_date DESC, t.id DESC LIMIT 500";
+            $sql .= " ORDER BY $orderBy $dir, t.id DESC LIMIT 500";
             
             $transactions = db_query($sql, $types ?: null, $params ?: null) ?: [];
             
@@ -84,22 +98,33 @@ try {
                 // For IN transactions, use receiveStock to handle roll tracking logic
                 $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData);
                 $transactionId = 0; // receiveStock doesn't return the ID, but we can return success
+                $fifoResult = null;
             } else {
-                $transactionId = InventoryManager::recordTransaction(
-                    $item_id, 
-                    $direction, 
-                    $quantity, 
-                    $_POST['uom'] ?? null, 
-                    $type, 
-                    $ref_id, 
-                    null, 
-                    $notes, 
-                    $user['user_id'] ?? null,
-                    $date
+                // For OUT transactions, use issueStock which handles FIFO for roll items
+                $result = InventoryManager::issueStock(
+                    $item_id,
+                    $quantity,
+                    $_POST['uom'] ?? null,
+                    $type ?: 'ADJUSTMENT',
+                    $ref_id,
+                    $notes
                 );
+                
+                // issueStock returns an array of roll deductions for roll items, or a transaction ID for non-roll
+                if (is_array($result)) {
+                    $transactionId = 0;
+                    $fifoResult = $result;
+                } else {
+                    $transactionId = $result;
+                    $fifoResult = null;
+                }
             }
             
-            echo json_encode(['success' => true, 'transaction_id' => $transactionId]);
+            $response = ['success' => true, 'transaction_id' => $transactionId];
+            if ($fifoResult) {
+                $response['fifo_deductions'] = $fifoResult;
+            }
+            echo json_encode($response);
             break;
 
         case 'get_current_stock':

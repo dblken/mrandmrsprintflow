@@ -8,7 +8,7 @@
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 header('Content-Type: application/json');
 

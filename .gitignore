@@ -1,0 +1,126 @@
+# PrintFlow - Git Ignore File
+# Prevents unnecessary files from being tracked in version control
+
+# ===========================================
+# Composer Dependencies
+# ===========================================
+/vendor/
+composer.phar
+
+# ===========================================
+# Node Modules (if NPM is used)
+# ===========================================
+/node_modules/
+npm-debug.log
+yarn-error.log
+
+# ===========================================
+# IDE & Editor Settings
+# ===========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===========================================
+# Build & Compiled Files
+# ===========================================
+/public/assets/css/output.css.map
+*.min.js.map
+*.min.css.map
+
+# ===========================================
+# Temporary & Cache Files
+# ===========================================
+/tmp/*
+!/tmp/.gitkeep
+*.cache
+*.log
+*.tmp
+
+# ===========================================
+# Uploaded Files (keep folder, ignore contents)
+# ===========================================
+/uploads/*
+!/uploads/.gitkeep
+
+# ===========================================
+# Test & Diagnostic Files
+# ===========================================
+test_*.php
+diag_*.php
+check_*.php
+get_*_schema.php
+list_tables.php
+repro_*.php
+
+# ===========================================
+# Troubleshooting Documentation
+# ===========================================
+FIX_*.md
+FOUND_*.md
+ROOT_CAUSE*.md
+TROUBLESHOOTING*.md
+
+# ===========================================
+# Backup & Archive Files
+# ===========================================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.sql.bak
+*.session.sql
+
+# ===========================================
+# Database Dumps (except schema)
+# ===========================================
+*.sql
+!printflow.sql
+!database/*.sql
+
+# ===========================================
+# Environment & Configuration
+# ===========================================
+.env
+.env.local
+.env.*.local
+config.local.php
+
+# ===========================================
+# Docker (if not using)
+# ===========================================
+Dockerfile/
+docker-compose.override.yml
+
+# ===========================================
+# OS & System Files
+# ===========================================
+Thumbs.db
+Desktop.ini
+.DS_Store
+._*
+
+# ===========================================
+# Project Specific
+# ===========================================
+/printflow/
+STRUCTURE.txt
+SAMPLE_DATA.txt
+HOW_TO_ACCESS.md
+
+# ===========================================
+# Keep These Files
+# ===========================================
+# composer.json
+# composer.lock
+# package.json
+# package-lock.json
+# tailwind.config.js
+# postcss.config.js
+# README.md
+# QUICKSTART.md
+# SETUP_CHECKLIST.md
+# FILE_STRUCTURE.md

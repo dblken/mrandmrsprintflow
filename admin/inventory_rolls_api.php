@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/RollService.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -16,9 +16,31 @@ try {
     switch ($action) {
         case 'list_rolls':
             $itemId = (int)($_GET['item_id'] ?? 0);
-            if (!$itemId) throw new Exception("Item ID required.");
-            $rolls = RollService::getAvailableRolls($itemId);
-            echo json_encode(['success' => true, 'data' => $rolls]);
+            $status = sanitize($_GET['status'] ?? '');
+
+            $where = ['1=1'];
+            $types = '';
+            $params = [];
+
+            if ($itemId) {
+                $where[] = 'r.item_id = ?';
+                $types .= 'i';
+                $params[] = $itemId;
+            }
+            if ($status !== '') {
+                $where[] = 'r.status = ?';
+                $types .= 's';
+                $params[] = $status;
+            }
+
+            $sql = "SELECT r.*, i.name AS item_name
+                    FROM inv_rolls r
+                    JOIN inv_items i ON i.id = r.item_id
+                    WHERE " . implode(' AND ', $where) . "
+                    ORDER BY r.status ASC, r.received_at ASC";
+
+            $rolls = $types ? db_query($sql, $types, $params) : db_query($sql);
+            echo json_encode(['success' => true, 'data' => $rolls ?: []]);
             break;
 
         case 'add_roll':

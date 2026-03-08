@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Customer: Order Confirmation
  * Displays success message and order summary after submission.
@@ -29,7 +29,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
             <h1 class="ct-page-title mb-2">Order Received!</h1>
-            <p class="text-gray-500">Your job order has been successfully submitted and is now awaiting verification by our staff.</p>
+            <p class="text-gray-500">Your customization has been successfully submitted and is now awaiting verification by our staff.</p>
         </div>
 
         <div class="ct-card border-2 border-dashed border-indigo-100 bg-white shadow-xl shadow-indigo-50/50 mb-8 overflow-hidden">

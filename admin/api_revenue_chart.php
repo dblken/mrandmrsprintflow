@@ -22,6 +22,12 @@ $period = $_GET['period'] ?? 'monthly';
 $year   = max(2020, min(2030, (int)($_GET['year'] ?? date('Y'))));
 $month  = max(1, min(12, (int)($_GET['month'] ?? date('n'))));
 
+// Branch filter — safe integer cast prevents SQL injection
+$branch_raw   = $_GET['branch_id'] ?? 'all';
+$branch_int   = ($branch_raw !== 'all' && ctype_digit((string)$branch_raw)) ? (int)$branch_raw : null;
+$oFilter      = $branch_int ? " AND branch_id = $branch_int" : '';   // for orders table
+$jFilter      = $branch_int ? " AND branch_id = $branch_int" : '';   // for job_orders table
+
 try {
     switch ($period) {
         case 'today':
@@ -30,9 +36,9 @@ try {
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
                  FROM (
-                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'$oFilter
                      UNION ALL
-                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'$jFilter
                  ) combined
                  WHERE DATE(order_date) = CURDATE()
                  GROUP BY HOUR(order_date), DATE_FORMAT(order_date, '%H:00')
@@ -47,9 +53,9 @@ try {
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
                  FROM (
-                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'$oFilter
                      UNION ALL
-                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'$jFilter
                  ) combined
                  WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
                  GROUP BY DATE(order_date), DATE_FORMAT(order_date, '%a %d')
@@ -62,9 +68,9 @@ try {
             $rows = db_query(
                 "SELECT DATE(order_date) as dt, COALESCE(SUM(total_amount), 0) as revenue, COUNT(*) as orders
                  FROM (
-                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'$oFilter
                      UNION ALL
-                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'$jFilter
                  ) combined
                  WHERE MONTH(order_date) = $month AND YEAR(order_date) = $year
                  GROUP BY DATE(order_date)
@@ -80,9 +86,9 @@ try {
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
                  FROM (
-                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'$oFilter
                      UNION ALL
-                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'$jFilter
                  ) combined
                  WHERE order_date >= DATE_SUB(CONCAT($year,'-',$month,'-01'), INTERVAL 5 MONTH)
                    AND order_date <= LAST_DAY(CONCAT($year,'-',$month,'-01'))
@@ -98,9 +104,9 @@ try {
                         COALESCE(SUM(total_amount), 0) as revenue,
                         COUNT(*) as orders
                  FROM (
-                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'
+                     SELECT order_date, total_amount FROM orders WHERE payment_status = 'Paid'$oFilter
                      UNION ALL
-                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'
+                     SELECT created_at as order_date, amount_paid as total_amount FROM job_orders WHERE payment_status = 'PAID'$jFilter
                  ) combined
                  WHERE YEAR(order_date) = $year
                  GROUP BY MONTH(order_date), DATE_FORMAT(order_date, '%b')

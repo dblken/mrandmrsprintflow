@@ -8,7 +8,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
 
@@ -90,25 +90,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 }
 
 // Get all products
-$page = max(1, (int)($_GET['page'] ?? 1));
+$page     = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
-$search = trim($_GET['search'] ?? '');
+$search   = trim($_GET['search'] ?? '');
+$cat_filter    = $_GET['category'] ?? '';
+$status_filter = $_GET['status'] ?? '';
+$sort     = $_GET['sort'] ?? 'product_id';
+$dir      = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+
+$sort_cols = ['product_id','name','sku','category','price','stock_quantity','status'];
+$sort = in_array($sort, $sort_cols) ? $sort : 'product_id';
+
+$sql    = "SELECT * FROM products WHERE 1=1";
+$params = []; $types = '';
+
 if ($search) {
-    $like = '%' . $search . '%';
-    $total_products = db_query("SELECT COUNT(*) as total FROM products WHERE name LIKE ? OR sku LIKE ?", 'ss', [$like, $like])[0]['total'] ?? 0;
-} else {
-    $total_products = db_query("SELECT COUNT(*) as total FROM products")[0]['total'] ?? 0;
+    $like = '%'.$search.'%';
+    $sql .= " AND (name LIKE ? OR sku LIKE ?)";
+    $params = array_merge($params, [$like, $like]);
+    $types .= 'ss';
 }
+if ($cat_filter) {
+    $sql .= " AND category = ?";
+    $params[] = $cat_filter;
+    $types .= 's';
+}
+if ($status_filter) {
+    $sql .= " AND status = ?";
+    $params[] = $status_filter;
+    $types .= 's';
+}
+
+$count_sql = str_replace('SELECT *', 'SELECT COUNT(*) as total', $sql);
+$total_products = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
 $total_pages = max(1, ceil($total_products / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-if ($search) {
-    $like = '%' . $search . '%';
-    $products = db_query("SELECT * FROM products WHERE name LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT $per_page OFFSET $offset", 'ss', [$like, $like]);
-} else {
-    $products = db_query("SELECT * FROM products ORDER BY created_at DESC LIMIT $per_page OFFSET $offset");
-}
+$sql .= " ORDER BY $sort $dir LIMIT $per_page OFFSET $offset";
+$products = db_query($sql, $types ?: null, $params ?: null) ?: [];
 
 $page_title = 'Products Management - Admin';
 
@@ -117,6 +137,16 @@ $stat_total      = db_query("SELECT COUNT(*) as c FROM products")[0]['c'] ?? 0;
 $stat_active     = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
 $stat_inactive   = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
 $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quantity < 10")[0]['c'] ?? 0;
+
+// Distinct categories for filter
+$categories = db_query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC") ?: [];
+
+// Sort helpers
+$build_sort_url = function(string $col) use ($sort, $dir, $search, $cat_filter, $status_filter): string {
+    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$search,'category'=>$cat_filter,'status'=>$status_filter]);
+    return '?'.http_build_query($p);
+};
+$sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'):'';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -163,13 +193,7 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
         .kpi-value { font-size:26px; font-weight:800; color:#1f2937; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
 
-        /* Search bar inside card */
-        .table-toolbar { display:flex; align-items:center; justify-content:space-between; padding:14px 0 16px; border-bottom:1px solid #f3f4f6; margin-bottom:0; gap:12px; flex-wrap:wrap; }
-        .search-wrap { position:relative; flex:1; max-width:380px; }
-        .search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:#9ca3af; pointer-events:none; }
-        .search-wrap input { width:100%; padding:8px 12px 8px 36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#fafafa; outline:none; box-sizing:border-box; transition:border-color .15s; }
-        .search-wrap input:focus { border-color:#6366f1; background:#fff; }
-        .search-actions { display:flex; gap:8px; }
+
 
         /* Modal styles */
         #product-modal-overlay {
@@ -280,15 +304,12 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
 
 <div class="dashboard-container">
     <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
         <header>
             <h1 class="page-title">Products Management</h1>
-            <button onclick="openProductModal('create')" class="btn-primary">
-                + Add New Product
-            </button>
         </header>
 
         <main>
@@ -329,15 +350,28 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
 
             <!-- Products Table with Search -->
             <div class="card">
-                <div class="table-toolbar">
-                    <form method="GET" style="display:contents;">
-                        <div class="search-wrap">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
-                            <input type="text" name="search" placeholder="Search by name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
-                        </div>
-                        <div class="search-actions">
-                            <button type="submit" class="btn-action blue" style="min-width:unset;">Search</button>
-                            <?php if ($search): ?><a href="?" class="btn-action" style="min-width:unset;border-color:#e5e7eb;color:#6b7280;">Clear</a><?php endif; ?>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
+                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;"><?php echo $total_products; ?></strong> products</span>
+                    
+                    <form method="GET" id="filterForm" style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
+                        <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
+                        <button class="btn-action blue" type="button" onclick="openProductModal('create')" style="min-width:unset;">Add Product</button>
+                        <select name="category" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
+                            <option value="">Category: All</option>
+                            <?php foreach($categories as $cat): ?>
+                                <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $cat_filter===$cat['category']?'selected':''; ?>><?php echo htmlspecialchars($cat['category']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <select name="status" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
+                            <option value="">Status: All</option>
+                            <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
+                            <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                        </select>
+                        <div style="position:relative; flex-shrink:0;">
+                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" name="search" id="searchInput" placeholder="Search by name or SKU..." value="<?php echo htmlspecialchars($search); ?>"
+                                   style="padding-left:32px; width:200px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
                         </div>
                     </form>
                 </div>
@@ -345,24 +379,29 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b-2">
-                                <th class="text-left py-3">ID</th>
-                                <th class="text-left py-3">SKU</th>
-                                <th class="text-left py-3">Name</th>
-                                <th class="text-left py-3">Category</th>
-                                <th class="text-left py-3">Price</th>
-                                <th class="text-left py-3">Stock</th>
-                                <th class="text-left py-3">Status</th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('product_id'); ?>" style="text-decoration:none;color:inherit;">ID<?php echo $sort_icon('product_id'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('sku'); ?>" style="text-decoration:none;color:inherit;">SKU<?php echo $sort_icon('sku'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('name'); ?>" style="text-decoration:none;color:inherit;">Name<?php echo $sort_icon('name'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('category'); ?>" style="text-decoration:none;color:inherit;">Category<?php echo $sort_icon('category'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('price'); ?>" style="text-decoration:none;color:inherit;">Price<?php echo $sort_icon('price'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('stock_quantity'); ?>" style="text-decoration:none;color:inherit;">Stock<?php echo $sort_icon('stock_quantity'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('status'); ?>" style="text-decoration:none;color:inherit;">Status<?php echo $sort_icon('status'); ?></a></th>
                                 <th class="text-right py-3">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="productsTableBody">
                             <?php if (empty($products)): ?>
-                                <tr>
+                                <tr id="emptyProductsRow">
                                     <td colspan="8" class="py-8 text-center text-gray-500">
                                         <?php echo $search ? 'No products found matching "' . htmlspecialchars($search) . '"' : 'No products yet.'; ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
+                                <tr id="emptyProductsRow" style="display:none;">
+                                    <td colspan="8" class="py-8 text-center text-gray-500">
+                                        No products yet.
+                                    </td>
+                                </tr>
                                 <?php foreach ($products as $product): ?>
                                     <tr class="border-b hover:bg-gray-50">
                                         <td class="py-3"><?php echo $product['product_id']; ?></td>
@@ -377,7 +416,18 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
                                                 <span><?php echo $product['stock_quantity']; ?></span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="py-3"><?php echo status_badge($product['status'], 'order'); ?></td>
+                                        <td class="py-3">
+                                            <?php
+                                                $sc = match($product['status']) {
+                                                    'Activated'   => 'background:#dcfce7;color:#166534;',
+                                                    'Deactivated' => 'background:#fee2e2;color:#991b1b;',
+                                                    default       => 'background:#fef9c3;color:#854d0e;'
+                                                };
+                                            ?>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
+                                                <?php echo $product['status']; ?>
+                                            </span>
+                                        </td>
                                         <td class="py-3 text-right" style="white-space:nowrap;">
                                             <a href="/printflow/admin/product_variants.php?product_id=<?php echo $product['product_id']; ?>"
                                                class="btn-action teal">Manage Variants</a>
@@ -397,7 +447,12 @@ $stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quan
                         </tbody>
                     </table>
                 </div>
-                <?php echo render_pagination($page, $total_pages, $search ? ['search' => $search] : []); ?>
+                <div id="productsPagination">
+                    <?php
+                    $pagination_params = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir]);
+                    echo render_pagination($page, $total_pages, $pagination_params);
+                    ?>
+                </div>
             </div>
         </main>
     </div>
@@ -531,6 +586,9 @@ function handleOverlayClick(event) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeProductModal();
 });
+
+// Search and filtering now handled server-side.
+
 </script>
 
 </body>

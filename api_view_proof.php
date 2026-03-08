@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Protected Payment Proof Viewer
  * Serves files from outside direct web access
@@ -32,7 +32,7 @@ if (!file_exists($filepath)) {
 // 1. Is it Admin or Staff?
 $is_staff = isset($_SESSION['user_type']) && in_array($_SESSION['user_type'], ['Admin', 'Staff']);
 
-// 2. If Customer, do they own the job order associated with this file?
+// 2. If Customer, do they own the customization associated with this file?
 $is_owner = false;
 if (!$is_staff && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Customer') {
     $customer_id = $_SESSION['user_id'];

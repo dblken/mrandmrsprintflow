@@ -1,14 +1,14 @@
 <?php
 /**
- * Customer: New Job Order (Refined Version)
+ * Customer: New Customization (Refined Version)
  * Modern, single-page ordering interface with real-time validation.
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/ServiceAvailabilityChecker.php';
 
-require_role(['Customer', 'Staff', 'Admin']);
-$page_title = 'Create New Job - PrintFlow';
+require_role(['Customer', 'Staff', 'Admin', 'Manager']);
+$page_title = 'New Customization - PrintFlow';
 $availableServices = ServiceAvailabilityChecker::getAvailableServices();
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php'; 
@@ -62,6 +62,25 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 <?php endif; ?>
 
+                <!-- Branch Selection (Visible only for Customers) -->
+                <?php if ($_SESSION['user_type'] === 'Customer'): ?>
+                <div class="ct-card border-l-4 border-amber-500">
+                    <h2 class="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Select Branch</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <?php 
+                        $branches = db_query("SELECT id, branch_name, address FROM branches WHERE status = 'Active'");
+                        foreach($branches as $b): ?>
+                            <label class="relative flex flex-col p-4 border-2 rounded-2xl cursor-pointer transition-all hover:bg-amber-50"
+                                   :class="form.branch_id == <?php echo $b['id']; ?> ? 'border-amber-500 bg-amber-50' : 'border-gray-100'">
+                                <input type="radio" name="branch" class="hidden" @change="form.branch_id = <?php echo $b['id']; ?>" :checked="form.branch_id == <?php echo $b['id']; ?>">
+                                <span class="text-sm font-bold text-gray-800"><?php echo htmlspecialchars($b['branch_name']); ?></span>
+                                <span class="text-[10px] text-gray-500 mt-1"><?php echo htmlspecialchars($b['address']); ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- 2. Service Selection -->
                 <div class="ct-card">
                     <h2 class="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">1. Choose Service</h2>
@@ -77,14 +96,14 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
 
-                <!-- 3. Job Specifications -->
+                <!-- 3. Customization Specifications -->
                 <div class="ct-card" x-show="form.service_type">
                     <h2 class="text-sm font-black text-gray-400 uppercase tracking-widest mb-6" x-text="'2. Configure ' + form.service_type"></h2>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-6">
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Internal Job Title (Optional)</label>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Internal Title (Optional)</label>
                                 <input type="text" x-model="form.job_title" placeholder="Project Name, Client Ref..." class="input-field w-full">
                             </div>
 
@@ -231,13 +250,13 @@ require_once __DIR__ . '/../includes/header.php';
                         <button @click="submitOrder" 
                                 :disabled="!isFormValid || submitting"
                                 class="w-full mt-8 py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-30 disabled:grayscale disabled:pointer-events-none">
-                            <span x-show="!submitting">Submit Job Order</span>
+                            <span x-show="!submitting">Submit Customization</span>
                             <span x-show="submitting">Processing...</span>
                         </button>
                     </div>
 
                     <div class="p-5 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-                        <div class="text-amber-500 text-xl">💡</div>
+                        <div class="text-amber-500 text-xl">??</div>
                         <p class="text-[11px] text-amber-700 leading-relaxed">
                             <strong>Note:</strong> Pricing shown is an estimate. Staff will verify your specs and finalize the final billing upon order approval.
                         </p>
@@ -262,6 +281,7 @@ require_once __DIR__ . '/../includes/header.php';
 
             form: {
                 customer_id: null,
+                branch_id: <?php echo ($_SESSION['user_type'] !== 'Customer') ? (int)($_SESSION['branch_id'] ?? 1) : 'null'; ?>,
                 service_type: '',
                 job_title: '',
                 width: 0,
@@ -293,14 +313,14 @@ require_once __DIR__ . '/../includes/header.php';
 
             getServiceIcon(svc) {
                 const icons = {
-                    'Tarpaulin Printing': '🖼️',
-                    'T-shirt Printing': '👕',
-                    'Decals/Stickers (Print/Cut)': '🏷️',
-                    'Transparent Stickers': '✨',
-                    'Layouts': '🎨',
-                    'Souvenirs': '🎁'
+                    'Tarpaulin Printing': '???',
+                    'T-shirt Printing': '??',
+                    'Decals/Stickers (Print/Cut)': '???',
+                    'Transparent Stickers': '?',
+                    'Layouts': '??',
+                    'Souvenirs': '??'
                 };
-                return icons[svc] || '📦';
+                return icons[svc] || '??';
             },
 
             get isRollBased() {
@@ -334,6 +354,7 @@ require_once __DIR__ . '/../includes/header.php';
             },
 
             get isFormValid() {
+                if(!this.form.branch_id) return false;
                 if(!this.form.service_type) return false;
                 if(this.isRollBased && (this.form.width <= 0 || this.form.height <= 0)) return false;
                 if(this.form.quantity <= 0) return false;
@@ -392,6 +413,7 @@ require_once __DIR__ . '/../includes/header.php';
                 const fd = new FormData();
                 fd.append('action', 'create_order');
                 fd.append('service_type', this.form.service_type);
+                fd.append('branch_id', this.form.branch_id);
                 fd.append('job_title', this.form.job_title);
                 fd.append('width_ft', this.form.width);
                 fd.append('height_ft', this.form.height);

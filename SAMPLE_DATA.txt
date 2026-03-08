@@ -1,2 +1,0 @@
-# Login with your new credentials!
-# Make sure to create the admin user first in the database

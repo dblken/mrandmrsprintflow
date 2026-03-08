@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 
-require_role(['Staff', 'Customer']); // Allow both for order creation/tracking
+require_role(['Admin', 'Staff', 'Customer']); // Allow Admin (read), Staff (manage), Customer (create/track)
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -25,7 +25,22 @@ try {
                 $sql .= " AND jo.status = ?";
                 $params[] = $status; $types .= 's';
             }
-            $sql .= " ORDER BY jo.priority = 'HIGH' DESC, jo.due_date ASC, jo.created_at DESC";
+            if (isset($_GET['customer_id'])) {
+                $sql .= " AND jo.customer_id = ?";
+                $params[] = (int)$_GET['customer_id']; $types .= 'i';
+            }
+            
+            // Pagination for customer-specific requests
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $per_page = isset($_GET['customer_id']) ? 10 : 50; // Limit to 10 for customer profile
+            $offset = ($page - 1) * $per_page;
+            
+            // Get total count for pagination
+            $count_sql = str_replace('SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count FROM', 'SELECT COUNT(*) as total FROM', $sql);
+            $total_count = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
+            
+            $sql .= " ORDER BY jo.priority = 'HIGH' DESC, jo.due_date ASC, jo.created_at DESC LIMIT ? OFFSET ?";
+            $params[] = $per_page; $params[] = $offset; $types .= 'ii';
             $orders = db_query($sql, $types ?: null, $params ?: null) ?: [];
             
             // Enrich with readiness and cost
@@ -34,7 +49,17 @@ try {
                 $jo['estimated_cost'] = JobOrderService::calculateJobCost($jo['id']);
             }
             
-            echo json_encode(['success' => true, 'data' => $orders]);
+            $response = ['success' => true, 'data' => $orders];
+            if (isset($_GET['customer_id'])) {
+                $response['pagination'] = [
+                    'current_page' => $page,
+                    'total_pages' => max(1, ceil($total_count / $per_page)),
+                    'total_items' => $total_count,
+                    'per_page' => $per_page
+                ];
+            }
+            
+            echo json_encode($response);
             break;
 
         case 'list_machines':
@@ -167,6 +192,16 @@ try {
             $jomId = (int)($_POST['id'] ?? 0);
             if (!$jomId) throw new Exception("ID required.");
             $res = JobOrderService::removeMaterial($jomId);
+            echo json_encode(['success' => $res]);
+            break;
+
+        case 'save_ink_usage':
+            $orderId = (int)($_POST['order_id'] ?? 0);
+            $inkDataSrc = $_POST['ink_data'] ?? '[]';
+            $inkData = json_decode($inkDataSrc, true);
+            if (!$orderId) throw new Exception("Order ID required.");
+            
+            $res = JobOrderService::saveInkUsage($orderId, $inkData);
             echo json_encode(['success' => $res]);
             break;
 

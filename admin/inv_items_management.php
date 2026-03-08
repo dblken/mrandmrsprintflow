@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 $page_title = 'Inventory Items - Admin';
 
 // Get categories for filters/forms
@@ -30,36 +30,47 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
         .header-actions { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; padding: 24px; background: var(--glass-bg); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .filter-group { display: flex; flex-direction: column; gap: 6px; }
-        .filter-group label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; letter-spacing: 0.025em; }
+        .filter-group label { font-size: 11px; font-weight: 700; text-transform: capitalize; color: #6b7280; letter-spacing: 0.025em; }
         .filter-group input, .filter-group select { padding: 10px 16px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 14px; transition: all 0.2s; background: #fff; }
         .filter-group input:focus, .filter-group select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
         
-        .inv-table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent; }
-        .inv-table th { background: #f9fafb; padding: 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #4b5563; text-align: left; border-bottom: 2px solid #e5e7eb; letter-spacing: 0.05em; }
-        .inv-table td { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #1f2937; transition: all 0.2s; }
-        .inv-table tr { cursor: pointer; transition: all 0.2s; }
-        .inv-table tr:hover td { background: #f5f7ff; }
-        .inv-table tr:last-child td:first-child { border-bottom-left-radius: 12px; }
-        .inv-table tr:last-child td:last-child { border-bottom-right-radius: 12px; }
+        .inv-table { width: 100%; border-collapse: collapse; }
+        .inv-table th { background: #f9fafb; padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: capitalize; color: #4b5563; text-align: left; border-bottom: 2px solid #e5e7eb; letter-spacing: 0.05em; }
+        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #1f2937; vertical-align: middle; }
+        .inv-table tr:hover td { background: #f9fafb; }
         
-        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.025em; }
-        .badge-green { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-        .badge-red { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-        .badge-gray { background: #f9fafb; color: #4b5563; border: 1px solid #e5e7eb; }
-        .badge-indigo { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+        .badge-green { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+        .badge-red { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+        .badge-gray { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+        .badge-indigo { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
         
-        .stock-val { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 16px; }
-        .btn-action { padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.025em; }
+        .stock-val { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+        .btn-action {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 5px 12px; min-width: 80px; border: 1px solid transparent;
+            background: transparent; border-radius: 6px; font-size: 12px;
+            font-weight: 500; transition: all 0.2s; cursor: pointer;
+            text-decoration: none; white-space: nowrap; height: 32px;
+        }
+        .btn-action.teal { color: #14b8a6; border-color: #14b8a6; }
+        .btn-action.teal:hover { background: #14b8a6; color: white; }
+        .btn-action.blue { color: #3b82f6; border-color: #3b82f6; }
+        .btn-action.blue:hover { background: #3b82f6; color: white; }
+        .btn-action.red { color: #ef4444; border-color: #ef4444; }
+        .btn-action.red:hover { background: #ef4444; color: white; }
+
+        /* Legacy support for page-specific coloring if needed */
         .btn-edit { color: #4f46e5; background: #eef2ff; border: 1px solid #e0e7ff; }
         .btn-edit:hover { background: #6366f1; color: #fff; transform: translateY(-1px); }
         
         /* Modals */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.7); z-index: 100000; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; backdrop-filter: blur(8px); animation: fadeIn 0.3s ease; }
-        .modal-content { background: #fff; border-radius: 20px; width: 100%; max-width: 550px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); position: relative; z-index: 100001; pointer-events: auto; transform: translateZ(0); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; animation: fadeIn 0.3s ease; }
+        .modal-content { background: #fff; border-radius: 12px; width: 95%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); position: relative; z-index: 1001; pointer-events: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .modal-title { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.01em; }
-        .close-btn { background: #f3f4f6; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; padding: 6px; line-height: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .close-btn:hover { background: #fee2e2; color: #ef4444; }
+        .modal-title { font-size: 18px; font-weight: 700; color: #111827; }
+        .close-btn { background: none; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .close-btn:hover { color: #374151; }
         
         .modal input, .modal select, .modal textarea { pointer-events: auto !important; position: relative; z-index: 100002; }
         
@@ -71,10 +82,10 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         .modal label { margin-bottom: 8px; display: block; font-weight: 700; color: #374151; font-size: 13px; }
 
         /* Premium Stock Card Modal */
-        #stockCardModal .modal-content { max-width: 800px; }
+        #stockCardModal .modal-content, #itemModal .modal-content { max-width: 850px; }
         .stock-card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
         .kpi-mini-card { padding: 16px; border-radius: 16px; background: #f9fafb; border: 1px solid #e5e7eb; }
-        .kpi-mini-card .label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; }
+        .kpi-mini-card .label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: capitalize; margin-bottom: 2px; }
         .kpi-mini-card .value { font-size: 20px; font-weight: 800; color: #1f2937; }
         
         .roll-list-table { width: 100%; margin-top: 24px; font-size: 13px; }
@@ -89,10 +100,10 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <div class="main-content">
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+        <header>
             <div>
                 <h1 class="page-title" style="margin-bottom: 4px;">Inventory Master V2</h1>
                 <p style="font-size: 14px; color: #6b7280;">Centralized material tracking with individual roll management.</p>
@@ -110,16 +121,18 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         </header>
 
         <main>
-            <!-- Filters & Actions -->
-            <div class="header-actions">
-                <div style="display: flex; gap: 20px; flex-wrap: wrap; flex: 1;">
-                    <div class="filter-group">
-                        <label>Quick Search</label>
-                        <input type="text" id="filterSearch" placeholder="Name, SKU, or Keyword..." style="width: 300px;">
-                    </div>
-                    <div class="filter-group">
-                        <label>Category</label>
-                        <select id="filterCategory" style="min-width: 180px;">
+            <!-- Items Card -->
+            <div class="card">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
+                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items</span>
+                    
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <button class="btn-action blue" onclick="openModal('create')" style="min-width:unset;">Add Item</button>
+                        <div style="position:relative; flex-shrink:0;">
+                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            <input type="text" id="filterSearch" placeholder="Search by name..." value="" style="padding-left:32px; width:200px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
+                        </div>
+                        <select id="filterCategory" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 10px; color:#374151; width:auto;">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
@@ -127,33 +140,26 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                         </select>
                     </div>
                 </div>
-                <div>
-                    <button onclick="openModal('create')" class="btn-primary" style="height: 48px; border-radius: 12px; padding: 0 24px; display:inline-flex; align-items:center; gap:8px;">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Add New Item
-                    </button>
-                </div>
-            </div>
 
-            <!-- Items Table -->
-            <div class="card" style="padding: 0; overflow: hidden; border-radius: 16px; border: 1px solid #e5e7eb;">
-                <table class="inv-table">
-                    <thead>
-                        <tr>
-                            <th>SKU</th>
-                            <th>Material Name</th>
-                            <th>Category</th>
-                            <th>Tracking</th>
-                            <th>Unit Cost</th>
-                            <th>Stock Level</th>
-                            <th>UOM</th>
-                            <th style="text-align:right;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="itemsTableBody">
-                        <tr><td colspan="9" style="text-align:center; padding: 60px; color:#9ca3af; font-size: 15px;">Scanning inventory...</td></tr>
-                    </tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b-2">
+                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('name')">Material Name <span id="sort-name"></span></th>
+                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('category_name')">Category <span id="sort-category_name"></span></th>
+                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('track_by_roll')">Tracking <span id="sort-track_by_roll"></span></th>
+                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('unit_cost')">Unit Cost <span id="sort-unit_cost"></span></th>
+                                <th class="text-left py-3">Stock Level</th>
+                                <th class="text-left py-3">UOM</th>
+                                <th class="text-right py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody">
+                            <tr><td colspan="7" class="py-8 text-center text-gray-500">Scanning inventory...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="itemsPagination"></div>
             </div>
         </main>
     </div>
@@ -161,7 +167,7 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
 <!-- Add Stock Modal -->
 <div id="addStockModal" class="modal">
-    <div class="modal-content" style="max-width:420px;">
+    <div class="modal-content" style="max-width:450px;">
         <div class="modal-header">
             <div>
                 <h3 class="modal-title">Add Stock Entry</h3>
@@ -202,7 +208,6 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         <div class="modal-header">
             <div>
                 <h3 class="modal-title" id="scName">Item Name</h3>
-                <p style="font-size:13px; color:#6b7280; font-family:monospace;" id="scSku">#SKU-000</p>
             </div>
             <button class="close-btn" onclick="closeStockCard()">×</button>
         </div>
@@ -286,12 +291,7 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             <div class="form-grid">
                 <div class="form-group full">
                     <label for="itemName">Item Name *</label>
-                    <input type="text" id="itemName" name="name" required placeholder="e.g. 3FT Tarpaulin Gloss" oninput="suggestSku(this.value)">
-                </div>
-                
-                <div class="filter-group">
-                    <label for="itemSku">SKU / Code</label>
-                    <input type="text" id="itemSku" name="sku" placeholder="AUTO-GEN">
+                    <input type="text" id="itemName" name="name" required placeholder="e.g. 3FT Tarpaulin Gloss">
                 </div>
                 
                 <div class="filter-group">
@@ -368,18 +368,23 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     let currentItems = [];
     let usageChart = null;
     let selectedItemForStockCard = null;
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let currentSort = 'name';
+    let currentDir = 'ASC';
 
     async function loadItems() {
         const catId = document.getElementById('filterCategory').value;
         const search = document.getElementById('filterSearch').value;
         
         try {
-            const res = await fetch(`inventory_items_api.php?action=get_items&category_id=${catId}&search=${encodeURIComponent(search)}`);
+            const res = await fetch(`inventory_items_api.php?action=get_items&category_id=${catId}&search=${encodeURIComponent(search)}&sort=${currentSort}&dir=${currentDir}`);
             const data = await res.json();
             
             if (data.success) {
                 currentItems = data.data;
                 renderItems(currentItems);
+                updateSortIcons();
             }
         } catch (e) {
             console.error(e);
@@ -389,59 +394,135 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
     function renderItems(items) {
         const tbody = document.getElementById('itemsTableBody');
-        if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 60px; color:#6b7280; font-size: 15px;">No inventory matching the filter.</td></tr>';
+        const totalItems = items.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
+        const pageItems = items.slice(startIdx, endIdx);
+
+        // Update showing text
+        const showingCountEl = document.getElementById('showingCount');
+        if (showingCountEl) {
+            if (totalItems === 0) {
+                showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items`;
+            } else {
+                showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">${startIdx + 1}–${endIdx}</strong> of ${totalItems} items`;
+            }
+        }
+
+        if (totalItems === 0) {
+            tbody.innerHTML = '<tr id="emptyItemsRow"><td colspan="7" class="py-8 text-center text-gray-500">No inventory items matching the filter.</td></tr>';
+            document.getElementById('itemsPagination').innerHTML = '';
             return;
         }
 
         let html = '';
-        items.forEach(item => {
+        pageItems.forEach(item => {
             const stock = parseFloat(item.current_stock);
             const minStock = parseFloat(item.reorder_level);
             const unitCost = parseFloat(item.unit_cost || 0);
             const isOut = stock <= 0;
             const isLow = !isOut && stock <= minStock;
 
-            let stockColor = 'color: #1f2937;';
-            if (isOut) stockColor = 'color: #991b1b;';
-            else if (isLow) stockColor = 'color: #d97706;';
+            let stockColor = '#1f2937';
+            if (isOut) stockColor = '#991b1b';
+            else if (isLow) stockColor = '#d97706';
 
-            let rowStyle = '';
-            if (isOut) rowStyle = 'background: #fff5f5;';
-            else if (isLow) rowStyle = 'background: #fffbeb;';
-
-            let trackBadge = item.track_by_roll == 1 ? '<span class="badge badge-indigo">Roll-Based</span>' : '<span class="badge badge-gray">Standard</span>';
+            let trackBadge = item.track_by_roll == 1
+                ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
+                : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
 
             let costDisplay = unitCost > 0
-                ? `₱${unitCost.toFixed(2)}`
-                : `<span style="display:inline-flex;align-items:center;gap:4px;color:#d97706;font-weight:700;"><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>₱0</span>`;
+                ? `<span class="font-semibold">₱${unitCost.toLocaleString(undefined, {minimumFractionDigits:2})}</span>`
+                : '<span style="color:#d97706;font-weight:600;">₱0.00</span>';
 
-            let statusAlert = '';
-            if (isOut) statusAlert = '<span style="font-size:10px;font-weight:700;color:#991b1b;background:#fee2e2;border-radius:4px;padding:2px 6px;margin-left:6px;">OUT</span>';
-            else if (isLow) statusAlert = '<span style="font-size:10px;font-weight:700;color:#d97706;background:#fef3c7;border-radius:4px;padding:2px 6px;margin-left:6px;">LOW</span>';
+            let statusBadge = '';
+            if (isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fee2e2;color:#991b1b;margin-left:8px;">Out</span>';
+            else if (isLow) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low</span>';
 
-            html += `<tr class="row-selectable" onclick="openStockCard(${item.id})" style="${rowStyle}">
-                <td style="color:#6b7280; font-family:monospace; font-size:12px;">${item.sku || '-'}</td>
-                <td style="font-weight:700; color:#111827; font-size: 15px;">${escapeHtml(item.name)}${statusAlert}</td>
-                <td><span class="badge badge-gray">${escapeHtml(item.category_name || 'Uncategorized')}</span></td>
-                <td>${trackBadge}</td>
-                <td>${costDisplay}</td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="stock-val" style="${stockColor}">${stock.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                        ${isLow || isOut ? '<svg width="14" height="14" fill="currentColor" color="' + (isOut ? '#991b1b' : '#d97706') + '" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>' : ''}
-                    </div>
+            html += `<tr class="border-b hover:bg-gray-50" style="cursor:pointer;" onclick="openStockCard(${item.id})">
+                <td class="py-3 font-medium" style="text-transform: capitalize;">${escapeHtml(item.name)}${statusBadge}</td>
+                <td class="py-3">${escapeHtml(item.category_name || 'Uncategorized')}</td>
+                <td class="py-3">${trackBadge}</td>
+                <td class="py-3">${costDisplay}</td>
+                <td class="py-3">
+                    <span class="stock-val" style="color:${stockColor};">${stock.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </td>
-                <td><span style="font-weight:600; font-size:12px; color:#4b5563; text-transform:uppercase;">${item.unit_of_measure}</span></td>
-                <td style="text-align:right;">
-                    <div style="display:flex; gap:6px; justify-content: flex-end;" onclick="event.stopPropagation()">
-                        <button class="btn-action" style="color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;" onclick='event.stopPropagation(); openAddStockModal(${JSON.stringify(item)})'>+ Stock</button>
-                        <button class="btn-action btn-edit" onclick='event.stopPropagation(); editItem(${JSON.stringify(item)})'>Edit</button>
-                    </div>
+                <td class="py-3 text-gray-500" style="font-size:12px;">${escapeHtml(item.unit_of_measure || '')}</td>
+                <td class="py-3 text-right" style="white-space:nowrap;">
+                    <button class="btn-action teal" onclick='event.stopPropagation(); openAddStockModal(${JSON.stringify(item).replace(/"/g,'&quot;')})'>+ Stock</button>
+                    <button class="btn-action blue" onclick='event.stopPropagation(); editItem(${JSON.stringify(item).replace(/"/g,'&quot;')})'>Edit</button>
                 </td>
             </tr>`;
         });
         tbody.innerHTML = html;
+        renderItemsPagination(totalPages);
+    }
+
+    function renderItemsPagination(totalPages) {
+        const container = document.getElementById('itemsPagination');
+        if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+        let html = '<div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
+
+        // Previous button
+        if (currentPage > 1) {
+            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${currentPage - 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>`;
+        }
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            const isActive = (i === currentPage);
+            const bg = isActive ? 'background:#1f2937;color:white;border-color:#1f2937;' : 'background:white;color:#374151;border:1px solid #e5e7eb;';
+            const fw = isActive ? '600' : '500';
+            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${i})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:${fw};transition:all 0.2s;${bg}"`;
+            if (!isActive) html += ` onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'"`;
+            html += `>${i}</a>`;
+        }
+
+        // Next button
+        if (currentPage < totalPages) {
+            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${currentPage + 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>`;
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function goToItemsPage(page) {
+        currentPage = page;
+        renderItems(currentItems);
+    }
+
+    function handleSort(col) {
+        if (currentSort === col) {
+            currentDir = currentDir === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+            currentSort = col;
+            currentDir = 'ASC';
+        }
+        currentPage = 1;
+        loadItems();
+    }
+
+    function updateSortIcons() {
+        const cols = ['name', 'category_name', 'track_by_roll', 'unit_cost'];
+        cols.forEach(c => {
+            const el = document.getElementById('sort-' + c);
+            if (!el) return;
+            if (currentSort === c) {
+                el.innerHTML = currentDir === 'ASC' ? ' ▲' : ' ▼';
+                el.style.color = '#6366f1';
+            } else {
+                el.innerHTML = '';
+            }
+        });
     }
 
     async function openStockCard(itemId) {
@@ -450,7 +531,6 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
         selectedItemForStockCard = item;
         document.getElementById('scName').textContent = item.name;
-        document.getElementById('scSku').textContent = '#' + (item.sku || 'SKU-NONE');
         document.getElementById('scStock').textContent = parseFloat(item.current_stock).toLocaleString();
         document.getElementById('scUnit').textContent = item.unit_of_measure.toUpperCase();
         document.getElementById('scMinStock').textContent = parseFloat(item.reorder_level).toLocaleString();
@@ -587,7 +667,6 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             document.getElementById('actionType').value = 'update_item';
             document.getElementById('itemId').value = item.id;
             document.getElementById('itemName').value = item.name;
-            document.getElementById('itemSku').value = item.sku || '';
             document.getElementById('itemCategory').value = item.category_id || '';
             document.getElementById('itemUnit').value = item.unit_of_measure;
             document.getElementById('itemUnitCost').value = item.unit_cost || '0.00';
@@ -678,17 +757,7 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     }
 
     function suggestSku(name) {
-        const skuInput = document.getElementById('itemSku');
-        if (skuInput.value.trim() === '' || skuInput.getAttribute('data-auto') === 'true') {
-            if (name.length > 2) {
-                const prefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const random = Math.floor(1000 + Math.random() * 9000);
-                skuInput.value = prefix + '-' + random;
-                skuInput.setAttribute('data-auto', 'true');
-            } else {
-                skuInput.value = '';
-            }
-        }
+        // SKU feature removed as per user request
     }
 
     function escapeHtml(unsafe) {
@@ -698,9 +767,9 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     document.addEventListener('DOMContentLoaded', loadItems);
     document.getElementById('filterSearch').addEventListener('input', () => {
         clearTimeout(window.searchT);
-        window.searchT = setTimeout(loadItems, 300);
+        window.searchT = setTimeout(() => { currentPage = 1; loadItems(); }, 300);
     });
-    document.getElementById('filterCategory').addEventListener('change', loadItems);
+    document.getElementById('filterCategory').addEventListener('change', () => { currentPage = 1; loadItems(); });
 
     window.addEventListener('click', e => {
         if (e.target.classList.contains('modal')) e.target.style.display = 'none';

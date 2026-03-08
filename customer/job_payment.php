@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 /**
- * Customer Job Payment Confirmation Page
+ * Customer Customization Payment Page
  * PrintFlow - Printing Shop PWA
  */
 
@@ -12,7 +12,7 @@ require_role('Customer');
 $job_id = (int)($_GET['id'] ?? 0);
 $customer_id = get_customer_id();
 
-// Get job order
+// Get customization
 $job = db_query("SELECT * FROM job_orders WHERE id = ? AND customer_id = ?", 'ii', [$job_id, $customer_id]);
 
 if (empty($job)) {
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                                 WHERE id = ?",
                         'sssdi', [$file_name, $payment_method, $reference_number, $amount_submitted, $job_id]);
                     
-                    create_notification(null, 'Admin', "Payment proof uploaded for Custom Job #{$job_id} (Amount: ₱{$amount_submitted})", 'Payment', true, false);
+                    create_notification(null, 'Admin', "Payment proof uploaded for Customization #{$job_id} (Amount: ₱{$amount_submitted})", 'Payment', true, false);
                     
                     $success = 'Payment proof uploaded successfully! Our staff will verify it shortly.';
                     // Refresh job data
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
     }
 }
 
-$page_title = 'Job Payment Confirmation - PrintFlow';
+$page_title = 'Customization Payment - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -137,9 +137,9 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <!-- Job Summary -->
+            <!-- Customization Summary -->
             <div class="card mb-6">
-                <h2 class="text-xl font-bold mb-4">Job Order #<?php echo $job['id']; ?> - <?php echo htmlspecialchars($job['service_type']); ?></h2>
+                <h2 class="text-xl font-bold mb-4">Customization #<?php echo $job['id']; ?> - <?php echo htmlspecialchars($job['service_type']); ?></h2>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider">Total Est.</p>

@@ -2,24 +2,47 @@
 /**
  * Admin Orders Management
  * PrintFlow - Printing Shop PWA  
- * Full CRUD for orders with status updates, filtering, and search
+ * Full CRUD for orders with status updates, filtering, and search (branch-aware)
  */
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
 
+// ── Branch Context (operational page) ─────────────────
+$branchCtx = init_branch_context(false); // analytics-style — allow All
+$branchId  = $branchCtx['selected_branch_id'];
+
 // Get filter parameters
-$status_filter = $_GET['status'] ?? '';
+$status_filter  = $_GET['status']  ?? '';
 $payment_filter = $_GET['payment'] ?? '';
-$search = $_GET['search'] ?? '';
-$page = max(1, (int)($_GET['page'] ?? 1));
+$search         = $_GET['search']  ?? '';
+$branch_filter  = '';
+if ($branchId !== 'all') {
+    $branch_filter = (int)$branchId;
+}
+$page     = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
-// Build query
+// Get sorting parameters
+$sort = $_GET['sort'] ?? 'order_id';
+$dir  = strtoupper($_GET['dir'] ?? 'DESC');
+
+// Validate sort
+$allowed_sorts = ['order_id', 'customer_name', 'order_date', 'total_amount', 'payment_status', 'status'];
+if (!in_array($sort, $allowed_sorts)) {
+    $sort = 'order_id';
+}
+if (!in_array($dir, ['ASC', 'DESC'])) {
+    $dir = 'DESC';
+}
+
+// Build query (always join branches)
 $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email, b.branch_name 
         FROM orders o 
         LEFT JOIN customers c ON o.customer_id = c.customer_id 
@@ -27,6 +50,13 @@ $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.e
         WHERE 1=1";
 $params = [];
 $types = '';
+
+// ── Branch filter ──────────────────────────────────
+if ($branch_filter !== '') {
+    $sql .= " AND o.branch_id = ?";
+    $params[] = $branch_filter;
+    $types .= 'i';
+}
 
 if (!empty($status_filter)) {
     $sql .= " AND o.status = ?";
@@ -41,11 +71,14 @@ if (!empty($payment_filter)) {
 }
 
 if (!empty($search)) {
-    $sql .= " AND (o.order_id LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ?)";
     $search_term = '%' . $search . '%';
+    $sql .= " AND (o.order_id LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR o.notes LIKE ?)";
     $params[] = $search_term;
     $params[] = $search_term;
-    $types .= 'ss';
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $types .= 'sssss';
 }
 
 // Count total results - wrap as subquery to avoid GROUP BY issues with JOINs
@@ -55,16 +88,33 @@ $total_pages = max(1, ceil($total_orders / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$sql .= " ORDER BY o.order_id ASC LIMIT $per_page OFFSET $offset";
+$sort_col = $sort;
+if ($sort === 'customer_name') {
+    $sort_col = "CONCAT(c.first_name, ' ', c.last_name)";
+} elseif ($sort === 'order_date') {
+    $sort_col = "o.order_date";
+} elseif ($sort === 'total_amount') {
+    $sort_col = "o.total_amount";
+} elseif ($sort === 'payment_status') {
+    $sort_col = "o.payment_status";
+} elseif ($sort === 'status') {
+    $sort_col = "o.status";
+} else {
+    $sort_col = "o.order_id";
+}
+
+$sql .= " ORDER BY {$sort_col} {$dir} LIMIT $per_page OFFSET $offset";
 
 $orders = db_query($sql, $types, $params);
 
-// Get statistics
-$total_count = db_query("SELECT COUNT(*) as count FROM orders")[0]['count'];
-$pending_count = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'")[0]['count'];
-$processing_count = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Processing'")[0]['count'];
-$ready_count = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Ready for Pickup'")[0]['count'];
-$completed_count = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'")[0]['count'];
+// Get statistics (branch-aware)
+[$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
+
+$total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE 1=1 {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Pending' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$processing_count = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Processing' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Ready for Pickup' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Completed' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
 
 $page_title = 'Orders Management - Admin';
 ?>
@@ -77,6 +127,7 @@ $page_title = 'Orders Management - Admin';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         /* KPI Row - matches reports page */
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
@@ -123,15 +174,17 @@ $page_title = 'Orders Management - Admin';
 
 <div class="dashboard-container">
     <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
         <header>
             <h1 class="page-title">Orders Management</h1>
+            <?php render_branch_selector($branchCtx); ?>
         </header>
 
         <main>
+            <?php render_branch_context_banner($branchCtx['branch_name']); ?>
             <!-- KPI Summary Row (matches reports page style) -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
@@ -158,15 +211,22 @@ $page_title = 'Orders Management - Admin';
 
             <!-- Orders List & Filters -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
+                <form method="GET" action="" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
+                    <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
+                    <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
+                    
                     <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;"><?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_orders); ?></strong> of <?php echo $total_orders; ?> orders</span>
                     
-                    <form method="GET" action="" style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <div style="position:relative; flex-shrink:0;">
-                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>" style="padding-left:32px; width:160px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
-                        </div>
-                        
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <select name="payment" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:160px; flex-shrink:0;" onchange="this.form.submit()">
+                            <option value="">Payment: All</option>
+                            <option value="Unpaid" <?php echo $payment_filter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
+                            <option value="Pending Verification" <?php echo $payment_filter === 'Pending Verification' ? 'selected' : ''; ?>>Pending Verification</option>
+                            <option value="Paid" <?php echo $payment_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
+                            <option value="Failed" <?php echo $payment_filter === 'Failed' ? 'selected' : ''; ?>>Failed</option>
+                            <option value="Refunded" <?php echo $payment_filter === 'Refunded' ? 'selected' : ''; ?>>Refunded</option>
+                        </select>
+
                         <select name="status" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:140px; flex-shrink:0;" onchange="this.form.submit()">
                             <option value="">Status: All</option>
                             <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
@@ -176,49 +236,111 @@ $page_title = 'Orders Management - Admin';
                             <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                         </select>
                         
-                        <select name="payment" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:140px; flex-shrink:0;" onchange="this.form.submit()">
-                            <option value="">Payment: All</option>
-                            <option value="Pending" <?php echo $payment_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                            <option value="Paid" <?php echo $payment_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
-                            <option value="Failed" <?php echo $payment_filter === 'Failed' ? 'selected' : ''; ?>>Failed</option>
-                        </select>
-                        
-                        <button type="submit" class="hidden"></button>
-                    </form>
-                </div>
+                        <div style="position:relative; flex-shrink:0;">
+                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" name="search" id="searchInput" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>"
+                                   style="padding-left:32px; width:160px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
+                        </div>
+                    </div>
+                </form>
                 
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left table-fixed">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <?php
+                            // Helper for sort links
+                            $build_sort_url = function($col) use ($sort, $dir, $search, $status_filter, $payment_filter) {
+                                $new_dir = ($sort === $col && $dir === 'ASC') ? 'DESC' : 'ASC';
+                                $params = ['sort' => $col, 'dir' => $new_dir];
+                                if ($search) $params['search'] = $search;
+                                if ($status_filter) $params['status'] = $status_filter;
+                                if ($payment_filter) $params['payment'] = $payment_filter;
+                                return '?' . http_build_query($params);
+                            };
+                            $sort_icon = function($col) use ($sort, $dir) {
+                                if ($sort !== $col) return '';
+                                return $dir === 'ASC' ? ' <span style="font-size:10px;">▲</span>' : ' <span style="font-size:10px;">▼</span>';
+                            };
+                            ?>
                             <tr class="border-b-2 border-gray-200">
-                                <th class="px-4 py-3 w-[10%]">Order #</th>
-                                <th class="px-4 py-3 w-[25%]">Customer</th>
-                                <th class="px-4 py-3 w-[15%]">Date</th>
+                                <th class="px-4 py-3 w-[10%]">
+                                    <a href="<?php echo $build_sort_url('order_id'); ?>" class="hover:text-teal-600 block">Order #<?php echo $sort_icon('order_id'); ?></a>
+                                </th>
+                                <th class="px-4 py-3 w-[25%]">
+                                    <a href="<?php echo $build_sort_url('customer_name'); ?>" class="hover:text-teal-600 block">Customer<?php echo $sort_icon('customer_name'); ?></a>
+                                </th>
+                                <th class="px-4 py-3 w-[15%]">
+                                    <a href="<?php echo $build_sort_url('order_date'); ?>" class="hover:text-teal-600 block">Date<?php echo $sort_icon('order_date'); ?></a>
+                                </th>
                                 <th class="px-4 py-3 w-[15%]">Branch</th>
-                                <th class="px-4 py-3 w-[10%]">Total</th>
-                                <th class="px-4 py-3 w-[10%]">Payment</th>
-                                <th class="px-4 py-3 w-[15%]">Status</th>
+                                <th class="px-4 py-3 w-[10%]">
+                                    <a href="<?php echo $build_sort_url('total_amount'); ?>" class="hover:text-teal-600 block">Total<?php echo $sort_icon('total_amount'); ?></a>
+                                </th>
+                                <th class="px-4 py-3 w-[10%]">
+                                    <a href="<?php echo $build_sort_url('payment_status'); ?>" class="hover:text-teal-600 block">Payment<?php echo $sort_icon('payment_status'); ?></a>
+                                </th>
+                                <th class="px-4 py-3 w-[15%]">
+                                    <a href="<?php echo $build_sort_url('status'); ?>" class="hover:text-teal-600 block">Status<?php echo $sort_icon('status'); ?></a>
+                                </th>
                                 <th class="px-4 py-3 w-[15%] text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="ordersTableBody">
                             <?php if (empty($orders)): ?>
-                                <tr>
-                                    <td colspan="8" class="py-8 text-center text-gray-500">No orders found</td>
+                                <tr id="emptyOrdersRow">
+                                    <td colspan="8" class="py-8 text-center text-gray-500">
+                                        <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
+                                    </td>
                                 </tr>
                             <?php else: ?>
+                                <tr id="emptyOrdersRow" style="display:none;">
+                                    <td colspan="8" class="py-8 text-center text-gray-500">
+                                        No orders found
+                                    </td>
+                                </tr>
                                 <?php foreach ($orders as $order): ?>
                                     <tr class="border-b hover:bg-gray-50">
                                         <td class="px-4 py-3 font-medium"><?php echo $order['order_id']; ?></td>
                                         <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900 truncate" style="max-width: 200px;"><?php echo htmlspecialchars($order['customer_name']); ?></div>
-                                            <div class="text-xs text-gray-500 truncate" style="max-width: 200px;"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                                            <div class="font-medium text-gray-900" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
+                                            <div class="text-xs text-gray-500" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap"><?php echo format_date($order['order_date']); ?></td>
-                                        <td class="px-4 py-3 whitespace-nowrap"><?php echo htmlspecialchars($order['branch_name'] ?? 'Main Branch'); ?></td>
+                                        <td class="px-4 py-3 whitespace-nowrap"><?php
+                                            echo get_branch_badge_html(
+                                                (int)($order['branch_id'] ?? 0),
+                                                $order['branch_name'] ?? 'Main'
+                                            );
+                                        ?></td>
                                         <td class="px-4 py-3 font-semibold whitespace-nowrap"><?php echo format_currency($order['total_amount']); ?></td>
-                                        <td class="px-4 py-3 whitespace-nowrap"><?php echo status_badge($order['payment_status'], 'payment'); ?></td>
-                                        <td class="px-4 py-3 whitespace-nowrap"><?php echo status_badge($order['status'], 'order'); ?></td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <?php
+                                                $pc = match($order['payment_status']) {
+                                                    'Pending' => 'background:#fef9c3;color:#854d0e;',
+                                                    'Paid'    => 'background:#dcfce7;color:#166534;',
+                                                    'Failed'  => 'background:#fee2e2;color:#991b1b;',
+                                                    default   => 'background:#fef9c3;color:#854d0e;'
+                                                };
+                                            ?>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $pc; ?>">
+                                                <?php echo $order['payment_status']; ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <?php
+                                                $sc = match($order['status']) {
+                                                    'Pending'           => 'background:#fef9c3;color:#854d0e;',
+                                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
+                                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
+                                                    'Completed'         => 'background:#dcfce7;color:#166534;',
+                                                    'Cancelled'         => 'background:#fee2e2;color:#991b1b;',
+                                                    default             => 'background:#fef9c3;color:#854d0e;'
+                                                };
+                                            ?>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
+                                                <?php echo $order['status']; ?>
+                                            </span>
+                                        </td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
                                             <button 
                                                 @click="openModal(<?php echo $order['order_id']; ?>)"
@@ -233,13 +355,17 @@ $page_title = 'Orders Management - Admin';
                         </tbody>
                     </table>
                 </div>
-                <?php 
-                $pagination_params = [];
-                if ($search) $pagination_params['search'] = $search;
-                if ($status_filter) $pagination_params['status'] = $status_filter;
-                if ($payment_filter) $pagination_params['payment'] = $payment_filter;
-                echo render_pagination($page, $total_pages, $pagination_params); 
-                ?>
+                <div id="ordersPagination">
+                    <?php 
+                    $pagination_params = [];
+                    if ($search) $pagination_params['search'] = $search;
+                    if ($status_filter) $pagination_params['status'] = $status_filter;
+                    if ($payment_filter) $pagination_params['payment'] = $payment_filter;
+                    $pagination_params['sort'] = $sort;
+                    $pagination_params['dir'] = $dir;
+                    echo render_pagination($page, $total_pages, $pagination_params); 
+                    ?>
+                </div>
             </div>
         </main>
     </div>
@@ -337,14 +463,14 @@ $page_title = 'Orders Management - Admin';
                                 <template x-for="item in items" :key="item.sku">
                                     <tr style="border-top:1px solid #f3f4f6;">
                                         <td style="padding:10px 14px;">
-                                            <div x-text="item.product_name" style="font-weight:500;color:#1f2937;"></div>
+                                            <div x-text="item.product_name" style="font-weight:500;color:#1f2937;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" :title="item.product_name"></div>
                                             <template x-if="item.variant_name">
                                                 <div style="margin-top:3px;">
                                                     <span x-text="'📐 ' + item.variant_name"
-                                                          style="display:inline-flex;align-items:center;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;"></span>
+                                                          style="display:inline-flex;align-items:center;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" :title="'📐 ' + item.variant_name"></span>
                                                 </div>
                                             </template>
-                                            <div x-text="item.category" style="font-size:11px;color:#9ca3af;"></div>
+                                            <div x-text="item.category" style="font-size:11px;color:#9ca3af;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" :title="item.category"></div>
                                             
                                             <!-- Tarpaulin/Sticker Specific Specs (Roll-based) -->
                                             <template x-if="item.category && (item.category.toUpperCase().includes('TARPAULIN') || item.category.toUpperCase().includes('STKR'))">
@@ -418,27 +544,6 @@ $page_title = 'Orders Management - Admin';
                     </div>
                 </template>
 
-                <!-- Status Update Panel -->
-                <div style="padding:0 24px 20px;" x-show="order && !loading">
-                    <h4 style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px;">Update Order Status</h4>
-                    <div x-show="statusUpdateMsg" x-text="statusUpdateMsg"
-                         :style="statusUpdateError ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;' : 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;'"></div>
-                    <div style="display:flex;gap:10px;align-items:center;">
-                        <select x-model="selectedStatus"
-                                style="flex:1;height:38px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 10px;">
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Ready for Pickup">Ready for Pickup</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
-                        </select>
-                        <button @click="updateStatus()"
-                                :disabled="updatingStatus"
-                                style="padding:8px 20px;background:#4F46E5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;"
-                                x-text="updatingStatus ? 'Updating…' : 'Update Status'"></button>
-                    </div>
-                </div>
-
                 <!-- Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;">
                     <button @click="showModal = false" class="btn-secondary">Close</button>
@@ -449,6 +554,8 @@ $page_title = 'Orders Management - Admin';
 </div>
 
 <script>
+    // Submit form on enter for search natively handled by form HTML
+
 function orderModal() {
     return {
         showModal: false,

@@ -1,48 +1,80 @@
 <?php
 /**
  * Admin Dashboard - PrintFlow
- * Real-time data from the database
+ * Real-time data from the database  (branch-aware)
  */
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-require_role('Admin');
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
+require_role(['Admin', 'Manager']);
+
+// Managers must use their own panel — redirect them away from /admin/
+if (is_manager()) {
+    $mgr_branch = $_SESSION['selected_branch_id'] ?? $_SESSION['branch_id'] ?? null;
+    $mgr_qs = $mgr_branch && $mgr_branch !== 'all' ? '?branch_id=' . (int)$mgr_branch : '';
+    header('Location: ' . AUTH_REDIRECT_BASE . '/manager/dashboard.php' . $mgr_qs);
+    exit();
+}
+
+// ── Branch Context (analytics page — allows "All") ────
+$branchCtx = init_branch_context(false);
+$branchId  = $branchCtx['selected_branch_id']; // 'all' | int
+
+// Build reusable branch SQL parts
+$bTypes = ''; $bParams = [];
+$bSql = branch_where('o', $branchId, $bTypes, $bParams);
 
 // ── KPI: Total Customers ──────────────────────────────
 try {
     $total_customers = db_query("SELECT COUNT(*) as cnt FROM customers")[0]['cnt'] ?? 0;
 } catch (Exception $e) { $total_customers = 0; }
 
-// ── KPI: Total Revenue (Paid orders) ──────────────────
+// ── KPI: Total Revenue (Paid orders, branch-filtered) ─
 try {
-    $total_revenue = db_query("SELECT COALESCE(SUM(total_amount),0) as total FROM orders WHERE payment_status = 'Paid'")[0]['total'] ?? 0;
+    $rev_sql    = "SELECT COALESCE(SUM(o.total_amount),0) as total FROM orders o WHERE o.payment_status = 'Paid'" . $bSql;
+    $total_revenue = db_query($rev_sql, $bTypes ?: null, $bParams ?: null)[0]['total'] ?? 0;
 } catch (Exception $e) { $total_revenue = 0; }
 
-// ── KPI: Total Orders ─────────────────────────────────
+// ── KPI: Total Orders (branch-filtered) ───────────────
 try {
-    $total_orders = db_query("SELECT COUNT(*) as cnt FROM orders")[0]['cnt'] ?? 0;
+    $ord_sql = "SELECT COUNT(*) as cnt FROM orders o WHERE 1=1" . $bSql;
+    $total_orders = db_query($ord_sql, $bTypes ?: null, $bParams ?: null)[0]['cnt'] ?? 0;
 } catch (Exception $e) { $total_orders = 0; }
 
-// ── KPI: Pending Orders ───────────────────────────────
+// ── KPI: Pending Orders (branch-filtered) ────────────
 try {
-    $pending_orders = db_query("SELECT COUNT(*) as cnt FROM orders WHERE status = 'Pending'")[0]['cnt'] ?? 0;
+    $pend_types = $bTypes; $pend_params = $bParams;
+    $pend_sql = "SELECT COUNT(*) as cnt FROM orders o WHERE o.status = 'Pending'" . branch_where('o', $branchId, $pend_types, $pend_params);
+    // Re-build cleanly to avoid double-appending
+    [$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
+    $pending_orders = db_query(
+        "SELECT COUNT(*) as cnt FROM orders o WHERE o.status = 'Pending'" . $bSqlFrag,
+        $bT ?: null, $bP ?: null
+    )[0]['cnt'] ?? 0;
 } catch (Exception $e) { $pending_orders = 0; }
 
-// ── Sales Revenue (Last 30 days, daily) ───────────────
+// ── Sales Revenue (Last 30 days, branch-filtered) ─────
 try {
+    [$bSqlFrag, $bT2, $bP2] = branch_where_parts('o', $branchId);
     $daily_sales = db_query(
-        "SELECT DATE(order_date) as day, SUM(total_amount) as revenue, COUNT(*) as orders
-         FROM orders WHERE payment_status='Paid' AND order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-         GROUP BY DATE(order_date) ORDER BY day"
+        "SELECT DATE(o.order_date) as day, SUM(o.total_amount) as revenue, COUNT(*) as orders
+         FROM orders o WHERE o.payment_status='Paid' AND o.order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         {$bSqlFrag}
+         GROUP BY DATE(o.order_date) ORDER BY day",
+        $bT2 ?: null, $bP2 ?: null
     ) ?: [];
 } catch (Exception $e) { $daily_sales = []; }
 
 // ── Order Status Breakdown ────────────────────────────
 try {
+    [$bSqlFrag_os, $bT_os, $bP_os] = branch_where_parts('o', $branchId);
     $order_status = db_query(
-        "SELECT status, COUNT(*) as cnt FROM orders GROUP BY status"
+        "SELECT o.status, COUNT(*) as cnt FROM orders o WHERE 1=1 {$bSqlFrag_os} GROUP BY o.status",
+        $bT_os ?: null, $bP_os ?: null
     ) ?: [];
 } catch (Exception $e) { $order_status = []; }
 
@@ -56,23 +88,32 @@ $statusColors = [
 
 // ── Sales by Product Category ─────────────────────────
 try {
+    [$bSqlFrag_cs, $bT_cs, $bP_cs] = branch_where_parts('o', $branchId);
     $category_sales = db_query(
         "SELECT p.category, COUNT(oi.order_item_id) as items_sold, SUM(oi.quantity * oi.unit_price) as total
          FROM order_items oi
          JOIN products p ON oi.product_id = p.product_id
-         GROUP BY p.category ORDER BY total DESC"
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.payment_status = 'Paid' {$bSqlFrag_cs}
+         GROUP BY p.category ORDER BY total DESC",
+        $bT_cs ?: null, $bP_cs ?: null
     ) ?: [];
 } catch (Exception $e) { $category_sales = []; }
 
 $cat_total_sum = array_sum(array_map(fn($c) => (float)$c['total'], $category_sales));
 
-// ── Recent Orders (last 5) ────────────────────────────
+// ── Recent Orders (last 5, branch-filtered) ──────────
 try {
+    [$bSqlFrag3, $bT3, $bP3] = branch_where_parts('o', $branchId);
     $recent_orders = db_query(
         "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
-                o.order_date, o.total_amount, o.payment_status, o.status
-         FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id
-         ORDER BY o.order_date DESC LIMIT 5"
+                o.order_date, o.total_amount, o.payment_status, o.status, b.branch_name
+         FROM orders o
+         LEFT JOIN customers c ON o.customer_id = c.customer_id
+         LEFT JOIN branches b  ON o.branch_id  = b.id
+         WHERE 1=1 {$bSqlFrag3}
+         ORDER BY o.order_date DESC LIMIT 5",
+        $bT3 ?: null, $bP3 ?: null
     ) ?: [];
 } catch (Exception $e) { $recent_orders = []; }
 
@@ -106,23 +147,29 @@ try {
 
 // ── Top Customers (by spending) ───────────────────────
 try {
+    [$bSqlFrag_c, $bT_c, $bP_c] = branch_where_parts('o', $branchId);
+    [$bSqlFrag_j, $bT_j, $bP_j] = branch_where_parts('j', $branchId);
+    $types = ($bT_c ?: '') . ($bT_j ?: '');
+    $params = array_merge($bP_c ?: [], $bP_j ?: []);
     $top_customers = db_query(
         "SELECT customer_name as name, COUNT(id) as orders, SUM(spent) as spent
          FROM (
              SELECT CONCAT(c.first_name, ' ', c.last_name) COLLATE utf8mb4_unicode_ci as customer_name, o.order_id as id, o.total_amount as spent
              FROM customers c JOIN orders o ON c.customer_id = o.customer_id
-             WHERE o.payment_status = 'Paid'
+             WHERE o.payment_status = 'Paid' {$bSqlFrag_c}
              UNION ALL
-             SELECT customer_name COLLATE utf8mb4_unicode_ci, id, amount_paid as spent
-             FROM job_orders
-             WHERE payment_status = 'PAID' AND customer_name IS NOT NULL AND customer_name != ''
+             SELECT j.customer_name COLLATE utf8mb4_unicode_ci, j.id, j.amount_paid as spent
+             FROM job_orders j
+             WHERE j.payment_status = 'PAID' AND j.customer_name IS NOT NULL AND j.customer_name != '' {$bSqlFrag_j}
          ) as all_orders
-         GROUP BY customer_name ORDER BY spent DESC LIMIT 5"
+         GROUP BY customer_name ORDER BY spent DESC LIMIT 5",
+        $types ?: null, $params ?: null
     ) ?: [];
 } catch (Exception $e) { $top_customers = []; }
 
 // ── Top Selling Products (by quantity sold) ────────────
 try {
+    [$bSqlFrag_tp, $bT_tp, $bP_tp] = branch_where_parts('o', $branchId);
     $top_products = db_query(
         "SELECT p.name as product_name, p.sku,
                 SUM(oi.quantity) as qty_sold,
@@ -130,8 +177,10 @@ try {
          FROM order_items oi
          JOIN products p ON oi.product_id = p.product_id
          JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.payment_status = 'Paid' {$bSqlFrag_tp}
          GROUP BY p.product_id, p.name, p.sku
-         ORDER BY qty_sold DESC LIMIT 5"
+         ORDER BY qty_sold DESC LIMIT 5",
+        $bT_tp ?: null, $bP_tp ?: null
     ) ?: [];
 } catch (Exception $e) { $top_products = []; }
 
@@ -147,6 +196,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         /* KPI Row */
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
@@ -221,9 +271,13 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <div class="main-content">
         <header>
             <h1 class="page-title">Dashboard</h1>
+            <?php render_branch_selector($branchCtx); ?>
         </header>
 
         <main>
+            <!-- Branch context banner -->
+            <?php render_branch_context_banner($branchCtx['branch_name']); ?>
+
             <!-- KPI Summary Row -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
@@ -470,6 +524,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 </div>
 
 <script>
+// Branch context passed from PHP
+const DASH_BRANCH_ID = <?php echo $branchId !== 'all' ? (int)$branchId : 'null'; ?>;
 // ─── Sales Revenue Chart (Dynamic Period) ───────────────
 const salesCtx = document.getElementById('salesChart').getContext('2d');
 const salesChart = new Chart(salesCtx, {
@@ -525,6 +581,7 @@ async function loadSalesChart(period) {
     const month = monthEl ? monthEl.value : new Date().getMonth() + 1;
     let url = 'api_revenue_chart.php?period=' + period + '&year=' + year;
     if (period === 'monthly') url += '&month=' + month;
+    if (DASH_BRANCH_ID) url += '&branch_id=' + DASH_BRANCH_ID;
     try {
         const resp = await fetch(url, { credentials: 'same-origin' });
         const text = await resp.text();

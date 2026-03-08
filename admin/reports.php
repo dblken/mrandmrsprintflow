@@ -7,10 +7,16 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
+
+// Branch context (analytics mode — allow All)
+$branchCtx = init_branch_context(false);
+$branchId  = $branchCtx['selected_branch_id'];
 
 // ── Date range ─────────────────────────────────────────
 $from = $_GET['from'] ?? date('Y-m-01');
@@ -18,17 +24,19 @@ $to   = $_GET['to'] ?? date('Y-m-d');
 $from = date('Y-m-d', strtotime($from));
 $to   = date('Y-m-d', strtotime($to));
 
+// Branch WHERE fragment for orders table
+[$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
+
 // ── Sales Summary ──────────────────────────────────────
 try {
-    $sales = db_query(
-        "SELECT 
+    [$bs2, $bt2, $bp2] = branch_where_parts('o', $branchId);
+    $salesSql = "SELECT 
             COUNT(*) as total_orders,
-            SUM(CASE WHEN payment_status='Paid' THEN total_amount ELSE 0 END) as revenue,
-            SUM(CASE WHEN payment_status='Paid' THEN 1 ELSE 0 END) as paid,
-            AVG(CASE WHEN payment_status='Paid' THEN total_amount ELSE NULL END) as avg_val
-         FROM orders WHERE order_date BETWEEN ? AND ?",
-        'ss', [$from, $to . ' 23:59:59']
-    );
+            SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as revenue,
+            SUM(CASE WHEN o.payment_status='Paid' THEN 1 ELSE 0 END) as paid,
+            AVG(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE NULL END) as avg_val
+         FROM orders o WHERE o.order_date BETWEEN ? AND ?$bs2";
+    $sales = db_query($salesSql, 'ss' . $bt2, array_merge([$from, $to . ' 23:59:59'], $bp2));
     $s = $sales[0] ?? [];
 } catch (Exception $e) { $s = []; }
 
@@ -39,10 +47,11 @@ $avg_val      = (float)($s['avg_val'] ?? 0);
 
 // ── Order Status Breakdown ─────────────────────────────
 try {
+    [$bsS, $btS, $bpS] = branch_where_parts('o', $branchId);
     $status_data = db_query(
-        "SELECT status, COUNT(*) as cnt FROM orders 
-         WHERE order_date BETWEEN ? AND ? GROUP BY status",
-        'ss', [$from, $to . ' 23:59:59']
+        "SELECT o.status, COUNT(*) as cnt FROM orders o
+         WHERE o.order_date BETWEEN ? AND ?$bsS GROUP BY o.status",
+        'ss' . $btS, array_merge([$from, $to . ' 23:59:59'], $bpS)
     ) ?: [];
 } catch (Exception $e) { $status_data = []; }
 
@@ -57,17 +66,19 @@ $statusColors = [
 
 // ── Daily Revenue (for chart) ──────────────────────────
 try {
+    [$bsD, $btD, $bpD] = branch_where_parts('o', $branchId);
     $daily_rev = db_query(
-        "SELECT DATE(order_date) as day, SUM(total_amount) as total, COUNT(*) as cnt
-         FROM orders WHERE order_date BETWEEN ? AND ? AND payment_status='Paid'
-         GROUP BY DATE(order_date) ORDER BY day",
-        'ss', [$from, $to . ' 23:59:59']
+        "SELECT DATE(o.order_date) as day, SUM(o.total_amount) as total, COUNT(*) as cnt
+         FROM orders o WHERE o.order_date BETWEEN ? AND ? AND o.payment_status='Paid'$bsD
+         GROUP BY DATE(o.order_date) ORDER BY day",
+        'ss' . $btD, array_merge([$from, $to . ' 23:59:59'], $bpD)
     ) ?: [];
 } catch (Exception $e) { $daily_rev = []; }
 
 // ── Top Selling Products (filtered by date range, with all-time fallback) ───────
 $top_products_alltime = false;
 try {
+    [$bsP, $btP, $bpP] = branch_where_parts('o', $branchId);
     $top_products = db_query(
         "SELECT p.name AS product_name, p.sku,
                 SUM(oi.quantity) as qty_sold,
@@ -75,10 +86,10 @@ try {
          FROM order_items oi
          JOIN products p ON oi.product_id = p.product_id
          JOIN orders o ON oi.order_id = o.order_id
-         WHERE o.order_date BETWEEN ? AND ?
+         WHERE o.order_date BETWEEN ? AND ?$bsP
          GROUP BY p.product_id, p.name, p.sku
          ORDER BY qty_sold DESC LIMIT 10",
-        'ss', [$from, $to . ' 23:59:59']
+        'ss' . $btP, array_merge([$from, $to . ' 23:59:59'], $bpP)
     ) ?: [];
     
     // Fallback: show all-time data if no results in selected period
@@ -98,14 +109,15 @@ try {
 
 // ── Top Customers ──────────────────────────────────────
 try {
+    [$bsC, $btC, $bpC] = branch_where_parts('o', $branchId);
     $top_customers = db_query(
         "SELECT CONCAT(c.first_name, ' ', c.last_name) as name, c.email,
                 COUNT(o.order_id) as orders, SUM(o.total_amount) as spent
          FROM customers c
          JOIN orders o ON c.customer_id = o.customer_id
-         WHERE o.order_date BETWEEN ? AND ?
+         WHERE o.order_date BETWEEN ? AND ?$bsC
          GROUP BY c.customer_id ORDER BY spent DESC LIMIT 10",
-        'ss', [$from, $to . ' 23:59:59']
+        'ss' . $btC, array_merge([$from, $to . ' 23:59:59'], $bpC)
     ) ?: [];
 } catch (Exception $e) { $top_customers = []; }
 
@@ -135,21 +147,23 @@ try {
 $txn_page = max(1, (int)($_GET['txn_page'] ?? 1));
 $txn_per_page = 10;
 try {
+    [$bsR, $btR, $bpR] = branch_where_parts('o', $branchId);
     $txn_count = db_query(
         "SELECT COUNT(*) as cnt FROM orders o
-         WHERE o.order_date BETWEEN ? AND ?",
-        'ss', [$from, $to . ' 23:59:59']
+         WHERE o.order_date BETWEEN ? AND ?$bsR",
+        'ss' . $btR, array_merge([$from, $to . ' 23:59:59'], $bpR)
     )[0]['cnt'] ?? 0;
     $txn_total_pages = max(1, ceil($txn_count / $txn_per_page));
     $txn_page = min($txn_page, $txn_total_pages);
     $txn_offset = ($txn_page - 1) * $txn_per_page;
+    [$bsR2, $btR2, $bpR2] = branch_where_parts('o', $branchId);
     $recent_orders = db_query(
         "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
                 o.order_date, o.total_amount, o.payment_status, o.status
          FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id
-         WHERE o.order_date BETWEEN ? AND ?
+         WHERE o.order_date BETWEEN ? AND ?$bsR2
          ORDER BY o.order_date DESC LIMIT $txn_per_page OFFSET $txn_offset",
-        'ss', [$from, $to . ' 23:59:59']
+        'ss' . $btR2, array_merge([$from, $to . ' 23:59:59'], $bpR2)
     ) ?: [];
 } catch (Exception $e) { $recent_orders = []; $txn_count = 0; $txn_total_pages = 1; }
 
@@ -164,6 +178,7 @@ $page_title = 'Reports & Analytics - Admin';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         /* ─── Report Styles ─── */
         .rpt-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
@@ -272,11 +287,12 @@ $page_title = 'Reports & Analytics - Admin';
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <div class="main-content">
         <header>
             <h1 class="page-title">Reports & Analytics</h1>
+            <?php render_branch_selector($branchCtx); ?>
             <button class="btn-secondary no-print" onclick="window.print()">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                 Print Report
@@ -284,6 +300,7 @@ $page_title = 'Reports & Analytics - Admin';
         </header>
 
         <main>
+            <?php render_branch_context_banner($branchCtx['branch_name']); ?>
             <!-- Print Header (visible only when printing) -->
             <div class="print-header">
                 <h2>PrintFlow - Reports & Analytics</h2>
@@ -293,6 +310,9 @@ $page_title = 'Reports & Analytics - Admin';
             <!-- Date Range Filter (inline) -->
             <div class="date-filter-bar no-print">
                 <form method="GET" class="date-filter-controls">
+                    <?php if ($branchId !== 'all'): ?>
+                    <input type="hidden" name="branch_id" value="<?php echo (int)$branchId; ?>">
+                    <?php endif; ?>
                     <label>From</label>
                     <input type="date" name="from" value="<?php echo $from; ?>">
                     <label>To</label>

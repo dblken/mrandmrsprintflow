@@ -63,8 +63,8 @@ require_once __DIR__ . '/shop_config.php';
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php elseif (is_customer()): ?>
-                        <a href="<?php echo $base_url; ?>/customer/dashboard.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            Dashboard
+                        <a href="<?php echo $url_index; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            Home
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                         <a href="<?php echo $base_url; ?>/public/services.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
@@ -115,8 +115,8 @@ require_once __DIR__ . '/shop_config.php';
                         </svg>
                         <?php
                         $cart_count = isset($_SESSION['cart']) ? array_sum(array_column($_SESSION['cart'], 'quantity')) : 0;
-                        if ($cart_count > 0): ?>
-                        <span style="position:absolute;top:-6px;right:-6px;background:#32a1c4;color:#fff;font-size:0.6rem;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;"><?php echo $cart_count; ?></span>
+                        if ($cart_count > 0): $cart_display = $cart_count > 99 ? '99+' : $cart_count; ?>
+                        <span style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $cart_display; ?></span>
                         <?php endif; ?>
                     </a>
                     <?php endif; ?>
@@ -125,21 +125,20 @@ require_once __DIR__ . '/shop_config.php';
                         <svg class="w-6 h-6 hover:animate-bounce-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                         </svg>
-                        <?php if ($unread_count > 0): ?>
-                            <span class="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-accent-pink text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold animate-pulse-subtle shadow-glow-sm"><?php echo $unread_count; ?></span>
+                        <?php if ($unread_count > 0): $notif_display = $unread_count > 99 ? '99+' : $unread_count; ?>
+                            <span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $notif_display; ?></span>
                         <?php endif; ?>
                     </a>
 
                     <!-- User Dropdown -->
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" class="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors duration-200 group">
-                            <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-purple rounded-full flex items-center justify-center text-white font-bold shadow-md group-hover:shadow-glow transition-all duration-300">
-                                <?php echo $current_user ? strtoupper(substr($current_user['first_name'] ?? 'U', 0, 1)) : 'U'; ?>
+                        <button @click="open = !open" class="flex items-center transition-colors duration-200 group" style="background:none;border:none;cursor:pointer;padding:0;" title="My Account">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-300"
+                                 :style="open ? 'color: #53C5E0;' : 'color: rgba(255,255,255,0.8);'">
+                                <svg style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                </svg>
                             </div>
-                            <span class="hidden md:block font-medium"><?php echo $current_user ? htmlspecialchars($current_user['first_name'] ?? 'User') : 'User'; ?></span>
-                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
                         </button>
 
                         <!-- Dropdown Menu -->
@@ -152,10 +151,19 @@ require_once __DIR__ . '/shop_config.php';
                              x-transition:leave-end="opacity-0 scale-95"
                              class="absolute right-0 mt-2 w-44 rounded-xl py-1 z-50"
                              style="background:#0a2530;border:1px solid rgba(83,197,224,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-                            <div style="padding:0.75rem 1rem 0.5rem;border-bottom:1px solid rgba(83,197,224,0.12);">
-                                <p style="font-size:0.8125rem;font-weight:700;color:#fff;margin:0;"><?php echo htmlspecialchars($current_user['first_name'] ?? ''); ?></p>
-                                <p style="font-size:0.7rem;color:rgba(255,255,255,0.45);margin:0;"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></p>
-                            </div>
+                            <?php
+                            $dash_url = is_admin() ? $base_url.'/admin/dashboard.php' : (is_staff() ? $base_url.'/staff/dashboard.php' : $base_url.'/customer/dashboard.php');
+                            ?>
+                            <a href="<?php echo $dash_url; ?>"
+                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
+                               onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
+                               onmouseout="this.style.background='';this.style.color='rgba(255,255,255,0.8)'">
+                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                                </svg>
+                                Dashboard
+                            </a>
+                            <div style="height:1px;background:rgba(83,197,224,0.1);margin:0.1rem 0;"></div>
                             <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php"
                                style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
                                onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
@@ -166,15 +174,15 @@ require_once __DIR__ . '/shop_config.php';
                                 Profile
                             </a>
                             <div style="height:1px;background:rgba(83,197,224,0.1);margin:0.25rem 0;"></div>
-                            <a href="<?php echo $url_logout; ?>"
-                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(239,68,68,0.85);transition:all 0.15s;"
+                            <button onclick="document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
+                               style="display:flex;align-items:center;width:100%;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(239,68,68,0.85);transition:all 0.15s;background:none;border:none;cursor:pointer;text-align:left;"
                                onmouseover="this.style.background='rgba(239,68,68,0.08)';this.style.color='#ef4444'"
                                onmouseout="this.style.background='';this.style.color='rgba(239,68,68,0.85)'">
                                 <svg style="width:14px;height:14px;margin-right:8px;opacity:0.7;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                                 </svg>
                                 Logout
-                            </a>
+                            </button>
                         </div>
                     </div>
                 <?php else: ?>
@@ -193,6 +201,43 @@ require_once __DIR__ . '/shop_config.php';
         </div>
     </nav>
 </header>
+
+<?php if ($is_logged_in): ?>
+<!-- Logout Confirmation Modal -->
+<div id="logout-confirm-modal"
+     style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:1rem;"
+     onclick="if(event.target===this)this.style.display='none'">
+    <!-- Backdrop -->
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);"></div>
+    <!-- Card -->
+    <div style="position:relative;background:#0d2535;border:1px solid rgba(83,197,224,0.18);border-radius:16px;padding:2rem 2rem 1.75rem;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);text-align:center;">
+        <!-- Icon -->
+        <div style="width:60px;height:60px;background:rgba(239,68,68,0.12);border:1.5px solid rgba(239,68,68,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
+            <svg style="width:28px;height:28px;color:#ef4444;" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+        </div>
+        <h3 style="font-size:1.1rem;font-weight:700;color:#fff;margin:0 0 0.5rem;">Sign Out</h3>
+        <p style="font-size:0.875rem;color:rgba(255,255,255,0.5);margin:0 0 1.75rem;line-height:1.5;">Are you sure you want to sign out of your account?</p>
+        <!-- Buttons -->
+        <div style="display:flex;gap:0.75rem;">
+            <button onclick="document.getElementById('logout-confirm-modal').style.display='none'" type="button"
+                    style="flex:1;padding:0.625rem 1rem;border:1px solid rgba(83,197,224,0.25);border-radius:8px;background:transparent;color:rgba(255,255,255,0.75);font-size:0.875rem;font-weight:600;cursor:pointer;transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#fff'"
+                    onmouseout="this.style.background='transparent';this.style.color='rgba(255,255,255,0.75)'">
+                Cancel
+            </button>
+            <a href="<?php echo $url_logout; ?>"
+               style="flex:1;padding:0.625rem 1rem;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:0.875rem;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 2px 12px rgba(239,68,68,0.35);"
+               onmouseover="this.style.boxShadow='0 4px 20px rgba(239,68,68,0.55)';this.style.transform='translateY(-1px)'"
+               onmouseout="this.style.boxShadow='0 2px 12px rgba(239,68,68,0.35)';this.style.transform='translateY(0)'">
+                Sign Out
+            </a>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function(){
     var p = window.location.pathname.toLowerCase();

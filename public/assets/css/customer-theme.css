@@ -25,14 +25,20 @@ body.customer-theme {
 
 /* ===== Header redesign — dark primary nav with radial glow ===== */
 body.customer-theme #main-header {
-    background: #00151b !important;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.25) !important;
-    border-bottom: 1px solid rgba(83,197,224,0.15) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid rgba(83,197,224,0.1) !important;
     position: relative;
     overflow: visible;
 }
 
-/* Radial glow in center of header */
+/* Page Hero Section - ensure it pushes behind the transparent header */
+body.customer-theme [style*="background:#00151b"] {
+    margin-top: -80px; /* Offset the header height */
+    padding-top: calc(80px + 2.75rem) !important;
+}
+
+/* Radial glow adjustment for transparent header */
 body.customer-theme #main-header::before {
     content: '';
     position: absolute;

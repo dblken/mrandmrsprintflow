@@ -67,7 +67,15 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<!-- Toast notification -->
+<!-- Page Hero Banner -->
+<div style="background:#00151b;position:relative;overflow:hidden;padding:2.75rem 0 3.5rem;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:220px;background:radial-gradient(ellipse at center,rgba(50,161,196,0.18) 0%,rgba(83,197,224,0.06) 50%,transparent 75%);pointer-events:none;z-index:0;"></div>
+    <div class="container mx-auto px-4" style="max-width:1100px;position:relative;z-index:1;text-align:center;">
+        <p style="font-size:0.7rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.12em;margin:0 0 .6rem;">&#10022; Our Catalog</p>
+        <h1 style="font-size:clamp(1.75rem,3.5vw,2.75rem);font-weight:800;color:#fff;letter-spacing:-0.03em;margin:0 0 .75rem;line-height:1.1;">Browse Our <span style="color:rgba(83,197,224,0.9);">Products</span></h1>
+        <p style="font-size:0.9rem;color:rgba(255,255,255,0.45);max-width:480px;margin:0 auto;line-height:1.65;">From tarpaulins to T-shirts, stickers to signage — find the perfect print solution for your next project.</p>
+    </div>
+</div>
 <div id="toast"
      style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;
             background:#1f2937;color:#fff;padding:14px 20px;border-radius:10px;
@@ -78,24 +86,6 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="min-h-screen bg-gray-50 py-8">
     <div class="container mx-auto px-4">
-
-        <!-- Page Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
-            <div>
-                <h1 class="text-4xl font-bold text-gray-900 mb-1">Our Products &amp; Services</h1>
-                <p class="text-gray-600">Browse our wide range of printing services</p>
-            </div>
-            <a href="cart.php" style="position:relative;display:inline-flex;align-items:center;gap:8px;
-               background:#4F46E5;color:#fff;padding:10px 18px;border-radius:10px;font-weight:600;
-               font-size:0.875rem;">
-                🛒 Cart
-                <span id="cart-badge"
-                      style="background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;
-                             font-size:0.7rem;font-weight:700;display:<?php echo $cart_count > 0 ? 'flex' : 'none'; ?>;
-                             align-items:center;justify-content:center;"
-                      class="cart-badge"><?php echo $cart_count; ?></span>
-            </a>
-        </div>
 
         <!-- Filters -->
         <div class="card mb-6">

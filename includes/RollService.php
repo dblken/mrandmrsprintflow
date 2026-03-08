@@ -103,6 +103,131 @@ class RollService {
             [$itemId]
         ) ?: [];
     }
+
+    /**
+     * FIFO deduction across multiple rolls.
+     * Deducts from the oldest available roll first, continuing to the next if needed.
+     *
+     * @param int $itemId The inventory item ID
+     * @param float $totalLength Total length to deduct
+     * @param string $refType Reference type for ledger (e.g. 'ADJUSTMENT', 'JOB_ORDER')
+     * @param int|null $refId Reference ID (e.g. job order ID)
+     * @param string $notes Notes for ledger entries
+     * @return array Details of deductions made from each roll
+     * @throws Exception If insufficient roll inventory
+     */
+    public static function deductFIFO($itemId, $totalLength, $refType = 'ADJUSTMENT', $refId = null, $notes = '') {
+        global $conn;
+
+        $totalLength = abs((float)$totalLength);
+        if ($totalLength <= 0) {
+            throw new Exception("Deduction quantity must be greater than zero.");
+        }
+
+        // 1. Get available rolls ordered by oldest first (FIFO)
+        $rolls = self::getAvailableRolls($itemId);
+
+        // 2. Safety check: ensure enough total stock across all rolls
+        $totalAvailable = 0;
+        foreach ($rolls as $r) {
+            $totalAvailable += (float)$r['remaining_length_ft'];
+        }
+        if ($totalAvailable < $totalLength) {
+            throw new Exception("Insufficient roll inventory. Available: {$totalAvailable} ft, Requested: {$totalLength} ft");
+        }
+
+        // 3. Begin transaction for atomicity
+        $wasInTransaction = $conn->in_transaction ?? false;
+        if (!$wasInTransaction) {
+            $conn->begin_transaction();
+        }
+
+        try {
+            require_once __DIR__ . '/InventoryManager.php';
+
+            $remaining = $totalLength;
+            $deductions = [];
+
+            foreach ($rolls as $roll) {
+                if ($remaining <= 0) break;
+
+                $rollId = (int)$roll['id'];
+                $availableInRoll = (float)$roll['remaining_length_ft'];
+                $deductAmt = min($remaining, $availableInRoll);
+
+                if ($deductAmt <= 0) continue;
+
+                // Lock the roll row for safe concurrent access
+                $stmt = $conn->prepare("SELECT remaining_length_ft, status FROM inv_rolls WHERE id = ? FOR UPDATE");
+                $stmt->bind_param("i", $rollId);
+                $stmt->execute();
+                $locked = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+
+                if (!$locked || $locked['status'] !== 'OPEN') continue;
+
+                // Re-check with locked data
+                $lockedAvailable = (float)$locked['remaining_length_ft'];
+                $deductAmt = min($remaining, $lockedAvailable);
+                if ($deductAmt <= 0) continue;
+
+                $newRemaining = $lockedAvailable - $deductAmt;
+                $newStatus = ($newRemaining <= 0.01) ? 'FINISHED' : 'OPEN';
+                $finAt = ($newStatus === 'FINISHED') ? date('Y-m-d H:i:s') : null;
+
+                // Update roll
+                $update = $conn->prepare("UPDATE inv_rolls SET remaining_length_ft = ?, status = ?, finished_at = ? WHERE id = ?");
+                $update->bind_param("dssi", $newRemaining, $newStatus, $finAt, $rollId);
+                if (!$update->execute()) {
+                    throw new Exception("Failed to update roll #{$rollId}: " . $update->error);
+                }
+                $update->close();
+
+                // Record ledger entry for this roll deduction
+                $rollNote = $notes ?: "Manual FIFO deduction";
+                $rollCode = $roll['roll_code'] ?? "Roll #{$rollId}";
+                $ledgerNote = "{$rollNote} (Roll: {$rollCode})";
+
+                InventoryManager::recordTransaction(
+                    $itemId,
+                    'OUT',
+                    $deductAmt,
+                    'ft',
+                    $refType,
+                    $refId,
+                    $rollId,
+                    $ledgerNote
+                );
+
+                $deductions[] = [
+                    'roll_id'     => $rollId,
+                    'roll_code'   => $rollCode,
+                    'deducted'    => $deductAmt,
+                    'was'         => $lockedAvailable,
+                    'now'         => $newRemaining,
+                    'status'      => $newStatus
+                ];
+
+                $remaining -= $deductAmt;
+            }
+
+            if ($remaining > 0.01) {
+                throw new Exception("FIFO deduction incomplete. Could not deduct {$remaining} ft from available rolls.");
+            }
+
+            if (!$wasInTransaction) {
+                $conn->commit();
+            }
+
+            return $deductions;
+
+        } catch (Throwable $e) {
+            if (!$wasInTransaction && $conn->in_transaction) {
+                $conn->rollback();
+            }
+            throw $e;
+        }
+    }
     
     /**
      * Mark a roll as void.

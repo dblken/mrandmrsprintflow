@@ -26,7 +26,7 @@ $shop_name = htmlspecialchars($shop_cfg['name'] ?? 'PrintFlow');
 // Defaults
 $tagline       = htmlspecialchars($about_cfg['tagline']       ?? 'Your Trusted Printing Partner Since Day One');
 $hero_subtitle = htmlspecialchars($about_cfg['hero_subtitle'] ?? 'We bring creativity and color to life — from vibrant tarpaulins to precision stickers, custom apparel to large-format prints.');
-$mission       = htmlspecialchars($about_cfg['mission']       ?? 'To deliver exceptional printing solutions that empower businesses and individuals to communicate their message with clarity, creativity, and impact.');
+$mission       = htmlspecialchars($about_cfg['mission']       ?? 'To provide exceptional printing solutions that empower businesses and individuals to communicate their message with clarity, creativity, and impact.');
 $vision        = htmlspecialchars($about_cfg['vision']        ?? 'To be the most trusted printing partner in the region, known for quality, speed, and innovative print technology.');
 $founding_year = htmlspecialchars($about_cfg['founding_year'] ?? '2018');
 $team_size     = htmlspecialchars($about_cfg['team_size']     ?? '25+');
@@ -221,7 +221,7 @@ function about_icon(string $icon): string {
                     ['title'=>'State-of-the-Art Equipment','desc'=>'We invest in the latest printing technology to guarantee crisp, vivid results every time.'],
                     ['title'=>'Eco-Friendly Materials','desc'=>'We use sustainable inks and materials whenever possible to reduce our environmental footprint.'],
                     ['title'=>'Custom Sizes & Formats','desc'=>'No standard size? No problem. We accommodate virtually any dimension or specification.'],
-                    ['title'=>'Fast & Reliable Delivery','desc'=>'Rush orders, same-day pickups, and on-time delivery you can count on.'],
+                    ['title'=>'Fast & Reliable Pickup','desc'=>'Rush orders, same-day pickups, and clear notifications so you know exactly when your order is ready.'],
                 ]; ?>
                 <?php foreach ($perks as $perk): ?>
                 <div style="display:flex; gap:1rem; align-items:flex-start; padding:1.25rem; background:#fff; border:1px solid #e2e8f0; border-radius:1rem; box-shadow:0 1px 6px rgba(0,0,0,0.04);">

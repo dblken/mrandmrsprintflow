@@ -21,7 +21,7 @@ $featured_products = db_query(
             <div class="lp-hero-content">
                 <p class="lp-hero-tag">Professional Printing Solutions</p>
                 <h1 class="lp-hero-title">Print Your Ideas<br><span>with Precision</span></h1>
-                <p class="lp-hero-desc">Transform your creative vision into reality. High-quality printing for tarpaulins, apparel, stickers, and custom designs—delivered on time.</p>
+                <p class="lp-hero-desc">Transform your creative vision into reality. High-quality printing for tarpaulins, apparel, stickers, and custom designs—crafted with care and ready for pickup.</p>
                 <div class="lp-hero-btns">
                     <?php if (!is_logged_in()): ?>
                         <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Get Started Free</a>
@@ -33,7 +33,7 @@ $featured_products = db_query(
                 <div class="lp-stats">
                     <div><p class="lp-stat-num">500+</p><p class="lp-stat-label">Happy Clients</p></div>
                     <div><p class="lp-stat-num">10K+</p><p class="lp-stat-label">Orders Completed</p></div>
-                    <div><p class="lp-stat-num">24/7</p><p class="lp-stat-label">Support</p></div>
+                    <div><p class="lp-stat-num">Trusted</p><p class="lp-stat-label">Customer Support</p></div>
                 </div>
             </div>
             <div class="lp-hero-visual">
@@ -185,14 +185,13 @@ $featured_products = db_query(
         <div class="lp-two-col">
             <div class="lp-order-2">
                 <div class="lp-feature-box">
-                    <div class="lp-feature-box-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-                    <p class="lp-feature-box-title">Quality Guaranteed</p>
+                    <img src="/printflow/uploads/designs/store_pict.jpg" alt="PrintFlow store" class="lp-feature-box-image">
                 </div>
             </div>
             <div class="lp-order-1">
                 <p class="lp-heading-label">Why Choose Us</p>
                 <h2 class="lp-heading">Why Choose PrintFlow?</h2>
-                <p class="lp-heading-desc">We combine cutting-edge printing technology with expertise to deliver exceptional results every time.</p>
+                <p class="lp-heading-desc">We combine cutting-edge printing technology with expertise to produce exceptional results every time.</p>
                 <ul class="lp-list">
                     <li>
                         <div class="lp-list-icon indigo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></div>

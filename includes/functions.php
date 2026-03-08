@@ -4,64 +4,137 @@
  * PrintFlow - Printing Shop PWA
  */
 
+// Set Timezone – adjust this based on your location
+date_default_timezone_set('Asia/Manila');
+
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/email_sms_config.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 /**
- * Send email notification
+ * Send email notification using PHPMailer
  * @param string $to Recipient email
  * @param string $subject Email subject
- * @param string $message Email body
+ * @param string $message Email body (HTML)
+ * @param bool $is_html Whether message is HTML (default: true)
  * @return bool
  */
-function send_email($to, $subject, $message) {
-    // Using PHP mail() function for now
-    // TODO: Configure SMTP for production
+function send_email($to, $subject, $message, $is_html = true) {
+    // Check if email is enabled
+    if (!EMAIL_ENABLED) {
+        error_log("Email sending disabled. Would send to: {$to}");
+        return false;
+    }
     
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= 'From: PrintFlow <noreply@printflow.com>' . "\r\n";
-    
-    $html_message = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .footer { padding: 10px; text-align: center; font-size: 12px; color: #666; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h2>PrintFlow</h2>
-            </div>
-            <div class='content'>
-                {$message}
-            </div>
-            <div class='footer'>
-                <p>&copy; " . date('Y') . " PrintFlow. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
-    
-    return mail($to, $subject, $html_message, $headers);
+    try {
+        $mail = new PHPMailer(true);
+        
+        // Server settings
+        if (EMAIL_SERVICE === 'smtp') {
+            $mail->isSMTP();
+            $mail->Host       = SMTP_HOST;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = SMTP_USERNAME;
+            $mail->Password   = SMTP_PASSWORD;
+            $mail->SMTPSecure = SMTP_ENCRYPTION;
+            $mail->Port       = SMTP_PORT;
+        } elseif (EMAIL_SERVICE === 'sendmail') {
+            $mail->isSendmail();
+        } else {
+            // Use PHP's mail() function
+            $mail->isMail();
+        }
+        
+        // Recipients
+        $mail->setFrom(EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME);
+        $mail->addAddress($to);
+        $mail->addReplyTo(EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME);
+        
+        // Content
+        $mail->isHTML($is_html);
+        $mail->Subject = $subject;
+        
+        if ($is_html) {
+            $mail->Body = $message;
+            $mail->AltBody = strip_tags($message);
+        } else {
+            $mail->Body = $message;
+        }
+        
+        $mail->send();
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Failed to send email to {$to}: " . $mail->ErrorInfo);
+        return false;
+    }
 }
 
 /**
- * Send SMS notification (placeholder)
+ * Send SMS notification
  * @param string $phone Phone number
  * @param string $message SMS message
  * @return bool
  */
 function send_sms($phone, $message) {
-    // TODO: Integrate SMS gateway API (e.g., Twilio, Semaphore)
-    error_log("SMS to {$phone}: {$message}");
-    return true;
+    // Check if SMS is enabled
+    if (!SMS_ENABLED) {
+        error_log("SMS sending disabled. Would send to: {$phone} - Message: {$message}");
+        return false;
+    }
+    
+    try {
+        if (SMS_SERVICE === 'semaphore') {
+            // Semaphore SMS API (Philippines)
+            $url = 'https://api.semaphore.co/api/v4/messages';
+            $data = [
+                'apikey' => SEMAPHORE_API_KEY,
+                'number' => $phone,
+                'message' => $message,
+                'sendername' => SEMAPHORE_SENDER_NAME
+            ];
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($http_code === 200) {
+                return true;
+            } else {
+                error_log("Semaphore SMS failed: " . $response);
+                return false;
+            }
+            
+        } elseif (SMS_SERVICE === 'twilio') {
+            // Twilio SMS API
+            require_once __DIR__ . '/../vendor/autoload.php';
+            
+            $twilio = new \Twilio\Rest\Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+            $twilio->messages->create($phone, [
+                'from' => TWILIO_PHONE_NUMBER,
+                'body' => $message
+            ]);
+            
+            return true;
+            
+        } else {
+            error_log("No SMS service configured. Message to {$phone}: {$message}");
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("Failed to send SMS to {$phone}: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**

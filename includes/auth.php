@@ -59,6 +59,22 @@ function is_staff() {
 }
 
 /**
+ * Check if user is Manager
+ * @return bool
+ */
+function is_manager() {
+    return is_logged_in() && $_SESSION['user_type'] === 'Manager';
+}
+
+/**
+ * Check if user is Admin or Manager
+ * @return bool
+ */
+function is_admin_or_manager() {
+    return is_logged_in() && in_array($_SESSION['user_type'], ['Admin', 'Manager']);
+}
+
+/**
  * Check if user is Customer
  * @return bool
  */
@@ -123,19 +139,41 @@ function login_user($email, $password) {
     }
     
     // Set session variables
-    $_SESSION['user_id'] = $user['user_id'];
-    $_SESSION['user_type'] = $user['role']; // 'Admin' or 'Staff'
+    $_SESSION['user_id']   = $user['user_id'];
+    $_SESSION['user_type'] = $user['role']; // 'Admin', 'Manager', or 'Staff'
     $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
-    $_SESSION['user_email'] = $user['email'];
-    $_SESSION['user_status'] = $user['status']; // 'Activated' or 'Pending'
-    $_SESSION['branch_id'] = $user['branch_id'] ?? null;
-    
-    // Log activity
-    // log_activity($user['user_id'], 'Login', 'User logged in');
-    
+    $_SESSION['user_email']  = $user['email'];
+    $_SESSION['user_status'] = $user['status'];
+    $_SESSION['branch_id']   = $user['branch_id'] ?? null;
+
+    // Check if email is verified
+    if (isset($user['email_verified']) && $user['email_verified'] == 0) {
+        $_SESSION['otp_pending_email'] = $user['email'];
+        $_SESSION['otp_user_type'] = 'User'; // Distinguish between customer and internal user
+        return [
+            'success' => false, 
+            'message' => 'Please verify your email before logging in.', 
+            'not_verified' => true,
+            'redirect' => AUTH_REDIRECT_BASE . '/public/verify_email.php'
+        ];
+    }
+
+    // Force Manager (and Staff) to their assigned branch immediately so the
+    // branch selector never shows "All Branches" for restricted accounts.
+    if ($user['role'] === 'Manager' || $user['role'] === 'Staff') {
+        $_SESSION['selected_branch_id'] = $user['branch_id'] ?? null;
+    } else {
+        // Admin: leave selected_branch_id alone (keep previous or default 'all')
+        if (!isset($_SESSION['selected_branch_id'])) {
+            $_SESSION['selected_branch_id'] = 'all';
+        }
+    }
+
     // Determine redirect based on role and status
     if ($user['role'] === 'Admin') {
         $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
+    } elseif ($user['role'] === 'Manager') {
+        $redirect = AUTH_REDIRECT_BASE . '/manager/dashboard.php';
     } elseif ($user['status'] === 'Pending') {
         // Pending staff can only see profile to complete their information
         $redirect = AUTH_REDIRECT_BASE . '/staff/profile.php';
@@ -182,6 +220,17 @@ function login_customer($email, $password) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
     
+    // Check if email is verified
+    if (isset($customer['email_verified']) && $customer['email_verified'] == 0) {
+        $_SESSION['otp_pending_email'] = $customer['email'];
+        return [
+            'success' => false, 
+            'message' => 'Please verify your email before logging in.', 
+            'not_verified' => true,
+            'redirect' => AUTH_REDIRECT_BASE . '/public/verify_email.php'
+        ];
+    }
+
     // Set session variables
     $_SESSION['user_id'] = $customer['customer_id'];
     $_SESSION['user_type'] = 'Customer';
@@ -260,10 +309,21 @@ function login($email, $password) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer($data) {
+    // Clear any existing OTP session data to prevent "stickiness"
+    unset($_SESSION['otp_pending_email']);
+    unset($_SESSION['otp_user_type']);
+    unset($_SESSION['otp_error']);
+    unset($_SESSION['otp_success']);
+
     // Check if email already exists
-    $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$data['email']]);
+    $existing = db_query("SELECT customer_id, email_verified FROM customers WHERE email = ?", 's', [$data['email']]);
     if (!empty($existing)) {
-        return ['success' => false, 'message' => 'Email already registered'];
+        if (isset($existing[0]['email_verified']) && $existing[0]['email_verified'] == 0) {
+            // Delete incomplete registration to allow re-registration
+            db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing[0]['customer_id']]);
+        } else {
+            return ['success' => false, 'message' => 'Email already registered'];
+        }
     }
     
     // Hash password
@@ -285,13 +345,27 @@ function register_customer($data) {
     ]);
     
     if ($result) {
-        // Auto-login after registration
-        $_SESSION['user_id'] = $result;
-        $_SESSION['user_type'] = 'Customer';
-        $_SESSION['user_name'] = $data['first_name'] . ' ' . $data['last_name'];
-        $_SESSION['user_email'] = $data['email'];
+        $customer_id = $result;
         
-        return ['success' => true, 'message' => 'Registration successful'];
+        // Generate OTP
+        require_once __DIR__ . '/otp_mailer.php';
+        $smtp_cfg = require __DIR__ . '/smtp_config.php';
+        $otp_code = (string) rand(100000, 999999);
+        $now = date('Y-m-d H:i:s');
+        $otp_expiry = date('Y-m-d H:i:s', time() + (($smtp_cfg['otp_expiry_minutes'] ?? 5) * 60));
+        
+        db_execute(
+            "UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?",
+            'sssi', [$otp_code, $otp_expiry, $now, $customer_id]
+        );
+        
+        // Send OTP Email
+        send_otp_email($data['email'], $otp_code);
+        
+        $_SESSION['otp_pending_email'] = $data['email'];
+        $_SESSION['otp_success'] = 'Verification code sent to your email.';
+        
+        return ['success' => true, 'message' => 'Registration successful! Please verify your email.', 'needs_verification' => true];
     }
     
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];
@@ -305,6 +379,12 @@ function register_customer($data) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer_direct($type, $identifier, $password) {
+    // Clear any existing OTP session data to prevent "stickiness"
+    unset($_SESSION['otp_pending_email']);
+    unset($_SESSION['otp_user_type']);
+    unset($_SESSION['otp_error']);
+    unset($_SESSION['otp_success']);
+
     // Determine email and contact_number
     if ($type === 'email') {
         $email = $identifier;
@@ -315,14 +395,22 @@ function register_customer_direct($type, $identifier, $password) {
     }
 
     // Check if already exists
-    $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
+    $existing = db_query("SELECT customer_id, email_verified FROM customers WHERE email = ?", 's', [$email]);
     if (!empty($existing)) {
-        return ['success' => false, 'message' => 'Account already exists. Please login.'];
+        if (isset($existing[0]['email_verified']) && $existing[0]['email_verified'] == 0) {
+            db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing[0]['customer_id']]);
+        } else {
+            return ['success' => false, 'message' => 'Account already exists. Please login.'];
+        }
     }
     if ($contact_number) {
-        $existing2 = db_query("SELECT customer_id FROM customers WHERE contact_number = ?", 's', [$contact_number]);
+        $existing2 = db_query("SELECT customer_id, email_verified FROM customers WHERE contact_number = ?", 's', [$contact_number]);
         if (!empty($existing2)) {
-            return ['success' => false, 'message' => 'Phone number already registered. Please login.'];
+            if (isset($existing2[0]['email_verified']) && $existing2[0]['email_verified'] == 0) {
+                db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing2[0]['customer_id']]);
+            } else {
+                return ['success' => false, 'message' => 'Phone number already registered. Please login.'];
+            }
         }
     }
 
@@ -340,13 +428,27 @@ function register_customer_direct($type, $identifier, $password) {
     ]);
 
     if ($result) {
-        // Auto-login after registration
-        $_SESSION['user_id'] = $result;
-        $_SESSION['user_type'] = 'Customer';
-        $_SESSION['user_name'] = 'Customer';
-        $_SESSION['user_email'] = $email;
+        $customer_id = $result;
+
+        // Generate OTP
+        require_once __DIR__ . '/otp_mailer.php';
+        $smtp_cfg = require __DIR__ . '/smtp_config.php';
+        $otp_code = (string) rand(100000, 999999);
+        $now = date('Y-m-d H:i:s');
+        $otp_expiry = date('Y-m-d H:i:s', time() + (($smtp_cfg['otp_expiry_minutes'] ?? 5) * 60));
         
-        return ['success' => true, 'message' => 'Registration successful!'];
+        db_execute(
+            "UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?",
+            'sssi', [$otp_code, $otp_expiry, $now, $customer_id]
+        );
+        
+        // Send OTP Email
+        send_otp_email($email, $otp_code);
+        
+        $_SESSION['otp_pending_email'] = $email;
+        $_SESSION['otp_success'] = 'Verification code sent to your email.';
+
+        return ['success' => true, 'message' => 'Registration successful! Please verify your email.', 'needs_verification' => true];
     }
 
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];

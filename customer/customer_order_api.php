@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 
-require_role(['Customer', 'Staff', 'Admin']); 
+require_role(['Customer', 'Staff', 'Admin', 'Manager']); 
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -34,6 +34,7 @@ try {
             $customerId = ($_SESSION['user_type'] === 'Customer') ? $_SESSION['user_id'] : (int)($_POST['customer_id'] ?? 0);
             if (!$customerId) throw new Exception("Customer context is missing.");
 
+            $branchId = (int)($_POST['branch_id'] ?? 1);
             $width = (float)($_POST['width_ft'] ?? 0);
             $height = (float)($_POST['height_ft'] ?? 0);
             $qty = (int)($_POST['quantity'] ?? 1);
@@ -59,6 +60,8 @@ try {
 
             // 3. Create Job Order
             $orderId = JobOrderService::createOrder([
+                'order_id'        => null, // Auto-increment in JobOrderService
+                'branch_id'       => $branchId,
                 'customer_id'     => $customerId,
                 'job_title'       => $jobTitle,
                 'service_type'    => $service,

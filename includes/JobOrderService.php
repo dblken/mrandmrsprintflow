@@ -180,7 +180,28 @@ class JobOrderService {
             } elseif ($stock < $required) {
                 $status = 'LOW';
             }
+
+            // Check lamination stock readiness if printing sticker
+            if (isset($m['metadata']['lamination_item_id']) && $m['metadata']['lamination_length_ft'] > 0) {
+                $lamStock = InventoryManager::getStockOnHand($m['metadata']['lamination_item_id']);
+                if ($lamStock <= 0) {
+                    return 'MISSING';
+                } elseif ($lamStock < $m['metadata']['lamination_length_ft']) {
+                    $status = 'LOW';
+                }
+            }
         }
+
+        if (isset($order['ink_usage']) && !empty($order['ink_usage'])) {
+            // Check ink stock readiness
+            foreach ($order['ink_usage'] as $ink) {
+                $stock = InventoryManager::getStockOnHand($ink['item_id']);
+                if ($stock < $ink['quantity_used']) {
+                    return 'MISSING'; // Missing ink should block completion
+                }
+            }
+        }
+
         return $status;
     }
 
@@ -237,62 +258,104 @@ class JobOrderService {
      */
     private static function processDeductions($orderId) {
         $materials = db_query("SELECT * FROM job_order_materials WHERE job_order_id = ? AND deducted_at IS NULL", 'i', [$orderId]);
-        if (!$materials) return;
+        if ($materials) {
+            foreach ($materials as $m) {
+                $item = InventoryManager::getItem($m['item_id']);
+                if (!$item) continue;
 
-        foreach ($materials as $m) {
-            $item = InventoryManager::getItem($m['item_id']);
-            if (!$item) continue;
-
-            if ($item['track_by_roll']) {
-                $rollId = $m['roll_id'];
-
-                // If no specific roll assigned, auto-pick the oldest open roll for this item
-                if (!$rollId) {
-                    $autoRoll = db_query(
-                        "SELECT id FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' ORDER BY received_at ASC LIMIT 1",
-                        'i', [$m['item_id']]
-                    );
-                    $rollId = $autoRoll[0]['id'] ?? null;
-                }
-
-                if ($rollId) {
+                if ($item['track_by_roll']) {
                     $lengthNeeded = $m['computed_required_length_ft'] ?: $m['quantity'];
-                    // Check if roll has enough — if not, split across available rolls
-                    $remaining = $lengthNeeded;
-                    $openRolls = db_query(
-                        "SELECT id, remaining_length_ft FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' ORDER BY received_at ASC",
-                        'i', [$m['item_id']]
-                    ) ?: [];
-                    foreach ($openRolls as $roll) {
-                        if ($remaining <= 0) break;
-                        $deductAmt = min($remaining, (float)$roll['remaining_length_ft']);
-                        if ($deductAmt <= 0) continue;
-                        RollService::deductFromRoll($roll['id'], $deductAmt, $orderId, null);
-                        $remaining -= $deductAmt;
+                    
+                    try {
+                        // Use unified FIFO deduction logic
+                        RollService::deductFIFO(
+                            $m['item_id'],
+                            $lengthNeeded,
+                            'JOB_ORDER',
+                            $orderId,
+                            "Deducted for Job #{$orderId}"
+                        );
+                    } catch (Exception $e) {
+                        // If FIFO fails (e.g. insufficient rolls), fall back to generic ledger entry
+                        InventoryManager::issueStock(
+                            $m['item_id'], $lengthNeeded, 'ft', 'JOB_ORDER', $orderId, 
+                            "Generic deduction for Job #{$orderId} (Rolls insufficient: " . $e->getMessage() . ")", 
+                            true, true
+                        );
                     }
-                    // If any remainder couldn't be deducted from rolls, just record a ledger entry
-                    if ($remaining > 0) {
-                        InventoryManager::issueStock($m['item_id'], $remaining, 'ft', 'JOB_ORDER', $orderId, "Generic deduction for Job #{$orderId} (Rolls exhausted)", true, true);
+                    
+                    // --- PRINTED STICKER: LAMINATION DEDUCTION ---
+                    if (isset($m['metadata']['lamination_item_id']) && $m['metadata']['lamination_length_ft'] > 0) {
+                        $lamItem = InventoryManager::getItem($m['metadata']['lamination_item_id']);
+                        if ($lamItem) {
+                            try {
+                                if ($lamItem['track_by_roll']) {
+                                    RollService::deductFIFO(
+                                        $lamItem['id'],
+                                        $m['metadata']['lamination_length_ft'],
+                                        'JOB_ORDER',
+                                        $orderId,
+                                        "Lamination deducted for Job #{$orderId}"
+                                    );
+                                } else {
+                                    InventoryManager::issueStock(
+                                        $lamItem['id'], 
+                                        $m['metadata']['lamination_length_ft'], 
+                                        $lamItem['unit_of_measure'], 
+                                        'JOB_ORDER', 
+                                        $orderId, 
+                                        "Lamination deducted for Job #{$orderId}",
+                                        false, true
+                                    );
+                                }
+                            } catch (Exception $e) {
+                                InventoryManager::issueStock(
+                                    $lamItem['id'], $m['metadata']['lamination_length_ft'], 'ft', 'JOB_ORDER', $orderId, 
+                                    "Lamination generic deduction for Job #{$orderId} (Rolls insufficient: " . $e->getMessage() . ")", 
+                                    true, true
+                                );
+                            }
+                        }
                     }
+
+                    db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
                 } else {
-                    // No rolls exist at all — record generic ledger entry only
-                    InventoryManager::issueStock($m['item_id'], $m['computed_required_length_ft'] ?: $m['quantity'], 'ft', 'JOB_ORDER', $orderId, "Generic deduction for Job #{$orderId} (No rolls in stock)", true, true);
+                    // Non-roll deduction — bypass stock check on job completion since we always record the deduction
+                    InventoryManager::issueStock(
+                        $m['item_id'], 
+                        $m['quantity'], 
+                        $m['uom'], 
+                        'JOB_ORDER', 
+                        $orderId, 
+                        "Deducted for Job #{$orderId}",
+                        false, // not roll-tracked, so no roll check
+                        true // allow_negative_bypass
+                    );
+                    // Mark as deducted
+                    db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
                 }
-                db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
-            } else {
-                // Non-roll deduction — bypass stock check on job completion since we always record the deduction
+            }
+        }
+
+        // Process Ink Deductions
+        $inks = db_query("SELECT * FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$orderId]);
+        if ($inks) {
+            // Delete previous internal state notes for ink to avoid duplicates if completed twice somehow, although shouldn't happen
+            foreach ($inks as $ink) {
+                // Determine item from inventory
+                $inkItem = InventoryManager::getItem($ink['item_id']);
+                if (!$inkItem) continue;
+
                 InventoryManager::issueStock(
-                    $m['item_id'], 
-                    $m['quantity'], 
-                    $m['uom'], 
-                    'JOB_ORDER', 
-                    $orderId, 
-                    "Deducted for Job #{$orderId}",
-                    false, // not roll-tracked, so no roll check
-                    true // allow_negative_bypass
+                    $ink['item_id'],
+                    $ink['quantity_used'],
+                    $inkItem['unit_of_measure'] ?? 'bottle',
+                    'JOB_ORDER',
+                    $orderId,
+                    "{$ink['ink_color']} ink used for Job #{$orderId}",
+                    false,
+                    true // allow negative bypass
                 );
-                // Mark as deducted
-                db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
             }
         }
     }
@@ -301,6 +364,8 @@ class JobOrderService {
         $sql = "SELECT jo.*, 
                        c.customer_type, c.transaction_count,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
+                       CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+                       c.email as customer_email,
                        c.contact_number as customer_contact
                 FROM job_orders jo
                 LEFT JOIN customers c ON jo.customer_id = c.customer_id
@@ -327,6 +392,14 @@ class JobOrderService {
         $order['files'] = db_query(
             "SELECT id, file_path, file_name, file_type, uploaded_at FROM job_order_files WHERE job_order_id = ?",
             'i', [$id]
+        ) ?: [];
+
+        $order['ink_usage'] = db_query(
+            "SELECT u.*, i.name as item_name
+             FROM job_order_ink_usage u
+             JOIN inv_items i ON u.item_id = i.id
+             WHERE job_order_id = ?",
+             'i', [$id]
         ) ?: [];
 
         return $order;
@@ -376,5 +449,42 @@ class JobOrderService {
     public static function cancelOrder($orderId, $reason = '') {
         $sql = "UPDATE job_orders SET status = 'CANCELLED', notes = CONCAT(IFNULL(notes, ''), '\n[CANCELLED] ', ?) WHERE id = ?";
         return db_execute($sql, 'si', [$reason, $orderId]);
+    }
+
+    /**
+     * Save Ink Usage for an Order
+     */
+    public static function saveInkUsage($orderId, $inkData) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if (!$conn) return false;
+
+        $conn->begin_transaction();
+        try {
+            // Remove existing ink records for easy replace strategy
+            db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$orderId]);
+
+            if (!empty($inkData) && is_array($inkData)) {
+                $sql = "INSERT INTO job_order_ink_usage (job_order_id, item_id, ink_color, quantity_used) VALUES (?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    foreach ($inkData as $ink) {
+                        $itemId = (int)($ink['item_id'] ?? 0);
+                        $color = sanitize($ink['color'] ?? '');
+                        $qty = (float)($ink['quantity'] ?? 0);
+
+                        if ($itemId > 0 && $qty > 0 && !empty($color)) {
+                            $stmt->bind_param('iisd', $orderId, $itemId, $color, $qty);
+                            $stmt->execute();
+                        }
+                    }
+                    $stmt->close();
+                }
+            }
+            $conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        }
     }
 }

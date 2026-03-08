@@ -13,7 +13,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/variant_functions.php';
 require_once __DIR__ . '/../includes/TarpaulinService.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 header('Content-Type: application/json');
 

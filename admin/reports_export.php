@@ -8,7 +8,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $report = $_GET['report'] ?? '';
 $from   = $_GET['from'] ?? date('Y-m-01');

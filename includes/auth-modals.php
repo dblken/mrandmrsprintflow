@@ -2,6 +2,11 @@
 /**
  * Login and Register modals (blurred backdrop). Include when !$is_logged_in.
  * Requires: $base_url, csrf_field(), and optionally $_GET['auth_modal'], $_GET['error']
+ * 
+ * Version: 2.0 - Updated 2026-03-05
+ * - Removed "Remember me" checkbox from login modal
+ * - Added forgot password modal with Email/Mobile tabs
+ * - Centered forgot password link in login modal
  */
 $auth_modal = isset($_GET['auth_modal']) ? $_GET['auth_modal'] : '';
 $auth_error = isset($_GET['error']) ? $_GET['error'] : '';
@@ -145,12 +150,41 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .reg-step-dot.done { background: #22c55e; color: #fff; }
     .reg-step-line { width: 2rem; height: 2px; background: rgba(255,255,255,.08); }
     .reg-step-line.done { background: #22c55e; }
+    .auth-password-wrap { position: relative; }
+    .auth-password-wrap .input-field { padding-right: 3rem; }
+    .auth-password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0;
+    }
+    .auth-password-toggle:hover { color: #e0f2fe; }
+    .auth-password-toggle:focus-visible {
+        outline: 2px solid rgba(83, 197, 224, 0.45);
+        outline-offset: 2px;
+        border-radius: 0.5rem;
+    }
+    .auth-password-toggle svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        pointer-events: none;
+    }
 </style>
 
-<div class="auth-modal-backdrop" id="auth-modal-backdrop" aria-hidden="true"></div>
+<div class="auth-modal-backdrop" id="auth-modal-backdrop"></div>
 
 <!-- Login Modal -->
-<div class="auth-modal" id="auth-modal-login" role="dialog" aria-labelledby="auth-login-title" aria-modal="true" aria-hidden="true">
+<div class="auth-modal" id="auth-modal-login" role="dialog" aria-labelledby="auth-login-title" aria-modal="true">
     <button type="button" class="auth-modal-close" data-auth-close aria-label="Close">&times;</button>
     <div class="auth-modal-inner">
         <h2 id="auth-login-title">Welcome Back</h2>
@@ -173,14 +207,15 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             </div>
             <div class="auth-field">
                 <label for="auth-password">Password</label>
-                <input type="password" id="auth-password" name="password" class="input-field" placeholder="••••••••" required>
+                <div class="auth-password-wrap">
+                    <input type="password" id="auth-password" name="password" class="input-field" placeholder="••••••••" required>
+                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="auth-password">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                    </button>
+                </div>
             </div>
-            <div class="auth-field-row" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-                <label style="display:flex;align-items:center;gap:0.5rem;margin:0;">
-                    <input type="checkbox" name="remember" style="width:1rem;height:1rem;">
-                    <span>Remember me</span>
-                </label>
-                <a href="<?php echo $url_forgot_password ?? $base_url . '/forgot-password/'; ?>" style="font-size:0.875rem;color:#53C5E0;">Forgot password?</a>
+            <div class="auth-field-row" style="text-align: center; margin-bottom: 1.5rem;">
+                <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none; display: inline-block; width: 100%;">Forgot password?</a>
             </div>
             <button type="submit" class="auth-btn-submit">Sign In</button>
         </form>
@@ -189,7 +224,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 </div>
 
 <!-- Register Modal — 2-Step OTP Flow -->
-<div class="auth-modal auth-modal-register" id="auth-modal-register" role="dialog" aria-labelledby="auth-register-title" aria-modal="true" aria-hidden="true">
+<div class="auth-modal auth-modal-register" id="auth-modal-register" role="dialog" aria-labelledby="auth-register-title" aria-modal="true">
     <button type="button" class="auth-modal-close" data-auth-close aria-label="Close">&times;</button>
     <div class="auth-modal-inner">
         <h2 id="auth-register-title">Create Account</h2>
@@ -219,19 +254,57 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             <!-- Password fields -->
             <div class="auth-field">
                 <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
-                <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8">
+                <div class="auth-password-wrap">
+                    <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8">
+                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-password">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                    </button>
+                </div>
                 <p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b;">Min 8 characters</p>
             </div>
             
             <div class="auth-field">
                 <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
-                <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
+                <div class="auth-password-wrap">
+                    <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
+                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-confirm-pw">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                    </button>
+                </div>
             </div>
 
             <button type="submit" class="auth-btn-submit" style="margin-top:1.5rem;">Create Account</button>
         </form>
 
         <p class="auth-switch">Already have an account? <a href="#" data-auth-open="login">Sign in</a></p>
+    </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div class="auth-modal-backdrop" id="forgot-modal-backdrop" style="z-index: 100000;"></div>
+<div class="auth-modal" id="forgot-modal" role="dialog" aria-labelledby="forgot-modal-title" aria-modal="true" style="z-index: 100001;">
+    <button type="button" class="auth-modal-close" data-forgot-close aria-label="Close">&times;</button>
+    <div class="auth-modal-inner">
+        <h2 id="forgot-modal-title">Reset Password</h2>
+        <p class="auth-modal-sub">Enter your email and we'll send you a reset code</p>
+        
+        <div id="forgot-message"></div>
+        
+        <!-- Form -->
+        <form id="forgot-form" onsubmit="handleForgotSubmit(event)">
+            <input type="hidden" id="forgot-type" value="email">
+            
+            <div class="auth-field">
+                <label id="forgot-label" for="forgot-identifier">Email Address</label>
+                <input type="email" id="forgot-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
+            </div>
+            
+            <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Code</button>
+        </form>
+        
+        <p class="auth-switch" style="margin-top: 1rem;">
+            <a href="#" data-forgot-close>Back to login</a>
+        </p>
     </div>
 </div>
 
@@ -246,21 +319,25 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
     function openModal(name) {
         // Close any already-open modal first so switching between login/register works
-        if (loginModal) { loginModal.classList.remove('is-open'); loginModal.setAttribute('aria-hidden', 'true'); }
-        if (registerModal) { registerModal.classList.remove('is-open'); registerModal.setAttribute('aria-hidden', 'true'); }
+        if (loginModal) { loginModal.classList.remove('is-open'); }
+        if (registerModal) { registerModal.classList.remove('is-open'); }
         var modal = name === 'register' ? registerModal : loginModal;
         if (!modal) return;
         backdrop.classList.add('is-open');
         modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-        backdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
+        
+        // Focus first input for accessibility
+        setTimeout(function() {
+            var firstInput = modal.querySelector('input');
+            if (firstInput) firstInput.focus();
+        }, 100);
     }
     function closeModal() {
+        if (!backdrop) return;
         backdrop.classList.remove('is-open');
-        if (loginModal) { loginModal.classList.remove('is-open'); loginModal.setAttribute('aria-hidden', 'true'); }
-        if (registerModal) { registerModal.classList.remove('is-open'); registerModal.setAttribute('aria-hidden', 'true'); }
-        backdrop.setAttribute('aria-hidden', 'true');
+        if (loginModal) { loginModal.classList.remove('is-open'); }
+        if (registerModal) { registerModal.classList.remove('is-open'); }
         document.body.style.overflow = '';
     }
     function showMessage(modalName, type, text) {
@@ -274,6 +351,11 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         div.textContent = s;
         return div.innerHTML;
     }
+    function getPasswordIcon(isVisible) {
+        return isVisible
+            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.584 10.587A2 2 0 0012 14a2 2 0 001.414-.586"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.878 5.099A10.45 10.45 0 0112 4.5c6.75 0 10.5 7.5 10.5 7.5a17.537 17.537 0 01-4.232 4.919M6.228 6.228A17.646 17.646 0 001.5 12s3.75 7.5 10.5 7.5a10.56 10.56 0 005.012-1.228"></path></svg>'
+            : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>';
+    }
 
     document.addEventListener('click', function(e) {
         if (e.target.matches('[data-auth-modal], [data-auth-open]')) {
@@ -285,6 +367,17 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             e.preventDefault();
             closeModal();
         }
+        var toggle = e.target.closest('[data-toggle-password]');
+        if (toggle) {
+            e.preventDefault();
+            var inputId = toggle.getAttribute('aria-controls');
+            var input = inputId ? document.getElementById(inputId) : null;
+            if (!input) return;
+            var isVisible = input.type === 'text';
+            input.type = isVisible ? 'password' : 'text';
+            toggle.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+            toggle.innerHTML = getPasswordIcon(!isVisible);
+        }
     });
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && backdrop && backdrop.classList.contains('is-open')) closeModal();
@@ -295,6 +388,139 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (authError) showMessage(authModal === 'login' ? 'login' : 'register', 'error', authError);
         if (authSuccess) showMessage(authModal === 'login' ? 'login' : 'register', 'success', authSuccess);
     }
+
+    // ═══ Forgot Password Modal Logic ═══
+    var forgotBackdrop = document.getElementById('forgot-modal-backdrop');
+    var forgotModal = document.getElementById('forgot-modal');
+    
+    function openForgotModal() {
+        closeModal(); // Close auth modals first
+        if (forgotBackdrop && forgotModal) {
+            forgotBackdrop.classList.add('is-open');
+            forgotModal.classList.add('is-open');
+            forgotModal.setAttribute('aria-hidden', 'false');
+            forgotBackdrop.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    function closeForgotModal() {
+        if (forgotBackdrop && forgotModal) {
+            forgotBackdrop.classList.remove('is-open');
+            forgotModal.classList.remove('is-open');
+            document.body.style.overflow = '';
+            // Clear form
+            var form = document.getElementById('forgot-form');
+            if (form) form.reset();
+            var msg = document.getElementById('forgot-message');
+            if (msg) msg.innerHTML = '';
+        }
+    }
+    
+    // handleForgotSubmit implementation (must handle AJAX)
+    window.handleForgotSubmit = function(e) {
+        e.preventDefault();
+        var type = document.getElementById('forgot-type').value;
+        var identifier = document.getElementById('forgot-identifier').value;
+        var submitBtn = e.target.querySelector('button[type="submit"]');
+        var originalText = submitBtn.textContent;
+        var messageEl = document.getElementById('forgot-message');
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+
+        var formData = new FormData();
+        formData.append('type', type);
+        formData.append('identifier', identifier);
+
+        fetch('<?php echo $base_url; ?>/public/api_forgot_password.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var successMsg = data.message || 'Reset code sent!';
+                if (data.debug && data.debug.reset_code) {
+                    successMsg += '<br><br><strong>DEV MODE:</strong> Code: <code>' + data.debug.reset_code + '</code>';
+                }
+                messageEl.innerHTML = '<div class="auth-alert-success">' + successMsg + '</div>';
+                setTimeout(function() {
+                    window.location.href = '<?php echo $base_url; ?>/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
+                }, 2500);
+            } else {
+                messageEl.innerHTML = '<div class="auth-alert-error">' + (data.message || 'Error occurred') + '</div>';
+            }
+        })
+        .catch(function(err) {
+            messageEl.innerHTML = '<div class="auth-alert-error">Network error. Please try again.</div>';
+        })
+        .finally(function() {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+    };
+    
+    function showForgotMessage(type, text) {
+        var msgEl = document.getElementById('forgot-message');
+        if (msgEl) {
+            msgEl.innerHTML = '<div class="auth-alert-' + type + '">' + escapeHtml(text) + '</div>';
+        }
+    }
+    
+    window.handleForgotSubmit = function(e) {
+        e.preventDefault();
+        
+        var type = document.getElementById('forgot-type').value;
+        var identifier = document.getElementById('forgot-identifier').value;
+        
+        if (!type || !identifier) {
+            showForgotMessage('error', 'Please fill in all fields.');
+            return;
+        }
+        
+        // Send AJAX request
+        var formData = new FormData();
+        formData.append('type', type);
+        formData.append('identifier', identifier);
+        
+        fetch('<?php echo $base_url; ?>/api_forgot_password.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showForgotMessage('success', data.message || 'Reset code sent successfully! Check your ' + type + '.');
+                setTimeout(function() {
+                    closeForgotModal();
+                    // Optionally redirect to reset page
+                    // window.location.href = '<?php echo $base_url; ?>/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
+                }, 2000);
+            } else {
+                showForgotMessage('error', data.message || 'Failed to send reset code. Please try again.');
+            }
+        })
+        .catch(function(error) {
+            showForgotMessage('error', 'An error occurred. Please try again.');
+            console.error('Error:', error);
+        });
+    };
+    
+    // Forgot modal event listeners
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-forgot-modal]')) {
+            e.preventDefault();
+            openForgotModal();
+        }
+        if (e.target.matches('[data-forgot-close]')) {
+            e.preventDefault();
+            closeForgotModal();
+        }
+        if (e.target === forgotBackdrop) {
+            closeForgotModal();
+        }
+    });
 
     // ═══ Registration logic ═══
     window.regSwitchTab = function(type) {

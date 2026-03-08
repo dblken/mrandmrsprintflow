@@ -7,7 +7,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $admin_id = get_user_id();
 $error = '';
@@ -361,7 +361,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     </div>
 
     <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">

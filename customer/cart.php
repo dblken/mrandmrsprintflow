@@ -24,19 +24,20 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen" style="background:#f5f9fa;">
-    <!-- Page Header Banner -->
-    <div style="background:linear-gradient(135deg,#00232b,#0e7490);padding:2rem 0;margin-bottom:2rem;">
-        <div class="container mx-auto px-4" style="max-width:900px;">
-            <p style="font-size:0.75rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.35rem;">My Account</p>
-            <h1 style="font-size:1.75rem;font-weight:800;color:#fff;margin:0;letter-spacing:-0.02em;">Shopping Cart
-                <?php if (!empty($cart)): ?>
-                <span style="font-size:1rem;font-weight:500;color:rgba(255,255,255,0.55);margin-left:.5rem;"><?php echo count($cart); ?> item<?php echo count($cart) !== 1 ? 's' : ''; ?></span>
-                <?php endif; ?>
-            </h1>
-        </div>
+<!-- Page Hero Banner -->
+<div style="background:#00151b;position:relative;overflow:hidden;padding:2.75rem 0 3.5rem;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:220px;background:radial-gradient(ellipse at center,rgba(50,161,196,0.18) 0%,rgba(83,197,224,0.06) 50%,transparent 75%);pointer-events:none;z-index:0;"></div>
+    <div class="container mx-auto px-4" style="max-width:900px;position:relative;z-index:1;text-align:center;">
+        <p style="font-size:0.7rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.12em;margin:0 0 .6rem;">Shopping</p>
+        <h1 style="font-size:clamp(1.75rem,3.5vw,2.75rem);font-weight:800;color:#fff;letter-spacing:-0.03em;margin:0 0 .75rem;line-height:1.1;">
+            My Cart<?php if (!empty($cart)): ?> <span style="font-size:1rem;font-weight:500;color:rgba(255,255,255,0.4);">(<?php echo count($cart); ?> item<?php echo count($cart) !== 1 ? 's' : ''; ?>)</span><?php endif; ?>
+        </h1>
+        <p style="font-size:0.9rem;color:rgba(255,255,255,0.45);max-width:420px;margin:0 auto;line-height:1.65;">Review your selected items and proceed to checkout.</p>
     </div>
-    <div class="container mx-auto px-4" style="max-width:900px;padding-bottom:3rem;">
+</div>
+
+<div class="min-h-screen" style="background:#f5f9fa;padding-top:2.5rem;padding-bottom:3rem;">
+    <div class="container mx-auto px-4" style="max-width:900px;">
 
         <?php if (empty($cart)): ?>
             <div class="ct-empty">

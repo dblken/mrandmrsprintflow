@@ -12,15 +12,36 @@ if (isset($_SESSION['user_id'])) {
     if (!empty($sidebar_user) && !empty($sidebar_user[0]['profile_picture'])) {
         $sidebar_profile_pic = '/printflow/public/assets/uploads/profiles/' . $sidebar_user[0]['profile_picture'];
     }
+    
+    // Get unread notification count
+    $unread_notif_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$_SESSION['user_id']]);
+    $unread_notif_count = $unread_notif_result[0]['count'] ?? 0;
+} else {
+    $unread_notif_count = 0;
 }
 ?>
 
-<aside class="sidebar">
+<!-- Mobile Sidebar Overlay -->
+<div id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+
+<!-- Mobile Burger Menu Button -->
+<button id="mobileBurger" onclick="toggleMobileSidebar()" aria-label="Toggle menu">
+    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+</button>
+
+<aside class="sidebar" id="adminSidebar">
     <div class="sidebar-header">
         <a href="dashboard" class="logo">
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
+        <button id="sidebarCollapseBtn" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
     </div>
     
     <nav class="sidebar-nav">
@@ -35,9 +56,16 @@ if (isset($_SESSION['user_id'])) {
             </a>
             <a href="/printflow/admin/orders_management.php" class="nav-item <?php echo $current_page === 'orders_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                 </svg>
-                Store Orders
+                Orders
+            </a>
+
+            <a href="/printflow/admin/customizations.php" class="nav-item <?php echo in_array($current_page, ['job_orders.php','customizations.php']) ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                Customization
             </a>
 
             <a href="/printflow/admin/customers_management.php" class="nav-item <?php echo $current_page === 'customers_management.php' ? 'active' : ''; ?>">
@@ -87,12 +115,13 @@ if (isset($_SESSION['user_id'])) {
         <!-- System Management -->
         <div class="nav-section">
             <div class="nav-section-title">System</div>
-            <a href="user_staff_management" class="nav-item <?php echo $current_page === 'user_staff_management.php' ? 'active' : ''; ?>">
+            <a href="user_staff_management" class="nav-item <?php echo in_array($current_page, ['user_staff_management.php','create_manager.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                 </svg>
                 Users & Staff
             </a>
+
             <a href="faq_chatbot_management" class="nav-item <?php echo $current_page === 'faq_chatbot_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -104,6 +133,9 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
+                <?php if ($unread_notif_count > 0): ?>
+                <span class="nav-badge"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
+                <?php endif; ?>
             </a>
             <a href="settings" class="nav-item <?php echo $current_page === 'settings.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,26 +176,25 @@ if (isset($_SESSION['user_id'])) {
     </nav>
     
     <div class="sidebar-footer">
-        <div style="display:flex; align-items:center; gap:10px; width:100%;">
-            <a href="profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
-                <div class="user-avatar" style="flex-shrink:0; overflow:hidden;">
-                    <?php if ($sidebar_profile_pic): ?>
-                        <img src="<?php echo $sidebar_profile_pic; ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
-                    <?php else: ?>
-                        <?php echo $user_initial; ?>
-                    <?php endif; ?>
-                </div>
-                <div class="user-info" style="min-width:0;">
-                    <div class="user-name-display" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($user_name); ?></div>
-                    <div class="user-role">Admin Manager</div>
-                </div>
-            </a>
-            <button onclick="document.getElementById('logoutModal').style.display='flex'" title="Log out" style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; color:#6b7280; transition:all 0.2s; text-decoration:none; background:none; border:none; cursor:pointer;" onmouseover="this.style.background='#fee2e2';this.style.color='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#6b7280'">
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-            </button>
-        </div>
+        <a href="profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; width:100%;">
+            <div class="user-avatar" style="flex-shrink:0; overflow:hidden;">
+                <?php if ($sidebar_profile_pic): ?>
+                    <img src="<?php echo $sidebar_profile_pic; ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
+                <?php else: ?>
+                    <?php echo $user_initial; ?>
+                <?php endif; ?>
+            </div>
+            <div class="user-info" style="min-width:0;">
+                <div class="user-name-display" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($user_name); ?></div>
+                <div class="user-role"><?php echo htmlspecialchars($_SESSION['user_type'] ?? 'Admin'); ?></div>
+            </div>
+        </a>
+        <button onclick="document.getElementById('logoutModal').style.display='flex'" class="logout-btn-footer" title="Log out">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span>Log out</span>
+        </button>
     </div>
 </aside>
 
@@ -185,6 +216,63 @@ if (isset($_SESSION['user_id'])) {
 </div>
 
 <script>
+// Sidebar collapse toggle
+function toggleSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+    
+    // Update button icon
+    const btn = document.getElementById('sidebarCollapseBtn');
+    if (isCollapsed) {
+        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
+        btn.title = 'Expand sidebar';
+    } else {
+        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>';
+        btn.title = 'Collapse sidebar';
+    }
+}
+
+// Restore sidebar state on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('adminSidebar');
+    const collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+    if (collapsed) {
+        sidebar.classList.add('collapsed');
+        const btn = document.getElementById('sidebarCollapseBtn');
+        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
+        btn.title = 'Expand sidebar';
+    }
+});
+
+// Mobile burger menu toggle
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const isActive = sidebar.classList.toggle('active');
+    
+    if (isActive) {
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent body scroll
+    } else {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+// Close mobile sidebar when clicking outside
+document.addEventListener('click', function(event) {
+    if (window.innerWidth <= 768) {
+        const sidebar = document.getElementById('adminSidebar');
+        const burger = document.getElementById('mobileBurger');
+        if (sidebar && burger && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(event.target) && !burger.contains(event.target)) {
+                toggleMobileSidebar();
+            }
+        }
+    }
+});
+
 // Sidebar scroll persistence
 (function() {
     var nav = document.querySelector('.sidebar-nav');
@@ -194,6 +282,17 @@ if (isset($_SESSION['user_id'])) {
     nav.querySelectorAll('a.nav-item').forEach(function(link) {
         link.addEventListener('click', function() {
             sessionStorage.setItem('sidebarScroll', nav.scrollTop);
+            
+            // Close mobile sidebar on navigation (mobile only)
+            if (window.innerWidth <= 768) {
+                const sidebar = document.getElementById('adminSidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    if (overlay) overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
         });
     });
 })();

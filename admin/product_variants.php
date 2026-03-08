@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/variant_functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
 

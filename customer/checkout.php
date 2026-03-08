@@ -198,11 +198,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- Notes -->
                 <div class="card">
                     <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#1f2937;">Order Notes</h3>
-                    <p style="font-size:0.85rem; color:#6b7280; margin-bottom:0.75rem;">Special size requirements, design notes, or delivery instructions.</p>
+                    <p style="font-size:0.85rem; color:#6b7280; margin-bottom:0.75rem;">Special size requirements, design notes, or pickup reminders.</p>
                     <form method="POST" id="checkout-form">
                         <?php echo csrf_field(); ?>
                         <textarea name="notes" rows="4" class="input-field"
-                                  placeholder="e.g. Please use matte finish. Delivery by Jan 30."
+                                  placeholder="e.g. Please use matte finish. Preferred pickup on Jan 30."
                                   style="resize:vertical;"><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
 
                         <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center;">

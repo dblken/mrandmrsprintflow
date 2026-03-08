@@ -17,7 +17,11 @@ try {
         case 'get_items':
             $cat_id = (int)($_GET['category_id'] ?? 0);
             $search = sanitize($_GET['search'] ?? '');
-            
+            $sort     = sanitize($_GET['sort'] ?? 'name');
+            $dir      = strtoupper(sanitize($_GET['dir'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+            $sort_cols = ['name' => 'i.name', 'sku' => 'i.sku', 'category_name' => 'category_name', 'track_by_roll' => 'i.track_by_roll', 'unit_cost' => 'i.unit_cost', 'reorder_level' => 'i.reorder_level'];
+            $orderBy = $sort_cols[$sort] ?? 'i.name';
+
             $sql = "SELECT i.*, c.name as category_name 
                     FROM inv_items i 
                     LEFT JOIN inv_categories c ON i.category_id = c.id 
@@ -36,7 +40,7 @@ try {
                 $params[] = "%$search%";
                 $types .= 'ss';
             }
-            $sql .= " ORDER BY i.name ASC";
+            $sql .= " ORDER BY $orderBy $dir";
             
             $items = db_query($sql, $types ?: null, $params ?: null) ?: [];
             

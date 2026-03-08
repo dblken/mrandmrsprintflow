@@ -14,62 +14,127 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
+// Ensure birthday column exists (safe migration)
+try {
+    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE NULL AFTER last_name");
+} catch (Throwable $e) { /* already exists or unsupported – ignore */ }
+
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     $first_name = sanitize($_POST['first_name']);
-    $last_name = sanitize($_POST['last_name']);
-    $email = sanitize($_POST['email']);
-    $password = $_POST['password'];
-    $role = $_POST['role']; // 'Admin' or 'Staff'
-    
+    $last_name  = sanitize($_POST['last_name']);
+    $email      = sanitize($_POST['email']);
+    $birthday   = sanitize($_POST['birthday'] ?? '');
+    $password   = $_POST['password'];
+    $role       = $_POST['role']; // 'Admin', 'Manager', or 'Staff'
+
+    // Default password: email + birthday (MMDDYYYY) when not supplied by client
+    if (empty($password) && !empty($birthday)) {
+        $d = DateTime::createFromFormat('Y-m-d', $birthday);
+        $password = $d ? ($email . $d->format('mdY')) : $email;
+    }
+
     // Parse branch_id safely
     $branch_id = !empty($_POST['branch_id']) ? (int)$_POST['branch_id'] : null;
     if ($role === 'Admin') $branch_id = null; // Admins have global access
-    
+
+    $valid_roles = ['Admin', 'Manager', 'Staff'];
+    if (!in_array($role, $valid_roles)) $role = 'Staff';
+
     if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
-        $error = 'All fields are required';
+        $error = 'All required fields must be filled in';
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters';
+    } elseif ($role !== 'Admin' && empty($branch_id)) {
+        $error = 'Please assign a branch for this role';
     } else {
         // Check if email exists
         $existing = db_query("SELECT user_id FROM users WHERE email = ?", 's', [$email]);
-        
+
         if (!empty($existing)) {
             $error = 'Email already exists';
         } else {
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
-            
-            db_execute("INSERT INTO users (first_name, last_name, email, password_hash, role, status, branch_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Activated', ?, NOW(), NOW())",
-                'sssssi', [$first_name, $last_name, $email, $password_hash, $role, $branch_id]);
-            
-            $success = ucfirst($role) . ' account created successfully!';
+            $bday_val = !empty($birthday) ? $birthday : null;
+
+            db_execute(
+                "INSERT INTO users (first_name, last_name, birthday, email, password_hash, role, status, branch_id, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Activated', ?, NOW(), NOW())",
+                'ssssssi',
+                [$first_name, $last_name, $bday_val, $email, $password_hash, $role, $branch_id]
+            );
+
+            $success = $role . ' account created successfully!';
         }
     }
 }
 
-// Get all users
-$page = max(1, (int)($_GET['page'] ?? 1));
-$per_page = 10;
-$total_users = db_query("SELECT COUNT(*) as total FROM users")[0]['total'];
+// Get all users with filters/sort
+$page          = max(1, (int)($_GET['page'] ?? 1));
+$per_page      = 10;
+$search        = trim($_GET['search'] ?? '');
+$role_filter   = $_GET['role'] ?? '';
+$status_filter = $_GET['status'] ?? '';
+$sort          = $_GET['sort'] ?? 'created_at';
+$dir           = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+
+$sort_cols = ['user_id','name','email','role','status','created_at'];
+$sort = in_array($sort, $sort_cols) ? $sort : 'created_at';
+$sort_col_sql = match($sort) {
+    'name'   => "CONCAT(u.first_name,' ',u.last_name)",
+    'email'  => 'u.email',
+    'role'   => 'u.role',
+    'status' => 'u.status',
+    'user_id'=> 'u.user_id',
+    default  => 'u.created_at',
+};
+
+$sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE 1=1";
+$params = []; $types = '';
+
+if (!empty($search)) {
+    $like = '%'.$search.'%';
+    $sql_base .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)";
+    $params = array_merge($params, [$like, $like, $like]);
+    $types .= 'sss';
+}
+if (!empty($role_filter)) {
+    $sql_base .= " AND u.role = ?";
+    $params[] = $role_filter;
+    $types .= 's';
+}
+if (!empty($status_filter)) {
+    $sql_base .= " AND u.status = ?";
+    $params[] = $status_filter;
+    $types .= 's';
+}
+
+$total_users = db_query("SELECT COUNT(*) as total $sql_base", $types ?: null, $params ?: null)[0]['total'] ?? 0;
 $total_pages = max(1, ceil($total_users / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
-$users = db_query("
-    SELECT u.*, b.branch_name 
-    FROM users u 
-    LEFT JOIN branches b ON u.branch_id = b.id 
-    ORDER BY u.created_at DESC 
-    LIMIT $per_page OFFSET $offset
-");
+$users = db_query("SELECT u.*, b.branch_name $sql_base ORDER BY $sort_col_sql $dir LIMIT $per_page OFFSET $offset", $types ?: null, $params ?: null) ?: [];
 
 // Fetch available branches for the creation dropdown
 $branches = db_query("SELECT id, branch_name FROM branches ORDER BY id ASC");
 
 // Summary statistics
-$stat_total   = db_query("SELECT COUNT(*) as c FROM users")[0]['c'];
-$stat_admins  = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin'")[0]['c'];
-$stat_staff   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff'")[0]['c'];
-$stat_active  = db_query("SELECT COUNT(*) as c FROM users WHERE status = 'Activated'")[0]['c'];
+$stat_total    = db_query("SELECT COUNT(*) as c FROM users")[0]['c'];
+$stat_admins   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin'")[0]['c'];
+$stat_managers = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Manager'")[0]['c'];
+$stat_staff    = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff'")[0]['c'];
+$stat_active   = db_query("SELECT COUNT(*) as c FROM users WHERE status = 'Activated'")[0]['c'];
+
+// Sort helpers
+$build_sort_url = function(string $col) use ($sort, $dir, $search, $role_filter, $status_filter): string {
+    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$search,'role'=>$role_filter,'status'=>$status_filter]);
+    return '?'.http_build_query($p);
+};
+$sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'):'';
+
+// Flash message from process_create_manager.php
+$manager_created = $_SESSION['cm_success'] ?? '';
+unset($_SESSION['cm_success']);
 
 $page_title = 'User & Staff Management - Admin';
 ?>
@@ -160,9 +225,11 @@ $page_title = 'User & Staff Management - Admin';
     <div class="main-content">
         <header>
             <h1 class="page-title">User & Staff Management</h1>
-            <button type="button" id="btn-open-user-modal" class="btn-primary">
-                + Add New User/Staff
-            </button>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button type="button" id="btn-open-user-modal" class="btn-primary">
+                    + Add New User / Staff
+                </button>
+            </div>
         </header>
 
         <main>
@@ -179,9 +246,9 @@ $page_title = 'User & Staff Management - Admin';
                     <div class="kpi-sub">Administrator roles</div>
                 </div>
                 <div class="kpi-card amber">
-                    <div class="kpi-label">Staff</div>
-                    <div class="kpi-value"><?php echo $stat_staff; ?></div>
-                    <div class="kpi-sub">Staff roles</div>
+                    <div class="kpi-label">Managers</div>
+                    <div class="kpi-value"><?php echo $stat_managers; ?></div>
+                    <div class="kpi-sub">Branch managers</div>
                 </div>
                 <div class="kpi-card emerald">
                     <div class="kpi-label">Active Accounts</div>
@@ -196,24 +263,47 @@ $page_title = 'User & Staff Management - Admin';
                 </div>
             <?php endif; ?>
 
-            <?php if ($success): ?>
+            <?php if ($success || $manager_created): ?>
                 <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-                    <?php echo htmlspecialchars($success); ?>
+                    <?php echo htmlspecialchars($success ?: $manager_created); ?>
                 </div>
             <?php endif; ?>
 
             <!-- Users Table -->
             <div class="card">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                    <span style="font-size:13px; color:#6b7280;">Showing <strong style="color:#1f2937;"><?php echo count($users); ?></strong> of <strong><?php echo $total_users; ?></strong> users</span>
+                    <form method="GET" id="filterForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
+                        <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
+                        <select name="role" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
+                            <option value="">Role: All</option>
+                            <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
+                            <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
+                            <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
+                        </select>
+                        <select name="status" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
+                            <option value="">Status: All</option>
+                            <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
+                            <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                        </select>
+                        <div style="position:relative;">
+                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" name="search" placeholder="Search name or email..." value="<?php echo htmlspecialchars($search); ?>"
+                                   style="padding-left:32px;height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:200px;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                        </div>
+                    </form>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b-2">
-                                <th class="text-left py-3">ID</th>
-                                <th class="text-left py-3">Name</th>
-                                <th class="text-left py-3">Email</th>
-                                <th class="text-left py-3">Role</th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('user_id'); ?>" style="text-decoration:none;color:inherit;">ID<?php echo $sort_icon('user_id'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('name'); ?>" style="text-decoration:none;color:inherit;">Name<?php echo $sort_icon('name'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('email'); ?>" style="text-decoration:none;color:inherit;">Email<?php echo $sort_icon('email'); ?></a></th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('role'); ?>" style="text-decoration:none;color:inherit;">Role<?php echo $sort_icon('role'); ?></a></th>
                                 <th class="text-left py-3">Branch</th>
-                                <th class="text-left py-3">Status</th>
+                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('status'); ?>" style="text-decoration:none;color:inherit;">Status<?php echo $sort_icon('status'); ?></a></th>
                                 <th class="text-left py-3 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -226,7 +316,14 @@ $page_title = 'User & Staff Management - Admin';
                                     </td>
                                     <td class="py-3"><?php echo htmlspecialchars($user['email']); ?></td>
                                     <td class="py-3">
-                                        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $user['role'] === 'Admin' ? 'background:#fee2e2;color:#991b1b;' : 'background:#dbeafe;color:#1e40af;'; ?>">
+                                        <?php
+                                            $role_style = match($user['role']) {
+                                                'Admin'   => 'background:#fee2e2;color:#991b1b;',
+                                                'Manager' => 'background:#ede9fe;color:#5b21b6;',
+                                                default   => 'background:#dbeafe;color:#1e40af;'
+                                            };
+                                        ?>
+                                        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $role_style; ?>">
                                             <?php echo $user['role']; ?>
                                         </span>
                                     </td>
@@ -257,7 +354,10 @@ $page_title = 'User & Staff Management - Admin';
                         </tbody>
                     </table>
                 </div>
-                <?php echo render_pagination($page, $total_pages); ?>
+                <?php
+                $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir]);
+                echo render_pagination($page, $total_pages, $pagination_params);
+                ?>
             </div>
         </main>
     </div>
@@ -287,19 +387,32 @@ $page_title = 'User & Staff Management - Admin';
 
             <div class="form-group">
                 <label>Email Address <span style="color:#ef4444">*</span></label>
-                <input type="email" name="email" required placeholder="staff@printflow.com">
+                <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com">
             </div>
 
             <div class="form-group">
-                <label>Password <span style="color:#ef4444">*</span></label>
-                <input type="password" name="password" minlength="8" required placeholder="Enter password">
-                <p class="form-hint">Must be at least 8 characters</p>
+                <label>Birthday <span style="color:#ef4444">*</span></label>
+                <input type="date" name="birthday" id="um-birthday" required>
+                <p class="form-hint">Used to generate the default password.</p>
+            </div>
+
+            <div class="form-group">
+                <label>Default Password</label>
+                <div style="position:relative;">
+                    <input type="text" name="password" id="um-password" minlength="8" readonly
+                           placeholder="Auto-filled from email + birthday"
+                           style="padding-right:80px;background:#f9fafb;color:#374151;">
+                    <span id="um-pw-label"
+                          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#9ca3af;font-weight:600;pointer-events:none;">AUTO</span>
+                </div>
+                <p class="form-hint">Format: <em>email</em> + <em>MMDDYYYY</em> &mdash; e.g. <code>juan@store.com01151990</code></p>
             </div>
 
             <div class="form-group">
                 <label>Role <span style="color:#ef4444">*</span></label>
                 <select name="role" id="user-role-select" required>
                     <option value="Staff">Staff</option>
+                    <option value="Manager">Manager</option>
                     <option value="Admin">Admin</option>
                 </select>
             </div>
@@ -367,21 +480,37 @@ $page_title = 'User & Staff Management - Admin';
     <?php endif; ?>
 
     // Toggle Branch Select based on Role
-    var roleSelect = document.getElementById('user-role-select');
+    var roleSelect  = document.getElementById('user-role-select');
     var branchGroup = document.getElementById('branch-select-group');
     if (roleSelect && branchGroup) {
         roleSelect.addEventListener('change', function() {
-            if (this.value === 'Admin') {
-                branchGroup.style.display = 'none';
-                document.getElementById('user-branch-select').required = false;
-            } else {
-                branchGroup.style.display = 'block';
-                document.getElementById('user-branch-select').required = true;
-            }
+            var needsBranch = (this.value !== 'Admin');
+            branchGroup.style.display = needsBranch ? 'block' : 'none';
+            document.getElementById('user-branch-select').required = needsBranch;
         });
-        // Trigger on load
         roleSelect.dispatchEvent(new Event('change'));
     }
+
+    // Auto-fill default password from email + birthday (MMDDYYYY)
+    var emailInput = document.getElementById('um-email');
+    var bdayInput  = document.getElementById('um-birthday');
+    var pwInput    = document.getElementById('um-password');
+
+    function buildDefaultPassword() {
+        var em = emailInput ? emailInput.value.trim() : '';
+        var bd = bdayInput  ? bdayInput.value : '';
+        if (em && bd) {
+            var parts = bd.split('-'); // [YYYY, MM, DD]
+            if (parts.length === 3) {
+                pwInput.value = em + parts[1] + parts[2] + parts[0];
+            }
+        } else {
+            pwInput.value = '';
+        }
+    }
+
+    if (emailInput) emailInput.addEventListener('input', buildDefaultPassword);
+    if (bdayInput)  bdayInput.addEventListener('change', buildDefaultPassword);
 })();
 </script>
 

@@ -22,7 +22,7 @@ require_once __DIR__ . '/../includes/db.php';
                 Premium <span style="color:var(--lp-accent-l);">Printing Services</span><br>Built for Your Brand
             </h1>
             <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:620px; margin:0 auto 2.5rem; line-height:1.7;">
-                From bold tarpaulins to crisp business cards — we deliver every order with precision, speed, and craftsmanship you can trust.
+                From bold tarpaulins to crisp business cards — we handle every order with precision, speed, and craftsmanship you can trust.
             </p>
             <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
                 <a href="/printflow/public/products.php" class="lp-btn lp-btn-primary">Browse All Products</a>
@@ -33,21 +33,21 @@ require_once __DIR__ . '/../includes/db.php';
 
             <!-- Quick stats bar -->
             <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:0; margin-top:3.5rem; border-top:1px solid var(--lp-border); padding-top:2.5rem;">
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border);">
+                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">500+</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Happy Clients</p>
                 </div>
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border);">
+                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">10K+</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Orders Completed</p>
                 </div>
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border);">
+                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">6</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Service Categories</p>
                 </div>
-                <div style="padding:0 2.5rem;">
-                    <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">24/7</p>
-                    <p style="font-size:.8125rem; color:var(--lp-muted);">Support Available</p>
+                <div style="padding:0 2.5rem; text-align:center;">
+                    <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">Trusted</p>
+                    <p style="font-size:.8125rem; color:var(--lp-muted);">Customer Support</p>
                 </div>
             </div>
         </div>
@@ -192,7 +192,7 @@ require_once __DIR__ . '/../includes/db.php';
                 <ul style="margin-bottom:1.5rem; display:flex; flex-direction:column; gap:.4rem;">
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Dedicated design team</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Revisions included</li>
-                    <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Print-ready file delivery</li>
+                    <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Print-ready file handoff</li>
                 </ul>
                 <a href="/printflow/public/products.php" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#f472b6;">
                     Learn More <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -211,7 +211,7 @@ require_once __DIR__ . '/../includes/db.php';
         <div class="lp-heading-wrap">
             <p class="lp-heading-label">Simple Process</p>
             <h2 class="lp-heading">How It Works</h2>
-            <p class="lp-heading-desc">Getting your prints has never been easier. Follow these four steps from order to delivery.</p>
+            <p class="lp-heading-desc">Getting your prints has never been easier. Follow these four steps from inquiry to pickup.</p>
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:2rem; position:relative;">
@@ -248,8 +248,8 @@ require_once __DIR__ . '/../includes/db.php';
                 <div style="width:4rem; height:4rem; border-radius:50%; background:rgba(83,197,224,.15); border:2px solid rgba(83,197,224,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; position:relative; z-index:1;">
                     <span style="font-size:1.25rem; font-weight:800; color:var(--lp-accent-l);">04</span>
                 </div>
-                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Pick Up or Deliver</h4>
-                <p style="font-size:.9rem; color:#475569; line-height:1.6;">Choose store pickup or have your order delivered. Track your order in real-time from your customer dashboard.</p>
+                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Pick Up Your Order</h4>
+                <p style="font-size:.9rem; color:#475569; line-height:1.6;">Once your order is ready, we'll notify you so you can pick it up at the shop at your convenience.</p>
             </div>
 
         </div>
@@ -265,20 +265,18 @@ require_once __DIR__ . '/../includes/db.php';
 
             <!-- Left: feature visual box -->
             <div class="lp-order-1">
-                <div class="lp-feature-box">
-                    <div class="lp-feature-box-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                    </div>
-                    <h3 class="lp-feature-box-title">Quality Guaranteed</h3>
-                    <p style="font-size:.95rem; color:var(--lp-muted); margin-top:.75rem; line-height:1.6;">Every order undergoes a strict quality-check before it leaves our shop — or we reprint it at no extra cost.</p>
-                    <div style="display:flex; justify-content:center; gap:2rem; margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--lp-border);">
+                <div class="lp-feature-box" style="padding-top: 0; padding-bottom: 2rem; overflow: hidden;">
+                    <img src="../uploads/designs/store_pict.jpg" alt="Our Store" class="lp-feature-box-image" style="width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 1.5rem; display: block;">
+                    <h3 class="lp-feature-box-title" style="padding: 0 1.5rem;">Trusted Customer Support</h3>
+                    <p style="font-size:.95rem; color:var(--lp-muted); margin-top:.75rem; line-height:1.6; padding: 0 1.5rem;">Every order undergoes a strict quality-check before it leaves our shop — or we reprint it at no extra cost.</p>
+                    <div style="display:flex; justify-content:center; gap:2rem; margin-top:2rem; padding: 1.5rem; border-top:1px solid var(--lp-border);">
                         <div style="text-align:center;">
                             <p style="font-size:1.5rem; font-weight:800; color:var(--lp-accent-l);">99%</p>
                             <p style="font-size:.8rem; color:var(--lp-muted);">Satisfaction rate</p>
                         </div>
                         <div style="text-align:center;">
                             <p style="font-size:1.5rem; font-weight:800; color:var(--lp-accent-l);">&lt;24h</p>
-                            <p style="font-size:.8rem; color:var(--lp-muted);">Rush turnaround</p>
+                            <p style="font-size:.8rem; color:var(--lp-muted);">Pickup Ready</p>
                         </div>
                         <div style="text-align:center;">
                             <p style="font-size:1.5rem; font-weight:800; color:var(--lp-accent-l);">0%</p>
@@ -292,7 +290,7 @@ require_once __DIR__ . '/../includes/db.php';
             <div class="lp-order-2">
                 <p class="lp-heading-label" style="text-align:left; margin-bottom:.5rem;">Why Choose Us</p>
                 <h2 class="lp-heading" style="font-size:2rem; text-align:left; margin-bottom:1rem;">Print Partners You Can Rely On</h2>
-                <p class="lp-heading-desc" style="text-align:left; margin:0 0 1.5rem;">Our clients come back because we deliver quality, transparency, and speed — every single time.</p>
+                <p class="lp-heading-desc" style="text-align:left; margin:0 0 1.5rem;">Our clients come back because we provide quality, transparency, and speed — every single time.</p>
 
                 <ul class="lp-list">
                     <li>

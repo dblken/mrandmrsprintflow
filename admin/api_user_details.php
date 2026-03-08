@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 header('Content-Type: application/json');
 
 $user_id = (int)($_GET['id'] ?? 0);

@@ -29,7 +29,7 @@ require_once __DIR__ . '/../includes/header.php';
                 Frequently Asked <span style="color:var(--lp-accent-l);">Questions</span>
             </h1>
             <p style="font-size:1.0625rem;color:var(--lp-muted);max-width:520px;margin:0 auto;line-height:1.7;">
-                Quick answers to common questions about our printing services, ordering, and delivery.
+                Quick answers to common questions about our printing services, ordering, and pickup.
             </p>
         </div>
     </div>

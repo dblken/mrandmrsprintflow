@@ -29,7 +29,7 @@ switch ($action) {
         break;
 
     case 'add_roll':
-        require_role('Admin');
+        require_role(['Admin', 'Manager']);
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) {
             echo json_encode(['success' => false, 'error' => 'Invalid data']);
