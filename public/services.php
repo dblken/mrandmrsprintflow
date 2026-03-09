@@ -3,6 +3,8 @@
  * Public Services Page
  * PrintFlow - Printing Shop PWA
  */
+require_once __DIR__ . '/../includes/auth.php';
+redirect_admin_staff_from_public();
 
 $page_title = 'Our Services - PrintFlow';
 $use_landing_css = true;

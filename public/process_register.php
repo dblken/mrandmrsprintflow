@@ -56,13 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db_execute("UPDATE users SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE user_id = ?", 'sssi', [$otp, $expiry, $now, $user_id]);
 
         // 7. Send OTP email
-        if (send_otp_email($email, $otp)) {
+        $mail_result = send_otp_email($email, $otp);
+        if (isset($mail_result['success']) && $mail_result['success'] === true) {
             $_SESSION['otp_pending_email'] = $email;
             $_SESSION['otp_user_type'] = 'User';
             // 8. Redirect to verify_email.php
-            redirect('verify_email.php?success=Verification code sent to your email');
+            redirect('verify_email.php?success=' . urlencode('Verification code sent to your email'));
         } else {
-            redirect('register.php?error=Failed to send verification email. Please try again.');
+            // Revert pending user if mail fails
+            db_execute("DELETE FROM users WHERE user_id = ?", 'i', [$user_id]);
+            redirect('register.php?error=' . urlencode('Failed to send verification email. ' . ($mail_result['message'] ?? 'Please try again.')));
         }
     } else {
         redirect('register.php?error=Registration failed');

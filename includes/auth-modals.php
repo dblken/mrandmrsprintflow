@@ -214,8 +214,12 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     </button>
                 </div>
             </div>
-            <div class="auth-field-row" style="text-align: center; margin-bottom: 1.5rem;">
-                <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none; display: inline-block; width: 100%;">Forgot password?</a>
+            <div class="auth-field-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.875rem; cursor: pointer;">
+                    <input type="checkbox" name="remember_me" value="1" style="width: 1rem; height: 1rem; accent-color: #32a1c4;">
+                    Remember me
+                </label>
+                <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none;">Forgot password?</a>
             </div>
             <button type="submit" class="auth-btn-submit">Sign In</button>
         </form>
@@ -248,7 +252,9 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             <!-- Identifier input -->
             <div class="auth-field">
                 <label id="reg-id-label" for="reg-identifier">Email Address</label>
-                <input type="text" id="reg-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
+                <input type="text" id="reg-identifier" name="identifier" class="input-field" 
+                       placeholder="you@example.com" required 
+                       value="<?php echo htmlspecialchars($_SESSION['otp_pending_email'] ?? ''); ?>">
             </div>
 
             <!-- Password fields -->
@@ -286,7 +292,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     <button type="button" class="auth-modal-close" data-forgot-close aria-label="Close">&times;</button>
     <div class="auth-modal-inner">
         <h2 id="forgot-modal-title">Reset Password</h2>
-        <p class="auth-modal-sub">Enter your email and we'll send you a reset code</p>
+        <p class="auth-modal-sub">Enter your email and we'll send you a reset link</p>
         
         <div id="forgot-message"></div>
         
@@ -299,7 +305,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 <input type="email" id="forgot-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
             </div>
             
-            <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Code</button>
+            <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Link</button>
         </form>
         
         <p class="auth-switch" style="margin-top: 1rem;">
@@ -491,14 +497,14 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         .then(function(response) { return response.json(); })
         .then(function(data) {
             if (data.success) {
-                showForgotMessage('success', data.message || 'Reset code sent successfully! Check your ' + type + '.');
+                showForgotMessage('success', data.message || 'Reset link sent successfully! Check your ' + type + '.');
                 setTimeout(function() {
                     closeForgotModal();
                     // Optionally redirect to reset page
                     // window.location.href = '<?php echo $base_url; ?>/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
                 }, 2000);
             } else {
-                showForgotMessage('error', data.message || 'Failed to send reset code. Please try again.');
+                showForgotMessage('error', data.message || 'Failed to send reset link. Please try again.');
             }
         })
         .catch(function(error) {
@@ -559,6 +565,22 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 return;
             }
         });
+    }
+    // Handle URL parameters for opening modals (e.g. from redirects)
+    const urlParams = new URLSearchParams(window.location.search);
+    const openModalParam = urlParams.get('auth_modal'); // Renamed to avoid conflict with existing openModal function
+    const authErrorParam = urlParams.get('error'); // Renamed to avoid conflict with existing authError variable
+    
+    if (openModalParam === 'register') {
+        openModal('register'); // Use existing openModal function
+        if (authErrorParam) {
+            showMessage('register', 'error', authErrorParam); // Use existing showMessage function
+        }
+    } else if (openModalParam === 'login') {
+        openModal('login'); // Use existing openModal function
+        if (authErrorParam) {
+            showMessage('login', 'error', authErrorParam); // Use existing showMessage function
+        }
     }
 })();
 </script>

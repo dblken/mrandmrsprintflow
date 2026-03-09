@@ -7,10 +7,17 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+// Redirect Admin, Manager, and Staff away from registration
+redirect_admin_staff_from_public();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
     } else {
+        // Clear old OTP data to prevent "sticky" email from previous attempts
+        unset($_SESSION['otp_pending_email']);
+        unset($_SESSION['otp_user_type']);
+        
         $reg_type = $_POST['reg_type'] ?? 'user'; // 'direct' or 'legacy' are customers
 
         if ($reg_type === 'direct' || $reg_type === 'legacy') {
@@ -30,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $result = register_customer_direct($identifier_type, $identifier, $password);
                     if ($result['success']) {
+                        $_SESSION['otp_pending_email'] = ($identifier_type === 'email') ? $identifier : ($identifier . '@phone.local');
+                        $_SESSION['otp_user_type'] = 'Customer';
                         redirect('/printflow/public/verify_email.php');
                     } else {
                         $error = $result['message'];

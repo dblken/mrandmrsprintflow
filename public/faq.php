@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+redirect_admin_staff_from_public();
 require_once __DIR__ . '/../includes/functions.php';
 
 $faqs = db_query("SELECT * FROM faq WHERE status = 'Activated' ORDER BY faq_id ASC");

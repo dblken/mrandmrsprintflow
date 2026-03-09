@@ -7,16 +7,19 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-// Must not be logged in
-if (is_logged_in()) {
-    redirect('/printflow/customer/dashboard.php');
-}
+// Set no-cache headers
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 
 // Require pending_email in session (set during registration)
 $pending_email = $_SESSION['otp_pending_email'] ?? '';
 $user_type = $_SESSION['otp_user_type'] ?? 'Customer';
+
 if (empty($pending_email)) {
-    redirect('/printflow/?auth_modal=register&error=' . urlencode('Please register first.'));
+    // Redirect to home with register modal open if session expired or accessed directly
+    header('Location: /printflow/?auth_modal=register&error=' . urlencode('Session expired. Please register again.'));
+    exit;
 }
 
 $table = ($user_type === 'User') ? 'users' : 'customers';
@@ -40,9 +43,12 @@ $init_time_str = sprintf("%02d:%02d", $init_min, $init_sec);
 $error   = $_SESSION['otp_error']   ?? ''; unset($_SESSION['otp_error']);
 $success = $_SESSION['otp_success'] ?? ''; unset($_SESSION['otp_success']);
 
-$masked_email = preg_replace_callback('/^(.{1,3})[^@]+(@.+)$/', function($m) {
-    return $m[1] . str_repeat('*', max(3, strlen($m[0]) - strlen($m[1]) - strlen($m[2]))) . $m[2];
-}, $pending_email);
+if (empty($error) && !empty($_GET['error'])) {
+    $error = $_GET['error'];
+}
+if (empty($success) && !empty($_GET['success'])) {
+    $success = $_GET['success'];
+}
 
 $page_title = 'Verify Email — PrintFlow';
 ?>
@@ -125,7 +131,7 @@ $page_title = 'Verify Email — PrintFlow';
 
     <h1>Verify your email</h1>
     <p class="sub">We sent a 6-digit verification code to</p>
-    <span class="email-badge"><?php echo htmlspecialchars($masked_email); ?></span>
+    <span class="email-badge"><?php echo htmlspecialchars($pending_email); ?></span>
 
     <?php if ($error): ?>
         <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
@@ -157,7 +163,8 @@ $page_title = 'Verify Email — PrintFlow';
         </div>
     </div>
 
-    <p class="back-link">Wrong email? <a href="/printflow/?auth_modal=register">Register again</a></p>
+    <p class="back-link">Wrong email? <a href="/printflow/index.php?auth_modal=register">Register again</a></p>
+    <div style="font-size: 10px; color: #475569; margin-top: 20px; opacity: 0.5;">v4-fresh</div>
 </div>
 
 <script>

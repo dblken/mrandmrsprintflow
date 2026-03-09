@@ -91,13 +91,16 @@ try {
 
             if ($direction === 'IN') {
                 $rollData = null;
-                if (!empty($_POST['roll_code'])) {
-                    $rollData = ['roll_code' => sanitize($_POST['roll_code'])];
+                if (!empty($_POST['roll_code']) || !empty($_POST['width_ft'])) {
+                    $rollData = [
+                        'roll_code' => sanitize($_POST['roll_code'] ?? ''),
+                        'width_ft'  => (float)($_POST['width_ft'] ?? 0)
+                    ];
                 }
                 
                 // For IN transactions, use receiveStock to handle roll tracking logic
-                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData);
-                $transactionId = 0; // receiveStock doesn't return the ID, but we can return success
+                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $type, $ref_id, $notes);
+                $transactionId = 0; 
                 $fifoResult = null;
             } else {
                 // For OUT transactions, use issueStock which handles FIFO for roll items
@@ -156,16 +159,16 @@ try {
             
             // 2. Get all movements in the 30-day window
             $movements = db_query(
-                "SELECT DATE(created_at) as t_date, SUM(IF(direction='IN', quantity, -quantity)) as daily_total 
+                "SELECT transaction_date as t_date, SUM(IF(direction='IN', quantity, -quantity)) as daily_total 
                  FROM inventory_transactions 
-                 WHERE item_id = ? AND created_at BETWEEN ? AND ? 
+                 WHERE item_id = ? AND transaction_date BETWEEN ? AND ? 
                  GROUP BY t_date ORDER BY t_date ASC",
-                'iss', [$item_id, $start . ' 00:00:00', $end . ' 23:59:59']
+                'iss', [$item_id, $start, $end]
             );
             
             $movementMap = [];
             foreach ($movements as $m) {
-                $movementMap[$m['transaction_date']] = (float)$m['daily_total'];
+                $movementMap[$m['t_date']] = (float)$m['daily_total'];
             }
             
             // 3. Build the daily trend

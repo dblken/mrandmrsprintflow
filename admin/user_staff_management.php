@@ -273,25 +273,37 @@ $page_title = 'User & Staff Management - Admin';
             <div class="card">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
                     <span style="font-size:13px; color:#6b7280;">Showing <strong style="color:#1f2937;"><?php echo count($users); ?></strong> of <strong><?php echo $total_users; ?></strong> users</span>
-                    <form method="GET" id="filterForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <form method="GET" id="filterForm" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; background:#f9fafb; padding:8px 12px; border-radius:12px; border:1px solid #f3f4f6;">
                         <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
                         <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
-                        <select name="role" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
-                            <option value="">Role: All</option>
-                            <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
-                            <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
-                            <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
-                        </select>
-                        <select name="status" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
-                            <option value="">Status: All</option>
-                            <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
-                            <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
-                        </select>
-                        <div style="position:relative;">
-                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" placeholder="Search name or email..." value="<?php echo htmlspecialchars($search); ?>"
-                                   style="padding-left:32px;height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:200px;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                        
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="margin-bottom:0; font-size:12px; color:#6b7280; white-space:nowrap;">Filter By:</label>
+                            <select name="role" onchange="this.form.submit()" style="height:38px; min-width:120px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; padding:0 12px; background:#fff; cursor:pointer;">
+                                <option value="">All Roles</option>
+                                <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
+                                <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
+                                <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
+                            </select>
+                            
+                            <select name="status" onchange="this.form.submit()" style="height:38px; min-width:130px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; padding:0 12px; background:#fff; cursor:pointer;">
+                                <option value="">All Statuses</option>
+                                <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
+                                <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                            </select>
                         </div>
+
+                        <div style="height:24px; width:1px; background:#e5e7eb; margin:0 4px;"></div>
+
+                        <div style="position:relative; flex:1; min-width:240px;">
+                            <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; pointer-events:none;" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" name="search" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>"
+                                   style="width:100%; padding-left:36px; height:38px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; background:#fff;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                        </div>
+                        
+                        <?php if(!empty($search) || !empty($role_filter) || !empty($status_filter)): ?>
+                            <a href="user_staff_management.php" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600; padding:0 4px;">Clear All</a>
+                        <?php endif; ?>
                     </form>
                 </div>
                 <div class="overflow-x-auto">

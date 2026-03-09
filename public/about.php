@@ -4,6 +4,8 @@
  * PrintFlow - Printing Shop PWA
  * Content managed via Admin > Settings > About Page
  */
+require_once __DIR__ . '/../includes/auth.php';
+redirect_admin_staff_from_public();
 
 $page_title = 'About Us - PrintFlow';
 $use_landing_css = true;

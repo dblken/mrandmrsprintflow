@@ -276,11 +276,11 @@ class JobOrderService {
                             "Deducted for Job #{$orderId}"
                         );
                     } catch (Exception $e) {
-                        // If FIFO fails (e.g. insufficient rolls), fall back to generic ledger entry
-                        InventoryManager::issueStock(
-                            $m['item_id'], $lengthNeeded, 'ft', 'JOB_ORDER', $orderId, 
-                            "Generic deduction for Job #{$orderId} (Rolls insufficient: " . $e->getMessage() . ")", 
-                            true, true
+                        // FIFO failed (e.g. insufficient rolls) — propagate error to prevent
+                        // silent inventory corruption. Staff must add roll stock first.
+                        throw new Exception(
+                            "Cannot complete Job #{$orderId}: Roll stock depleted for '{$item['name']}'. " .
+                            "Please receive new stock before marking complete. (" . $e->getMessage() . ")"
                         );
                     }
                     
@@ -304,15 +304,13 @@ class JobOrderService {
                                         $lamItem['unit_of_measure'], 
                                         'JOB_ORDER', 
                                         $orderId, 
-                                        "Lamination deducted for Job #{$orderId}",
-                                        false, true
+                                        "Lamination deducted for Job #{$orderId}"
                                     );
                                 }
                             } catch (Exception $e) {
-                                InventoryManager::issueStock(
-                                    $lamItem['id'], $m['metadata']['lamination_length_ft'], 'ft', 'JOB_ORDER', $orderId, 
-                                    "Lamination generic deduction for Job #{$orderId} (Rolls insufficient: " . $e->getMessage() . ")", 
-                                    true, true
+                                throw new Exception(
+                                    "Cannot complete Job #{$orderId}: Lamination stock depleted for '{$lamItem['name']}'. " .
+                                    "Please receive new stock before marking complete. (" . $e->getMessage() . ")"
                                 );
                             }
                         }
@@ -320,16 +318,14 @@ class JobOrderService {
 
                     db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
                 } else {
-                    // Non-roll deduction — bypass stock check on job completion since we always record the deduction
+                    // Non-roll deduction
                     InventoryManager::issueStock(
                         $m['item_id'], 
                         $m['quantity'], 
                         $m['uom'], 
                         'JOB_ORDER', 
                         $orderId, 
-                        "Deducted for Job #{$orderId}",
-                        false, // not roll-tracked, so no roll check
-                        true // allow_negative_bypass
+                        "Deducted for Job #{$orderId}"
                     );
                     // Mark as deducted
                     db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
@@ -352,9 +348,7 @@ class JobOrderService {
                     $inkItem['unit_of_measure'] ?? 'bottle',
                     'JOB_ORDER',
                     $orderId,
-                    "{$ink['ink_color']} ink used for Job #{$orderId}",
-                    false,
-                    true // allow negative bypass
+                    "{$ink['ink_color']} ink used for Job #{$orderId}"
                 );
             }
         }

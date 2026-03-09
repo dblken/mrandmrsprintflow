@@ -11,12 +11,12 @@ if (!defined('AUTH_REDIRECT_BASE')) {
     define('AUTH_REDIRECT_BASE', '/printflow');
 }
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/session_manager.php';
+require_once __DIR__ . '/rate_limiter.php';
 
-require_once __DIR__ . '/db.php';
+// Start session with security hardening (fingerprint, timeout, secure cookies)
+SessionManager::start();
+
 require_once __DIR__ . '/db.php';
 
 // Try to include functions.php
@@ -123,9 +123,10 @@ function get_logged_in_user() {
  * Login user (Admin/Staff)
  * @param string $email
  * @param string $password
+ * @param bool $remember_me Whether to extend session cookie lifetime
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
-function login_user($email, $password) {
+function login_user($email, $password, $remember_me = false) {
     $result = db_query("SELECT * FROM users WHERE email = ? AND status IN ('Activated', 'Pending')", 's', [$email]);
     
     if (empty($result)) {
@@ -146,18 +147,6 @@ function login_user($email, $password) {
     $_SESSION['user_status'] = $user['status'];
     $_SESSION['branch_id']   = $user['branch_id'] ?? null;
 
-    // Check if email is verified
-    if (isset($user['email_verified']) && $user['email_verified'] == 0) {
-        $_SESSION['otp_pending_email'] = $user['email'];
-        $_SESSION['otp_user_type'] = 'User'; // Distinguish between customer and internal user
-        return [
-            'success' => false, 
-            'message' => 'Please verify your email before logging in.', 
-            'not_verified' => true,
-            'redirect' => AUTH_REDIRECT_BASE . '/public/verify_email.php'
-        ];
-    }
-
     // Force Manager (and Staff) to their assigned branch immediately so the
     // branch selector never shows "All Branches" for restricted accounts.
     if ($user['role'] === 'Manager' || $user['role'] === 'Staff') {
@@ -173,14 +162,18 @@ function login_user($email, $password) {
     if ($user['role'] === 'Admin') {
         $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
     } elseif ($user['role'] === 'Manager') {
-        $redirect = AUTH_REDIRECT_BASE . '/manager/dashboard.php';
+        $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
     } elseif ($user['status'] === 'Pending') {
         // Pending staff can only see profile to complete their information
         $redirect = AUTH_REDIRECT_BASE . '/staff/profile.php';
     } else {
         $redirect = AUTH_REDIRECT_BASE . '/staff/dashboard.php';
     }
-    
+
+    SessionManager::regenerate();
+    if ($remember_me) {
+        SessionManager::applyRememberMe(REMEMBER_ME_STAFF_DAYS);
+    }
     return [
         'success' => true,
         'message' => 'Login successful',
@@ -192,9 +185,10 @@ function login_user($email, $password) {
  * Login customer
  * @param string $email
  * @param string $password
+ * @param bool $remember_me Whether to extend session cookie lifetime
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
-function login_customer($email, $password) {
+function login_customer($email, $password, $remember_me = false) {
     $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
     
     // Also try phone-based accounts (contact_number match or phone@phone.local email)
@@ -220,23 +214,16 @@ function login_customer($email, $password) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
     
-    // Check if email is verified
-    if (isset($customer['email_verified']) && $customer['email_verified'] == 0) {
-        $_SESSION['otp_pending_email'] = $customer['email'];
-        return [
-            'success' => false, 
-            'message' => 'Please verify your email before logging in.', 
-            'not_verified' => true,
-            'redirect' => AUTH_REDIRECT_BASE . '/public/verify_email.php'
-        ];
-    }
-
     // Set session variables
     $_SESSION['user_id'] = $customer['customer_id'];
     $_SESSION['user_type'] = 'Customer';
     $_SESSION['user_name'] = $customer['first_name'] . ' ' . $customer['last_name'];
     $_SESSION['user_email'] = $customer['email'];
-    
+
+    SessionManager::regenerate();
+    if ($remember_me) {
+        SessionManager::applyRememberMe(REMEMBER_ME_CUSTOMER_DAYS);
+    }
     return [
         'success' => true,
         'message' => 'Login successful',
@@ -265,6 +252,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
         $_SESSION['user_type'] = 'Customer';
         $_SESSION['user_name'] = ($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '');
         $_SESSION['user_email'] = $customer['email'];
+        SessionManager::regenerate();
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
@@ -277,6 +265,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
     $_SESSION['user_type'] = 'Customer';
     $_SESSION['user_name'] = $first_name . ' ' . $last_name;
     $_SESSION['user_email'] = $email;
+    SessionManager::regenerate();
     return ['success' => true, 'message' => 'Account created', 'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'];
 }
 
@@ -284,21 +273,33 @@ function login_customer_by_google($email, $first_name, $last_name) {
  * Unified login function (detects user type automatically)
  * @param string $email
  * @param string $password
+ * @param bool $remember_me
  * @return array
  */
-function login($email, $password) {
+function login($email, $password, $remember_me = false) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+    // Rate limit: block IP after 5 failed attempts within 60 seconds
+    if (RateLimiter::isBlocked('login', $ip, 5, 60)) {
+        return ['success' => false, 'message' => 'Too many login attempts. Please wait a moment and try again.'];
+    }
+
     // Try customer login first
-    $customer_result = login_customer($email, $password);
+    $customer_result = login_customer($email, $password, $remember_me);
     if ($customer_result['success']) {
+        RateLimiter::clear('login', $ip);
         return $customer_result;
     }
-    
+
     // Try user (Admin/Staff) login
-    $user_result = login_user($email, $password);
+    $user_result = login_user($email, $password, $remember_me);
     if ($user_result['success']) {
+        RateLimiter::clear('login', $ip);
         return $user_result;
     }
-    
+
+    // Record failed attempt for rate limiting
+    RateLimiter::hit('login', $ip);
     return ['success' => false, 'message' => 'Invalid email or password'];
 }
 
@@ -309,21 +310,10 @@ function login($email, $password) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer($data) {
-    // Clear any existing OTP session data to prevent "stickiness"
-    unset($_SESSION['otp_pending_email']);
-    unset($_SESSION['otp_user_type']);
-    unset($_SESSION['otp_error']);
-    unset($_SESSION['otp_success']);
-
     // Check if email already exists
-    $existing = db_query("SELECT customer_id, email_verified FROM customers WHERE email = ?", 's', [$data['email']]);
+    $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$data['email']]);
     if (!empty($existing)) {
-        if (isset($existing[0]['email_verified']) && $existing[0]['email_verified'] == 0) {
-            // Delete incomplete registration to allow re-registration
-            db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing[0]['customer_id']]);
-        } else {
-            return ['success' => false, 'message' => 'Email already registered'];
-        }
+        return ['success' => false, 'message' => 'Email already registered'];
     }
     
     // Hash password
@@ -345,29 +335,15 @@ function register_customer($data) {
     ]);
     
     if ($result) {
-        $customer_id = $result;
-        
-        // Generate OTP
-        require_once __DIR__ . '/otp_mailer.php';
-        $smtp_cfg = require __DIR__ . '/smtp_config.php';
-        $otp_code = (string) rand(100000, 999999);
-        $now = date('Y-m-d H:i:s');
-        $otp_expiry = date('Y-m-d H:i:s', time() + (($smtp_cfg['otp_expiry_minutes'] ?? 5) * 60));
-        
-        db_execute(
-            "UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?",
-            'sssi', [$otp_code, $otp_expiry, $now, $customer_id]
-        );
-        
-        // Send OTP Email
-        send_otp_email($data['email'], $otp_code);
-        
-        $_SESSION['otp_pending_email'] = $data['email'];
-        $_SESSION['otp_success'] = 'Verification code sent to your email.';
-        
-        return ['success' => true, 'message' => 'Registration successful! Please verify your email.', 'needs_verification' => true];
+        // Auto-login after registration
+        $_SESSION['user_id'] = $result;
+        $_SESSION['user_type'] = 'Customer';
+        $_SESSION['user_name'] = $data['first_name'] . ' ' . $data['last_name'];
+        $_SESSION['user_email'] = $data['email'];
+        SessionManager::regenerate();
+        return ['success' => true, 'message' => 'Registration successful'];
     }
-    
+
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];
 }
 
@@ -379,12 +355,6 @@ function register_customer($data) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer_direct($type, $identifier, $password) {
-    // Clear any existing OTP session data to prevent "stickiness"
-    unset($_SESSION['otp_pending_email']);
-    unset($_SESSION['otp_user_type']);
-    unset($_SESSION['otp_error']);
-    unset($_SESSION['otp_success']);
-
     // Determine email and contact_number
     if ($type === 'email') {
         $email = $identifier;
@@ -397,16 +367,18 @@ function register_customer_direct($type, $identifier, $password) {
     // Check if already exists
     $existing = db_query("SELECT customer_id, email_verified FROM customers WHERE email = ?", 's', [$email]);
     if (!empty($existing)) {
-        if (isset($existing[0]['email_verified']) && $existing[0]['email_verified'] == 0) {
+        if ($existing[0]['email_verified'] == 0) {
+            // Delete unverified account to allow retry
             db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing[0]['customer_id']]);
         } else {
             return ['success' => false, 'message' => 'Account already exists. Please login.'];
         }
     }
+
     if ($contact_number) {
         $existing2 = db_query("SELECT customer_id, email_verified FROM customers WHERE contact_number = ?", 's', [$contact_number]);
         if (!empty($existing2)) {
-            if (isset($existing2[0]['email_verified']) && $existing2[0]['email_verified'] == 0) {
+            if ($existing2[0]['email_verified'] == 0) {
                 db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing2[0]['customer_id']]);
             } else {
                 return ['success' => false, 'message' => 'Phone number already registered. Please login.'];
@@ -416,8 +388,8 @@ function register_customer_direct($type, $identifier, $password) {
 
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, is_profile_complete) 
-            VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0)";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, is_profile_complete, email_verified) 
+            VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0, 0)";
 
     $result = db_execute($sql, 'sssss', [
         'Customer',   // placeholder first_name
@@ -428,27 +400,32 @@ function register_customer_direct($type, $identifier, $password) {
     ]);
 
     if ($result) {
-        $customer_id = $result;
-
         // Generate OTP
-        require_once __DIR__ . '/otp_mailer.php';
-        $smtp_cfg = require __DIR__ . '/smtp_config.php';
-        $otp_code = (string) rand(100000, 999999);
+        $otp = (string)rand(100000, 999999);
         $now = date('Y-m-d H:i:s');
-        $otp_expiry = date('Y-m-d H:i:s', time() + (($smtp_cfg['otp_expiry_minutes'] ?? 5) * 60));
-        
-        db_execute(
-            "UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?",
-            'sssi', [$otp_code, $otp_expiry, $now, $customer_id]
-        );
-        
-        // Send OTP Email
-        send_otp_email($email, $otp_code);
-        
-        $_SESSION['otp_pending_email'] = $email;
-        $_SESSION['otp_success'] = 'Verification code sent to your email.';
+        $expiry = date("Y-m-d H:i:s", strtotime("+10 minutes"));
 
-        return ['success' => true, 'message' => 'Registration successful! Please verify your email.', 'needs_verification' => true];
+        // Save OTP to database
+        db_execute("UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?", 'sssi', [$otp, $expiry, $now, $result]);
+
+        // Send OTP email
+        require_once __DIR__ . '/otp_mailer.php';
+        $mail_res = send_otp_email($email, $otp);
+
+        if (isset($mail_res['success']) && $mail_res['success'] === true) {
+            // Auto-login after registration (Optional - we can keep it or remove it)
+            // But if we want them to verify first, maybe don't set user_id yet?
+            // Existing flow expects them to be "half-logged in" or just have session markers.
+            
+            $_SESSION['otp_pending_email'] = $email;
+            $_SESSION['otp_user_type'] = 'Customer';
+
+            return ['success' => true, 'message' => 'Registration successful! Verification code sent.'];
+        } else {
+            // ROLLBACK: Delete the customer record if mail failed
+            db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$result]);
+            return ['success' => false, 'message' => 'Failed to send verification email: ' . ($mail_res['message'] ?? 'Unknown error')];
+        }
     }
 
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];
@@ -469,11 +446,17 @@ function is_profile_complete($customer_id = null) {
 }
 
 /**
- * Require authentication (redirect to login if not logged in)
+ * Require authentication (redirect to login if not logged in).
+ * Sets no-cache headers and handles session timeout redirect.
  */
 function require_auth() {
+    SessionManager::setNoCacheHeaders();
     if (!is_logged_in()) {
-        header('Location: ' . AUTH_REDIRECT_BASE . '/');
+        if (SessionManager::wasTimedOut()) {
+            header('Location: ' . AUTH_REDIRECT_BASE . '/public/login.php?timeout=1');
+        } else {
+            header('Location: ' . AUTH_REDIRECT_BASE . '/');
+        }
         exit();
     }
 }
@@ -494,6 +477,22 @@ function require_role($roles) {
     if (!in_array($user_type, $roles)) {
         http_response_code(403);
         die('<h1>403 Forbidden</h1><p>You do not have permission to access this page.</p>');
+    }
+}
+
+/**
+ * Redirect Admin/Manager/Staff to their respective dashboards if they hit a public page.
+ */
+function redirect_admin_staff_from_public() {
+    if (is_logged_in()) {
+        $user_type = get_user_type();
+        if ($user_type === 'Admin' || $user_type === 'Manager') {
+            header('Location: ' . AUTH_REDIRECT_BASE . '/admin/dashboard.php');
+            exit();
+        } elseif ($user_type === 'Staff') {
+            header('Location: ' . AUTH_REDIRECT_BASE . '/staff/dashboard.php');
+            exit();
+        }
     }
 }
 

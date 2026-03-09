@@ -29,31 +29,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK) {
             $error = 'Please select a file to upload';
         } else {
-            $file = $_FILES['design_file'];
-            $allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'image/psd'];
-            $max_size = 50 * 1024 * 1024; // 50MB
-            
-            if (!in_array($file['type'], $allowed_types)) {
-                $error = 'Invalid file type. Allowed: JPG, PNG, PDF, PSD';
-            } elseif ($file['size'] > $max_size) {
-                $error = 'File size exceeds 50MB limit';
+            $file     = $_FILES['design_file'];
+            $max_size = 50 * 1024 * 1024; // 50 MB
+
+            if ($file['size'] > $max_size) {
+                $error = 'File size exceeds the 50 MB limit.';
             } else {
-                // Generate unique filename
-                $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-                $filename = 'design_' . $order_id . '_' . time() . '.' . $ext;
-                $upload_path = __DIR__ . '/../uploads/designs/' . $filename;
-                
-                if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                    // Save to database
-                    db_execute("INSERT INTO order_designs (order_id, file_path, notes, status, uploaded_at) VALUES (?, ?, ?, 'Pending Approval', NOW())",
-                        'iss', [$order_id, '/uploads/designs/' . $filename, $design_notes]);
-                    
-                    // Create notification for admin
-                    create_notification(null, 'Admin', "New design uploaded for Order #{$order_id}", 'Design', true, false);
-                    
-                    $success = 'Design uploaded successfully! Awaiting approval.';
+                // 1. Extension allowlist (case-insensitive) — never trust browser filename alone
+                $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf', 'psd', 'ai'];
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowed_extensions, true)) {
+                    $error = 'Invalid file type. Allowed formats: JPG, PNG, PDF, PSD, AI';
                 } else {
-                    $error = 'Failed to upload file';
+                    // 2. Server-side MIME detection — NEVER rely on browser-supplied $_FILES['type']
+                    $finfo         = finfo_open(FILEINFO_MIME_TYPE);
+                    $detected_mime = finfo_file($finfo, $file['tmp_name']);
+                    finfo_close($finfo);
+
+                    // Per-extension MIME allowlist (tighter than a global allow-all)
+                    $mime_ok = false;
+                    if (in_array($ext, ['jpg', 'jpeg'], true)) {
+                        $mime_ok = ($detected_mime === 'image/jpeg');
+                    } elseif ($ext === 'png') {
+                        $mime_ok = ($detected_mime === 'image/png');
+                    } elseif ($ext === 'pdf') {
+                        $mime_ok = ($detected_mime === 'application/pdf');
+                    } elseif ($ext === 'psd') {
+                        // PSD MIME varies by OS/libmagic version
+                        $mime_ok = in_array($detected_mime, [
+                            'image/vnd.adobe.photoshop',
+                            'application/x-photoshop',
+                            'application/octet-stream',
+                        ], true);
+                    } elseif ($ext === 'ai') {
+                        $mime_ok = in_array($detected_mime, [
+                            'application/postscript',
+                            'application/illustrator',
+                            'application/octet-stream',
+                        ], true);
+                    }
+
+                    if (!$mime_ok) {
+                        $error = 'File content does not match the expected format. Please upload a valid ' . strtoupper($ext) . ' file.';
+                    } else {
+                        // 3. Cryptographically random filename — prevents enumeration & path issues
+                        $filename    = bin2hex(random_bytes(16)) . '.' . $ext;
+                        $upload_path = __DIR__ . '/../uploads/designs/' . $filename;
+
+                        if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+                            // Save to database
+                            db_execute(
+                                "INSERT INTO order_designs (order_id, file_path, notes, status, uploaded_at) VALUES (?, ?, ?, 'Pending Approval', NOW())",
+                                'iss',
+                                [$order_id, '/uploads/designs/' . $filename, $design_notes]
+                            );
+
+                            // Create notification for admin
+                            create_notification(null, 'Admin', "New design uploaded for Order #{$order_id}", 'Design', true, false);
+
+                            $success = 'Design uploaded successfully! Awaiting approval.';
+                        } else {
+                            $error = 'Failed to upload file. Please try again.';
+                        }
+                    }
                 }
             }
         }

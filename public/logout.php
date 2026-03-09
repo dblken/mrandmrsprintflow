@@ -1,18 +1,26 @@
 <?php
 /**
- * Logout handler (clean URL: /printflow/logout/). Redirects to home.
+ * Logout handler — destroys session fully and redirects to home.
  */
+require_once __DIR__ . '/../includes/session_manager.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$_SESSION = array();
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
+
+// Log the logout action before destroying session data
+if (isset($_SESSION['user_id'])) {
+    require_once __DIR__ . '/../includes/db.php';
+    $uid = (int)$_SESSION['user_id'];
+    $utype = $_SESSION['user_type'] ?? 'Unknown';
+    try {
+        $conn->query("INSERT INTO activity_logs (user_id, action, details, created_at) VALUES ({$uid}, 'Logout', 'User logged out', NOW())");
+    } catch (Throwable $e) {
+        // Logging failure must never block logout
+    }
 }
-session_destroy();
-header("Location: /printflow/");
+
+SessionManager::destroy();
+SessionManager::setNoCacheHeaders();
+header('Location: /printflow/');
 exit();

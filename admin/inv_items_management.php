@@ -65,14 +65,14 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         .btn-edit:hover { background: #6366f1; color: #fff; transform: translateY(-1px); }
         
         /* Modals */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; animation: fadeIn 0.3s ease; }
-        .modal-content { background: #fff; border-radius: 12px; width: 95%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); position: relative; z-index: 1001; pointer-events: auto; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 110000; align-items: center; justify-content: center; padding: 16px; overflow: hidden; pointer-events: auto !important; }
+        .modal-content { background: #fff; border-radius: 12px; width: 95%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); position: relative; z-index: 110001; animation: fadeIn 0.3s ease forwards; pointer-events: auto !important; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .modal-title { font-size: 18px; font-weight: 700; color: #111827; }
         .close-btn { background: none; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .close-btn:hover { color: #374151; }
         
-        .modal input, .modal select, .modal textarea { pointer-events: auto !important; position: relative; z-index: 100002; }
+        .modal input, .modal select, .modal textarea { pointer-events: auto !important; cursor: text; }
         
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
         .form-group.full { grid-column: span 2; }
@@ -170,7 +170,7 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     <div class="modal-content" style="max-width:450px;">
         <div class="modal-header">
             <div>
-                <h3 class="modal-title">Add Stock Entry</h3>
+                <h3 class="modal-title">Inventory: Stock Intake</h3>
                 <p style="font-size:13px;color:#6b7280;margin-top:2px;" id="addStockItemName">Item Name</p>
             </div>
             <button class="close-btn" onclick="closeAddStockModal()">&times;</button>
@@ -184,10 +184,13 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                     <label for="addStockQty">Quantity to Add *</label>
                     <input type="number" step="0.01" min="0.01" id="addStockQty" required placeholder="e.g. 164.00" autofocus>
                 </div>
-                <div class="filter-group" id="addStockRollGroup" style="display:none;">
-                    <label for="addStockRollCode">Roll Code (optional)</label>
-                    <input type="text" id="addStockRollCode" placeholder="e.g. ROLL-001">
-                    <p style="font-size:10px;color:#9ca3af;margin-top:4px;">Leaving this empty will auto-generate a roll code.</p>
+                <div class="filter-group" id="addStockRollGroup" style="display:none; background:#f0f7ff; padding:12px; border-radius:10px; border:1px solid #dbeafe;">
+                    <label for="addStockRollCode">Roll Identification</label>
+                    <input type="text" id="addStockRollCode" placeholder="e.g. ROLL-001" style="margin-bottom:12px;">
+                    
+                    <label for="addStockWidth">Roll Width (ft) *</label>
+                    <input type="number" step="1" min="1" max="12" id="addStockWidth" placeholder="e.g. 6 or 10">
+                    <p style="font-size:10px;color:#3b82f6;margin-top:4px;line-height:1.4;">Specify width for tarpaulin/vinyl rolls. <br>Leave code empty to auto-generate.</p>
                 </div>
                 <div class="filter-group">
                     <label for="addStockNotes">Notes</label>
@@ -281,82 +284,96 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 <div id="itemModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title" id="modalTitle">Settings</h3>
+            <h3 class="modal-title" id="modalTitle">Material Settings</h3>
             <button class="close-btn" onclick="closeModal()">×</button>
         </div>
         <form id="itemForm" onsubmit="saveItem(event)">
             <input type="hidden" id="itemId" name="id">
             <input type="hidden" id="actionType" name="action" value="create_item">
-            
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label for="itemName">Item Name *</label>
-                    <input type="text" id="itemName" name="name" required placeholder="e.g. 3FT Tarpaulin Gloss">
-                </div>
-                
-                <div class="filter-group">
-                    <label for="itemCategory">Category</label>
-                    <select id="itemCategory" name="category_id">
-                        <option value="">Select Category</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label for="itemUnit">UOM *</label>
-                    <select id="itemUnit" name="unit" required>
-                        <option value="pcs">Pieces (pcs)</option>
-                        <option value="ft">Feet (ft)</option>
-                        <option value="btl">Bottles (btl)</option>
-                        <option value="set">Sets (set)</option>
-                    </select>
-                </div>
 
-                <div class="filter-group">
-                    <label for="itemUnitCost">Unit Cost (₱) *</label>
-                    <input type="number" step="0.01" id="itemUnitCost" name="unit_cost" value="0.00" required>
-                </div>
-                
-                <div class="filter-group">
-                    <label for="itemTrackByRoll">Tracking Mode</label>
-                    <select id="itemTrackByRoll" name="track_by_roll">
-                        <option value="0">Standard (Ledger)</option>
-                        <option value="1">Roll-Based (Individual)</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="itemRollLength">Std Roll Length (ft)</label>
-                    <input type="number" step="0.01" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00">
-                </div>
-                
-                <div class="filter-group">
-                    <label for="itemMinStock">Reorder Level</label>
-                    <input type="number" step="0.01" id="itemMinStock" name="min_stock_level" value="0.00" required>
-                </div>
-                
-                <div class="filter-group" id="startingStockGroup">
-                    <label for="itemStartingStock">Initial Stock</label>
-                    <input type="number" step="0.01" id="itemStartingStock" name="starting_stock" value="0.00">
-                </div>
-
-                <div class="filter-group">
-                    <label for="itemStatus">Status</label>
-                    <select id="itemStatus" name="status">
-                        <option value="ACTIVE">Active</option>
-                        <option value="INACTIVE">Inactive</option>
-                    </select>
-                </div>
-                
-                <div class="form-group full" style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                    <input type="checkbox" id="itemAllowNegative" name="allow_negative_stock" value="1">
-                    <label for="itemAllowNegative" style="cursor:pointer; text-transform:none; font-weight: 500; color: #4b5563; margin-bottom:0;">Allow Negative Stock</label>
+            <!-- Section: Material Information -->
+            <div style="margin-bottom:24px;">
+                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">Material Information</p>
+                <div class="form-grid" style="margin-bottom:0;">
+                    <div class="form-group full">
+                        <label for="itemName">Item Name <span style="color:#ef4444">*</span></label>
+                        <input type="text" id="itemName" name="name" required placeholder="e.g. 3FT Tarpaulin Gloss">
+                    </div>
+                    <div class="filter-group">
+                        <label for="itemCategory">Category</label>
+                        <select id="itemCategory" name="category_id">
+                            <option value="">Select Category</option>
+                            <?php foreach ($categories as $cat): ?>
+                                <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="itemUnit">Unit of Measure (UOM) <span style="color:#ef4444">*</span></label>
+                        <select id="itemUnit" name="unit" required onchange="handleUomChange()">
+                            <option value="pcs">Pieces (pcs)</option>
+                            <option value="ft">Feet (ft)</option>
+                            <option value="btl">Bottles (btl)</option>
+                            <option value="set">Sets (set)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="itemUnitCost">Unit Cost (₱) <span style="color:#ef4444">*</span></label>
+                        <input type="number" step="0.01" min="0" id="itemUnitCost" name="unit_cost" value="0.00" required>
+                    </div>
                 </div>
             </div>
+
+            <!-- Section: Inventory Control -->
+            <div style="margin-bottom:24px;">
+                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">Inventory Control</p>
+                <div class="form-grid" style="margin-bottom:0;">
+                    <div class="filter-group">
+                        <label for="itemTrackByRoll">Tracking Mode</label>
+                        <select id="itemTrackByRoll" name="track_by_roll">
+                            <option value="0">Standard (Ledger)</option>
+                            <option value="1">Roll-Based (Individual)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="itemMinStock">Reorder Level <span style="color:#ef4444">*</span></label>
+                        <input type="number" step="0.01" min="0" id="itemMinStock" name="min_stock_level" value="0.00" required>
+                    </div>
+                    <div class="filter-group" id="startingStockGroup">
+                        <label for="itemStartingStock">Initial Stock</label>
+                        <input type="number" step="0.01" min="0" id="itemStartingStock" name="starting_stock" value="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Roll Material Settings (conditional) -->
+            <div id="rollSettingsSection" style="margin-bottom:24px; overflow:hidden; transition: max-height 0.35s ease, opacity 0.3s ease; max-height:0; opacity:0;">
+                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:14px;border-bottom:1px solid #e0e7ff;padding-bottom:8px; background:#eef2ff; padding:8px 12px; border-radius:8px;">🪄 Roll Material Settings</p>
+                <div class="form-grid" style="margin-bottom:0;">
+                    <div class="filter-group form-group full">
+                        <label for="itemRollLength">Standard Roll Length (ft) <span style="color:#ef4444" id="rollLengthRequired">*</span></label>
+                        <input type="number" step="0.01" min="1" max="1000" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00">
+                        <p style="font-size:11px;color:#6b7280;margin-top:6px;">Used for roll-based materials like tarpaulin or vinyl. Must be between 1 and 1000 ft.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: System Settings -->
+            <div style="margin-bottom:24px;">
+                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">System Settings</p>
+                <div class="form-grid" style="margin-bottom:0;">
+                    <div class="filter-group">
+                        <label for="itemStatus">Status</label>
+                        <select id="itemStatus" name="status">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <p style="font-size:11px;color:#9ca3af;margin-top:6px;">Inactive materials are hidden from new orders and POS. Historical records are preserved.</p>
+            </div>
             
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top:16px; border-top:1px solid #f3f4f6;">
                 <button type="button" onclick="closeModal()" class="btn-secondary" style="border-radius: 10px; height: 44px; padding: 0 24px;">Cancel</button>
                 <button type="submit" class="btn-primary" id="saveBtn" style="border-radius: 10px; height: 44px; padding: 0 24px; background: var(--primary-gradient);">Save Changes</button>
             </div>
@@ -395,27 +412,37 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     function renderItems(items) {
         const tbody = document.getElementById('itemsTableBody');
         const totalItems = items.length;
-        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-        if (currentPage > totalPages) currentPage = totalPages;
-
-        const startIdx = (currentPage - 1) * itemsPerPage;
-        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
-        const pageItems = items.slice(startIdx, endIdx);
-
-        // Update showing text
-        const showingCountEl = document.getElementById('showingCount');
-        if (showingCountEl) {
-            if (totalItems === 0) {
-                showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items`;
-            } else {
-                showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">${startIdx + 1}–${endIdx}</strong> of ${totalItems} items`;
-            }
-        }
 
         if (totalItems === 0) {
+            const showingCountEl = document.getElementById('showingCount');
+            if (showingCountEl) showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items`;
             tbody.innerHTML = '<tr id="emptyItemsRow"><td colspan="7" class="py-8 text-center text-gray-500">No inventory items matching the filter.</td></tr>';
             document.getElementById('itemsPagination').innerHTML = '';
             return;
+        }
+
+        // Sort by severity: Critical (SOH=0) first, then Low Stock, then Normal
+        const sortedItems = [...items].sort((a, b) => {
+            const getSeverity = (it) => {
+                const s = parseFloat(it.current_stock);
+                const r = parseFloat(it.reorder_level);
+                if (s <= 0) return 0;
+                if (s <= r) return 1;
+                return 2;
+            };
+            return getSeverity(a) - getSeverity(b);
+        });
+
+        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
+        const pageItems = sortedItems.slice(startIdx, endIdx);
+
+        // Update showing text now that startIdx/endIdx are defined
+        const showingCountEl = document.getElementById('showingCount');
+        if (showingCountEl) {
+            showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">${startIdx + 1}–${endIdx}</strong> of ${totalItems} items`;
         }
 
         let html = '';
@@ -439,11 +466,14 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                 : '<span style="color:#d97706;font-weight:600;">₱0.00</span>';
 
             let statusBadge = '';
-            if (isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fee2e2;color:#991b1b;margin-left:8px;">Out</span>';
-            else if (isLow) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low</span>';
+            if (isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fee2e2;color:#991b1b;margin-left:8px;">🔴 Out of Stock</span>';
+            else if (isLow) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">🟡 Low Stock</span>';
+
+            // Show inactive badge
+            const inactiveBadge = item.status === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
 
             html += `<tr class="border-b hover:bg-gray-50" style="cursor:pointer;" onclick="openStockCard(${item.id})">
-                <td class="py-3 font-medium" style="text-transform: capitalize;">${escapeHtml(item.name)}${statusBadge}</td>
+                <td class="py-3 font-medium" style="text-transform: capitalize;">${escapeHtml(item.name)}${statusBadge}${inactiveBadge}</td>
                 <td class="py-3">${escapeHtml(item.category_name || 'Uncategorized')}</td>
                 <td class="py-3">${trackBadge}</td>
                 <td class="py-3">${costDisplay}</td>
@@ -452,8 +482,8 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                 </td>
                 <td class="py-3 text-gray-500" style="font-size:12px;">${escapeHtml(item.unit_of_measure || '')}</td>
                 <td class="py-3 text-right" style="white-space:nowrap;">
-                    <button class="btn-action teal" onclick='event.stopPropagation(); openAddStockModal(${JSON.stringify(item).replace(/"/g,'&quot;')})'>+ Stock</button>
-                    <button class="btn-action blue" onclick='event.stopPropagation(); editItem(${JSON.stringify(item).replace(/"/g,'&quot;')})'>Edit</button>
+                    <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(${item.id})">+ Stock</button>
+                    <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(${item.id})">Edit</button>
                 </td>
             </tr>`;
         });
@@ -650,16 +680,37 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         }
     }
 
+    function handleUomChange() {
+        const uom = document.getElementById('itemUnit').value;
+        const section = document.getElementById('rollSettingsSection');
+        const rollInput = document.getElementById('itemRollLength');
+        if (uom === 'ft') {
+            section.style.maxHeight = '200px';
+            section.style.opacity = '1';
+            rollInput.required = true;
+        } else {
+            section.style.maxHeight = '0';
+            section.style.opacity = '0';
+            rollInput.required = false;
+            rollInput.value = '';
+        }
+    }
+
     function openModal(mode = 'create', item = null) {
         document.getElementById('itemModal').style.display = 'flex';
         const form = document.getElementById('itemForm');
         form.reset();
+        // Reset roll section visibility
+        document.getElementById('rollSettingsSection').style.maxHeight = '0';
+        document.getElementById('rollSettingsSection').style.opacity = '0';
+        document.getElementById('itemRollLength').required = false;
         
         if (mode === 'create') {
             document.getElementById('modalTitle').textContent = 'Add New Material';
             document.getElementById('actionType').value = 'create_item';
             document.getElementById('itemId').value = '';
             document.getElementById('itemUnitCost').value = '0.00';
+            document.getElementById('itemMinStock').value = '0.00';
             document.getElementById('startingStockGroup').style.display = 'block';
             document.getElementById('itemStatus').value = 'ACTIVE';
         } else {
@@ -671,16 +722,29 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             document.getElementById('itemUnit').value = item.unit_of_measure;
             document.getElementById('itemUnitCost').value = item.unit_cost || '0.00';
             document.getElementById('itemTrackByRoll').value = item.track_by_roll;
-            document.getElementById('itemRollLength').value = item.default_roll_length_ft || '';
             document.getElementById('itemMinStock').value = item.reorder_level;
-            document.getElementById('itemAllowNegative').checked = !!parseInt(item.allow_negative_stock || 0);
             document.getElementById('itemStatus').value = item.status;
             document.getElementById('startingStockGroup').style.display = 'none';
+            // Set roll length if UOM is ft
+            if (item.unit_of_measure === 'ft') {
+                document.getElementById('itemRollLength').value = item.default_roll_length_ft || '';
+                setTimeout(handleUomChange, 0);
+            }
         }
     }
 
     function closeModal() {
         document.getElementById('itemModal').style.display = 'none';
+    }
+
+    function editItemById(itemId) {
+        const item = currentItems.find(i => i.id == itemId);
+        if (item) editItem(item);
+    }
+    
+    function openAddStockModalById(itemId) {
+        const item = currentItems.find(i => i.id == itemId);
+        if (item) openAddStockModal(item);
     }
 
     function openAddStockModal(item) {
@@ -690,12 +754,21 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         document.getElementById('addStockUom').value = item.unit_of_measure || 'pcs';
         document.getElementById('addStockQty').value = '';
         document.getElementById('addStockRollCode').value = '';
+        document.getElementById('addStockWidth').value = item.roll_length_ft || ''; // Default to item width if available
         document.getElementById('addStockNotes').value = '';
-        // Show roll code field only for roll-based items
-        document.getElementById('addStockRollGroup').style.display = item.track_by_roll == 1 ? 'block' : 'none';
+        
+        // Show roll group only for roll-based items
+        const isRoll = item.track_by_roll == 1;
+        document.getElementById('addStockRollGroup').style.display = isRoll ? 'block' : 'none';
+        document.getElementById('addStockWidth').required = isRoll;
+        
         document.getElementById('addStockModal').style.display = 'flex';
         // Force focus after display
-        setTimeout(() => document.getElementById('addStockQty').focus(), 100);
+        setTimeout(() => {
+            const qtyInput = document.getElementById('addStockQty');
+            qtyInput.focus();
+            qtyInput.select(); 
+        }, 150);
     }
 
     function closeAddStockModal() {
@@ -715,22 +788,35 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         
         // Call the inventory transactions API to receive stock
         const fd = new FormData();
-        fd.append('action', 'record_transaction');
-        fd.append('item_id', itemId);
-        fd.append('transaction_type', 'purchase');
-        fd.append('quantity', qty);
-        fd.append('uom', uom);
-        fd.append('notes', notes || 'Manual stock entry');
-        if (isRoll && rollCode) fd.append('roll_code', rollCode);
+        fd.set('action', 'record_transaction');
+        fd.set('item_id', itemId);
+        fd.set('transaction_type', 'purchase');
+        fd.set('quantity', qty);
+        fd.set('uom', uom);
+        fd.set('notes', notes || 'Manual stock entry');
+        if (isRoll) {
+            fd.set('roll_code', rollCode);
+            fd.set('width_ft', document.getElementById('addStockWidth').value);
+        }
 
         try {
             const res = await fetch('inventory_transactions_api.php', { method: 'POST', body: fd });
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch(e) { 
+                console.error("Non-JSON API response:", text);
+                alert('Server returned an unexpected response. Please refresh the page and try again (Check Console for details).');
+                return;
+            }
+            
             if (data.success) {
                 closeAddStockModal();
                 loadItems();
-            } else { alert('Error: ' + data.error); }
-        } catch(err) { alert('Request failed.'); }
+            } else { alert('Operation Failed: ' + data.error); }
+        } catch(err) { 
+            console.error(err);
+            alert('Network communication error. Please try again.'); 
+        }
         finally { btn.disabled = false; btn.textContent = 'Add Stock'; }
     }
 

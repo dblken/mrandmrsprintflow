@@ -3,7 +3,7 @@
  * Strategy: App Shell (instant open) + Stale-While-Revalidate for pages
  */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -89,8 +89,12 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 4. HTML pages → Stale-While-Revalidate (serve from cache instantly, update in bg)
+    // 4. HTML pages → Stale-While-Revalidate (except verify_email.php which is highly dynamic)
     if (request.destination === 'document' || url.pathname.endsWith('.php') || url.pathname.endsWith('/')) {
+        if (url.pathname.includes('verify_email.php')) {
+            event.respondWith(fetch(request)); // Always network
+            return;
+        }
         event.respondWith(staleWhileRevalidate(request, PAGE_CACHE));
         return;
     }

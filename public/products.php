@@ -7,6 +7,9 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+// Redirect Admin, Manager, and Staff away from public products
+redirect_admin_staff_from_public();
+
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';

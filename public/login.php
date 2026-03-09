@@ -21,6 +21,7 @@ if (is_logged_in()) {
 
 $error = '';
 $success = '';
+$timeout_expired = isset($_GET['timeout']) && $_GET['timeout'] === '1';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -28,11 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $email = sanitize($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
+        $remember_me = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
         
         if (empty($email) || empty($password)) {
             $error = 'Please fill in all fields';
         } else {
-            $result = login($email, $password);
+            $result = login($email, $password, $remember_me);
             
             if ($result['success']) {
                 redirect($result['redirect']);
@@ -201,6 +203,12 @@ $base_url = get_base_url();
     
     <!-- DEBUG: If you see this, the page is updated! -->
 
+    <?php if ($timeout_expired && empty($error)): ?>
+        <div class="alert-error" style="background:#fef3c7;border-color:#fbbf24;color:#92400e;">
+            Your session expired due to inactivity. Please sign in again.
+        </div>
+    <?php endif; ?>
+
     <?php if ($error): ?>
         <div class="alert-error"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
@@ -225,11 +233,15 @@ $base_url = get_base_url();
             </div>
         </div>
 
-        <div class="remember-row" style="text-align: center;">
-            <a href="#" class="forgot-link" data-forgot-modal="open" style="display: inline-block; width: 100%;">Forgot password?</a>
+        <div class="form-group row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                <input type="checkbox" name="remember_me" value="1" style="width:1rem; height:1rem;">
+                <span style="font-weight:400;">Remember me</span>
+            </label>
+            <a href="<?php echo htmlspecialchars($base_url); ?>/login/?action=forgot" class="forgot-link">Forgot Password?</a>
         </div>
-
-        <button type="submit" class="btn-submit">Sign in</button>
+        
+        <button type="submit" class="btn-submit">Sign In</button>
     </form>
 
     <div class="divider"><span>or continue with</span></div>
