@@ -107,10 +107,6 @@ Desktop.ini
 # Project Specific
 # ===========================================
 /printflow/
-
-/staff/
-/customer/
-
 STRUCTURE.txt
 SAMPLE_DATA.txt
 HOW_TO_ACCESS.md
