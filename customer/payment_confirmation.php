@@ -1,0 +1,153 @@
+<?php
+/**
+ * Customer Payment Confirmation Page
+ * PrintFlow - Printing Shop PWA
+ */
+
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+require_role('Customer');
+
+$order_id = (int)($_GET['order_id'] ?? 0);
+$customer_id = get_customer_id();
+
+// Get order
+$order = db_query("SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", 'ii', [$order_id, $customer_id]);
+
+if (empty($order)) {
+    redirect('/printflow/customer/orders.php');
+}
+
+$order = $order[0];
+$success = '';
+$error = '';
+
+// Handle payment confirmation upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
+    $payment_method = sanitize($_POST['payment_method']);
+    $reference_number = sanitize($_POST['reference_number']);
+    
+    // Handle file upload
+    if (isset($_FILES['proof_of_payment']) && $_FILES['proof_of_payment']['error'] === 0) {
+        $upload_result = upload_file($_FILES['proof_of_payment'], ['jpg', 'jpeg', 'png', 'pdf'], 'payments');
+        
+        if ($upload_result['success']) {
+            $file_path = $upload_result['file_path'];
+            
+            db_execute("UPDATE orders SET payment_status = 'Pending Verification', payment_method = ?, payment_reference = ?, payment_proof_path = ?, updated_at = NOW() WHERE order_id = ?",
+                'sssi', [$payment_method, $reference_number, $file_path, $order_id]);
+            
+            create_notification(null, 'Admin', "Payment proof uploaded for Order #{$order_id}", 'Payment', true, false);
+            
+            $success = 'Payment proof uploaded successfully! Admin will verify shortly.';
+        } else {
+            $error = $upload_result['error'];
+        }
+    } else {
+        $error = 'Please upload payment proof';
+    }
+}
+
+$page_title = 'Payment Confirmation - PrintFlow';
+$use_customer_css = true;
+require_once __DIR__ . '/../includes/header.php';
+?>
+
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="container mx-auto px-4 max-w-2xl">
+        <h1 class="text-3xl font-bold mb-6">Payment Confirmation</h1>
+
+        <?php if ($success): ?>
+            <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+                <?php echo htmlspecialchars($success); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                <?php echo htmlspecialchars($error); ?>
+            </div>
+        <?php endif; ?>
+
+        <!-- Order Summary -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-bold mb-4">Order #<?php echo $order_id; ?></h2>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <p class="text-gray-600">Total Amount</p>
+                    <p class="text-2xl font-bold text-indigo-600"><?php echo format_currency($order['total_amount']); ?></p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Payment Status</p>
+                    <p><?php echo status_badge($order['payment_status'], 'payment'); ?></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Instructions -->
+        <?php
+        $pm_path = __DIR__ . '/../public/assets/uploads/qr/payment_methods.json';
+        $payment_methods = file_exists($pm_path) ? json_decode(file_get_contents($pm_path), true) : [];
+        $active_pms = array_filter($payment_methods ?: [], fn($p) => !empty($p['enabled']));
+        if (!empty($active_pms)):
+        ?>
+        <div class="card mb-6">
+            <h3 class="text-lg font-bold mb-4">Payment Instructions</h3>
+            <p class="text-sm text-gray-600 mb-4">Please send your payment to any of the following accounts, then upload your proof of payment below.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <?php foreach ($active_pms as $pm): ?>
+                <div class="border rounded-lg p-4 flex gap-4 items-center bg-gray-50">
+                    <?php if (!empty($pm['file'])): ?>
+                    <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1">
+                    <?php endif; ?>
+                    <div>
+                        <p class="font-bold text-gray-900"><?php echo htmlspecialchars($pm['provider']); ?></p>
+                        <p class="text-sm text-gray-700"><?php echo htmlspecialchars($pm['label']); ?></p>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Payment Form -->
+        <div class="card">
+            <h3 class="text-lg font-bold mb-4">Upload Payment Proof</h3>
+            
+            <form method="POST" enctype="multipart/form-data">
+                <?php echo csrf_field(); ?>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Payment Method *</label>
+                    <select name="payment_method" class="input-field" required>
+                        <option value="">Select Payment Method</option>
+                        <?php foreach ($active_pms as $pm): ?>
+                            <option value="<?php echo htmlspecialchars($pm['provider']); ?>"><?php echo htmlspecialchars($pm['provider'] . ' (' . $pm['label'] . ')'); ?></option>
+                        <?php endforeach; ?>
+                        <option value="Cash">Cash (In-Store)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Reference Number</label>
+                    <input type="text" name="reference_number" class="input-field" placeholder="Transaction/Reference Number">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">Upload Proof of Payment *</label>
+                    <input type="file" name="proof_of_payment" class="input-field" accept="image/*,.pdf" required>
+                    <p class="text-xs text-gray-500 mt-1">Accepted: JPG, PNG, PDF (Max 5MB)</p>
+                </div>
+                
+                <button type="submit" class="btn-primary w-full">Submit Payment Confirmation</button>
+            </form>
+        </div>
+
+        <div class="mt-4">
+            <a href="orders.php" class="text-indigo-600 hover:text-indigo-700">← Back to Orders</a>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
