@@ -134,8 +134,8 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div style="display:flex; align-items:center;">
                                         <?php if ($product['stock_quantity'] > 0): ?>
                                             <button 
-                                                title="<?php echo $has_variants ? 'View Options' : 'Add to Cart'; ?>" 
-                                                onclick="event.stopPropagation(); <?php echo $has_variants ? "this.closest('.ct-product-card').click()" : "addToCart({$product['product_id']})"; ?>;"
+                                                title="<?php echo $has_variants ? 'View Options' : 'Buy Now'; ?>" 
+                                                onclick="event.stopPropagation(); this.closest('.ct-product-card').click();"
                                                 style="background:none; border:none; padding:8px; cursor:pointer; color:#4F46E5; display:flex; align-items:center; justify-content:center; border-radius:8px; transition:all 0.2s; background: rgba(79, 70, 229, 0.05);"
                                                 onmouseover="this.style.background='rgba(79, 70, 229, 0.1)'; this.style.transform='scale(1.1)'"
                                                 onmouseout="this.style.background='rgba(79, 70, 229, 0.05)'; this.style.transform='scale(1)'"

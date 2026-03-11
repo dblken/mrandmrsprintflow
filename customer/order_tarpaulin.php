@@ -15,6 +15,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $branch_id = (int)($_POST['branch_id'] ?? 1);
     $width = trim($_POST['width'] ?? '');
     $height = trim($_POST['height'] ?? '');
     $finish = trim($_POST['finish'] ?? '');
@@ -41,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes' => $notes,
             ];
             $files = [['file' => $_FILES['design_file'], 'prefix' => 'design']];
-            $result = service_order_create('Tarpaulin Printing', $customer_id, $fields, $files);
+            $result = service_order_create('Tarpaulin Printing', $customer_id, $branch_id, $fields, $files);
             if ($result['success']) {
                 $_SESSION['order_success_id'] = $result['order_id'];
                 redirect(BASE_URL . '/customer/order_success.php?service=tarpaulin');
@@ -54,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Tarpaulin - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 
 <div class="min-h-screen py-8">
@@ -67,6 +70,16 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card">
             <form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+                    <select name="branch_id" class="input-field" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Width (ft) *</label>

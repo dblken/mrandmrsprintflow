@@ -35,9 +35,13 @@
             Partner is typing...
         </div>
 
+        <div id="chatImagePreviewArea" style="display: none; padding: 0.75rem 1.5rem; background: #f8fafc; border-top: 1px solid #f3f4f6; gap: 0.5rem; flex-wrap: wrap;">
+            <!-- Previews injected here -->
+        </div>
+
         <div class="chat-input-area" style="padding: 1.25rem 1.5rem; background: #ffffff !important; display: flex; align-items: center; gap: 0.75rem; border-top: 1px solid #f3f4f6;">
             <label class="chat-btn" style="padding: 0.5rem; margin: 0; border-radius: 9999px; cursor: pointer; color: #64748b;">
-                <input type="file" id="chatImageInput" accept="image/*" style="display:none;">
+                <input type="file" id="chatImageInput" accept="image/*" multiple style="display:none;">
                 <svg style="width: 1.5rem; height: 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
             </label>
             <input type="text" id="chatTextInput" class="chat-input" placeholder="Type a message..." autocomplete="off" style="flex: 1; background: #ffffff !important; border: 1.5px solid #e2e8f0; border-radius: 9999px; padding: 0.75rem 1.25rem; color: #0f172a !important; font-size: 0.9375rem; outline: none;">
@@ -60,12 +64,15 @@ let chatPollingInterval = null;
 let typingTimeout = null;
 let isPartnerTyping = false;
 let chatSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'); // Fallback public sound
+let selectedChatImages = []; // Stores staging files
 
 function openOrderChat(orderId, headerTitle) {
     currentChatOrderId = orderId;
     lastMessageId = 0;
+    selectedChatImages = [];
     document.getElementById('chatOrderTitle').innerText = headerTitle;
     document.getElementById('chatMessages').innerHTML = '';
+    renderImagePreviews();
     const modal = document.getElementById('chatModal');
     const content = document.getElementById('chatModalContent');
     
@@ -190,17 +197,22 @@ function updatePartnerStatus(status) {
 async function sendMessage() {
     const input = document.getElementById('chatTextInput');
     const message = input.value.trim();
-    if (!message && !document.getElementById('chatImageInput').files[0]) return;
+    if (!message && selectedChatImages.length === 0) return;
+    
+    document.getElementById('chatSendBtn').disabled = true;
     
     const formData = new FormData();
     formData.append('order_id', currentChatOrderId);
-    formData.append('message', message);
+    if (message) formData.append('message', message);
     
-    const imageFile = document.getElementById('chatImageInput').files[0];
-    if (imageFile) formData.append('image', imageFile);
+    selectedChatImages.forEach((file) => {
+        formData.append('image[]', file);
+    });
     
     input.value = '';
     document.getElementById('chatImageInput').value = '';
+    selectedChatImages = [];
+    renderImagePreviews();
     
     try {
         const response = await fetch('/printflow/api/chat/send_message.php', {
@@ -216,6 +228,7 @@ async function sendMessage() {
     } catch (error) {
         console.error('Send error:', error);
     }
+    document.getElementById('chatSendBtn').disabled = false;
 }
 
 function handleTyping() {
@@ -255,9 +268,68 @@ document.getElementById('chatTextInput').addEventListener('keypress', (e) => {
 
 document.getElementById('chatSendBtn').addEventListener('click', sendMessage);
 
+function renderImagePreviews() {
+    const previewArea = document.getElementById('chatImagePreviewArea');
+    if (selectedChatImages.length === 0) {
+        previewArea.style.display = 'none';
+        previewArea.innerHTML = '';
+        return;
+    }
+    previewArea.style.display = 'flex';
+    previewArea.innerHTML = '';
+    selectedChatImages.forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        const div = document.createElement('div');
+        div.style.position = 'relative';
+        div.style.width = '64px';
+        div.style.height = '64px';
+        
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '0.5rem';
+        img.style.border = '1px solid #e2e8f0';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.style.position = 'absolute';
+        removeBtn.style.top = '-6px';
+        removeBtn.style.right = '-6px';
+        removeBtn.style.background = '#ef4444';
+        removeBtn.style.color = 'white';
+        removeBtn.style.border = 'none';
+        removeBtn.style.borderRadius = '50%';
+        removeBtn.style.width = '20px';
+        removeBtn.style.height = '20px';
+        removeBtn.style.fontSize = '14px';
+        removeBtn.style.lineHeight = '1';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.display = 'flex';
+        removeBtn.style.alignItems = 'center';
+        removeBtn.style.justifyContent = 'center';
+        
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            selectedChatImages.splice(index, 1);
+            renderImagePreviews();
+        };
+        
+        div.appendChild(img);
+        div.appendChild(removeBtn);
+        previewArea.appendChild(div);
+    });
+}
+
 document.getElementById('chatImageInput').addEventListener('change', function() {
     if (this.files.length > 0) {
-        sendMessage(); // Auto-send on file pick
+        for (let i = 0; i < this.files.length; i++) {
+            selectedChatImages.push(this.files[i]);
+        }
+        renderImagePreviews();
     }
+    // reset input so picking same file again triggers change
+    this.value = '';
 });
 </script>

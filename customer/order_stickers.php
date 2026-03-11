@@ -9,6 +9,7 @@ require_role('Customer');
 $customer_id = get_user_id();
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $branch_id = (int)($_POST['branch_id'] ?? 1);
     $shape = trim($_POST['shape'] ?? '');
     $size = trim($_POST['size'] ?? '');
     $finish = trim($_POST['finish'] ?? '');
@@ -23,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $valid = service_order_validate_file($_FILES['design_file']);
         if (!$valid['ok']) { $error = $valid['error']; } else {
             $fields = ['shape' => $shape, 'size' => $size, 'finish' => $finish ?: 'Glossy', 'waterproof' => $waterproof ?: 'No', 'quantity' => $quantity, 'notes' => $notes];
-            $result = service_order_create('Decals / Stickers', $customer_id, $fields, [['file' => $_FILES['design_file'], 'prefix' => 'design']]);
+            $result = service_order_create('Decals / Stickers', $customer_id, $branch_id, $fields, [['file' => $_FILES['design_file'], 'prefix' => 'design']]);
             if ($result['success']) { $_SESSION['order_success_id'] = $result['order_id']; redirect(BASE_URL . '/customer/order_success.php?service=stickers'); }
             $error = $result['error'] ?: 'Failed to submit order.';
         }
@@ -32,6 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Stickers - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 640px;">
@@ -40,6 +43,14 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card">
             <form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+                    <select name="branch_id" class="input-field" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Shape *</label>
                     <select name="shape" class="input-field" required>

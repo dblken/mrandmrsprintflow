@@ -88,11 +88,12 @@ function service_order_read_file_binary($file, $mime) {
  *
  * @param string $service_name
  * @param int    $customer_id
+ * @param int    $branch_id
  * @param array  $fields  Associative array of field_name => field_value
  * @param array  $files   Optional array of ['file' => $_FILES['x'], 'prefix' => 'design']
  * @return array ['success' => bool, 'order_id' => int, 'error' => string]
  */
-function service_order_create($service_name, $customer_id, $fields, $files = []) {
+function service_order_create($service_name, $customer_id, $branch_id, $fields, $files = []) {
     global $conn;
 
     // Ensure tables exist with correct schema
@@ -102,11 +103,11 @@ function service_order_create($service_name, $customer_id, $fields, $files = [])
     $total_price = isset($fields['total_price']) ? (float)$fields['total_price'] : 0;
     unset($fields['total_price']);
 
-    $stmt = $conn->prepare("INSERT INTO service_orders (service_name, customer_id, status, total_price) VALUES (?, ?, 'Pending Review', ?)");
+    $stmt = $conn->prepare("INSERT INTO service_orders (service_name, customer_id, branch_id, status, total_price) VALUES (?, ?, ?, 'Pending Review', ?)");
     if (!$stmt) {
         return ['success' => false, 'order_id' => 0, 'error' => 'Database error creating order.'];
     }
-    $stmt->bind_param('sid', $service_name, $customer_id, $total_price);
+    $stmt->bind_param('siid', $service_name, $customer_id, $branch_id, $total_price);
     if (!$stmt->execute()) {
         $stmt->close();
         return ['success' => false, 'order_id' => 0, 'error' => 'Failed to create order.'];
@@ -172,12 +173,14 @@ function service_order_ensure_tables() {
         id           INT AUTO_INCREMENT PRIMARY KEY,
         service_name VARCHAR(100) NOT NULL,
         customer_id  INT NOT NULL,
+        branch_id    INT DEFAULT NULL,
         status       VARCHAR(50) NOT NULL DEFAULT 'Pending Review',
         total_price  DECIMAL(12,2) DEFAULT 0.00,
         created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         KEY idx_status   (status),
-        KEY idx_customer (customer_id)
+        KEY idx_customer (customer_id),
+        KEY idx_branch   (branch_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->query("CREATE TABLE IF NOT EXISTS service_order_details (
@@ -210,6 +213,12 @@ function service_order_ensure_tables() {
     $res = $conn->query("SHOW COLUMNS FROM service_order_files LIKE 'mime_type'");
     if ($res->num_rows == 0) {
         $conn->query("ALTER TABLE service_order_files ADD COLUMN mime_type VARCHAR(50) DEFAULT NULL");
+    }
+
+    $res = $conn->query("SHOW COLUMNS FROM service_orders LIKE 'branch_id'");
+    if ($res->num_rows == 0) {
+        $conn->query("ALTER TABLE service_orders ADD COLUMN branch_id INT DEFAULT NULL AFTER customer_id");
+        $conn->query("ALTER TABLE service_orders ADD INDEX idx_branch (branch_id)");
     }
 
     $conn->query("ALTER TABLE service_order_files MODIFY COLUMN file_path VARCHAR(255) DEFAULT NULL");

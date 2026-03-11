@@ -665,6 +665,22 @@ try {
     </div>
 </div>
 
+<!-- POS Customization Modal -->
+<div id="custom-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:450px; border-radius:16px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); transform:translateY(0); transition:all 0.3s; margin:16px;">
+        <h3 id="cm-title" style="margin:0 0 16px 0; font-size:18px; font-weight:700; color:#1e293b;">Product Customization</h3>
+        
+        <div id="cm-dynamic-fields" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px; max-height: 400px; overflow-y:auto; padding-right:8px;">
+            <!-- Fields generated dynamically via JS -->
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #f1f5f9; padding-top:16px;">
+            <button onclick="closeCustomModal()" style="padding:10px 16px; border:1px solid #e2e8f0; background:#ffffff; border-radius:8px; cursor:pointer; font-weight:500; font-size:14px; color:#64748b; transition:all 0.2s;">Cancel</button>
+            <button onclick="confirmCustomization()" style="padding:10px 24px; border:none; background:#4f46e5; color:white; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px; box-shadow:0 4px 6px -1px rgba(79,70,229,0.2); transition:all 0.2s;">Add to Cart</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal for New Customer -->
 <div id="customer-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
     <div style="background:#fff; width:400px; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
@@ -741,7 +757,7 @@ function renderProducts() {
         return mSearch && mCat;
     });
     
-    if(filtered.length === 0) {
+        if(filtered.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;">No products found.</div>';
         return;
     }
@@ -798,6 +814,102 @@ function addToCart(p, overridePrice = null, overrideName = null) {
     renderCart();
 }
 
+let pendingCustomProduct = null;
+let currentCustomRequirements = null;
+
+function openCustomModal(product, requirements) {
+    pendingCustomProduct = product;
+    currentCustomRequirements = requirements;
+    
+    document.getElementById('cm-title').textContent = product.product_name + ' Details';
+    const container = document.getElementById('cm-dynamic-fields');
+    container.innerHTML = '';
+    
+    requirements.forEach((req, idx) => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.flexDirection = 'column';
+        div.style.gap = '4px';
+        
+        let label = `<label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">${req.label}</label>`;
+        let inputHtml = '';
+        
+        const baseClass = 'style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none;"';
+        
+        if (req.type === 'select') {
+            inputHtml = `<select id="custom_field_${idx}" ${baseClass}>`;
+            inputHtml += `<option value="">Select ${req.label}</option>`;
+            req.options.forEach(opt => {
+                inputHtml += `<option value="${opt}">${opt}</option>`;
+            });
+            inputHtml += `</select>`;
+        } else {
+            inputHtml = `<input type="${req.type}" id="custom_field_${idx}" placeholder="${req.placeholder || ''}" ${req.step ? `step="${req.step}"` : ''} ${baseClass}>`;
+        }
+        
+        div.innerHTML = label + inputHtml;
+        container.appendChild(div);
+    });
+    
+    // Add generic Notes/Instructions field at the end
+    const notesDiv = document.createElement('div');
+    notesDiv.style.display = 'flex';
+    notesDiv.style.flexDirection = 'column';
+    notesDiv.style.gap = '4px';
+    notesDiv.innerHTML = `
+        <label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">Special Instructions</label>
+        <textarea id="custom_notes" rows="2" placeholder="Any additional details..." style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; resize:none;"></textarea>
+    `;
+    container.appendChild(notesDiv);
+    
+    document.getElementById('custom-modal-overlay').style.display = 'flex';
+}
+
+function closeCustomModal() {
+    document.getElementById('custom-modal-overlay').style.display = 'none';
+    pendingCustomProduct = null;
+    currentCustomRequirements = null;
+}
+
+function confirmCustomization() {
+    if (!pendingCustomProduct || !currentCustomRequirements) return;
+    
+    const customization = {};
+    let valid = true;
+    
+    currentCustomRequirements.forEach((req, idx) => {
+        const val = document.getElementById(`custom_field_${idx}`).value;
+        if (!val && req.type !== 'text') { // Basic validation
+            valid = false;
+        }
+        customization[req.label] = val;
+    });
+    
+    const notes = document.getElementById('custom_notes').value;
+    if (notes) customization['Notes'] = notes;
+    
+    // Check if exactly this item exists WITH SAME CUSTOMIZATION
+    const customString = JSON.stringify(customization);
+    const existing = cart.find(i => i.product_id === pendingCustomProduct.product_id && i.price === parseFloat(pendingCustomProduct.price) && JSON.stringify(i.customization) === customString);
+    
+    if(existing) {
+        if(existing.qty < pendingCustomProduct.stock_quantity || pendingCustomProduct.stock_quantity === null) existing.qty++;
+        else alert('Not enough stock!');
+    } else {
+        cart.push({
+            product_id: pendingCustomProduct.product_id,
+            name: pendingCustomProduct.product_name,
+            price: parseFloat(pendingCustomProduct.price),
+            qty: 1,
+            stock: pendingCustomProduct.stock_quantity,
+            customization: customization
+        });
+    }
+    
+    renderCart();
+    closeCustomModal();
+}
+
 let pendingProduct = null;
 let isOtherService = false;
 
@@ -837,11 +949,21 @@ function addQuickService(serviceName) {
     if(!p) p = products.find(prod => prod.category.includes(serviceName));
 
     if(p) {
-        addToCart(p);
+        const reqs = getRequirementsForProduct(p.product_name, p.category);
+        if (reqs) {
+            openCustomModal(p, reqs);
+        } else {
+            addToCart(p);
+        }
     } else {
         // Create a temporary product object if not found in catalog
         const fallback = { product_id: 21, product_name: serviceName, category: serviceName, price: 0, stock_quantity: null };
-        addToCart(fallback);
+        const reqs = getRequirementsForProduct(serviceName, serviceName);
+        if (reqs) {
+             openCustomModal(fallback, reqs);
+        } else {
+             addToCart(fallback);
+        }
     }
 }
 
@@ -885,29 +1007,74 @@ function renderCart() {
         cont.innerHTML = `<div class="pos-empty-state"><i class="fas fa-shopping-basket"></i><p>Cart is empty</p></div>`;
     } else {
         cont.innerHTML = '';
-        cart.forEach(item => {
+        cart.forEach((item, index) => {
             const rowTotal = item.price * item.qty;
             currentTotal += rowTotal;
             const div = document.createElement('div');
             div.className = 'pos-cart-item';
+            
+            let customHtml = '';
+            if (item.customization) {
+                const parts = [];
+                for (const [key, val] of Object.entries(item.customization)) {
+                    if(val) parts.push(`${key}: ${val}`);
+                }
+                if (parts.length > 0) {
+                    customHtml = `<div style="font-size:11px; color:#64748b; margin-top:2px; line-height:1.2; word-break:break-word;">${parts.join(' | ')}</div>`;
+                }
+            }
+            
             div.innerHTML = `
-                <div class="pos-item-details">
+                <div class="pos-item-details" style="flex:1;">
                     <div class="pos-item-name">${item.name}</div>
-                    <div class="pos-item-price">₱${item.price.toFixed(2)}</div>
+                    ${customHtml}
+                    <div class="pos-item-price" style="margin-top:2px;">₱${item.price.toFixed(2)}</div>
                 </div>
                 <div class="pos-item-controls">
-                    <button class="pos-qty-btn" onclick="updateQty(${item.product_id}, ${item.price}, -1)"><i class="fas fa-minus" style="font-size:10px;"></i></button>
+                    <button class="pos-qty-btn" onclick="updateQtyByCartIndex(${index}, -1)"><i class="fas fa-minus" style="font-size:10px;"></i></button>
                     <input class="pos-qty-val" value="${item.qty}" readonly>
+                    <button class="pos-qty-btn" onclick="updateQtyByCartIndex(${index}, 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
+                </div>
+                <div class="pos-item-total" style="width:70px; text-align:right;">₱${rowTotal.toFixed(2)}</div>
+                <button class="pos-item-remove" onclick="removeByCartIndex(${index})"><i class="fas fa-times"></i></button>
+            `;
+            cont.appendChild(div);
+        });
+    }
                     <button class="pos-qty-btn" onclick="updateQty(${item.product_id}, ${item.price}, 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
                 </div>
                 <div class="pos-item-total">₱${rowTotal.toFixed(2)}</div>
                 <button class="pos-item-remove" onclick="removeFromCart(${item.product_id}, ${item.price})"><i class="fas fa-times"></i></button>
-            `;
             cont.appendChild(div);
         });
     }
     
     const fTotal = '₱' + currentTotal.toFixed(2);
+    document.getElementById('pos-subtotal').textContent = fTotal;
+    document.getElementById('pos-total').textContent = fTotal;
+    
+    calculateChange();
+    updateCheckoutState();
+}
+
+function updateQtyByCartIndex(index, delta) {
+    const item = cart[index];
+    if(!item) return;
+    const newQty = item.qty + delta;
+    if(newQty <= 0) {
+        cart.splice(index, 1);
+    } else if(newQty > item.stock && item.stock !== null) {
+        alert('Not enough stock!');
+    } else {
+        item.qty = newQty;
+    }
+    renderCart();
+}
+
+function removeByCartIndex(index) {
+    cart.splice(index, 1);
+    renderCart();
+}
     document.getElementById('pos-subtotal').textContent = fTotal;
     document.getElementById('pos-total').textContent = fTotal;
     
@@ -967,7 +1134,7 @@ async function processCheckout() {
         customer_id: document.getElementById('pos-customer').value,
         payment_method: document.getElementById('pos-active-pm').value,
         amount_tendered: document.getElementById('pos-tendered').value || currentTotal,
-        items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price }))
+        items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price, customization: i.customization || null }))
     };
     
     try {

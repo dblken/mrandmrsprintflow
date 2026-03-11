@@ -37,6 +37,8 @@ if (!$product) {
     exit;
 }
 
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
+
 // Handle Add to Cart / Buy Now
 $error_msg = '';
 $success_msg = '';
@@ -127,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || is
 
         // Collect customization data
         $customization = [];
+        $customization['Branch_ID'] = $_POST['branch_id'] ?? '1';
         $category = $product['category'] ?? '';
         
         $allowed_fields = [
@@ -375,6 +378,14 @@ require_once __DIR__ . '/../includes/header.php';
                                         
                                         <!-- Step 1: Specific Details -->
                                         <div x-show="step === 1">
+                                            <div style="margin-bottom:1.5rem; background:#f9fafb; padding:1.25rem; border:1px solid #e5e7eb;">
+                                                <label style="display:block; font-size:0.875rem; font-weight:800; margin-bottom:0.75rem; color:black; text-transform:uppercase;">Select Branch *</label>
+                                                <select name="branch_id" class="input-field" style="width:100%; border-radius:0; border:1px solid #d1d5db;" required>
+                                                    <?php foreach($branches as $b): ?>
+                                                        <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
 
                                             <!-- Sintra Board Fields (Standees & Flat) -->
                                             <div x-show="productCategory === 'Sintraboard & Standees' || productCategory === 'Sintraboard Flat'" style="display:grid; grid-template-columns:1fr; gap:1.25rem;">

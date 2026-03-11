@@ -29,6 +29,7 @@ $isSignage = (strpos($type, 'Sign') !== false || strpos($type, 'Street') !== fal
 $fields = [];
 $fields['service_type'] = $raw_fields['service_type'] ?? 'Reflectorized Signage';
 $fields['product_type'] = $type;
+$fields['branch_id'] = trim($raw_fields['branch_id'] ?? '1');
 
 if ($isTempPlate) {
     foreach(['temp_plate_material', 'temp_plate_number', 'temp_plate_text', 'mv_file_number', 'dealer_name'] as $f) {
@@ -115,7 +116,7 @@ $cart_item = [
     'category' => 'Reflectorized Signage',
     'price' => $price,
     'quantity' => (int)$fields['quantity'],
-    'customization' => $fields,
+    'customization' => array_merge(['Branch_ID' => $fields['branch_id']], $fields),
     'design_tmp_path' => $design_tmp_path,
     'design_name' => $design_name,
     'design_mime' => $design_mime,

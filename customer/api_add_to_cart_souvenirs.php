@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $fields = $_POST;
+$branch_id = trim($fields['branch_id'] ?? '1');
 $souvenir_type = trim($fields['souvenir_type'] ?? '');
 $quantity = (int)($fields['quantity'] ?? 1);
 $custom_print = trim($fields['custom_print'] ?? 'No');
@@ -71,6 +72,7 @@ $cart_item = [
     'price' => 0, // Pending review
     'quantity' => $quantity,
     'customization' => [
+        'Branch_ID' => $branch_id,
         'service_type' => 'Souvenirs',
         'souvenir_type' => $souvenir_type,
         'custom_print' => $custom_print,

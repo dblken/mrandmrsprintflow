@@ -9,6 +9,7 @@ require_role('Customer');
 $customer_id = get_user_id();
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $branch_id = trim($_POST['branch_id'] ?? '1');
     $size = trim($_POST['size'] ?? ''); $with_stand = trim($_POST['with_stand'] ?? '');
     $quantity = (int)($_POST['quantity'] ?? 1); $notes = trim($_POST['notes'] ?? '');
     if (empty($size) || $quantity < 1) {
@@ -19,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $valid = service_order_validate_file($_FILES['design_file']);
         if (!$valid['ok']) { $error = $valid['error']; } else {
             $fields = ['size' => $size, 'with_stand' => $with_stand ?: 'No', 'quantity' => $quantity, 'notes' => $notes];
-            $result = service_order_create('Sintraboard Standees', $customer_id, $fields, [['file' => $_FILES['design_file'], 'prefix' => 'design']]);
+            $result = service_order_create('Sintraboard Standees', $customer_id, (int)$branch_id, $fields, [['file' => $_FILES['design_file'], 'prefix' => 'design']]);
             if ($result['success']) { $_SESSION['order_success_id'] = $result['order_id']; redirect(BASE_URL . '/customer/order_success.php?service=standees'); }
             $error = $result['error'] ?: 'Failed to submit order.';
         }
@@ -28,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Sintraboard Standees - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 640px;">
@@ -36,6 +39,14 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card">
             <form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+                    <select name="branch_id" class="input-field" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
                     <input type="text" name="size" class="input-field" required placeholder="e.g. 22x28 inches" value="<?php echo htmlspecialchars($_POST['size'] ?? ''); ?>">

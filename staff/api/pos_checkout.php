@@ -84,6 +84,16 @@ try {
         $name = $item['name'] ?? $product[0]['product_name'];
         $notes = ($name !== $product[0]['product_name']) ? $name : null;
 
+        // If customization data exists from the dynamic POS modal
+        if (!empty($item['customization'])) {
+            $custom_str = [];
+            foreach ($item['customization'] as $k => $v) {
+                if (!empty($v)) $custom_str[] = "$k: $v";
+            }
+            $custom_notes = implode("\n", $custom_str);
+            $notes = $notes ? $notes . "\n\n" . $custom_notes : $custom_notes;
+        }
+
         $item_result = db_execute(
             "INSERT INTO order_items (order_id, product_id, quantity, unit_price, design_notes) VALUES (?, ?, ?, ?, ?)",
             'iiids',

@@ -9,6 +9,7 @@ require_role('Customer');
 $customer_id = get_user_id();
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $branch_id = trim($_POST['branch_id'] ?? '1');
     $width = trim($_POST['width'] ?? '');
     $height = trim($_POST['height'] ?? '');
     $thickness = trim($_POST['thickness'] ?? '');
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'quantity'       => 1,
                     'image'          => '📦',
                     'customization'  => [
+                        'Branch_ID'  => $branch_id,
                         'Sintra_Type' => $sintra_type,
                         'Width'      => $width,
                         'Height'     => $height,
@@ -88,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Stickers on Sintraboard - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 800px;">
@@ -105,12 +109,22 @@ require_once __DIR__ . '/../includes/header.php';
                 <form method="POST" enctype="multipart/form-data" class="space-y-8">
                     <?php echo csrf_field(); ?>
                     
-                    <!-- 1. Sintra Board Type -->
+                    <!-- 1. Branch & Sintra Board Type -->
                     <div class="card shadow-sm border border-gray-100 p-6 rounded-xl bg-white">
                         <h2 class="text-lg font-bold mb-4 flex items-center gap-2 uppercase tracking-wider border-b pb-2">
                             <span class="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">1</span>
-                            Sintra Board Type *
+                            Branch & Sintra Board Type *
                         </h2>
+                        
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Branch *</label>
+                            <select name="branch_id" class="input-field w-full" required>
+                                <?php foreach($branches as $b): ?>
+                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                         <?php $selected_type = $_POST['sintra_type'] ?? $_GET['sintra_type'] ?? ''; ?>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <label class="flex items-center gap-2 p-3 border rounded cursor-pointer hover:bg-gray-50 transition-colors <?php echo $selected_type == 'With Face Hole' ? 'border-black bg-gray-50' : ''; ?>">

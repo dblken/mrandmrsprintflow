@@ -11,6 +11,8 @@ $customer_id = get_user_id();
 $page_title = 'Order Souvenirs - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 640px;">
@@ -18,6 +20,14 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card">
             <form id="souvenirForm" method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+                    <select name="branch_id" class="input-field" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
                     <select name="souvenir_type" class="input-field" required>

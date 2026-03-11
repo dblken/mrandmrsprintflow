@@ -17,6 +17,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Collect all fields
     $fields = [
+        'branch_id' => trim($_POST['branch_id'] ?? '1'),
         'surface_type' => trim($_POST['surface_type'] ?? ''),
         'sticker_type' => trim($_POST['sticker_type'] ?? ''),
         'width' => trim($_POST['width'] ?? ''),
@@ -105,6 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Glass & Wall Sticker - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 
 <div class="min-h-screen py-8">
@@ -132,6 +135,15 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                     
                     <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-3 uppercase">Branch *</label>
+                            <select name="branch_id" class="input-field w-full" required>
+                                <?php foreach($branches as $b): ?>
+                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-3 uppercase">Surface Type (Required)</label>
                             <div class="grid grid-cols-1 gap-2">

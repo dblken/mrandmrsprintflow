@@ -71,14 +71,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
 
         // Start Transaction (if supported, otherwise manual checks)
         // 1. Create Order
+        // Extract branch_id from the first item in the cart
+        $branch_id = null;
+        if (!empty($cart_items)) {
+            $first_item = reset($cart_items);
+            if (isset($first_item['customization']['Branch_ID'])) {
+                $branch_id = (int)$first_item['customization']['Branch_ID'];
+            }
+        }
+
         $notes = $_POST['notes'] ?? null;
-        $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
-                      VALUES (?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
+        $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
+                      VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
         
         $payment_method = $_POST['payment_method'] ?? 'pay_later';
         
         // Removed payment_method from query as column doesn't exist
-        $order_id = db_execute($order_sql, 'iddsss', [$customer_id, $total, $downpayment_amount, $payment_status, $payment_type, $notes]);
+        $order_id = db_execute($order_sql, 'iiddsss', [$customer_id, $branch_id, $total, $downpayment_amount, $payment_status, $payment_type, $notes]);
         
         if ($order_id) {
             // 2. Insert Order Items (design stored as LONGBLOB, never on disk)

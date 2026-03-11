@@ -17,6 +17,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Collect all fields
     $fields = [
+        'branch_id' => trim($_POST['branch_id'] ?? '1'),
         'surface_application' => trim($_POST['surface_application'] ?? ''),
         'dimensions' => trim($_POST['dimensions'] ?? ''),
         'shape' => trim($_POST['shape'] ?? ''),
@@ -48,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($error)) {
-            $result = service_order_create('Transparent Stickers', $customer_id, $fields, $files);
+            $result = service_order_create('Transparent Stickers', $customer_id, (int)$fields['branch_id'], $fields, $files);
             if ($result['success']) {
                 $_SESSION['order_success_id'] = $result['order_id'];
                 redirect(BASE_URL . '/customer/order_success.php?service=transparent_stickers');
@@ -61,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Order Transparent Stickers - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 
 <div class="min-h-screen py-8">
@@ -78,12 +81,22 @@ require_once __DIR__ . '/../includes/header.php';
             <?php echo csrf_field(); ?>
             <input type="hidden" name="hidden_total_price" id="hidden_total_price" value="0">
 
-            <!-- 1️⃣ Surface / Application -->
+            <!-- 1️⃣ Branch & Surface Application -->
             <div class="card p-6">
                 <div class="flex items-center gap-2 mb-6">
-                    <span class="text-2xl">📦</span>
-                    <h2 class="text-xl font-bold uppercase tracking-wider">1. Surface / Application</h2>
+                    <span class="text-2xl">🌍</span>
+                    <h2 class="text-xl font-bold uppercase tracking-wider">1. Branch & Application</h2>
                 </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-700 mb-3 uppercase">Branch *</label>
+                    <select name="branch_id" class="input-field w-full" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
                 <p class="text-gray-600 text-sm mb-4 font-bold">Where will the sticker be applied? (Required)</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <?php foreach(['Glass (Window / Door / Storefront)', 'Plastic / Acrylic', 'Metal', 'Smooth Painted Wall', 'Mirror'] as $surface): ?>

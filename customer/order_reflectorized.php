@@ -14,6 +14,8 @@ $customer_id = get_user_id();
 $page_title = 'Order Reflectorized Signage - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 ?>
 
 <div class="min-h-screen py-8 bg-gray-50">
@@ -53,10 +55,20 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- SECTION 1: Product Type -->
             <div class="step-section" id="step1">
                 <div class="card p-8 shadow-xl border-none">
-                    <div class="flex items-center gap-4 mb-8">
+                    <div class="flex items-center gap-4 mb-4">
                         <div class="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center text-2xl font-bold">1</div>
                         <h2 class="text-2xl font-black uppercase italic">Type of Reflectorized Product</h2>
                     </div>
+
+                    <div class="mb-8">
+                        <label class="block text-xs font-black uppercase text-gray-500 mb-2">Branch *</label>
+                        <select name="branch_id" class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-black focus:outline-none transition-all font-bold" required>
+                            <?php foreach($branches as $b): ?>
+                                <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <?php 
                         $types = [
