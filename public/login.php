@@ -15,7 +15,7 @@ if (is_logged_in()) {
     } elseif ($user_type === 'Staff') {
         redirect('/printflow/staff/dashboard.php');
     } else {
-        redirect('/printflow/customer/dashboard.php');
+        redirect('/printflow/customer/services.php');
     }
 }
 
@@ -1461,3 +1461,4 @@ document.addEventListener('keydown', function(e) {
 </script>
 </body>
 </html>
+

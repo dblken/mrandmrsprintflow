@@ -15,57 +15,294 @@ $customer_id = get_user_id();
 if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
     db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND customer_id = ?", 'ii', [$notification_id, $customer_id]);
+    $back_filter = isset($_GET['filter']) ? '?filter=' . urlencode($_GET['filter']) : '';
+    redirect('/printflow/customer/notifications.php' . $back_filter);
+}
+
+// Mark all as read
+if (isset($_GET['mark_all_read'])) {
+    db_execute("UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND is_read = 0", 'i', [$customer_id]);
     redirect('/printflow/customer/notifications.php');
 }
 
 // Get all notifications
-$notifications = db_query("SELECT * FROM notifications WHERE customer_id = ? ORDER BY created_at DESC LIMIT 50", 'i', [$customer_id]);
+$notifications = db_query("SELECT * FROM notifications WHERE customer_id = ? ORDER BY created_at DESC LIMIT 100", 'i', [$customer_id]);
+
+// Categorize by read status for display
+$grouped_notifications = [
+    'New' => [],
+    'Earlier' => []
+];
+foreach ($notifications as $n) {
+    if ($n['is_read'] == 0) {
+        $grouped_notifications['New'][] = $n;
+    } else {
+        $grouped_notifications['Earlier'][] = $n;
+    }
+}
+// Remove empty groups
+$grouped_notifications = array_filter($grouped_notifications);
+$unread_total = array_reduce($notifications, function($carry, $item) {
+    return $carry + ($item['is_read'] ? 0 : 1);
+}, 0);
 
 $page_title = 'Notifications - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<!-- Page Hero Banner -->
-<div style="background:#00151b;position:relative;overflow:hidden;padding:2.75rem 0 3.5rem;">
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:220px;background:radial-gradient(ellipse at center,rgba(50,161,196,0.18) 0%,rgba(83,197,224,0.06) 50%,transparent 75%);pointer-events:none;z-index:0;"></div>
-    <div class="container mx-auto px-4" style="max-width:900px;position:relative;z-index:1;text-align:center;">
-        <p style="font-size:0.7rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.12em;margin:0 0 .6rem;">Updates</p>
-        <h1 style="font-size:clamp(1.75rem,3.5vw,2.75rem);font-weight:800;color:#fff;letter-spacing:-0.03em;margin:0 0 .75rem;line-height:1.1;">Notifications</h1>
-        <p style="font-size:0.9rem;color:rgba(255,255,255,0.45);max-width:420px;margin:0 auto;line-height:1.65;">Stay informed with the latest updates on your orders and account activity.</p>
-    </div>
-</div>
+<style>
+    .notif-wrapper {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        padding: 24px;
+        min-height: 500px;
+        margin-bottom: 2rem;
+    }
+    .notif-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .notif-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .notif-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #1a202c;
+    }
+    .notif-count-badge {
+        background: #0a2530;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 6px;
+    }
+    .mark-all-btn {
+        font-size: 0.875rem;
+        color: #64748b;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+    .mark-all-btn:hover {
+        color: #0a2530;
+    }
+    .notif-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        transition: all 0.2s;
+        cursor: pointer;
+        position: relative;
+        border-bottom: 1px solid #f1f5f9;
+        text-decoration: none;
+        border-left: 4px solid transparent;
+    }
+    .notif-item:hover {
+        background: #f8fafc;
+    }
+    .notif-item:last-child {
+        border-bottom: none;
+    }
+    .notif-item.unread {
+        background: #f0f9ff;
+        border-left-color: #53C5E0;
+    }
+    .notif-item.unread::after {
+        content: '';
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 8px;
+        height: 8px;
+        background: #f43f5e;
+        border-radius: 50%;
+    }
+    .notif-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+    .notif-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .notif-content {
+        flex: 1;
+    }
+    .notif-text {
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .notif-text b {
+        color: #1e293b;
+        font-weight: 700;
+    }
+    .notif-time {
+        font-size: 0.8125rem;
+        color: #94a3b8;
+    }
+    .notif-msg-box {
+        margin-top: 12px;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        color: #64748b;
+        line-height: 1.6;
+    }
+    .notif-msg-box:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .notif-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    .notif-btn {
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .notif-btn-primary {
+        background: #0a2530;
+        color: white;
+    }
+    .notif-btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+    }
+</style>
 
-<div class="min-h-screen" style="background:#f5f9fa;padding-top:2.5rem;padding-bottom:3rem;">
-    <div class="container mx-auto px-4" style="max-width:900px;">
-
-        <?php if (empty($notifications)): ?>
-            <div class="card text-center py-12">
-                <p class="text-gray-600">No notifications yet</p>
+<div class="min-h-screen py-8">
+    <div class="container mx-auto px-4" style="max-width: 1100px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <h1 class="ct-page-title" style="margin-bottom: 0;">Notifications</h1>
+                <?php if ($unread_total > 0): ?>
+                    <span class="count-badge" style="background: #0a2530; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;"><?php echo $unread_total; ?></span>
+                <?php endif; ?>
             </div>
-        <?php else: ?>
-            <div class="space-y-3">
-                <?php foreach ($notifications as $notif): ?>
-                    <div class="card <?php echo $notif['is_read'] ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-500'; ?>">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1">
-                                <?php if (!$notif['is_read']): ?>
-                                    <span class="badge bg-blue-500 text-white text-xs mb-2">NEW</span>
+            <a href="?mark_all_read=1" class="btn-secondary" style="font-size: 0.875rem; border-radius: 8px; padding: 0.5rem 1rem; text-decoration: none;">Mark all as read</a>
+        </div>
+
+        <div class="notif-wrapper">
+
+            <?php if (empty($notifications)): ?>
+                <div class="text-center py-20">
+                    <p class="text-gray-400">No notifications yet.</p>
+                </div>
+            <?php else: ?>
+                <div class="space-y-6">
+                    <?php foreach ($grouped_notifications as $group => $notifs): ?>
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 px-2"><?php echo htmlspecialchars($group); ?></h3>
+                            <div class="space-y-1">
+                                <?php foreach ($notifs as $notif): 
+                            // Determine "Avatar" or Icon based on message
+                            $avatar_text = "PF"; // Default
+                            $is_chat = (strpos(strtolower($notif['message']), 'message') !== false || strpos(strtolower($notif['message']), 'chat') !== false);
+                            $is_order = (strpos(strtolower($notif['message']), 'order') !== false);
+                            
+                            $icon = "🔔";
+                            if ($is_chat) $icon = "💬";
+                            if ($is_order) $icon = "📦";
+
+                            // Determine redirection link
+                            $link = "/printflow/customer/notifications.php?mark_read=" . $notif['notification_id'];
+                            if (!empty($notif['data_id'])) {
+                                if ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
+                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                                } elseif ($notif['type'] === 'Message') {
+                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&chat=open&mark_read=" . $notif['notification_id'];
+                                } else {
+                                    // Fallback if data_id exists but type is unknown
+                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                                }
+                            }
+                        ?>
+                            <a href="<?php echo $link; ?>" class="notif-item <?php echo $notif['is_read'] ? '' : 'unread'; ?>">
+                                
+                                <div class="notif-avatar">
+                                    <span style="opacity: 1;"><?php echo $icon; ?></span>
+                                </div>
+
+                                <div class="notif-content">
+                                    <div class="notif-text">
+                                        <?php 
+                                            // Make "Update" or Status bold-ish
+                                            $msg = htmlspecialchars($notif['message']);
+                                            $msg = preg_replace('/(Order #\d+)/', '<b>$1</b>', $msg);
+                                            echo $msg;
+                                        ?>
+                                    </div>
+                                    <div class="notif-time"><?php echo time_elapsed_string($notif['created_at']); ?></div>
+                                </div>
+
+                                <?php if (!empty($notif['data_id'])): ?>
+                                    <div class="notif-actions">
+                                        <span class="notif-btn notif-btn-secondary">View Details</span>
+                                    </div>
                                 <?php endif; ?>
-                                <p class="font-medium text-gray-900 mb-1"><?php echo htmlspecialchars($notif['message']); ?></p>
-                                <p class="text-sm text-gray-600"><?php echo format_datetime($notif['created_at']); ?></p>
-                            </div>
-                            <?php if (!$notif['is_read']): ?>
-                                <a href="?mark_read=<?php echo $notif['notification_id']; ?>" class="text-sm text-blue-600 hover:text-blue-700 ml-4">
-                                    Mark as Read
-                                </a>
-                            <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
+<?php 
+function time_elapsed_string($datetime, $full = false) {
+    $now = new DateTime;
+    $ago = new DateTime($datetime);
+    $diff = $now->diff($ago);
+
+    $diff->w = floor($diff->d / 7);
+    $diff->d -= $diff->w * 7;
+
+    $string = array(
+        'y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second',
+    );
+    foreach ($string as $k => &$v) {
+        if ($diff->$k) {
+            $v = $diff->$k . ' ' . $v . ($diff->$k > 1 ? 's' : '');
+        } else {
+            unset($string[$k]);
+        }
+    }
+
+    if (!$full) $string = array_slice($string, 0, 1);
+    return $string ? implode(', ', $string) . ' ago' : 'just now';
+}
+?>
+
+<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+

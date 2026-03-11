@@ -1,3 +1,13 @@
+<?php 
+require_once __DIR__ . '/shop_config.php';
+$ver = time();
+?>
+<!-- Favicon / Shop Icon -->
+<?php if (!empty($shop_logo_url)): ?>
+    <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
+<?php endif; ?>
+
 <style>
     /* Admin White Theme - Consistent Clean Design */
     :root {

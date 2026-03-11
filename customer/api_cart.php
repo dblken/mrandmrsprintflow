@@ -85,7 +85,7 @@ if ($action === 'add') {
 
     // Validate product is active
     $product = db_query(
-        "SELECT product_id, name, price FROM products WHERE product_id = ? AND status = 'Activated'",
+        "SELECT product_id, name, price, category FROM products WHERE product_id = ? AND status = 'Activated'",
         'i', [$product_id]
     );
     if (empty($product)) {
@@ -130,7 +130,8 @@ if ($action === 'add') {
         $_SESSION['cart'][$key] = [
             'product_id'   => $product_id,
             'variant_id'   => $variant_id,
-            'product_name' => $product['name'],
+            'name'         => $product['name'],
+            'category'     => $product['category'],
             'variant_name' => $variant_name,
             'quantity'     => $quantity,
             'price'        => $price,
@@ -203,4 +204,31 @@ if ($action === 'clear') {
     exit;
 }
 
+// -----------------------------------------------------------------------
+// TOGGLE SELECT
+// -----------------------------------------------------------------------
+if ($action === 'toggle_select') {
+    $key = $input['cart_key'] ?? '';
+    $selected = (bool)($input['selected'] ?? true);
+    if (isset($_SESSION['cart'][$key])) {
+        $_SESSION['cart'][$key]['selected'] = $selected;
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// -----------------------------------------------------------------------
+// SELECT ALL
+// -----------------------------------------------------------------------
+if ($action === 'select_all') {
+    $selected = (bool)($input['selected'] ?? true);
+    foreach ($_SESSION['cart'] as &$item) {
+        $item['selected'] = $selected;
+    }
+    unset($item);
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Unknown action.']);
+

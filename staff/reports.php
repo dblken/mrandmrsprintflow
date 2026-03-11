@@ -30,14 +30,25 @@ $daily_orders = db_query("
 ", 's', [$report_date]);
 $summary = $daily_orders[0] ?? [];
 
-// Get orders for the day
+// Pagination settings for daily orders
+$items_per_page = 10;
+$current_page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($current_page - 1) * $items_per_page;
+
+// Count total orders for the day
+$total_day_orders = db_query("SELECT COUNT(*) as total FROM orders WHERE DATE(order_date) = ?", 's', [$report_date]);
+$total_items = $total_day_orders[0]['total'] ?? 0;
+$total_pages = ceil($total_items / $items_per_page);
+
+// Get orders for the day with pagination
 $day_orders = db_query("
     SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name
     FROM orders o
     LEFT JOIN customers c ON o.customer_id = c.customer_id
     WHERE DATE(o.order_date) = ?
     ORDER BY o.order_date DESC
-", 's', [$report_date]);
+    LIMIT ? OFFSET ?
+", 'sii', [$report_date, $items_per_page, $offset]);
 
 // ---- Simple Inventory List ----
 $low_stock_products = db_query("
@@ -149,6 +160,9 @@ $page_title = 'Reports - Staff';
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Pagination -->
+                <?php echo get_pagination_links($current_page, $total_pages, ['date' => $report_date]); ?>
                 <?php else: ?>
                 <div style="text-align:center; padding:32px; color:#9ca3af; font-size:14px;">
                     No orders found for <?php echo date('M j, Y', strtotime($report_date)); ?>

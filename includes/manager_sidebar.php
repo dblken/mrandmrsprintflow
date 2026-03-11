@@ -102,9 +102,7 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <?php if ($unread_notif_count > 0): ?>
-                <span class="nav-badge"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
-                <?php endif; ?>
+                <span id="sidebar-notif-badge" class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
             </a>
         </div>
 
@@ -238,4 +236,22 @@ document.addEventListener('click', function(event) {
         });
     });
 })();
+
+    // Notification Polling
+    function updateSidebarNotifCount() {
+        fetch('/printflow/public/api/notification_count.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const badge = document.getElementById('sidebar-notif-badge');
+                    if (badge) {
+                        badge.innerText = data.count > 99 ? '99+' : data.count;
+                        badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
+                    }
+                }
+            })
+            .catch(err => console.error('Sidebar notif error:', err));
+    }
+    // Poll every 10 seconds
+    setInterval(updateSidebarNotifCount, 10000);
 </script>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Customer: Order Confirmation
  * Displays success message and order summary after submission.
@@ -13,7 +13,7 @@ $id = (int)($_GET['id'] ?? 0);
 $order = db_query("SELECT jo.*, c.first_name, c.last_name FROM job_orders jo LEFT JOIN customers c ON jo.customer_id = c.customer_id WHERE jo.id = ?", 'i', [$id]);
 
 if (!$order) {
-    header('Location: dashboard.php');
+    header('Location: services.php');
     exit;
 }
 
@@ -52,14 +52,14 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-1">Specs</span>
                         <div class="text-xs font-medium text-gray-600">
                              <?php if($jo['width_ft'] > 0): ?>
-                                <?php echo (float)$jo['width_ft']; ?>' x <?php echo (float)$jo['height_ft']; ?>' • 
+                                <?php echo (float)$jo['width_ft']; ?>' x <?php echo (float)$jo['height_ft']; ?>' � 
                             <?php endif; ?>
                             Qty: <?php echo $jo['quantity']; ?>
                         </div>
                     </div>
                     <div>
                         <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-1">Estimated Total</span>
-                        <div class="font-bold text-indigo-600">₱<?php echo number_format($jo['estimated_total'], 2); ?></div>
+                        <div class="font-bold text-indigo-600">?<?php echo number_format($jo['estimated_total'], 2); ?></div>
                     </div>
                 </div>
 
@@ -84,3 +84,4 @@ require_once __DIR__ . '/../includes/header.php';
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>
+

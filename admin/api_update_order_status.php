@@ -102,7 +102,7 @@ db_execute(
 // Notify customer
 $customer_id = (int)$order['customer_id'];
 if ($customer_id) {
-    create_notification($customer_id, 'Customer', "Your order #{$order_id} status: {$new_status}", 'Order', false, false);
+    create_notification($customer_id, 'Customer', "Your order #{$order_id} status: {$new_status}", 'Order', false, false, $order_id);
 }
 
 $admin_id = get_user_id();

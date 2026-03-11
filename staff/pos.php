@@ -15,18 +15,17 @@ $page_title = "Point of Sale (POS)";
 $current_page = "pos";
 $user_name = $_SESSION['user_name'] ?? 'Staff';
 
-// ── Fetch Categories ────────────────────────────────────
+// Fetch Categories
 $categories = [];
 try {
     $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' AND category IS NOT NULL ORDER BY category ASC");
 } catch (Exception $e) { }
 
-// ── Fetch Customers for dropdown ────────────────────────
+// Fetch Customers
 $customers = [];
 try {
     $customers = db_query("SELECT customer_id, first_name, last_name, email, contact_number FROM customers ORDER BY first_name ASC, last_name ASC");
 } catch (Exception $e) { }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,459 +34,700 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - PrintFlow</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="/printflow/public/assets/css/style.css">
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     
     <style>
-        /* POS Specific Layout */
-        body { margin: 0; padding: 0; overflow-y: hidden; }
-        .pos-container {
-            display: flex;
+        /* 
+         * STABLE POS LAYOUT
+         * We use absolute positioning inside a relative container to prevent ALL jumping/height shifts.
+         */
+        
+        /* The container takes up exactly the available height minus the top bar */
+        .pos-wrapper {
+            position: relative;
             flex: 1;
             height: 100%;
-            background-color: #f1f5f9;
-        }
-        
-        /* Left Panel - Product Grid */
-        .pos-left {
-            flex: 1;
             display: flex;
-            flex-direction: column;
+            background: #ffffff;
+            border: none;
             overflow: hidden;
-            border-right: 1px solid #e2e8f0;
-            background: #f8fafc;
-        }
-        
-        /* Top Navigation in POS */
-        .pos-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            background: #fff;
-            box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
-            z-index: 10;
-        }
-        .pos-header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .pos-back-btn {
-            color: #64748b;
-            text-decoration: none;
-            font-size: 1.25rem;
-            padding: 0.5rem;
-            border-radius: 0.375rem;
-            transition: all 0.2s;
-        }
-        .pos-back-btn:hover { background: #f1f5f9; color: #0f172a; }
-        
-        .pos-search-bar {
-            padding: 1rem 1.5rem;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            gap: 1rem;
-        }
-        .pos-search-input {
-            flex: 1;
-            padding: 0.625rem 1rem 0.625rem 2.5rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            width: 100%;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%2394a3b8" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>') no-repeat 0.75rem center;
-            background-size: 1rem;
-        }
-        .pos-search-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
-        .pos-category-select {
-            padding: 0.625rem 1rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            background-color: #fff;
-            min-width: 150px;
+            margin: 0;
+            min-height: 0; /* Critical for vertical scroll */
         }
 
-        .pos-products {
+        /* Left Side: Products */
+        .pos-products-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e2e8f0;
+            background: #f8fafc;
+            min-width: 0;
+            min-height: 0;
+        }
+        
+        .pos-search-header {
+            padding: 20px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .pos-search-box {
+            position: relative;
+            flex: 1;
+        }
+        
+        .pos-search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        
+        .pos-search-input {
+            width: 100%;
+            padding: 12px 16px 12px 36px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .pos-search-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .pos-category-select {
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+            font-size: 14px;
+            min-width: 180px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .pos-products-grid {
             flex: 1;
             overflow-y: auto;
-            padding: 1.5rem;
+            padding: 24px;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
             align-content: start;
-        }
-        .pos-product-card {
-            background: #fff;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            user-select: none;
-        }
-        .pos-product-card:hover { border-color: #6366f1; transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
-        .pos-product-card:active { transform: translateY(0); }
-        .pos-product-card.no-stock { opacity: 0.6; cursor: not-allowed; border-color: #fca5a5; }
-        .pos-product-img {
-            width: 100%;
-            height: 120px;
-            object-fit: cover;
             background: #f1f5f9;
         }
-        .pos-product-info {
-            padding: 0.75rem;
-            flex: 1;
+        
+        /* Product Card */
+        .pos-card {
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
-        .pos-product-name {
-            font-size: 0.875rem;
+        
+        .pos-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: #6366f1;
+        }
+        
+        .pos-card.no-stock {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+        .pos-card.no-stock:hover { transform: none; box-shadow: none; }
+        
+        .pos-card-img-container {
+            width: 100%;
+            height: 140px;
+            position: relative;
+            background: #f1f5f9;
+        }
+        
+        .pos-card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .pos-card-price {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(4px);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            color: #4f46e5;
+            font-size: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        
+        .pos-card-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        
+        .pos-card-title {
+            font-size: 14px;
             font-weight: 600;
             color: #1e293b;
-            margin-bottom: 0.25rem;
+            margin-bottom: 8px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            line-height: 1.3;
         }
-        .pos-product-price { color: #6366f1; font-weight: 700; font-size: 0.875rem; margin-top: auto; }
-        .pos-product-stock { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+        
+        .pos-card-stock {
+            margin-top: auto;
+            font-size: 12px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
 
-        /* Right Panel - Cart */
-        .pos-right {
-            width: 400px;
-            background: #fff;
+        /* Right Side: Cart */
+        .pos-cart-area {
+            width: 420px;
+            background: #ffffff;
             display: flex;
             flex-direction: column;
-            box-shadow: -4px 0 15px rgba(0,0,0,0.05);
-            z-index: 20;
+            flex-shrink: 0;
+            border-left: 1px solid #e2e8f0;
+            min-height: 0;
         }
+        
         .pos-cart-header {
-            padding: 1.25rem 1.5rem;
+            padding: 20px;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .pos-cart-header h2 { margin: 0; font-size: 1.125rem; font-weight: 600; color: #0f172a; }
         
-        /* Customer Selection block */
-        .pos-customer-block {
-            padding: 1rem 1.5rem;
+        .pos-cart-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .pos-btn-clear {
+            background: #fee2e2;
+            color: #ef4444;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .pos-btn-clear:hover { background: #fca5a5; }
+
+        .pos-customer-section {
+            padding: 16px 20px;
             border-bottom: 1px solid #e2e8f0;
             background: #f8fafc;
         }
-        .pos-customer-select {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            margin-bottom: 0.5rem;
+        
+        .pos-customer-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
         }
-        .pos-add-customer-btn {
-            background: none; border: none; padding: 0; margin: 0;
-            color: #6366f1; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+        
+        .pos-btn-link {
+            background: none;
+            border: none;
+            color: #6366f1;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
         }
-        .pos-add-customer-btn:hover { text-decoration: underline; }
+        .pos-btn-link:hover { text-decoration: underline; }
 
-        .pos-cart-items {
+        .pos-cart-list {
             flex: 1;
             overflow-y: auto;
-            padding: 1rem 1.5rem;
+            padding: 16px 20px;
         }
-        .pos-empty-cart {
+        
+        .pos-empty-state {
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
             color: #94a3b8;
             text-align: center;
         }
-        .pos-empty-cart i { font-size: 3rem; margin-bottom: 1rem; color: #cbd5e1; }
+        
+        .pos-empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: #cbd5e1;
+        }
         
         .pos-cart-item {
             display: flex;
-            align-items: flex-start;
-            padding-bottom: 1rem;
-            margin-bottom: 1rem;
-            border-bottom: 1px dashed #e2e8f0;
+            align-items: center;
+            padding: 10px 14px;
+            border: 1px solid #f1f5f9;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            transition: all 0.2s;
         }
-        .pos-cart-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        .pos-cart-item-info { flex: 1; padding-right: 1rem; }
-        .pos-cart-item-name { font-size: 0.875rem; font-weight: 600; color: #1e293b; margin-bottom: 0.25rem; }
-        .pos-cart-item-price { font-size: 0.75rem; color: #64748b; }
-        .pos-cart-item-qty {
+        .pos-cart-item:hover {
+            border-color: #6366f1;
+            background: #f8fafc;
+        }
+        
+        .pos-item-details { flex: 1; padding-right: 12px; }
+        .pos-item-name { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px; line-height: 1.2; }
+        .pos-item-price { font-size: 12px; color: #64748b; }
+        
+        .pos-item-controls {
             display: flex;
             align-items: center;
+            background: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 0.375rem;
+            border-radius: 6px;
             overflow: hidden;
         }
+        
         .pos-qty-btn {
-            background: #f8fafc; border: none; width: 28px; height: 28px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; color: #475569; transition: all 0.15s;
+            background: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
         }
         .pos-qty-btn:hover { background: #e2e8f0; }
-        .pos-qty-input {
-            width: 32px; height: 28px; border: none; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
-            text-align: center; font-size: 0.875rem; padding: 0;
-            -moz-appearance: textfield;
+        
+        .pos-qty-val {
+            width: 30px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            pointer-events: none;
         }
-        .pos-qty-input::-webkit-outer-spin-button, .pos-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .pos-cart-item-total { font-weight: 600; color: #0f172a; font-size: 0.875rem; text-align: right; min-width: 60px; margin-left: 1rem; }
-        .pos-cart-item-remove { 
-            color: #ef4444; background: none; border: none; cursor: pointer; padding: 0.5rem; margin-left: 0.5rem;
-            opacity: 0.5; transition: opacity 0.2s;
+        
+        .pos-item-total {
+            font-weight: 700;
+            font-size: 14px;
+            min-width: 60px;
+            text-align: right;
+            margin-left: 12px;
         }
-        .pos-cart-item-remove:hover { opacity: 1; }
+        
+        .pos-item-remove {
+            color: #ef4444;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-left: 12px;
+            padding: 4px;
+            opacity: 0.6;
+        }
+        .pos-item-remove:hover { opacity: 1; }
 
-        .pos-checkout-panel {
+        .pos-checkout-section {
+            padding: 16px 20px;
             background: #f8fafc;
             border-top: 1px solid #e2e8f0;
-            padding: 1.5rem;
+            flex-shrink: 0;
         }
-        .pos-summary-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem; color: #475569; }
-        .pos-summary-total { display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed #cbd5e1; font-size: 1.25rem; font-weight: 700; color: #0f172a; }
         
-        .pos-payment-methods { display: flex; gap: 0.5rem; margin: 1.25rem 0;}
-        .pos-payment-btn { 
-            flex: 1; padding: 0.625rem; border: 1px solid #cbd5e1; background: #fff; border-radius: 0.375rem;
-            font-size: 0.75rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.2s;
+        @media (max-height: 800px) {
+            .pos-checkout-section { padding: 12px 20px; }
+            .pos-payment-tabs { margin: 12px 0; }
+            .pos-summary-total { margin-top: 12px; padding-top: 12px; font-size: 18px; }
+            .service-btn { padding: 20px 16px; border-radius: 12px; font-size: 14px; gap: 8px; }
+            .service-btn i { width: 48px; height: 48px; font-size: 24px; border-radius: 10px; }
+            .pos-tender-group { margin-bottom: 12px; }
+            .pos-btn-checkout { padding: 12px; }
+        }
+        
+        .pos-summary-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #475569;
+        }
+        
+        .pos-summary-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #cbd5e1;
+            font-size: 20px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        
+
+        
+        .pos-tender-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .pos-tender-input {
+            width: 140px;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            text-align: right;
+            font-weight: 700;
+            font-size: 16px;
+            outline: none;
+        }
+        .pos-tender-input:focus { border-color: #6366f1; }
+
+
+        
+        .pos-btn-checkout {
+            width: 100%;
+            padding: 16px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .pos-btn-checkout:hover { background: #4338ca; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .pos-btn-checkout:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .service-btn {
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            padding: 32px 24px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 800;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease-out;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            position: relative;
+            overflow: hidden;
+            will-change: transform, box-shadow;
+            backface-visibility: hidden;
+            transform: translateZ(0);
         }
-        .pos-payment-btn.active { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
-        
-        .pos-tender-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
-        .pos-tender-input { width: 120px; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; text-align: right; font-weight: 600; }
-        
-        .pos-checkout-btn {
-            width: 100%; padding: 1rem; background: #6366f1; color: white; border: none; border-radius: 0.5rem;
-            font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
-            display: flex; justify-content: center; align-items: center; gap: 0.5rem;
+        .service-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
         }
-        .pos-checkout-btn:hover { background: #4f46e5; }
-        .pos-checkout-btn:disabled { background: #94a3b8; cursor: not-allowed; opacity: 0.7; }
+        .service-btn i {
+            font-size: 32px;
+            color: #4f46e5;
+            background: #f5f3ff;
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            transition: all 0.3s ease-out;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.1);
+        }
+        .service-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: #6366f1;
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.15), 0 10px 10px -5px rgba(99, 102, 241, 0.1);
+        }
+        .service-btn:hover::before {
+            opacity: 1;
+        }
+        .service-btn:hover i {
+            background: #4f46e5;
+            color: #fff;
+            transform: scale(1.05) rotate(-5deg);
+            box-shadow: 0 10px 15px rgba(79, 70, 229, 0.2);
+        }
+        .service-btn.btn-other {
+            grid-column: 2;
+            background: #fdfdfd;
+            border: 2px dashed #e2e8f0;
+        }
+        .service-btn.btn-other i {
+            background: #f8fafc;
+            color: #64748b;
+        }
+        .service-btn.btn-other:hover {
+            border-style: solid;
+            border-color: #6366f1;
+        }
 
-        /* Quick Add Modal */
-        .pos-modal-backdrop {
-            display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 100;
-            align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.2s;
+        .pos-services-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            padding: 32px;
+            align-content: center;
+            height: 100%;
         }
-        .pos-modal-backdrop.show { display: flex; opacity: 1; }
-        .pos-modal { background: #fff; width: 100%; max-width: 400px; border-radius: 0.75rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); transform: scale(0.95); transition: transform 0.2s; }
-        .pos-modal-backdrop.show .pos-modal { transform: scale(1); }
-        .pos-modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-        .pos-modal-header h3 { margin: 0; font-size: 1.125rem; font-weight: 600; }
-        .pos-modal-body { padding: 1.5rem; }
-        .pos-modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end; gap: 0.75rem; }
-        .pos-form-group { margin-bottom: 1rem; }
-        .pos-form-group label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.375rem; color: #334155; }
-        .pos-form-group input { width: 100%; padding: 0.625rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; }
-        .pos-btn-secondary { padding: 0.625rem 1rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 0.375rem; cursor: pointer; }
-        .pos-btn-primary { padding: 0.625rem 1.5rem; background: #6366f1; color: #fff; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; }
 
-        /* Receipt Toast/Overlay */
-        .receipt-toast {
-            position: fixed; top: 1.5rem; right: 1.5rem; background: #10b981; color: white;
-            padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-            display: flex; align-items: center; gap: 0.75rem; font-weight: 500;
-            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 50;
+        /* Price Input Modal */
+        #price-modal-overlay {
+            display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;
         }
-        .receipt-toast.show { transform: translateX(0); }
+        .price-modal {
+            background: #fff; width: 320px; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        /* Hide scrollbar for grid to look cleaner */
+        .pos-products-grid::-webkit-scrollbar, .pos-cart-list::-webkit-scrollbar { width: 6px; }
+        .pos-products-grid::-webkit-scrollbar-thumb, .pos-cart-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
+    <?php 
+    if ($_SESSION['user_type'] === 'Staff') {
+        include __DIR__ . '/../includes/staff_sidebar.php';
+    } else {
+        include __DIR__ . '/../includes/admin_sidebar.php';
+    }
+    ?>
 
-    <!-- Main Content -->
-    <div class="main-content" style="display: flex; flex-direction: column; overflow: hidden; height: 100vh;">
-        <div class="pos-container">
-        
-        <!-- LEFT PANEL: Products -->
-        <div class="pos-left">
-            <div class="pos-header">
-                <div class="pos-header-left">
-                    <h1 style="margin:0; font-size:1.25rem; font-weight:600; color:#0f172a;">PrintFlow POS</h1>
+    <div class="main-content" style="padding: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; width: 100%; min-height: 0;">
+        <main style="flex: 1; display: flex; flex-direction: column; width: 100%; min-height: 0;">
+            <div class="pos-wrapper" style="width: 100%; flex: 1; min-height: 0;">
+                
+                <!-- LEFT: SERVICES -->
+                <div class="pos-products-area" style="background:#fff;">
+                    <div style="padding: 24px; border-bottom: 1px solid #e2e8f0; background: #fff;">
+                        <h2 style="font-weight:700; font-size:18px; color:#1e293b; margin:0;">Available Services</h2>
+                        <p style="font-size:13px; color:#64748b; margin-top:4px;">Quickly add a printing service to the order.</p>
+                    </div>
+                    
+                    <div class="pos-services-grid" style="border-bottom:none; padding: 24px;">
+                        <button class="service-btn" onclick="addQuickService('Tarpaulin', 'fas fa-map')">
+                            <i class="fas fa-map"></i> Tarpaulin
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('T-Shirt', 'fas fa-tshirt')">
+                            <i class="fas fa-tshirt"></i> T-Shirt
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Stickers', 'fas fa-sticky-note')">
+                            <i class="fas fa-sticky-note"></i> Stickers
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Glass/Wall', 'fas fa-window-maximize')">
+                            <i class="fas fa-window-maximize"></i> Glass/Wall
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Transparent Stickers', 'fas fa-search-plus')">
+                            <i class="fas fa-search-plus"></i> Transparent
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Reflectorized', 'fas fa-lightbulb')">
+                            <i class="fas fa-lightbulb"></i> Reflectorized
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Sintraboard', 'fas fa-square')">
+                            <i class="fas fa-square"></i> Sintraboard
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Standees', 'fas fa-user-tie')">
+                            <i class="fas fa-user-tie"></i> Standees
+                        </button>
+                        <button class="service-btn" onclick="addQuickService('Souvenirs', 'fas fa-gift')">
+                            <i class="fas fa-gift"></i> Souvenirs
+                        </button>
+                        <button class="service-btn btn-other" onclick="addOtherService()">
+                            <i class="fas fa-plus-circle"></i> Other
+                        </button>
+                    </div>
                 </div>
-            <div style="font-size:0.875rem; color:#475569;">
-                <i class="far fa-user-circle"></i> <?php echo htmlspecialchars($user_name); ?>
-            </div>
-        </div>
+                
+                <!-- RIGHT: CART -->
+                <div class="pos-cart-area">
+                    <div class="pos-cart-header">
+                        <h2>Current Order</h2>
+                        <button class="pos-btn-clear" onclick="clearCart()"><i class="fas fa-trash"></i> Clear</button>
+                    </div>
+                    
+                    <div class="pos-customer-section">
+                        <div class="pos-customer-label">
+                            <span>Customer</span>
+                            <button class="pos-btn-link" onclick="openNewCustomerModal()">+ New</button>
+                        </div>
+                        <select id="pos-customer" class="pos-category-select" style="width: 100%; min-width: unset;">
+                            <option value="guest">Walk-in Customer (Guest)</option>
+                            <?php foreach($customers as $c): ?>
+                                <option value="<?= $c['customer_id'] ?>"><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="pos-cart-list" id="pos-cart-items">
+                        <div class="pos-empty-state">
+                            <i class="fas fa-shopping-basket"></i>
+                            <p>Cart is empty</p>
+                        </div>
+                    </div>
+                    
+                    <div class="pos-checkout-section">
+                        <div class="pos-summary-line">
+                            <span>Subtotal</span>
+                            <span id="pos-subtotal">₱0.00</span>
+                        </div>
+                        
+                        <div class="pos-summary-total">
+                            <span id="pos-total">₱0.00</span>
+                        </div>
+                        
+                        <input type="hidden" id="pos-active-pm" value="Cash">
 
-        <div class="pos-search-bar">
-            <input type="text" id="pos-search" class="pos-search-input" placeholder="Search products by name or SKU...">
-            <select id="pos-category" class="pos-category-select">
-                <option value="">All Categories</option>
-                <?php foreach ($categories as $cat): ?>
-                    <option value="<?php echo htmlspecialchars($cat['category']); ?>"><?php echo htmlspecialchars($cat['category']); ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
 
-        <div class="pos-products" id="pos-products-grid">
-            <!-- Loading skeleton -->
-            <div style="text-align:center; grid-column: 1 / -1; padding: 2rem; color: #94a3b8;">
-                <i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Loading products...
-            </div>
-        </div>
-    </div>
-
-    <!-- RIGHT PANEL: Cart -->
-    <div class="pos-right">
-        <div class="pos-cart-header">
-            <h2>Current Sale</h2>
-            <button class="pos-add-customer-btn" onclick="clearCart()" style="color:#ef4444;"><i class="fas fa-trash-alt"></i> Clear</button>
-        </div>
-        
-        <div class="pos-customer-block">
-            <label style="display:block;font-size:0.75rem;font-weight:600;color:#64748b;margin-bottom:0.25rem;text-transform:uppercase;">Customer</label>
-            <select id="pos-customer" class="pos-customer-select">
-                <option value="guest">Walk-in Customer (Guest)</option>
-                <?php foreach ($customers as $c): ?>
-                    <option value="<?php echo $c['customer_id']; ?>">
-                        <?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name'] . ($c['contact_number'] ? ' (' . $c['contact_number'] . ')' : '')); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <div style="text-align:right;">
-                <button type="button" class="pos-add-customer-btn" onclick="openNewCustomerModal()"><i class="fas fa-plus"></i> New Customer</button>
-            </div>
-        </div>
-
-        <div class="pos-cart-items" id="pos-cart-items">
-            <div class="pos-empty-cart">
-                <i class="fas fa-shopping-cart"></i>
-                <p>Select products to add to cart</p>
-            </div>
-        </div>
-
-        <div class="pos-checkout-panel">
-            <div class="pos-summary-row">
-                <span>Subtotal</span>
-                <span id="pos-subtotal">₱0.00</span>
-            </div>
-            <!-- Discount could go here later -->
-            
-            <div class="pos-summary-total">
-                <span>Total</span>
-                <span id="pos-total">₱0.00</span>
-            </div>
-            
-            <div class="pos-payment-methods">
-                <button type="button" class="pos-payment-btn active" onclick="setPaymentMethod('Cash')" id="pm-cash">Cash</button>
-                <button type="button" class="pos-payment-btn" onclick="setPaymentMethod('GCash')" id="pm-gcash">GCash</button>
-                <button type="button" class="pos-payment-btn" onclick="setPaymentMethod('Bank Transfer')" id="pm-bank">Bank Transfer</button>
-            </div>
-            <input type="hidden" id="pos-active-pm" value="Cash">
-            
-            <div class="pos-tender-row" id="pos-tender-row">
-                <label style="font-size:0.875rem;color:#475569;font-weight:500;">Amount Tendered</label>
-                <div>
-                    <span style="color:#94a3b8;font-size:0.875rem;">₱</span>
-                    <input type="number" id="pos-tendered" class="pos-tender-input" placeholder="0.00" oninput="calculateChange()">
+                        <div class="pos-tender-group" id="tender-group">
+                            <span style="font-weight: 600; font-size: 14px; color: #475569;">Tendered</span>
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 12px; top: 12px; font-weight: 600; color: #94a3b8;">₱</span>
+                                <input type="number" id="pos-tendered" class="pos-tender-input" placeholder="0.00" oninput="calculateChange()" style="padding-left: 28px;">
+                            </div>
+                        </div>
+                        
+                        <div class="pos-summary-line" id="change-group" style="margin-bottom: 20px; align-items: center;">
+                            <span style="font-weight: 600; color: #475569;">Change</span>
+                            <span id="pos-change" style="font-size: 20px; font-weight: 800; color: #10b981;">₱0.00</span>
+                        </div>
+                        
+                        <button class="pos-btn-checkout" id="pos-checkout-btn" disabled onclick="processCheckout()">
+                            <i class="fas fa-lock" id="checkout-icon"></i> <span id="checkout-text">Select Items</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="pos-summary-row" id="pos-change-row" style="margin-top:-0.75rem;margin-bottom:1.25rem;">
-                <span>Change</span>
-                <span id="pos-change" style="font-weight:600;color:#10b981;">₱0.00</span>
-            </div>
 
-            <button type="button" class="pos-checkout-btn" id="pos-checkout-btn" onclick="processCheckout()" disabled>
-                <i class="fas fa-check-circle"></i> Complete Sale
-            </button>
-        </div>
-        </div>
+            </div> <!-- END pos-wrapper -->
+        </main>
     </div>
 </div>
 
-<!-- Modal: Quick Add Customer -->
-<div class="pos-modal-backdrop" id="new-customer-modal">
-    <div class="pos-modal">
-        <div class="pos-modal-header">
-            <h3>Add Walk-in Customer</h3>
-            <button type="button" class="pos-add-customer-btn" style="font-size:1.25rem;color:#64748b;" onclick="closeNewCustomerModal()">&times;</button>
+<!-- Modal for New Customer -->
+<div id="customer-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:400px; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <h3 style="margin:0;">Add Customer</h3>
+            <button onclick="closeCustomerModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
         </div>
-        <div class="pos-modal-body">
-            <div class="pos-form-group">
-                <label>First Name</label>
-                <input type="text" id="nc-first" placeholder="Juan">
-            </div>
-            <div class="pos-form-group">
-                <label>Last Name</label>
-                <input type="text" id="nc-last" placeholder="Dela Cruz">
-            </div>
-            <div class="pos-form-group">
-                <label>Phone Number (Optional)</label>
-                <input type="tel" id="nc-phone" placeholder="09xxxxxxxxx">
-            </div>
-            <div class="pos-form-group">
-                <label>Email (Optional)</label>
-                <input type="email" id="nc-email" placeholder="juan@example.com">
-            </div>
-        </div>
-        <div class="pos-modal-footer">
-            <button type="button" class="pos-btn-secondary" onclick="closeNewCustomerModal()">Cancel</button>
-            <button type="button" class="pos-btn-primary" onclick="saveNewCustomer()" id="nc-save-btn">Save & Select</button>
-        </div>
+        <input type="text" id="nc-first" placeholder="First Name" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
+        <input type="text" id="nc-last" placeholder="Last Name" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
+        <input type="tel" id="nc-phone" placeholder="Phone Number" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
+        <button onclick="saveCustomer()" id="nc-save-btn" style="width:100%; background:#4f46e5; color:white; padding:12px; border:none; border-radius:6px; font-weight:600; cursor:pointer;">Save Customer</button>
     </div>
 </div>
 
-<div class="receipt-toast" id="receipt-toast">
-    <i class="fas fa-check-circle fa-lg"></i>
-    <div>
-        <div style="font-size:1rem;">Sale Completed!</div>
-        <div style="font-size:0.75rem;opacity:0.9;">Order #<span id="toast-order-id">--</span> has been processed.</div>
+<!-- Modal for Custom Price -->
+<div id="price-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div class="price-modal">
+        <h3 id="pm-title" style="margin:0 0 8px 0; font-size:18px;">Set Price</h3>
+        <div id="pm-name-group" style="margin-bottom: 20px; display:none;">
+            <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:6px;">Service Name</label>
+            <input type="text" id="pm-name-input" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="e.g. Custom Frame">
+        </div>
+        <div style="margin-bottom:20px;">
+            <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:6px;">Negotiated Price</label>
+            <div style="position: relative;">
+                <span style="position: absolute; left: 12px; top: 12px; font-weight: 600; color: #94a3b8;">₱</span>
+                <input type="number" id="pm-price-input" style="width:100%; padding:10px 10px 10px 28px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:18px;" placeholder="0.00" step="0.01">
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="closePriceModal()" style="flex:1; padding:12px; border:none; border-radius:8px; background:#f1f5f9; color:#475569; font-weight:600; cursor:pointer;">Cancel</button>
+            <button onclick="confirmPrice()" style="flex:1; padding:12px; border:none; border-radius:8px; background:#4f46e5; color:white; font-weight:600; cursor:pointer;">Add Item</button>
+        </div>
     </div>
 </div>
 
 <script>
-// --- STATE ---
+
 let products = [];
-let cart = []; // array of {product_id, name, price, qty, stock}
+let cart = [];
 let currentTotal = 0;
 
-// --- INITIAL LOAD ---
 document.addEventListener('DOMContentLoaded', () => {
     fetchProducts();
-    
-    // Search bindings
     document.getElementById('pos-search').addEventListener('input', renderProducts);
     document.getElementById('pos-category').addEventListener('change', renderProducts);
 });
 
-// --- API FETCH ---
 async function fetchProducts() {
     try {
         const res = await fetch('/printflow/staff/api/get_products.php');
         const data = await res.json();
-        if (data.success) {
+        if(data.success) {
             products = data.products;
             renderProducts();
         } else {
-            document.getElementById('pos-products-grid').innerHTML = '<div style="grid-column:1/-1;color:#dc2626;padding:1rem;">Failed to load products.</div>';
+            document.getElementById('pos-products-grid').innerHTML = '<p style="color:red; text-align:center; padding:20px;">Failed to load products.</p>';
         }
-    } catch (e) {
-        document.getElementById('pos-products-grid').innerHTML = '<div style="grid-column:1/-1;color:#dc2626;padding:1rem;">Network error.</div>';
+    } catch(e) {
+        document.getElementById('pos-products-grid').innerHTML = '<p style="color:red; text-align:center; padding:20px;">Network error.</p>';
     }
 }
 
-// --- RENDER PRODUCTS ---
 function renderProducts() {
     const grid = document.getElementById('pos-products-grid');
     const search = document.getElementById('pos-search').value.toLowerCase();
@@ -501,8 +741,8 @@ function renderProducts() {
         return mSearch && mCat;
     });
     
-    if (filtered.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748b;padding:2rem;">No products found.</div>';
+    if(filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;">No products found.</div>';
         return;
     }
     
@@ -511,112 +751,162 @@ function renderProducts() {
         const img = p.product_image ? '/printflow/' + p.product_image : '/printflow/public/assets/images/placeholder.jpg';
         
         const card = document.createElement('div');
-        card.className = `pos-product-card ${outOfStock ? 'no-stock' : ''}`;
-        if (!outOfStock) {
-            card.onclick = () => addToCart(p);
-        }
+        card.className = `pos-card ${outOfStock ? 'no-stock' : ''}`;
+        if(!outOfStock) card.onclick = () => addToCart(p);
         
         card.innerHTML = `
-            <img src="${img}" alt="${p.product_name}" class="pos-product-img" onerror="this.src='/printflow/public/assets/images/placeholder.jpg'">
-            <div class="pos-product-info">
-                <div class="pos-product-name">${p.product_name}</div>
-                <div class="pos-product-price">₱${parseFloat(p.price).toFixed(2)}</div>
-                <div class="pos-product-stock">Stock: ${p.stock_quantity > 0 ? p.stock_quantity : '<span style="color:#ef4444;">Out of Stock</span>'}</div>
+            <div class="pos-card-img-container">
+                <img src="${img}" class="pos-card-img" onerror="this.onerror=null; this.src='/printflow/public/images/products/README.md'; this.outerHTML='<div style=\\'background:#f1f5f9; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px;\\'>📦</div>';">
+                <div class="pos-card-price">₱${parseFloat(p.price).toFixed(2)}</div>
+            </div>
+            <div class="pos-card-body">
+                <div class="pos-card-title">${p.product_name}</div>
+                <div class="pos-card-stock">
+                    <i class="fas ${outOfStock ? 'fa-times-circle text-red' : 'fa-check-circle text-green'}" style="color:${outOfStock ? '#ef4444' : '#10b981'}"></i>
+                    ${outOfStock ? 'Out of Stock' : p.stock_quantity + ' available'}
+                </div>
             </div>
         `;
         grid.appendChild(card);
     });
 }
 
-// --- CART LOGIC ---
-function addToCart(prod) {
-    const existing = cart.find(i => i.product_id === prod.product_id);
-    if (existing) {
-        if (existing.qty < prod.stock_quantity) {
-            existing.qty++;
-        } else {
-            alert('Cannot add more. Not enough stock.');
-        }
+function addToCart(p, overridePrice = null, overrideName = null) {
+    const name = overrideName || p.product_name;
+    const price = overridePrice !== null ? overridePrice : parseFloat(p.price);
+    
+    if(p.price == 0 && overridePrice === null) {
+        openPriceModal(p);
+        return;
+    }
+    
+    // Check if exactly this item (ID + name + price) exists
+    const existing = cart.find(i => i.product_id === p.product_id && i.name === name && i.price === price);
+    
+    if(existing) {
+        if(existing.qty < p.stock_quantity || p.stock_quantity === null) existing.qty++;
+        else alert('Not enough stock!');
     } else {
         cart.push({
-            product_id: prod.product_id,
-            name: prod.product_name,
-            price: parseFloat(prod.price),
+            product_id: p.product_id,
+            name: name,
+            price: price,
             qty: 1,
-            stock: prod.stock_quantity
+            stock: p.stock_quantity
         });
     }
     renderCart();
 }
 
-function updateQty(id, delta) {
-    const item = cart.find(i => i.product_id === id);
-    if (!item) return;
+let pendingProduct = null;
+let isOtherService = false;
+
+function openPriceModal(p, isOther = false) {
+    pendingProduct = p;
+    isOtherService = isOther;
     
-    const newQty = item.qty + delta;
-    if (newQty <= 0) {
-        removeFromCart(id);
-    } else if (newQty > item.stock) {
-        alert('Cannot add more. Not enough stock.');
+    document.getElementById('pm-title').textContent = isOther ? 'Custom Service' : 'Set Service Price';
+    document.getElementById('pm-name-group').style.display = isOther ? 'block' : 'none';
+    document.getElementById('pm-name-input').value = isOther ? '' : p.product_name;
+    document.getElementById('pm-price-input').value = p.price > 0 ? p.price : '';
+    document.getElementById('price-modal-overlay').style.display = 'flex';
+    
+    const focusEl = isOther ? 'pm-name-input' : 'pm-price-input';
+    setTimeout(() => document.getElementById(focusEl).focus(), 100);
+}
+
+function closePriceModal() {
+    document.getElementById('price-modal-overlay').style.display = 'none';
+    pendingProduct = null;
+    isOtherService = false;
+}
+
+function confirmPrice() {
+    const name = document.getElementById('pm-name-input').value.trim();
+    const price = parseFloat(document.getElementById('pm-price-input').value);
+    
+    if(isOtherService && !name) return alert('Please enter a service name.');
+    if(isNaN(price) || price < 0) return alert('Please enter a valid price.');
+    
+    addToCart(pendingProduct, price, name);
+    closePriceModal();
+}
+
+function addQuickService(serviceName) {
+    let p = products.find(prod => prod.category === serviceName || prod.product_name.includes(serviceName));
+    if(!p) p = products.find(prod => prod.category.includes(serviceName));
+
+    if(p) {
+        addToCart(p);
     } else {
-        item.qty = newQty;
-        renderCart();
+        // Create a temporary product object if not found in catalog
+        const fallback = { product_id: 21, product_name: serviceName, category: serviceName, price: 0, stock_quantity: null };
+        addToCart(fallback);
     }
 }
 
-function removeFromCart(id) {
-    cart = cart.filter(i => i.product_id !== id);
+function addOtherService() {
+    const otherBase = { product_id: 21, product_name: 'Other', category: 'Other', price: 0, stock_quantity: null };
+    openPriceModal(otherBase, true);
+}
+
+function updateQty(id, price, delta) {
+    const item = cart.find(i => i.product_id === id && i.price === price);
+    if(!item) return;
+    const newQty = item.qty + delta;
+    if(newQty <= 0) {
+        cart = cart.filter(i => !(i.product_id === id && i.price === price));
+    } else if(newQty > item.stock && item.stock !== null) {
+        alert('Not enough stock!');
+    } else {
+        item.qty = newQty;
+    }
+    renderCart();
+}
+
+function removeFromCart(id, price) {
+    cart = cart.filter(i => !(i.product_id === id && i.price === price));
     renderCart();
 }
 
 function clearCart() {
-    if(cart.length > 0 && confirm('Are you sure you want to clear the current sale?')) {
+    if(cart.length > 0 && confirm('Clear current order?')) {
         cart = [];
-        document.getElementById('pos-customer').value = 'guest';
         document.getElementById('pos-tendered').value = '';
         renderCart();
     }
 }
 
 function renderCart() {
-    const itemsCont = document.getElementById('pos-cart-items');
+    const cont = document.getElementById('pos-cart-items');
+    currentTotal = 0;
     
-    if (cart.length === 0) {
-        itemsCont.innerHTML = `
-            <div class="pos-empty-cart">
-                <i class="fas fa-shopping-cart"></i>
-                <p>Select products to add to cart</p>
-            </div>
-        `;
-        currentTotal = 0;
+    if(cart.length === 0) {
+        cont.innerHTML = `<div class="pos-empty-state"><i class="fas fa-shopping-basket"></i><p>Cart is empty</p></div>`;
     } else {
-        itemsCont.innerHTML = '';
-        currentTotal = 0;
-        
+        cont.innerHTML = '';
         cart.forEach(item => {
-            const itemTotal = item.price * item.qty;
-            currentTotal += itemTotal;
-            
+            const rowTotal = item.price * item.qty;
+            currentTotal += rowTotal;
             const div = document.createElement('div');
             div.className = 'pos-cart-item';
             div.innerHTML = `
-                <div class="pos-cart-item-info">
-                    <div class="pos-cart-item-name">${item.name}</div>
-                    <div class="pos-cart-item-price">₱${item.price.toFixed(2)}</div>
+                <div class="pos-item-details">
+                    <div class="pos-item-name">${item.name}</div>
+                    <div class="pos-item-price">₱${item.price.toFixed(2)}</div>
                 </div>
-                <div class="pos-cart-item-qty">
-                    <button type="button" class="pos-qty-btn" onclick="updateQty(${item.product_id}, -1)"><i class="fas fa-minus" style="font-size:0.625rem;"></i></button>
-                    <input type="text" class="pos-qty-input" value="${item.qty}" readonly>
-                    <button type="button" class="pos-qty-btn" onclick="updateQty(${item.product_id}, 1)"><i class="fas fa-plus" style="font-size:0.625rem;"></i></button>
+                <div class="pos-item-controls">
+                    <button class="pos-qty-btn" onclick="updateQty(${item.product_id}, ${item.price}, -1)"><i class="fas fa-minus" style="font-size:10px;"></i></button>
+                    <input class="pos-qty-val" value="${item.qty}" readonly>
+                    <button class="pos-qty-btn" onclick="updateQty(${item.product_id}, ${item.price}, 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
                 </div>
-                <div class="pos-cart-item-total">₱${itemTotal.toFixed(2)}</div>
-                <button type="button" class="pos-cart-item-remove" onclick="removeFromCart(${item.product_id})"><i class="fas fa-times"></i></button>
+                <div class="pos-item-total">₱${rowTotal.toFixed(2)}</div>
+                <button class="pos-item-remove" onclick="removeFromCart(${item.product_id}, ${item.price})"><i class="fas fa-times"></i></button>
             `;
-            itemsCont.appendChild(div);
+            cont.appendChild(div);
         });
     }
     
-    // Update Totals
     const fTotal = '₱' + currentTotal.toFixed(2);
     document.getElementById('pos-subtotal').textContent = fTotal;
     document.getElementById('pos-total').textContent = fTotal;
@@ -625,177 +915,129 @@ function renderCart() {
     updateCheckoutState();
 }
 
-// --- PAYMENTS & CHECKOUT ---
 function setPaymentMethod(method) {
-    document.getElementById('pos-active-pm').value = method;
-    document.querySelectorAll('.pos-payment-btn').forEach(b => b.classList.remove('active'));
-    
-    if (method === 'Cash') document.getElementById('pm-cash').classList.add('active');
-    if (method === 'GCash') document.getElementById('pm-gcash').classList.add('active');
-    if (method === 'Bank Transfer') document.getElementById('pm-bank').classList.add('active');
-    
-    // Show/hide tender row
-    const tRow = document.getElementById('pos-tender-row');
-    const cRow = document.getElementById('pos-change-row');
-    if (method === 'Cash') {
-        tRow.style.display = 'flex';
-        cRow.style.display = 'flex';
-    } else {
-        tRow.style.display = 'none';
-        cRow.style.display = 'none';
-        document.getElementById('pos-tendered').value = '';
-    }
-    
-    calculateChange();
+    document.getElementById('pos-active-pm').value = 'Cash';
     updateCheckoutState();
 }
 
 function calculateChange() {
-    if (currentTotal === 0) {
+    if(currentTotal === 0) {
         document.getElementById('pos-change').textContent = '₱0.00';
         return;
     }
+    const tendered = parseFloat(document.getElementById('pos-tendered').value) || 0;
+    const change = tendered - currentTotal;
+    const changeEl = document.getElementById('pos-change');
+    changeEl.textContent = change >= 0 ? `₱${change.toFixed(2)}` : '₱0.00';
+    changeEl.style.color = (change < 0 && tendered > 0) ? '#ef4444' : '#10b981';
     
-    const method = document.getElementById('pos-active-pm').value;
-    if (method === 'Cash') {
-        const tendered = parseFloat(document.getElementById('pos-tendered').value) || 0;
-        const change = tendered - currentTotal;
-        document.getElementById('pos-change').textContent = change >= 0 ? `₱${change.toFixed(2)}` : '₱0.00';
-        if (change < 0 && tendered > 0) {
-            document.getElementById('pos-change').style.color = '#ef4444'; // red if insufficient
-        } else {
-            document.getElementById('pos-change').style.color = '#10b981'; // green
-        }
-    }
     updateCheckoutState();
 }
 
 function updateCheckoutState() {
     const btn = document.getElementById('pos-checkout-btn');
-    if (cart.length === 0) {
+    const icon = document.getElementById('checkout-icon');
+    const text = document.getElementById('checkout-text');
+    
+    if(cart.length === 0) {
         btn.disabled = true;
+        icon.className = 'fas fa-lock';
+        text.textContent = 'Select Items';
         return;
     }
     
-    const method = document.getElementById('pos-active-pm').value;
-    if (method === 'Cash') {
-        const tendered = parseFloat(document.getElementById('pos-tendered').value) || 0;
-        btn.disabled = tendered < currentTotal;
-    } else {
-        btn.disabled = false;
-    }
+    const tendered = parseFloat(document.getElementById('pos-tendered').value) || 0;
+    const canCheckout = tendered >= currentTotal;
+    
+    btn.disabled = !canCheckout;
+    icon.className = canCheckout ? 'fas fa-check-circle' : 'fas fa-lock';
+    text.textContent = canCheckout ? 'Complete Sale' : 'Enter Valid Amount';
 }
 
 async function processCheckout() {
-    if (cart.length === 0) return;
+    if(cart.length === 0) return;
     
     const btn = document.getElementById('pos-checkout-btn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-    
-    const customer_id = document.getElementById('pos-customer').value;
-    const payment_method = document.getElementById('pos-active-pm').value;
-    const amount_tendered = document.getElementById('pos-tendered').value || currentTotal;
+    document.getElementById('checkout-icon').className = 'fas fa-spinner fa-spin';
+    document.getElementById('checkout-text').textContent = 'Processing...';
     
     const payload = {
         action: 'walkin_checkout',
-        customer_id: customer_id,
-        payment_method: payment_method,
-        amount_tendered: amount_tendered,
+        customer_id: document.getElementById('pos-customer').value,
+        payment_method: document.getElementById('pos-active-pm').value,
+        amount_tendered: document.getElementById('pos-tendered').value || currentTotal,
         items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price }))
     };
     
     try {
         const res = await fetch('/printflow/staff/api/pos_checkout.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
-        
         const data = await res.json();
-        if (data.success) {
-            // Show toast
-            document.getElementById('toast-order-id').textContent = data.order_id;
-            const toast = document.getElementById('receipt-toast');
-            toast.classList.add('show');
-            setTimeout(() => { toast.classList.remove('show'); }, 4000);
-            
-            // Clear cart & refetch products for new sizes
+        if(data.success) {
+            alert('Sale Completed! Order ID: ' + data.order_id);
             cart = [];
             document.getElementById('pos-customer').value = 'guest';
             document.getElementById('pos-tendered').value = '';
             setPaymentMethod('Cash');
             renderCart();
-            fetchProducts();
-            
+            fetchProducts(); // Refresh stock
         } else {
-            alert('Checkout failed: ' + (data.message || 'Unknown error'));
+            alert('Checkout failed: ' + (data.message || 'Error'));
         }
-    } catch (e) {
-        alert('Network error during checkout.');
+    } catch(e) {
+        alert('Network error.');
     } finally {
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Sale';
         updateCheckoutState();
     }
 }
 
-// --- NEW CUSTOMER MODAL ---
 function openNewCustomerModal() {
-    document.getElementById('new-customer-modal').classList.add('show');
-    document.getElementById('nc-first').focus();
+    document.getElementById('customer-modal').style.display = 'flex';
 }
-
-function closeNewCustomerModal() {
-    document.getElementById('new-customer-modal').classList.remove('show');
-    document.getElementById('nc-first').value = '';
-    document.getElementById('nc-last').value = '';
-    document.getElementById('nc-phone').value = '';
-    document.getElementById('nc-email').value = '';
+function closeCustomerModal() {
+    document.getElementById('customer-modal').style.display = 'none';
 }
-
-async function saveNewCustomer() {
+async function saveCustomer() {
     const first = document.getElementById('nc-first').value.trim();
     const last = document.getElementById('nc-last').value.trim();
-    const phone = document.getElementById('nc-phone').value.trim();
-    const email = document.getElementById('nc-email').value.trim();
+    if(!first || !last) return alert('First and Last name required.');
     
-    if (!first || !last) {
-        alert('First and Last name are required.');
-        return;
-    }
-    
-    const btn = document.getElementById('nc-save-btn');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-    
+    document.getElementById('nc-save-btn').textContent = 'Saving...';
     try {
         const res = await fetch('/printflow/staff/api/pos_add_customer.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ first_name: first, last_name: last, contact_number: phone, email: email })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                first_name: first, last_name: last,
+                contact_number: document.getElementById('nc-phone').value.trim()
+            })
         });
         const data = await res.json();
-        
-        if (data.success) {
-            // Add to dropdown and select
+        if(data.success) {
             const sel = document.getElementById('pos-customer');
             const opt = document.createElement('option');
             opt.value = data.customer_id;
-            opt.textContent = `${first} ${last} ${phone ? '('+phone+')' : ''}`;
+            opt.textContent = `${first} ${last}`;
             sel.appendChild(opt);
             sel.value = data.customer_id;
-            
-            closeNewCustomerModal();
+            closeCustomerModal();
+            document.getElementById('nc-first').value = '';
+            document.getElementById('nc-last').value = '';
+            document.getElementById('nc-phone').value = '';
         } else {
-            alert(data.message || 'Failed to add customer');
+            alert('Failed: ' + data.message);
         }
-    } catch (e) {
-        alert('Error communicating with server.');
+    } catch(e) {
+        alert('Error.');
     } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save & Select';
+        document.getElementById('nc-save-btn').textContent = 'Save Customer';
     }
 }
 </script>
+
 </body>
 </html>

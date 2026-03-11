@@ -17,14 +17,14 @@ if (isset($_GET['action'])) {
     
     if ($action === 'mark_read' && isset($_GET['id'])) {
         $notification_id = (int)$_GET['id'];
-        db_execute("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $admin_id]);
+        db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $admin_id]);
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
         exit;
     }
     
     if ($action === 'mark_all_read') {
-        db_execute("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND is_read = 0", 'i', [$admin_id]);
+        db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", 'i', [$admin_id]);
         redirect('/printflow/admin/notifications.php?success=All notifications marked as read');
     }
     
@@ -121,14 +121,15 @@ $page_title = 'Notifications - Admin';
             margin-bottom: 0.75rem;
             transition: all 0.2s;
             position: relative;
+            border-left: 4px solid transparent;
         }
         .notif-card:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             transform: translateY(-1px);
         }
         .notif-card.unread {
-            background: linear-gradient(to right, #f0f9ff 0%, white 100%);
-            border-left: 4px solid #3b82f6;
+            background: #f0f9ff;
+            border-left-color: #53C5E0;
         }
         .notif-icon {
             width: 40px;
@@ -352,7 +353,25 @@ $page_title = 'Notifications - Admin';
                 </div>
             <?php else: ?>
                 <div id="notifications-container">
-                    <?php foreach ($notifications as $notif): 
+                    <?php 
+                    $grouped_notifications = [
+                        'New' => [],
+                        'Earlier' => []
+                    ];
+                    foreach ($notifications as $n) {
+                        if ($n['is_read'] == 0) {
+                            $grouped_notifications['New'][] = $n;
+                        } else {
+                            $grouped_notifications['Earlier'][] = $n;
+                        }
+                    }
+                    $grouped_notifications = array_filter($grouped_notifications);
+                    
+                    foreach ($grouped_notifications as $group => $notifs): ?>
+                        <div style="margin-top: 1.5rem; margin-bottom: 0.75rem;">
+                            <h3 style="font-size: 0.8125rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;"><?php echo htmlspecialchars($group); ?></h3>
+                        </div>
+                        <?php foreach ($notifs as $notif): 
                         $type = strtolower($notif['type']);
                         $is_unread = !$notif['is_read'];
                         
@@ -405,7 +424,7 @@ $page_title = 'Notifications - Admin';
                             </div>
                         </div>
                     </div>
-                    <?php endforeach; ?>
+                    <?php endforeach; endforeach; ?>
                 </div>
             <?php endif; ?>
         </main>

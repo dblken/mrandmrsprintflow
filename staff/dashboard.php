@@ -71,23 +71,20 @@ $page_title = 'Staff Dashboard - PrintFlow';
 
     <!-- Main Content -->
     <div class="main-content">
-        <header>
-            <h1 class="page-title">Dashboard</h1>
-            <span style="font-size:14px; color:#6b7280;">Welcome, <?php echo htmlspecialchars($current_user['first_name']); ?>!</span>
+        <header style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1 class="page-title">Dashboard</h1>
+                <span style="font-size:14px; color:#6b7280;">Welcome, <?php echo htmlspecialchars($current_user['first_name']); ?>!</span>
+            </div>
+            <a href="pos.php" class="btn-primary" style="display:flex; align-items:center; gap:8px; text-decoration:none;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                Launch POS
+            </a>
         </header>
 
         <main>
-            <!-- POS Quick Actions -->
-            <div class="card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid #6366f1;">
-                <div>
-                    <h2 style="margin-bottom: 4px;">Walk-in Transactions</h2>
-                    <p style="color: #64748b; font-size: 14px; margin: 0;">Process new in-store orders and walk-in customers quickly.</p>
-                </div>
-                <a href="pos.php" style="background: #6366f1; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;">
-                    <i class="fas fa-cash-register"></i> Open POS
-                </a>
-            </div>
-
             <!-- Stats Cards -->
             <div class="stats-grid">
                 <div class="stat-card">

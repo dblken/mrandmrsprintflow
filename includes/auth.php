@@ -227,7 +227,7 @@ function login_customer($email, $password, $remember_me = false) {
     return [
         'success' => true,
         'message' => 'Login successful',
-        'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'
+        'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'
     ];
 }
 
@@ -253,7 +253,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
         $_SESSION['user_name'] = ($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '');
         $_SESSION['user_email'] = $customer['email'];
         SessionManager::regenerate();
-        return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'];
+        return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
     $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?)";
@@ -266,7 +266,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
     $_SESSION['user_name'] = $first_name . ' ' . $last_name;
     $_SESSION['user_email'] = $email;
     SessionManager::regenerate();
-    return ['success' => true, 'message' => 'Account created', 'redirect' => AUTH_REDIRECT_BASE . '/customer/dashboard.php'];
+    return ['success' => true, 'message' => 'Account created', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
 }
 
 /**
@@ -524,3 +524,4 @@ function csrf_field() {
     $token = generate_csrf_token();
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
 }
+

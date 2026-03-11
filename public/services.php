@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Public Services Page
  * PrintFlow - Printing Shop PWA
@@ -8,7 +8,13 @@ redirect_admin_staff_from_public();
 
 $page_title = 'Our Services - PrintFlow';
 $use_landing_css = true;
-require_once __DIR__ . '/../includes/header.php';
+$header_path = realpath(__DIR__ . '/../includes/header.php');
+if ($header_path && file_exists($header_path)) {
+    require_once $header_path;
+} else {
+    // Fallback or debug
+    require_once __DIR__ . '/../includes/header.php';
+}
 require_once __DIR__ . '/../includes/db.php';
 ?>
 
@@ -379,7 +385,9 @@ require_once __DIR__ . '/../includes/db.php';
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
                     <a href="/printflow/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
                 <?php else: ?>
-                    <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/dashboard.php" class="lp-btn lp-btn-primary">Go to Dashboard</a>
+                    <?php $dash_link = ($user_type === 'Customer') ? 'services.php' : 'dashboard.php'; ?>
+                    <?php $dash_text = ($user_type === 'Customer') ? 'Go to Services' : 'Go to Dashboard'; ?>
+                    <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/<?php echo $dash_link; ?>" class="lp-btn lp-btn-primary"><?php echo $dash_text; ?></a>
                     <a href="/printflow/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
                 <?php endif; ?>
             </div>

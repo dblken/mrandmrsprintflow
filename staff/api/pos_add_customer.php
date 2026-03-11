@@ -1,71 +1,57 @@
 <?php
 /**
- * POS Quick Add Customer API
+ * API: Add Walk-in Customer for POS
+ * Path: staff/api/pos_add_customer.php
  */
 
 require_once __DIR__ . '/../../includes/auth.php';
-require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/functions.php';
+
+// Require staff or admin role
+if (!has_role(['Admin', 'Staff'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
+    exit;
+}
 
 header('Content-Type: application/json');
 
-if (!is_logged_in() || !in_array(get_user_type(), ['Admin', 'Staff'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+$json = file_get_contents('php://input');
+$data = json_decode($json, true);
+
+if (!$data || empty($data['first_name']) || empty($data['last_name'])) {
+    echo json_encode(['success' => false, 'message' => 'Invalid data. First and Last name are required.']);
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+$first_name = sanitize($data['first_name']);
+$last_name = sanitize($data['last_name']);
+$email = !empty($data['email']) ? sanitize($data['email']) : null;
+$contact = !empty($data['contact_number']) ? sanitize($data['contact_number']) : null;
 
-$first_name = sanitize($input['first_name'] ?? '');
-$last_name = sanitize($input['last_name'] ?? '');
-$phone = sanitize($input['contact_number'] ?? '');
-$email = sanitize($input['email'] ?? '');
-
-if (empty($first_name) || empty($last_name)) {
-    echo json_encode(['success' => false, 'message' => 'First and Last name are required.']);
-    exit;
-}
-
-// Check duplicates
-if (!empty($email)) {
-    $exists = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
-    if (!empty($exists)) {
-        echo json_encode(['success' => false, 'message' => 'Email is already registered.']);
-        exit;
+try {
+    // Check if email already exists if provided
+    if ($email) {
+        $exists = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
+        if ($exists) {
+            echo json_encode(['success' => false, 'message' => 'A customer with this email already exists.']);
+            exit;
+        }
     }
-} else {
-    // Generate a dummy email to bypass NOT NULL constraint
-    $email = 'walkin_' . time() . '_' . rand(100,999) . '@printflow.local';
-}
 
-if (!empty($phone)) {
-    $exists = db_query("SELECT customer_id FROM customers WHERE contact_number = ?", 's', [$phone]);
-    if (!empty($exists)) {
-        echo json_encode(['success' => false, 'message' => 'Phone number is already registered.']);
-        exit;
+    $result = db_execute(
+        "INSERT INTO customers (first_name, last_name, email, contact_number, status, created_at) VALUES (?, ?, ?, ?, 'Activated', NOW())",
+        'ssss',
+        [$first_name, $last_name, $email, $contact]
+    );
+
+    if ($result) {
+        global $conn;
+        $customer_id = $conn->insert_id;
+        echo json_encode(['success' => true, 'customer_id' => $customer_id, 'message' => 'Customer added successfully.']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Failed to add customer.']);
     }
-}
-
-// Placeholder password
-$password_hash = password_hash('Walkin123!', PASSWORD_BCRYPT);
-
-$sql = "INSERT INTO customers (first_name, middle_name, last_name, email, contact_number, password_hash, is_profile_complete) 
-        VALUES (?, '', ?, ?, ?, ?, 1)";
-
-$customer_id = db_execute($sql, 'sssss', [
-    $first_name,
-    $last_name,
-    $email,
-    $phone,
-    $password_hash
-]);
-
-if ($customer_id) {
-    echo json_encode([
-        'success' => true,
-        'customer_id' => $customer_id,
-        'message' => 'Customer added successfully'
-    ]);
-} else {
-    echo json_encode(['success' => false, 'message' => 'Database error while adding customer.']);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }

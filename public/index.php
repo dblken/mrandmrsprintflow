@@ -32,7 +32,9 @@ $featured_products = db_query(
                         <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Get Started Free</a>
                         <a href="<?php echo $url_products; ?>" class="lp-btn lp-btn-outline">Browse Products</a>
                     <?php else: ?>
-                        <a href="<?php echo strtolower($user_type); ?>/dashboard.php" class="lp-btn lp-btn-primary">Go to Dashboard</a>
+                        <?php $dash_link = ($user_type === 'Customer') ? 'services.php' : 'dashboard.php'; ?>
+                        <?php $dash_text = ($user_type === 'Customer') ? 'Go to Services' : 'Go to Dashboard'; ?>
+                        <a href="<?php echo strtolower($user_type); ?>/<?php echo $dash_link; ?>" class="lp-btn lp-btn-primary"><?php echo $dash_text; ?></a>
                     <?php endif; ?>
                 </div>
                 <div class="lp-stats">

@@ -133,9 +133,7 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <?php if ($unread_notif_count > 0): ?>
-                <span class="nav-badge"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
-                <?php endif; ?>
+                <span id="sidebar-notif-badge" class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
             </a>
             <a href="settings" class="nav-item <?php echo $current_page === 'settings.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,28 +271,47 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Sidebar scroll persistence
-(function() {
-    var nav = document.querySelector('.sidebar-nav');
-    if (!nav) return;
-    var saved = sessionStorage.getItem('sidebarScroll');
-    if (saved !== null) nav.scrollTop = parseInt(saved, 10);
-    nav.querySelectorAll('a.nav-item').forEach(function(link) {
-        link.addEventListener('click', function() {
-            sessionStorage.setItem('sidebarScroll', nav.scrollTop);
-            
-            // Close mobile sidebar on navigation (mobile only)
-            if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('adminSidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                if (sidebar && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (overlay) overlay.classList.remove('active');
-                    document.body.style.overflow = '';
+    // Sidebar scroll persistence
+    (function() {
+        var nav = document.querySelector('.sidebar-nav');
+        if (!nav) return;
+        var saved = sessionStorage.getItem('sidebarScroll');
+        if (saved !== null) nav.scrollTop = parseInt(saved, 10);
+        nav.querySelectorAll('a.nav-item').forEach(function(link) {
+            link.addEventListener('click', function() {
+                sessionStorage.setItem('sidebarScroll', nav.scrollTop);
+                
+                // Close mobile sidebar on navigation (mobile only)
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.getElementById('adminSidebar');
+                    const overlay = document.getElementById('sidebarOverlay');
+                    if (sidebar && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (overlay) overlay.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
                 }
-            }
+            });
         });
-    });
-})();
+    })();
+
+    // Notification Polling
+    function updateSidebarNotifCount() {
+        fetch('/printflow/public/api/notification_count.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const badge = document.getElementById('sidebar-notif-badge');
+                    if (badge) {
+                        badge.innerText = data.count > 99 ? '99+' : data.count;
+                        badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
+                    }
+                }
+            })
+            .catch(err => console.error('Sidebar notif error:', err));
+    }
+    // Poll every 10 seconds
+    setInterval(updateSidebarNotifCount, 10000);
+});
 </script>
 

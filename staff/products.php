@@ -34,7 +34,37 @@ if (!empty($search)) {
     $types .= 'ss';
 }
 
-$sql .= " ORDER BY name ASC";
+// Pagination settings
+$items_per_page = 15;
+$current_page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($current_page - 1) * $items_per_page;
+
+// Count total items for pagination
+$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated'";
+$count_params = [];
+$count_types = '';
+
+if (!empty($category)) {
+    $count_sql .= " AND category = ?";
+    $count_params[] = $category;
+    $count_types .= 's';
+}
+
+if (!empty($search)) {
+    $count_sql .= " AND (name LIKE ? OR sku LIKE ?)";
+    $count_params[] = '%' . $search . '%';
+    $count_params[] = '%' . $search . '%';
+    $count_types .= 'ss';
+}
+
+$total_result = db_query($count_sql, $count_types, $count_params);
+$total_items = $total_result[0]['total'] ?? 0;
+$total_pages = ceil($total_items / $items_per_page);
+
+$sql .= " ORDER BY name ASC LIMIT ? OFFSET ?";
+$params[] = $items_per_page;
+$params[] = $offset;
+$types .= 'ii';
 
 $products = db_query($sql, $types, $params);
 $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' ORDER BY category ASC");
@@ -121,6 +151,9 @@ $page_title = 'Products & Inventory - Staff';
                     </table>
                 </div>
             </div>
+
+            <!-- Pagination -->
+            <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
         </main>
     </div>
 </div>

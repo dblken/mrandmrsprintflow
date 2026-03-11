@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         if (empty($first_name) || empty($last_name)) {
             $error = 'First name and last name are required';
         } else {
-            $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ?, is_profile_complete = 1 WHERE customer_id = ?",
+            $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
                 'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
             
             if ($result) {
@@ -81,37 +81,9 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<!-- Page Hero Banner -->
-<div style="background:#00151b;position:relative;overflow:hidden;padding:2.75rem 0 3.5rem;">
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:220px;background:radial-gradient(ellipse at center,rgba(50,161,196,0.18) 0%,rgba(83,197,224,0.06) 50%,transparent 75%);pointer-events:none;z-index:0;"></div>
-    <div class="container mx-auto px-4" style="max-width:960px;position:relative;z-index:1;text-align:center;">
-        <p style="font-size:0.7rem;font-weight:700;color:rgba(83,197,224,0.8);text-transform:uppercase;letter-spacing:.12em;margin:0 0 .6rem;">Account Settings</p>
-        <h1 style="font-size:clamp(1.75rem,3.5vw,2.75rem);font-weight:800;color:#fff;letter-spacing:-0.03em;margin:0 0 .75rem;line-height:1.1;">My Profile</h1>
-        <p style="font-size:0.9rem;color:rgba(255,255,255,0.45);max-width:420px;margin:0 auto;line-height:1.65;">Manage your personal information, security, and account preferences.</p>
-    </div>
-</div>
-
 <div class="min-h-screen bg-gray-50 py-8">
     <div class="container mx-auto px-4">
-
-        <?php
-        $flash_warning = $_SESSION['flash_warning'] ?? '';
-        unset($_SESSION['flash_warning']);
-        $needs_completion = !is_profile_complete();
-        if ($needs_completion || $flash_warning || isset($_GET['complete_profile'])):
-        ?>
-        <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:2px solid #f59e0b;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-                <span style="font-size:1.5rem;">⚠️</span>
-                <div>
-                    <p style="font-weight:700;color:#92400e;font-size:1rem;margin:0;">Complete Your Profile</p>
-                    <p style="color:#78350f;font-size:0.85rem;margin:0.25rem 0 0 0;">
-                        <?php echo $flash_warning ?: 'Please fill in your real name and contact details below before placing orders.'; ?>
-                    </p>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">My Profile</h1>
 
         <?php if ($error): ?>
             <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -125,7 +97,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         <?php endif; ?>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 gap-8">
             <!-- Profile Information -->
             <div class="card">
                 <h2 class="text-xl font-bold mb-4">Profile Information</h2>
@@ -134,42 +106,42 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="update_profile" value="1">
                     
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-3 gap-6 mb-8">
                         <div>
-                            <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
-                            <input type="text" id="first_name" name="first_name" class="input-field" required value="<?php echo htmlspecialchars($customer['first_name']); ?>">
+                            <label for="first_name" class="block text-sm font-bold text-gray-800 mb-2">First Name *</label>
+                            <input type="text" id="first_name" name="first_name" class="input-field" placeholder="First Name" required value="<?php echo htmlspecialchars($customer['first_name']); ?>">
                         </div>
                         
                         <div>
-                            <label for="middle_name" class="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
-                            <input type="text" id="middle_name" name="middle_name" class="input-field" value="<?php echo htmlspecialchars($customer['middle_name'] ?? ''); ?>">
+                            <label for="middle_name" class="block text-sm font-bold text-gray-800 mb-2">Middle Name</label>
+                            <input type="text" id="middle_name" name="middle_name" class="input-field" placeholder="Middle Name" value="<?php echo htmlspecialchars($customer['middle_name'] ?? ''); ?>">
+                        </div>
+
+                        <div>
+                            <label for="last_name" class="block text-sm font-bold text-gray-800 mb-2">Last Name *</label>
+                            <input type="text" id="last_name" name="last_name" class="input-field" placeholder="Last Name" required value="<?php echo htmlspecialchars($customer['last_name']); ?>">
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
-                        <input type="text" id="last_name" name="last_name" class="input-field" required value="<?php echo htmlspecialchars($customer['last_name']); ?>">
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <input type="email" id="email" class="input-field bg-gray-100" value="<?php echo htmlspecialchars($customer['email']); ?>" disabled>
-                        <p class="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="contact_number" class="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
-                        <input type="tel" id="contact_number" name="contact_number" class="input-field" value="<?php echo htmlspecialchars($customer['contact_number'] ?? ''); ?>">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-4 gap-4 mb-10">
                         <div>
-                            <label for="dob" class="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+                            <label for="email" class="block text-sm font-bold text-gray-800 mb-1">Email address</label>
+                            <input type="email" id="email" class="input-field bg-gray-50 border-gray-200 text-gray-400" placeholder="Email address" value="<?php echo htmlspecialchars($customer['email']); ?>" disabled>
+                            <p class="text-[10px] text-gray-400 mt-1 pl-1 font-medium italic">Email cannot be changed</p>
+                        </div>
+
+                        <div>
+                            <label for="contact_number" class="block text-sm font-bold text-gray-800 mb-2">Contact Number</label>
+                            <input type="tel" id="contact_number" name="contact_number" class="input-field" placeholder="09XX XXX XXXX" value="<?php echo htmlspecialchars($customer['contact_number'] ?? ''); ?>">
+                        </div>
+
+                        <div>
+                            <label for="dob" class="block text-sm font-bold text-gray-800 mb-2">Date of Birth</label>
                             <input type="date" id="dob" name="dob" class="input-field" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>">
                         </div>
                         
                         <div>
-                            <label for="gender" class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                            <label for="gender" class="block text-sm font-bold text-gray-800 mb-2">Gender</label>
                             <select id="gender" name="gender" class="input-field">
                                 <option value="">Select Gender</option>
                                 <option value="Male" <?php echo ($customer['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
@@ -179,7 +151,9 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-primary">Update Profile</button>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-dark">Update Profile</button>
+                    </div>
                 </form>
             </div>
 
@@ -191,23 +165,27 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="change_password" value="1">
                     
-                    <div class="mb-4">
-                        <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">Current Password *</label>
-                        <input type="password" id="current_password" name="current_password" class="input-field" required>
+                    <div class="grid grid-cols-3 gap-6 mb-8">
+                        <div>
+                            <label for="current_password" class="block text-sm font-bold text-gray-800 mb-2">Current Password *</label>
+                            <input type="password" id="current_password" name="current_password" class="input-field" placeholder="••••••••" required>
+                        </div>
+
+                        <div>
+                            <label for="new_password" class="block text-sm font-bold text-gray-800 mb-2">New Password *</label>
+                            <input type="password" id="new_password" name="new_password" class="input-field" placeholder="••••••••" required minlength="8">
+                            <p class="text-[10px] text-gray-400 mt-1 pl-1 font-medium italic">Minimum 8 characters</p>
+                        </div>
+
+                        <div>
+                            <label for="confirm_password" class="block text-sm font-bold text-gray-800 mb-2">Confirm Password *</label>
+                            <input type="password" id="confirm_password" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
+                        </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">New Password *</label>
-                        <input type="password" id="new_password" name="new_password" class="input-field" required minlength="8">
-                        <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-dark">Change Password</button>
                     </div>
-
-                    <div class="mb-4">
-                        <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password *</label>
-                        <input type="password" id="confirm_password" name="confirm_password" class="input-field" required minlength="8">
-                    </div>
-
-                    <button type="submit" class="btn-primary">Change Password</button>
                 </form>
             </div>
         </div>
@@ -222,7 +200,13 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div>
                     <p class="text-gray-600">Account Status</p>
-                    <p><?php echo status_badge($customer['status'], 'order'); ?></p>
+                    <p><?php 
+                        $acc_status = $customer['status'] ?? 'Active';
+                        $status_class = 'bg-green-100 text-green-800';
+                        if ($acc_status === 'Restricted') $status_class = 'bg-yellow-100 text-yellow-800';
+                        if ($acc_status === 'Blacklisted') $status_class = 'bg-red-100 text-red-800';
+                        echo "<span class='px-2 py-1 text-xs font-semibold rounded-full $status_class'>" . htmlspecialchars($acc_status) . "</span>";
+                    ?></p>
                 </div>
                 <div>
                     <p class="text-gray-600">Member Since</p>
@@ -238,3 +222,4 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+

@@ -85,47 +85,21 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <!-- Payment Instructions -->
-        <?php
-        $pm_path = __DIR__ . '/../public/assets/uploads/qr/payment_methods.json';
-        $payment_methods = file_exists($pm_path) ? json_decode(file_get_contents($pm_path), true) : [];
-        $active_pms = array_filter($payment_methods ?: [], fn($p) => !empty($p['enabled']));
-        if (!empty($active_pms)):
-        ?>
-        <div class="card mb-6">
-            <h3 class="text-lg font-bold mb-4">Payment Instructions</h3>
-            <p class="text-sm text-gray-600 mb-4">Please send your payment to any of the following accounts, then upload your proof of payment below.</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <?php foreach ($active_pms as $pm): ?>
-                <div class="border rounded-lg p-4 flex gap-4 items-center bg-gray-50">
-                    <?php if (!empty($pm['file'])): ?>
-                    <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1">
-                    <?php endif; ?>
-                    <div>
-                        <p class="font-bold text-gray-900"><?php echo htmlspecialchars($pm['provider']); ?></p>
-                        <p class="text-sm text-gray-700"><?php echo htmlspecialchars($pm['label']); ?></p>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <!-- Payment Form -->
         <div class="card">
             <h3 class="text-lg font-bold mb-4">Upload Payment Proof</h3>
             
-            <form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Payment Method *</label>
                     <select name="payment_method" class="input-field" required>
                         <option value="">Select Payment Method</option>
-                        <?php foreach ($active_pms as $pm): ?>
-                            <option value="<?php echo htmlspecialchars($pm['provider']); ?>"><?php echo htmlspecialchars($pm['provider'] . ' (' . $pm['label'] . ')'); ?></option>
-                        <?php endforeach; ?>
-                        <option value="Cash">Cash (In-Store)</option>
+                        <option value="GCash">GCash</option>
+                        <option value="Maya">Maya (Paymaya)</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Cash">Cash</option>
                     </select>
                 </div>
                 
@@ -151,3 +125,4 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+

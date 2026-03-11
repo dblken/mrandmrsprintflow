@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $labels    = $_POST['pm_label'] ?? [];
         $enabled   = $_POST['pm_enabled'] ?? [];
         $cropped_imgs = $_POST['pm_cropped_img'] ?? [];
+        $existing     = $_POST['pm_existing_file'] ?? [];
 
         foreach ($providers as $index => $provider) {
             $provider = sanitize($provider);

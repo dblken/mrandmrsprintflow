@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Customer Customization Payment Page
  * PrintFlow - Printing Shop PWA
@@ -16,14 +16,14 @@ $customer_id = get_customer_id();
 $job = db_query("SELECT * FROM job_orders WHERE id = ? AND customer_id = ?", 'ii', [$job_id, $customer_id]);
 
 if (empty($job)) {
-    redirect('/printflow/customer/dashboard.php');
+    redirect('/printflow/customer/services.php');
 }
 
 $job = $job[0];
 
 // Only allow payment if UNPAID or PARTIAL, and not fully completed
 if (in_array($job['payment_proof_status'], ['VERIFIED']) && $job['payment_status'] === 'PAID') {
-    redirect('/printflow/customer/dashboard.php');
+    redirect('/printflow/customer/services.php');
 }
 
 $success = '';
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                                 WHERE id = ?",
                         'sssdi', [$file_name, $payment_method, $reference_number, $amount_submitted, $job_id]);
                     
-                    create_notification(null, 'Admin', "Payment proof uploaded for Customization #{$job_id} (Amount: ₱{$amount_submitted})", 'Payment', true, false);
+                    create_notification(null, 'Admin', "Payment proof uploaded for Customization #{$job_id} (Amount: ?{$amount_submitted})", 'Payment', true, false);
                     
                     $success = 'Payment proof uploaded successfully! Our staff will verify it shortly.';
                     // Refresh job data
@@ -110,7 +110,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php echo htmlspecialchars($success); ?>
             </div>
             <div class="mb-4">
-                <a href="dashboard.php" class="btn-primary w-full text-center block">Return to Dashboard</a>
+                <a href="services.php" class="btn-primary w-full text-center block">Return to Services</a>
             </div>
         <?php else: ?>
 
@@ -133,7 +133,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <p class="font-bold">Proof Submitted</p>
                     <p>Your payment proof is currently under review by our staff.</p>
                     <!-- Provide a button to just go back, though they can still re-upload if they want -->
-                    <a href="dashboard.php" class="text-blue-800 underline text-sm mt-2 inline-block">Return to Dashboard</a>
+                    <a href="services.php" class="text-blue-800 underline text-sm mt-2 inline-block">Return to Services</a>
                 </div>
             <?php endif; ?>
 
@@ -200,7 +200,7 @@ require_once __DIR__ . '/../includes/header.php';
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-medium mb-2">Amount Paid (₱) *</label>
+                            <label class="block text-sm font-medium mb-2">Amount Paid (?) *</label>
                             <input type="number" step="0.01" max="<?php echo $remaining_balance; ?>" name="amount_submitted" class="input-field font-bold text-lg" value="<?php echo htmlspecialchars($_POST['amount_submitted'] ?? ($remaining_required > 0 ? $remaining_required : $remaining_balance)); ?>" required>
                         </div>
                         <div>
@@ -246,7 +246,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <div class="mt-4 text-center">
-                <a href="dashboard.php" class="text-indigo-600 hover:text-indigo-700 font-medium">← Back to Dashboard</a>
+                <a href="services.php" class="text-indigo-600 hover:text-indigo-700 font-medium">? Back to Services</a>
             </div>
             
         <?php endif; ?>
@@ -286,3 +286,4 @@ require_once __DIR__ . '/../includes/header.php';
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+

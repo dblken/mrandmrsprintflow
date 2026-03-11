@@ -48,10 +48,10 @@ $url_google_auth    = $base_url . '/google-auth/';
     <!-- PWA Manifest -->
     <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
     
-    <!-- Favicon -->
+    <!-- Favicon / Shop Icon -->
     <?php if (!empty($shop_logo_url)): ?>
-        <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>">
-        <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>">
+        <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
+        <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
     <?php else: ?>
         <link rel="icon" type="image/png" href="<?php echo $asset_base; ?>/assets/images/favicon.png">
         <link rel="apple-touch-icon" href="<?php echo $asset_base; ?>/assets/images/icon-192.png">
@@ -71,18 +71,23 @@ $url_google_auth    = $base_url . '/google-auth/';
         a { color: inherit; text-decoration: none; }
         a:hover { text-decoration: none; }
         body { margin: 0; background: #f9fafb; color: #111827; font-family: Inter, system-ui, sans-serif; }
-        /* Only style header white on non-landing pages */
-        body:not(.lp-page) #main-header { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 50; }
-        body:not(.lp-page) #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
-        body:not(.lp-page) #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }
-        body:not(.lp-page) #main-header a { color: #374151; font-weight: 500; }
-        body:not(.lp-page) #main-header a:hover { color: #4F46E5; }
-        body:not(.lp-page) #main-header a.nav-link { color: #374151; }
-        body:not(.lp-page) #main-header a.nav-link:hover { color: #4F46E5; }
-        body:not(.lp-page) #main-header .text-2xl.font-bold { color: #4F46E5; }
-        body:not(.lp-page) #main-header .btn-gradient-primary { background: linear-gradient(to right, #4F46E5, #A855F7); color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; }
+        /* Standard dark header for internal (non-landing) pages */
+        body:not(.lp-page) #main-header { background: #0a2530 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(83,197,224,0.1); }
+        
+        /* Transparent hero nav for landing page only */
+        html.lp-page body #main-header.lp-hero-nav:not(.sticky-active) { background: transparent !important; border-bottom-color: rgba(255,255,255,0.1) !important; box-shadow: none !important; }
+        html.lp-page body #main-header.sticky-active { background: #0a2530 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 1px solid rgba(83,197,224,0.1); }
+        
+        body #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+        body #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }
+        body #main-header a { color: rgba(255,255,255,0.8); font-weight: 500; }
+        body #main-header a:hover { color: #53C5E0; }
+        body #main-header a.nav-link { color: rgba(255,255,255,0.8); }
+        body #main-header a.nav-link:hover { color: #53C5E0; }
+        body #main-header .text-2xl.font-bold { color: #53C5E0; }
+        body #main-header .btn-gradient-primary { background: var(--lp-accent, #32a1c4) !important; color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; }
         /* Active nav link — mirrors hover state (non-hero pages) */
-        a.nav-link.nav-active { color: #2a82a3 !important; }
+        a.nav-link.nav-active { color: #53C5E0 !important; }
         a.nav-link.nav-active > span:last-child { width: 100% !important; }
         /* Dark hero nav: force white text overriding Tailwind text-gray-700 */
         html.lp-page #main-header.lp-hero-nav a,
@@ -90,8 +95,8 @@ $url_google_auth    = $base_url . '/google-auth/';
         html.lp-page #main-header.lp-hero-nav a.nav-link:hover { color: #53C5E0 !important; }
         html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active { color: #53C5E0 !important; }
         html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active > span:last-child { width: 100% !important; }
-        .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; border: 1px solid #d1d5db; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
-        .pwa-install-btn:hover { color: #4F46E5; border-color: #4F46E5; background: rgba(79,70,229,0.05); }
+        .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.8); background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
+        .pwa-install-btn:hover { color: #53C5E0; border-color: #53C5E0; background: rgba(83,197,224,0.05); }
         .pwa-install-btn.hidden { display: none !important; }
         /* Landing-page nav needs flex layout too */
         #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -104,8 +109,24 @@ $url_google_auth    = $base_url . '/google-auth/';
     <script>document.getElementById('skip-link').addEventListener('focus',function(){ this.style.left='0'; }); document.getElementById('skip-link').addEventListener('blur',function(){ this.style.left='-9999px'; });</script>
 
     <?php if (empty($use_landing_css)): ?>
-    <?php $nav_header_class = 'bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100'; require __DIR__ . '/nav-header.php'; ?>
+    <?php 
+    // Standard dark background for non-landing pages (customer, staff, admin)
+    $nav_header_class = 'bg-[#0a2530] backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-white/5'; 
+    require __DIR__ . '/nav-header.php'; 
+    ?>
     <?php endif; ?>
 
     <!-- Main Content -->
     <main id="main-content" class="min-h-screen">
+    
+    <script>
+    // Handle sticky header background transition on scroll
+    window.addEventListener('scroll', function() {
+        const header = document.getElementById('main-header');
+        if (window.scrollY > 50) {
+            header.classList.add('sticky-active');
+        } else {
+            header.classList.remove('sticky-active');
+        }
+    });
+    </script>

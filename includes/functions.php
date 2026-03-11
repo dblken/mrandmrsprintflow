@@ -147,18 +147,19 @@ function send_sms($phone, $message) {
  * @param bool $send_sms Whether to send SMS
  * @return bool|int
  */
-function create_notification($user_id, $user_type, $message, $type = 'System', $send_email = false, $send_sms = false) {
+function create_notification($user_id, $user_type, $message, $type = 'System', $send_email = false, $send_sms = false, $data_id = null) {
     $customer_id = $user_type === 'Customer' ? $user_id : null;
     $staff_user_id = $user_type !== 'Customer' ? $user_id : null;
     
-    $sql = "INSERT INTO notifications (user_id, customer_id, message, type, is_read, send_email, send_sms) 
-            VALUES (?, ?, ?, ?, 0, ?, ?)";
+    $sql = "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms) 
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?)";
     
-    $result = db_execute($sql, 'iissii', [
+    $result = db_execute($sql, 'iissiii', [
         $staff_user_id,
         $customer_id,
         $message,
         $type,
+        $data_id,
         $send_email ? 1 : 0,
         $send_sms ? 1 : 0
     ]);
@@ -208,6 +209,34 @@ function get_customer_id() {
     }
     return null;
 }
+
+/**
+ * Get customer cancellation count (last 30 days)
+ * @param int $customer_id
+ * @return int
+ */
+function get_customer_cancel_count($customer_id) {
+    if (!$customer_id) return 0;
+    $sql = "SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Cancelled' AND order_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+    $result = db_query($sql, 'i', [$customer_id]);
+    return (int)($result[0]['count'] ?? 0);
+}
+
+/**
+ * Check if customer is restricted due to cancellations
+ * @param int $customer_id
+ * @return bool
+ */
+function is_customer_restricted($customer_id) {
+    if (!$customer_id) return false;
+    // Check for hard restriction in DB first
+    $customer = db_query("SELECT is_restricted FROM customers WHERE customer_id = ?", 'i', [$customer_id]);
+    if (!empty($customer) && $customer[0]['is_restricted']) return true;
+
+    // Automatic restriction based on cancellation count (7+)
+    return get_customer_cancel_count($customer_id) >= 7;
+}
+
 
 
 /**
@@ -441,6 +470,24 @@ function get_unread_notification_count($user_id, $user_type) {
 }
 
 /**
+ * Get count of unread chat messages for an order
+ * @param int $order_id
+ * @param string $viewer_role 'Customer' or 'Staff'
+ * @return int
+ */
+function get_unread_chat_count($order_id, $viewer_role) {
+    // If viewer is Customer, they haven't read messages from Staff
+    // If viewer is Staff, they haven't read messages from Customer
+    $sender_role = ($viewer_role === 'Customer') ? 'Staff' : 'Customer';
+    
+    $sql = "SELECT COUNT(*) as count FROM order_messages 
+            WHERE order_id = ? AND sender = ? AND read_receipt = 0";
+    $result = db_query($sql, 'is', [$order_id, $sender_role]);
+    
+    return $result[0]['count'] ?? 0;
+}
+
+/**
  * Generate random order number
  * @return string
  */
@@ -542,4 +589,22 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
     
     $html .= '</div>';
     return $html;
+}
+
+/**
+ * Alias for render_pagination (backward compatibility)
+ */
+function get_pagination_links($current_page, $total_pages, $extra_params = []) {
+    return render_pagination($current_page, $total_pages, $extra_params);
+}
+
+/**
+ * Determine if a customer can cancel an order based on its status.
+ */
+function can_customer_cancel_order($order) {
+    if (!$order) return false;
+    $status = $order['status'] ?? '';
+    // Customers can cancel unless production has started or payment is being verified
+    $allowed_statuses = ['Pending', 'To Pay', 'For Revision', 'Pending Verification'];
+    return in_array($status, $allowed_statuses);
 }

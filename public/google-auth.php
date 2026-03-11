@@ -19,7 +19,7 @@ if (is_logged_in()) {
     $ut = get_user_type();
     if ($ut === 'Admin') header('Location: ' . $base_url . '/admin/dashboard.php');
     elseif ($ut === 'Staff') header('Location: ' . $base_url . '/staff/dashboard.php');
-    else header('Location: ' . $base_url . '/customer/dashboard.php');
+    else header('Location: ' . $base_url . '/customer/services.php');
     exit;
 }
 
@@ -117,3 +117,4 @@ if ($result['success']) {
 }
 header('Location: ' . $base_url . '/?auth_modal=login&error=' . urlencode($result['message']));
 exit;
+

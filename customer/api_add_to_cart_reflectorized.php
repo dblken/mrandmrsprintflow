@@ -1,0 +1,135 @@
+<?php
+/**
+ * AJAX API to Add Reflectorized Order to Cart/Session for Review
+ */
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/service_order_helper.php';
+
+header('Content-Type: application/json');
+
+if (!is_logged_in() || !has_role('Customer')) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+    exit;
+}
+
+$customer_id = get_user_id();
+$raw_fields = $_POST;
+
+$type = $raw_fields['product_type'] ?? '';
+$isTempPlate = ($type === 'Plate Number / Temporary Plate');
+$isGatePass = (strpos($type, 'Subdivision / Gate Pass') !== false || strpos($type, 'Gate Pass Sticker') !== false);
+$isSignage = (strpos($type, 'Sign') !== false || strpos($type, 'Street') !== false);
+
+$fields = [];
+$fields['service_type'] = $raw_fields['service_type'] ?? 'Reflectorized Signage';
+$fields['product_type'] = $type;
+
+if ($isTempPlate) {
+    foreach(['temp_plate_material', 'temp_plate_number', 'temp_plate_text', 'mv_file_number', 'dealer_name'] as $f) {
+        if(isset($raw_fields[$f]) && trim($raw_fields[$f]) !== '') $fields[$f] = $raw_fields[$f];
+    }
+    $fields['quantity'] = $raw_fields['quantity'] ?? 1;
+} elseif ($isGatePass) {
+    foreach(['gate_pass_subdivision', 'gate_pass_number', 'gate_pass_plate', 'gate_pass_year', 'gate_pass_vehicle_type', 'dimensions', 'unit'] as $f) {
+        if(isset($raw_fields[$f]) && trim($raw_fields[$f]) !== '') $fields[$f] = $raw_fields[$f];
+    }
+    $fields['quantity'] = $raw_fields['quantity_gatepass'] ?? ($raw_fields['quantity'] ?? 1);
+} elseif ($isSignage) {
+    foreach(['dimensions', 'unit', 'material_type', 'text_content', 'arrow_direction', 'font_preference', 'reflective_color', 'mounting_option', 'other_instructions'] as $f) {
+        if(isset($raw_fields[$f]) && trim($raw_fields[$f]) !== '') $fields[$f] = trim($raw_fields[$f]);
+    }
+    if (isset($raw_fields['with_border'])) $fields['with_border'] = 'Yes';
+    if (isset($raw_fields['rounded_corners'])) $fields['rounded_corners'] = 'Yes';
+    
+    $fields['quantity'] = $raw_fields['quantity_signage'] ?? ($raw_fields['quantity'] ?? 1);
+} else {
+    // Custom / Other
+    foreach(['dimensions', 'unit', 'material_type', 'subdivision_name', 'year_valid', 'serial_number', 'plate_number_alt', 'homeowner_name', 'block_lot', 'reflective_color', 'starting_number', 'other_instructions'] as $f) {
+        if(isset($raw_fields[$f]) && trim($raw_fields[$f]) !== '') $fields[$f] = trim($raw_fields[$f]);
+    }
+    if (isset($raw_fields['with_numbering'])) $fields['with_numbering'] = 'Yes';
+    $fields['quantity'] = $raw_fields['quantity'] ?? 1;
+}
+
+// Basic Validation
+if (empty($fields['product_type']) || (empty($fields['dimensions']) && !$isTempPlate) || $fields['quantity'] < 1) {
+    echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+    exit;
+}
+
+if ($isTempPlate && empty($fields['temp_plate_material'])) {
+    echo json_encode(['success' => false, 'message' => 'Please select a material option for your temporary plate.']);
+    exit;
+}
+
+// Handle Logo/Design File
+$design_tmp_path = null;
+$design_name = null;
+$design_mime = null;
+
+$logo_key = 'logo_file';
+if (isset($_FILES['gate_pass_logo']) && $_FILES['gate_pass_logo']['error'] === UPLOAD_ERR_OK) {
+    $logo_key = 'gate_pass_logo';
+} elseif (isset($_FILES['signage_logo']) && $_FILES['signage_logo']['error'] === UPLOAD_ERR_OK) {
+    $logo_key = 'signage_logo';
+}
+
+if (isset($_FILES[$logo_key]) && $_FILES[$logo_key]['error'] === UPLOAD_ERR_OK) {
+    $valid = service_order_validate_file($_FILES[$logo_key]);
+    if (!$valid['ok']) {
+        echo json_encode(['success' => false, 'message' => 'Logo upload error: ' . $valid['error']]);
+        exit;
+    }
+    
+    $tmp_dir = __DIR__ . '/../uploads/tmp';
+    if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
+    
+    $ext = pathinfo($_FILES[$logo_key]['name'], PATHINFO_EXTENSION);
+    $tmp_filename = uniqid('ref_tmp_') . '.' . $ext;
+    $design_tmp_path = $tmp_dir . '/' . $tmp_filename;
+    
+    if (move_uploaded_file($_FILES[$logo_key]['tmp_name'], $design_tmp_path)) {
+        $design_name = $_FILES[$logo_key]['name'];
+        $design_mime = $valid['mime'];
+    }
+}
+
+// Prepare Cart Item
+$item_key = uniqid('item_');
+$product_name = $fields['product_type'];
+$price = 0; // Service orders usually have price determined after review or via helper
+
+// For Reflectorized, let's try to get a base price if possible, or default to 0
+$price = 0; 
+if ($isTempPlate) $price = 450; // Example static price for temp plates if needed
+
+$cart_item = [
+    'product_id' => 0, // 0 for service/custom items not in products table
+    'name' => 'Reflectorized: ' . $product_name,
+    'category' => 'Reflectorized Signage',
+    'price' => $price,
+    'quantity' => (int)$fields['quantity'],
+    'customization' => $fields,
+    'design_tmp_path' => $design_tmp_path,
+    'design_name' => $design_name,
+    'design_mime' => $design_mime,
+    // Mapping for standard order_review.php compatibility
+    'width' => $fields['dimensions'] ?? '',
+    'height' => '',
+    'thickness' => '',
+    'stand_type' => '',
+    'lamination' => '',
+    'cut_type' => $fields['shape'] ?? '',
+    'design_notes' => $fields['other_instructions'] ?? ''
+];
+
+$_SESSION['cart'][$item_key] = $cart_item;
+
+echo json_encode(['success' => true, 'item_key' => $item_key]);
+

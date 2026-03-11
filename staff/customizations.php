@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Staff: Customizations Management
  * Production tracking & material assignment.
@@ -67,7 +67,10 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
         .pill-tab { 
             padding: 8px 16px; 
             font-weight: 600; 
-            font-size: 13px; 
+            font-size: 11px; 
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: #6b7280; 
             border-radius: 9999px; 
             transition: all 0.2s; 
@@ -186,7 +189,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                                 :class="activeStatus === st ? 'active' : ''"
                                 class="pill-tab"
                             >
-                                <span x-text="st === 'VERIFY_PAY' ? 'TO VERIFY' : st"></span>
+                                <span x-text="st === 'VERIFY_PAY' ? 'TO VERIFY' : (st === 'TO_RECEIVE' ? 'TO PICKUP' : st)"></span>
                                 <span class="tab-count" x-text="getStatusCount(st)"></span>
                                 <span x-show="st === 'VERIFY_PAY' && getStatusCount(st) > 0" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
                             </button>
@@ -230,15 +233,16 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <div :class="{
-                                            'badge-fulfilled': jo.readiness === 'READY' || jo.status === 'COMPLETED' || jo.status === 'TO_RECEIVE',
+                                        'badge-fulfilled': jo.readiness === 'READY' || jo.status === 'COMPLETED' || jo.status === 'TO_RECEIVE',
                                             'badge-confirmed': jo.status === 'APPROVED' || jo.status === 'IN_PRODUCTION' || jo.status === 'TO_PAY',
                                             'badge-partial': jo.readiness === 'LOW' || jo.status === 'PENDING',
                                             'badge-cancelled': jo.readiness === 'MISSING' || jo.status === 'CANCELLED'
                                         }" class="status-pill" x-text="jo.status === 'COMPLETED' ? 'Fulfilled' : 
                                            (jo.status === 'APPROVED' ? 'Approved' : 
                                            (jo.status === 'TO_PAY' ? 'To Pay' : 
+                                           (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
                                            (jo.status === 'IN_PRODUCTION' ? 'Processing' : 
-                                           (jo.status === 'TO_RECEIVE' ? 'To Receive' : jo.status))))">
+                                           (jo.status === 'TO_RECEIVE' ? 'To Pickup' : jo.status)))))">
                                         </div>
                                     </td>
                                     <td class="px-4 py-4">
@@ -706,7 +710,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                             <button @click="updateStatus(currentJo.id, 'IN_PRODUCTION'); showDetailsModal = false;" class="btn-action blue">Start Production</button>
                         </template>
                         <template x-if="currentJo.status === 'IN_PRODUCTION'">
-                            <button @click="updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">To Receive</button>
+                            <button @click="updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">To Pickup</button>
                         </template>
                         <template x-if="currentJo.status === 'TO_RECEIVE'">
                             <button @click="completeOrder(currentJo.id); showDetailsModal = false;" class="btn-action emerald">Mark Complete</button>
@@ -727,7 +731,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
 <script>
     function joManager(defaultStatus = 'PENDING') {
         return {
-            statuses: ['ALL', 'PENDING', 'APPROVED', 'VERIFY_PAY', 'TO_PAY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
+            statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'VERIFY_PAY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
             activeStatus: defaultStatus || 'ALL',
             orders: [],
             machines: [],

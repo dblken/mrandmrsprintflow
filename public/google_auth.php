@@ -76,7 +76,7 @@ switch ($action) {
             $_SESSION['user_type']  = 'Customer';
             $_SESSION['user_name']  = $customer['first_name'] . ' ' . ($customer['last_name'] ?? '');
             $_SESSION['user_email'] = $customer['email'];
-            redirect('/printflow/customer/dashboard.php');
+            redirect('/printflow/customer/services.php');
         } else {
             // Also check users table (Admin/Staff)
             $existingUser = db_query("SELECT * FROM users WHERE email = ?", 's', [$email]);
@@ -109,7 +109,7 @@ switch ($action) {
                 $_SESSION['user_type']  = 'Customer';
                 $_SESSION['user_name']  = $firstName . ' ' . $lastName;
                 $_SESSION['user_email'] = $email;
-                redirect('/printflow/customer/dashboard.php');
+                redirect('/printflow/customer/services.php');
             } else {
                 redirect('/printflow/public/register.php?error=' . urlencode('Registration failed. Please try again.'));
             }
@@ -165,3 +165,4 @@ function getGoogleUserInfo($accessToken) {
     return json_decode($response, true);
 }
 ?>
+
