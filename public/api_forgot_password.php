@@ -120,9 +120,10 @@ try {
         }
     }
 
-    // Neutral response whether account exists or not (prevents user enumeration)
+    // Explicit response if account doesn't exist (per user requirement)
     if (!$user_found) {
-        echo json_encode(['success' => true, 'message' => 'If an account exists, a reset code has been sent.']);
+        $msg = ($type === 'email') ? 'Account not found. Please check your email address.' : 'Account not found. Please check your phone number.';
+        echo json_encode(['success' => false, 'message' => $msg]);
         exit;
     }
 

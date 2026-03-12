@@ -26,7 +26,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('register.php?error=All fields are required');
     }
 
-    // 2. Hash password
+    // 2. Validate email
+    if (strlen($email) > 254 || strpos($email, ' ') !== false || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        redirect('register.php?error=' . urlencode('Invalid email address.'));
+    }
+
+    // 3. Server-side password complexity validation
+    $pw_errors = [];
+    if (strlen($password) < 8) $pw_errors[] = 'at least 8 characters';
+    if (strlen($password) > 64) $pw_errors[] = 'at most 64 characters';
+    if (!preg_match('/[A-Z]/', $password)) $pw_errors[] = 'an uppercase letter';
+    if (!preg_match('/[a-z]/', $password)) $pw_errors[] = 'a lowercase letter';
+    if (!preg_match('/[0-9]/', $password)) $pw_errors[] = 'a number';
+    if (!preg_match('/[^A-Za-z0-9]/', $password)) $pw_errors[] = 'a special character';
+    if (strpos($password, ' ') !== false) $pw_errors[] = 'no spaces';
+    if (!empty($pw_errors)) {
+        redirect('register.php?error=' . urlencode('Password must contain: ' . implode(', ', $pw_errors) . '.'));
+    }
+
+    // 4. Hash password
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
     // Check if email exists

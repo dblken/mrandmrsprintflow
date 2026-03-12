@@ -36,7 +36,9 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     width: 100%;
     max-width: 28rem;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     background: #00232b;
     border: 1px solid rgba(255,255,255,.09);
     border-radius: 1rem;
@@ -45,6 +47,31 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     visibility: hidden;
     transition: opacity 0.14s ease-out, visibility 0.14s ease-out;
 }
+    .auth-modal-inner {
+        overflow-y: auto;
+        flex: 1;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Custom scrollbar — Chrome / Edge / Safari */
+    .auth-modal-inner::-webkit-scrollbar {
+        width: 6px;
+    }
+    .auth-modal-inner::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .auth-modal-inner::-webkit-scrollbar-thumb {
+        background: rgba(50, 161, 196, 0.35);
+        border-radius: 3px;
+        transition: background 0.2s;
+    }
+    .auth-modal-inner::-webkit-scrollbar-thumb:hover {
+        background: rgba(83, 197, 224, 0.6);
+    }
+    /* Custom scrollbar — Firefox */
+    .auth-modal-inner {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(50, 161, 196, 0.35) transparent;
+    }
 .auth-modal.is-open {
     opacity: 1;
     visibility: visible;
@@ -70,7 +97,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         color: #e0f2fe;
         background: rgba(255,255,255,.08);
     }
-    .auth-modal-inner { padding: 2rem 1.5rem; }
+    .auth-modal-inner { padding: 2rem 1.5rem; overflow-y: auto; flex: 1; }
     .auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #ffffff; text-align: center; }
     .auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #94a3b8; text-align: center; }
     .auth-modal .input-field {
@@ -179,6 +206,39 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         height: 1.25rem;
         pointer-events: none;
     }
+
+    /* ═══ Validation Feedback Styles ═══ */
+    .field-error {
+        margin: 0.3rem 0 0; font-size: 0.75rem; color: #f87171;
+        min-height: 1.1em; transition: opacity 0.15s;
+    }
+    .field-error:empty { opacity: 0; }
+    .field-success {
+        margin: 0.3rem 0 0; font-size: 0.75rem; color: #4ade80;
+    }
+    .input-field.is-invalid { border-color: #f87171 !important; }
+    .input-field.is-valid { border-color: #4ade80 !important; }
+
+    /* Password checklist */
+    .pw-checklist {
+        list-style: none; padding: 0; margin: 0.4rem 0 0;
+        display: none; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.75rem;
+    }
+    .pw-checklist.active {
+        display: grid;
+    }
+    .pw-checklist li {
+        font-size: 0.7rem; color: #f87171; display: flex; align-items: center; gap: 0.35rem;
+        transition: color 0.2s;
+    }
+    .pw-checklist li.met { color: #4ade80; }
+    .pw-checklist li .ck { display: inline-block; width: 14px; text-align: center; font-weight: 700; }
+
+    /* Confirm match */
+    .pw-match-indicator {
+        margin: 0.3rem 0 0; font-size: 0.75rem; font-weight: 600;
+        min-height: 1.1em;
+    }
 </style>
 
 <div class="auth-modal-backdrop" id="auth-modal-backdrop"></div>
@@ -203,16 +263,18 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             <?php echo csrf_field(); ?>
             <div class="auth-field">
                 <label for="auth-email">Email Address</label>
-                <input type="email" id="auth-email" name="email" class="input-field" placeholder="you@example.com" required>
+                <input type="email" id="auth-email" name="email" class="input-field" placeholder="you@example.com" required autocomplete="email" maxlength="100">
+                <p class="field-error" id="auth-email-error"></p>
             </div>
             <div class="auth-field">
                 <label for="auth-password">Password</label>
                 <div class="auth-password-wrap">
-                    <input type="password" id="auth-password" name="password" class="input-field" placeholder="••••••••" required>
+                    <input type="password" id="auth-password" name="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" maxlength="100">
                     <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="auth-password">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
                     </button>
                 </div>
+                <p class="field-error" id="auth-password-error"></p>
             </div>
             <div class="auth-field-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.875rem; cursor: pointer;">
@@ -253,30 +315,42 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             <div class="auth-field">
                 <label id="reg-id-label" for="reg-identifier">Email Address</label>
                 <input type="text" id="reg-identifier" name="identifier" class="input-field" 
-                       placeholder="you@example.com" required 
+                       placeholder="you@example.com" required maxlength="100"
                        value="<?php echo htmlspecialchars($_SESSION['otp_pending_email'] ?? ''); ?>">
+                <p class="field-error" id="reg-email-error"></p>
             </div>
 
             <!-- Password fields -->
             <div class="auth-field">
                 <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
                 <div class="auth-password-wrap">
-                    <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8">
+                    <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8" maxlength="100">
                     <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-password">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
                     </button>
                 </div>
-                <p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b;">Min 8 characters</p>
+                <ul class="pw-checklist" id="reg-pw-checklist">
+                    <li id="pw-rule-len"><span class="ck">✗</span> 8–64 characters</li>
+                    <li id="pw-rule-upper"><span class="ck">✗</span> Uppercase</li>
+                    <li id="pw-rule-lower"><span class="ck">✗</span> Lowercase</li>
+                    <li id="pw-rule-num"><span class="ck">✗</span> Number</li>
+                    <li id="pw-rule-spec"><span class="ck">✗</span> Special char</li>
+                </ul>
+                <div class="pw-strength-wrap">
+                    <div class="pw-strength-track"><div class="pw-strength-fill" id="reg-pw-strength-fill"></div></div>
+                    <span class="pw-strength-label" id="reg-pw-strength-label" style="color:#64748b;"></span>
+                </div>
             </div>
             
             <div class="auth-field">
                 <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
                 <div class="auth-password-wrap">
-                    <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8">
+                    <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8" maxlength="100">
                     <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-confirm-pw">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
                     </button>
                 </div>
+                <p class="pw-match-indicator" id="reg-pw-match"></p>
             </div>
 
             <button type="submit" class="auth-btn-submit" style="margin-top:1.5rem;">Create Account</button>
@@ -547,16 +621,181 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         }
     };
 
-    // Password validation before submit
+    // ═══ VALIDATION ENGINE ═══
+    var baseUrl = <?php echo json_encode($base_url); ?>;
+
+    // --- Space-blocking helper ---
+    function blockSpaces(el) {
+        if (!el) return;
+        el.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
+        el.addEventListener('paste', function(e) {
+            setTimeout(function() { el.value = el.value.replace(/\s/g, ''); }, 0);
+        });
+    }
+    // Apply to login inputs
+    blockSpaces(document.getElementById('auth-email'));
+    blockSpaces(document.getElementById('auth-password'));
+    // Apply to register inputs
+    blockSpaces(document.getElementById('reg-identifier'));
+    blockSpaces(document.getElementById('reg-password'));
+    blockSpaces(document.getElementById('reg-confirm-pw'));
+
+    // --- Login real-time validation ---
+    var loginEmail = document.getElementById('auth-email');
+    var loginPw = document.getElementById('auth-password');
+    var loginEmailErr = document.getElementById('auth-email-error');
+    var loginPwErr = document.getElementById('auth-password-error');
+
+    if (loginEmail) {
+        loginEmail.addEventListener('input', function() {
+            var v = loginEmail.value.trim();
+            if (!v) { loginEmailErr.textContent = ''; loginEmail.classList.remove('is-invalid','is-valid'); return; }
+            var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+            loginEmailErr.textContent = valid ? '' : 'Enter a valid email address.';
+            loginEmail.classList.toggle('is-invalid', !valid);
+            loginEmail.classList.toggle('is-valid', valid);
+        });
+    }
+    if (loginPw) {
+        loginPw.addEventListener('input', function() {
+            var v = loginPw.value;
+            if (!v) { loginPwErr.textContent = ''; loginPw.classList.remove('is-invalid','is-valid'); return; }
+            var ok = v.length >= 8;
+            loginPwErr.textContent = ok ? '' : 'Password must be at least 8 characters.';
+            loginPw.classList.toggle('is-invalid', !ok);
+            loginPw.classList.toggle('is-valid', ok);
+        });
+    }
+
+    // --- Registration: Real-time email validation + async uniqueness ---
+    var regEmail = document.getElementById('reg-identifier');
+    var regEmailErr = document.getElementById('reg-email-error');
+    var emailCheckTimer = null;
+    var regEmailAvailable = true; // Track email uniqueness status
+
+    function isEmailTab() {
+        return (document.getElementById('reg-h-type') || {}).value === 'email';
+    }
+
+    if (regEmail) {
+        regEmail.addEventListener('input', function() {
+            if (!isEmailTab()) { regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid','is-valid'); return; }
+            var v = regEmail.value.trim();
+            if (!v) { regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid','is-valid'); return; }
+            var validFmt = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+            if (!validFmt) {
+                regEmailErr.textContent = 'Enter a valid email address.';
+                regEmail.classList.add('is-invalid'); regEmail.classList.remove('is-valid');
+            } else {
+                regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid');
+            }
+        });
+
+        regEmail.addEventListener('blur', function() {
+            if (!isEmailTab()) return;
+            var v = regEmail.value.trim();
+            if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return;
+            clearTimeout(emailCheckTimer);
+            emailCheckTimer = setTimeout(function() {
+                fetch(baseUrl + '/public/api/check_email.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: v})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.available) {
+                        regEmailErr.textContent = 'This email is already registered.';
+                        regEmail.classList.add('is-invalid'); regEmail.classList.remove('is-valid');
+                        regEmailAvailable = false;
+                    } else {
+                        regEmailErr.textContent = '';
+                        regEmail.classList.add('is-valid'); regEmail.classList.remove('is-invalid');
+                        regEmailAvailable = true;
+                    }
+                })
+                .catch(function() {});
+            }, 400);
+        });
+    }
+
+    // --- Registration: Password checklist ---
+    var regPw = document.getElementById('reg-password');
+    var regCpw = document.getElementById('reg-confirm-pw');
+    var pwChecklist = document.getElementById('reg-pw-checklist');
+    var pwRules = {
+        len:   document.getElementById('pw-rule-len'),
+        upper: document.getElementById('pw-rule-upper'),
+        lower: document.getElementById('pw-rule-lower'),
+        num:   document.getElementById('pw-rule-num'),
+        spec:  document.getElementById('pw-rule-spec')
+    };
+    var matchEl = document.getElementById('reg-pw-match');
+
+    function setRule(el, met) {
+        if (!el) return;
+        el.classList.toggle('met', met);
+        var ck = el.querySelector('.ck');
+        if (ck) ck.textContent = met ? '✓' : '✗';
+    }
+
+    function updatePwChecklist() {
+        var v = regPw ? regPw.value : '';
+        // Show all rules on first keystroke
+        if (v.length > 0 && pwChecklist) pwChecklist.classList.add('active');
+        if (v.length === 0 && pwChecklist) pwChecklist.classList.remove('active');
+        setRule(pwRules.len,   v.length >= 8 && v.length <= 64);
+        setRule(pwRules.upper, /[A-Z]/.test(v));
+        setRule(pwRules.lower, /[a-z]/.test(v));
+        setRule(pwRules.num,   /[0-9]/.test(v));
+        setRule(pwRules.spec,  /[^A-Za-z0-9]/.test(v));
+        updatePwMatch();
+    }
+
+    function updatePwMatch() {
+        if (!regCpw || !matchEl) return;
+        var cpv = regCpw.value;
+        var pv  = regPw ? regPw.value : '';
+        if (!cpv) { matchEl.textContent = ''; matchEl.style.color = ''; return; }
+        if (cpv === pv) {
+            matchEl.textContent = '✓ Passwords match';
+            matchEl.style.color = '#4ade80';
+            regCpw.classList.add('is-valid'); regCpw.classList.remove('is-invalid');
+        } else {
+            matchEl.textContent = '✗ Passwords do not match';
+            matchEl.style.color = '#f87171';
+            regCpw.classList.add('is-invalid'); regCpw.classList.remove('is-valid');
+        }
+    }
+
+    if (regPw) regPw.addEventListener('input', updatePwChecklist);
+    if (regCpw) regCpw.addEventListener('input', updatePwMatch);
+
+    // --- Registration form submit guard ---
     var finalForm = document.getElementById('reg-form-final');
     if (finalForm) {
         finalForm.addEventListener('submit', function(e) {
-            var pw = document.getElementById('reg-password').value;
-            var cpw = document.getElementById('reg-confirm-pw').value;
+            var pw = regPw ? regPw.value : '';
+            var cpw = regCpw ? regCpw.value : '';
             var msgEl = document.getElementById('auth-register-message');
-            if (pw.length < 8) {
+            var errors = [];
+
+            if (pw.length < 8)            errors.push('at least 8 characters');
+            if (pw.length > 64)           errors.push('at most 64 characters');
+            if (!/[A-Z]/.test(pw))        errors.push('an uppercase letter');
+            if (!/[a-z]/.test(pw))        errors.push('a lowercase letter');
+            if (!/[0-9]/.test(pw))        errors.push('a number');
+            if (!/[^A-Za-z0-9]/.test(pw)) errors.push('a special character');
+
+            if (!regEmailAvailable && isEmailTab()) {
                 e.preventDefault();
-                msgEl.innerHTML = '<div class="auth-alert-error">Password must be at least 8 characters.</div>';
+                msgEl.innerHTML = '<div class="auth-alert-error">This email is already registered. Please use another.</div>';
+                return;
+            }
+
+            if (errors.length > 0) {
+                e.preventDefault();
+                msgEl.innerHTML = '<div class="auth-alert-error">Password must contain: ' + errors.join(', ') + '.</div>';
                 return;
             }
             if (pw !== cpw) {
