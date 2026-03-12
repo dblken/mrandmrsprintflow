@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 
 header('Content-Type: application/json');
 
-if (!is_logged_in() || !has_role('Customer')) {
+if (!is_logged_in() || !is_customer()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
     exit;
 }
@@ -46,7 +46,7 @@ if ($custom_print === 'Yes') {
         exit;
     }
     
-    $tmp_dir = __DIR__ . '/../uploads/tmp';
+    $tmp_dir = __DIR__ . '/../uploads/temp';
     if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
     
     $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
@@ -67,12 +67,12 @@ $product_name = 'Souvenir: ' . $souvenir_type;
 
 $cart_item = [
     'product_id' => 0,
+    'branch_id'  => $branch_id,
     'name' => $product_name,
     'category' => 'Souvenirs',
     'price' => 0, // Pending review
     'quantity' => $quantity,
     'customization' => [
-        'Branch_ID' => $branch_id,
         'service_type' => 'Souvenirs',
         'souvenir_type' => $souvenir_type,
         'custom_print' => $custom_print,

@@ -12,42 +12,61 @@ require_role('Customer');
 $customer_id = get_user_id();
 
 $error = '';
-$success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $branch_id = (int)($_POST['branch_id'] ?? 1);
     $width = trim($_POST['width'] ?? '');
     $height = trim($_POST['height'] ?? '');
-    $finish = trim($_POST['finish'] ?? '');
-    $with_eyelets = trim($_POST['with_eyelets'] ?? '');
+    $finish = trim($_POST['finish'] ?? 'Matte');
+    $with_eyelets = trim($_POST['with_eyelets'] ?? 'No');
     $quantity = (int)($_POST['quantity'] ?? 1);
     $notes = trim($_POST['notes'] ?? '');
     
-    // Validate
     if (empty($width) || empty($height) || $quantity < 1) {
         $error = 'Please fill in Width, Height, and Quantity.';
     } elseif (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK) {
-        $error = 'Please upload your design (JPG, PNG, or PDF, max 5MB).';
+        $error = 'Please upload your design.';
     } else {
         $valid = service_order_validate_file($_FILES['design_file']);
         if (!$valid['ok']) {
             $error = $valid['error'];
         } else {
-            $fields = [
-                'width' => $width,
-                'height' => $height,
-                'finish_type' => $finish ?: 'Matte',
-                'with_eyelets' => $with_eyelets ?: 'No',
-                'quantity' => $quantity,
-                'notes' => $notes,
-            ];
-            $files = [['file' => $_FILES['design_file'], 'prefix' => 'design']];
-            $result = service_order_create('Tarpaulin Printing', $customer_id, $branch_id, $fields, $files);
-            if ($result['success']) {
-                $_SESSION['order_success_id'] = $result['order_id'];
-                redirect(BASE_URL . '/customer/order_success.php?service=tarpaulin');
+            $item_key = 'tarp_' . time() . '_' . rand(100, 999);
+            
+            $original_name = $_FILES['design_file']['name'];
+            $mime = $valid['mime'];
+            $ext = pathinfo($original_name, PATHINFO_EXTENSION);
+            $new_name = uniqid('tmp_') . '.' . $ext;
+            $tmp_dest = __DIR__ . '/../uploads/temp/' . $new_name;
+            
+            if (move_uploaded_file($_FILES['design_file']['tmp_name'], $tmp_dest)) {
+                // Calculate Price:ft² @ 20 PHP (Example)
+                $area = (float)$width * (float)$height;
+                $unit_price = 20.00; // Base price per sq ft
+                
+                $_SESSION['cart'][$item_key] = [
+                    'type' => 'Service',
+                    'name' => 'Tarpaulin Printing',
+                    'price' => $area * $unit_price,
+                    'quantity' => $quantity,
+                    'category' => 'Tarpaulin',
+                    'branch_id' => $branch_id,
+                    'design_tmp_path' => $tmp_dest,
+                    'design_name' => $original_name,
+                    'design_mime' => $mime,
+                    'customization' => [
+                        'width' => $width,
+                        'height' => $height,
+                        'finish' => $finish,
+                        'with_eyelets' => $with_eyelets,
+                        'notes' => $notes
+                    ]
+                ];
+                
+                redirect("order_review.php?item=" . urlencode($item_key));
+            } else {
+                $error = 'Failed to process uploaded file.';
             }
-            $error = $result['error'] ?: 'Failed to submit order.';
         }
     }
 }
@@ -62,13 +81,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 640px;">
         <h1 class="text-2xl font-bold text-gray-900 mb-6">Tarpaulin Printing</h1>
-        
-        <?php if ($error): ?>
-        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-
+        <?php if ($error): ?><div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <div class="card">
-            <form method="POST" enctype="multipart/form-data">
+            <form action="" method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
                 
                 <div class="mb-4">
@@ -116,7 +131,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea name="notes" rows="3" class="input-field"><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                 </div>
-                <button type="submit" class="btn-primary w-full">Submit Order</button>
+                <button type="submit" class="btn-primary w-full shadow-lg">Review Order Details</button>
             </form>
         </div>
         <p class="mt-4 text-sm text-gray-500 text-center"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>
@@ -124,4 +139,3 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-

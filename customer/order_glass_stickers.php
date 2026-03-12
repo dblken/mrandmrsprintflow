@@ -55,8 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $price_per_unit = (float)$fields['total_price'] / $fields['quantity'];
 
             // Process file for session
+            $tmp_dir = __DIR__ . '/../uploads/temp';
+            if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
+            
             $db_data = file_get_contents($_FILES['design_file']['tmp_name']);
-            $tmp_path = tempnam(sys_get_temp_dir(), 'pf_glass_');
+            $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
+            $tmp_filename = uniqid('glass_') . '.' . $ext;
+            $tmp_path = $tmp_dir . '/' . $tmp_filename;
             file_put_contents($tmp_path, $db_data);
             
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -72,13 +77,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Structure customization fields for the filter
             $customization = [];
             foreach ($fields as $k => $v) {
-                if ($k !== 'total_price' && $k !== 'quantity') {
+                if ($k !== 'total_price' && $k !== 'quantity' && $k !== 'branch_id') {
                     $customization[$k] = $v;
                 }
             }
 
             $_SESSION['cart'][$item_key] = [
                 'product_id'     => $product_id,
+                'branch_id'      => $fields['branch_id'],
                 'name'           => $product_name,
                 'category'       => 'Glass & Wall Sticker Printing',
                 'price'          => $price_per_unit,

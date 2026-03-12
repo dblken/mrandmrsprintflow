@@ -49,12 +49,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($error)) {
-            $result = service_order_create('Transparent Stickers', $customer_id, (int)$fields['branch_id'], $fields, $files);
-            if ($result['success']) {
-                $_SESSION['order_success_id'] = $result['order_id'];
-                redirect(BASE_URL . '/customer/order_success.php?service=transparent_stickers');
+            // Process file for session
+            $tmp_path = null;
+            $mime = null;
+            $design_name = null;
+            
+            if (isset($_FILES['design_file']) && $_FILES['design_file']['error'] === UPLOAD_ERR_OK) {
+                $tmp_dir = __DIR__ . '/../uploads/temp';
+                if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
+                
+                $db_data = file_get_contents($_FILES['design_file']['tmp_name']);
+                $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
+                $tmp_filename = uniqid('trans_') . '.' . $ext;
+                $tmp_path = $tmp_dir . '/' . $tmp_filename;
+                file_put_contents($tmp_path, $db_data);
+                
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = finfo_file($finfo, $_FILES['design_file']['tmp_name']);
+                finfo_close($finfo);
+                $design_name = $_FILES['design_file']['name'];
             }
-            $error = $result['error'] ?: 'Failed to submit order.';
+
+            if (!isset($_SESSION['cart'])) {
+                $_SESSION['cart'] = [];
+            }
+
+            $product_id = 0; // Service order
+            $item_key = 'trans_' . time();
+            
+            $customization = [];
+            foreach ($fields as $k => $v) {
+                if ($k !== 'total_price' && $k !== 'quantity' && $k !== 'branch_id') {
+                    $customization[$k] = $v;
+                }
+            }
+
+            $_SESSION['cart'][$item_key] = [
+                'product_id'     => $product_id,
+                'branch_id'      => $fields['branch_id'],
+                'name'           => 'Transparent Stickers',
+                'category'       => 'Sticker Printing',
+                'price'          => (float)$fields['total_price'] / $fields['quantity'],
+                'quantity'       => $fields['quantity'],
+                'image'          => '✨',
+                'customization'  => $customization,
+                'design_notes'   => $fields['design_notes'] . "\n" . $fields['additional_notes'],
+                'design_tmp_path'=> $tmp_path,
+                'design_mime'    => $mime,
+                'design_name'    => $design_name,
+                'reference_tmp_path' => null,
+                'reference_mime'     => null,
+                'reference_name'     => null
+            ];
+
+            redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
         }
     }
 }

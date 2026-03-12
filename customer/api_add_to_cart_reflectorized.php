@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 
 header('Content-Type: application/json');
 
-if (!is_logged_in() || !has_role('Customer')) {
+if (!is_logged_in() || !is_customer()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
     exit;
 }
@@ -88,7 +88,7 @@ if (isset($_FILES[$logo_key]) && $_FILES[$logo_key]['error'] === UPLOAD_ERR_OK) 
         exit;
     }
     
-    $tmp_dir = __DIR__ . '/../uploads/tmp';
+    $tmp_dir = __DIR__ . '/../uploads/temp';
     if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
     
     $ext = pathinfo($_FILES[$logo_key]['name'], PATHINFO_EXTENSION);
@@ -110,13 +110,18 @@ $price = 0; // Service orders usually have price determined after review or via 
 $price = 0; 
 if ($isTempPlate) $price = 450; // Example static price for temp plates if needed
 
+// Ensure branch_id is not duplicated in customization if stored at top level
+$customization = $fields;
+unset($customization['branch_id']);
+
 $cart_item = [
     'product_id' => 0, // 0 for service/custom items not in products table
+    'branch_id'  => $fields['branch_id'],
     'name' => 'Reflectorized: ' . $product_name,
     'category' => 'Reflectorized Signage',
     'price' => $price,
     'quantity' => (int)$fields['quantity'],
-    'customization' => array_merge(['Branch_ID' => $fields['branch_id']], $fields),
+    'customization' => $customization,
     'design_tmp_path' => $design_tmp_path,
     'design_name' => $design_name,
     'design_mime' => $design_mime,

@@ -38,7 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Failed to process the uploaded design file. Please try again.";
             } else {
                 // Store temp file path for cart processing later
-                $tmp_path = tempnam(sys_get_temp_dir(), 'pf_design_');
+                $tmp_dir = __DIR__ . '/../uploads/temp';
+                if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
+                
+                $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
+                $tmp_filename = uniqid('sintra_') . '.' . $ext;
+                $tmp_path = $tmp_dir . '/' . $tmp_filename;
                 file_put_contents($tmp_path, $data);
                 
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -53,13 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $_SESSION['cart'][$item_key] = [
                     'product_id'     => $sintra_product_id,
+                    'branch_id'      => $branch_id,
                     'name'           => $product_name,
                     'category'       => 'Sintraboard & Standees',
                     'price'          => $sintra_price,
                     'quantity'       => 1,
                     'image'          => '📦',
                     'customization'  => [
-                        'Branch_ID'  => $branch_id,
                         'Sintra_Type' => $sintra_type,
                         'Width'      => $width,
                         'Height'     => $height,

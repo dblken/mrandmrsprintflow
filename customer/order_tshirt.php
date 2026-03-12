@@ -27,32 +27,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($design_type === 'upload' && (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK)) {
         $error = 'Please upload your design or choose a template.';
     } else {
-        $fields = [
-            'size' => $size,
-            'color' => $color,
-            'print_placement' => $print_placement,
-            'quantity' => $quantity,
-            'design_type' => $design_type,
-            'notes' => $notes,
-        ];
-        $files = [];
-        if ($design_type === 'upload' && isset($_FILES['design_file']) && $_FILES['design_file']['error'] === UPLOAD_ERR_OK) {
+        $item_key = 'tshirt_' . time() . '_' . rand(100, 999);
+        $tmp_path = null;
+        $mime = null;
+        $original_name = null;
+
+        if ($design_type === 'upload') {
             $valid = service_order_validate_file($_FILES['design_file']);
             if (!$valid['ok']) {
                 $error = $valid['error'];
             } else {
-                $files[] = ['file' => $_FILES['design_file'], 'prefix' => 'design'];
+                $original_name = $_FILES['design_file']['name'];
+                $mime = $valid['mime'];
+                $ext = pathinfo($original_name, PATHINFO_EXTENSION);
+                $new_name = uniqid('tmp_') . '.' . $ext;
+                $tmp_dest = __DIR__ . '/../uploads/temp/' . $new_name;
+                
+                if (move_uploaded_file($_FILES['design_file']['tmp_name'], $tmp_dest)) {
+                    $tmp_path = $tmp_dest;
+                } else {
+                    $error = 'Failed to process uploaded file.';
+                }
             }
-        } elseif ($design_type === 'template') {
-            $fields['template'] = trim($_POST['template'] ?? '');
         }
+
         if (!$error) {
-            $result = service_order_create('T-Shirt Printing', $customer_id, $branch_id, $fields, $files);
-            if ($result['success']) {
-                $_SESSION['order_success_id'] = $result['order_id'];
-                redirect(BASE_URL . '/customer/order_success.php?service=tshirt');
-            }
-            $error = $result['error'] ?: 'Failed to submit order.';
+            // Push to cart session
+            $_SESSION['cart'][$item_key] = [
+                'type' => 'Service',
+                'name' => 'T-Shirt Printing',
+                'price' => 150.00, // Base price
+                'quantity' => $quantity,
+                'category' => 'T-Shirts',
+                'branch_id' => $branch_id,
+                'design_tmp_path' => $tmp_path,
+                'design_name' => $original_name,
+                'design_mime' => $mime,
+                'customization' => [
+                    'size' => $size,
+                    'color' => $color,
+                    'print_placement' => $print_placement,
+                    'design_type' => $design_type,
+                    'template' => ($design_type === 'template') ? trim($_POST['template'] ?? '') : null,
+                    'notes' => $notes
+                ]
+            ];
+            
+            redirect("order_review.php?item=" . urlencode($item_key));
         }
     }
 }
@@ -69,9 +90,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
         <h1 class="text-2xl font-bold text-gray-900 mb-6">T-Shirt Printing</h1>
         <?php if ($error): ?><div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <div class="card">
-            <form method="POST" enctype="multipart/form-data">
+            <form action="" method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
-                
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
                     <select name="branch_id" class="input-field" required>
@@ -85,26 +106,29 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
                         <select name="size" class="input-field" required>
-                            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
+                            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="2XL">2XL</option><option value="3XL">3XL</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Color *</label>
                         <select name="color" class="input-field" required>
-                            <option value="Black">Black</option><option value="White">White</option><option value="Red">Red</option>
+                            <option value="Black">Black</option><option value="White">White</option><option value="Red">Red</option><option value="Blue">Blue</option><option value="Navy">Navy</option><option value="Grey">Grey</option>
                         </select>
                     </div>
                 </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Print Placement *</label>
                     <select name="print_placement" class="input-field" required>
-                        <option value="Front">Front</option><option value="Back">Back</option><option value="Both">Both</option>
+                        <option value="Front">Front</option><option value="Back">Back</option><option value="Both">Both</option><option value="Pocket">Pocket</option>
                     </select>
                 </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
                     <input type="number" name="quantity" min="1" class="input-field" required value="<?php echo (int)($_POST['quantity'] ?? 1); ?>">
                 </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Design</label>
                     <select name="design_type" id="design_type" class="input-field">
@@ -112,24 +136,29 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         <option value="template">Choose Template</option>
                     </select>
                 </div>
+
                 <div class="mb-4" id="upload-wrap">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Upload Design (JPG, PNG, PDF - max 5MB)</label>
-                    <input type="file" name="design_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field" id="design_file_input">
+                    <input type="file" name="design_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field">
                 </div>
+
                 <div class="mb-4 hidden" id="template-wrap">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
                     <input type="text" name="template" class="input-field" placeholder="e.g. Standard Logo">
                 </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <textarea name="notes" rows="3" class="input-field"><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
+                    <textarea name="notes" rows="3" class="input-field" placeholder="Any special instructions..."><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                 </div>
-                <button type="submit" class="btn-primary w-full">Submit Order</button>
+
+                <button type="submit" class="btn-primary w-full shadow-lg">Review Order Details</button>
             </form>
         </div>
         <p class="mt-4 text-sm text-gray-500 text-center"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>
     </div>
 </div>
+
 <script>
 document.getElementById('design_type').addEventListener('change', function() {
     var upload = document.getElementById('upload-wrap');
@@ -137,5 +166,5 @@ document.getElementById('design_type').addEventListener('change', function() {
     if (this.value === 'template') { upload.classList.add('hidden'); template.classList.remove('hidden'); } else { upload.classList.remove('hidden'); template.classList.add('hidden'); }
 });
 </script>
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
 
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

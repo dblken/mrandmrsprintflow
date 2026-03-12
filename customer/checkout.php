@@ -71,12 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
 
         // Start Transaction (if supported, otherwise manual checks)
         // 1. Create Order
-        // Extract branch_id from the first item in the cart
-        $branch_id = null;
+        // Extract branch_id from the first item in the cart or from the POST selector
+        $branch_id = (int)($_POST['order_branch_id'] ?? 1);
+        
         if (!empty($cart_items)) {
-            $first_item = reset($cart_items);
-            if (isset($first_item['customization']['Branch_ID'])) {
-                $branch_id = (int)$first_item['customization']['Branch_ID'];
+            foreach ($cart_items as $item) {
+                if (!empty($item['branch_id'])) {
+                    $branch_id = (int)$item['branch_id'];
+                    break;
+                }
+                if (isset($item['customization']['Branch_ID'])) {
+                    $branch_id = (int)$item['customization']['Branch_ID'];
+                    break;
+                }
             }
         }
 
@@ -245,6 +252,29 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <p style="font-size:0.8rem; color:#6b7280; margin-top:10px;">* Please update your profile if this information is incorrect.</p>
+                </div>
+
+                <!-- Branch Selection -->
+                <div class="card">
+                    <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Select Branch</h2>
+                    <p style="font-size:0.85rem; color:#6b7280; margin-bottom:0.75rem;">Which branch will process your order?</p>
+                    <?php 
+                    $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'"); 
+                    // Try to pre-select based on cart
+                    $preset_branch = 1;
+                    if (!empty($cart_items)) {
+                        foreach($cart_items as $ci) {
+                            if (!empty($ci['branch_id'])) { $preset_branch = $ci['branch_id']; break; }
+                        }
+                    }
+                    ?>
+                    <select name="order_branch_id" class="input-field" required>
+                        <?php foreach($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>" <?php echo ($b['id'] == $preset_branch) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($b['branch_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 
                 <!-- Payment Method -->

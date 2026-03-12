@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || is
         $error_msg = "Account restricted. Cannot place order.";
     } else {
         $quantity = (int)$_POST['quantity'];
+        $branch_id = (int)($_POST['branch_id'] ?? 1);
         
         // ----------------------------------------------------------------
         // File Upload handling — images stored in session as temp paths
@@ -229,6 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || is
                 'product_id'     => $product_id,
                 'name'           => $product['name'],
                 'category'       => $product['category'] ?? '',
+                'branch_id'      => $branch_id,
                 'price'          => $item_price,
                 'quantity'       => $quantity,
                 'image'          => '📦',

@@ -16,14 +16,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill in Size and Quantity.';
     } elseif (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK) {
         $error = 'Please upload your design.';
-    } else {
-        $valid = service_order_validate_file($_FILES['design_file']);
-        if (!$valid['ok']) { $error = $valid['error']; } else {
-            $fields = ['size' => $size, 'with_stand' => $with_stand ?: 'No', 'quantity' => $quantity, 'notes' => $notes];
-            $result = service_order_create('Sintraboard Standees', $customer_id, (int)$branch_id, $fields, [['file' => $_FILES['design_file'], 'prefix' => 'design']]);
-            if ($result['success']) { $_SESSION['order_success_id'] = $result['order_id']; redirect(BASE_URL . '/customer/order_success.php?service=standees'); }
-            $error = $result['error'] ?: 'Failed to submit order.';
+    }
+
+    if (empty($error)) {
+        // Process file for session
+        $tmp_dir = __DIR__ . '/../uploads/temp';
+        if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
+        
+        $db_data = file_get_contents($_FILES['design_file']['tmp_name']);
+        $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
+        $tmp_filename = uniqid('standee_') . '.' . $ext;
+        $tmp_path = $tmp_dir . '/' . $tmp_filename;
+        file_put_contents($tmp_path, $db_data);
+        
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime  = finfo_file($finfo, $_FILES['design_file']['tmp_name']);
+        finfo_close($finfo);
+
+        if (!isset($_SESSION['cart'])) {
+            $_SESSION['cart'] = [];
         }
+
+        $product_id = 0; // Service order
+        $item_key = 'stand_' . time();
+        
+        $_SESSION['cart'][$item_key] = [
+            'product_id'     => $product_id,
+            'branch_id'      => $branch_id,
+            'name'           => 'Sintraboard Standees',
+            'category'       => 'Sintraboard & Standees',
+            'price'          => 0, // Determined at review or staff side
+            'quantity'       => $quantity,
+            'image'          => '🕴️',
+            'customization'  => [
+                'Size' => $size,
+                'With_Stand' => $with_stand ?: 'No'
+            ],
+            'design_notes'   => $notes,
+            'design_tmp_path'=> $tmp_path,
+            'design_mime'    => $mime,
+            'design_name'    => $_FILES['design_file']['name'],
+            'reference_tmp_path' => null,
+            'reference_mime'     => null,
+            'reference_name'     => null
+        ];
+
+        redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
     }
 }
 $page_title = 'Order Sintraboard Standees - PrintFlow';

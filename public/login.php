@@ -128,6 +128,9 @@ $base_url = get_base_url();
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
         }
+        .form-input.is-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.1) !important; }
+        .form-input.is-valid { border-color: #4ade80 !important; box-shadow: 0 0 0 3px rgba(74,222,128,0.1) !important; }
+        .field-error-login { margin: 4px 0 0; font-size: 12px; color: #ef4444; min-height: 16px; }
         .form-input::placeholder { color: #b0b5bf; }
         .password-wrapper { position: relative; }
         .password-toggle {
@@ -221,16 +224,18 @@ $base_url = get_base_url();
         <?php echo csrf_field(); ?>
 
         <div class="form-group">
-            <input type="email" id="email" name="email" class="form-input" placeholder="Email address" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+            <input type="email" id="email" name="email" class="form-input" placeholder="Email address" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" autocomplete="email" maxlength="100">
+            <p class="field-error-login" id="login-email-error"></p>
         </div>
 
         <div class="form-group">
             <div class="password-wrapper">
-                <input type="password" id="password" name="password" class="form-input" placeholder="Password" required>
+                <input type="password" id="password" name="password" class="form-input" placeholder="Password" required autocomplete="current-password" maxlength="100">
                 <button type="button" class="password-toggle" onclick="togglePassword()">
                     <svg id="eye-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 </button>
             </div>
+            <p class="field-error-login" id="login-pw-error"></p>
         </div>
 
         <div class="form-group row" style="display:flex; justify-content:space-between; align-items:center;">
@@ -1458,6 +1463,48 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+</script>
+
+<!-- Login Validation -->
+<script>
+(function() {
+    function blockSpaces(el) {
+        if (!el) return;
+        el.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
+        el.addEventListener('paste', function(e) {
+            setTimeout(function() { el.value = el.value.replace(/\s/g, ''); }, 0);
+        });
+    }
+
+    var emailEl = document.getElementById('email');
+    var pwEl = document.getElementById('password');
+    var emailErr = document.getElementById('login-email-error');
+    var pwErr = document.getElementById('login-pw-error');
+
+    blockSpaces(emailEl);
+    blockSpaces(pwEl);
+
+    if (emailEl && emailErr) {
+        emailEl.addEventListener('input', function() {
+            var v = emailEl.value.trim();
+            if (!v) { emailErr.textContent = ''; emailEl.classList.remove('is-invalid','is-valid'); return; }
+            var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+            emailErr.textContent = valid ? '' : 'Enter a valid email address.';
+            emailEl.classList.toggle('is-invalid', !valid);
+            emailEl.classList.toggle('is-valid', valid);
+        });
+    }
+    if (pwEl && pwErr) {
+        pwEl.addEventListener('input', function() {
+            var v = pwEl.value;
+            if (!v) { pwErr.textContent = ''; pwEl.classList.remove('is-invalid','is-valid'); return; }
+            var ok = v.length >= 8;
+            pwErr.textContent = ok ? '' : 'Password must be at least 8 characters.';
+            pwEl.classList.toggle('is-invalid', !ok);
+            pwEl.classList.toggle('is-valid', ok);
+        });
+    }
+})();
 </script>
 </body>
 </html>

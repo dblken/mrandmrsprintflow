@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
 
@@ -50,35 +51,27 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
-        <a href="orders.php" class="back-link" style="display:inline-flex; align-items:center; gap:6px; color:#6b7280; margin-bottom:1rem; text-decoration:none;">← Back to My Orders</a>
         
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-bottom:2rem; flex-wrap:wrap;">
-            <div style="flex:1; min-width:200px;">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
-                    <h1 class="ct-page-title" style="margin:0;">Order #<?php echo $order_id; ?></h1>
-                    <?php echo status_badge($order['status'], 'order'); ?>
-                </div>
-                <p style="margin:0; font-size:0.875rem; color:#6b7280;">Placed on <?php echo format_datetime($order['order_date']); ?></p>
-            </div>
-            
-            <div style="display:flex; gap:12px; align-items:center;">
-                <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support')" class="btn-primary" style="background:#4F46E5; color:white; border:none; padding:10px 20px; border-radius:10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem; box-shadow:0 4px 6px -1px rgba(79,70,229,0.2);">
-                    Message
-                </button>
-
-                <?php if ($order['status'] === 'For Revision'): ?>
-                    <a href="edit_order.php?id=<?php echo $order_id; ?>" class="btn-primary" style="background:linear-gradient(135deg,#d97706,#f59e0b); color:white; border:none; padding:10px 20px; border-radius:10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem; box-shadow:0 4px 6px -1px rgba(217,119,6,0.2);">
-                        Edit order
-                    </a>
-                <?php endif; ?>
-
-                <?php if (can_customer_cancel_order($order)): ?>
-                    <button type="button" onclick="openCancelModal()" class="btn-secondary" style="color:#dc2626; border-color:#fecaca; padding:10px 20px; border-radius:10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem;">
-                        Cancel order
-                    </button>
-                <?php endif; ?>
+        <div style="display:flex; align-items:center; gap:1.5rem; margin-bottom:2rem;">
+            <a href="orders.php" style="color:#6b7280; text-decoration:none; font-size:0.9rem; font-weight:700;">← Back to My Orders</a>
+            <h1 class="ct-page-title" style="margin:0; flex:1; text-align:center;">Order Detail — #<?php echo $order_id; ?></h1>
+            <div style="width:120px; text-align:right;">
+                <?php echo status_badge($order['status'], 'order'); ?>
             </div>
         </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 340px; gap:2.5rem; align-items:start;">
+            
+            <!-- Left: Order Items & details -->
+            <div style="display:flex; flex-direction:column; gap:2rem;">
+                
+                <!-- Date Alert / Breadcrumb equivalent -->
+                <div style="padding:1.25rem; background:#000; color:#fff; border-radius:12px; font-weight:900; font-size:0.9rem; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Order Date: <?php echo format_datetime($order['order_date']); ?></span>
+                    <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support')" style="background:#fff; color:#000; border:none; padding:6px 16px; border-radius:6px; font-weight:900; cursor:pointer; font-size:0.8rem;">
+                        Message Support
+                    </button>
+                </div>
 
 
 
@@ -420,219 +413,88 @@ require_once __DIR__ . '/../includes/header.php';
             });
         </script>
 
-        <div class="card" style="margin-bottom:2rem;">
-            <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Order Information</h2>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1.5rem;">
-                <div>
-                    <label style="display:block; font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Date Placed</label>
-                    <div style="font-weight:600;"><?php echo format_datetime($order['order_date']); ?></div>
+                <!-- Items List -->
+                <div style="display:flex; flex-direction:column;">
+                    <?php foreach ($items as $item): ?>
+                        <?php render_order_item_neubrutalism($item, false); ?>
+                    <?php endforeach; ?>
                 </div>
-                <div>
-                    <label style="display:block; font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Total Amount</label>
-                    <div style="font-weight:600;"><?php echo format_currency($order['total_amount']); ?></div>
-                </div>
-                <div>
-                    <label style="display:block; font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Payment Status</label>
-                    <div style="font-weight:600;"><?php echo status_badge($order['payment_status'], 'payment'); ?></div>
-                </div>
-                <div>
-                    <label style="display:block; font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Estimated Completion</label>
-                    <div style="font-weight:600;"><?php echo ($order['estimated_completion'] ?? null) ? format_date($order['estimated_completion']) : 'TBD'; ?></div>
-                </div>
-            </div>
 
-            <?php if (!empty($order['notes'])): ?>
-                <div style="margin-top:1.5rem; padding:1.25rem; background:#fffbeb; border:1px solid #fef3c7; border-radius:12px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:0.5rem;">
-                        <span style="font-size:1.1rem;">📝</span>
-                        <h3 style="font-size:0.95rem; font-weight:700; color:#92400e; margin:0;">Your Order Notes</h3>
-                    </div>
-                    <div style="font-size:0.9rem; color:#b45309; line-height:1.5;">
-                        <?php echo nl2br(htmlspecialchars($order['notes'])); ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <div class="card" style="padding:0; overflow:hidden;">
-            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #f3f4f6; display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="font-size:1.1rem; font-weight:700; color:#111827; margin:0;">Order Items</h2>
-                <div style="font-size:0.875rem; color:#6b7280;"><?php echo count($items); ?> Items</div>
-            </div>
-            <div class="overflow-x-auto">
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead style="background:#f9fafb; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280;">
-                        <tr>
-                            <th style="padding:1rem 1.5rem; text-align:left; font-weight:600;">Product & Customization</th>
-                            <th style="padding:1rem; text-align:center; font-weight:600;">Price</th>
-                            <th style="padding:1rem; text-align:center; font-weight:600;">Quantity</th>
-                            <th style="padding:1rem 1.5rem; text-align:right; font-weight:600;">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody style="font-size:0.95rem;">
-                        <?php foreach ($items as $item): ?>
-                            <tr style="border-bottom:1px solid #f3f4f6;">
-                                <td style="padding:1.5rem;">
-                                    <div style="display:flex; gap:1rem; align-items:flex-start; justify-content:center;">
-                                        <?php if (!empty($item['design_image']) || !empty($item['design_file'])): ?>
-                                            <?php $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id']; ?>
-                                            <a href="<?php echo $design_url; ?>" target="_blank" style="display: block; width:60px; height:60px; border-radius: 8px; overflow: hidden; border: 2px solid white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); flex-shrink:0;">
-                                                <img src="<?php echo $design_url; ?>"
-                                                     style="width:100%; height:100%; object-fit:cover;" 
-                                                     alt="Design">
-                                            </a>
-                                        <?php else: ?>
-                                            <div style="width:60px; height:60px; background:#f3f4f6; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid #e5e7eb; overflow:hidden;">
-                                                <span style="font-size:1.5rem;">📦</span>
-                                            </div>
-                                        <?php endif; ?>
-                                         <div style="min-width:0;">
-                                             <?php 
-                                                $p_name = $item['product_name'];
-                                                $c_data = json_decode($item['customization_data'] ?? '{}', true);
-                                                if (empty($p_name) || $p_name === 'Custom Order' || $p_name === 'Custom Product') {
-                                                    if (!empty($c_data['service_type'])) {
-                                                        $p_name = $c_data['service_type'];
-                                                        if (!empty($c_data['product_type'])) {
-                                                            $p_name .= " (" . $c_data['product_type'] . ")";
-                                                        }
-                                                    } else {
-                                                        $p_name = "Custom Order";
-                                                    }
-                                                }
-                                             ?>
-                                             <div style="font-weight:700; color:#111827; margin-bottom:2px;"><?php echo htmlspecialchars($p_name); ?></div>
-                                             <div style="font-size:0.75rem; color:#6b7280; margin-bottom:8px;"><?php echo htmlspecialchars($item['category'] ?: 'Signage'); ?></div>
-                                            
-                                            <div style="display: flex; gap: 2rem; margin-top: 12px; align-items: flex-start; justify-content:center;">
-                                                <!-- Left: Customization Details Grid -->
-                                                <div style="flex: 1.8; min-width: 0;">
-                                                     <?php 
-                                                        if (!empty($item['customization_data'])): 
-                                                            $c_desc = '';
-                                                            if ($c_data):
-                                                        ?>
-                                                                <div style="font-weight: 800; color: #0f172a; font-size: 1.25rem; margin-bottom: 0.5rem; text-align: left;"><?php echo htmlspecialchars($p_name); ?></div>
-                                                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                                                                    <div style="font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">Product Specifications</div>
-                                                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;">
-                                                                        <?php 
-                                                                            foreach ($c_data as $ck => $cv):
-                                                                                if (empty($cv) || $cv === 'No' || $cv === 'None' || $cv === 'none' || $ck === 'design_upload' || $ck === 'reference_upload') continue;
-                                                                                
-                                                                                // Specific exclusions for Reflectorized Temporary Plates
-                                                                                $is_reflectorized = (strpos(strtolower($item['category'] ?? ''), 'reflectorized') !== false) || 
-                                                                                                   (strpos(strtolower($c_data['service_type'] ?? ''), 'reflectorized') !== false);
-                                                                                $is_temp_plate = strpos($c_data['product_type'] ?? '', 'Temporary Plate') !== false; $is_gate_pass = strpos($c_data['product_type'] ?? '', 'Gate Pass') !== false;
-                                                                                $is_street_signage = strpos($c_data['product_type'] ?? '', 'Street') !== false;
-                                                                                 $exclusions = ['unit', 'bg_color', 'text_color', 'arrow_direction', 'quantity', 'material_type', 'shape', 'with_border', 'rounded_corners', 'with_numbering', 'install_service', 'need_proof', 'reflective_color', 'inches', 'service_type', 'product_type', 'dimensions']; $gate_pass_only_exclusions = ['bg_color', 'text_color', 'reflective_color', 'text_content', 'arrow_direction', 'with_numbering', 'install_service', 'need_proof', 'temp_plate_text', 'product_type', 'dimensions', 'unit', 'shape', 'material_type', 'service_type'];
-                                                                                 $street_signage_only_exclusions = ['bg_color', 'text_color', 'reflective_color', 'with_numbering', 'starting_number', 'mounting_option', 'temp_plate_text', 'product_type', 'dimensions', 'unit', 'shape', 'material_type', 'service_type'];
-                                                                                
-                                                                                if ($is_reflectorized && $is_temp_plate && (in_array($ck, $exclusions) || strtolower($cv) === 'inches')) continue;
-                                                                                if ($is_reflectorized && $is_gate_pass && (in_array($ck, $gate_pass_only_exclusions) || $ck === 'quantity_gatepass')) continue;
-                                                                                if ($is_reflectorized && $is_street_signage && in_array($ck, $street_signage_only_exclusions)) continue;
-                                                                                
-                                                                                if (strpos(strtolower($ck), 'description') !== false || $ck === 'notes'):
-                                                                                    $c_desc = $cv;
-                                                                                    continue;
-                                                                                endif;
-                                                                        ?>
-                                                                        <div>
-                                                                        <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.025em;"><?php echo ucwords(str_replace('_', ' ', $ck)); ?></div>
-                                                                        <div style="font-size: 1rem; font-weight: 700; color: #1e293b; word-break: break-word; overflow-wrap: anywhere;"><?php echo htmlspecialchars($cv); ?></div>
-                                                                    </div>
-                                                                <?php 
-                                                                        endforeach;
-                                                                    endif;
-                                                                ?>
-                                                            </div>
-                                                            
-                                                            <?php if ($c_desc): ?>
-                                                                <div style="margin-top: 12px; padding: 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px;">
-                                                                    <div style="font-size: 0.75rem; font-weight: 800; color: #92400e; text-transform: uppercase; margin-bottom: 4px;">📝 Your Notes</div>
-                                                                    <div style="font-size: 0.95rem; color: #b45309; line-height: 1.5; font-weight: 600; word-break: break-word; overflow-wrap: anywhere;"><?php echo nl2br(htmlspecialchars($c_desc)); ?></div>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <!-- Right: Design Indicators & Previews -->
-                                                <div style="flex: 1.2; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
-                                                    <?php if (!empty($item['design_image']) || !empty($item['design_file'])): ?>
-                                                        <div style="background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 12px;">
-                                                            <div style="font-size: 0.75rem; font-weight: 800; color: #166534; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.025em;">Final Design</div>
-                                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                                <div style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 2px solid #bbf7d0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                                                                    <img src="<?php echo $design_url; ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                                                                </div>
-                                                                <div>
-                                                                    <div style="font-size: 0.85rem; color: #15803d; font-weight: 800;">✅ Uploaded</div>
-                                                                    <a href="<?php echo $design_url; ?>" target="_blank" style="font-size: 0.75rem; color: #166534; font-weight: 700; text-decoration: underline;">View Full Size</a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    <?php endif; ?>
-
-                                                    <?php if (!empty($item['reference_image_file'])): ?>
-                                                        <div style="background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 12px;">
-                                                            <div style="font-size: 0.75rem; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.025em;">Reference</div>
-                                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                                <?php $ref_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference"; ?>
-                                                                <div style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 2px solid #bfdbfe; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                                                                    <img src="<?php echo $ref_url; ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                                                                </div>
-                                                                <div>
-                                                                    <div style="font-size: 0.85rem; color: #1e40af; font-weight: 800;">ℹ️ Reference</div>
-                                                                    <a href="<?php echo $ref_url; ?>" target="_blank" style="font-size: 0.75rem; color: #2563eb; font-weight: 700; text-decoration: underline;">View Full Size</a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td style="padding:1rem; text-align:center; color:#4b5563;">
-                                    <?php echo format_currency($item['unit_price']); ?>
-                                </td>
-                                <td style="padding:1rem; text-align:center; font-weight:600; color:#111827;">
-                                    <?php echo $item['quantity']; ?>
-                                </td>
-                                <td style="padding:1rem 1.5rem; text-align:right; font-weight:700; color:#111827;">
-                                    <?php echo format_currency($item['unit_price'] * $item['quantity']); ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div style="padding:1.5rem; background:#f9fafb; border-top:2px solid #f3f4f6;">
-                <div style="max-width:300px; margin-left:auto; display:flex; flex-direction:column; gap:12px;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.95rem; color:#6b7280;">
-                        <span>Total Items Value</span>
-                        <span><?php echo format_currency($order['total_amount']); ?></span>
-                    </div>
-                    <?php if (($order['downpayment_amount'] ?? 0) > 0): ?>
-                        <div style="display:flex; justify-content:space-between; font-size:0.95rem; color:#92400e;">
-                            <span>Downpayment Required</span>
-                            <span><?php echo format_currency($order['downpayment_amount']); ?></span>
+                <!-- Customer Details Card (Consistent with Review) -->
+                <div class="card" style="border: 2px solid #000; box-shadow: 8px 8px 0px #000; padding: 2.5rem; background: #fff;">
+                    <h3 style="font-size:1.1rem; font-weight:900; color:black; margin-bottom:1.5rem; display:flex; align-items:center; gap:12px; text-transform:uppercase; letter-spacing:0.04em;">
+                        <span style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; background:black; color:white; border-radius:6px; font-size:1rem;">📋</span>
+                        Customer Information
+                    </h3>
+                    <?php 
+                    $cust_res = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$order['customer_id']]);
+                    $customer_info = $cust_res[0] ?? [];
+                    ?>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:2.5rem;">
+                        <div>
+                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Full Name</div>
+                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars(($customer_info['first_name'] ?? '') . ' ' . ($customer_info['last_name'] ?? '')); ?></div>
                         </div>
-                    <?php endif; ?>
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e5e7eb; padding-top:12px; margin-top:4px;">
-                        <span style="font-weight:700; color:#111827;">Total Amount</span>
-                        <span style="font-size:1.5rem; font-weight:800; color:#4F46E5;"><?php echo format_currency($order['total_amount']); ?></span>
+                        <div>
+                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Phone Number</div>
+                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars($customer_info['contact_number'] ?? '—'); ?></div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Email Address</div>
+                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars($customer_info['email'] ?? ''); ?></div>
+                        </div>
                     </div>
-                    <?php if ($order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled'])): ?>
-                        <div style="margin-top: 1rem; width: 100%;">
-                            <button type="button" onclick="openPaymentModal()" class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); color:white; border:none; padding:12px; border-radius:10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem; box-shadow:0 4px 6px -1px rgba(16,185,129,0.2); width: 100%; text-align: center;">
+                </div>
+            </div>
+
+            <!-- Right: Order Info & Totals -->
+            <div style="display:flex; flex-direction:column; gap:1.5rem; position:sticky; top:20px;">
+                <div class="card" style="padding:2rem; border: 2px solid #000; box-shadow: 8px 8px 0px #000;">
+                    <h2 style="font-size:1rem; font-weight:900; color:black; margin:0 0 1.5rem 0; text-transform:uppercase; letter-spacing:0.06em; border-bottom:2px solid #000; padding-bottom:1rem;">Order Summary</h2>
+
+                    <div style="display:flex; justify-content:space-between; font-size:1rem; margin-bottom:0.75rem; color:#000; font-weight:700;">
+                        <span>Status</span>
+                        <span><?php echo status_badge($order['status'], 'order'); ?></span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:1rem; margin-bottom:0.75rem; color:#000; font-weight:700;">
+                        <span>Payment</span>
+                        <span><?php echo status_badge($order['payment_status'], 'payment'); ?></span>
+                    </div>
+                    
+                    <div style="border-top:3px solid black; padding-top:1.25rem; margin-top:1.25rem; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:900; font-size:1rem; text-transform:uppercase;">Grand Total</span>
+                        <span style="font-size:1.8rem; font-weight:900; color:black; letter-spacing:-0.03em;"><?php echo format_currency($order['total_amount']); ?></span>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                        <?php if ($order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled'])): ?>
+                            <button type="button" onclick="openPaymentModal()" style="width:100%; padding:14px; background:#000; color:#fff; font-size:1rem; font-weight:900; border:none; border-radius:10px; cursor:pointer; text-transform:uppercase;">
                                 Pay now
                             </button>
-                        </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php if ($order['status'] === 'For Revision'): ?>
+                            <a href="edit_order.php?id=<?php echo $order_id; ?>" style="width:100%; padding:14px; background:#f59e0b; color:#fff; font-size:1rem; font-weight:900; border:2px solid #000; border-radius:10px; cursor:pointer; text-transform:uppercase; text-decoration:none; text-align:center;">
+                                Edit order
+                            </a>
+                        <?php endif; ?>
+
+                        <?php if (can_customer_cancel_order($order)): ?>
+                            <button type="button" onclick="openCancelModal()" style="width:100%; padding:12px; background:white; color:#dc2626; font-size:0.9rem; font-weight:900; border:2px solid #fecaca; border-radius:10px; cursor:pointer;">
+                                ✕ Cancel order
+                            </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
+
+                <?php if (!empty($order['notes'])): ?>
+                    <div style="padding:1.5rem; background:#fffbeb; border:2px solid #000; border-radius:12px; box-shadow:4px 4px 0px #000;">
+                        <div style="font-size:0.75rem; font-weight:900; text-transform:uppercase; color:#92400e; margin-bottom:8px;">Order Notes</div>
+                        <div style="font-size:0.95rem; color:#b45309; line-height:1.5; font-weight:700;">
+                            <?php echo nl2br(htmlspecialchars($order['notes'])); ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -744,6 +744,52 @@ async function fetchProducts() {
     }
 }
 
+// POS Dynamic Requirements Config
+const serviceRequirements = {
+    'T-Shirt': [
+        { label: 'Size', type: 'select', name: 'size', options: ['S', 'M', 'L', 'XL', '2XL', '3XL'] },
+        { label: 'Color', type: 'text', name: 'color', placeholder: 'e.g., Black, White' },
+        { label: 'Print Placement', type: 'select', name: 'print_placement', options: ['Front', 'Back', 'Front & Back', 'Pocket'] }
+    ],
+    'Tarpaulin': [
+        { label: 'Width (ft)', type: 'number', name: 'width_ft', placeholder: 'E.g., 2', step: '0.1' },
+        { label: 'Height (ft)', type: 'number', name: 'height_ft', placeholder: 'E.g., 3', step: '0.1' },
+        { label: 'Thickness/Type', type: 'select', name: 'thickness', options: ['10oz', '12oz', 'Others'] },
+        { label: 'Finish', type: 'select', name: 'finish', options: ['With Eyelets', 'Wood Frame', 'None'] }
+    ],
+    'Sticker': [
+        { label: 'Width (inches)', type: 'number', name: 'width_in', placeholder: 'E.g., 2', step: '0.1' },
+        { label: 'Height (inches)', type: 'number', name: 'height_in', placeholder: 'E.g., 2', step: '0.1' },
+        { label: 'Finish', type: 'select', name: 'finish', options: ['Glossy', 'Matte', 'Transparent'] },
+        { label: 'Cut Type', type: 'select', name: 'cut_type', options: ['Kiss Cut', 'Die Cut'] }
+    ],
+    'Sintraboard': [
+        { label: 'Width (in)', type: 'number', name: 'width_in' },
+        { label: 'Height (in)', type: 'number', name: 'height_in' },
+        { label: 'Thickness', type: 'select', name: 'thickness', options: ['3mm', '5mm'] }
+    ],
+    'Reflectorized': [
+        { label: 'Shape', type: 'select', name: 'shape', options: ['Square', 'Rectangle', 'Circle', 'Triangle'] },
+        { label: 'Background Color', type: 'text', name: 'bg_color' },
+        { label: 'Text/Graphic Color', type: 'text', name: 'text_color' }
+    ],
+    'Souvenir': [
+        { label: 'Type', type: 'select', name: 'type', options: ['Mug', 'Keychain', 'Tumbler', 'Pen', 'Button Pin', 'Other'] },
+        { label: 'Details / Occasion', type: 'text', name: 'details' }
+    ]
+};
+
+function getRequirementsForProduct(productName, category) {
+    const term = (productName + " " + category).toLowerCase();
+    if(term.includes('t-shirt') || term.includes('tshirt')) return serviceRequirements['T-Shirt'];
+    if(term.includes('tarpaulin') || term.includes('tarp')) return serviceRequirements['Tarpaulin'];
+    if(term.includes('sticker') || term.includes('decal')) return serviceRequirements['Sticker'];
+    if(term.includes('sintraboard') || term.includes('standee')) return serviceRequirements['Sintraboard'];
+    if(term.includes('reflectorized') || term.includes('signage')) return serviceRequirements['Reflectorized'];
+    if(term.includes('souvenir') || term.includes('mug')) return serviceRequirements['Souvenir'];
+    return null;
+}
+
 function renderProducts() {
     const grid = document.getElementById('pos-products-grid');
     const search = document.getElementById('pos-search').value.toLowerCase();
@@ -757,7 +803,7 @@ function renderProducts() {
         return mSearch && mCat;
     });
     
-        if(filtered.length === 0) {
+    if(filtered.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;">No products found.</div>';
         return;
     }
@@ -1041,13 +1087,6 @@ function renderCart() {
             cont.appendChild(div);
         });
     }
-                    <button class="pos-qty-btn" onclick="updateQty(${item.product_id}, ${item.price}, 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
-                </div>
-                <div class="pos-item-total">₱${rowTotal.toFixed(2)}</div>
-                <button class="pos-item-remove" onclick="removeFromCart(${item.product_id}, ${item.price})"><i class="fas fa-times"></i></button>
-            cont.appendChild(div);
-        });
-    }
     
     const fTotal = '₱' + currentTotal.toFixed(2);
     document.getElementById('pos-subtotal').textContent = fTotal;
@@ -1074,12 +1113,6 @@ function updateQtyByCartIndex(index, delta) {
 function removeByCartIndex(index) {
     cart.splice(index, 1);
     renderCart();
-}
-    document.getElementById('pos-subtotal').textContent = fTotal;
-    document.getElementById('pos-total').textContent = fTotal;
-    
-    calculateChange();
-    updateCheckoutState();
 }
 
 function setPaymentMethod(method) {

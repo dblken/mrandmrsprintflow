@@ -26,8 +26,18 @@ if (empty($token) || empty($password)) {
     exit;
 }
 
-if (strlen($password) < 8) {
-    echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters long.']);
+// 1. Password Complexity Validation
+$errors = [];
+if (strlen($password) < 8) $errors[] = "at least 8 characters";
+if (strlen($password) > 64) $errors[] = "at most 64 characters";
+if (!preg_match('/[A-Z]/', $password)) $errors[] = "an uppercase letter";
+if (!preg_match('/[a-z]/', $password)) $errors[] = "a lowercase letter";
+if (!preg_match('/[0-9]/', $password)) $errors[] = "a number";
+if (!preg_match('/[^A-Za-z0-9]/', $password)) $errors[] = "a special character";
+if (strpos($password, ' ') !== false) $errors[] = "no spaces";
+
+if (!empty($errors)) {
+    echo json_encode(['success' => false, 'message' => 'Password must contain: ' . implode(', ', $errors) . '.']);
     exit;
 }
 
