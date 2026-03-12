@@ -1054,6 +1054,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                 fd.append('notes', this.newMaterialNotes);
                 
                 // Construct metadata based on category
+                let meta = {};
                 if (this.isTarpaulin(this.newMaterialId)) {
                     meta.height_ft = this.newMaterialHeight;
                     meta.finishing = this.newMaterialMetadata.finishing || '';
