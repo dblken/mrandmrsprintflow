@@ -295,15 +295,25 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Product Image Area -->
             <div style="background:#f3f4f6; border-radius:12px; display:flex; align-items:center; justify-content:center; min-height:400px; overflow:hidden;">
                 <?php 
-                $img_link = "/printflow/public/images/products/product_" . $product['product_id'];
-                $img_path = __DIR__ . "/../public/images/products/product_" . $product['product_id'];
                 $display_img = "";
-                if (!empty($product['product_image']) && file_exists(__DIR__ . "/../" . $product['product_image'])) {
-                     $display_img = "/printflow/" . ltrim($product['product_image'], '/');
-                } elseif (file_exists($img_path . ".jpg")) {
-                    $display_img = $img_link . ".jpg";
-                } elseif (file_exists($img_path . ".png")) {
-                    $display_img = $img_link . ".png";
+                
+                // 1. Try photo_path first (new method)
+                if (!empty($product['photo_path'])) {
+                    $display_img = $product['photo_path'];
+                }
+                // 2. Try product_image column
+                elseif (!empty($product['product_image']) && file_exists(__DIR__ . "/../" . $product['product_image'])) {
+                    $display_img = "/printflow/" . ltrim($product['product_image'], '/');
+                }
+                // 3. Try default image path based on product_id
+                else {
+                    $img_link = "/printflow/public/images/products/product_" . $product['product_id'];
+                    $img_path = __DIR__ . "/../public/images/products/product_" . $product['product_id'];
+                    if (file_exists($img_path . ".jpg")) {
+                        $display_img = $img_link . ".jpg";
+                    } elseif (file_exists($img_path . ".png")) {
+                        $display_img = $img_link . ".png";
+                    }
                 }
                 
                 if ($display_img): ?>

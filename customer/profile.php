@@ -30,7 +30,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         
         if (empty($first_name) || empty($last_name)) {
             $error = 'First name and last name are required';
-        } else {
+        } elseif (!empty($dob)) {
+            try {
+                $bday_date = new DateTime($dob);
+                $today = new DateTime();
+                $age = $today->diff($bday_date)->y;
+                if ($bday_date > $today) {
+                    $error = 'Birthday cannot be a future date';
+                } elseif ($age < 13) {
+                    $error = 'You must be at least 13 years old';
+                }
+            } catch (Exception $e) {
+                $error = 'Invalid birthday format';
+            }
+        }
+        
+        if (!$error) {
             $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
                 'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
             
@@ -75,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         }
     }
 }
+
+$max_birthday = date('Y-m-d', strtotime('-13 years'));
 
 $page_title = 'My Profile - PrintFlow';
 $use_customer_css = true;
@@ -137,7 +154,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <div>
                             <label for="dob" class="block text-sm font-bold text-gray-800 mb-2">Date of Birth</label>
-                            <input type="date" id="dob" name="dob" class="input-field" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>">
+                            <input type="date" id="dob" name="dob" class="input-field" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" max="<?php echo $max_birthday; ?>">
                         </div>
                         
                         <div>

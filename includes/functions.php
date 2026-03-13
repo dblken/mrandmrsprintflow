@@ -608,3 +608,15 @@ function can_customer_cancel_order($order) {
     $allowed_statuses = ['Pending', 'To Pay', 'For Revision', 'Pending Verification'];
     return in_array($status, $allowed_statuses);
 }
+
+/**
+ * Get base URL for the application
+ * @return string
+ */
+function get_base_url() {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    $path = dirname($_SERVER['SCRIPT_NAME']);
+    $path = rtrim($path, '/');
+    return $protocol . '://' . $host . $path;
+}

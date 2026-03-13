@@ -93,10 +93,7 @@ require_once __DIR__ . '/shop_config.php';
                             Products
                         <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                     </a>
-<a href="<?php echo $url_faq; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            FAQ
-                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                    </a>
+
                 <?php endif; ?>
             </div>
 

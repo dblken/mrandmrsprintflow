@@ -52,10 +52,7 @@ if ($result) {
     $notif_msg = ($db_sender === 'Customer') ? "New message from Customer for Order #$order_id" : "New message from Staff for Order #$order_id";
     
     if ($db_sender === 'Customer') {
-        // Notify admin/staff (for simplicity, we can notify the whole staff or just log it)
-        // In a real app, you'd notify the assigned staff member.
-        // Here we'll just create a general 'Message' type notification.
-        create_notification(1, 'User', $notif_msg, 'Message', false, false, $order_id); // Notify Admin (ID 1)
+        // Admin sees messages directly in the order chat panel - no notification needed
     } else {
         // Notify the customer
         $order = db_query("SELECT customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);

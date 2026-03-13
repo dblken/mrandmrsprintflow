@@ -92,12 +92,6 @@ if (isset($_SESSION['user_id'])) {
                 </svg>
                 Inventory Ledger
             </a>
-            <a href="/printflow/admin/storefront_management.php" class="nav-item <?php echo $current_page === 'storefront_management.php' ? 'active' : ''; ?>">
-                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-                </svg>
-                Storefront
-            </a>
             <a href="/printflow/admin/branches_management.php" class="nav-item <?php echo $current_page === 'branches_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -126,7 +120,7 @@ if (isset($_SESSION['user_id'])) {
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                FAQ & Chatbot
+                Chatbot
             </a>
             <a href="notifications" class="nav-item <?php echo $current_page === 'notifications.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,12 +146,6 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 Activity Logs
-            </a>
-            <a href="backup_restore" class="nav-item <?php echo $current_page === 'backup_restore.php' ? 'active' : ''; ?>">
-                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
-                </svg>
-                Backup & Restore
             </a>
         </div>
 
@@ -272,19 +260,35 @@ document.addEventListener('click', function(event) {
 });
 
     // Sidebar scroll persistence
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         var nav = document.querySelector('.sidebar-nav');
         if (!nav) return;
+
+        // Restore scroll position after layout
         var saved = sessionStorage.getItem('sidebarScroll');
-        if (saved !== null) nav.scrollTop = parseInt(saved, 10);
+        if (saved !== null) {
+            requestAnimationFrame(function() {
+                nav.scrollTop = parseInt(saved, 10);
+            });
+        } else {
+            // If no saved position, scroll the active item into view
+            var activeItem = nav.querySelector('.nav-item.active');
+            if (activeItem) {
+                requestAnimationFrame(function() {
+                    activeItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+                });
+            }
+        }
+
+        // Save scroll position before navigating
         nav.querySelectorAll('a.nav-item').forEach(function(link) {
             link.addEventListener('click', function() {
                 sessionStorage.setItem('sidebarScroll', nav.scrollTop);
-                
+
                 // Close mobile sidebar on navigation (mobile only)
                 if (window.innerWidth <= 768) {
-                    const sidebar = document.getElementById('adminSidebar');
-                    const overlay = document.getElementById('sidebarOverlay');
+                    var sidebar = document.getElementById('adminSidebar');
+                    var overlay = document.getElementById('sidebarOverlay');
                     if (sidebar && sidebar.classList.contains('active')) {
                         sidebar.classList.remove('active');
                         if (overlay) overlay.classList.remove('active');
@@ -293,7 +297,7 @@ document.addEventListener('click', function(event) {
                 }
             });
         });
-    })();
+    });
 
     // Notification Polling
     function updateSidebarNotifCount() {
@@ -312,6 +316,5 @@ document.addEventListener('click', function(event) {
     }
     // Poll every 10 seconds
     setInterval(updateSidebarNotifCount, 10000);
-});
 </script>
 

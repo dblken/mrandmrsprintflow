@@ -42,13 +42,13 @@ $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Build query
-$where = "user_id = ?";
+$where = "user_id = ? AND type != 'Message'";
 $params = [$admin_id];
 $types = 'i';
 
 if ($filter === 'unread') {
     $where .= " AND is_read = 0";
-} elseif (in_array($filter, ['Order', 'Stock', 'System', 'Message'])) {
+} elseif (in_array($filter, ['Order', 'Stock', 'System'])) {
     $where .= " AND type = ?";
     $params[] = $filter;
     $types .= 's';
@@ -141,14 +141,15 @@ $page_title = 'Notifications - Admin';
             flex-shrink: 0;
             font-size: 1.25rem;
         }
-        .notif-icon.order { background: #dbeafe; color: #1e40af; }
-        .notif-icon.stock { background: #fed7aa; color: #c2410c; }
-        .notif-icon.system { background: #e5e7eb; color: #374151; }
-        .notif-icon.message { background: #e9d5ff; color: #7e22ce; }
+        .notif-badge.order { background: #dbeafe; color: #1e40af; }
+        .notif-badge.stock { background: #fed7aa; color: #c2410c; }
+        .notif-badge.system { background: #e5e7eb; color: #374151; }
+        .notif-badge.message { background: #e9d5ff; color: #7e22ce; }
+        .notif-card-link { text-decoration: none; display: block; color: inherit; }
         .notif-header {
             display: flex;
             align-items: start;
-            gap: 1rem;
+            gap: 0.5rem;
             margin-bottom: 0.5rem;
         }
         .notif-content {
@@ -321,16 +322,13 @@ $page_title = 'Notifications - Admin';
                     Unread (<?php echo $unread_count; ?>)
                 </a>
                 <a href="?filter=Order" class="notif-tab <?php echo $filter === 'Order' ? 'active' : ''; ?>">
-                    📦 Orders
+                    Orders
                 </a>
                 <a href="?filter=Stock" class="notif-tab <?php echo $filter === 'Stock' ? 'active' : ''; ?>">
-                    📊 Inventory
+                    Inventory
                 </a>
                 <a href="?filter=System" class="notif-tab <?php echo $filter === 'System' ? 'active' : ''; ?>">
-                    ⚙️ System
-                </a>
-                <a href="?filter=Message" class="notif-tab <?php echo $filter === 'Message' ? 'active' : ''; ?>">
-                    💬 Messages
+                    System
                 </a>
             </div>
 
@@ -338,7 +336,6 @@ $page_title = 'Notifications - Admin';
             <?php if (empty($notifications)): ?>
                 <div class="card">
                     <div class="empty-state">
-                        <div class="empty-state-icon">🔔</div>
                         <h2 class="empty-state-title">No notifications</h2>
                         <p class="empty-state-text">
                             <?php if ($filter === 'unread'): ?>
@@ -370,46 +367,43 @@ $page_title = 'Notifications - Admin';
                     foreach ($grouped_notifications as $group => $notifs): ?>
                         <div style="margin-top: 1.5rem; margin-bottom: 0.75rem;">
                             <h3 style="font-size: 0.8125rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;"><?php echo htmlspecialchars($group); ?></h3>
-                        </div>
-                        <?php foreach ($notifs as $notif): 
+                                           <?php foreach ($notifs as $notif): 
                         $type = strtolower($notif['type']);
                         $is_unread = !$notif['is_read'];
                         
-                        // Get icon and title based on type
-                        $icons = [
-                            'order' => '📦',
-                            'stock' => '📊',
-                            'system' => '⚙️',
-                            'message' => '💬'
-                        ];
-                        $icon = $icons[$type] ?? '🔔';
+                        // Determine Target URL
+                        $target_url = '#';
+                        if ($type === 'order' && !empty($notif['data_id'])) {
+                            $target_url = "order_details.php?id=" . $notif['data_id'];
+                        } elseif ($type === 'system' && strpos(strtolower($notif['message']), 'chatbot inquiry') !== false) {
+                            $target_url = "faq_chatbot_management.php?tab=inquiries";
+                        }
                     ?>
                     <div class="notif-card <?php echo $is_unread ? 'unread' : ''; ?>" data-id="<?php echo $notif['notification_id']; ?>">
                         <div class="notif-header">
-                            <div class="notif-icon <?php echo $type; ?>">
-                                <?php echo $icon; ?>
-                            </div>
                             <div class="notif-content">
-                                <div style="display: flex; justify-content: space-between; align-items: start;">
-                                    <div style="flex: 1;">
-                                        <div class="notif-title"><?php echo htmlspecialchars($notif['message']); ?></div>
+                                <a href="<?php echo $target_url; ?>" class="notif-card-link" onclick="handleNotifClick(event, <?php echo $notif['notification_id']; ?>, '<?php echo $target_url; ?>', <?php echo $is_unread ? 'true' : 'false'; ?>)">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div style="flex: 1;">
+                                            <div class="notif-title"><?php echo htmlspecialchars($notif['message']); ?></div>
+                                        </div>
+                                        <?php if ($is_unread): ?>
+                                            <span class="notif-badge new">NEW</span>
+                                        <?php endif; ?>
                                     </div>
-                                    <?php if ($is_unread): ?>
-                                        <span class="notif-badge new">NEW</span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <div class="notif-meta">
-                                    <span>
-                                        <svg style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 0.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <?php echo time_ago($notif['created_at']); ?>
-                                    </span>
-                                    <span class="notif-badge <?php echo $type; ?>">
-                                        <?php echo ucfirst($type); ?>
-                                    </span>
-                                </div>
+                                    
+                                    <div class="notif-meta">
+                                        <span>
+                                            <svg style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 0.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <?php echo time_ago($notif['created_at']); ?>
+                                        </span>
+                                        <span class="notif-badge <?php echo $type; ?>">
+                                            <?php echo ucfirst($type); ?>
+                                        </span>
+                                    </div>
+                                </a>
 
                                 <div class="notif-actions">
                                     <?php if ($is_unread): ?>
@@ -432,11 +426,11 @@ $page_title = 'Notifications - Admin';
 </div>
 
 <script>
-// Auto-refresh every 30 seconds
+// Auto-refresh every 10 seconds
 let autoRefreshInterval;
 
 function startAutoRefresh() {
-    autoRefreshInterval = setInterval(checkForNewNotifications, 30000);
+    autoRefreshInterval = setInterval(checkForNewNotifications, 10000);
 }
 
 function stopAutoRefresh() {
@@ -446,10 +440,28 @@ function stopAutoRefresh() {
 }
 
 function checkForNewNotifications() {
-    // Simple check - just reload if on "all" or "unread" tab
+    // For now, simpler implementation: check unread count via small API or just reload
+    // We'll use a hidden refresh that reloads if count changes or just reload
     const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    if (currentFilter === 'all' || currentFilter === 'unread') {
-        window.location.reload();
+    if (!document.querySelector('.search-box input').value && (currentFilter === 'all' || currentFilter === 'unread')) {
+        refreshPage();
+    }
+}
+
+function refreshPage() {
+    // Use AJAX to fetch just the content if possible, but for consistency we'll reload 
+    // without resetting scroll if possible. Actually, standard reload is fine if interval is 10s.
+    window.location.reload();
+}
+
+function handleNotifClick(e, notifId, url, isUnread) {
+    if (isUnread) {
+        e.preventDefault();
+        markAsRead(notifId, url);
+    } else if (url && url !== '#') {
+        // Just let it navigate
+    } else {
+        e.preventDefault();
     }
 }
 
@@ -457,11 +469,15 @@ function refreshNotifications() {
     window.location.reload();
 }
 
-function markAsRead(notifId) {
+function markAsRead(notifId, redirectUrl = null) {
     fetch(`?action=mark_read&id=${notifId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                if (redirectUrl && redirectUrl !== '#') {
+                    window.location.href = redirectUrl;
+                    return;
+                }
                 const card = document.querySelector(`[data-id="${notifId}"]`);
                 if (card) {
                     card.classList.remove('unread');

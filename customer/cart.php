@@ -193,8 +193,16 @@ require_once __DIR__ . '/../includes/header.php';
                                             $prod_id = (int)($item['product_id'] ?? 0);
                                             $product_img = "";
                                             
-                                            // 1. Try explicit product ID
+                                            // 1. Try to fetch photo_path from database
                                             if ($prod_id > 0) {
+                                                $prod_data = db_query("SELECT photo_path FROM products WHERE product_id = ?", 'i', [$prod_id]);
+                                                if (!empty($prod_data) && !empty($prod_data[0]['photo_path'])) {
+                                                    $product_img = $prod_data[0]['photo_path'];
+                                                }
+                                            }
+                                            
+                                            // 2. Try explicit product ID (file-based fallback)
+                                            if (empty($product_img) && $prod_id > 0) {
                                                 $img_base = "../public/images/products/product_" . $prod_id;
                                                 if (file_exists($img_base . ".jpg")) {
                                                     $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
@@ -203,7 +211,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 }
                                             }
                                             
-                                            // 2. Fallback based on category/service_type for Service Orders
+                                            // 3. Fallback based on category/service_type for Service Orders
                                             if (empty($product_img)) {
                                                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
                                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {

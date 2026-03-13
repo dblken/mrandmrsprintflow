@@ -220,8 +220,16 @@ require_once __DIR__ . '/../includes/header.php';
                             $prod_id = (int)($order['first_product_id'] ?? 0);
                             $product_img = "";
                             
-                            // Check explicit product ID image
+                            // 1. Try to fetch photo_path from database
                             if (!$show_design && $prod_id > 0) {
+                                $prod_data = db_query("SELECT photo_path FROM products WHERE product_id = ?", 'i', [$prod_id]);
+                                if (!empty($prod_data) && !empty($prod_data[0]['photo_path'])) {
+                                    $product_img = $prod_data[0]['photo_path'];
+                                }
+                            }
+                            
+                            // 2. Check explicit product ID image (file-based fallback)
+                            if (!$show_design && empty($product_img) && $prod_id > 0) {
                                 $img_base = "../public/images/products/product_" . $prod_id;
                                 if (file_exists($img_base . ".jpg")) {
                                     $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
@@ -230,7 +238,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 }
                             }
 
-                            // Fallback based on category/service_type for Service Orders without specific product
+                            // 3. Fallback based on category/service_type for Service Orders without specific product
                             if (!$show_design && empty($product_img)) {
                                 $cat_lower = strtolower($service_category ?: $display_name);
                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {

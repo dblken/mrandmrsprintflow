@@ -43,7 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
 
     if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
         $error = 'All required fields must be filled in';
-    } elseif (strlen($password) < 8) {
+    } elseif (!empty($birthday)) {
+        $bday_date = new DateTime($birthday);
+        $today = new DateTime();
+        $age = $today->diff($bday_date)->y;
+        if ($bday_date > $today) {
+            $error = 'Birthday cannot be a future date';
+        } elseif ($age < 13) {
+            $error = 'User must be at least 13 years old';
+        }
+    }
+
+    if (!$error && strlen($password) < 8) {
         $error = 'Password must be at least 8 characters';
     } elseif ($role !== 'Admin' && empty($branch_id)) {
         $error = 'Please assign a branch for this role';
@@ -136,6 +147,8 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
 $manager_created = $_SESSION['cm_success'] ?? '';
 unset($_SESSION['cm_success']);
 
+$max_birthday = date('Y-m-d', strtotime('-13 years'));
+
 $page_title = 'User & Staff Management - Admin';
 ?>
 <!DOCTYPE html>
@@ -191,6 +204,25 @@ $page_title = 'User & Staff Management - Admin';
         .mf-alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
         .mf-alert.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
         .mf-alert.err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+        
+        /* Validation States */
+        .mf-group.is-invalid input, .mf-group.is-invalid select, .mf-group.is-invalid textarea {
+            border-color: #ef4444 !important;
+            background-color: #fff9f9 !important;
+        }
+        .mf-group.is-valid input, .mf-group.is-valid select, .mf-group.is-valid textarea {
+            border-color: #10b981 !important;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 11px;
+            margin-top: 4px;
+            display: none;
+            font-weight: 500;
+        }
+        .mf-group.is-invalid .error-message {
+            display: block;
+        }
         @media(max-width:520px) { .mf-row { grid-template-columns:1fr; } }
 
         /* Create-user modal */
@@ -404,7 +436,8 @@ $page_title = 'User & Staff Management - Admin';
 
             <div class="form-group">
                 <label>Birthday <span style="color:#ef4444">*</span></label>
-                <input type="date" name="birthday" id="um-birthday" required>
+                <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
+                <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
                 <p class="form-hint">Used to generate the default password.</p>
             </div>
 
@@ -523,6 +556,38 @@ $page_title = 'User & Staff Management - Admin';
 
     if (emailInput) emailInput.addEventListener('input', buildDefaultPassword);
     if (bdayInput)  bdayInput.addEventListener('change', buildDefaultPassword);
+
+    // Birthday validation for creation
+    if (bdayInput) {
+        bdayInput.addEventListener('change', function() {
+            var val = this.value;
+            var errDiv = document.getElementById('um-birthday-error');
+            var submitBtn = backdrop.querySelector('.modal-btn-submit');
+            if (!val) return;
+            
+            var bday = new Date(val);
+            var today = new Date();
+            var age = today.getFullYear() - bday.getFullYear();
+            var m = today.getMonth() - bday.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
+            
+            if (bday > today) {
+                errDiv.textContent = "Cannot be a future date.";
+                errDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                this.classList.add('is-invalid');
+            } else if (age < 13) {
+                errDiv.textContent = "Must be at least 13 years old.";
+                errDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                this.classList.add('is-invalid');
+            } else {
+                errDiv.style.display = 'none';
+                submitBtn.disabled = false;
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
 })();
 </script>
 
@@ -540,7 +605,7 @@ $page_title = 'User & Staff Management - Admin';
             Loading...
         </div>
 
-        <div x-show="!viewModal.loading && viewModal.user">
+        <template x-if="viewModal.user">
             <div class="modal-bdy">
                 <!-- Alerts -->
                 <div x-show="viewModal.error" class="mf-alert err" x-text="viewModal.error"></div>
@@ -549,17 +614,19 @@ $page_title = 'User & Staff Management - Admin';
                 <form @submit.prevent="saveUserChanges">
                     <!-- Row 1: First, Middle, Last Name -->
                     <div class="mf-row" style="grid-template-columns:1fr 1fr 1fr;">
-                        <div class="mf-group">
+                        <div class="mf-group" :class="{'is-invalid': errors.first_name, 'is-valid': viewModal.user.first_name && !errors.first_name}">
                             <label>First Name *</label>
-                            <input type="text" x-model="viewModal.user.first_name" required>
+                            <input type="text" x-model="viewModal.user.first_name" @input="validateField('first_name')" required>
+                            <div class="error-message" x-text="errors.first_name"></div>
                         </div>
-                        <div class="mf-group">
-                            <label>Middle Name</label>
+                        <div class="mf-group" :class="{'is-valid': viewModal.user.middle_name}">
+                            <label>Middle Name (Optional)</label>
                             <input type="text" x-model="viewModal.user.middle_name">
                         </div>
-                        <div class="mf-group">
+                        <div class="mf-group" :class="{'is-invalid': errors.last_name, 'is-valid': viewModal.user.last_name && !errors.last_name}">
                             <label>Last Name *</label>
-                            <input type="text" x-model="viewModal.user.last_name" required>
+                            <input type="text" x-model="viewModal.user.last_name" @input="validateField('last_name')" required>
+                            <div class="error-message" x-text="errors.last_name"></div>
                         </div>
                     </div>
 
@@ -569,17 +636,19 @@ $page_title = 'User & Staff Management - Admin';
                             <label>Email Address</label>
                             <input type="email" :value="viewModal.user.email" disabled>
                         </div>
-                        <div class="mf-group">
-                            <label>Contact Number</label>
-                            <input type="text" x-model="viewModal.user.contact_number" placeholder="e.g. 09XX-XXX-XXXX">
+                        <div class="mf-group" :class="{'is-invalid': errors.contact_number, 'is-valid': viewModal.user.contact_number && !errors.contact_number}">
+                            <label>Contact Number *</label>
+                            <input type="text" x-model="viewModal.user.contact_number" @input="validateField('contact_number')" placeholder="e.g. 09171234567" required>
+                            <div class="error-message" x-text="errors.contact_number"></div>
                         </div>
                     </div>
 
                     <!-- Row 3: DOB + Gender -->
                     <div class="mf-row">
-                        <div class="mf-group">
-                            <label>Date of Birth</label>
-                            <input type="date" x-model="viewModal.user.dob">
+                        <div class="mf-group" :class="{'is-invalid': errors.dob, 'is-valid': viewModal.user.dob && !errors.dob}">
+                            <label>Date of Birth *</label>
+                            <input type="date" x-model="viewModal.user.dob" @change="validateField('dob')" required max="<?php echo $max_birthday; ?>">
+                            <div class="error-message" x-text="errors.dob"></div>
                         </div>
                         <div class="mf-group">
                             <label>Gender</label>
@@ -594,13 +663,16 @@ $page_title = 'User & Staff Management - Admin';
 
                     <!-- Row 4: Address (full width) -->
                     <div class="mf-row">
-                        <div class="mf-group mf-full">
-                            <label>Address</label>
-                            <textarea x-model="viewModal.user.address" rows="2" placeholder="Street, City, Province"></textarea>
+                        <div class="mf-group mf-full" :class="{'is-invalid': errors.address, 'is-valid': viewModal.user.address && !errors.address}">
+                            <label>Address *</label>
+                            <textarea x-model="viewModal.user.address" @input="validateField('address')" rows="2" placeholder="Street, City, Province" required></textarea>
+                            <div class="error-message" x-text="errors.address"></div>
                         </div>
                     </div>
 
                     <hr class="mf-divider">
+
+                    <p style="font-size: 11px; color: #6b7280; font-style: italic; margin-bottom: 12px;">* Please fill out all required fields marked with an asterisk.</p>
 
                     <!-- Row 5: Role + Branch -->
                     <div class="mf-row">
@@ -644,11 +716,11 @@ $page_title = 'User & Staff Management - Admin';
 
                     <div class="mf-footer">
                         <button type="button" @click="viewModal.isOpen = false" class="mf-btn-cancel">Cancel</button>
-                        <button type="submit" class="mf-btn-save" :disabled="viewModal.saving" x-text="viewModal.saving ? 'Saving...' : 'Save Changes'"></button>
+                        <button type="submit" class="mf-btn-save" :disabled="viewModal.saving || !isFormValid" x-text="viewModal.saving ? 'Saving...' : 'Save Changes'"></button>
                     </div>
                 </form>
             </div>
-        </div>
+        </template>
     </div>
 </div>
 
@@ -657,11 +729,84 @@ function userManagement() {
     return {
         viewModal: {
             isOpen: false,
-            loading: false,
-            saving: false,
             error: '',
             success: '',
             user: null
+        },
+        errors: {
+            first_name: '',
+            last_name: '',
+            contact_number: '',
+            address: '',
+            dob: ''
+        },
+
+        get isFormValid() {
+            if (!this.viewModal.user) return false;
+            return this.viewModal.user.first_name && 
+                   this.viewModal.user.last_name && 
+                   this.viewModal.user.contact_number && 
+                   this.viewModal.user.address && 
+                   this.viewModal.user.dob &&
+                   !this.errors.first_name && 
+                   !this.errors.last_name && 
+                   !this.errors.contact_number && 
+                   !this.errors.address &&
+                   !this.errors.dob;
+        },
+
+        validateField(id) {
+            if (!this.viewModal.user) return;
+            let val = this.viewModal.user[id] || '';
+            
+            // Auto formatting for names
+            if (id === 'first_name' || id === 'last_name') {
+                if (val.startsWith(' ')) val = val.trimStart();
+                if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
+                this.viewModal.user[id] = val;
+            }
+
+            if (val.startsWith(' ')) {
+                this.viewModal.user[id] = val.trimStart();
+                val = this.viewModal.user[id];
+            }
+
+            const trimVal = val.trim();
+
+            if (id === 'first_name' || id === 'last_name') {
+                if (!trimVal) this.errors[id] = "Required.";
+                else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(trimVal)) this.errors[id] = "Letters only.";
+                else if (trimVal.length < 2 || trimVal.length > 50) this.errors[id] = "2-50 chars.";
+                else this.errors[id] = '';
+            }
+            else if (id === 'contact_number') {
+                if (!trimVal) this.errors[id] = "Required.";
+                else if (!/^\d+$/.test(trimVal)) this.errors[id] = "Digits only.";
+                else if (!trimVal.startsWith('09')) this.errors[id] = "Must start with 09.";
+                else if (trimVal.length !== 11) this.errors[id] = "Must be 11 digits.";
+                else this.errors[id] = '';
+            }
+            else if (id === 'address') {
+                if (!trimVal) this.errors[id] = "Required.";
+                else if (trimVal.length < 5) this.errors[id] = "Min 5 chars.";
+                else if (trimVal.length > 150) this.errors[id] = "Max 150 chars.";
+                else this.errors[id] = '';
+            }
+            else if (id === 'dob') {
+                if (!val) {
+                    this.errors.dob = "Required.";
+                    return;
+                }
+                const bday = new Date(val);
+                const today = new Date();
+                let age = today.getFullYear() - bday.getFullYear();
+                const m = today.getMonth() - bday.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
+                
+                if (bday > today) this.errors.dob = "Cannot be future.";
+                else if (age < 13) this.errors.dob = "Min 13 years old.";
+                else this.errors.dob = '';
+            }
         },
         
         async viewUser(userId) {

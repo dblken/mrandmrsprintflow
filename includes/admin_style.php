@@ -1,13 +1,13 @@
-<?php 
+<?php
+// Favicon for admin/staff/manager pages
 require_once __DIR__ . '/shop_config.php';
-$ver = time();
+if (!empty($shop_logo_url)) {
+    echo '<link rel="icon" type="image/png" href="' . htmlspecialchars($shop_logo_url) . '?t=' . time() . '">';
+    echo '<link rel="apple-touch-icon" href="' . htmlspecialchars($shop_logo_url) . '?t=' . time() . '">';
+} else {
+    echo '<link rel="icon" type="image/png" href="/printflow/public/assets/images/favicon.png">';
+}
 ?>
-<!-- Favicon / Shop Icon -->
-<?php if (!empty($shop_logo_url)): ?>
-    <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
-    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
-<?php endif; ?>
-
 <style>
     /* Admin White Theme - Consistent Clean Design */
     :root {

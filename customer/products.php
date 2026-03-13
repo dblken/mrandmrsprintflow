@@ -94,12 +94,18 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="ct-product-grid">
                 <?php foreach ($products as $product): 
-                    $img_path = "../public/images/products/product_" . $product['product_id'];
+                    // Try to use photo_path from database first (new method)
                     $display_img = "";
-                    if (file_exists($img_path . ".jpg")) {
-                        $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".jpg";
-                    } elseif (file_exists($img_path . ".png")) {
-                        $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".png";
+                    if (!empty($product['photo_path'])) {
+                        $display_img = $product['photo_path'];
+                    } else {
+                        // Fall back to old method of checking public/images/products directory
+                        $img_path = "../public/images/products/product_" . $product['product_id'];
+                        if (file_exists($img_path . ".jpg")) {
+                            $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".jpg";
+                        } elseif (file_exists($img_path . ".png")) {
+                            $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".png";
+                        }
                     }
                     if (!$display_img) $display_img = "/printflow/public/assets/images/placeholder.png";
 

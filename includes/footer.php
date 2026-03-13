@@ -98,7 +98,7 @@ function _ft_detect_social(string $url): array {
                     <h3 class="ft-title">Quick Links</h3>
                     <ul class="ft-list">
                         <li><a href="<?php echo $url_products; ?>">Products</a></li>
-                        <li><a href="<?php echo $url_faq; ?>">FAQ</a></li>
+
                         <?php if (!$is_logged_in): ?>
                         <li><a href="#" data-auth-modal="login">Login</a></li>
                         <li><a href="#" data-auth-modal="register">Register</a></li>
@@ -182,47 +182,434 @@ function _ft_detect_social(string $url): array {
     <?php if (!is_admin() && !is_staff()): ?>
     <?php if (empty($use_landing_css)): ?>
     <style>
-    #lp-scroll-top{position:fixed;bottom:2rem;right:2rem;width:2.75rem;height:2.75rem;background:#00232b;color:#53C5E0;border:1px solid rgba(83,197,224,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:40;transition:all .3s;cursor:pointer;text-decoration:none;}
-    #lp-scroll-top svg{width:1.25rem;height:1.25rem;}
-    #lp-scroll-top:hover{background:#32a1c4;color:#fff;box-shadow:0 0 18px rgba(50,161,196,0.45);}
-    #lp-scroll-top.lp-scroll-top-hidden{opacity:0;transform:translateY(20px);pointer-events:none;}
     </style>
     <?php endif; ?>
-    <a href="#" class="lp-scroll-top lp-scroll-top-hidden" id="lp-scroll-top" aria-label="Scroll to top">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+
+    <!-- =========== SCROLL TO TOP + CHATBOT WIDGET (SIDE BY SIDE) =========== -->
+    <!-- Scroll to Top Button (LEFT) -->
+    <a href="#" class="ft-bubble ft-bubble-left ft-bubble-hidden" id="lp-scroll-top" aria-label="Scroll to top" title="Scroll to top">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width: 28px; height: 28px;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
     </a>
+
+    <!-- Chatbot Button (RIGHT) -->
+    <div id="chatbot-btn" class="ft-bubble ft-bubble-right" title="Chat with us">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width: 32px; height: 32px; color: #00232b; transition: all 0.3s ease;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    </div>
+
+    <!-- Chatbot Window -->
+    <div id="chatbot-window" class="lp-chatbot-hidden" style="position: fixed; bottom: 100px; right: 20px; width: 380px; max-width: calc(100vw - 40px); max-height: 85vh; background: white; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 9998; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; opacity: 0; transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;">
+        <!-- Header -->
+        <div style="padding: 18px; background: linear-gradient(135deg, #00232b, #1a5a6f); color: white; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,35,43,0.3); flex-shrink: 0;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px;">PrintFlow Assistant</h3>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.8);">Always online</p>
+                </div>
+            </div>
+            <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; padding: 0; width: 28px; height: 28px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.7;" type="button" title="Close chat" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+        </div>
+
+        <!-- Chat Content Only -->
+
+        <!-- Chat Content -->
+        <div id="chatbot-content-chat" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+            <!-- Messages Area with Custom Scrollbar -->
+            <div id="chatbot-messages" style="flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(to bottom, white, #f8fafb); position: relative;">
+                <style>
+                    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+                    @keyframes slideInLeft { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+                    @keyframes slideInRight { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+                    @keyframes typing { 0%, 60%, 100% { opacity: 0.5; } 30% { opacity: 1; } }
+                    
+                    #chatbot-messages::-webkit-scrollbar { width: 6px; }
+                    #chatbot-messages::-webkit-scrollbar-track { background: linear-gradient(180deg, rgba(83,197,224,0.1), rgba(83,197,224,0.05)); border-radius: 10px; }
+                    #chatbot-messages::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #53C5E0, #32a1c4); border-radius: 10px; box-shadow: inset 0 0 6px rgba(0,0,0,0.1); }
+                    #chatbot-messages::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #32a1c4, #1a7a94); }
+                    #chatbot-messages { scrollbar-color: #53C5E0 rgba(83,197,224,0.1); scrollbar-width: thin; }
+                    
+                    .cb-msg-bot { animation: slideInLeft 0.3s ease-out; }
+                    .cb-msg-user { animation: slideInRight 0.3s ease-out; }
+                    .cb-typing { animation: typing 1.4s ease-in-out infinite; }
+                </style>
+                <div style="display: flex; justify-content: flex-start;">
+                    <div style="background: #f0f0f0; color: #333; padding: 14px 16px; border-radius: 14px 14px 14px 4px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(0,0,0,0.05); animation: slideInLeft 0.3s ease-out;">Hello! How can we help you today?</div>
+                </div>
+            </div>
+
+            <!-- Questions Area -->
+            <div id="chatbot-questions" style="padding: 12px 16px; border-top: 1px solid #e5e5e5; overflow-y: auto; max-height: 140px; background: #f9f9fb;">
+                <style>
+                    #chatbot-questions::-webkit-scrollbar { width: 5px; }
+                    #chatbot-questions::-webkit-scrollbar-track { background: rgba(83,197,224,0.08); border-radius: 10px; }
+                    #chatbot-questions::-webkit-scrollbar-thumb { background: #b0d4e3; border-radius: 10px; }
+                    #chatbot-questions::-webkit-scrollbar-thumb:hover { background: #8ec5d5; }
+                    #chatbot-questions { scrollbar-width: thin; scrollbar-color: #b0d4e3 rgba(83,197,224,0.08); }
+                </style>
+                <!-- Questions loaded here -->
+            </div>
+
+            <!-- Input Area -->
+            <div style="padding: 12px 16px 16px 16px; border-top: 1px solid #e5e5e5; background: white; border-radius: 0 0 14px 14px; display: flex; gap: 8px; flex-shrink: 0;">
+                <input id="chatbot-input" type="text" placeholder="Type your question..." style="flex: 1; padding: 12px 14px; border: 2px solid #e5e5e5; border-radius: 8px; font-size: 14px; outline: none; transition: all 0.3s ease; font-family: inherit; background: white;" />
+                <button id="chatbot-send" style="padding: 12px 16px; background: linear-gradient(135deg, #53C5E0, #32a1c4); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; min-width: 60px; box-shadow: 0 2px 8px rgba(83,197,224,0.2); font-size: 13px;" type="button" title="Send message">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 
+    <style>
+    .ft-bubble {
+        position: fixed;
+        bottom: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        cursor: pointer;
+        text-decoration: none;
+        box-sizing: border-box;
+    }
+    .ft-bubble-left { 
+        left: 20px; 
+        background: #00232b; 
+        color: #53C5E0; 
+        border: 2px solid rgba(83,197,224,0.3);
+        box-shadow: 0 4px 12px rgba(0,35,43,0.4);
+    }
+    .ft-bubble-right { 
+        right: 20px; 
+        background: #53C5E0; 
+        color: #00232b; 
+        border: none;
+        box-shadow: 0 4px 12px rgba(83,197,224,0.3);
+    }
+    
+    .ft-bubble-hidden { 
+        opacity: 0 !important; 
+        transform: translateY(20px) scale(0.8) !important; 
+        pointer-events: none !important; 
+    }
+    .ft-bubble-visible { 
+        opacity: 1 !important; 
+        transform: translateY(0) scale(1) !important; 
+        pointer-events: auto !important; 
+    }
+
+    .lp-chatbot-hidden { display: none !important; }
+    .lp-chatbot-visible { opacity: 1 !important; transform: translateY(0) scale(1) !important; pointer-events: auto !important; }
+    
+    #chatbot-btn:hover { background: #32a1c4; box-shadow: 0 8px 24px rgba(50,161,196,0.5); transform: scale(1.1) rotate(5deg); }
+    #chatbot-btn:active { transform: scale(0.95); }
+    
+    #lp-scroll-top:hover { border-color: #53C5E0; color: white; background: #1a5a6f; box-shadow: 0 8px 24px rgba(83,197,224,0.4); transform: scale(1.1) rotate(-5deg); }
+    #lp-scroll-top:active { transform: scale(0.95); }
+    
+    #chatbot-input:focus { border-color: #53C5E0; box-shadow: 0 0 0 3px rgba(83,197,224,0.15); background: #f8fcfd; }
+    #chatbot-input::placeholder { color: #999; }
+    
+    #chatbot-send:hover { box-shadow: 0 4px 16px rgba(83,197,224,0.4); transform: translateY(-2px); }
+    #chatbot-send:active { transform: translateY(0) scale(0.98); }
+
+    #chatbot-tabs button:hover { background: #f9f9f9; }
+    #chatbot-tabs button { transition: all 0.2s ease; }
+    </style>
+
+    <!-- Chatbot Handler Script with React-like Features -->
     <script>
     (function() {
-        var isLanding = document.documentElement.classList.contains('lp-page');
-        var header = document.getElementById('main-header');
-        var hint = document.getElementById('lp-scroll-hint');
-        var scrollTopBtn = document.getElementById('lp-scroll-top');
-        var scrollTopShowAt = 200;
-        function update() {
-            var y = window.scrollY;
-            if (isLanding && header && header.classList.contains('lp-hero-nav')) {
-                if (y > 120) header.classList.add('lp-header-hidden');
-                else if (y <= 50) header.classList.remove('lp-header-hidden');
-            }
-            if (hint) {
-                if (y > 80) hint.classList.add('lp-scroll-hint-hidden');
-                else hint.classList.remove('lp-scroll-hint-hidden');
-            }
-            if (scrollTopBtn) {
-                if (y > scrollTopShowAt) scrollTopBtn.classList.remove('lp-scroll-top-hidden');
-                else scrollTopBtn.classList.add('lp-scroll-top-hidden');
+        var btn = document.getElementById('chatbot-btn');
+        var win = document.getElementById('chatbot-window');
+        var close = document.getElementById('chatbot-close');
+        var msgs = document.getElementById('chatbot-messages');
+        var ques = document.getElementById('chatbot-questions');
+        var input = document.getElementById('chatbot-input');
+        var sendBtn = document.getElementById('chatbot-send');
+        var scrollTop = document.getElementById('lp-scroll-top');
+        var loaded = false;
+        var isOpen = false;
+
+        // Initialize scroll button visibility
+        function updateScrollVisibility() {
+            if (!scrollTop) return;
+            if (window.scrollY > 200) {
+                scrollTop.classList.remove('ft-bubble-hidden');
+            } else {
+                scrollTop.classList.add('ft-bubble-hidden');
             }
         }
-        if (scrollTopBtn) {
-            scrollTopBtn.addEventListener('click', function(e) {
+
+        // Run on page load
+        setTimeout(updateScrollVisibility, 100);
+
+        // Run on scroll
+        window.addEventListener('scroll', updateScrollVisibility, { passive: true });
+
+        // Scroll to top with smooth animation
+        if (scrollTop) {
+            scrollTop.addEventListener('click', function(e) {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         }
-        window.addEventListener('scroll', update, { passive: true });
-        update();
+
+        // Toggle chatbot on button click
+        var checkInterval = null;
+        btn.addEventListener('click', function() {
+            isOpen = !isOpen;
+            if (isOpen) {
+                win.classList.remove('lp-chatbot-hidden');
+                setTimeout(() => win.classList.add('lp-chatbot-visible'), 10);
+                if (!loaded) loadFAQs();
+                setTimeout(() => input.focus(), 300);
+                
+                // Real-time reply polling
+                checkReplies();
+                checkInterval = setInterval(checkReplies, 10000); // Check every 10 seconds
+            } else {
+                win.classList.remove('lp-chatbot-visible');
+                setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
+                if (checkInterval) clearInterval(checkInterval);
+            }
+        });
+
+        // Close chatbot
+        close.addEventListener('click', function() {
+            isOpen = false;
+            win.classList.remove('lp-chatbot-visible');
+            setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
+            if (checkInterval) clearInterval(checkInterval);
+        });
+
+        // Load FAQs and populate questions
+        function loadFAQs() {
+            loaded = true;
+            Promise.all([
+                fetch('/printflow/public/api/get_faqs.php').then(r => r.json()),
+                fetch('/printflow/public/api/get_chatbot_info.php').then(r => r.json())
+            ])
+            .then(([faqData, infoData]) => {
+                var allQuestions = [];
+
+                // Add FAQs
+                if (faqData.success && faqData.data && faqData.data.length > 0) {
+                    allQuestions = allQuestions.concat(faqData.data.map(faq => ({
+                        text: faq.question,
+                        answer: faq.answer
+                    })));
+                }
+
+                // Add Services
+                if (infoData.success && infoData.data && infoData.data.services && infoData.data.services.length > 0) {
+                    allQuestions = allQuestions.concat(infoData.data.services.map(service => ({
+                        text: service,
+                        answer: 'We offer high-quality ' + service + ' printing services. Contact us for more details and pricing.'
+                    })));
+                }
+
+                // Add Contact Info as question
+                if (infoData.success && infoData.data) {
+                    var d = infoData.data;
+                    var contactAnswer = 'Contact Us\n\n';
+                    if (d.email) contactAnswer += 'Email: ' + d.email + '\n';
+                    if (d.phone) contactAnswer += 'Phone: ' + d.phone;
+                    
+                    allQuestions.push({
+                        text: 'Contact Information',
+                        answer: contactAnswer.trim()
+                    });
+
+                    // Add Branches as question
+                    if (d.branches && d.branches.length > 0) {
+                        var branchesAnswer = 'Our Branches\n\n';
+                        branchesAnswer += d.branches.map(b => b.name + '\n' + b.address).join('\n\n');
+                        
+                        allQuestions.push({
+                            text: 'Our Branches',
+                            answer: branchesAnswer.trim()
+                        });
+                    }
+
+                    // Add Hours as question
+                    if (d.hours) {
+                        allQuestions.push({
+                            text: 'Business Hours',
+                            answer: 'Business Hours\n\n' + d.hours
+                        });
+                    }
+                }
+
+                // Render all questions
+                if (allQuestions.length > 0) {
+                    ques.innerHTML = allQuestions.map((item, idx) => 
+                        '<button style="display: block; width: 100%; text-align: left; padding: 12px 14px; margin: 6px 0; background: white; border: 1px solid #d5e8f0; border-radius: 8px; cursor: pointer; font-size: 13px; color: #333; transition: all 0.2s ease; font-weight: 500; line-height: 1.4; animation: slideInLeft 0.3s ease-out ' + (idx * 0.05) + 's both;" data-q="' + escapeHtml(item.text) + '" data-a="' + escapeHtml(item.answer) + '">' + escapeHtml(item.text) + '</button>'
+                    ).join('');
+                    
+                    ques.querySelectorAll('button').forEach(b => {
+                        b.addEventListener('click', function() {
+                            handleQuestion(this.dataset.q, this.dataset.a);
+                            this.style.background = '#e8f4f8';
+                            this.style.borderColor = '#53C5E0';
+                            this.style.transform = 'scale(0.98)';
+                            setTimeout(() => { this.style.transform = 'scale(1)'; }, 100);
+                        });
+                        b.addEventListener('mouseover', function() {
+                            if (this.style.background !== '#e8f4f8') {
+                                this.style.background = '#f0f0f0';
+                                this.style.transform = 'translateX(4px)';
+                            }
+                        });
+                        b.addEventListener('mouseout', function() {
+                            if (this.style.background === '#f0f0f0') {
+                                this.style.background = 'white';
+                                this.style.transform = 'translateX(0)';
+                            }
+                        });
+                    });
+                }
+            })
+            .catch(e => console.error('Load error:', e));
+        }
+
+        // Handle question click or manual input
+        function handleQuestion(question, answer) {
+            // User message with animation
+            var um = document.createElement('div');
+            um.className = 'cb-msg-user';
+            um.style.cssText = 'display: flex; justify-content: flex-end; gap: 8px;';
+            um.innerHTML = '<div style="background: #53C5E0; color: white; padding: 12px 14px; border-radius: 14px 4px 14px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(83,197,224,0.25); word-wrap: break-word;">' + escapeHtml(question) + '</div>';
+            msgs.appendChild(um);
+            input.value = '';
+            msgs.scrollTop = msgs.scrollHeight;
+            
+            // Typing indicator
+            var typing = document.createElement('div');
+            typing.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+            typing.innerHTML = '<div style="background: #f0f0f0; color: #999; padding: 12px 14px; border-radius: 14px 14px 4px 14px; display: flex; gap: 4px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.2s;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.4s;"></span></div>';
+            msgs.appendChild(typing);
+            msgs.scrollTop = msgs.scrollHeight;
+            
+            // Bot response with delay
+            setTimeout(() => {
+                typing.remove();
+                var bm = document.createElement('div');
+                bm.className = 'cb-msg-bot';
+                bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+                bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">' + escapeHtml(answer) + '</div>';
+                msgs.appendChild(bm);
+                msgs.scrollTop = msgs.scrollHeight;
+            }, 1000);
+        }
+
+        // Send button and input Enter key
+        sendBtn.addEventListener('click', function() {
+            if (input.value.trim()) {
+                var q = input.value.trim();
+                input.value = '';
+
+                // Show user message
+                var um = document.createElement('div');
+                um.className = 'cb-msg-user';
+                um.style.cssText = 'display: flex; justify-content: flex-end; gap: 8px;';
+                um.innerHTML = '<div style="background: #53C5E0; color: white; padding: 12px 14px; border-radius: 14px 4px 14px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(83,197,224,0.25); word-wrap: break-word;">' + escapeHtml(q) + '</div>';
+                msgs.appendChild(um);
+                msgs.scrollTop = msgs.scrollHeight;
+
+                // Typing indicator
+                var typing = document.createElement('div');
+                typing.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+                typing.innerHTML = '<div style="background: #f0f0f0; color: #999; padding: 12px 14px; border-radius: 14px 14px 4px 14px; display: flex; gap: 4px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.2s;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.4s;"></span></div>';
+                msgs.appendChild(typing);
+                msgs.scrollTop = msgs.scrollHeight;
+
+                // Send to API
+                fetch('/printflow/public/api/chatbot_inquiry.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: q, customer_name: 'Guest' })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    typing.remove();
+                    var bm = document.createElement('div');
+                    bm.className = 'cb-msg-bot';
+                    bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+                    bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.</div>';
+                    msgs.appendChild(bm);
+                    msgs.scrollTop = msgs.scrollHeight;
+
+                    // Save inquiry ID for checking replies later
+                    if (data.success && data.inquiry_id) {
+                        var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
+                        ids.push(data.inquiry_id);
+                        localStorage.setItem('chatbot_inquiry_ids', JSON.stringify(ids));
+                    }
+                })
+                .catch(function() {
+                    typing.remove();
+                    var bm = document.createElement('div');
+                    bm.className = 'cb-msg-bot';
+                    bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+                    bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">Thanks for your question! Our team will get back to you shortly.</div>';
+                    msgs.appendChild(bm);
+                    msgs.scrollTop = msgs.scrollHeight;
+                });
+            }
+        });
+
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && input.value.trim()) {
+                sendBtn.click();
+            }
+        });
+
+        input.addEventListener('input', function() {
+            if (this.value.trim()) {
+                sendBtn.style.transform = 'scale(1)';
+            }
+        });
+
+        // Check for replies to previous inquiries when chatbot opens
+        function checkReplies() {
+            var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
+            if (ids.length === 0) return;
+            
+            ids.forEach(function(id) {
+                fetch('/printflow/public/api/chatbot_inquiry.php?id=' + id)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.data && data.data.status === 'answered' && data.data.admin_reply) {
+                        // Check if we already showed this reply
+                        var shown = JSON.parse(localStorage.getItem('chatbot_shown_replies') || '[]');
+                        if (shown.indexOf(id) === -1) {
+                            var bm = document.createElement('div');
+                            bm.className = 'cb-msg-bot';
+                            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+                            bm.innerHTML = '<div style="background: linear-gradient(135deg, #e8f4f8, #f0f0f0); color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word; border-left: 3px solid #53C5E0;"><div style="font-size: 11px; font-weight: 700; color: #53C5E0; margin-bottom: 4px;">Reply to: ' + escapeHtml(data.data.question).substring(0, 50) + '</div>' + escapeHtml(data.data.admin_reply) + '</div>';
+                            msgs.appendChild(bm);
+                            msgs.scrollTop = msgs.scrollHeight;
+                            shown.push(id);
+                            localStorage.setItem('chatbot_shown_replies', JSON.stringify(shown));
+                        }
+                    }
+                })
+                .catch(function() {});
+            });
+        }
+
+        // Initial check for replies on load (if window starts open - though it defaults to hidden)
+        setTimeout(checkReplies, 1000);
+
+        function escapeHtml(t) {
+            var d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
     })();
     </script>
 
