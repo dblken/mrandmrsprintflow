@@ -313,8 +313,8 @@ try {
             background: #f8fafc;
         }
         
-        .pos-item-details { flex: 1; padding-right: 12px; }
-        .pos-item-name { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px; line-height: 1.2; }
+        .pos-item-details { flex: 1; padding-right: 12px; min-width: 0; }
+        .pos-item-name { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px; line-height: 1.2; word-wrap: break-word; overflow-wrap: break-word; }
         .pos-item-price { font-size: 12px; color: #64748b; }
         
         .pos-item-controls {
@@ -534,10 +534,10 @@ try {
 
         /* Price Input Modal */
         #price-modal-overlay {
-            display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;
+            display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center;
         }
         .price-modal {
-            background: #fff; width: 320px; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            background: #fff; width: 320px; border-radius: 20px; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); color: #1e293b; border: 1px solid #e2e8f0;
         }
 
         /* Hide scrollbar for grid to look cleaner */
@@ -666,53 +666,53 @@ try {
 </div>
 
 <!-- POS Customization Modal -->
-<div id="custom-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:#ffffff; width:450px; border-radius:16px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); transform:translateY(0); transition:all 0.3s; margin:16px;">
-        <h3 id="cm-title" style="margin:0 0 16px 0; font-size:18px; font-weight:700; color:#1e293b;">Product Customization</h3>
+<div id="custom-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:450px; border-radius:20px; padding:28px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15); border:1px solid #e2e8f0; transform:translateY(0); transition:all 0.3s; margin:16px; color:#1e293b;">
+        <h3 id="cm-title" style="margin:0 0 20px 0; font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em;">Product Customization</h3>
         
-        <div id="cm-dynamic-fields" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px; max-height: 400px; overflow-y:auto; padding-right:8px;">
+        <div id="cm-dynamic-fields" style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px; max-height: 450px; overflow-y:auto; padding-right:8px;">
             <!-- Fields generated dynamically via JS -->
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #f1f5f9; padding-top:16px;">
-            <button onclick="closeCustomModal()" style="padding:10px 16px; border:1px solid #e2e8f0; background:#ffffff; border-radius:8px; cursor:pointer; font-weight:500; font-size:14px; color:#64748b; transition:all 0.2s;">Cancel</button>
-            <button onclick="confirmCustomization()" style="padding:10px 24px; border:none; background:#4f46e5; color:white; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px; box-shadow:0 4px 6px -1px rgba(79,70,229,0.2); transition:all 0.2s;">Add to Cart</button>
+        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #f1f5f9; padding-top:20px;">
+            <button onclick="closeCustomModal()" style="padding:12px 20px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; cursor:pointer; font-weight:600; font-size:14px; color:#64748b; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseout="this.style.background='#f8fafc';this.style.color='#64748b'">Cancel</button>
+            <button onclick="confirmCustomization()" style="padding:12px 28px; border:none; background:#4f46e5; color:white; border-radius:12px; cursor:pointer; font-weight:700; font-size:14px; box-shadow:0 10px 15px -3px rgba(79,70,229,0.3); transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)';this.style.background='#4338ca'" onmouseout="this.style.transform='translateY(0)';this.style.background='#4f46e5'">Add to Cart</button>
         </div>
     </div>
 </div>
 
 <!-- Modal for New Customer -->
-<div id="customer-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
-    <div style="background:#fff; width:400px; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-        <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-            <h3 style="margin:0;">Add Customer</h3>
-            <button onclick="closeCustomerModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+<div id="customer-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:999; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:400px; border-radius:20px; padding:28px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15); color:#1e293b; border:1px solid #e2e8f0;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:24px;">
+            <h3 style="margin:0; font-weight:800; color:#0f172a; font-size:20px; letter-spacing:-0.02em;">Add Customer</h3>
+            <button onclick="closeCustomerModal()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#94a3b8; padding:4px;" onmouseover="this.style.color='#1e293b'" onmouseout="this.style.color='#94a3b8'">&times;</button>
         </div>
-        <input type="text" id="nc-first" placeholder="First Name" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
-        <input type="text" id="nc-last" placeholder="Last Name" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
-        <input type="tel" id="nc-phone" placeholder="Phone Number" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px;">
-        <button onclick="saveCustomer()" id="nc-save-btn" style="width:100%; background:#4f46e5; color:white; padding:12px; border:none; border-radius:6px; font-weight:600; cursor:pointer;">Save Customer</button>
+        <input type="text" id="nc-first" placeholder="First Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
+        <input type="text" id="nc-last" placeholder="Last Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
+        <input type="tel" id="nc-phone" placeholder="Phone Number" style="width:100%; padding:14px; margin-bottom:24px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
+        <button onclick="saveCustomer()" id="nc-save-btn" style="width:100%; background:#4f46e5; color:white; padding:14px; border:none; border-radius:12px; font-weight:700; cursor:pointer; box-shadow:0 10px 15px -3px rgba(79,70,229,0.3); transition:all 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Save Customer</button>
     </div>
 </div>
 
 <!-- Modal for Custom Price -->
-<div id="price-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-    <div class="price-modal">
-        <h3 id="pm-title" style="margin:0 0 8px 0; font-size:18px;">Set Price</h3>
-        <div id="pm-name-group" style="margin-bottom: 20px; display:none;">
-            <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:6px;">Service Name</label>
-            <input type="text" id="pm-name-input" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;" placeholder="e.g. Custom Frame">
+<div id="price-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center;">
+    <div class="price-modal" style="border-radius:20px; border:1px solid #e2e8f0;">
+        <h3 id="pm-title" style="margin:0 0 12px 0; font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em;">Set Price</h3>
+        <div id="pm-name-group" style="margin-bottom: 24px; display:none;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.05em;">Service Name</label>
+            <input type="text" id="pm-name-input" style="width:100%; padding:14px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none;" placeholder="e.g. Custom Frame">
         </div>
-        <div style="margin-bottom:20px;">
-            <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:6px;">Negotiated Price</label>
+        <div style="margin-bottom:28px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.05em;">Negotiated Price</label>
             <div style="position: relative;">
-                <span style="position: absolute; left: 12px; top: 12px; font-weight: 600; color: #94a3b8;">₱</span>
-                <input type="number" id="pm-price-input" style="width:100%; padding:10px 10px 10px 28px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:18px;" placeholder="0.00" step="0.01">
+                <span style="position: absolute; left: 16px; top: 14px; font-weight: 700; color: #94a3b8;">₱</span>
+                <input type="number" id="pm-price-input" style="width:100%; padding:14px 14px 14px 32px; border:1px solid #e2e8f0; border-radius:12px; font-weight:800; font-size:24px; background:#f8fafc; color:#1e293b; outline:none;" placeholder="0.00" step="0.01">
             </div>
         </div>
-        <div style="display:flex; gap:10px;">
-            <button onclick="closePriceModal()" style="flex:1; padding:12px; border:none; border-radius:8px; background:#f1f5f9; color:#475569; font-weight:600; cursor:pointer;">Cancel</button>
-            <button onclick="confirmPrice()" style="flex:1; padding:12px; border:none; border-radius:8px; background:#4f46e5; color:white; font-weight:600; cursor:pointer;">Add Item</button>
+        <div style="display:flex; gap:12px;">
+            <button onclick="closePriceModal()" style="flex:1; padding:14px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseout="this.style.background='#f8fafc';this.style.color='#64748b'">Cancel</button>
+            <button onclick="confirmPrice()" style="flex:1; padding:14px; border:none; border-radius:12px; background:#4f46e5; color:white; font-weight:700; cursor:pointer; box-shadow:0 10px 15px -3px rgba(79,70,229,0.3); transition:all 0.2s;" onmouseover="this.style.background='#4338ca';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#4f46e5';this.style.transform='translateY(0)'">Add Item</button>
         </div>
     </div>
 </div>
@@ -904,7 +904,7 @@ function openCustomModal(product, requirements) {
     notesDiv.style.gap = '4px';
     notesDiv.innerHTML = `
         <label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">Special Instructions</label>
-        <textarea id="custom_notes" rows="2" placeholder="Any additional details..." style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; resize:none;"></textarea>
+        <textarea id="custom_notes" rows="2" placeholder="Any additional details..." style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; resize:vertical;"></textarea>
     `;
     container.appendChild(notesDiv);
     
@@ -1066,7 +1066,7 @@ function renderCart() {
                     if(val) parts.push(`${key}: ${val}`);
                 }
                 if (parts.length > 0) {
-                    customHtml = `<div style="font-size:11px; color:#64748b; margin-top:2px; line-height:1.2; word-break:break-word;">${parts.join(' | ')}</div>`;
+                    customHtml = `<div style="font-size:11px; color:#64748b; margin-top:2px; line-height:1.2; word-break:break-word; max-height: 48px; overflow-y: auto;">${parts.join(' | ')}</div>`;
                 }
             }
             

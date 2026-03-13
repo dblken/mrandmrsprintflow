@@ -193,8 +193,22 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         </label>
                         <?php endforeach; ?>
                     </div>
-                    <div class="mt-8 flex justify-end">
-                        <button type="button" onclick="nextStep(2)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                    <div class="mt-8 flex justify-end gap-4">
+                        <div id="step1-continue" class="flex flex-1 justify-end">
+                            <button type="button" onclick="nextStep(2)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                        </div>
+                        <div id="step1-final" class="hidden flex flex-1 justify-end gap-4">
+                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                                + Add to Cart
+                            </button>
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
+                                Review Your Order
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -261,9 +275,23 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             </div>
                         </div>
                     </div>
-                    <div class="mt-8 flex justify-between">
+                    <div class="mt-8 flex justify-between gap-4">
                         <button type="button" onclick="prevStep(1)" class="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl border-2 border-gray-200 hover:bg-gray-50 transition-all text-sm">Back</button>
-                        <button type="button" onclick="nextStep(3)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                        <div id="step2-continue" class="flex flex-1 justify-end">
+                            <button type="button" onclick="nextStep(3)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                        </div>
+                        <div id="step2-final" class="hidden flex flex-1 justify-end gap-4">
+                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                                + Add to Cart
+                            </button>
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
+                                Review Your Order
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -388,9 +416,15 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             <input type="number" name="quantity_signage" id="quantity_signage" min="1" value="1" class="w-48 mx-auto px-8 py-6 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-black font-black text-4xl text-center block" required>
                         </div>
                     </div>
-                    <div class="mt-8 flex justify-between">
+                    <div class="mt-8 flex justify-between gap-4">
                         <button type="button" onclick="prevStep(3)" class="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl border-2 border-gray-100 hover:bg-gray-50 transition-all">Back</button>
-                        <button type="button" onclick="nextStep(5)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                        <div id="step4-continue" class="flex flex-1 justify-end">
+                            <button type="button" onclick="nextStep(5)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
+                        </div>
+                        <div id="step4-final" class="hidden flex flex-1 justify-end gap-4">
+                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" class="px-8 py-3 bg-white text-black font-black border-2 border-black uppercase tracking-widest rounded-xl shadow-xl hover:bg-black hover:text-white transition-all text-sm flex-1 text-center">+ Add to Cart</button>
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" class="px-8 py-3 bg-black text-white font-black uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all text-sm flex-1 text-center">Review Your Order</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -486,9 +520,20 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             </div>
                         </div>
                     </div>
-                    <div class="mt-12 flex justify-between">
-                        <button type="button" onclick="prevStep(4)" class="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl border-2 border-gray-200 hover:bg-gray-50 transition-all text-sm">Back</button>
-                        <button type="button" onclick="prepareSummary()" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Review Order <span class="text-xl">→</span></button>
+                    <div class="mt-12 flex justify-between gap-4">
+                        <button type="button" onclick="prevStep(4)" class="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl border-2 border-gray-100 hover:bg-gray-50 transition-all text-sm">Back</button>
+                        <div class="flex gap-4 flex-1 justify-end">
+                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                                + Add to Cart
+                            </button>
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
+                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
+                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
+                                Review Your Order
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -555,21 +600,12 @@ function nextStep(step) {
     // Adjust target step bounds
     let target = step;
     
-    // Direct skips from Step 1 or 2
-    if(isTempPlate && currentStep === 1) {
-        submitReflectorizedOrder();
-        return;
-    } else if(isGatePass && currentStep === 2) {
-        submitReflectorizedOrder();
-        return;
-    } else if(isSignage && currentStep === 4) {
-        submitReflectorizedOrder();
-        return;
-    }
+    // Direct skips from Step 1 or 2 are now handled by showing final buttons instead of auto-submitting
     
     // For other products, if they hit the end of their logic
     if(target > 5) {
-        submitReflectorizedOrder();
+        // This case should ideally not be hit if buttons are swapped correctly
+        submitReflectorizedOrder('buy_now');
         return;
     }
     
@@ -579,6 +615,7 @@ function nextStep(step) {
     document.getElementById('step' + target).classList.remove('hidden');
     currentStep = target;
     updateProgress();
+    toggleSignageFields(); // Re-check buttons for the new step
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -810,6 +847,43 @@ function toggleSignageFields() {
         
         if(subdivisionNameInput) subdivisionNameInput.required = true;
     }
+
+    // Toggle Final Buttons based on product type and current step
+    const s1Continue = document.getElementById('step1-continue');
+    const s1Final = document.getElementById('step1-final');
+    if(s1Continue && s1Final) {
+        if(isTempPlate && currentStep === 1) {
+            s1Continue.classList.add('hidden');
+            s1Final.classList.remove('hidden');
+        } else {
+            s1Continue.classList.remove('hidden');
+            s1Final.classList.add('hidden');
+        }
+    }
+
+    const s2Continue = document.getElementById('step2-continue');
+    const s2Final = document.getElementById('step2-final');
+    if(s2Continue && s2Final) {
+        if(isGatePass && currentStep === 2) {
+            s2Continue.classList.add('hidden');
+            s2Final.classList.remove('hidden');
+        } else {
+            s2Continue.classList.remove('hidden');
+            s2Final.classList.add('hidden');
+        }
+    }
+
+    const s4Continue = document.getElementById('step4-continue');
+    const s4Final = document.getElementById('step4-final');
+    if(s4Continue && s4Final) {
+        if(isSignage && currentStep === 4) {
+            s4Continue.classList.add('hidden');
+            s4Final.classList.remove('hidden');
+        } else {
+            s4Continue.classList.remove('hidden');
+            s4Final.classList.add('hidden');
+        }
+    }
 }
 
 function toggleNumberingField() {
@@ -852,7 +926,7 @@ function updateColorText(id, val) {
     document.getElementById(id).value = val.toUpperCase();
 }
 
-function submitReflectorizedOrder() {
+function submitReflectorizedOrder(action) {
     const form = document.getElementById('reflectorizedForm');
     const type = document.querySelector('input[name="product_type"]:checked')?.value || '';
     const isGatePass = type.includes('Subdivision / Gate Pass') || type.includes('Gate Pass Sticker');
@@ -862,9 +936,9 @@ function submitReflectorizedOrder() {
         document.getElementById('quantity').value = gQty;
     }
 
-    // Show a global loader or button loader if possible
-    // Since we are redirecting, we just trigger the submit logic
-    // We'll call the existing listener logic
+    // Assign action to form
+    form.dataset.action = action;
+
     const event = new Event('submit', { cancelable: true });
     form.dispatchEvent(event);
 }
@@ -872,15 +946,11 @@ function submitReflectorizedOrder() {
 document.getElementById('reflectorizedForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    const btn = document.getElementById('submitBtn');
-    const btnText = document.getElementById('btnText');
-    const loader = document.getElementById('loader');
+    const action = this.dataset.action || 'buy_now';
+    const btn = document.getElementById('submitBtn'); // Note: step 5 buttons are manual, not using this ID but keeping logic for safety
     
-    if (btn) btn.disabled = true;
-    if (btnText) btnText.classList.add('hidden');
-    if (loader) loader.classList.remove('hidden');
-
     const formData = new FormData(this);
+    formData.append('action', action);
     
     fetch('api_add_to_cart_reflectorized.php', {
         method: 'POST',
@@ -889,20 +959,18 @@ document.getElementById('reflectorizedForm').addEventListener('submit', function
     .then(response => response.json())
     .then(data => {
         if(data.success) {
-            window.location.href = 'order_review.php?item=' + data.item_key;
+            if(action === 'buy_now') {
+                window.location.href = 'order_review.php?item=' + data.item_key;
+            } else {
+                window.location.href = 'cart.php';
+            }
         } else {
             alert('Error: ' + data.message);
-            if (btn) btn.disabled = false;
-            if (btnText) btnText.classList.remove('hidden');
-            if (loader) loader.classList.add('hidden');
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('An unexpected error occurred. Please try again.');
-        if (btn) btn.disabled = false;
-        if (btnText) btnText.classList.remove('hidden');
-        if (loader) loader.classList.add('hidden');
     });
 });
 </script>

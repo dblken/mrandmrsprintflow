@@ -128,6 +128,19 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             <?php endif; ?>
             
+            <?php if ($job['status'] !== 'TO_PAY' && $job['status'] !== 'IN_PRODUCTION' && $job['status'] !== 'COMPLETED' && $job['payment_proof_status'] !== 'SUBMITTED'): ?>
+                <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-6 mb-6 rounded-lg shadow-sm">
+                    <div class="flex items-start gap-4">
+                        <svg class="w-8 h-8 text-amber-500 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <div>
+                            <h2 class="font-bold text-lg mb-2">Waiting for Staff Review</h2>
+                            <p class="text-amber-700">The final price and payment options will be available once the staff reviews and approves your order specifications.</p>
+                            <p class="text-sm mt-3 font-semibold">You will be notified when your order is ready for payment.</p>
+                        </div>
+                    </div>
+                </div>
+            <?php else: ?>
+
             <?php if ($job['payment_proof_status'] === 'SUBMITTED'): ?>
                 <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6" role="alert">
                     <p class="font-bold">Proof Submitted</p>
@@ -244,6 +257,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </form>
             </div>
+            
+            <?php endif; // End of gating check ?>
 
             <div class="mt-4 text-center">
                 <a href="services.php" class="text-indigo-600 hover:text-indigo-700 font-medium">? Back to Services</a>

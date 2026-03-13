@@ -42,6 +42,10 @@ $items = db_query("
     WHERE oi.order_id = ?
 ", 'i', [$order_id]);
 
+// Determine if price should be shown
+// Strict Rule: Hide if status is Pending Review or Approved
+$show_price = !in_array($order['status'], ['Pending Review', 'Approved']);
+
 $page_title = "Order #{$order_id} - PrintFlow";
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
@@ -50,92 +54,92 @@ require_once __DIR__ . '/../includes/header.php';
 <?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
 <div class="min-h-screen py-8">
-    <div class="container mx-auto px-4" style="max-width:1100px;">
-        
-        <div style="display:flex; align-items:center; gap:1.5rem; margin-bottom:2rem;">
-            <a href="orders.php" style="color:#6b7280; text-decoration:none; font-size:0.9rem; font-weight:700;">← Back to My Orders</a>
-            <h1 class="ct-page-title" style="margin:0; flex:1; text-align:center;">Order Detail — #<?php echo $order_id; ?></h1>
-            <div style="width:120px; text-align:right;">
+    <div class="container mx-auto px-4 order-container">
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:2rem; flex-wrap: wrap;">
+            <a href="orders.php" style="color:#6b7280; text-decoration:none; font-size:0.85rem; font-weight:700;">← Back to My Orders</a>
+            <h1 class="ct-page-title" style="margin:0; flex:1; text-align:center; font-size: 1.5rem;">Order Detail #<?php echo $order_id; ?></h1>
+            <div style="text-align:right;">
                 <?php echo status_badge($order['status'], 'order'); ?>
             </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 340px; gap:2.5rem; align-items:start;">
+        <style>
+            .order-container { max-width: 650px; margin: 0 auto; }
+            .compact-card { padding: 1.25rem !important; }
+            .section-header { font-size:0.95rem; font-weight:700; margin-bottom:1rem; color:#111827; display:flex; align-items:center; gap:8px; }
+        </style>
+
+        <div style="display:flex; flex-direction:column; gap:1.25rem;">
             
-            <!-- Left: Order Items & details -->
-            <div style="display:flex; flex-direction:column; gap:2rem;">
-                
-                <!-- Date Alert / Breadcrumb equivalent -->
-                <div style="padding:1.25rem; background:#000; color:#fff; border-radius:12px; font-weight:900; font-size:0.9rem; display:flex; justify-content:space-between; align-items:center;">
-                    <span>Order Date: <?php echo format_datetime($order['order_date']); ?></span>
-                    <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support')" style="background:#fff; color:#000; border:none; padding:6px 16px; border-radius:6px; font-weight:900; cursor:pointer; font-size:0.8rem;">
-                        Message Support
-                    </button>
-                </div>
+            <!-- 1. Order Status & Date Alert -->
+            <div style="padding:1rem; background:#000; color:#fff; border-radius:12px; font-weight:700; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;">
+                <span>Placed on: <?php echo format_datetime($order['order_date']); ?></span>
+                <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support')" style="background:#fff; color:#000; border:none; padding:5px 12px; border-radius:6px; font-weight:800; cursor:pointer; font-size:0.75rem;">
+                    💬 Chat Support
+                </button>
+            </div>
 
 
 
-        <!-- Revision Required Alert -->
-        <?php if ($order['status'] === 'For Revision'): ?>
-
-            <div style="background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center;">
-                <div style="background: #2563eb; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.25rem;">ℹ️</div>
-                <div>
-                    <h3 style="color: #1e40af; font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Revision Required</h3>
-                    <p style="color: #1e3a8a; font-size: 0.875rem; line-height: 1.5; margin-bottom:0.5rem;">
-                        The shop has requested a revision for this order. Please review the reason below, update your order details, and resubmit.
-                    </p>
-                    <div style="background:white; border:1px solid #bfdbfe; padding:12px; border-radius:8px; font-size:0.9rem; color:#1e40af;">
-                        <strong>Reason:</strong> <?php echo nl2br(htmlspecialchars($order['revision_reason'] ?? 'Not specified')); ?>
+            <!-- Revision Required Alert -->
+            <?php if ($order['status'] === 'For Revision'): ?>
+                <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; align-items: flex-start;">
+                    <div style="background: #ef4444; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;">⚠️</div>
+                    <div>
+                        <h3 style="color: #991b1b; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem;">Revision Required</h3>
+                        <p style="color: #b91c1c; font-size: 0.8rem; line-height: 1.5; margin-bottom:0.75rem;">
+                            The shop has requested a revision for this order. Please review the reason below and update your order details.
+                        </p>
+                        <div style="background:white; border:1px solid #fca5a5; padding:10px; border-radius:8px; font-size:0.85rem; color:#991b1b; font-weight: 600;">
+                            <strong>Reason:</strong> <?php echo nl2br(htmlspecialchars($order['revision_reason'] ?? 'Not specified')); ?>
+                        </div>
                     </div>
                 </div>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
-        <!-- Cancellation Alert for Cancelled Orders -->
-        <?php if ($order['status'] === 'Cancelled'): ?>
-            <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center;">
-                <div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.25rem;">✕</div>
-                <div>
-                    <h3 style="color: #991b1b; font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">This order has been cancelled</h3>
-                    <p style="color: #b91c1c; font-size: 0.875rem; line-height: 1.5;">
-                        <strong>Cancelled By:</strong> <?php echo htmlspecialchars($order['cancelled_by'] ?? 'N/A'); ?><br>
-                        <strong>Reason:</strong> <?php echo htmlspecialchars($order['cancel_reason'] ?? 'Not specified'); ?><br>
-                        <strong>Date:</strong> <?php echo !empty($order['cancelled_at']) ? format_datetime($order['cancelled_at']) : 'N/A'; ?>
-                    </p>
+            <!-- Cancellation Alert for Cancelled Orders -->
+            <?php if ($order['status'] === 'Cancelled'): ?>
+                <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; align-items: flex-start;">
+                    <div style="background: #ef4444; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;">✕</div>
+                    <div style="font-size: 0.85rem;">
+                        <h3 style="color: #991b1b; font-weight: 700; margin-bottom: 0.25rem;">Order Cancelled</h3>
+                        <p style="color: #b91c1c; line-height: 1.5; margin:0;">
+                            <strong>Cancelled By:</strong> <?php echo htmlspecialchars($order['cancelled_by'] ?? 'N/A'); ?><br>
+                            <strong>Reason:</strong> <?php echo htmlspecialchars($order['cancel_reason'] ?? 'Not specified'); ?><br>
+                            <strong>Date:</strong> <?php echo !empty($order['cancelled_at']) ? format_datetime($order['cancelled_at']) : 'N/A'; ?>
+                        </p>
+                    </div>
                 </div>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
-        <!-- Downpayment Required Alert (Only show if status is 'To Pay') -->
-        <?php if ($order['status'] === 'To Pay' && $order['payment_status'] === 'Unpaid'): ?>
-            <div style="background-color: #fff7ed; border: 1px solid #ffedd5; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center; border-left: 4px solid #f97316;">
-                <div style="background: #f97316; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.25rem;">💳</div>
-                <div style="flex: 1;">
-                    <h3 style="color: #9a3412; font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Mandatory Downpayment Required</h3>
-                    <p style="color: #c2410c; font-size: 0.875rem; line-height: 1.5; margin-bottom: 0.75rem;">
-                        Your order will <strong>NOT</strong> be processed unless you pay at least 50% downpayment (<?php echo format_currency($order['total_amount'] * 0.5); ?>). 
-                        Please upload your proof of payment to begin production.
-                    </p>
-                    <button onclick="openPaymentModal()" style="background:#f97316; color:white; border:none; padding:8px 16px; border-radius:8px; font-weight:500; font-family:inherit; font-size:0.875rem; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#ea580c'" onmouseout="this.style.background='#f97316'">
-                        Submit downpayment proof
-                    </button>>
+            <!-- Downpayment Required Alert (Only show if status is 'To Pay') -->
+            <?php if ($order['status'] === 'To Pay' && $order['payment_status'] === 'Unpaid'): ?>
+                <div style="background-color: #fff7ed; border: 1px solid #ffedd5; border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; align-items: flex-start;">
+                    <div style="background: #f97316; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;">💳</div>
+                    <div style="flex: 1;">
+                        <h3 style="color: #9a3412; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem;">Downpayment Required</h3>
+                        <p style="color: #c2410c; font-size: 0.8rem; line-height: 1.5; margin-bottom: 0.75rem;">
+                            Your order requires a 50% downpayment (<?php echo format_currency($order['total_amount'] * 0.5); ?>) to begin production.
+                        </p>
+                        <button onclick="openPaymentModal()" class="btn-primary" style="background:#f97316; padding:6px 14px; font-size:0.75rem;">
+                            Submit Payment Proof
+                        </button>
+                    </div>
                 </div>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
-        <!-- Payment Submitted Status Alert -->
-        <?php if ($order['status'] === 'Downpayment Submitted'): ?>
-            <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center; border-left: 4px solid #22c55e;">
-                <div style="background: #22c55e; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.25rem;">⏳</div>
-                <div>
-                    <h3 style="color: #166534; font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Payment Submitted Successfully</h3>
-                    <p style="color: #15803d; font-size: 0.875rem; line-height: 1.5;">
-                        Waiting for staff verification. You will be notified once your downpayment has been approved.
-                    </p>
+            <!-- Payment Submitted Status Alert -->
+            <?php if ($order['status'] === 'Downpayment Submitted'): ?>
+                <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; align-items: flex-start;">
+                    <div style="background: #22c55e; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;">⏳</div>
+                    <div>
+                        <h3 style="color: #166534; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem;">Payment Under Review</h3>
+                        <p style="color: #15803d; font-size: 0.8rem; line-height: 1.5; margin:0;">
+                            Your payment proof has been submitted. We'll notify you once it's verified and production begins.
+                        </p>
+                    </div>
                 </div>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
         <!-- Payment Modal -->
         <style>
@@ -172,8 +176,44 @@ require_once __DIR__ . '/../includes/header.php';
                     <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; color: #b91c1c; font-size: 0.9rem;">
                         No online payment methods are currently configured by the shop. Please contact support.
                     </div>
-                <?php else: ?>
-                    <p style="color:#6b7280; font-size:0.9rem; margin-bottom:1rem;">Select a payment method and transfer at least 50% downpayment to start the process.</p>
+                <form id="paymentForm" enctype="multipart/form-data">
+                    <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
+                    <?php echo csrf_field(); ?>
+
+                    <p style="color:#6b7280; font-size:0.9rem; margin-bottom:1rem;">Follow the steps below to finalize your order.</p>
+                    
+                    <!-- Step 1: Payment Policy -->
+                    <div style="margin-bottom: 2rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 1.5rem;">
+                        <label style="display:block; font-size:0.875rem; font-weight:800; color: #111827; margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.04em;">Step 1: Choose Payment Policy</label>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
+                            <label class="payment-policy-option" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                                <input type="radio" name="payment_choice" value="full" checked onclick="updatePaymentUI('full')" style="width: 18px; height: 18px;">
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.95rem; color: #111827;">Full Payment (100%)</div>
+                                    <div style="font-size: 0.8rem; color: #6b7280;">Pay the full amount of <?php echo format_currency($order['total_amount']); ?></div>
+                                </div>
+                            </label>
+
+                            <label class="payment-policy-option" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                                <input type="radio" name="payment_choice" value="half" onclick="updatePaymentUI('half')" style="width: 18px; height: 18px;">
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.95rem; color: #111827;">Downpayment (50%)</div>
+                                    <div style="font-size: 0.8rem; color: #6b7280;">Pay at least <?php echo format_currency($order['total_amount'] * 0.5); ?> to start production.</div>
+                                </div>
+                            </label>
+
+                            <label class="payment-policy-option" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                                <input type="radio" name="payment_choice" value="pickup" onclick="updatePaymentUI('pickup')" style="width: 18px; height: 18px;">
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.95rem; color: #111827;">Upon Pick Up</div>
+                                    <div style="font-size: 0.8rem; color: #6b7280;">Pay the full amount when you collect your order.</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="paymentDetailsSection">
+                        <label style="display:block; font-size:0.875rem; font-weight:800; color: #111827; margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.04em;">Step 2: Transfer & Upload Proof</label>
                     
                     <!-- Payment Methods Tabs/Selector -->
                     <div style="display: flex; gap: 8px; margin-bottom: 1rem; overflow-x: auto; padding-bottom: 4px;">
@@ -200,37 +240,45 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 <?php endif; ?>
 
-                <form id="paymentForm" enctype="multipart/form-data">
-                    <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
-                    <?php echo csrf_field(); ?>
+
                     
-                    <div style="margin-bottom:1.25rem;">
-                        <label style="display:block; font-size:0.875rem; font-weight:700; color: #374151; margin-bottom:0.5rem;">Amount to Pay (PHP)</label>
-                        <input type="number" name="amount" step="0.01" class="input-field" 
-                               value="<?php echo number_format($order['total_amount'] * 0.5, 2, '.', ''); ?>" 
-                               min="<?php echo number_format($order['total_amount'] * 0.5, 2, '.', ''); ?>" 
-                               style="width:100%; font-size: 1.1rem; font-weight: 700; color: #4F46E5;" required>
-                        <p style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;">Min. 50%: <?php echo format_currency($order['total_amount'] * 0.5); ?></p>
-                    </div>
-                    
-                    <div style="margin-bottom:1.5rem;">
-                        <label style="display:block; font-size:0.875rem; font-weight:700; color: #374151; margin-bottom:0.5rem;">Upload Proof of Payment</label>
-                        <div id="dropzone" style="border: 2px dashed #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#4F46E5'; this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='transparent'">
-                            <input type="file" name="payment_proof" id="proofInput" style="display: none;" accept="image/*" required>
-                            <div id="uploadPlaceholder">
-                                <span style="font-size: 2rem;">📸</span>
-                                <p style="font-size: 0.875rem; color: #64748b; margin-top: 8px;">Click to upload or drag image</p>
+                        <div id="proofUploadSection">
+                            <div style="margin-bottom:1.25rem;">
+                                <label style="display:block; font-size:0.875rem; font-weight:700; color: #374151; margin-bottom:0.5rem;">Amount to Pay (PHP)</label>
+                                <input type="number" name="amount" id="paymentAmountInput" step="0.01" class="input-field" 
+                                       value="<?php echo number_format($order['total_amount'], 2, '.', ''); ?>" 
+                                       min="<?php echo number_format($order['total_amount'], 2, '.', ''); ?>" 
+                                       style="width:100%; font-size: 1.1rem; font-weight: 700; color: #4F46E5;" required>
+                                <p id="minPaymentText" style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;">Total: <?php echo format_currency($order['total_amount']); ?></p>
                             </div>
-                            <div id="filePreview" style="display: none; align-items: center; justify-content: center; flex-direction: column;">
-                                <img id="previewImg" src="" style="max-height: 100px; border-radius: 8px; margin-bottom: 8px;">
-                                <p id="fileName" style="font-size: 0.8rem; color: #1e293b; font-weight: 600;"></p>
+                            
+                            <div style="margin-bottom:1.5rem;">
+                                <label style="display:block; font-size:0.875rem; font-weight:700; color: #374151; margin-bottom:0.5rem;">Upload Proof of Payment</label>
+                                <div id="dropzone" style="border: 2px dashed #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#4F46E5'; this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='transparent'">
+                                    <input type="file" name="payment_proof" id="proofInput" style="display: none;" accept="image/*">
+                                    <div id="uploadPlaceholder">
+                                        <span style="font-size: 2rem;">📸</span>
+                                        <p style="font-size: 0.875rem; color: #64748b; margin-top: 8px;">Click to upload or drag image</p>
+                                    </div>
+                                    <div id="filePreview" style="display: none; align-items: center; justify-content: center; flex-direction: column;">
+                                        <img id="previewImg" src="" style="max-height: 100px; border-radius: 8px; margin-bottom: 8px;">
+                                        <p id="fileName" style="font-size: 0.8rem; color: #1e293b; font-weight: 600;"></p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        <div id="pickupNotice" style="display:none; background:#f9fafb; border:2px dashed #e5e7eb; border-radius:12px; padding:1.5rem; text-align:center; margin-bottom:1.5rem;">
+                            <span style="font-size: 2rem; display:block; margin-bottom:10px;">📦</span>
+                            <div style="font-weight:800; color:#111827; margin-bottom:4px;">Pay Upon Pick Up</div>
+                            <p style="font-size:0.85rem; color:#6b7280; line-height:1.5; margin:0;">
+                                You have chosen to pay upon collection. Your order will move directly to production. Please prepare the full amount of <strong><?php echo format_currency($order['total_amount']); ?></strong> for when you pick up your items.
+                            </p>
+                        </div>
                     
                     <div style="display:flex; justify-content:flex-end; gap:12px;">
                         <button type="button" onclick="closePaymentModal()" class="btn-secondary" style="border-radius: 10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem;">Cancel</button>
-                        <button type="submit" id="submitPaymentBtn" class="btn-primary" style="background:#4F46E5; color:white; border-radius: 10px; padding: 10px 24px; font-weight: 500; font-family: inherit; font-size: 0.9375rem;">Submit payment</button>
+                        <button type="submit" id="submitPaymentBtn" class="btn-primary" style="background:#4F46E5; color:white; border-radius: 10px; padding: 10px 24px; font-weight: 800; font-family: inherit; font-size: 0.9375rem; text-transform:uppercase; letter-spacing:0.02em;">Submit & Confirm</button>
                     </div>
                 </form>
             </div>
@@ -290,6 +338,57 @@ require_once __DIR__ . '/../includes/header.php';
             }
             function closePaymentModal() {
                 document.getElementById('paymentModal').style.display = 'none';
+            }
+
+            function updatePaymentUI(choice) {
+                // Update active state of containers
+                document.querySelectorAll('.payment-policy-option').forEach(el => {
+                    el.style.borderColor = '#e5e7eb';
+                    el.style.background = '#fff';
+                    el.querySelector('div div').style.color = '#111827';
+                });
+                
+                const selected = document.querySelector(`input[name="payment_choice"][value="${choice}"]`);
+                if (selected) {
+                    const parent = selected.closest('.payment-policy-option');
+                    parent.style.borderColor = '#4F46E5';
+                    parent.style.background = '#f5f3ff';
+                    parent.querySelector('div div').style.color = '#4F46E5';
+                }
+
+                const detailsSection = document.getElementById('paymentDetailsSection');
+                const proofSection = document.getElementById('proofUploadSection');
+                const pickupNotice = document.getElementById('pickupNotice');
+                const amountInput = document.getElementById('paymentAmountInput');
+                const minText = document.getElementById('minPaymentText');
+                const proofInput = document.getElementById('proofInput');
+
+                const total = <?php echo (float)$order['total_amount']; ?>;
+                const half = total * 0.5;
+
+                if (choice === 'pickup') {
+                    detailsSection.style.display = 'none';
+                    proofSection.style.display = 'none';
+                    pickupNotice.style.display = 'block';
+                    proofInput.required = false;
+                    amountInput.required = false;
+                } else {
+                    detailsSection.style.display = 'block';
+                    proofSection.style.display = 'block';
+                    pickupNotice.style.display = 'none';
+                    proofInput.required = true;
+                    amountInput.required = true;
+
+                    if (choice === 'full') {
+                        amountInput.value = total.toFixed(2);
+                        amountInput.min = total.toFixed(2);
+                        minText.textContent = 'Total: PHP ' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
+                    } else if (choice === 'half') {
+                        amountInput.value = half.toFixed(2);
+                        amountInput.min = half.toFixed(2);
+                        minText.textContent = 'Min. 50%: PHP ' + half.toLocaleString(undefined, {minimumFractionDigits: 2});
+                    }
+                }
             }
 
             function selectPaymentMethod(selectedIndex) {
@@ -413,89 +512,101 @@ require_once __DIR__ . '/../includes/header.php';
             });
         </script>
 
-                <!-- Items List -->
-                <div style="display:flex; flex-direction:column;">
+            <!-- 2. Order Summary (Items & Total) -->
+            <div class="card compact-card">
+                <h2 class="section-header">
+                    <span>🛒</span> Order Summary
+                </h2>
+                
+                <div style="display:flex; flex-direction:column; gap: 0.5rem;">
                     <?php foreach ($items as $item): ?>
-                        <?php render_order_item_neubrutalism($item, false); ?>
+                        <?php render_order_item_clean($item, false, $show_price); ?>
                     <?php endforeach; ?>
                 </div>
 
-                <!-- Customer Details Card (Consistent with Review) -->
-                <div class="card" style="border: 2px solid #000; box-shadow: 8px 8px 0px #000; padding: 2.5rem; background: #fff;">
-                    <h3 style="font-size:1.1rem; font-weight:900; color:black; margin-bottom:1.5rem; display:flex; align-items:center; gap:12px; text-transform:uppercase; letter-spacing:0.04em;">
-                        <span style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; background:black; color:white; border-radius:6px; font-size:1rem;">📋</span>
-                        Customer Information
-                    </h3>
-                    <?php 
-                    $cust_res = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$order['customer_id']]);
-                    $customer_info = $cust_res[0] ?? [];
-                    ?>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:2.5rem;">
-                        <div>
-                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Full Name</div>
-                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars(($customer_info['first_name'] ?? '') . ' ' . ($customer_info['last_name'] ?? '')); ?></div>
-                        </div>
-                        <div>
-                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Phone Number</div>
-                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars($customer_info['contact_number'] ?? '—'); ?></div>
-                        </div>
-                        <div>
-                            <div style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin-bottom:8px;">Email Address</div>
-                            <div style="font-weight:900; color:black; font-size:1.2rem;"><?php echo htmlspecialchars($customer_info['email'] ?? ''); ?></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right: Order Info & Totals -->
-            <div style="display:flex; flex-direction:column; gap:1.5rem; position:sticky; top:20px;">
-                <div class="card" style="padding:2rem; border: 2px solid #000; box-shadow: 8px 8px 0px #000;">
-                    <h2 style="font-size:1rem; font-weight:900; color:black; margin:0 0 1.5rem 0; text-transform:uppercase; letter-spacing:0.06em; border-bottom:2px solid #000; padding-bottom:1rem;">Order Summary</h2>
-
-                    <div style="display:flex; justify-content:space-between; font-size:1rem; margin-bottom:0.75rem; color:#000; font-weight:700;">
-                        <span>Status</span>
+                <div style="border-top:1px solid #f3f4f6; padding-top:1rem; margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#6b7280; font-weight:600;">
+                        <span>Order Status</span>
                         <span><?php echo status_badge($order['status'], 'order'); ?></span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:1rem; margin-bottom:0.75rem; color:#000; font-weight:700;">
-                        <span>Payment</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#6b7280; font-weight:600;">
+                        <span>Payment Status</span>
                         <span><?php echo status_badge($order['payment_status'], 'payment'); ?></span>
                     </div>
                     
-                    <div style="border-top:3px solid black; padding-top:1.25rem; margin-top:1.25rem; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:900; font-size:1rem; text-transform:uppercase;">Grand Total</span>
-                        <span style="font-size:1.8rem; font-weight:900; color:black; letter-spacing:-0.03em;"><?php echo format_currency($order['total_amount']); ?></span>
+                    <div style="border-top:1px solid #e5e7eb; padding-top:1rem; margin-top:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:700; color:#111827; font-size:0.95rem;">Grand Total</span>
+                        <?php if ($show_price): ?>
+                            <span style="font-size:1.5rem; font-weight:800; color:#4F46E5;"><?php echo format_currency($order['total_amount']); ?></span>
+                        <?php else: ?>
+                            <span style="font-size:0.85rem; font-weight:700; color:#6b7280; font-style:italic;">Price TBD by staff</span>
+                        <?php endif; ?>
                     </div>
 
-                    <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                        <?php if ($order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled'])): ?>
-                            <button type="button" onclick="openPaymentModal()" style="width:100%; padding:14px; background:#000; color:#fff; font-size:1rem; font-weight:900; border:none; border-radius:10px; cursor:pointer; text-transform:uppercase;">
+                    <div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.75rem;">
+                        <?php if ($order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled', 'Pending Review', 'Approved'])): ?>
+                            <button type="button" onclick="openPaymentModal()" class="btn-primary" style="width:100%; padding:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">
                                 Pay now
                             </button>
+                        <?php elseif (in_array($order['status'], ['Pending Review', 'Approved'])): ?>
+                            <div style="background:#f0f9ff; border:1px solid #bae6fd; border-left:4px solid #0ea5e9; border-radius:10px; padding:12px 14px; display:flex; gap:10px; align-items:center;">
+                                <span style="font-size:1.1rem;">⏳</span>
+                                <div style="font-size:0.75rem; color:#0369a1; font-weight:600; line-height:1.4;">Order is under review. Pricing and payment options will be available soon.</div>
+                            </div>
                         <?php endif; ?>
 
                         <?php if ($order['status'] === 'For Revision'): ?>
-                            <a href="edit_order.php?id=<?php echo $order_id; ?>" style="width:100%; padding:14px; background:#f59e0b; color:#fff; font-size:1rem; font-weight:900; border:2px solid #000; border-radius:10px; cursor:pointer; text-transform:uppercase; text-decoration:none; text-align:center;">
+                            <a href="edit_order.php?id=<?php echo $order_id; ?>" class="btn-primary" style="width:100%; padding:12px; background:#f59e0b; font-weight:800; text-transform:uppercase; text-decoration:none; text-align:center;">
                                 Edit order
                             </a>
                         <?php endif; ?>
 
                         <?php if (can_customer_cancel_order($order)): ?>
-                            <button type="button" onclick="openCancelModal()" style="width:100%; padding:12px; background:white; color:#dc2626; font-size:0.9rem; font-weight:900; border:2px solid #fecaca; border-radius:10px; cursor:pointer;">
+                            <button type="button" onclick="openCancelModal()" style="width:100%; padding:10px; background:transparent; color:#ef4444; font-size:0.8rem; font-weight:700; border:1px solid #fee2e2; border-radius:10px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
                                 ✕ Cancel order
                             </button>
                         <?php endif; ?>
                     </div>
                 </div>
-
-                <?php if (!empty($order['notes'])): ?>
-                    <div style="padding:1.5rem; background:#fffbeb; border:2px solid #000; border-radius:12px; box-shadow:4px 4px 0px #000;">
-                        <div style="font-size:0.75rem; font-weight:900; text-transform:uppercase; color:#92400e; margin-bottom:8px;">Order Notes</div>
-                        <div style="font-size:0.95rem; color:#b45309; line-height:1.5; font-weight:700;">
-                            <?php echo nl2br(htmlspecialchars($order['notes'])); ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
             </div>
+
+            <!-- 3. Contact Information -->
+            <div class="card compact-card">
+                <h2 class="section-header">
+                    <span>👤</span> Contact Information
+                </h2>
+                <?php 
+                $cust_res = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$order['customer_id']]);
+                $customer_info = $cust_res[0] ?? [];
+                ?>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                    <div>
+                        <div style="font-size:0.65rem; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Full Name</div>
+                        <div style="font-weight:700; color:#111827; font-size:0.9rem;"><?php echo htmlspecialchars(($customer_info['first_name'] ?? '') . ' ' . ($customer_info['last_name'] ?? '')); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.65rem; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Phone Number</div>
+                        <div style="font-weight:700; color:#111827; font-size:0.9rem;"><?php echo htmlspecialchars($customer_info['contact_number'] ?? '—'); ?></div>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <div style="font-size:0.65rem; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Email Address</div>
+                        <div style="font-weight:700; color:#111827; font-size:0.9rem;"><?php echo htmlspecialchars($customer_info['email'] ?? ''); ?></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Order Notes -->
+            <?php if (!empty($order['notes'])): ?>
+                <div class="card compact-card" style="background:#fffbeb; border:1px solid #fde68a;">
+                    <h2 class="section-header" style="color:#92400e; margin-bottom:0.75rem;">
+                        <span>📝</span> Order Notes
+                    </h2>
+                    <div style="font-size:0.85rem; color:#b45309; line-height:1.5; font-weight:600; max-height: 120px; overflow-y: auto; word-break: break-word;">
+                        <?php echo nl2br(htmlspecialchars($order['notes'] ?? '')); ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
         </div>
     </div>
 </div>

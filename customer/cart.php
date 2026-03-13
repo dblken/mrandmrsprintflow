@@ -27,8 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $cart_items = $_SESSION['cart'] ?? [];
 $total = 0;
+$has_custom = false;
 foreach ($cart_items as $item) {
-    $total += $item['price'] * $item['quantity'];
+    $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+    $is_custom_item = false;
+    $custom_keywords = ['tarpaulin', 't-shirt', 'shirt', 'sticker', 'decal', 'reflectorized', 'signage', 'glass', 'frosted', 'sintraboard', 'souvenir'];
+    foreach($custom_keywords as $kw) { if(strpos($cat_lower, $kw) !== false) { $is_custom_item = true; break; } }
+    
+    if (!$is_custom_item) {
+        $total += $item['price'] * $item['quantity'];
+    } else {
+        $has_custom = true;
+    }
 }
 
 $page_title = 'Shopping Cart - PrintFlow';
@@ -183,8 +193,12 @@ require_once __DIR__ . '/../includes/header.php';
                             <tbody style="font-size:0.95rem;">
                                 <?php foreach ($cart_items as $pid => $item): 
                                     $is_selected = $item['selected'] ?? true;
+                                    $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+                                    $is_custom_row = false;
+                                    $custom_keywords = ['tarpaulin', 't-shirt', 'shirt', 'sticker', 'decal', 'reflectorized', 'signage', 'glass', 'frosted', 'sintraboard', 'souvenir'];
+                                    foreach($custom_keywords as $kw) { if(strpos($cat_lower, $kw) !== false) { $is_custom_row = true; break; } }
                                 ?>
-                                    <tr class="cart-row" data-id="<?php echo $pid; ?>" data-price="<?php echo $item['price']; ?>" style="border-bottom:1px solid #f3f4f6; transition: background 0.2s; <?php echo !$is_selected ? 'opacity: 0.6; background: #fafafa;' : ''; ?>">
+                                    <tr class="cart-row" data-id="<?php echo $pid; ?>" data-price="<?php echo $item['price']; ?>" data-custom="<?php echo $is_custom_row ? '1' : '0'; ?>" style="border-bottom:1px solid #f3f4f6; transition: background 0.2s; <?php echo !$is_selected ? 'opacity: 0.6; background: #fafafa;' : ''; ?>">
                                         <td style="padding:1rem; text-align:center;">
                                             <input type="checkbox" class="cart-checkbox item-checkbox" onchange="toggleItem('<?php echo $pid; ?>', this.checked)" <?php echo $is_selected ? 'checked' : ''; ?>>
                                         </td>
@@ -240,7 +254,17 @@ require_once __DIR__ . '/../includes/header.php';
                                             </div>
                                         </td>
                                         <td style="padding:1rem; text-align:center;">
-                                            <?php echo format_currency($item['price']); ?>
+                                            <?php 
+                                            $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+                                            $is_custom = false;
+                                            $custom_keywords = ['tarpaulin', 't-shirt', 'shirt', 'sticker', 'decal', 'reflectorized', 'signage', 'glass', 'frosted', 'sintraboard', 'souvenir'];
+                                            foreach($custom_keywords as $kw) { if(strpos($cat_lower, $kw) !== false) { $is_custom = true; break; } }
+                                            
+                                            if ($is_custom): ?>
+                                                <span style="font-size:0.75rem; color:#6b7280; font-style:italic;">TBD</span>
+                                            <?php else: ?>
+                                                <?php echo format_currency($item['price']); ?>
+                                            <?php endif; ?>
                                         </td>
                                         <td style="padding:1rem; text-align:center;">
                                             <div class="qty-control">
@@ -250,7 +274,11 @@ require_once __DIR__ . '/../includes/header.php';
                                             </div>
                                         </td>
                                         <td style="padding:1rem; text-align:right; font-weight:600;" id="total-<?php echo $pid; ?>">
-                                            <?php echo format_currency($item['price'] * $item['quantity']); ?>
+                                            <?php if ($is_custom): ?>
+                                                <span style="font-size:0.75rem; color:#6b7280; font-style:italic;">TBD</span>
+                                            <?php else: ?>
+                                                <?php echo format_currency($item['price'] * $item['quantity']); ?>
+                                            <?php endif; ?>
                                         </td>
                                         <td style="padding:1rem; text-align:center;">
                                             <button type="button" class="trash-btn" onclick="confirmRemove('<?php echo $pid; ?>')" title="Remove">
@@ -269,8 +297,11 @@ require_once __DIR__ . '/../includes/header.php';
                         <a href="products.php" class="btn-secondary" style="background:#fff; border:1px solid #d1d5db; padding:0.5rem 1.25rem; border-radius:6px; font-weight: 500; text-decoration: none; color: #374151;">Continue Shopping</a>
                         
                         <div style="text-align:right;">
-                            <div style="font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Subtotal</div>
+                            <div style="font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Subtotal <?php echo $has_custom ? '(Priced Items only)' : ''; ?></div>
                             <div style="font-size:1.5rem; font-weight:700; color:#1f2937; margin-bottom:1rem;" id="cart-total"><?php echo format_currency($total); ?></div>
+                            <?php if ($has_custom): ?>
+                                <div style="font-size:0.75rem; color:#6b7280; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">+ Custom items (TBD by staff)</div>
+                            <?php endif; ?>
                             <?php if ($is_restricted): ?>
                                 <button type="button" class="btn-primary" style="padding:0.75rem 2rem; opacity:0.5; cursor:not-allowed;" disabled>Proceed to Checkout</button>
                             <?php else: ?>
@@ -286,7 +317,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Remove Confirmation Modal -->
 <div id="removeModal" style="display:none; position:fixed; inset:0; z-index:50; align-items:center; justify-content:center;">
-    <div style="position:absolute; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px);" onclick="closeRemoveModal()"></div>
+    <div style="position:absolute; inset:0; background:rgba(15,23,42,0.45);" onclick="closeRemoveModal()"></div>
     <div style="position:relative; background:white; padding:2rem; border-radius:12px; max-width:400px; width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); z-index:51;">
         <h3 style="font-size:1.25rem; font-weight:700; color:#111827; margin-bottom:0.5rem;">Remove from Cart?</h3>
         <p style="color:#4b5563; margin-bottom:1.5rem; line-height:1.5;">Are you sure you want to remove this item from your shopping cart?</p>
@@ -428,10 +459,13 @@ function recalculateTotal() {
     rows.forEach(row => {
         const checkbox = row.querySelector('.item-checkbox');
         if (checkbox.checked) {
-            const pid = row.dataset.id;
-            const price = parseFloat(row.dataset.price);
-            const qty = parseInt(document.getElementById(`qty-${pid}`).textContent);
-            subtotal += price * qty;
+            const isCustom = row.dataset.custom === '1';
+            if (!isCustom) {
+                const pid = row.dataset.id;
+                const price = parseFloat(row.dataset.price);
+                const qty = parseInt(document.getElementById(`qty-${pid}`).textContent);
+                subtotal += price * qty;
+            }
         }
     });
     

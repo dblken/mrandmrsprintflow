@@ -185,7 +185,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
             margin-top: 14px; padding: 14px 16px;
             background: linear-gradient(135deg,#fffbeb,#fef3c7);
             border: 1px solid #fde68a; border-radius: 12px;
-            max-height: 180px; overflow-y: auto;
+            max-height: 120px; overflow-y: auto;
         }
         .om-notes-title { font-size: 12px; font-weight: 800; color: #92400e; margin-bottom: 6px; }
         .om-notes-text { font-size: 13px; color: #b45309; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word; }

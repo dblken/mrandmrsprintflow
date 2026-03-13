@@ -230,21 +230,19 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="pt-6 border-t border-gray-100 space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-gray-500 font-bold uppercase">Est. Market Price</span>
-                                <span class="text-lg font-black" x-text="formatCurrency(estimatedPrice)"></span>
-                            </div>
-                            
-                            <template x-if="customerProfile">
-                                <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="text-[10px] text-indigo-600 font-black uppercase">Required Payment</span>
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded font-black bg-indigo-600 text-white" x-text="customerProfile.customer_type === 'NEW' ? '100% (NEW)' : '50% (REGULAR)'"></span>
+                            <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                                <div class="flex items-start gap-3">
+                                    <div class="text-amber-500 mt-0.5">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     </div>
-                                    <div class="text-xl font-black text-indigo-900" x-text="formatCurrency(requiredPayment)"></div>
-                                    <p class="text-[9px] text-indigo-400 font-bold mt-1 uppercase leading-tight">Must be paid at counter or online to start production.</p>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-amber-800 mb-1">Price to be determined by staff</h3>
+                                        <p class="text-xs text-amber-700 leading-relaxed">
+                                            The final price and payment options will be available once the staff reviews and approves your order specifications. You will be notified when it is ready.
+                                        </p>
+                                    </div>
                                 </div>
-                            </template>
+                            </div>
                         </div>
 
                         <button @click="submitOrder" 
@@ -253,13 +251,6 @@ require_once __DIR__ . '/../includes/header.php';
                             <span x-show="!submitting">Submit Customization</span>
                             <span x-show="submitting">Processing...</span>
                         </button>
-                    </div>
-
-                    <div class="p-5 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-                        <div class="text-amber-500 text-xl">??</div>
-                        <p class="text-[11px] text-amber-700 leading-relaxed">
-                            <strong>Note:</strong> Pricing shown is an estimate. Staff will verify your specs and finalize the final billing upon order approval.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -338,21 +329,6 @@ require_once __DIR__ . '/../includes/header.php';
                 return (this.form.width * this.form.height) * this.form.quantity;
             },
 
-            get estimatedPrice() {
-                if(!this.form.service_type) return 0;
-                const unitPrice = this.pricing[this.form.service_type] || 0;
-                if(this.isRollBased) {
-                    return this.totalSqft * unitPrice;
-                }
-                return this.form.quantity * unitPrice;
-            },
-
-            get requiredPayment() {
-                if(!this.customerProfile) return this.estimatedPrice;
-                const pct = this.customerProfile.customer_type === 'REGULAR' ? 0.5 : 1.0;
-                return this.estimatedPrice * pct;
-            },
-
             get isFormValid() {
                 if(!this.form.branch_id) return false;
                 if(!this.form.service_type) return false;
@@ -421,7 +397,7 @@ require_once __DIR__ . '/../includes/header.php';
                 fd.append('notes', this.form.notes);
                 fd.append('due_date', this.form.due_date);
                 fd.append('priority', this.form.priority);
-                fd.append('estimated_total', this.estimatedPrice);
+                fd.append('estimated_total', 0);
                 
                 this.artworks.forEach(art => {
                     fd.append('artworks[]', art.file);

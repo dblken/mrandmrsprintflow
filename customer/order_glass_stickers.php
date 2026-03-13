@@ -322,7 +322,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <button type="submit" name="buy_now" value="1" 
                             style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
                             onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                        Buy Now
+                        Review Your Order
                     </button>
                 </div>
             </div>
@@ -490,8 +490,7 @@ calculatePrice();
 .order-modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, 0.45); /* Soft dark overlay without blur */
     display: flex; align-items: center; justify-content: center;
     z-index: 1000;
 }

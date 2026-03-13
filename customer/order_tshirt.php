@@ -73,7 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]
             ];
             
-            redirect("order_review.php?item=" . urlencode($item_key));
+            if (isset($_POST['buy_now'])) {
+                redirect("order_review.php?item=" . urlencode($item_key));
+            } else {
+                redirect("cart.php");
+            }
         }
     }
 }
@@ -152,7 +156,18 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <textarea name="notes" rows="3" class="input-field" placeholder="Any special instructions..."><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                 </div>
 
-                <button type="submit" class="btn-primary w-full shadow-lg">Review Order Details</button>
+                <div style="display:flex; gap:1rem; margin-top:2rem;">
+                    <button type="submit" name="add_to_cart" value="1" 
+                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
+                            onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                        + Add to Cart
+                    </button>
+                    <button type="submit" name="buy_now" value="1" 
+                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
+                            onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
+                        Review Your Order
+                    </button>
+                </div>
             </form>
         </div>
         <p class="mt-4 text-sm text-gray-500 text-center"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>

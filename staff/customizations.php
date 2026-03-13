@@ -699,25 +699,28 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                 <!-- Modal Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;gap:8px;">
                     <!-- Left: Status actions -->
-                    <div style="display:flex;gap:8px;">
+                    <div style="display:flex;gap:8px; flex-wrap:wrap;">
                         <template x-if="currentJo.status === 'PENDING'">
-                            <button @click="updateStatus(currentJo.id, 'APPROVED'); showDetailsModal = false;" class="btn-action blue">Approve</button>
+                            <button @click="updateStatus(currentJo.id, 'APPROVED'); showDetailsModal = false;" class="btn-action blue">✓ Approve</button>
                         </template>
                         <template x-if="currentJo.status === 'APPROVED'">
-                            <button @click="submitToPay()" class="btn-action amber">Submit to Pay</button>
+                            <button @click="submitToPay()" class="btn-action amber">💰 Set Price & Request Payment</button>
                         </template>
                         <template x-if="currentJo.status === 'TO_PAY'">
-                            <button @click="updateStatus(currentJo.id, 'IN_PRODUCTION'); showDetailsModal = false;" class="btn-action blue">Start Production</button>
+                            <div style="font-size:11px; color:#6b7280; font-style:italic; display:flex; align-items:center;">Awaiting customer payment proof…</div>
+                        </template>
+                        <template x-if="currentJo.status === 'VERIFY_PAY'">
+                            <button @click="verifyPayment()" class="btn-action emerald">✓ Verify Payment & Start Production</button>
                         </template>
                         <template x-if="currentJo.status === 'IN_PRODUCTION'">
-                            <button @click="updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">To Pickup</button>
+                            <button @click="updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">📦 Mark Ready for Pickup</button>
                         </template>
                         <template x-if="currentJo.status === 'TO_RECEIVE'">
-                            <button @click="completeOrder(currentJo.id); showDetailsModal = false;" class="btn-action emerald">Mark Complete</button>
+                            <button @click="completeOrder(currentJo.id); showDetailsModal = false;" class="btn-action emerald">✓ Mark Complete</button>
                         </template>
 
                         <template x-if="currentJo.status !== 'CANCELLED' && currentJo.status !== 'COMPLETED'">
-                            <button @click="updateStatus(currentJo.id, 'CANCELLED'); showDetailsModal = false;" class="btn-action red">Cancel</button>
+                            <button @click="updateStatus(currentJo.id, 'CANCELLED'); showDetailsModal = false;" class="btn-action red">✕ Cancel</button>
                         </template>
                     </div>
                     <!-- Right: Close -->

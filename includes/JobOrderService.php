@@ -8,6 +8,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/InventoryManager.php';
 require_once __DIR__ . '/RollService.php';
+require_once __DIR__ . '/NotificationService.php';
 
 class JobOrderService {
 
@@ -244,6 +245,15 @@ class JobOrderService {
 
             $sql = "UPDATE job_orders SET status = ?, machine_id = ? WHERE id = ?";
             db_execute($sql, 'sii', [$newStatus, $machineId ?: $order['machine_id'], $orderId]);
+
+            // Send real-time notification to customer on every status change
+            if (!empty($order['customer_id'])) {
+                NotificationService::sendJobOrderNotification(
+                    (int)$order['customer_id'],
+                    $orderId,
+                    $newStatus
+                );
+            }
 
             $conn->commit();
             return true;

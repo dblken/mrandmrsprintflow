@@ -71,6 +71,10 @@ require_once __DIR__ . '/shop_config.php';
                             Products
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
+                        <a href="<?php echo $base_url; ?>/customer/custom_orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            Custom Orders
+                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                        </a>
                         <a href="<?php echo $base_url; ?>/customer/orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             My Orders
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
@@ -160,6 +164,15 @@ require_once __DIR__ . '/shop_config.php';
                                 </svg>
                                 Profile
                             </a>
+                            <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php#change-password"
+                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
+                               onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
+                               onmouseout="this.style.background='';this.style.color='rgba(255,255,255,0.8)'">
+                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                Change Password
+                            </a>
                             <div style="height:1px;background:rgba(83,197,224,0.1);margin:0.25rem 0;"></div>
                             <button onclick="document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
                                style="display:flex;align-items:center;width:100%;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(239,68,68,0.85);transition:all 0.15s;background:transparent;border:none;cursor:pointer;text-align:left;"
@@ -195,29 +208,29 @@ require_once __DIR__ . '/shop_config.php';
      style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:1rem;"
      onclick="if(event.target===this)this.style.display='none'">
     <!-- Backdrop -->
-    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);"></div>
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.75);"></div>
     <!-- Card -->
-    <div style="position:relative;background:#0d2535;border:1px solid rgba(83,197,224,0.18);border-radius:16px;padding:2rem 2rem 1.75rem;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);text-align:center;">
+    <div style="position:relative;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;padding:2.5rem 2rem 2rem;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.15);text-align:center;">
         <!-- Icon -->
-        <div style="width:60px;height:60px;background:rgba(239,68,68,0.12);border:1.5px solid rgba(239,68,68,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
-            <svg style="width:28px;height:28px;color:#ef4444;" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        <div style="width:64px;height:64px;background:rgba(239,68,68,0.08);border:1.5px solid rgba(239,68,68,0.2);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;transform:rotate(-5deg);">
+            <svg style="width:30px;height:30px;color:#ef4444;" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
         </div>
-        <h3 style="font-size:1.1rem;font-weight:700;color:#fff;margin:0 0 0.5rem;">Sign Out</h3>
-        <p style="font-size:0.875rem;color:rgba(255,255,255,0.5);margin:0 0 1.75rem;line-height:1.5;">Are you sure you want to sign out of your account?</p>
+        <h3 style="font-size:1.25rem;font-weight:800;color:#0f172a;margin:0 0 0.75rem;letter-spacing:-0.02em;">Sign Out</h3>
+        <p style="font-size:0.95rem;color:#64748b;margin:0 0 2rem;line-height:1.6;">Are you sure you want to sign out of your account?</p>
         <!-- Buttons -->
-        <div style="display:flex;gap:0.75rem;">
+        <div style="display:flex;gap:1rem;">
             <button onclick="document.getElementById('logout-confirm-modal').style.display='none'" type="button"
-                    style="flex:1;padding:0.625rem 1rem;border:1px solid rgba(83,197,224,0.25);border-radius:8px;background:transparent;color:rgba(255,255,255,0.75);font-size:0.875rem;font-weight:600;cursor:pointer;transition:all 0.2s;"
-                    onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#fff'"
-                    onmouseout="this.style.background='transparent';this.style.color='rgba(255,255,255,0.75)'">
+                    style="flex:1;padding:0.75rem 1rem;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-size:0.875rem;font-weight:700;cursor:pointer;transition:all 0.2s;"
+                    onmouseover="this.style.background='#f1f5f9';this.style.color='#1e293b'"
+                    onmouseout="this.style.background='#f8fafc';this.style.color='#64748b'">
                 Cancel
             </button>
             <a href="<?php echo $url_logout; ?>"
-               style="flex:1;padding:0.625rem 1rem;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:0.875rem;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 2px 12px rgba(239,68,68,0.35);"
-               onmouseover="this.style.boxShadow='0 4px 20px rgba(239,68,68,0.55)';this.style.transform='translateY(-1px)'"
-               onmouseout="this.style.boxShadow='0 2px 12px rgba(239,68,68,0.35)';this.style.transform='translateY(0)'">
+               style="flex:1;padding:0.75rem 1rem;border-radius:12px;background:#ef4444;color:#fff;font-size:0.875rem;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 8px 15px -3px rgba(239,68,68,0.3);"
+               onmouseover="this.style.background='#dc2626';this.style.transform='translateY(-1px)'"
+               onmouseout="this.style.background='#ef4444';this.style.transform='translateY(0)'">
                 Sign Out
             </a>
         </div>

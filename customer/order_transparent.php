@@ -102,7 +102,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'reference_name'     => null
             ];
 
-            redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
+            if (isset($_POST['buy_now'])) {
+                redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
+            } else {
+                redirect(BASE_URL . '/customer/cart.php');
+            }
         }
     }
 }
@@ -288,14 +292,23 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
             <!-- Sticky Pricing & Submit Button -->
             <div class="sticky bottom-4 z-50">
-                <div class="bg-black text-white p-6 rounded-2xl shadow-2xl flex items-center justify-between border border-gray-800">
-                    <div>
+                <div class="bg-black text-white p-6 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 border border-gray-800">
+                    <div class="w-full md:w-auto">
                         <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Estimated Total Price</p>
                         <p class="text-3xl font-black text-white" id="priceDisplay">₱0.00</p>
                     </div>
-                    <button type="submit" class="bg-white text-black px-10 py-4 rounded-xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                        Place Order Now
-                    </button>
+                    <div class="flex gap-4 w-full md:w-auto">
+                        <button type="submit" name="add_to_cart" value="1" 
+                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
+                                onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                            + Add to Cart
+                        </button>
+                        <button type="submit" name="buy_now" value="1" 
+                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid white; color:white; cursor:pointer; transition:all 0.2s;"
+                                onmouseover="this.style.background='white'; this.style.color='black'; this.style.borderColor='black';" onmouseout="this.style.background='black'; this.style.color='white'; this.style.borderColor='white';">
+                            Review Your Order
+                        </button>
+                    </div>
                 </div>
             </div>
         </form>

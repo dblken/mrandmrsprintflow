@@ -42,32 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
     if ($is_restricted) {
         $error = "🚫 Your account is restricted from placing new orders.";
     } elseif (verify_csrf_token($_POST['csrf_token'] ?? '')) {
-        // Calculate mandatory downpayment and payment type
+        // Pricing and payment are determined AFTER staff review.
+        // The checkout page does not collect payment choice from the customer initially.
+        // Staff will set the price and move to 'To Pay' status when ready.
         $downpayment_amount = 0;
-        $payment_type = 'full_payment';
-        $payment_status = 'Unpaid'; // Default
-
-        if ($customer_type === 'new') {
-            $downpayment_amount = $total;
-            $payment_type = 'full_payment';
-        } else {
-            // Regular customers can choose
-            $payment_choice = $_POST['payment_choice'] ?? 'half';
-            if ($payment_choice === 'full') {
-                $downpayment_amount = $total;
-                $payment_type = 'full_payment';
-            } elseif ($payment_choice === 'half') {
-                $downpayment_amount = $total * 0.5;
-                $payment_type = '50_percent';
-            } elseif ($payment_choice === 'pickup') {
-                $downpayment_amount = 0;
-                $payment_type = 'upon_pickup';
-                $payment_status = 'Unpaid'; // Don't require immediate payment for pickup
-            } else {
-                $downpayment_amount = $total * 0.5; // Default to half
-                $payment_type = '50_percent';
-            }
-        }
+        $payment_type = 'tbd'; 
+        $payment_status = 'Unpaid';
 
         // Start Transaction (if supported, otherwise manual checks)
         // 1. Create Order
@@ -218,49 +198,95 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen py-8">
-    <div class="container mx-auto px-4" style="max-width:1100px;">
-        <h1 class="ct-page-title">Checkout</h1>
+<style>
+    .order-container { max-width: 650px; margin: 0 auto; }
+    .compact-card { padding: 1.25rem !important; }
+</style>
 
-        <form method="POST" style="display:grid; grid-template-columns: 1fr 340px; gap:2rem;">
+<div class="min-h-screen py-8">
+    <div class="container mx-auto px-4 order-container">
+        <h1 class="ct-page-title" style="text-align: center; margin-bottom: 2rem;">Checkout</h1>
+
+        <form method="POST">
             <?php echo csrf_field(); ?>
             
-            <div style="display:flex; flex-direction:column; gap:1.5rem;">
+            <div style="display:flex; flex-direction:column; gap:1.25rem;">
                 <?php if (isset($error)): ?>
                     <div class="alert-error"><?php echo $error; ?></div>
                 <?php endif; ?>
 
-                <!-- Customer Info -->
-                <div class="card">
-                    <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Contact Information</h2>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Name
-                                <?php if ($customer_type === 'regular'): ?>
-                                    <span style="font-size:0.7rem; color:#15803d; font-weight:700; background:#dcfce7; padding:2px 6px; border-radius:4px; margin-left:6px;">Regular Customer – Flexible Payment Available</span>
-                                <?php endif; ?>
-                            </label>
-                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>" disabled style="background:#f9fafb;">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email</label>
-                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['email']); ?>" disabled style="background:#f9fafb;">
-                        </div>
-                        <div style="grid-column:span 2;">
-                            <label class="block text-sm font-medium text-gray-700">Phone</label>
-                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['contact_number']); ?>" disabled style="background:#f9fafb;">
+                <!-- 1. Order Summary -->
+                <div class="card compact-card">
+                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:1rem; color:#111827; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
+                        <span>🛒</span> Order Summary
+                    </h2>
+                    <div style="margin-bottom:1rem; display:flex; flex-direction:column; gap:0.75rem;">
+                        <?php foreach ($cart_items as $item):
+                            $item_total     = $item['price'] * $item['quantity'];
+                            $custom         = $item['customization'] ?? [];
+                            $design_preview = null;
+                            if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
+                                $bin = @file_get_contents($item['design_tmp_path']);
+                                if ($bin) $design_preview = 'data:' . $item['design_mime'] . ';base64,' . base64_encode($bin);
+                            }
+                        ?>
+                            <div style="border:1px solid #f1f5f9; border-radius:10px; padding:0.75rem; display:flex; gap:0.75rem; align-items:flex-start; background:#fff;">
+                                <div style="flex-shrink:0; width:50px; height:50px; border-radius:8px; overflow:hidden; background:#f9fafb; border:1px solid #e5e7eb; display:flex; align-items:center; justify-content:center;">
+                                    <?php if ($design_preview): ?>
+                                        <img src="<?php echo $design_preview; ?>" alt="" style="width:100%; height:100%; object-fit:cover;">
+                                    <?php else: ?>
+                                        <span style="font-size:1.5rem;">📦</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-weight:700; font-size:0.85rem; color:#1f2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($item['name']); ?></div>
+                                    <div style="font-size:0.7rem; color:#6b7280; margin-top:2px;">Qty: <?php echo (int)$item['quantity']; ?></div>
+                                </div>
+                                <!-- Price column hidden -->
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <div style="border-top:1px solid #f3f4f6; padding-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+                        <!-- Pricing Notice (replaces subtotal/total) -->
+                        <div style="margin-top:0.5rem; background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border:1px solid #bae6fd; border-left:4px solid #0ea5e9; border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+                            <span style="font-size:1.25rem; flex-shrink:0;">ℹ️</span>
+                            <div>
+                                <div style="font-size:0.82rem; font-weight:700; color:#0c4a6e; margin-bottom:3px;">Pricing will be determined by staff</div>
+                                <div style="font-size:0.75rem; color:#0369a1; line-height:1.5;">Your order will be reviewed and priced by our team. Payment options will be available once your order reaches the <strong>To Pay</strong> stage.</div>
+                            </div>
                         </div>
                     </div>
-                    <p style="font-size:0.8rem; color:#6b7280; margin-top:10px;">* Please update your profile if this information is incorrect.</p>
                 </div>
 
-                <!-- Branch Selection -->
-                <div class="card">
-                    <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Select Branch</h2>
-                    <p style="font-size:0.85rem; color:#6b7280; margin-bottom:0.75rem;">Which branch will process your order?</p>
+                <!-- 2. Contact Information -->
+                <div class="card compact-card">
+                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
+                        <span>👤</span> Contact Information
+                    </h2>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                        <div>
+                            <label style="display:block; font-size:0.7rem; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Full Name</label>
+                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>" disabled style="background:#f9fafb; font-size:0.85rem; padding:8px 12px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:0.7rem; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Email Address</label>
+                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['email']); ?>" disabled style="background:#f9fafb; font-size:0.85rem; padding:8px 12px;">
+                        </div>
+                        <div style="grid-column:span 2;">
+                            <label style="display:block; font-size:0.7rem; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Phone Number</label>
+                            <input type="text" class="input-field" value="<?php echo htmlspecialchars($customer['contact_number']); ?>" disabled style="background:#f9fafb; font-size:0.85rem; padding:8px 12px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Branch Selection -->
+                <div class="card compact-card">
+                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
+                        <span>📍</span> Select Branch
+                    </h2>
                     <?php 
                     $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'"); 
-                    // Try to pre-select based on cart
                     $preset_branch = 1;
                     if (!empty($cart_items)) {
                         foreach($cart_items as $ci) {
@@ -268,7 +294,7 @@ require_once __DIR__ . '/../includes/header.php';
                         }
                     }
                     ?>
-                    <select name="order_branch_id" class="input-field" required>
+                    <select name="order_branch_id" class="input-field" style="font-size:0.85rem; padding:8px 12px;" required>
                         <?php foreach($branches as $b): ?>
                             <option value="<?php echo $b['id']; ?>" <?php echo ($b['id'] == $preset_branch) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($b['branch_name']); ?>
@@ -276,124 +302,59 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
-                <!-- Payment Method -->
-                <div class="card">
-                    <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Payment Policy</h2>
+
+                <!-- 4. Payment Policy -->
+                <div class="card compact-card">
+                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:1rem; color:#111827; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
+                        <span>💳</span> Payment Policy
+                    </h2>
                     
                     <?php if ($customer_type === 'new'): ?>
-                        <div style="background:#fff1f2; border:1px solid #fecaca; border-radius:8px; padding:12px 14px; font-size:0.85rem; color:#b91c1c;">
-                            ⚠️ <strong>New Customer Policy</strong><br>
-                            To process your order, <strong>full payment (PHP <?php echo number_format($total, 2); ?>)</strong> is required upfront. You'll become a 'Regular' customer after 3 successful orders!
+                        <div style="background:#fff1f2; border:1px solid #fecaca; border-radius:10px; padding:12px; font-size:0.8rem; color:#b91c1c;">
+                            ⚠️ <strong>New Customer:</strong> Full payment (<?php echo format_currency($total); ?>) required upfront.
                         </div>
                     <?php else: ?>
-                        <div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:8px; padding:10px 14px; font-size:0.85rem; color:#15803d; margin-bottom:1.25rem;">
-                            ✅ <strong>Regular Customer Benefit</strong><br>
-                            Choose your preferred payment option:
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                                <input type="radio" name="payment_choice" value="full" style="width: 18px; height: 18px; cursor: pointer;">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 700; font-size: 0.9rem; color: #1f2937;">Full Payment (100%)</div>
-                                    <div style="font-size: 0.75rem; color: #6b7280;">Pay <?php echo format_currency($total); ?> now</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
+                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="payment_choice" value="full" style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 700; font-size: 0.85rem; color: #1f2937;">Full (100%)</span>
                                 </div>
+                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total); ?></span>
                             </label>
 
-                            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 2px solid #4F46E5; background: #f5f3ff; border-radius: 8px; cursor: pointer;">
-                                <input type="radio" name="payment_choice" value="half" checked style="width: 18px; height: 18px; cursor: pointer;">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 700; font-size: 0.9rem; color: #4F46E5;">Half Payment (50%)</div>
-                                    <div style="font-size: 0.75rem; color: #6b7280;">Pay <?php echo format_currency($total * 0.5); ?> now, balance upon pickup</div>
+                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 2px solid #4F46E5; background: #f5f3ff; border-radius: 10px; cursor: pointer;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="payment_choice" value="half" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 700; font-size: 0.85rem; color: #4F46E5;">Half (50%)</span>
                                 </div>
+                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total * 0.5); ?></span>
                             </label>
 
-                            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                                <input type="radio" name="payment_choice" value="pickup" style="width: 18px; height: 18px; cursor: pointer;">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 700; font-size: 0.9rem; color: #1f2937;">Upon Pick Up (0%)</div>
-                                    <div style="font-size: 0.75rem; color: #6b7280;">Pay full amount upon picking up your order</div>
+                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="payment_choice" value="pickup" style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 700; font-size: 0.85rem; color: #1f2937;">Upon Pick Up</span>
                                 </div>
+                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay upon pickup</span>
                             </label>
                         </div>
                     <?php endif; ?>
                 </div>
 
-                <!-- Global Order Notes -->
-                <div class="card">
-                    <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem;">Order Notes (Optional)</h2>
-                    <p style="font-size:0.85rem; color:#6b7280; margin-bottom:0.75rem;">Add any special instructions or general notes for your entire order here.</p>
-                    <textarea name="notes" class="input-field" style="width:100%; min-height:100px; resize:vertical; font-size:0.9rem;" placeholder="e.g. Please wrap carefully, I will pick up around 5pm..."></textarea>
+                <!-- 5. Order Notes -->
+                <div class="card compact-card">
+                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
+                        <span>📝</span> Order Notes
+                    </h2>
+                    <textarea name="notes" class="input-field" style="width:100%; min-height:80px; resize:vertical; font-size:0.85rem; padding:10px;" placeholder="Add special instructions for your entire order..."></textarea>
                 </div>
-            </div>
 
-            <!-- Order Summary -->
-            <div class="card" style="height:fit-content;">
-                <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Order Summary</h2>
-                <div style="margin-bottom:1.5rem; display:flex; flex-direction:column; gap:1rem;">
-                    <?php foreach ($cart_items as $item):
-                        $item_total     = $item['price'] * $item['quantity'];
-                        $custom         = $item['customization'] ?? [];
-                        $design_preview = null;
-                        if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
-                            $bin = file_get_contents($item['design_tmp_path']);
-                            if ($bin) $design_preview = 'data:' . $item['design_mime'] . ';base64,' . base64_encode($bin);
-                        }
-                    ?>
-                        <div style="border:1px solid #f3f4f6; border-radius:10px; padding:0.85rem; display:flex; gap:0.85rem; align-items:flex-start;">
-                            <!-- Thumbnail -->
-                            <div style="flex-shrink:0; width:58px; height:58px; border-radius:8px; overflow:hidden; background:#f3f4f6; display:flex; align-items:center; justify-content:center; border:1px solid #e5e7eb;">
-                                <?php if ($design_preview): ?>
-                                    <img src="<?php echo $design_preview; ?>" alt="" style="width:100%; height:100%; object-fit:cover;">
-                                <?php else: ?>
-                                    <span style="font-size:1.8rem;">📦</span>
-                                <?php endif; ?>
-                            </div>
-                            <!-- Info -->
-                            <div style="flex:1; min-width:0;">
-                                <div style="font-weight:600; font-size:0.9rem; color:#1f2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?php echo htmlspecialchars($item['name']); ?></div>
-                                <?php if (!empty($custom)): ?>
-                                <div style="font-size:0.75rem; color:#6b7280; margin-top:3px;">
-                                    <?php foreach ($custom as $k => $v):
-                                        if ($v === '') continue;
-                                    ?>
-                                        <span style="background:#f3f4f6; padding:1px 6px; border-radius:4px; margin-right:4px;"><?php echo htmlspecialchars(ucfirst(str_replace('_',' ',$k))); ?>: <strong><?php echo htmlspecialchars($v); ?></strong></span>
-                                    <?php endforeach; ?>
-                                </div>
-                                <?php endif; ?>
-                                <div style="font-size:0.78rem; color:#9ca3af; margin-top:4px;">Qty: <?php echo (int)$item['quantity']; ?> × <?php echo format_currency($item['price']); ?></div>
-                            </div>
-                            <!-- Price -->
-                            <div style="font-weight:700; color:#4F46E5; white-space:nowrap;"><?php echo format_currency($item_total); ?></div>
-                        </div>
-                    <?php endforeach; ?>
+                <!-- 6. Final Actions -->
+                <div style="margin-top:0.5rem; text-align:center;">
+                    <button type="submit" name="place_order" class="btn-primary" style="width:100%; padding:14px; font-weight:700; font-size:1.1rem; border-radius:12px; box-shadow:0 4px 6px -1px rgba(79, 70, 229, 0.2);">Place Order</button>
+                    <a href="cart.php" style="display:inline-block; margin-top:1.25rem; font-size:0.875rem; color:#6b7280; text-decoration:none; font-weight:600; padding:8px 16px; transition:all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">Returns to Cart</a>
                 </div>
-                
-                <div style="border-top:1px solid #f3f4f6; padding-top:1rem; margin-bottom:1.5rem; display:flex; flex-direction:column; gap:0.5rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:600; color:#6b7280;">Subtotal</span>
-                        <span style="font-weight:600;"><?php echo format_currency($total); ?></span>
-                    </div>
-                    <?php if ($customer_type === 'new'): ?>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-weight:600; color:#b91c1c;">Mandatory Downpayment</span>
-                            <span style="font-weight:700; color:#b91c1c;"><?php echo format_currency($total); ?></span>
-                        </div>
-                    <?php else: ?>
-                        <p style="font-size: 0.75rem; color: #6b7280; border-top: 1px dashed #e5e7eb; padding-top: 0.5rem; margin-top: 0.5rem;">
-                            Regular customers can choose their downpayment above.
-                        </p>
-                    <?php endif; ?>
-                    
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:2px solid #e5e7eb; padding-top:0.5rem; margin-top:0.5rem;">
-                        <span style="font-weight:600;">Total</span>
-                        <span style="font-size:1.5rem; font-weight:700; color:#4F46E5;"><?php echo format_currency($total); ?></span>
-                    </div>
-                </div>
-                
-                <button type="submit" name="place_order" class="btn-primary" style="width:100%;">Place Order</button>
-                <a href="cart.php" style="display:block; text-align:center; font-size:0.875rem; color:#6b7280; margin-top:1rem; text-decoration:none;">Returns to Cart</a>
             </div>
         </form>
     </div>

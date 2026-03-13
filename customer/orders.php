@@ -34,12 +34,18 @@ $active_tab = $_GET['tab'] ?? 'all';
 
 // Tab mappings to exact statuses
 $tab_status_map = [
-    'pending' => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
-    'topay' => ['To Pay'],
-    'production' => ['In Production', 'Processing', 'Printing'], // include legacy for safety
-    'pickup' => ['Ready for Pickup'],
-    'completed' => ['Completed']
+    'pending'    => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
+    'approved'   => ['Approved'],
+    'toverify'   => ['To Verify'],
+    'topay'      => ['To Pay'],
+    'production' => ['In Production', 'Processing', 'Printing'],
+    'pickup'     => ['Ready for Pickup'],
+    'completed'  => ['Completed'],
+    'cancelled'  => ['Cancelled'],
 ];
+
+// Statuses where price is hidden from customer
+$HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
 
 // Build query
 $sql = "SELECT o.*, 
@@ -168,10 +174,13 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="tt-tabs">
                 <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All</a>
                 <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending</a>
-                <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To pay</a>
+                <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved</a>
+                <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To Pay</a>
+                <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify</a>
                 <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">In Production</a>
-                <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready for pickup</a>
+                <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready for Pickup</a>
                 <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed</a>
+                <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled</a>
             </div>
         </div>
 
@@ -195,7 +204,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         <?php else: ?>
             <?php foreach ($orders as $index => $order): ?>
-                <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>">
+                <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>">
                     <!-- Card Top: product image + info + price -->
                     <div style="display:flex; gap:14px; align-items:flex-start; padding-bottom:12px; border-bottom:1px solid #f1f5f9;">
                         <!-- Product Image -->
@@ -301,8 +310,12 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <!-- Price + Status -->
                         <div style="text-align:right; flex-shrink:0;">
-                            <p class="ct-order-amount" style="font-size:1.15rem; font-weight:800; color:#4f46e5; margin:0;"><?php echo format_currency($order['total_amount']); ?></p>
-                            <div style="margin-top:4px;"><?php echo status_badge($order['status'], 'order'); ?></div>
+                            <?php if (in_array($order['status'], $HIDDEN_PRICE_STATUSES)): ?>
+                                <p class="ct-order-amount order-price" style="font-size:0.78rem; font-weight:600; color:#9ca3af; margin:0; font-style:italic;">Price TBD by staff</p>
+                            <?php else: ?>
+                                <p class="ct-order-amount order-price" style="font-size:1.15rem; font-weight:800; color:#4f46e5; margin:0;"><?php echo format_currency($order['total_amount']); ?></p>
+                            <?php endif; ?>
+                            <div style="margin-top:4px;" class="order-status-badge"><?php echo status_badge($order['status'], 'order'); ?></div>
                         </div>
                     </div>
 
@@ -1034,6 +1047,128 @@ function escIM(str) {
     return String(str || '')
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Real-Time Orders Polling ──────────────────────────────────────────────────
+(function startOrdersPolling() {
+    // Status → display label map
+    const statusLabels = {
+        'Pending':          'Pending',
+        'Pending Approval': 'Pending Approval',
+        'Approved':         'Approved',
+        'To Pay':           'To Pay',
+        'To Verify':        'To Verify',
+        'In Production':    'In Production',
+        'Ready for Pickup': 'Ready for Pickup',
+        'Completed':        'Completed',
+        'Cancelled':        'Cancelled',
+    };
+
+    // Statuses where price is hidden
+    const hiddenPriceStatuses = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
+
+    // Status → tab mapping (must match $tab_status_map in PHP)
+    const statusToTab = {
+        'Pending':          'pending',
+        'Pending Approval': 'pending',
+        'Pending Review':   'pending',
+        'For Revision':     'pending',
+        'Approved':         'approved',
+        'To Pay':           'topay',
+        'To Verify':        'toverify',
+        'In Production':    'production',
+        'Processing':       'production',
+        'Printing':         'production',
+        'Ready for Pickup': 'pickup',
+        'Completed':        'completed',
+        'Cancelled':        'cancelled',
+    };
+
+    const activeTab = '<?php echo addslashes($active_tab); ?>';
+
+    function updateNotifBell(count) {
+        const bells = document.querySelectorAll('.notif-count, [data-notif-count]');
+        bells.forEach(el => {
+            if (count > 0) {
+                el.textContent = count;
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        });
+    }
+
+    function poll() {
+        fetch('/printflow/customer/api_customer_orders.php')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+
+                // Update notification bell
+                updateNotifBell(data.unread_notif_count || 0);
+
+                data.orders.forEach(order => {
+                    const card = document.getElementById('order-card-' + order.order_id);
+                    if (!card) return;
+
+                    const prevStatus = card.dataset.status;
+                    if (prevStatus === order.status) return; // No change
+
+                    // Status changed — update data attribute
+                    card.dataset.status = order.status;
+
+                    // Update status badge
+                    const badgeContainer = card.querySelector('.order-status-badge');
+                    if (badgeContainer) {
+                        const label = statusLabels[order.status] || order.status;
+                        badgeContainer.innerHTML = `<span class="ct-status-badge" style="display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; background:#e0edff; color:#1d4ed8;">${label}</span>`;
+                    }
+
+                    // Update price
+                    const priceEl = card.querySelector('.order-price');
+                    if (priceEl) {
+                        if (hiddenPriceStatuses.includes(order.status)) {
+                            priceEl.style.fontSize = '0.78rem';
+                            priceEl.style.color = '#9ca3af';
+                            priceEl.style.fontWeight = '600';
+                            priceEl.style.fontStyle = 'italic';
+                            priceEl.textContent = 'Price TBD by staff';
+                        } else if (order.total_amount !== null) {
+                            priceEl.style.fontSize = '1.15rem';
+                            priceEl.style.color = '#4f46e5';
+                            priceEl.style.fontWeight = '800';
+                            priceEl.style.fontStyle = 'normal';
+                            priceEl.textContent = '₱' + parseFloat(order.total_amount).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+
+                    // If on a filtered tab and this order no longer belongs here, fade it out
+                    if (activeTab !== 'all') {
+                        const belongsToTab = statusToTab[order.status] === activeTab;
+                        if (!belongsToTab) {
+                            card.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, margin 0.5s ease';
+                            card.style.opacity = '0';
+                            card.style.maxHeight = card.offsetHeight + 'px';
+                            setTimeout(() => {
+                                card.style.maxHeight = '0';
+                                card.style.margin = '0';
+                                card.style.overflow = 'hidden';
+                            }, 300);
+                            setTimeout(() => card.remove(), 800);
+                        }
+                    }
+
+                    // Flash highlight to signal the update
+                    card.style.transition = 'background 0.3s ease';
+                    card.style.background = '#fffbeb';
+                    setTimeout(() => { card.style.background = ''; card.style.transition = ''; }, 1200);
+                });
+            })
+            .catch(() => {}); // Silently ignore network errors
+    }
+
+    // Start polling every 8 seconds
+    setInterval(poll, 8000);
+})();
 </script>
 
 <?php include __DIR__ . '/../includes/order_chat.php'; ?>
