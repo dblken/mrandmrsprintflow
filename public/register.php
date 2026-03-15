@@ -10,6 +10,9 @@ require_once __DIR__ . '/../includes/functions.php';
 // Redirect Admin, Manager, and Staff away from registration
 redirect_admin_staff_from_public();
 
+$error = sanitize($_GET['error'] ?? '');
+$success = sanitize($_GET['success'] ?? '');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
@@ -106,6 +109,22 @@ $page_title = "User Registration - PrintFlow";
             display: none;
             font-weight: 500;
         }
+        .pw-checklist {
+            margin-top: 6px;
+            padding-left: 16px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+        .pw-checklist li {
+            margin: 2px 0;
+        }
+        .pw-checklist li.ok {
+            color: #059669;
+            font-weight: 600;
+        }
+        .pw-checklist li.bad {
+            color: #ef4444;
+        }
         .form-group.is-invalid .error-message {
             display: block;
         }
@@ -145,6 +164,14 @@ $page_title = "User Registration - PrintFlow";
                 <label>Password *</label>
                 <input type="password" name="password" id="password" required autocomplete="new-password">
                 <p id="password_requirements" style="font-size:11px;color:#9ca3af;margin-top:4px;">Min. 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 symbol</p>
+                <ul class="pw-checklist" id="password_checklist">
+                    <li id="pw_len">8 to 64 characters</li>
+                    <li id="pw_upper">At least 1 uppercase letter</li>
+                    <li id="pw_lower">At least 1 lowercase letter</li>
+                    <li id="pw_number">At least 1 number</li>
+                    <li id="pw_special">At least 1 special character</li>
+                    <li id="pw_nospace">No spaces</li>
+                </ul>
                 <div class="error-message" id="error_password">Invalid password format.</div>
             </div>
             <div class="form-group">
@@ -183,10 +210,12 @@ $page_title = "User Registration - PrintFlow";
         password: (val) => {
             if (!val) return "Password is required.";
             if (val.length < 8) return "Password must be at least 8 characters.";
+            if (val.length > 64) return "Password must be at most 64 characters.";
             if (!/[A-Z]/.test(val)) return "Password must have an uppercase letter.";
             if (!/[a-z]/.test(val)) return "Password must have a lowercase letter.";
             if (!/[0-9]/.test(val)) return "Password must have a number.";
-            if (!/[!@#$%^&*(),.?":{}|<>]/.test(val)) return "Password must have a special character.";
+            if (!/[^A-Za-z0-9]/.test(val)) return "Password must have a special character.";
+            if (/\s/.test(val)) return "Password must not contain spaces.";
             return null;
         }
     };
@@ -229,7 +258,39 @@ $page_title = "User Registration - PrintFlow";
         const lValid = validateField('last_name', validators.last_name);
         const eValid = validateField('email', validators.email);
         const pValid = validateField('password', validators.password);
+        updatePasswordChecklist();
         document.getElementById('btn_register').disabled = !(fValid && lValid && eValid && pValid);
+    }
+
+    function setChecklistState(id, ok) {
+        const item = document.getElementById(id);
+        if (!item) return;
+        item.classList.toggle('ok', ok);
+        item.classList.toggle('bad', !ok);
+    }
+
+    function updatePasswordChecklist() {
+        const val = document.getElementById('password')?.value || '';
+        const hasAny = val.length > 0;
+
+        const checks = {
+            pw_len: val.length >= 8 && val.length <= 64,
+            pw_upper: /[A-Z]/.test(val),
+            pw_lower: /[a-z]/.test(val),
+            pw_number: /[0-9]/.test(val),
+            pw_special: /[^A-Za-z0-9]/.test(val),
+            pw_nospace: !/\s/.test(val)
+        };
+
+        Object.entries(checks).forEach(([id, ok]) => {
+            const item = document.getElementById(id);
+            if (!item) return;
+            if (!hasAny) {
+                item.classList.remove('ok', 'bad');
+            } else {
+                setChecklistState(id, ok);
+            }
+        });
     }
 
     // Listeners
@@ -252,6 +313,7 @@ $page_title = "User Registration - PrintFlow";
 
     // Initial check
     checkForm();
+    updatePasswordChecklist();
     </script>
 </body>
 </html>

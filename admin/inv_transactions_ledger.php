@@ -10,8 +10,151 @@ require_once __DIR__ . '/../includes/InventoryManager.php';
 require_role('Admin');
 $page_title = 'Inventory Ledger - Admin';
 
+// Get filter parameters
+$item_id      = (int)($_GET['item_id'] ?? 0);
+$type_filter  = $_GET['type'] ?? '';
+$search       = trim($_GET['search'] ?? '');
+$start_date   = $_GET['start_date'] ?? date('Y-m-01');
+$end_date     = $_GET['end_date'] ?? date('Y-m-t');
+$sort         = $_GET['sort'] ?? 'transaction_date';
+$dir          = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+$page         = max(1, (int)($_GET['page'] ?? 1));
+$per_page     = 15;
+
+// Build Query
+$sql = "SELECT t.*, i.name as item_name, i.unit_of_measure as unit, 
+               CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+               r.roll_code as roll_code
+        FROM inventory_transactions t
+        JOIN inv_items i ON t.item_id = i.id
+        LEFT JOIN users u ON t.created_by = u.user_id
+        LEFT JOIN inv_rolls r ON t.roll_id = r.id
+        WHERE 1=1";
+$params = [];
+$types = '';
+
+if ($item_id) {
+    $sql .= " AND t.item_id = ?";
+    $params[] = $item_id;
+    $types .= 'i';
+}
+if ($type_filter) {
+    if (in_array(strtoupper($type_filter), ['IN', 'OUT'])) {
+        $sql .= " AND t.direction = ?";
+    } else {
+        $sql .= " AND t.ref_type = ?";
+    }
+    $params[] = $type_filter;
+    $types .= 's';
+}
+if ($search) {
+    $st = '%' . $search . '%';
+    $sql .= " AND (i.name LIKE ? OR t.notes LIKE ? OR t.reference_id LIKE ? OR t.id LIKE ?)";
+    $params[] = $st; $params[] = $st; $params[] = $st; $params[] = $st;
+    $types .= 'ssss';
+}
+if ($start_date && $end_date) {
+    $sql .= " AND t.transaction_date BETWEEN ? AND ?";
+    $params[] = $start_date;
+    $params[] = $end_date;
+    $types .= 'ss';
+}
+
+// Count total
+$count_sql = "SELECT COUNT(*) as total FROM ({$sql}) as wrap";
+$total_rows = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
+$total_pages = max(1, ceil($total_rows / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+
+$orderBy = match($sort) {
+    'id' => 't.id',
+    'item_name' => 'i.name',
+    'direction' => 't.direction',
+    'quantity' => 't.quantity',
+    default => 't.transaction_date'
+};
+
+$orderSql = " ORDER BY $orderBy $dir";
+if ($sort === 'transaction_date' || $sort === 'id') {
+    // Keep tie-breaker direction aligned with selected sort direction.
+    $orderSql .= ", t.id $dir";
+} else {
+    $orderSql .= ", t.transaction_date DESC, t.id DESC";
+}
+$sql .= $orderSql . " LIMIT $per_page OFFSET $offset";
+$transactions = db_query($sql, $types ?: null, $params ?: null) ?: [];
+
 // Get items for filters/forms
 $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER BY name ASC") ?: [];
+
+// AJAX Partial Response
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <?php if (empty($transactions)): ?>
+        <tr><td colspan="8" style="text-align:center; padding: 60px; color:#6b7280; font-size: 15px;">No logs found for this period.</td></tr>
+    <?php else: ?>
+        <?php foreach ($transactions as $t): 
+            $qty = (float)$t['quantity'];
+            $isIN = ($t['direction'] === 'IN');
+            $displayQty = $isIN ? '+' . number_format($qty, 2) : '-' . number_format($qty, 2);
+            $qtyClass = $isIN ? 'qty-val positive' : 'qty-val negative';
+            $badgeClass = $isIN ? 'badge-in' : 'badge-out';
+            $displayType = str_replace('_', ' ', strtolower($t['ref_type'] ?: $t['direction'] ?: 'MOVEMENT'));
+            
+            $typeBadgeClass = "badge $badgeClass";
+            $typeBadgeStyle = '';
+            if (in_array($displayType, ['joborder', 'job order'])) {
+                $displayType = 'customization';
+                $typeBadgeClass = '';
+                $typeBadgeStyle = 'display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;';
+            }
+        ?>
+            <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)">
+                <td style="font-family:monospace;font-size:12px;color:#9ca3af;">#TX-<?php echo $t['id']; ?></td>
+                <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
+                <td style="font-weight:500;color:#111827;text-transform:capitalize;">
+                    <?php echo htmlspecialchars($t['item_name']); ?>
+                    <?php if ($t['roll_code']): ?>
+                        <span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: <?php echo htmlspecialchars($t['roll_code']); ?></span>
+                    <?php endif; ?>
+                </td>
+                <td><span class="<?php echo $typeBadgeClass; ?>" style="text-transform:capitalize;pointer-events:none;<?php echo $typeBadgeStyle; ?>"><?php echo $displayType; ?></span></td>
+                <td style="text-align:right;">
+                    <span class="<?php echo $qtyClass; ?>"><?php echo $displayQty; ?></span>
+                    <span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px;"><?php echo $t['unit']; ?></span>
+                </td>
+                <td style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?php echo htmlspecialchars($t['notes']); ?>"><?php echo htmlspecialchars($t['notes'] ?: '—'); ?></td>
+                <td style="font-size:12px;color:#374151;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
+                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                    <button onclick="event.stopPropagation();viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)" class="btn-action blue">View</button>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+    <?php endif; ?>
+    <?php
+    $table_html = ob_get_clean();
+
+    ob_start();
+    $p = array_filter(['item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir]);
+    echo render_pagination($page, $total_pages, $p);
+    $pagination_html = ob_get_clean();
+
+    $badge_count = count(array_filter([$item_id, $type_filter, $search, ($start_date !== date('Y-m-01') ? 1 : 0), ($end_date !== date('Y-m-t') ? 1 : 0)]));
+
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_rows),
+        'badge'      => $badge_count,
+        'startIdx'   => $total_rows > 0 ? $offset + 1 : 0,
+        'endIdx'     => min($offset + $per_page, $total_rows),
+        'total'      => $total_rows
+    ]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,29 +232,183 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 
         /* Standardized Toolbar Styles */
-        .toolbar-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; height: 38px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .toolbar-btn:hover { background: #f9fafb; border-color: #d1d5db; }
-        .toolbar-btn.active { border-color: #0d9488; background: #f0fdfa; color: #0d9488; }
-        .sort-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 220px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 8px; z-index: 100002; }
-        .sort-option { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #4b5563; cursor: pointer; transition: all 0.2s; }
-        .sort-option:hover { background: #f3f4f6; color: #111827; }
-        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
-        .filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); z-index: 100002; overflow: hidden; }
-        .filter-panel-header { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 700; color: #111827; }
-        .filter-section { padding: 16px; border-bottom: 1px solid #f3f4f6; }
-        .filter-section:last-child { border-bottom: none; }
-        .filter-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .filter-section-label { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.025em; }
-        .filter-reset-link { font-size: 11px; font-weight: 600; color: #0d9488; background: none; border: none; cursor: pointer; padding: 0; }
+        /* Standardized Toolbar Styles */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        /* ── Filter Panel ─── */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 100002;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
         .filter-reset-link:hover { text-decoration: underline; }
-        .filter-select, .filter-search-input, .filter-input { width: 100%; height: 40px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; padding: 0 12px; transition: all 0.2s; }
-        .filter-select:focus, .filter-search-input:focus, .filter-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
-        .filter-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 700; }
-        .filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
-        .filter-btn-reset { flex: 1; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-wrap { position: relative; }
+        .filter-search-wrap svg {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            pointer-events: none;
+        }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
         .filter-btn-reset:hover { background: #f9fafb; }
-        .filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #0d9488; color: white; font-size: 10px; font-weight: 700; }
+
+        /* ── Sort Dropdown ─── */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 100002;
+            padding: 6px 0;
+            overflow: hidden;
+        }
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .sort-option:hover { background: #f9fafb; }
+        .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+        .sort-option .check { margin-left: auto; color: #0d9488; }
+
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -136,9 +433,23 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
             <!-- Ledger Card -->
             <div class="card">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
-                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Ledger List</h3>
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
+                        Ledger List
+                        <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
+                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong> of <span id="totalCount"><?php echo number_format($total_rows); ?></span> transactions)
+                        </span>
+                    </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <div class="filter-search-wrap" style="min-width:260px;">
+                            <input
+                                type="text"
+                                id="ledgerQuickSearch"
+                                class="filter-search-input"
+                                placeholder="Search item, notes, ref..."
+                                value="<?php echo htmlspecialchars($search); ?>"
+                            >
+                        </div>
                         <button onclick="openModal('purchase')" class="toolbar-btn" style="height:38px; border-color:#059669; color:#059669; background:#ecfdf5; gap:6px;">
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Receive IN
@@ -155,10 +466,22 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
                                 Sort by
                             </button>
                             <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">Newest to Oldest <svg x-show="activeSort === 'newest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">Oldest to Newest <svg x-show="activeSort === 'oldest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">Material A → Z <svg x-show="activeSort === 'az'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">Material Z → A <svg x-show="activeSort === 'za'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">
+                                    Newest to Oldest
+                                    <svg x-show="activeSort === 'newest'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">
+                                    Oldest to Newest
+                                    <svg x-show="activeSort === 'oldest'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">
+                                    Material A → Z
+                                    <svg x-show="activeSort === 'az'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">
+                                    Material Z → A
+                                    <svg x-show="activeSort === 'za'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
                             </div>
                         </div>
 
@@ -216,6 +539,17 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
                                         <option value="return">Return (IN)</option>
                                     </select>
                                 </div>
+                                
+                                <!-- Keyword Search -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <div class="filter-search-wrap">
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search item, notes, ref..." value="<?php echo htmlspecialchars($search); ?>">
+                                    </div>
+                                </div>
 
                                 <div class="filter-actions">
                                     <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
@@ -240,11 +574,56 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
                             </tr>
                         </thead>
                         <tbody id="ledgerTableBody">
-                            <tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Retrieving audit logs...</td></tr>
+                            <?php if (empty($transactions)): ?>
+                                <tr><td colspan="8" style="text-align:center; padding: 60px; color:#6b7280; font-size: 15px;">No logs found for this period.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($transactions as $t): 
+                                    $qty = (float)$t['quantity'];
+                                    $isIN = ($t['direction'] === 'IN');
+                                    $displayQty = $isIN ? '+' . number_format($qty, 2) : '-' . number_format($qty, 2);
+                                    $qtyClass = $isIN ? 'qty-val positive' : 'qty-val negative';
+                                    $badgeClass = $isIN ? 'badge-in' : 'badge-out';
+                                    $displayType = str_replace('_', ' ', strtolower($t['ref_type'] ?: $t['direction'] ?: 'MOVEMENT'));
+                                    
+                                    $typeBadgeClass = "badge $badgeClass";
+                                    $typeBadgeStyle = '';
+                                    if (in_array($displayType, ['joborder', 'job order'])) {
+                                        $displayType = 'customization';
+                                        $typeBadgeClass = '';
+                                        $typeBadgeStyle = 'display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;';
+                                    }
+                                ?>
+                                    <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)">
+                                        <td style="font-family:monospace;font-size:12px;color:#9ca3af;">#TX-<?php echo $t['id']; ?></td>
+                                        <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
+                                        <td style="font-weight:500;color:#111827;text-transform:capitalize;">
+                                            <?php echo htmlspecialchars($t['item_name']); ?>
+                                            <?php if ($t['roll_code']): ?>
+                                                <span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: <?php echo htmlspecialchars($t['roll_code']); ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><span class="<?php echo $typeBadgeClass; ?>" style="text-transform:capitalize;pointer-events:none;<?php echo $typeBadgeStyle; ?>"><?php echo $displayType; ?></span></td>
+                                        <td style="text-align:right;">
+                                            <span class="<?php echo $qtyClass; ?>"><?php echo $displayQty; ?></span>
+                                            <span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px;"><?php echo $t['unit']; ?></span>
+                                        </td>
+                                        <td style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?php echo htmlspecialchars($t['notes']); ?>"><?php echo htmlspecialchars($t['notes'] ?: '—'); ?></td>
+                                        <td style="font-size:12px;color:#374151;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
+                                        <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                                            <button onclick="event.stopPropagation();viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)" class="btn-action blue">View</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
-                <div id="ledgerPagination"></div>
+                <div id="ledgerPagination">
+                    <?php 
+                        $p = array_filter(['item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir]);
+                        echo render_pagination($page, $total_pages, $p); 
+                    ?>
+                </div>
             </div>
         </main>
     </div>
@@ -355,223 +734,220 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
 </div>
 
 <script>
-    let allTransactions = [];
-    let ledgerPage = 1;
-    const ledgerPerPage = 10;
-    let currentSort = 'transaction_date';
-    let currentDir = 'DESC';
-    let activeSort = 'newest';
+    let ledgerPage = <?php echo $page; ?>;
+    let currentSort = '<?php echo $sort; ?>';
+    let currentDir = '<?php echo $dir; ?>';
+    let searchTimer = null;
+    let ledgerFetchController = null;
+    let ledgerRequestSerial = 0;
 
     function filterPanel() {
         return {
             sortOpen: false,
             filterOpen: false,
-            activeSort: activeSort,
+            activeSort: '<?php echo $sort === 'transaction_date' ? ($dir === 'DESC' ? 'newest' : 'oldest') : ($sort === 'item_name' ? ($dir === 'ASC' ? 'az' : 'za') : 'newest'); ?>',
             get hasActiveFilters() {
-                // Check if filters differ from defaults
                 const start = document.getElementById('fp_start_date')?.value;
                 const end = document.getElementById('fp_end_date')?.value;
                 const item = document.getElementById('fp_item_id')?.value;
                 const type = document.getElementById('fp_type')?.value;
+                const search = document.getElementById('fp_search')?.value;
                 
                 const defaultStart = '<?php echo date('Y-m-01'); ?>';
                 const defaultEnd = '<?php echo date('Y-m-t'); ?>';
                 
-                return item || type || start !== defaultStart || end !== defaultEnd;
+                return item || type || search || start !== defaultStart || end !== defaultEnd;
             }
         };
     }
 
-    function applySortFilter(sortKey) {
-        activeSort = sortKey;
-        if (sortKey === 'newest') { currentSort = 'transaction_date'; currentDir = 'DESC'; }
-        else if (sortKey === 'oldest') { currentSort = 'transaction_date'; currentDir = 'ASC'; }
-        else if (sortKey === 'az') { currentSort = 'item_name'; currentDir = 'ASC'; }
-        else if (sortKey === 'za') { currentSort = 'item_name'; currentDir = 'DESC'; }
-        
-        ledgerPage = 1;
-        loadTransactions();
-        
-        const alpineEl = document.querySelector('[x-data="filterPanel()"]');
-        if (alpineEl && alpineEl._x_dataStack) {
-            alpineEl._x_dataStack[0].activeSort = sortKey;
-            alpineEl._x_dataStack[0].sortOpen = false;
+    document.addEventListener('DOMContentLoaded', () => {
+        const panelSearchInput = document.getElementById('fp_search');
+        const quickSearchInput = document.getElementById('ledgerQuickSearch');
+
+        const onSearchInput = (sourceEl) => {
+            const value = sourceEl?.value ?? '';
+            if (panelSearchInput && sourceEl !== panelSearchInput) panelSearchInput.value = value;
+            if (quickSearchInput && sourceEl !== quickSearchInput) quickSearchInput.value = value;
+
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                fetchUpdatedTable({ page: 1 });
+            }, 250);
+        };
+
+        if (panelSearchInput) {
+            panelSearchInput.addEventListener('input', () => {
+                onSearchInput(panelSearchInput);
+            });
         }
+        if (quickSearchInput) {
+            quickSearchInput.addEventListener('input', () => {
+                onSearchInput(quickSearchInput);
+            });
+        }
+
+        if (panelSearchInput && quickSearchInput && panelSearchInput.value !== quickSearchInput.value) {
+            panelSearchInput.value = quickSearchInput.value;
+        }
+
+        ['fp_item_id', 'fp_type', 'fp_start_date', 'fp_end_date'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => {
+                clearTimeout(searchTimer);
+                fetchUpdatedTable({ page: 1 });
+            });
+        });
+    });
+
+    function buildFilterURL(overrides = {}, isAjax = false) {
+        const params = new URLSearchParams(window.location.search);
+        
+        const map = {
+            'item_id': 'fp_item_id',
+            'type': 'fp_type',
+            'search': 'fp_search',
+            'start_date': 'fp_start_date',
+            'end_date': 'fp_end_date'
+        };
+
+        for (const [param, id] of Object.entries(map)) {
+            const val = document.getElementById(id)?.value;
+            if (val) params.set(param, val);
+            else params.delete(param);
+        }
+
+        if (overrides.page !== undefined) params.set('page', overrides.page);
+        else if (ledgerPage > 1) params.set('page', ledgerPage);
+
+        if (overrides.sort !== undefined) {
+            params.set('sort', overrides.sort);
+            currentSort = overrides.sort;
+        } else {
+            params.set('sort', currentSort);
+        }
+
+        if (overrides.dir !== undefined) {
+            params.set('dir', overrides.dir);
+            currentDir = overrides.dir;
+        } else {
+            params.set('dir', currentDir);
+        }
+
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
+
+        return window.location.pathname + '?' + params.toString();
+    }
+
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        ledgerRequestSerial += 1;
+        const requestSerial = ledgerRequestSerial;
+        if (ledgerFetchController) {
+            ledgerFetchController.abort();
+        }
+        ledgerFetchController = new AbortController();
+
+        try {
+            const resp = await fetch(url, { signal: ledgerFetchController.signal });
+            if (!resp.ok) throw new Error('Request failed with status ' + resp.status);
+            const rawText = await resp.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (_parseErr) {
+                const possibleJson = rawText.slice(rawText.indexOf('{'));
+                data = JSON.parse(possibleJson);
+            }
+            if (requestSerial !== ledgerRequestSerial) return;
+            if (data.success) {
+                const tbody = document.getElementById('ledgerTableBody');
+                const pagination = document.getElementById('ledgerPagination');
+                const showingText = document.getElementById('showingCount');
+                const totalText = document.getElementById('totalCount');
+                const badgeCont = document.getElementById('filterBadgeContainer');
+
+                if (tbody) tbody.innerHTML = data.table;
+                if (pagination) pagination.innerHTML = data.pagination;
+                if (showingText) {
+                    showingText.textContent = data.startIdx + '–' + data.endIdx;
+                }
+                if (totalText) totalText.textContent = data.total;
+                
+                if (badgeCont) {
+                    badgeCont.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
+                }
+
+                // Update Alpine state
+                const root = document.querySelector('[x-data]');
+                if (root && root._x_dataStack) {
+                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
+                }
+
+                if (overrides.page !== undefined) ledgerPage = overrides.page;
+
+                const quickSearchInput = document.getElementById('ledgerQuickSearch');
+                const panelSearchInput = document.getElementById('fp_search');
+                if (quickSearchInput && panelSearchInput && quickSearchInput.value !== panelSearchInput.value) {
+                    panelSearchInput.value = quickSearchInput.value;
+                }
+
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+            }
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+            console.error('Error updating table:', e);
+        } finally {
+            if (requestSerial === ledgerRequestSerial) {
+                ledgerFetchController = null;
+            }
+        }
+    }
+
+    function applyFilters(reset = false) {
+        if (reset) {
+            window.location.href = window.location.pathname;
+        } else {
+            fetchUpdatedTable({ page: 1 });
+        }
+    }
+
+    function applySortFilter(sortKey) {
+        let sort = 'transaction_date';
+        let dir = 'DESC';
+
+        if (sortKey === 'newest') { sort = 'transaction_date'; dir = 'DESC'; }
+        else if (sortKey === 'oldest') { sort = 'transaction_date'; dir = 'ASC'; }
+        else if (sortKey === 'az') { sort = 'item_name'; dir = 'ASC'; }
+        else if (sortKey === 'za') { sort = 'item_name'; dir = 'DESC'; }
+        
+        const root = document.querySelector('[x-data]');
+        if (root && root._x_dataStack) {
+            const data = root._x_dataStack[0];
+            data.activeSort = sortKey;
+            data.sortOpen = false;
+        }
+
+        fetchUpdatedTable({ sort: sort, dir: dir, page: 1 });
     }
 
     function resetFilterField(fields) {
         fields.forEach(f => {
-            const el = document.getElementById('fp_' + f);
+            const id = 'fp_' + (f === 'item_id' ? 'item_id' : (f === 'type' ? 'type' : f));
+            const el = document.getElementById(id);
             if (el) {
                 if (f === 'start_date') el.value = '<?php echo date('Y-m-01'); ?>';
                 else if (f === 'end_date') el.value = '<?php echo date('Y-m-t'); ?>';
                 else el.value = '';
             }
         });
-        ledgerPage = 1;
-        loadTransactions();
-    }
-
-    function applyFilters(reset = false) {
-        if (reset) {
-            ['fp_item_id', 'fp_type'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            document.getElementById('fp_start_date').value = '<?php echo date('Y-m-01'); ?>';
-            document.getElementById('fp_end_date').value = '<?php echo date('Y-m-t'); ?>';
-            activeSort = 'newest';
-            currentSort = 'transaction_date';
-            currentDir = 'DESC';
-        }
-        ledgerPage = 1;
-        loadTransactions();
-    }
-
-    async function loadTransactions() {
-        const itemId = document.getElementById('fp_item_id')?.value || '';
-        const type = document.getElementById('fp_type')?.value || '';
-        const start = document.getElementById('fp_start_date')?.value || '';
-        const end = document.getElementById('fp_end_date')?.value || '';
-        
-        try {
-            const res = await fetch(`inventory_transactions_api.php?action=get_transactions&item_id=${itemId}&type=${type}&start_date=${start}&end_date=${end}&sort=${currentSort}&dir=${currentDir}`);
-            const data = await res.json();
-            
-            if (data.success) {
-                allTransactions = data.data;
-                renderTransactions(allTransactions);
-                updateBadgeCount();
-            }
-        } catch (e) {
-            console.error(e);
-            document.getElementById('ledgerTableBody').innerHTML = '<tr><td colspan="8" style="color:red; text-align:center;">Network error.</td></tr>';
-        }
-    }
-
-    function updateBadgeCount() {
-        const item = document.getElementById('fp_item_id')?.value;
-        const type = document.getElementById('fp_type')?.value;
-        const start = document.getElementById('fp_start_date')?.value;
-        const end = document.getElementById('fp_end_date')?.value;
-        
-        const defaultStart = '<?php echo date('Y-m-01'); ?>';
-        const defaultEnd = '<?php echo date('Y-m-t'); ?>';
-        
-        let count = 0;
-        if (item) count++;
-        if (type) count++;
-        if (start !== defaultStart) count++;
-        if (end !== defaultEnd) count++;
-        
-        const cont = document.getElementById('filterBadgeContainer');
-        if (cont) cont.innerHTML = count > 0 ? `<span class="filter-badge">${count}</span>` : '';
-    }
-
-    function renderTransactions(transactions) {
-        const tbody = document.getElementById('ledgerTableBody');
-        const total = transactions.length;
-        const totalPages = Math.max(1, Math.ceil(total / ledgerPerPage));
-        if (ledgerPage > totalPages) ledgerPage = totalPages;
-
-        const startIdx = (ledgerPage - 1) * ledgerPerPage;
-        const endIdx = Math.min(startIdx + ledgerPerPage, total);
-        const pageData = transactions.slice(startIdx, endIdx);
-
-        // Update showing text
-        const sc = document.getElementById('showingCount');
-        if (sc) {
-            if (total === 0) {
-                sc.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">0</strong> transactions`;
-            } else {
-                sc.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">${startIdx + 1}\u2013${endIdx}</strong> of ${total} transactions`;
-            }
-        }
-
-        if (total === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 60px; color:#6b7280; font-size: 15px;">No logs found for this period.</td></tr>';
-            document.getElementById('ledgerPagination').innerHTML = '';
-            return;
-        }
-
-        let html = '';
-        pageData.forEach(t => {
-            const qty = parseFloat(t.quantity);
-            const isIN = (t.direction === 'IN');
-            const displayQty = isIN ? '+' + qty.toFixed(2) : '-' + qty.toFixed(2);
-            const qtyClass = isIN ? 'qty-val positive' : 'qty-val negative';
-            const badgeClass = isIN ? 'badge-in' : 'badge-out';
-            
-            let displayType = (t.ref_type || t.direction || 'MOVEMENT').replace('_', ' ').toLowerCase();
-            
-            // Map job order to customization and apply specific styling requested by user
-            let typeBadgeClass = `badge ${badgeClass}`;
-            let typeBadgeStyle = '';
-            if (displayType === 'joborder' || displayType === 'job order') {
-                displayType = 'customization';
-                typeBadgeClass = '';
-                typeBadgeStyle = 'display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;';
-            }
-            
-            let rollBadge = t.roll_code ? `<span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: ${escapeHtml(t.roll_code)}</span>` : '';
-            
-            html += `<tr style="cursor:pointer;" onclick="viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})">
-                <td style="font-family:monospace;font-size:12px;color:#9ca3af;">#TX-${t.id}</td>
-                <td style="color:#6b7280;">${t.transaction_date}</td>
-                <td style="font-weight:500;color:#111827;text-transform:capitalize;">${escapeHtml(t.item_name)}${rollBadge}</td>
-                <td><span class="${typeBadgeClass}" style="text-transform:capitalize;pointer-events:none;${typeBadgeStyle}">${displayType}</span></td>
-                <td style="text-align:right;">
-                    <span class="${qtyClass}">${displayQty}</span>
-                    <span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px;">${t.unit}</span>
-                </td>
-                <td style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(t.notes)}">${escapeHtml(t.notes || '—')}</td>
-                <td style="font-size:12px;color:#374151;">${escapeHtml(t.created_by_name || 'System')}</td>
-                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
-                    <button onclick="event.stopPropagation();viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})" class="btn-action blue">View</button>
-                </td>
-            </tr>`;
-        });
-        tbody.innerHTML = html;
-        renderLedgerPagination(totalPages);
-    }
-
-    function renderLedgerPagination(totalPages) {
-        const container = document.getElementById('ledgerPagination');
-        if (totalPages <= 1) { container.innerHTML = ''; return; }
-
-        let html = '<div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
-
-        if (ledgerPage > 1) {
-            html += `<a href="#" onclick="event.preventDefault(); goToLedgerPage(${ledgerPage - 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            </a>`;
-        }
-
-        for (let i = 1; i <= totalPages; i++) {
-            const isActive = (i === ledgerPage);
-            const bg = isActive ? 'background:#1f2937;color:white;border-color:#1f2937;' : 'background:white;color:#374151;border:1px solid #e5e7eb;';
-            const fw = isActive ? '600' : '500';
-            html += `<a href="#" onclick="event.preventDefault(); goToLedgerPage(${i})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:${fw};transition:all 0.2s;${bg}"`;
-            if (!isActive) html += ` onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'"`;
-            html += `>${i}</a>`;
-        }
-
-        if (ledgerPage < totalPages) {
-            html += `<a href="#" onclick="event.preventDefault(); goToLedgerPage(${ledgerPage + 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>`;
-        }
-
-        html += '</div>';
-        container.innerHTML = html;
+        fetchUpdatedTable({ page: 1 });
     }
 
     function goToLedgerPage(page) {
-        ledgerPage = page;
-        renderTransactions(allTransactions);
+        fetchUpdatedTable({ page: page });
     }
-
-    // Removed handleSort and updateSortIcons as sorting is now handled by applySortFilter and Alpine.js
 
     function viewTransaction(t) {
         const isIN = (t.direction === 'IN');
@@ -629,9 +1005,8 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
             const data = await res.json();
             if (data.success) {
                 closeModal();
-                loadTransactions();
+                fetchUpdatedTable();
                 
-                // Show FIFO deduction summary if roll-based
                 if (data.fifo_deductions && data.fifo_deductions.length > 0) {
                     let summary = 'FIFO Stock-Out Summary:\n\n';
                     data.fifo_deductions.forEach(d => {
@@ -652,19 +1027,15 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         return (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    document.addEventListener('DOMContentLoaded', loadTransactions);
-    
-    document.addEventListener('DOMContentLoaded', () => {
-        ['fp_item_id', 'fp_type', 'fp_start_date', 'fp_end_date'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', () => { ledgerPage = 1; loadTransactions(); });
-        });
-    });
-
     window.addEventListener('click', e => {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
         }
+    });
+
+    // Helper to sync search across UI if needed
+    window.addEventListener('popstate', (event) => {
+        location.reload(); 
     });
 </script>
 </body>

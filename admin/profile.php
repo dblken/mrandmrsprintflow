@@ -9,12 +9,133 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
 
+// Ensure profile columns exist (safe migration)
+try {
+    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100) NULL AFTER first_name");
+    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE NULL AFTER last_name");
+} catch (Throwable $e) { /* ignore */ }
+
+if (isset($_GET['address_action'])) {
+    header('Content-Type: application/json');
+
+    $fetchJson = static function (string $url): array {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_HTTPHEADER => ['Accept: application/json']
+            ]);
+            $body = curl_exec($ch);
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+            if ($body === false || $httpCode >= 400) {
+                throw new RuntimeException($err ?: ('Address data request failed (' . $httpCode . ')'));
+            }
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => "Accept: application/json\r\n",
+                    'timeout' => 20,
+                ]
+            ]);
+            $body = @file_get_contents($url, false, $context);
+            if ($body === false) {
+                throw new RuntimeException('Unable to fetch address data.');
+            }
+        }
+
+        $decoded = json_decode($body, true);
+        if (!is_array($decoded)) {
+            throw new RuntimeException('Invalid address dataset response.');
+        }
+        return $decoded;
+    };
+
+    try {
+        $base = 'https://psgc.gitlab.io/api';
+        $action = $_GET['address_action'] ?? '';
+
+        if ($action === 'provinces') {
+            $rows = $fetchJson($base . '/provinces/');
+            $data = array_map(static fn($r) => [
+                'code' => (string)($r['code'] ?? ''),
+                'name' => (string)($r['name'] ?? ''),
+            ], $rows);
+            usort($data, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        if ($action === 'cities') {
+            $provinceCode = preg_replace('/[^0-9]/', '', (string)($_GET['province_code'] ?? ''));
+            if ($provinceCode === '') {
+                throw new RuntimeException('Province code is required.');
+            }
+            $rows = $fetchJson($base . '/provinces/' . rawurlencode($provinceCode) . '/cities-municipalities/');
+            $data = array_map(static fn($r) => [
+                'code' => (string)($r['code'] ?? ''),
+                'name' => (string)($r['name'] ?? ''),
+            ], $rows);
+            usort($data, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        if ($action === 'barangays') {
+            $cityCode = preg_replace('/[^0-9]/', '', (string)($_GET['city_code'] ?? ''));
+            if ($cityCode === '') {
+                throw new RuntimeException('City/Municipality code is required.');
+            }
+            $rows = $fetchJson($base . '/cities-municipalities/' . rawurlencode($cityCode) . '/barangays/');
+            $data = array_map(static fn($r) => [
+                'code' => (string)($r['code'] ?? ''),
+                'name' => (string)($r['name'] ?? ''),
+            ], $rows);
+            usort($data, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        throw new RuntimeException('Invalid address action.');
+    } catch (Throwable $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
 $admin_id = get_user_id();
 $error = '';
 $success = '';
 
 // Get admin data
 $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
+
+$addressCountry = 'Philippines';
+$addressProvince = '';
+$addressCity = '';
+$addressBarangay = '';
+$addressLine = '';
+$maxBirthday = date('Y-m-d', strtotime('-18 years'));
+$existingAddress = trim((string)($admin['address'] ?? ''));
+
+if ($existingAddress !== '') {
+    $parts = array_values(array_filter(array_map('trim', explode(',', $existingAddress)), static fn($p) => $p !== ''));
+    if (count($parts) >= 4 && strcasecmp(end($parts), 'Philippines') === 0) {
+        $addressCountry = 'Philippines';
+        $addressProvince = $parts[count($parts) - 2] ?? '';
+        $addressCity = $parts[count($parts) - 3] ?? '';
+        $addressBarangay = preg_replace('/^Brgy\.?\s*/i', '', (string)($parts[count($parts) - 4] ?? ''));
+        $addressLine = implode(', ', array_slice($parts, 0, -4));
+    } else {
+        $addressLine = $existingAddress;
+    }
+}
 
 // Handle profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -72,31 +193,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_picture']) && 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
+    $birthday = trim($_POST['birthday'] ?? '');
     $contact_number = trim($_POST['contact_number'] ?? '');
-    $address = trim($_POST['address'] ?? '');
+    $addressCountry = 'Philippines';
+    $addressProvince = trim((string)($_POST['address_province'] ?? ''));
+    $addressCity = trim((string)($_POST['address_city'] ?? ''));
+    $addressBarangay = trim((string)($_POST['address_barangay'] ?? ''));
+    $addressLine = trim((string)($_POST['address_line'] ?? ''));
+
+    $addressParts = [];
+    if ($addressLine !== '') {
+        $addressParts[] = $addressLine;
+    }
+    if ($addressBarangay !== '') {
+        $addressParts[] = 'Brgy. ' . $addressBarangay;
+    }
+    if ($addressCity !== '') {
+        $addressParts[] = $addressCity;
+    }
+    if ($addressProvince !== '') {
+        $addressParts[] = $addressProvince;
+    }
+    $addressParts[] = $addressCountry;
+    $address = implode(', ', $addressParts);
     
     // Server-side validation
     if (empty($first_name) || empty($last_name)) {
         $error = 'First and last names are required.';
     } elseif (!preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $first_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $last_name)) {
         $error = 'Names must contain only letters.';
+    } elseif ($middle_name !== '' && !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $middle_name)) {
+        $error = 'Middle name must contain only letters.';
     } elseif (strlen($first_name) < 2 || strlen($first_name) > 50 || strlen($last_name) < 2 || strlen($last_name) > 50) {
         $error = 'Names must be between 2 and 50 characters.';
-    } elseif (!preg_match("/^09\d{9}$/", $contact_number)) {
-        $error = 'Contact number must be exactly 11 digits and start with 09.';
-    } elseif (strlen($address) < 5 || strlen($address) > 150) {
-        $error = 'Address must be between 5 and 150 characters.';
+    } elseif ($middle_name !== '' && (strlen($middle_name) < 2 || strlen($middle_name) > 50)) {
+        $error = 'Middle name must be between 2 and 50 characters.';
+    } elseif ($birthday === '') {
+        $error = 'Birthday is required.';
+    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthday)) {
+        $error = 'Invalid birthday format.';
     } else {
+        try {
+            $today = new DateTime('today');
+            $birthDate = new DateTime($birthday);
+            $age = $today->diff($birthDate)->y;
+            if ($birthDate > $today) {
+                $error = 'Birthday cannot be a future date.';
+            } elseif ($age < 18) {
+                $error = 'You must be at least 18 years old.';
+            }
+        } catch (Throwable $e) {
+            $error = 'Invalid birthday value.';
+        }
+    }
+
+    if (!$error && !preg_match("/^09\d{9}$/", $contact_number)) {
+        $error = 'Contact number must be exactly 11 digits and start with 09.';
+    } elseif (!$error && ($addressProvince === '' || $addressCity === '' || $addressBarangay === '')) {
+        $error = 'Please select Province, City/Municipality, and Barangay.';
+    } elseif (!$error && (strlen($address) < 5 || strlen($address) > 200)) {
+        $error = 'Address must be between 5 and 200 characters.';
+    }
+
+    if (!$error) {
         // Auto-capitalize first letter
         $first_name = ucfirst($first_name);
+        $middle_name = $middle_name !== '' ? ucfirst($middle_name) : '';
         $last_name = ucfirst($last_name);
         
-        db_execute("UPDATE users SET first_name = ?, last_name = ?, contact_number = ?, address = ?, updated_at = NOW() WHERE user_id = ?",
-            'ssssi', [$first_name, $last_name, $contact_number, $address, $admin_id]);
+        db_execute("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, birthday = ?, contact_number = ?, address = ?, updated_at = NOW() WHERE user_id = ?",
+            'ssssssi', [$first_name, $middle_name, $last_name, $birthday, $contact_number, $address, $admin_id]);
         
         $success = 'Personal information updated successfully!';
-        $_SESSION['user_name'] = $first_name . ' ' . $last_name;
+        $_SESSION['user_name'] = trim($first_name . ' ' . $last_name);
         $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
     }
 }
@@ -111,10 +282,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password']) &&
         $error = 'All password fields are required.';
     } elseif (!password_verify($current_password, $admin['password_hash'])) {
         $error = 'Current password is incorrect.';
-    } elseif (strlen($new_password) < 8) {
-        $error = 'New password must be at least 8 characters.';
-    } elseif (!preg_match("/[A-Z]/", $new_password) || !preg_match("/[a-z]/", $new_password) || !preg_match("/[0-9]/", $new_password) || !preg_match("/[!@#$%^&*(),.?\":{}|<>]/", $new_password)) {
-        $error = 'Password must include uppercase, lowercase, number, and special character.';
+    } elseif (strlen($new_password) < 8 || strlen($new_password) > 64 || !preg_match('/[A-Z]/', $new_password) || !preg_match('/[a-z]/', $new_password) || !preg_match('/[0-9]/', $new_password) || !preg_match('/[^A-Za-z0-9]/', $new_password) || strpos($new_password, ' ') !== false) {
+        $error = 'Password must contain at least 8 and at most 64 characters, uppercase, lowercase, number, special character, and no spaces.';
     } elseif ($new_password !== $confirm_password) {
         $error = 'New passwords do not match.';
     } else {
@@ -264,15 +433,16 @@ $page_title = 'My Profile - PrintFlow Admin';
             color: #374151;
             margin-bottom: 6px;
         }
-        .form-group input, .form-group textarea {
+        .form-group input, .form-group textarea, .form-group select {
             width: 100%;
             padding: 10px 14px;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.2s;
+            background: #fff;
         }
-        .form-group input:focus, .form-group textarea:focus {
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
@@ -365,12 +535,14 @@ $page_title = 'My Profile - PrintFlow Admin';
 
         /* Validation Styles */
         .form-group.is-invalid input, 
-        .form-group.is-invalid textarea {
+        .form-group.is-invalid textarea,
+        .form-group.is-invalid select {
             border-color: #ef4444 !important;
             background-color: #fef2f2;
         }
         .form-group.is-valid input, 
-        .form-group.is-valid textarea {
+        .form-group.is-valid textarea,
+        .form-group.is-valid select {
             border-color: #10b981 !important;
             background-color: #f0fdf4;
         }
@@ -412,6 +584,63 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
         .password-toggle:hover {
             color: #667eea;
+        }
+        .unsaved-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10050;
+            padding: 16px;
+        }
+        .unsaved-modal {
+            width: 100%;
+            max-width: 460px;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 20px 48px rgba(0,0,0,0.22);
+            padding: 20px;
+        }
+        .unsaved-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 8px;
+        }
+        .unsaved-desc {
+            font-size: 14px;
+            color: #4b5563;
+            margin: 0 0 18px;
+        }
+        .unsaved-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn-secondary-flat {
+            height: 38px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            color: #374151;
+            border-radius: 8px;
+            padding: 0 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-danger-soft {
+            height: 38px;
+            border: 1px solid #ef4444;
+            background: #fff;
+            color: #dc2626;
+            border-radius: 8px;
+            padding: 0 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -486,10 +715,20 @@ $page_title = 'My Profile - PrintFlow Admin';
                                 <input type="text" name="first_name" id="first_name" value="<?php echo htmlspecialchars($admin['first_name']); ?>" required autocomplete="given-name">
                                 <div class="error-message" id="error_first_name">First name is required.</div>
                             </div>
+                            <div class="form-group" id="group_middle_name">
+                                <label>Middle Name (Optional)</label>
+                                <input type="text" name="middle_name" id="middle_name" value="<?php echo htmlspecialchars($admin['middle_name'] ?? ''); ?>" autocomplete="additional-name">
+                                <div class="error-message" id="error_middle_name">Middle name must contain only letters.</div>
+                            </div>
                             <div class="form-group" id="group_last_name">
                                 <label>Last Name *</label>
                                 <input type="text" name="last_name" id="last_name" value="<?php echo htmlspecialchars($admin['last_name']); ?>" required autocomplete="family-name">
                                 <div class="error-message" id="error_last_name">Last name is required.</div>
+                            </div>
+                            <div class="form-group" id="group_birthday">
+                                <label>Birthday *</label>
+                                <input type="date" name="birthday" id="birthday" value="<?php echo htmlspecialchars($admin['birthday'] ?? ''); ?>" required max="<?php echo htmlspecialchars($maxBirthday); ?>">
+                                <div class="error-message" id="error_birthday">You must be at least 18 years old.</div>
                             </div>
                         </div>
                         
@@ -505,10 +744,46 @@ $page_title = 'My Profile - PrintFlow Admin';
                             <div class="error-message" id="error_contact_number">Contact number is required.</div>
                         </div>
                         
+                        <div class="form-group">
+                            <label>Country</label>
+                            <input type="text" value="Philippines" disabled>
+                            <input type="hidden" name="address_country" id="address_country" value="Philippines">
+                        </div>
+
+                        <div class="form-group" id="group_address_province">
+                            <label>Province *</label>
+                            <select id="address_province" name="address_province" required>
+                                <option value="">Select province</option>
+                            </select>
+                            <div class="error-message" id="error_address_province">Province is required.</div>
+                        </div>
+
+                        <div class="form-group" id="group_address_city">
+                            <label>City / Municipality *</label>
+                            <select id="address_city" name="address_city" required disabled>
+                                <option value="">Select city/municipality</option>
+                            </select>
+                            <div class="error-message" id="error_address_city">City / Municipality is required.</div>
+                        </div>
+
+                        <div class="form-group" id="group_address_barangay">
+                            <label>Barangay *</label>
+                            <select id="address_barangay" name="address_barangay" required disabled>
+                                <option value="">Select barangay</option>
+                            </select>
+                            <div class="error-message" id="error_address_barangay">Barangay is required.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Street / House No. (Optional)</label>
+                            <input type="text" id="address_line" name="address_line" maxlength="120" placeholder="e.g. 123 Rizal St." value="<?php echo htmlspecialchars($addressLine); ?>">
+                            <p style="font-size:11px;color:#9ca3af;margin-top:4px;">Optional detailed line; location is validated by PSGC-based selectors.</p>
+                        </div>
+
                         <div class="form-group" id="group_address">
-                            <label>Address *</label>
-                            <textarea name="address" id="address" rows="2" placeholder="Enter your address" required><?php echo htmlspecialchars($admin['address'] ?? ''); ?></textarea>
-                            <div class="error-message" id="error_address">Address is required.</div>
+                            <label>Saved Address Preview</label>
+                            <textarea name="address" id="address" rows="2" readonly required><?php echo htmlspecialchars($admin['address'] ?? ''); ?></textarea>
+                            <div class="error-message" id="error_address">Please complete the Philippine address fields.</div>
                         </div>
                         
                         <button type="submit" class="btn-save" id="btn_save_profile">
@@ -610,6 +885,19 @@ $page_title = 'My Profile - PrintFlow Admin';
     </div>
 </div>
 
+<!-- Unsaved Changes Modal -->
+<div id="unsavedChangesModal" class="unsaved-overlay">
+    <div class="unsaved-modal">
+        <h3 class="unsaved-title">You have unsaved changes</h3>
+        <p class="unsaved-desc">Do you want to save your changes before leaving this page?</p>
+        <div class="unsaved-actions">
+            <button type="button" class="btn-secondary-flat" id="btnStayOnPage">Stay</button>
+            <button type="button" class="btn-danger-soft" id="btnDiscardAndLeave">Discard</button>
+            <button type="button" class="btn-save" id="btnSaveAndLeave">Save</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // File input handling
     const dropZone = document.getElementById('dropZone');
@@ -644,7 +932,191 @@ $page_title = 'My Profile - PrintFlow Admin';
         reader.readAsDataURL(file);
     }
 
+    // --- PSGC-based Address Cascading ---
+    const addressInitial = {
+        province: <?php echo json_encode($addressProvince, JSON_UNESCAPED_UNICODE); ?>,
+        city: <?php echo json_encode($addressCity, JSON_UNESCAPED_UNICODE); ?>,
+        barangay: <?php echo json_encode($addressBarangay, JSON_UNESCAPED_UNICODE); ?>,
+    };
+
+    const provinceSelect = document.getElementById('address_province');
+    const citySelect = document.getElementById('address_city');
+    const barangaySelect = document.getElementById('address_barangay');
+    const addressLineInput = document.getElementById('address_line');
+    const addressPreview = document.getElementById('address');
+
+    function clearOptions(selectEl, placeholder) {
+        selectEl.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholder;
+        selectEl.appendChild(opt);
+    }
+
+    function setSelectOptions(selectEl, rows, placeholder) {
+        clearOptions(selectEl, placeholder);
+        rows.forEach((row) => {
+            const opt = document.createElement('option');
+            opt.value = row.name;
+            opt.textContent = row.name;
+            opt.dataset.code = row.code;
+            selectEl.appendChild(opt);
+        });
+    }
+
+    function setSelectState(selectEl, disabled) {
+        selectEl.disabled = disabled;
+    }
+
+    async function fetchAddressRows(url) {
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!response.ok) throw new Error('Address request failed');
+        const payload = await response.json();
+        if (!payload.success) throw new Error(payload.error || 'Address request failed');
+        return payload.data || [];
+    }
+
+    function selectedOptionCode(selectEl) {
+        const selected = selectEl.options[selectEl.selectedIndex];
+        return selected?.dataset?.code || '';
+    }
+
+    function updateAddressPreview() {
+        const parts = [];
+        const line = addressLineInput.value.trim();
+        const barangay = barangaySelect.value.trim();
+        const city = citySelect.value.trim();
+        const province = provinceSelect.value.trim();
+
+        if (line) parts.push(line);
+        if (barangay) parts.push('Brgy. ' + barangay);
+        if (city) parts.push(city);
+        if (province) parts.push(province);
+        parts.push('Philippines');
+
+        addressPreview.value = parts.join(', ');
+    }
+
+    async function loadProvinces(initialProvince = '', initialCity = '', initialBarangay = '') {
+        const provinces = await fetchAddressRows('profile.php?address_action=provinces');
+        setSelectOptions(provinceSelect, provinces, 'Select province');
+        setSelectState(provinceSelect, false);
+
+        if (initialProvince) {
+            const target = [...provinceSelect.options].find(o => o.value.toLowerCase() === initialProvince.toLowerCase());
+            if (target) {
+                provinceSelect.value = target.value;
+                await loadCities(target.dataset.code || '', initialCity, initialBarangay);
+                return;
+            }
+        }
+        updateAddressPreview();
+    }
+
+    async function loadCities(provinceCode, initialCity = '', initialBarangay = '') {
+        clearOptions(citySelect, 'Select city/municipality');
+        clearOptions(barangaySelect, 'Select barangay');
+        setSelectState(citySelect, true);
+        setSelectState(barangaySelect, true);
+
+        if (!provinceCode) {
+            updateAddressPreview();
+            return;
+        }
+
+        const cities = await fetchAddressRows('profile.php?address_action=cities&province_code=' + encodeURIComponent(provinceCode));
+        setSelectOptions(citySelect, cities, 'Select city/municipality');
+        setSelectState(citySelect, false);
+
+        if (initialCity) {
+            const target = [...citySelect.options].find(o => o.value.toLowerCase() === initialCity.toLowerCase());
+            if (target) {
+                citySelect.value = target.value;
+                await loadBarangays(target.dataset.code || '', initialBarangay);
+                return;
+            }
+        }
+        updateAddressPreview();
+    }
+
+    async function loadBarangays(cityCode, initialBarangay = '') {
+        clearOptions(barangaySelect, 'Select barangay');
+        setSelectState(barangaySelect, true);
+        if (!cityCode) {
+            updateAddressPreview();
+            return;
+        }
+
+        const barangays = await fetchAddressRows('profile.php?address_action=barangays&city_code=' + encodeURIComponent(cityCode));
+        setSelectOptions(barangaySelect, barangays, 'Select barangay');
+        setSelectState(barangaySelect, false);
+
+        if (initialBarangay) {
+            const target = [...barangaySelect.options].find(o => o.value.toLowerCase() === initialBarangay.toLowerCase());
+            if (target) barangaySelect.value = target.value;
+        }
+        updateAddressPreview();
+    }
+
+    provinceSelect.addEventListener('change', async () => {
+        clearOptions(citySelect, 'Select city/municipality');
+        clearOptions(barangaySelect, 'Select barangay');
+        setSelectState(citySelect, true);
+        setSelectState(barangaySelect, true);
+        updateAddressPreview();
+        const provinceCode = selectedOptionCode(provinceSelect);
+        if (provinceCode) {
+            await loadCities(provinceCode);
+        }
+        checkPersonalInfo();
+    });
+
+    citySelect.addEventListener('change', async () => {
+        clearOptions(barangaySelect, 'Select barangay');
+        setSelectState(barangaySelect, true);
+        updateAddressPreview();
+        const cityCode = selectedOptionCode(citySelect);
+        if (cityCode) {
+            await loadBarangays(cityCode);
+        }
+        checkPersonalInfo();
+    });
+
+    barangaySelect.addEventListener('change', () => {
+        updateAddressPreview();
+        checkPersonalInfo();
+    });
+
+    addressLineInput.addEventListener('input', () => {
+        updateAddressPreview();
+        checkPersonalInfo();
+    });
+
+    loadProvinces(addressInitial.province, addressInitial.city, addressInitial.barangay)
+        .catch(() => {
+            clearOptions(provinceSelect, 'Unable to load provinces');
+            setSelectState(provinceSelect, true);
+            clearOptions(citySelect, 'Select city/municipality');
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(citySelect, true);
+            setSelectState(barangaySelect, true);
+            updateAddressPreview();
+            checkPersonalInfo();
+        })
+        .finally(() => {
+            // Keep unsaved-changes baseline aligned with auto-populated address fields.
+            refreshInitialSnapshots();
+        });
+
     // --- Validation Logic ---
+    const birthdayMax = <?php echo json_encode($maxBirthday); ?>;
+    const personalForm = document.getElementById('personalInfoForm');
+    const passwordForm = document.getElementById('passwordForm');
+    const passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
+    const passwordTouched = { current_password: false, new_password: false, confirm_password: false };
+    let suppressUnsavedPrompt = false;
+    let pendingNavigateUrl = null;
+    let pendingSaveForm = null;
 
     const validators = {
         first_name: (val) => {
@@ -653,10 +1125,26 @@ $page_title = 'My Profile - PrintFlow Admin';
             if (val.length < 2 || val.length > 50) return "First name must be between 2 and 50 characters.";
             return null;
         },
+        middle_name: (val) => {
+            if (!val) return null;
+            if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) return "Middle name must contain only letters.";
+            if (val.length < 2 || val.length > 50) return "Middle name must be between 2 and 50 characters.";
+            return null;
+        },
         last_name: (val) => {
             if (!val) return "Last name is required.";
             if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) return "Last name must contain only letters.";
             if (val.length < 2 || val.length > 50) return "Last name must be between 2 and 50 characters.";
+            return null;
+        },
+        birthday: (val) => {
+            if (!val) return "Birthday is required.";
+            const today = new Date();
+            const selected = new Date(val + 'T00:00:00');
+            if (Number.isNaN(selected.getTime())) return "Invalid birthday.";
+            if (selected > today) return "Birthday cannot be a future date.";
+            const adultLimit = new Date(birthdayMax + 'T00:00:00');
+            if (selected > adultLimit) return "You must be at least 18 years old.";
             return null;
         },
         contact_number: (val) => {
@@ -666,106 +1154,202 @@ $page_title = 'My Profile - PrintFlow Admin';
             if (val.length !== 11) return "Contact number must be exactly 11 digits.";
             return null;
         },
+        address_province: (val) => !val ? "Province is required." : null,
+        address_city: (val) => !val ? "City / Municipality is required." : null,
+        address_barangay: (val) => !val ? "Barangay is required." : null,
         address: (val) => {
-            if (!val) return "Address is required.";
+            if (!val || val === 'Philippines') return "Address is required.";
             if (val.length < 5) return "Address must be at least 5 characters.";
-            if (val.length > 150) return "Address cannot exceed 150 characters.";
+            if (val.length > 200) return "Address cannot exceed 200 characters.";
             return null;
         },
         new_password: (val) => {
+            // Match registration rules exactly.
             if (!val) return "New password is required.";
             if (val.length < 8) return "Password must be at least 8 characters.";
+            if (val.length > 64) return "Password must be at most 64 characters.";
             if (!/[A-Z]/.test(val)) return "Password must have an uppercase letter.";
             if (!/[a-z]/.test(val)) return "Password must have a lowercase letter.";
             if (!/[0-9]/.test(val)) return "Password must have a number.";
-            if (!/[!@#$%^&*(),.?":{}|<>]/.test(val)) return "Password must have a special character.";
+            if (!/[^A-Za-z0-9]/.test(val)) return "Password must have a special character.";
+            if (/\s/.test(val)) return "Password must not contain spaces.";
             return null;
         }
     };
 
-    function validateField(id, validator) {
+    function clearValidationState(id) {
+        const group = document.getElementById('group_' + id);
+        if (!group) return;
+        group.classList.remove('is-invalid', 'is-valid');
+    }
+
+    function validateField(id, validator, options = {}) {
         const input = document.getElementById(id);
         const group = document.getElementById('group_' + id);
         const error = document.getElementById('error_' + id);
-        let val = input.value;
+        if (!input || !group || !error) return true;
 
-        // Auto-formatting for names
-        if (id === 'first_name' || id === 'last_name') {
-            // Block leading spaces
-            if (val.startsWith(' ')) {
-                val = val.trimStart();
-            }
-            // Auto capitalize
-            if (val.length > 0) {
-                val = val.charAt(0).toUpperCase() + val.slice(1);
-            }
+        let val = input.value || '';
+
+        if (id === 'first_name' || id === 'middle_name' || id === 'last_name') {
+            if (val.startsWith(' ')) val = val.trimStart();
+            if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
             input.value = val;
         }
-
-        // Block leading spaces for all
         if (val.startsWith(' ')) {
             input.value = val.trimStart();
             val = input.value;
         }
 
-        const errorMessage = validator(val.trim());
+        const trimmed = val.trim();
+        if (options.skipEmpty && trimmed === '') {
+            clearValidationState(id);
+            return true;
+        }
+        if (options.onlyWhenTouched && !options.isTouched) {
+            clearValidationState(id);
+            return false;
+        }
+
+        const errorMessage = validator(trimmed);
         if (errorMessage) {
             group.classList.add('is-invalid');
             group.classList.remove('is-valid');
             error.textContent = errorMessage;
             return false;
-        } else {
-            group.classList.remove('is-invalid');
-            group.classList.add('is-valid');
-            return true;
         }
+
+        group.classList.remove('is-invalid');
+        group.classList.add('is-valid');
+        return true;
     }
 
     function checkPersonalInfo() {
         const fValid = validateField('first_name', validators.first_name);
+        const mValid = validateField('middle_name', validators.middle_name, { skipEmpty: true });
         const lValid = validateField('last_name', validators.last_name);
+        const bdayValid = validateField('birthday', validators.birthday);
         const cValid = validateField('contact_number', validators.contact_number);
+        const pValid = validateField('address_province', validators.address_province);
+        const ciValid = validateField('address_city', validators.address_city);
+        const bValid = validateField('address_barangay', validators.address_barangay);
         const aValid = validateField('address', validators.address);
-        document.getElementById('btn_save_profile').disabled = !(fValid && lValid && cValid && aValid);
+        document.getElementById('btn_save_profile').disabled = !(fValid && mValid && lValid && bdayValid && cValid && pValid && ciValid && bValid && aValid);
     }
 
-    function checkPassword() {
-        const nValid = validateField('new_password', validators.new_password);
-        const confirm = document.getElementById('confirm_password');
+    function checkPassword(force = false) {
         const current = document.getElementById('current_password');
-        
-        // Confirm check
-        const cGroup = document.getElementById('group_confirm_password');
-        const cError = document.getElementById('error_confirm_password');
-        const match = confirm.value === document.getElementById('new_password').value;
-        
-        if (confirm.value && !match) {
-            cGroup.classList.add('is-invalid');
-            cError.textContent = "Passwords do not match.";
-        } else if (confirm.value) {
-            cGroup.classList.remove('is-invalid');
-            cGroup.classList.add('is-valid');
+        const newPass = document.getElementById('new_password');
+        const confirm = document.getElementById('confirm_password');
+        const hasAnyInput = (current.value + newPass.value + confirm.value).trim().length > 0;
+        const mustValidate = force || hasAnyInput || Object.values(passwordTouched).some(Boolean);
+
+        if (!mustValidate) {
+            passwordFieldIds.forEach(clearValidationState);
+            document.getElementById('btn_update_password').disabled = true;
+            return;
         }
 
-        document.getElementById('btn_update_password').disabled = !(nValid && match && current.value);
+        const currentValid = validateField('current_password', (val) => !val ? 'Current password is required.' : null, {
+            onlyWhenTouched: !force,
+            isTouched: passwordTouched.current_password || current.value.length > 0
+        });
+        const nValid = validateField('new_password', validators.new_password, {
+            onlyWhenTouched: !force,
+            isTouched: passwordTouched.new_password || newPass.value.length > 0
+        });
+
+        const cGroup = document.getElementById('group_confirm_password');
+        const cError = document.getElementById('error_confirm_password');
+        let confirmValid = false;
+        if (!force && !passwordTouched.confirm_password && confirm.value === '') {
+            clearValidationState('confirm_password');
+        } else if (!confirm.value) {
+            cGroup.classList.add('is-invalid');
+            cGroup.classList.remove('is-valid');
+            cError.textContent = "Confirm password is required.";
+        } else if (confirm.value !== newPass.value) {
+            cGroup.classList.add('is-invalid');
+            cGroup.classList.remove('is-valid');
+            cError.textContent = "Passwords do not match.";
+        } else {
+            cGroup.classList.remove('is-invalid');
+            cGroup.classList.add('is-valid');
+            confirmValid = true;
+        }
+
+        document.getElementById('btn_update_password').disabled = !(currentValid && nValid && confirmValid);
+    }
+
+    function formSnapshot(formEl) {
+        return JSON.stringify([...new FormData(formEl).entries()]);
+    }
+
+    let initialPersonalSnapshot = '';
+    let initialPasswordSnapshot = '';
+
+    function refreshInitialSnapshots() {
+        initialPersonalSnapshot = formSnapshot(personalForm);
+        initialPasswordSnapshot = formSnapshot(passwordForm);
+    }
+
+    refreshInitialSnapshots();
+
+    function personalDirty() {
+        return formSnapshot(personalForm) !== initialPersonalSnapshot;
+    }
+
+    function passwordDirty() {
+        return formSnapshot(passwordForm) !== initialPasswordSnapshot;
+    }
+
+    function hasUnsavedChanges() {
+        return personalDirty() || passwordDirty();
+    }
+
+    function openUnsavedModal(saveFormId, navigateUrl) {
+        pendingSaveForm = saveFormId;
+        pendingNavigateUrl = navigateUrl || null;
+        document.getElementById('unsavedChangesModal').style.display = 'flex';
+    }
+
+    function closeUnsavedModal() {
+        pendingSaveForm = null;
+        pendingNavigateUrl = null;
+        document.getElementById('unsavedChangesModal').style.display = 'none';
     }
 
     // Listeners
-    ['first_name', 'last_name', 'contact_number', 'address'].forEach(id => {
+    ['first_name', 'middle_name', 'last_name', 'birthday', 'contact_number', 'address', 'address_line'].forEach(id => {
         const el = document.getElementById(id);
+        if (!el) return;
         el.addEventListener('input', checkPersonalInfo);
         el.addEventListener('blur', checkPersonalInfo);
     });
 
-    ['current_password', 'new_password', 'confirm_password'].forEach(id => {
+    ['address_province', 'address_city', 'address_barangay'].forEach(id => {
         const el = document.getElementById(id);
-        el.addEventListener('input', checkPassword);
-        el.addEventListener('blur', checkPassword);
+        if (!el) return;
+        el.addEventListener('change', checkPersonalInfo);
+        el.addEventListener('blur', checkPersonalInfo);
+    });
+
+    passwordFieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            passwordTouched[id] = true;
+            checkPassword();
+        });
+        el.addEventListener('blur', () => {
+            passwordTouched[id] = true;
+            checkPassword();
+        });
     });
 
     // Initial check
     checkPersonalInfo();
-    checkPassword();
+    checkPassword(false);
 
     function validatePersonalInfoForm(e) {
         checkPersonalInfo();
@@ -773,15 +1357,17 @@ $page_title = 'My Profile - PrintFlow Admin';
             e.preventDefault();
             return false;
         }
+        suppressUnsavedPrompt = true;
         return true;
     }
 
     function validatePasswordForm(e) {
-        checkPassword();
+        checkPassword(true);
         if (document.getElementById('btn_update_password').disabled) {
             e.preventDefault();
             return false;
         }
+        suppressUnsavedPrompt = true;
         return true;
     }
 
@@ -796,6 +1382,54 @@ $page_title = 'My Profile - PrintFlow Admin';
             icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
         }
     }
+
+    document.getElementById('btnStayOnPage').addEventListener('click', () => {
+        closeUnsavedModal();
+    });
+
+    document.getElementById('btnDiscardAndLeave').addEventListener('click', () => {
+        const target = pendingNavigateUrl;
+        suppressUnsavedPrompt = true;
+        closeUnsavedModal();
+        if (target) window.location.href = target;
+    });
+
+    document.getElementById('btnSaveAndLeave').addEventListener('click', () => {
+        const formId = pendingSaveForm || (personalDirty() ? 'personalInfoForm' : 'passwordForm');
+        if (formId === 'passwordForm') {
+            checkPassword(true);
+            if (document.getElementById('btn_update_password').disabled) return;
+        } else {
+            checkPersonalInfo();
+            if (document.getElementById('btn_save_profile').disabled) return;
+        }
+        suppressUnsavedPrompt = true;
+        document.getElementById(formId).submit();
+    });
+
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href') || '';
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+        if (link.target && link.target !== '_self') return;
+        if (link.hasAttribute('download')) return;
+
+        const targetUrl = new URL(link.href, window.location.href);
+        if (targetUrl.origin !== window.location.origin) return;
+        if (targetUrl.href === window.location.href) return;
+        if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
+
+        event.preventDefault();
+        const preferredForm = passwordDirty() ? 'passwordForm' : 'personalInfoForm';
+        openUnsavedModal(preferredForm, targetUrl.href);
+    });
+
+    window.addEventListener('beforeunload', (event) => {
+        if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
 </script>
 
 </body>
