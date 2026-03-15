@@ -19,9 +19,12 @@ $branchCtx = init_branch_context(false); // analytics-style — allow All
 $branchId  = $branchCtx['selected_branch_id'];
 
 // Get filter parameters
-$status_filter  = $_GET['status']  ?? '';
-$payment_filter = $_GET['payment'] ?? '';
-$search         = $_GET['search']  ?? '';
+$status_filter  = $_GET['status']   ?? '';
+$payment_filter = $_GET['payment']  ?? '';
+$search         = $_GET['search']   ?? '';
+$date_from      = $_GET['date_from'] ?? '';
+$date_to        = $_GET['date_to']   ?? '';
+$sort_by        = $_GET['sort']      ?? 'newest';
 $branch_filter  = '';
 if ($branchId !== 'all') {
     $branch_filter = (int)$branchId;
@@ -57,6 +60,18 @@ if (!empty($payment_filter)) {
     $types .= 's';
 }
 
+if (!empty($date_from)) {
+    $sql .= " AND DATE(o.order_date) >= ?";
+    $params[] = $date_from;
+    $types .= 's';
+}
+
+if (!empty($date_to)) {
+    $sql .= " AND DATE(o.order_date) <= ?";
+    $params[] = $date_to;
+    $types .= 's';
+}
+
 if (!empty($search)) {
     $search_term = '%' . $search . '%';
     $sql .= " AND (o.order_id LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR o.notes LIKE ?)";
@@ -75,7 +90,15 @@ $total_pages = max(1, ceil($total_orders / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$sql .= " ORDER BY o.order_id DESC LIMIT $per_page OFFSET $offset";
+$sort_clause = match($sort_by) {
+    'oldest'        => " ORDER BY o.order_id ASC",
+    'status'        => " ORDER BY o.status ASC, o.order_id DESC",
+    'customer'      => " ORDER BY customer_name ASC, o.order_id DESC",
+    'total_asc'     => " ORDER BY o.total_amount ASC",
+    'total_desc'    => " ORDER BY o.total_amount DESC",
+    default         => " ORDER BY o.order_id DESC"
+};
+$sql .= $sort_clause . " LIMIT $per_page OFFSET $offset";
 
 $orders = db_query($sql, $types, $params);
 
@@ -125,10 +148,10 @@ $page_title = 'Orders Management - Admin';
             align-items: center;
             justify-content: center;
             padding: 6px 16px;
-            border: 1px solid #14b8a6; /* teal-500 */
+            border: 1px solid #14b8a6;
             color: #14b8a6;
             background: transparent;
-            border-radius: 9999px; /* full rounded */
+            border-radius: 9999px;
             font-size: 13px;
             font-weight: 500;
             transition: all 0.2s;
@@ -140,9 +163,232 @@ $page_title = 'Orders Management - Admin';
             color: white;
             box-shadow: 0 4px 6px -1px rgba(20, 184, 166, 0.2);
         }
+
+        /* ── Toolbar Buttons (Sort / Filter) ─── */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        /* ── Filter Panel ─── */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-wrap { position: relative; }
+        .filter-search-wrap svg {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            pointer-events: none;
+        }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px 0 32px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+        .filter-btn-apply {
+            flex: 1;
+            height: 36px;
+            border: none;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .filter-btn-apply:hover { background: #0f766e; }
+
+        /* ── Sort Dropdown ─── */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            padding: 6px 0;
+            overflow: hidden;
+        }
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .sort-option:hover { background: #f9fafb; }
+        .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+        .sort-option .check { margin-left: auto; color: #0d9488; }
+
+        /* ── Active filter badge ─── */
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        /* ── Table improvements ─── */
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+        .orders-table th {
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        .orders-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .orders-table tbody tr {
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .orders-table tbody tr:hover { background: #f0fdfa; }
+        .orders-table tbody tr:last-child td { border-bottom: none; }
+        .cell-ellipsis {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
-<body x-data="orderModal()">
+<body x-data="{ ...orderModal(), ...filterPanel() }">
 
 <div class="dashboard-container">
     <!-- Sidebar -->
@@ -183,72 +429,171 @@ $page_title = 'Orders Management - Admin';
 
             <!-- Orders List & Filters -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:nowrap; margin-bottom:20px;">
-                    <select name="status" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:140px; flex-shrink:0;" onchange="applyFilters()">
-                        <option value="">Status: All</option>
-                        <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                        <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
-                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
-                        <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
-                        <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                    </select>
-                    
-                    <select name="payment" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:140px; flex-shrink:0;" onchange="applyFilters()">
-                        <option value="">Payment: All</option>
-                        <option value="Pending" <?php echo $payment_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                        <option value="Paid" <?php echo $payment_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
-                        <option value="Failed" <?php echo $payment_filter === 'Failed' ? 'selected' : ''; ?>>Failed</option>
-                    </select>
-                    
-                    <div style="position:relative; flex-shrink:0;">
-                        <input type="text" id="searchInput" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>"
-                               style="padding:8px 12px; width:200px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; box-sizing:border-box; color:#1f2937;">
+                <!-- Toolbar: title left, Sort + Filter right -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
+                    <div>
+                        <span style="font-size:15px; font-weight:700; color:#111827;">Orders List</span>
+                        <span style="font-size:13px; color:#6b7280; margin-left:8px;">(<?php echo number_format($total_orders); ?> records)</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                                </svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <?php
+                                $sorts = [
+                                    'newest'     => 'Date (Newest First)',
+                                    'oldest'     => 'Date (Oldest First)',
+                                    'status'     => 'Status',
+                                    'customer'   => 'Customer Name',
+                                    'total_desc' => 'Order Total (High → Low)',
+                                    'total_asc'  => 'Order Total (Low → High)',
+                                ];
+                                foreach ($sorts as $key => $label): ?>
+                                <div class="sort-option <?php echo $sort_by === $key ? 'selected' : ''; ?>" onclick="applySortFilter('<?php echo $key; ?>')">
+                                    <?php echo htmlspecialchars($label); ?>
+                                    <?php if ($sort_by === $key): ?>
+                                    <svg class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <?php endif; ?>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: filterOpen }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                                Filter
+                                <?php
+                                $active_filters = array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]);
+                                if (count($active_filters) > 0): ?>
+                                <span class="filter-badge"><?php echo count($active_filters); ?></span>
+                                <?php endif; ?>
+                            </button>
+
+                            <!-- Filter Panel -->
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false" id="filterPanel">
+                                <div class="filter-panel-header">Filter</div>
+
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from); ?>">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Type -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Payment</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['payment'])">Reset</button>
+                                    </div>
+                                    <select id="fp_payment" class="filter-select">
+                                        <option value="">All payments</option>
+                                        <option value="Pending" <?php echo $payment_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                        <option value="Paid"    <?php echo $payment_filter === 'Paid'    ? 'selected' : ''; ?>>Paid</option>
+                                        <option value="Failed"  <?php echo $payment_filter === 'Failed'  ? 'selected' : ''; ?>>Failed</option>
+                                    </select>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
+                                    </div>
+                                    <select id="fp_status" class="filter-select">
+                                        <option value="">All statuses</option>
+                                        <option value="Pending"          <?php echo $status_filter === 'Pending'          ? 'selected' : ''; ?>>🟡 Pending</option>
+                                        <option value="Processing"       <?php echo $status_filter === 'Processing'       ? 'selected' : ''; ?>>🔵 Processing</option>
+                                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>🟣 Ready for Pickup</option>
+                                        <option value="Completed"        <?php echo $status_filter === 'Completed'        ? 'selected' : ''; ?>>🟢 Completed</option>
+                                        <option value="Cancelled"        <?php echo $status_filter === 'Cancelled'        ? 'selected' : ''; ?>>🔴 Cancelled</option>
+                                    </select>
+                                </div>
+
+                                <!-- Keyword Search -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <div class="filter-search-wrap">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>">
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all</button>
+                                    <button class="filter-btn-apply" onclick="applyFilters(false)">Apply now</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
+
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left table-fixed">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr class="border-b-2 border-gray-200">
-                                <th class="px-4 py-3 w-[10%]">Order #</th>
-                                <th class="px-4 py-3 w-[25%]">Customer</th>
-                                <th class="px-4 py-3 w-[15%]">Date</th>
-                                <th class="px-4 py-3 w-[15%]">Branch</th>
-                                <th class="px-4 py-3 w-[10%]">Total</th>
-                                <th class="px-4 py-3 w-[10%]">Payment</th>
-                                <th class="px-4 py-3 w-[15%]">Status</th>
-                                <th class="px-4 py-3 w-[15%] text-right">Actions</th>
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th style="width:8%;">Order #</th>
+                                <th style="width:22%;">Customer</th>
+                                <th style="width:13%;">Date</th>
+                                <th style="width:14%;">Branch</th>
+                                <th style="width:11%;">Total</th>
+                                <th style="width:10%;">Payment</th>
+                                <th style="width:14%;">Status</th>
+                                <th style="width:8%; text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTableBody">
                             <?php if (empty($orders)): ?>
                                 <tr id="emptyOrdersRow">
-                                    <td colspan="8" class="py-8 text-center text-gray-500">
+                                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
                                         <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <tr id="emptyOrdersRow" style="display:none;">
-                                    <td colspan="8" class="py-8 text-center text-gray-500">
-                                        No orders found
-                                    </td>
+                                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
                                 </tr>
                                 <?php foreach ($orders as $order): ?>
-                                    <tr class="border-b hover:bg-gray-50">
-                                        <td class="px-4 py-3 font-medium"><?php echo $order['order_id']; ?></td>
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
-                                            <div class="text-xs text-gray-500" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                                    <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>">
+                                        <td style="font-weight:600; color:#1f2937;"><?php echo $order['order_id']; ?></td>
+                                        <td>
+                                            <div class="cell-ellipsis" style="font-weight:600; color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
+                                            <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap"><?php echo format_date($order['order_date']); ?></td>
-                                        <td class="px-4 py-3 whitespace-nowrap"><?php
+                                        <td style="color:#6b7280;"><?php echo format_date($order['order_date']); ?></td>
+                                        <td><?php
                                             echo get_branch_badge_html(
                                                 (int)($order['branch_id'] ?? 0),
                                                 $order['branch_name'] ?? 'Main'
                                             );
                                         ?></td>
-                                        <td class="px-4 py-3 font-semibold whitespace-nowrap"><?php echo format_currency($order['total_amount']); ?></td>
-                                        <td class="px-4 py-3 whitespace-nowrap">
+                                        <td style="font-weight:700; color:#1f2937;"><?php echo format_currency($order['total_amount']); ?></td>
+                                        <td>
                                             <?php
                                                 $pc = match($order['payment_status']) {
                                                     'Pending' => 'background:#fef9c3;color:#854d0e;',
@@ -257,11 +602,9 @@ $page_title = 'Orders Management - Admin';
                                                     default   => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $pc; ?>">
-                                                <?php echo $order['payment_status']; ?>
-                                            </span>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap">
+                                        <td>
                                             <?php
                                                 $sc = match($order['status']) {
                                                     'Pending'           => 'background:#fef9c3;color:#854d0e;',
@@ -272,17 +615,13 @@ $page_title = 'Orders Management - Admin';
                                                     default             => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
-                                                <?php echo $order['status']; ?>
-                                            </span>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
                                         </td>
-                                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                                        <td style="text-align:right;">
                                             <button 
-                                                @click="openModal(<?php echo $order['order_id']; ?>)"
+                                                onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)"
                                                 class="btn-action"
-                                            >
-                                                View Details
-                                            </button>
+                                            >View</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -293,9 +632,12 @@ $page_title = 'Orders Management - Admin';
                 <div id="ordersPagination">
                     <?php 
                     $pagination_params = [];
-                    if ($search) $pagination_params['search'] = $search;
-                    if ($status_filter) $pagination_params['status'] = $status_filter;
-                    if ($payment_filter) $pagination_params['payment'] = $payment_filter;
+                    if ($search)         $pagination_params['search']    = $search;
+                    if ($status_filter)  $pagination_params['status']    = $status_filter;
+                    if ($payment_filter) $pagination_params['payment']   = $payment_filter;
+                    if ($date_from)      $pagination_params['date_from'] = $date_from;
+                    if ($date_to)        $pagination_params['date_to']   = $date_to;
+                    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
@@ -494,233 +836,241 @@ $page_title = 'Orders Management - Admin';
 </style>
 
 <script>
-    // Real-time Search
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('searchInput');
-        const statusSelect = document.querySelector('select[name="status"]');
-        const paymentSelect = document.querySelector('select[name="payment"]');
-        const tableRows = document.querySelectorAll('#ordersTableBody tr:not(#emptyOrdersRow)');
-        const emptyRow = document.getElementById('emptyOrdersRow');
-        const pagination = document.getElementById('ordersPagination');
-        
-        function performSearch() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const statusFilter = statusSelect.value;
-            const paymentFilter = paymentSelect.value;
-            let visibleCount = 0;
-            
-            tableRows.forEach(row => {
-                const orderId = row.querySelector('td:nth-child(1)')?.textContent.toLowerCase() || '';
-                const customerName = row.querySelector('td:nth-child(2) .font-medium')?.textContent.toLowerCase() || '';
-                const customerEmail = row.querySelector('td:nth-child(2) .text-xs')?.textContent.toLowerCase() || '';
-                const date = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
-                const branch = row.querySelector('td:nth-child(4)')?.textContent.toLowerCase() || '';
-                const total = row.querySelector('td:nth-child(5)')?.textContent.toLowerCase() || '';
-                const paymentStatus = row.querySelector('td:nth-child(6) span')?.textContent.toLowerCase() || '';
-                const orderStatus = row.querySelector('td:nth-child(7) span')?.textContent.toLowerCase() || '';
-                
-                const matchesSearch = !searchTerm || 
-                    orderId.includes(searchTerm) ||
-                    customerName.includes(searchTerm) ||
-                    customerEmail.includes(searchTerm) ||
-                    date.includes(searchTerm) ||
-                    branch.includes(searchTerm) ||
-                    total.includes(searchTerm) ||
-                    paymentStatus.includes(searchTerm) ||
-                    orderStatus.includes(searchTerm);
-                
-                const matchesStatus = !statusFilter || orderStatus.includes(statusFilter.toLowerCase());
-                const matchesPayment = !paymentFilter || paymentStatus.includes(paymentFilter.toLowerCase());
-                
-                if (matchesSearch && matchesStatus && matchesPayment) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-            
-            // Handle empty state and pagination
-            if (searchTerm && visibleCount === 0) {
-                if (emptyRow) {
-                    emptyRow.style.display = '';
-                    emptyRow.querySelector('td').textContent = `No orders found matching "${searchInput.value}"`;
-                }
-                if (pagination) pagination.style.display = 'none';
-            } else if (visibleCount === 0 && !searchTerm) {
-                if (emptyRow) {
-                    emptyRow.style.display = '';
-                    emptyRow.querySelector('td').textContent = 'No orders found';
-                }
-                if (pagination) pagination.style.display = 'none';
-            } else {
-                if (emptyRow) emptyRow.style.display = 'none';
-                if (pagination) pagination.style.display = searchTerm ? 'none' : '';
-            }
-        }
-        
-        if (searchInput) {
-            searchInput.addEventListener('input', performSearch);
-        }
-        
-        window.applyFilters = performSearch;
-    });
-    
-function orderModal() {
-    return {
-        showModal: false,
-        loading: false,
-        errorMsg: '',
-        order: null,
-        items: [],
-        selectedStatus: 'Pending',
-        updatingStatus: false,
-        statusUpdateMsg: '',
-        statusUpdateError: false,
+    // ── Filter + Sort helpers ──────────────────────────────
+    function buildFilterURL(overrides = {}) {
+        const params = new URLSearchParams(window.location.search);
 
-        openModal(orderId) {
-            this.showModal = true;
-            this.loading = true;
-            this.errorMsg = '';
-            this.statusUpdateMsg = '';
-            this.order = null;
-            this.items = [];
+        const fields = {
+            status:    () => document.getElementById('fp_status')?.value   || '',
+            payment:   () => document.getElementById('fp_payment')?.value  || '',
+            search:    () => document.getElementById('fp_search')?.value   || '',
+            date_from: () => document.getElementById('fp_date_from')?.value || '',
+            date_to:   () => document.getElementById('fp_date_to')?.value   || '',
+        };
 
-            fetch('/printflow/admin/api_order_details.php?id=' + orderId)
-                .then(r => r.json())
-                .then(data => {
-                    this.loading = false;
+        for (const [key, getter] of Object.entries(fields)) {
+            const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+            if (val) params.set(key, val);
+            else params.delete(key);
+        }
+
+        // Sort is managed separately
+        if (overrides.sort !== undefined) {
+            if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+            else params.delete('sort');
+        }
+
+        params.delete('page');
+        return window.location.pathname + '?' + params.toString();
+    }
+
+    function applyFilters(resetAll = false) {
+        if (resetAll) {
+            const base = window.location.pathname;
+            // Keep branch param if present
+            const branch = new URLSearchParams(window.location.search).get('branch');
+            window.location.href = base + (branch ? '?branch=' + encodeURIComponent(branch) : '');
+        } else {
+            window.location.href = buildFilterURL();
+        }
+    }
+
+    function applySortFilter(sortKey) {
+        window.location.href = buildFilterURL({ sort: sortKey });
+    }
+
+    function resetFilterField(fields) {
+        const overrides = {};
+        fields.forEach(f => {
+            overrides[f] = '';
+            const el = document.getElementById('fp_' + f);
+            if (el) el.value = '';
+        });
+    }
+
+    // ── Alpine.js data for filter/sort panel toggles ───────
+    function filterPanel() {
+        return {
+            filterOpen: false,
+            sortOpen:   false,
+        };
+    }
+
+    // ── Alpine.js data for order modal ─────────────────────
+    function orderModal() {
+        const obj = {
+            showModal: false,
+            loading: false,
+            errorMsg: '',
+            order: null,
+            items: [],
+            selectedStatus: 'Pending',
+            updatingStatus: false,
+            statusUpdateMsg: '',
+            statusUpdateError: false,
+
+            openModal(orderId) {
+                this.showModal = true;
+                this.loading = true;
+                this.errorMsg = '';
+                this.statusUpdateMsg = '';
+                this.order = null;
+                this.items = [];
+
+                fetch('/printflow/admin/api_order_details.php?id=' + orderId)
+                    .then(r => r.json())
+                    .then(data => {
+                        this.loading = false;
+                        if (data.success) {
+                            this.order = data.order;
+                            this.items = data.items.map(i => ({
+                                ...i,
+                                editingTarp: false,
+                                savingTarp: false,
+                                tempWidth: i.tarp_details?.width_ft || 0,
+                                tempHeight: i.tarp_details?.height_ft || 0,
+                                tempRollId: i.tarp_details?.roll_id || '',
+                                availableRolls: []
+                            }));
+                            this.selectedStatus = data.order.status;
+                        } else {
+                            this.errorMsg = data.error || 'Failed to load order details.';
+                        }
+                    })
+                    .catch(err => {
+                        this.loading = false;
+                        this.errorMsg = 'Network error. Please try again.';
+                        console.error('Order details fetch error:', err);
+                    });
+            },
+
+            startTarpEdit(item) {
+                item.editingTarp = true;
+                if (item.tempWidth > 0 && item.availableRolls.length === 0) {
+                    this.fetchRolls(item);
+                }
+            },
+
+            fetchRolls(item) {
+                if (!item.tempWidth || item.tempWidth <= 0) return;
+                fetch('/printflow/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) item.availableRolls = data.rolls;
+                    });
+            },
+
+            async saveTarpSpecs(item) {
+                if (!item.tempWidth || !item.tempHeight || !item.tempRollId) {
+                    alert('Please fill all tarpaulin specifications.');
+                    return;
+                }
+                item.savingTarp = true;
+                try {
+                    const resp = await fetch('/printflow/admin/api_save_tarp_specs.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            order_item_id: item.order_item_id,
+                            roll_id: item.tempRollId,
+                            width_ft: item.tempWidth,
+                            height_ft: item.tempHeight,
+                            csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                        })
+                    });
+                    const data = await resp.json();
                     if (data.success) {
-                        this.order = data.order;
-                        this.items = data.items.map(i => ({
-                            ...i,
-                            editingTarp: false,
-                            savingTarp: false,
-                            tempWidth: i.tarp_details?.width_ft || 0,
-                            tempHeight: i.tarp_details?.height_ft || 0,
-                            tempRollId: i.tarp_details?.roll_id || '',
-                            availableRolls: []
-                        }));
-                        this.selectedStatus = data.order.status;
+                        item.tarp_details = {
+                            width_ft: item.tempWidth,
+                            height_ft: item.tempHeight,
+                            roll_id: item.tempRollId,
+                            roll_code: item.availableRolls.find(r => r.id == item.tempRollId)?.roll_code || 'Assigned'
+                        };
+                        item.editingTarp = false;
                     } else {
-                        this.errorMsg = data.error || 'Failed to load order details.';
+                        alert(data.error || 'Failed to save specifications.');
                     }
-                })
-                .catch(err => {
-                    this.loading = false;
-                    this.errorMsg = 'Network error. Please try again.';
-                    console.error('Order details fetch error:', err);
-                });
-        },
-
-        startTarpEdit(item) {
-            item.editingTarp = true;
-            if (item.tempWidth > 0 && item.availableRolls.length === 0) {
-                this.fetchRolls(item);
-            }
-        },
-
-        fetchRolls(item) {
-            if (!item.tempWidth || item.tempWidth <= 0) return;
-            fetch('/printflow/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        item.availableRolls = data.rolls;
-                    }
-                });
-        },
-
-        async saveTarpSpecs(item) {
-            if (!item.tempWidth || !item.tempHeight || !item.tempRollId) {
-                alert('Please fill all tarpaulin specifications.');
-                return;
-            }
-            item.savingTarp = true;
-            try {
-                const resp = await fetch('/printflow/admin/api_save_tarp_specs.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        order_item_id: item.order_item_id,
-                        roll_id: item.tempRollId,
-                        width_ft: item.tempWidth,
-                        height_ft: item.tempHeight,
-                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
-                    })
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    item.tarp_details = {
-                        width_ft: item.tempWidth,
-                        height_ft: item.tempHeight,
-                        roll_id: item.tempRollId,
-                        roll_code: item.availableRolls.find(r => r.id == item.tempRollId)?.roll_code || 'Assigned'
-                    };
-                    item.editingTarp = false;
-                } else {
-                    alert(data.error || 'Failed to save specifications.');
+                } catch (e) {
+                    alert('Network error.');
                 }
-            } catch (e) {
-                alert('Network error.');
-            }
-            item.savingTarp = false;
-        },
+                item.savingTarp = false;
+            },
 
-        async updateStatus() {
-            if (!this.order) return;
-            this.updatingStatus = true;
-            this.statusUpdateMsg = '';
-            try {
-                const resp = await fetch('/printflow/admin/api_update_order_status.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        order_id: this.order.order_id,
-                        status: this.selectedStatus,
-                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
-                    })
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    this.statusUpdateMsg = data.message;
-                    this.statusUpdateError = false;
-                    this.order.status = this.selectedStatus;
-                    // Reload page to refresh KPI counts
-                    setTimeout(() => location.reload(), 1200);
-                } else {
-                    this.statusUpdateMsg = data.error || 'Update failed.';
+            async updateStatus() {
+                if (!this.order) return;
+                this.updatingStatus = true;
+                this.statusUpdateMsg = '';
+                try {
+                    const resp = await fetch('/printflow/admin/api_update_order_status.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            order_id: this.order.order_id,
+                            status: this.selectedStatus,
+                            csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                        })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this.statusUpdateMsg = data.message;
+                        this.statusUpdateError = false;
+                        this.order.status = this.selectedStatus;
+                        setTimeout(() => location.reload(), 1200);
+                    } else {
+                        this.statusUpdateMsg = data.error || 'Update failed.';
+                        this.statusUpdateError = true;
+                    }
+                } catch (e) {
+                    this.statusUpdateMsg = 'Network error.';
                     this.statusUpdateError = true;
                 }
-            } catch (e) {
-                this.statusUpdateMsg = 'Network error.';
-                this.statusUpdateError = true;
-            }
-            this.updatingStatus = false;
-        },
+                this.updatingStatus = false;
+            },
 
-        statusBadge(status, type) {
-            const colors = {
-                order: {
-                    'Pending': 'background:#fef3c7;color:#92400e;',
-                    'Processing': 'background:#dbeafe;color:#1e40af;',
-                    'Ready for Pickup': 'background:#dcfce7;color:#166534;',
-                    'Completed': 'background:#dcfce7;color:#166534;',
-                    'Cancelled': 'background:#fee2e2;color:#991b1b;'
-                },
-                payment: {
-                    'Pending': 'background:#fef3c7;color:#92400e;',
-                    'Unpaid': 'background:#fee2e2;color:#991b1b;',
-                    'Paid': 'background:#dcfce7;color:#166534;',
-                    'Refunded': 'background:#f3f4f6;color:#374151;',
-                    'Failed': 'background:#fee2e2;color:#991b1b;'
-                }
-            };
-            const style = (colors[type] && colors[type][status]) || 'background:#f3f4f6;color:#374151;';
-            return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${status || 'N/A'}</span>`;
+            statusBadge(status, type) {
+                const colors = {
+                    order: {
+                        'Pending': 'background:#fef3c7;color:#92400e;',
+                        'Processing': 'background:#dbeafe;color:#1e40af;',
+                        'Ready for Pickup': 'background:#dcfce7;color:#166534;',
+                        'Completed': 'background:#dcfce7;color:#166534;',
+                        'Cancelled': 'background:#fee2e2;color:#991b1b;'
+                    },
+                    payment: {
+                        'Pending': 'background:#fef3c7;color:#92400e;',
+                        'Unpaid': 'background:#fee2e2;color:#991b1b;',
+                        'Paid': 'background:#dcfce7;color:#166534;',
+                        'Refunded': 'background:#f3f4f6;color:#374151;',
+                        'Failed': 'background:#fee2e2;color:#991b1b;'
+                    }
+                };
+                const style = (colors[type] && colors[type][status]) || 'background:#f3f4f6;color:#374151;';
+                return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${status || 'N/A'}</span>`;
+            }
+        };
+
+        // Expose to global so onclick= attributes can reach it
+        document.addEventListener('alpine:initialized', () => {});
+        window.orderModalInstance = obj;
+        return obj;
+    }
+
+    // Global bridge: called by onclick on table rows/buttons
+    // Delegates to the Alpine component via its root element
+    function openOrderModal(orderId) {
+        const root = document.body;
+        if (root && root._x_dataStack) {
+            const data = root._x_dataStack[0];
+            if (data && data.openModal) {
+                data.openModal(orderId);
+                return;
+            }
         }
-    };
-}
+        // Fallback using Alpine.evaluate
+        if (window.Alpine) {
+            Alpine.evaluate(document.body, `openModal(${orderId})`);
+        }
+    }
 </script>
 
 </body>
