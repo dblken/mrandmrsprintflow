@@ -21,6 +21,7 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
@@ -34,10 +35,12 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         .filter-group input, .filter-group select { padding: 10px 16px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 14px; transition: all 0.2s; background: #fff; }
         .filter-group input:focus, .filter-group select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
         
-        .inv-table { width: 100%; border-collapse: collapse; }
-        .inv-table th { background: #f9fafb; padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: capitalize; color: #4b5563; text-align: left; border-bottom: 2px solid #e5e7eb; letter-spacing: 0.05em; }
-        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #1f2937; vertical-align: middle; }
-        .inv-table tr:hover td { background: #f9fafb; }
+        .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .inv-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .inv-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .inv-table tbody tr:hover td { background: #f9fafb; }
+        .inv-table tbody tr:last-child td { border-bottom: none; }
         
         .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
         .badge-green { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
@@ -95,6 +98,37 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         .chart-container { height: 200px; margin-top: 24px; padding: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* Standardized Toolbar Styles */
+        .toolbar-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; height: 38px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .toolbar-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .toolbar-btn.active { border-color: #0d9488; background: #f0fdfa; color: #0d9488; }
+        .sort-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 220px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 8px; z-index: 100; }
+        .sort-option { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #4b5563; cursor: pointer; transition: all 0.2s; }
+        .sort-option:hover { background: #f3f4f6; color: #111827; }
+        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
+        .filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 320px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); z-index: 100; overflow: hidden; }
+        .filter-panel-header { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 700; color: #111827; }
+        .filter-section { padding: 16px; border-bottom: 1px solid #f3f4f6; }
+        .filter-section:last-child { border-bottom: none; }
+        .filter-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .filter-section-label { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.025em; }
+        .filter-reset-link { font-size: 11px; font-weight: 600; color: #0d9488; background: none; border: none; cursor: pointer; padding: 0; }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-select, .filter-search-input { width: 100%; height: 40px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; padding: 0 12px; transition: all 0.2s; }
+        .filter-select:focus, .filter-search-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+        .filter-actions { padding: 16px; background: #f9fafb; display: flex; gap: 12px; }
+        .filter-btn-reset { flex: 1; height: 40px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 600; color: #ef4444; cursor: pointer; transition: all 0.2s; }
+        .filter-btn-reset:hover { background: #fef2f2; border-color: #fecaca; }
+        .filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #0d9488; color: #fff; font-size: 10px; font-weight: 700; }
+        [x-cloak] { display: none !important; }
+        .filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
+        .filter-btn-reset { flex: 1; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; }
+        .filter-btn-reset:hover { background: #f9fafb; }
+
+        /* Low stock row highlight */
+        .low-stock-row td { background-color: #fff5f5 !important; color: #1f2937 !important; }
+        .low-stock-row:hover td { background-color: #fee2e2 !important; }
     </style>
 </head>
 <body>
@@ -123,39 +157,82 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         <main>
             <!-- Items Card -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
-                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items</span>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Inventory Items List</h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <button class="btn-action blue" onclick="openModal('create')" style="min-width:unset;">Add Item</button>
-                        <div style="position:relative; flex-shrink:0;">
-                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                            <input type="text" id="filterSearch" placeholder="Search by name..." value="" style="padding-left:32px; width:200px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
+                        <button class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
+                        
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">Newest to Oldest <svg x-show="activeSort === 'newest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">Oldest to Newest <svg x-show="activeSort === 'oldest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">A → Z <svg x-show="activeSort === 'az'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">Z → A <svg x-show="activeSort === 'za'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                            </div>
                         </div>
-                        <select id="filterCategory" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 10px; color:#374151; width:auto;">
-                            <option value="">All Categories</option>
-                            <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filter
+                                <span id="filterBadgeContainer"></span>
+                            </button>
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                <div class="filter-panel-header">Filter</div>
+                                
+                                <!-- Category -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Category</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['category'])">Reset</button>
+                                    </div>
+                                    <select id="fp_category" class="filter-select">
+                                        <option value="">All Categories</option>
+                                        <?php foreach ($categories as $cat): ?>
+                                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Keyword -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name..." value="">
+                                </div>
+
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" style="width:100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="inv-table" style="width:100%;border-collapse:collapse;font-size:13px;">
                         <thead>
-                            <tr class="border-b-2">
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('name')">Material Name <span id="sort-name"></span></th>
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('category_name')">Category <span id="sort-category_name"></span></th>
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('track_by_roll')">Tracking <span id="sort-track_by_roll"></span></th>
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('unit_cost')">Unit Cost <span id="sort-unit_cost"></span></th>
-                                <th class="text-left py-3">Stock Level</th>
-                                <th class="text-left py-3">UOM</th>
-                                <th class="text-right py-3">Actions</th>
+                            <tr>
+                                <th>Material Name</th>
+                                <th>Category</th>
+                                <th>Tracking</th>
+                                <th>Unit Cost</th>
+                                <th>Stock Level</th>
+                                <th>UOM</th>
+                                <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="itemsTableBody">
-                            <tr><td colspan="7" class="py-8 text-center text-gray-500">Scanning inventory...</td></tr>
+                            <tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Scanning inventory...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -389,10 +466,64 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     const itemsPerPage = 10;
     let currentSort = 'name';
     let currentDir = 'ASC';
+    let activeSort = 'az'; // default to A-Z
+    let searchDebounceTimer = null;
+
+    function filterPanel() {
+        return {
+            sortOpen: false,
+            filterOpen: false,
+            activeSort: activeSort,
+            get hasActiveFilters() {
+                return document.getElementById('fp_category')?.value ||
+                       document.getElementById('fp_search')?.value;
+            }
+        };
+    }
+
+    function applySortFilter(sortKey) {
+        activeSort = sortKey;
+        if (sortKey === 'newest') { currentSort = 'id'; currentDir = 'DESC'; }
+        else if (sortKey === 'oldest') { currentSort = 'id'; currentDir = 'ASC'; }
+        else if (sortKey === 'az') { currentSort = 'name'; currentDir = 'ASC'; }
+        else if (sortKey === 'za') { currentSort = 'name'; currentDir = 'DESC'; }
+        
+        currentPage = 1;
+        loadItems();
+        
+        const alpineEl = document.querySelector('[x-data="filterPanel()"]');
+        if (alpineEl && alpineEl._x_dataStack) {
+            alpineEl._x_dataStack[0].activeSort = sortKey;
+            alpineEl._x_dataStack[0].sortOpen = false;
+        }
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const el = document.getElementById('fp_' + f);
+            if (el) el.value = '';
+        });
+        currentPage = 1;
+        loadItems();
+    }
+
+    function applyFilters(reset = false) {
+        if (reset) {
+            ['fp_category', 'fp_search'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            activeSort = 'az';
+            currentSort = 'name';
+            currentDir = 'ASC';
+        }
+        currentPage = 1;
+        loadItems();
+    }
 
     async function loadItems() {
-        const catId = document.getElementById('filterCategory').value;
-        const search = document.getElementById('filterSearch').value;
+        const catId = document.getElementById('fp_category')?.value || '';
+        const search = document.getElementById('fp_search')?.value || '';
         
         try {
             const res = await fetch(`inventory_items_api.php?action=get_items&category_id=${catId}&search=${encodeURIComponent(search)}&sort=${currentSort}&dir=${currentDir}`);
@@ -401,12 +532,22 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             if (data.success) {
                 currentItems = data.data;
                 renderItems(currentItems);
-                updateSortIcons();
+                updateBadgeCount();
             }
         } catch (e) {
             console.error(e);
             document.getElementById('itemsTableBody').innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Network error.</td></tr>';
         }
+    }
+
+    function updateBadgeCount() {
+        const cat = document.getElementById('fp_category')?.value;
+        const s = document.getElementById('fp_search')?.value;
+        let count = 0;
+        if (cat) count++;
+        if (s) count++;
+        const cont = document.getElementById('filterBadgeContainer');
+        if (cont) cont.innerHTML = count > 0 ? `<span class="filter-badge">${count}</span>` : '';
     }
 
     function renderItems(items) {
@@ -466,22 +607,21 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                 : '<span style="color:#d97706;font-weight:600;">₱0.00</span>';
 
             let statusBadge = '';
-            if (isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fee2e2;color:#991b1b;margin-left:8px;">🔴 Out of Stock</span>';
-            else if (isLow) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">🟡 Low Stock</span>';
+            if (isLow && !isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low Stock</span>';
 
             // Show inactive badge
             const inactiveBadge = item.status === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
 
-            html += `<tr class="border-b hover:bg-gray-50" style="cursor:pointer;" onclick="openStockCard(${item.id})">
-                <td class="py-3 font-medium" style="text-transform: capitalize;">${escapeHtml(item.name)}${statusBadge}${inactiveBadge}</td>
-                <td class="py-3">${escapeHtml(item.category_name || 'Uncategorized')}</td>
-                <td class="py-3">${trackBadge}</td>
-                <td class="py-3">${costDisplay}</td>
-                <td class="py-3">
+            html += `<tr class="${(isOut || isLow) ? 'low-stock-row' : ''}" style="cursor:pointer;" onclick="openStockCard(${item.id})">
+                <td style="font-weight:500;text-transform:capitalize;">${escapeHtml(item.name)}${statusBadge}${inactiveBadge}</td>
+                <td>${escapeHtml(item.category_name || 'Uncategorized')}</td>
+                <td>${trackBadge}</td>
+                <td>${costDisplay}</td>
+                <td>
                     <span class="stock-val" style="color:${stockColor};">${stock.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </td>
-                <td class="py-3 text-gray-500" style="font-size:12px;">${escapeHtml(item.unit_of_measure || '')}</td>
-                <td class="py-3 text-right" style="white-space:nowrap;">
+                <td style="color:#6b7280;font-size:12px;">${escapeHtml(item.unit_of_measure || '')}</td>
+                <td style="text-align:right;white-space:nowrap;">
                     <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(${item.id})">+ Stock</button>
                     <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(${item.id})">Edit</button>
                 </td>
@@ -851,11 +991,20 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
     }
 
     document.addEventListener('DOMContentLoaded', loadItems);
-    document.getElementById('filterSearch').addEventListener('input', () => {
-        clearTimeout(window.searchT);
-        window.searchT = setTimeout(() => { currentPage = 1; loadItems(); }, 300);
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => { currentPage = 1; loadItems(); }, 500);
+            });
+        }
+        const catSelect = document.getElementById('fp_category');
+        if (catSelect) {
+            catSelect.addEventListener('change', () => { currentPage = 1; loadItems(); });
+        }
     });
-    document.getElementById('filterCategory').addEventListener('change', () => { currentPage = 1; loadItems(); });
 
     window.addEventListener('click', e => {
         if (e.target.classList.contains('modal')) e.target.style.display = 'none';

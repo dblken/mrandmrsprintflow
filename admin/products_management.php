@@ -162,16 +162,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 }
 
 // Get all products
-$page     = max(1, (int)($_GET['page'] ?? 1));
-$per_page = 10;
-$search   = trim($_GET['search'] ?? '');
+$page          = max(1, (int)($_GET['page'] ?? 1));
+$per_page      = 10;
+$search        = trim($_GET['search'] ?? '');
 $cat_filter    = $_GET['category'] ?? '';
 $status_filter = $_GET['status'] ?? '';
-$sort     = $_GET['sort'] ?? 'product_id';
-$dir      = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
-
-$sort_cols = ['product_id','name','sku','category','price','stock_quantity','status'];
-$sort = in_array($sort, $sort_cols) ? $sort : 'product_id';
+$sort_by       = $_GET['sort'] ?? 'newest';
+$date_from     = $_GET['date_from'] ?? '';
+$date_to       = $_GET['date_to'] ?? '';
 
 $sql    = "SELECT * FROM products WHERE 1=1";
 $params = []; $types = '';
@@ -192,6 +190,16 @@ if ($status_filter) {
     $params[] = $status_filter;
     $types .= 's';
 }
+if (!empty($date_from)) {
+    $sql .= " AND DATE(created_at) >= ?";
+    $params[] = $date_from;
+    $types .= 's';
+}
+if (!empty($date_to)) {
+    $sql .= " AND DATE(created_at) <= ?";
+    $params[] = $date_to;
+    $types .= 's';
+}
 
 $count_sql = str_replace('SELECT *', 'SELECT COUNT(*) as total', $sql);
 $total_products = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
@@ -199,26 +207,92 @@ $total_pages = max(1, ceil($total_products / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$sql .= " ORDER BY $sort $dir LIMIT $per_page OFFSET $offset";
+$order_clause = match($sort_by) {
+    'oldest' => "created_at ASC",
+    'az'     => "name ASC",
+    'za'     => "name DESC",
+    default  => "created_at DESC"
+};
+$sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $products = db_query($sql, $types ?: null, $params ?: null) ?: [];
 
 $page_title = 'Products Management - Admin';
 
 // Summary stats
-$stat_total      = db_query("SELECT COUNT(*) as c FROM products")[0]['c'] ?? 0;
-$stat_active     = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
-$stat_inactive   = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
-$stat_low_stock  = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quantity < 10")[0]['c'] ?? 0;
+$stat_total     = db_query("SELECT COUNT(*) as c FROM products")[0]['c'] ?? 0;
+$stat_active    = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
+$stat_inactive  = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
+$stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quantity < 10")[0]['c'] ?? 0;
 
 // Distinct categories for filter
 $categories = db_query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC") ?: [];
 
-// Sort helpers
-$build_sort_url = function(string $col) use ($sort, $dir, $search, $cat_filter, $status_filter): string {
-    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$search,'category'=>$cat_filter,'status'=>$status_filter]);
-    return '?'.http_build_query($p);
-};
-$sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'):'';
+// AJAX response
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <table class="orders-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th style="text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="productsTableBody">
+            <?php if (empty($products)): ?>
+                <tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No products found.</td></tr>
+            <?php else: ?>
+                <?php foreach ($products as $product): ?>
+                    <?php $isLowStock = $product['stock_quantity'] < 10; ?>
+                    <tr class="<?php echo $isLowStock ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
+                        <td style="color:#1f2937;"><?php echo $product['product_id']; ?></td>
+                        <td style="font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
+                        <td style="font-weight:500;color:#1f2937;"><?php echo htmlspecialchars($product['name']); ?></td>
+                        <td><?php echo htmlspecialchars($product['category'] ?? '—'); ?></td>
+                        <td style="font-weight:600;color:#1f2937;"><?php echo format_currency($product['price']); ?></td>
+                        <td>
+                            <span style="font-weight:<?php echo $isLowStock ? 'bold' : '400'; ?>;color:<?php echo $isLowStock ? '#dc2626' : '#374151'; ?>;"><?php echo $product['stock_quantity']; ?></span>
+                        </td>
+                        <td>
+                            <?php $sc = match($product['status']) { 'Activated' => 'background:#dcfce7;color:#166534;', 'Deactivated' => 'background:#fee2e2;color:#991b1b;', default => 'background:#fef9c3;color:#854d0e;' }; ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo $product['status']; ?></span>
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                            <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
+                            <form method="POST" class="inline" onsubmit="return confirm('<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?> this product?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
+                                    <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    $table_html = ob_get_clean();
+    ob_start();
+    $pp = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
+    echo render_pagination($page, $total_pages, $pp);
+    $pagination_html = ob_get_clean();
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_products),
+        'badge'      => count(array_filter([$search,$cat_filter,$status_filter,$date_from,$date_to]))
+    ]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -227,6 +301,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action {
@@ -267,7 +342,173 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
 
 
 
-        /* Modal styles */
+        [x-cloak] { display: none !important; }
+
+        /* ── Toolbar Buttons (Sort / Filter) ─── */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        /* Sort Dropdown */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 180px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            z-index: 200;
+            padding: 6px;
+        }
+        .sort-option {
+            padding: 9px 12px;
+            font-size: 13px;
+            color: #4b5563;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sort-option:hover { background: #f9fafb; color: #111827; }
+        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
+        .sort-option svg.check { color: #0d9488; }
+
+        /* Filter Panel */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-wrap { position: relative; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
         #product-modal-overlay {
             display: none;
             position: fixed;
@@ -370,6 +611,21 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
         @media (max-width: 600px) {
             #product-modal .form-row { grid-template-columns: 1fr; }
         }
+
+        /* Orders-style table */
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .orders-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .orders-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .orders-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .orders-table tbody tr:hover { background: #f9fafb; }
+        .orders-table tbody tr:last-child td { border-bottom: none; }
+
+        /* Low stock row highlight */
+        .low-stock-row td { background-color: #fff5f5 !important; color: #374151 !important; }
+        .low-stock-row:hover td { background-color: #fee2e2 !important; }
+
+        /* Add Product blue hover */
+        .toolbar-btn.btn-add-product:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     </style>
 </head>
 <body>
@@ -420,75 +676,148 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                 </div>
             </div>
 
-            <!-- Products Table with Search -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
-                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;"><?php echo $total_products; ?></strong> products</span>
-                    
-                    <form method="GET" id="filterForm" style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
-                        <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
-                        <button class="btn-action blue" type="button" onclick="openProductModal('create')" style="min-width:unset;">Add Product</button>
-                        <select name="category" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
-                            <option value="">Category: All</option>
-                            <?php foreach($categories as $cat): ?>
-                                <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $cat_filter===$cat['category']?'selected':''; ?>><?php echo htmlspecialchars($cat['category']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <select name="status" onchange="this.form.submit()" style="height:36px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;padding:0 8px;">
-                            <option value="">Status: All</option>
-                            <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
-                            <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
-                        </select>
-                        <div style="position:relative; flex-shrink:0;">
-                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" id="searchInput" placeholder="Search by name or SKU..." value="<?php echo htmlspecialchars($search); ?>"
-                                   style="padding-left:32px; width:200px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="productsListHeader">Products List</h3>
+
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="toolbar-btn btn-add-product" type="button" onclick="openProductModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Product</button>
+
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                                </svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <?php $sorts = ['newest'=>'Newest to Oldest','oldest'=>'Oldest to Newest','az'=>'A → Z','za'=>'Z → A']; foreach ($sorts as $key => $label): ?>
+                                <div class="sort-option" :class="{ 'selected': activeSort === '<?php echo $key; ?>' }" onclick="applySortFilter('<?php echo $key; ?>')">
+                                    <?php echo htmlspecialchars($label); ?>
+                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
-                    </form>
+
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                                Filter
+                                <span id="filterBadgeContainer">
+                                    <?php $afc = count(array_filter([$search,$cat_filter,$status_filter,$date_from,$date_to])); if ($afc > 0): ?>
+                                    <span class="filter-badge"><?php echo $afc; ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
+
+                            <!-- Filter Panel -->
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                <div class="filter-panel-header">Filter</div>
+
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from); ?>">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Category -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Category</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['category'])">Reset</button>
+                                    </div>
+                                    <select id="fp_category" class="filter-select">
+                                        <option value="">All categories</option>
+                                        <?php foreach($categories as $cat): ?>
+                                            <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $cat_filter===$cat['category']?'selected':''; ?>><?php echo htmlspecialchars($cat['category']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
+                                    </div>
+                                    <select id="fp_status" class="filter-select">
+                                        <option value="">All statuses</option>
+                                        <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
+                                        <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                                    </select>
+                                </div>
+
+                                <!-- Keyword Search -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <div class="filter-search-wrap">
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" style="width:100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                <div id="productsTableContainer">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="orders-table">
                         <thead>
-                            <tr class="border-b-2">
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('product_id'); ?>" style="text-decoration:none;color:inherit;">ID<?php echo $sort_icon('product_id'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('sku'); ?>" style="text-decoration:none;color:inherit;">SKU<?php echo $sort_icon('sku'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('name'); ?>" style="text-decoration:none;color:inherit;">Name<?php echo $sort_icon('name'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('category'); ?>" style="text-decoration:none;color:inherit;">Category<?php echo $sort_icon('category'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('price'); ?>" style="text-decoration:none;color:inherit;">Price<?php echo $sort_icon('price'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('stock_quantity'); ?>" style="text-decoration:none;color:inherit;">Stock<?php echo $sort_icon('stock_quantity'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('status'); ?>" style="text-decoration:none;color:inherit;">Status<?php echo $sort_icon('status'); ?></a></th>
-                                <th class="text-right py-3">Actions</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>SKU</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">
                             <?php if (empty($products)): ?>
                                 <tr id="emptyProductsRow">
-                                    <td colspan="8" class="py-8 text-center text-gray-500">
+                                    <td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">
                                         <?php echo $search ? 'No products found matching "' . htmlspecialchars($search) . '"' : 'No products yet.'; ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <tr id="emptyProductsRow" style="display:none;">
-                                    <td colspan="8" class="py-8 text-center text-gray-500">
-                                        No products yet.
-                                    </td>
-                                </tr>
                                 <?php foreach ($products as $product): ?>
-                                    <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
-                                        <td class="py-3"><?php echo $product['product_id']; ?></td>
-                                        <td class="py-3 font-mono text-xs"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
-                                        <td class="py-3 font-medium"><?php echo htmlspecialchars($product['name']); ?></td>
-                                        <td class="py-3"><?php echo htmlspecialchars($product['category'] ?? '—'); ?></td>
-                                        <td class="py-3 font-semibold"><?php echo format_currency($product['price']); ?></td>
-                                        <td class="py-3">
-                                            <?php if ($product['stock_quantity'] < 10): ?>
-                                                <span style="color:#dc2626; font-weight:bold;"><?php echo $product['stock_quantity']; ?></span>
-                                            <?php else: ?>
-                                                <span><?php echo $product['stock_quantity']; ?></span>
-                                            <?php endif; ?>
+                                    <?php $isLowStock = $product['stock_quantity'] < 10; ?>
+                                    <tr class="<?php echo $isLowStock ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
+                                        <td style="color:#1f2937;"><?php echo $product['product_id']; ?></td>
+                                        <td style="font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
+                                        <td style="font-weight:500;color:#1f2937;"><?php echo htmlspecialchars($product['name']); ?></td>
+                                        <td><?php echo htmlspecialchars($product['category'] ?? '—'); ?></td>
+                                        <td style="font-weight:600;color:#1f2937;"><?php echo format_currency($product['price']); ?></td>
+                                        <td>
+                                            <span style="font-weight:<?php echo $isLowStock ? 'bold' : '400'; ?>;color:<?php echo $isLowStock ? '#dc2626' : '#374151'; ?>;"><?php echo $product['stock_quantity']; ?></span>
                                         </td>
-                                        <td class="py-3">
+                                        <td>
                                             <?php
                                                 $sc = match($product['status']) {
                                                     'Activated'   => 'background:#dcfce7;color:#166534;',
@@ -496,11 +825,11 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                                                     default       => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>">
                                                 <?php echo $product['status']; ?>
                                             </span>
                                         </td>
-                                        <td class="py-3 text-right" style="white-space:nowrap;" onclick="event.stopPropagation();">
+                                        <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                                             <form method="POST" class="inline" onsubmit="return confirm('<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?> this product?');">
@@ -519,9 +848,10 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                 </div>
                 <div id="productsPagination">
                     <?php
-                    $pagination_params = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir]);
+                    $pagination_params = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
                     echo render_pagination($page, $total_pages, $pagination_params);
                     ?>
+                </div>
                 </div>
             </div>
         </main>
@@ -683,6 +1013,98 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
 </div>
 
 <script>
+// ── Filter & Sort JS (products_management.php) ────────────────────────────
+let activeSort = '<?php echo $sort_by; ?>';
+let searchDebounceTimer = null;
+
+function filterPanel() {
+    return {
+        sortOpen: false,
+        filterOpen: false,
+        activeSort: activeSort,
+        get hasActiveFilters() {
+            return document.getElementById('fp_date_from')?.value ||
+                   document.getElementById('fp_date_to')?.value ||
+                   document.getElementById('fp_category')?.value ||
+                   document.getElementById('fp_status')?.value ||
+                   document.getElementById('fp_search')?.value;
+        }
+    };
+}
+
+function buildFilterURL(page = 1) {
+    const params = new URLSearchParams();
+    params.set('page', page);
+    const df = document.getElementById('fp_date_from')?.value; if (df) params.set('date_from', df);
+    const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
+    const cat = document.getElementById('fp_category')?.value; if (cat) params.set('category', cat);
+    const st = document.getElementById('fp_status')?.value;   if (st) params.set('status', st);
+    const s = document.getElementById('fp_search')?.value;     if (s) params.set('search', s);
+    if (activeSort !== 'newest') params.set('sort', activeSort);
+    return '?' + params.toString();
+}
+
+function fetchUpdatedTable(page = 1) {
+    const url = buildFilterURL(page) + '&ajax=1';
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            document.getElementById('productsTableContainer').innerHTML = data.table + '<div id="productsPagination">' + data.pagination + '</div>';
+            // productsCount element replaced with heading - no update needed
+            // Badge
+            const cont = document.getElementById('filterBadgeContainer');
+            cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
+            history.replaceState(null, '', buildFilterURL(page));
+        })
+        .catch(console.error);
+}
+
+function applyFilters(reset = false) {
+    if (reset) {
+        ['fp_date_from','fp_date_to','fp_category','fp_status','fp_search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        activeSort = 'newest';
+    }
+    fetchUpdatedTable(1);
+}
+
+function resetFilterField(fields) {
+    fields.forEach(f => {
+        const map = { date_from:'fp_date_from', date_to:'fp_date_to', category:'fp_category', status:'fp_status', search:'fp_search' };
+        const el = document.getElementById(map[f] || 'fp_' + f);
+        if (el) el.value = '';
+    });
+    fetchUpdatedTable(1);
+}
+
+function applySortFilter(sortKey) {
+    activeSort = sortKey;
+    fetchUpdatedTable(1);
+    // Update alpine data
+    const alpineEl = document.querySelector('[x-data="filterPanel()"]');
+    if (alpineEl && alpineEl._x_dataStack) {
+        alpineEl._x_dataStack[0].activeSort = sortKey;
+        alpineEl._x_dataStack[0].sortOpen   = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    ['fp_date_from','fp_date_to','fp_category','fp_status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => fetchUpdatedTable());
+    });
+    const searchInput = document.getElementById('fp_search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => fetchUpdatedTable(), 500);
+        });
+    }
+});
+
 function openProductModal(mode, product) {
     var overlay = document.getElementById('product-modal-overlay');
     var title   = document.getElementById('modal-title');

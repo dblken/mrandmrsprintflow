@@ -86,18 +86,15 @@ $per_page      = 10;
 $search        = trim($_GET['search'] ?? '');
 $role_filter   = $_GET['role'] ?? '';
 $status_filter = $_GET['status'] ?? '';
-$sort          = $_GET['sort'] ?? 'created_at';
-$dir           = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+$sort_by       = $_GET['sort'] ?? 'newest';
+$date_from     = $_GET['date_from'] ?? '';
+$date_to       = $_GET['date_to'] ?? '';
 
-$sort_cols = ['user_id','name','email','role','status','created_at'];
-$sort = in_array($sort, $sort_cols) ? $sort : 'created_at';
-$sort_col_sql = match($sort) {
-    'name'   => "CONCAT(u.first_name,' ',u.last_name)",
-    'email'  => 'u.email',
-    'role'   => 'u.role',
-    'status' => 'u.status',
-    'user_id'=> 'u.user_id',
-    default  => 'u.created_at',
+$sort_col_sql = match($sort_by) {
+    'oldest' => 'u.created_at ASC',
+    'az'     => 'u.first_name ASC',
+    'za'     => 'u.first_name DESC',
+    default  => 'u.created_at DESC',
 };
 
 $sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE 1=1";
@@ -117,6 +114,16 @@ if (!empty($role_filter)) {
 if (!empty($status_filter)) {
     $sql_base .= " AND u.status = ?";
     $params[] = $status_filter;
+    $types .= 's';
+}
+if (!empty($date_from)) {
+    $sql_base .= " AND DATE(u.created_at) >= ?";
+    $params[] = $date_from;
+    $types .= 's';
+}
+if (!empty($date_to)) {
+    $sql_base .= " AND DATE(u.created_at) <= ?";
+    $params[] = $date_to;
     $types .= 's';
 }
 
@@ -150,6 +157,53 @@ unset($_SESSION['cm_success']);
 $max_birthday = date('Y-m-d', strtotime('-13 years'));
 
 $page_title = 'User & Staff Management - Admin';
+
+// ── AJAX handler
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <table class="w-full text-sm">
+        <thead><tr class="border-b-2">
+            <th class="text-left py-3">ID</th>
+            <th class="text-left py-3">Name</th>
+            <th class="text-left py-3">Email</th>
+            <th class="text-left py-3">Role</th>
+            <th class="text-left py-3">Branch</th>
+            <th class="text-left py-3">Status</th>
+            <th class="text-right py-3">Actions</th>
+        </tr></thead>
+        <tbody>
+        <?php foreach ($users as $user): ?>
+            <tr class="border-b hover:bg-gray-50">
+                <td class="py-3"><?php echo $user['user_id']; ?></td>
+                <td class="py-3 font-medium"><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
+                <td class="py-3"><?php echo htmlspecialchars($user['email']); ?></td>
+                <td class="py-3"><?php
+                    $rs = match($user['role']) { 'Admin' => 'background:#fee2e2;color:#991b1b;', 'Manager' => 'background:#ede9fe;color:#5b21b6;', default => 'background:#dbeafe;color:#1e40af;' };
+                    ?><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $rs; ?>"><?php echo $user['role']; ?></span></td>
+                <td class="py-3"><?php echo $user['role']==='Admin' ? '<span class="text-gray-500 italic">All Branches</span>' : htmlspecialchars($user['branch_name'] ?? 'Unassigned'); ?></td>
+                <td class="py-3"><?php
+                    $sc = match($user['status']) { 'Activated' => 'background:#dcfce7;color:#166534;', 'Deactivated' => 'background:#fee2e2;color:#991b1b;', default => 'background:#fef9c3;color:#854d0e;' };
+                    ?><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>"><?php echo $user['status']; ?></span></td>
+                <td class="py-3 text-right">
+                    <button class="btn-action" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View / Edit</button>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (empty($users)): ?>
+            <tr><td colspan="7" class="py-8 text-center text-gray-500">No users found.</td></tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    $table_html = ob_get_clean();
+    ob_start();
+    $pp = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'date_from'=>$_GET['date_from']??'','date_to'=>$_GET['date_to']??'']);
+    echo render_pagination($page, $total_pages, $pp);
+    $pagination_html = ob_get_clean();
+    echo json_encode(['success'=>true,'table'=>$table_html,'pagination'=>$pagination_html,'count'=>number_format($total_users),'badge'=>count(array_filter([$search,$role_filter,$status_filter,$_GET['date_from']??'',$_GET['date_to']??'']))]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -224,6 +278,34 @@ $page_title = 'User & Staff Management - Admin';
             display: block;
         }
         @media(max-width:520px) { .mf-row { grid-template-columns:1fr; } }
+
+        /* ─── Orders-style Sort/Filter toolbar ─── */
+        .toolbar-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:13px; font-weight:500; color:#374151; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+        .toolbar-btn:hover { border-color:#9ca3af; background:#f9fafb; }
+        .toolbar-btn.active { border-color:#0d9488; color:#0d9488; background:#f0fdfa; }
+        .sort-dropdown { position:absolute; top:calc(100% + 6px); right:0; width:180px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); z-index:300; padding:6px; }
+        .sort-option { padding:9px 12px; font-size:13px; color:#4b5563; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; }
+        .sort-option:hover { background:#f9fafb; }
+        .sort-option.selected { background:#f0fdfa; color:#0d9488; font-weight:600; }
+        .filter-panel { position:absolute; top:calc(100% + 6px); right:0; width:300px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.12); z-index:300; overflow:hidden; }
+        .filter-panel-header { padding:14px 18px; border-bottom:1px solid #f3f4f6; font-size:14px; font-weight:700; color:#111827; }
+        .filter-section { padding:14px 18px; border-bottom:1px solid #f3f4f6; }
+        .filter-section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .filter-section-label { font-size:13px; font-weight:600; color:#374151; }
+        .filter-reset-link { font-size:12px; font-weight:600; color:#0d9488; cursor:pointer; background:none; border:none; padding:0; }
+        .filter-reset-link:hover { text-decoration:underline; }
+        .filter-input { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 10px; color:#1f2937; box-sizing:border-box; }
+        .filter-input:focus { outline:none; border-color:#0d9488; }
+        .filter-date-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .filter-date-label { font-size:11px; color:#6b7280; margin-bottom:4px; }
+        .filter-select { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 10px; color:#1f2937; background:#fff; box-sizing:border-box; cursor:pointer; }
+        .filter-select:focus { outline:none; border-color:#0d9488; }
+        .filter-search-input { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 12px; color:#1f2937; box-sizing:border-box; }
+        .filter-search-input:focus { outline:none; border-color:#0d9488; }
+        .filter-actions { display:flex; gap:8px; padding:14px 18px; border-top:1px solid #f3f4f6; }
+        .filter-btn-reset { flex:1; height:36px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:13px; font-weight:500; color:#374151; cursor:pointer; }
+        .filter-btn-reset:hover { background:#f9fafb; }
+        .filter-badge { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:#0d9488; color:#fff; border-radius:50%; font-size:10px; font-weight:700; }
 
         /* Create-user modal */
         #user-modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9800; justify-content:center; align-items:center; padding:16px; }
@@ -303,52 +385,103 @@ $page_title = 'User & Staff Management - Admin';
 
             <!-- Users Table -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
-                    <span style="font-size:13px; color:#6b7280;">Showing <strong style="color:#1f2937;"><?php echo count($users); ?></strong> of <strong><?php echo $total_users; ?></strong> users</span>
-                    <form method="GET" id="filterForm" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; background:#f9fafb; padding:8px 12px; border-radius:12px; border:1px solid #f3f4f6;">
-                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
-                        <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
-                        
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <label style="margin-bottom:0; font-size:12px; color:#6b7280; white-space:nowrap;">Filter By:</label>
-                            <select name="role" onchange="this.form.submit()" style="height:38px; min-width:120px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; padding:0 12px; background:#fff; cursor:pointer;">
-                                <option value="">All Roles</option>
-                                <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
-                                <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
-                                <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
-                            </select>
-                            
-                            <select name="status" onchange="this.form.submit()" style="height:38px; min-width:130px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; padding:0 12px; background:#fff; cursor:pointer;">
-                                <option value="">All Statuses</option>
-                                <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
-                                <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
-                            </select>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Users & Staff List</h3>
+
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <?php foreach (['newest'=>'Newest to Oldest','oldest'=>'Oldest to Newest','az'=>'A → Z','za'=>'Z → A'] as $k=>$lbl): ?>
+                                <div class="sort-option" :class="{'selected': activeSort === '<?php echo $k; ?>'}" onclick="applySortFilter('<?php echo $k; ?>')">
+                                    <?php echo htmlspecialchars($lbl); ?>
+                                    <svg x-show="activeSort === '<?php echo $k; ?>'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
 
-                        <div style="height:24px; width:1px; background:#e5e7eb; margin:0 4px;"></div>
-
-                        <div style="position:relative; flex:1; min-width:240px;">
-                            <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; pointer-events:none;" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>"
-                                   style="width:100%; padding-left:36px; height:38px; border:1px solid #e5e7eb; border-radius:10px; font-size:13px; background:#fff;" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filter
+                                <span id="filterBadgeContainer">
+                                    <?php $afc = count(array_filter([$search,$role_filter,$status_filter])); if ($afc > 0): ?>
+                                    <span class="filter-badge"><?php echo $afc; ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                <div class="filter-panel-header">Filter</div>
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div><div class="filter-date-label">From:</div><input type="date" id="fp_date_from" class="filter-input" value=""></div>
+                                        <div><div class="filter-date-label">To:</div><input type="date" id="fp_date_to" class="filter-input" value=""></div>
+                                    </div>
+                                </div>
+                                <!-- Role -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Role</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['role'])">Reset</button>
+                                    </div>
+                                    <select id="fp_role" class="filter-select">
+                                        <option value="">All roles</option>
+                                        <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
+                                        <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
+                                        <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
+                                    </select>
+                                </div>
+                                <!-- Status -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
+                                    </div>
+                                    <select id="fp_status" class="filter-select">
+                                        <option value="">All statuses</option>
+                                        <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
+                                        <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                                    </select>
+                                </div>
+                                <!-- Keyword -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>">
+                                </div>
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <?php if(!empty($search) || !empty($role_filter) || !empty($status_filter)): ?>
-                            <a href="user_staff_management.php" style="font-size:12px; color:#ef4444; text-decoration:none; font-weight:600; padding:0 4px;">Clear All</a>
-                        <?php endif; ?>
-                    </form>
+                    </div>
                 </div>
+
+                <div id="usersTableContainer">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b-2">
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('user_id'); ?>" style="text-decoration:none;color:inherit;">ID<?php echo $sort_icon('user_id'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('name'); ?>" style="text-decoration:none;color:inherit;">Name<?php echo $sort_icon('name'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('email'); ?>" style="text-decoration:none;color:inherit;">Email<?php echo $sort_icon('email'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('role'); ?>" style="text-decoration:none;color:inherit;">Role<?php echo $sort_icon('role'); ?></a></th>
+                                <th class="text-left py-3">ID</th>
+                                <th class="text-left py-3">Name</th>
+                                <th class="text-left py-3">Email</th>
+                                <th class="text-left py-3">Role</th>
                                 <th class="text-left py-3">Branch</th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('status'); ?>" style="text-decoration:none;color:inherit;">Status<?php echo $sort_icon('status'); ?></a></th>
-                                <th class="text-left py-3 text-right">Actions</th>
+                                <th class="text-left py-3">Status</th>
+                                <th class="text-right py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -395,14 +528,17 @@ $page_title = 'User & Staff Management - Admin';
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                        </tbody>
+                    </tbody>
                     </table>
                 </div>
-                <?php
-                $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir]);
-                echo render_pagination($page, $total_pages, $pagination_params);
-                ?>
-            </div>
+                <div id="usersPagination">
+                    <?php
+                    $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
+                    echo render_pagination($page, $total_pages, $pagination_params);
+                    ?>
+                </div>
+                </div><!-- /usersTableContainer -->
+            </div><!-- /card -->
         </main>
     </div>
 </div>
@@ -725,6 +861,96 @@ $page_title = 'User & Staff Management - Admin';
 </div>
 
 <script>
+// ── Filter & Sort JS (user_staff_management.php) ────────────────────────────
+let activeSort = '<?php echo $sort_by; ?>';
+let searchDebounceTimer = null;
+
+function filterPanel() {
+    return {
+        sortOpen: false,
+        filterOpen: false,
+        activeSort: activeSort,
+        get hasActiveFilters() {
+            return document.getElementById('fp_date_from')?.value ||
+                   document.getElementById('fp_date_to')?.value ||
+                   document.getElementById('fp_role')?.value ||
+                   document.getElementById('fp_status')?.value ||
+                   document.getElementById('fp_search')?.value;
+        }
+    };
+}
+
+function buildFilterURL(page = 1) {
+    const params = new URLSearchParams();
+    params.set('page', page);
+    const df = document.getElementById('fp_date_from')?.value; if (df) params.set('date_from', df);
+    const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
+    const role = document.getElementById('fp_role')?.value;    if (role) params.set('role', role);
+    const st = document.getElementById('fp_status')?.value;    if (st) params.set('status', st);
+    const s = document.getElementById('fp_search')?.value;      if (s) params.set('search', s);
+    if (activeSort !== 'newest') params.set('sort', activeSort);
+    return '?' + params.toString();
+}
+
+function fetchUpdatedTable(page = 1) {
+    const url = buildFilterURL(page) + '&ajax=1';
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            document.getElementById('usersTableContainer').innerHTML = data.table + '<div id="usersPagination">' + data.pagination + '</div>';
+            // usersCount element replaced with heading - no update needed
+            const cont = document.getElementById('filterBadgeContainer');
+            cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
+            history.replaceState(null, '', buildFilterURL(page));
+        })
+        .catch(console.error);
+}
+
+function applyFilters(reset = false) {
+    if (reset) {
+        ['fp_date_from','fp_date_to','fp_role','fp_status','fp_search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        activeSort = 'newest';
+    }
+    fetchUpdatedTable(1);
+}
+
+function resetFilterField(fields) {
+    fields.forEach(f => {
+        const map = { date_from:'fp_date_from', date_to:'fp_date_to', role:'fp_role', status:'fp_status', search:'fp_search' };
+        const el = document.getElementById(map[f] || 'fp_' + f);
+        if (el) el.value = '';
+    });
+    fetchUpdatedTable(1);
+}
+
+function applySortFilter(sortKey) {
+    activeSort = sortKey;
+    fetchUpdatedTable(1);
+    const alpineEl = document.querySelector('[x-data="filterPanel()"]');
+    if (alpineEl && alpineEl._x_dataStack) {
+        alpineEl._x_dataStack[0].activeSort = sortKey;
+        alpineEl._x_dataStack[0].sortOpen   = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    ['fp_date_from','fp_date_to','fp_role','fp_status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => fetchUpdatedTable());
+    });
+    const searchInput = document.getElementById('fp_search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => fetchUpdatedTable(), 500);
+        });
+    }
+});
+
 function userManagement() {
     return {
         viewModal: {
@@ -909,6 +1135,18 @@ function userManagement() {
         }
     };
 }
+
+// Global expose to bridge AJAX table clicks to userManagement Alpine component
+document.addEventListener('alpine:init', () => {
+    window._viewUser = (id) => {
+        const el = document.querySelector('[x-data="userManagement()"]');
+        if (el && el.__x && el.__x.$data) {
+            el.__x.$data.viewUser(id);
+        } else if (el && el._x_dataStack) {
+             el._x_dataStack[0].viewUser(id);
+        }
+    };
+});
 </script>
 </body>
 </html>

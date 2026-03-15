@@ -6,16 +6,30 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role('Admin');
 
 $current_user = get_logged_in_user();
 
 // Filters
-$search       = trim($_GET['search'] ?? '');
+$search         = trim($_GET['search'] ?? '');
 $status_filter  = $_GET['status'] ?? '';
-$page         = max(1, (int)($_GET['page'] ?? 1));
-$per_page     = 15;
+$payment_filter = $_GET['payment'] ?? '';
+$date_from      = $_GET['date_from'] ?? '';
+$date_to        = $_GET['date_to'] ?? '';
+$sort_by        = $_GET['sort'] ?? 'newest';
+$page           = max(1, (int)($_GET['page'] ?? 1));
+$per_page       = 15;
+
+// ── Branch Context (operational page) ─────────────────
+$branchCtx = init_branch_context(false); // analytics-style — allow All
+$branchId  = $branchCtx['selected_branch_id'];
+$branch_filter = '';
+if ($branchId !== 'all') {
+    $branch_filter = (int)$branchId;
+}
 
 // Build query
 $sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.email AS customer_email
@@ -23,6 +37,13 @@ $sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.
         LEFT JOIN customers c ON jo.customer_id = c.customer_id
         WHERE 1=1";
 $params = []; $types = '';
+
+// ── Branch filter ──────────────────────────────────
+if ($branch_filter !== '') {
+    $sql .= " AND jo.branch_id = ?";
+    $params[] = $branch_filter;
+    $types .= 'i';
+}
 
 if (!empty($search)) {
     $s = '%' . $search . '%';
@@ -37,6 +58,24 @@ if (!empty($status_filter)) {
     $types .= 's';
 }
 
+if (!empty($payment_filter)) {
+    $sql .= " AND jo.payment_status = ?";
+    $params[] = $payment_filter;
+    $types .= 's';
+}
+
+if (!empty($date_from)) {
+    $sql .= " AND DATE(jo.created_at) >= ?";
+    $params[] = $date_from;
+    $types .= 's';
+}
+
+if (!empty($date_to)) {
+    $sql .= " AND DATE(jo.created_at) <= ?";
+    $params[] = $date_to;
+    $types .= 's';
+}
+
 // Count
 $count_sql = preg_replace('/SELECT jo\.\*.*?FROM/s', 'SELECT COUNT(*) as total FROM', $sql);
 $total_filtered = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
@@ -44,8 +83,120 @@ $total_pages = max(1, ceil($total_filtered / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$sql .= " ORDER BY jo.created_at DESC LIMIT $per_page OFFSET $offset";
+// Sorting
+$order_clause = match($sort_by) {
+    'oldest' => "jo.created_at ASC",
+    'az'     => "c.last_name ASC, c.first_name ASC",
+    'za'     => "c.last_name DESC, c.first_name DESC",
+    default  => "jo.created_at DESC"
+};
+$sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $jobs = db_query($sql, $types ?: null, $params ?: null) ?: [];
+
+// AJAX check
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <table class="w-full text-sm">
+        <thead>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <th class="text-left py-3" style="width:1%;">ID</th>
+                <th class="text-left py-3">Customer</th>
+                <th class="text-left py-3">Service</th>
+                <th class="text-center py-3">Date Submitted</th>
+                <th class="text-right py-3">Amount</th>
+                <th class="text-center py-3">Payment</th>
+                <th class="text-center py-3">Status</th>
+                <th class="text-right py-3">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($jobs)): ?>
+                <tr><td colspan="8" class="py-12 text-center text-gray-400">No customizations found</td></tr>
+            <?php else: ?>
+                <?php foreach ($jobs as $jo): ?>
+                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6;">
+                        <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
+                        <td class="py-3">
+                            <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
+                                <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
+                            </div>
+                            <div class="text-xs text-gray-400"><?php echo htmlspecialchars($jo['customer_email'] ?: ''); ?></div>
+                        </td>
+                        <td class="py-3">
+                            <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['service_type']); ?>">
+                                <?php echo htmlspecialchars($jo['service_type']); ?>
+                            </div>
+                            <?php if ($jo['quantity'] > 1): ?>
+                                <div class="text-xs text-gray-400">Qty: <?php echo $jo['quantity']; ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td class="py-3 text-center text-gray-500 text-xs"><?php echo date('M j, Y', strtotime($jo['created_at'])); ?></td>
+                        <td class="py-3 text-right">
+                            <?php echo $jo['estimated_total'] ? '₱' . number_format($jo['estimated_total'], 2) : '<span class="text-gray-400 text-xs">Pending</span>'; ?>
+                        </td>
+                        <td class="py-3 text-center">
+                            <?php
+                                $pc = match($jo['payment_status']) {
+                                    'UNPAID'               => 'background:#fee2e2;color:#991b1b;',
+                                    'PENDING_VERIFICATION' => 'background:#fef9c3;color:#854d0e;',
+                                    'PARTIAL'              => 'background:#fef3c7;color:#b45309;',
+                                    'PAID'                 => 'background:#dcfce7;color:#166534;',
+                                    default                => 'background:#fef9c3;color:#854d0e;'
+                                };
+                            ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;<?php echo $pc; ?>">
+                                <?php echo ucwords(strtolower(str_replace('_',' ',$jo['payment_status']))); ?>
+                            </span>
+                        </td>
+                        <td class="py-3 text-center">
+                            <?php
+                                $sc = match($jo['status']) {
+                                    'PENDING'       => 'background:#fef9c3;color:#92400e;',
+                                    'APPROVED'      => 'background:#dbeafe;color:#1e40af;',
+                                    'TO_PAY'        => 'background:#fef3c7;color:#b45309;',
+                                    'IN_PRODUCTION' => 'background:#d1fae5;color:#065f46;',
+                                    'TO_RECEIVE'    => 'background:#ede9fe;color:#5b21b6;',
+                                    'COMPLETED'     => 'background:#dcfce7;color:#166534;',
+                                    'CANCELLED'     => 'background:#fee2e2;color:#991b1b;',
+                                    default         => 'background:#fef9c3;color:#854d0e;'
+                                };
+                            ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
+                                <?php echo ucwords(strtolower(str_replace('_',' ',$jo['status']))); ?>
+                            </span>
+                        </td>
+                        <td class="py-3 text-right">
+                            <button @click="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">View</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    $table_html = ob_get_clean();
+
+    ob_start();
+    $pagination_params = [];
+    if ($search) $pagination_params['search'] = $search;
+    if ($status_filter) $pagination_params['status'] = $status_filter;
+    if ($payment_filter) $pagination_params['payment'] = $payment_filter;
+    if ($date_from) $pagination_params['date_from'] = $date_from;
+    if ($date_to) $pagination_params['date_to'] = $date_to;
+    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+    echo render_pagination($page, $total_pages, $pagination_params);
+    $pagination_html = ob_get_clean();
+
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_filtered),
+        'badge'      => count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]))
+    ]);
+    exit;
+}
 
 // KPIs
 $kpi_total    = db_query("SELECT COUNT(*) as c FROM job_orders")[0]['c'] ?? 0;
@@ -90,6 +241,7 @@ function custom_payment_badge($status) {
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         .btn-action {
             display: inline-flex; align-items: center; justify-content: center;
@@ -121,10 +273,177 @@ function custom_payment_badge($status) {
         .kpi-card.blue::before   { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
         .kpi-card.emerald::before{ background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-label { font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:6px; }
-        .kpi-value { font-size:26px;font-weight:800;color:#1f2937; }
+        .kpi-value { font-size:26px;font-weight:500;color:#1f2937; }
         .kpi-sub   { font-size:12px;color:#6b7280;margin-top:4px; }
 
-        .ro-badge { display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6366f1;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:3px 8px; }
+        .ro-badge { display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:#6366f1;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:3px 8px; }
+
+        /* ── Toolbar Buttons (Sort / Filter) ─── */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        /* Sort Dropdown */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 180px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            z-index: 200;
+            padding: 6px;
+        }
+        .sort-option {
+            padding: 9px 12px;
+            font-size: 13px;
+            color: #4b5563;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sort-option:hover { background: #f9fafb; color: #111827; }
+        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
+        .sort-option svg.check { color: #0d9488; }
+
+        /* Filter Panel */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-wrap { position: relative; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
 
         .mobile-header { display:none; }
         @media (max-width:768px) {
@@ -134,10 +453,10 @@ function custom_payment_badge($status) {
         .detail-row { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px; }
         .detail-block { flex:1;min-width:140px;background:#f9fafb;border-radius:8px;padding:12px 14px; }
         .detail-block label { font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px; }
-        .detail-block span  { font-size:13px;font-weight:600;color:#1f2937; }
+        .detail-block span  { font-size:13px;font-weight:400;color:#1f2937; }
 
         /* Transaction History Tabs */
-        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
+        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: 8px; transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
         .tab-btn.active { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
         .tab-btn:not(.active) { color: #6b7280; }
         .history-item { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
@@ -161,12 +480,12 @@ function custom_payment_badge($status) {
 
     <div class="main-content">
         <header>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <h1 class="page-title">Customizations</h1>
-            </div>
+            <h1 class="page-title">Customizations</h1>
+            <?php render_branch_selector($branchCtx); ?>
         </header>
 
         <main>
+            <?php render_branch_context_banner($branchCtx['branch_name']); ?>
             <!-- KPI Row -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
@@ -195,48 +514,147 @@ function custom_payment_badge($status) {
             <div class="card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
-                        Customizations List <span style="font-size:13px;font-weight:400;color:#9ca3af;">(<?php echo $total_filtered; ?>)</span>
+                        Customizations List
                     </h3>
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                        <!-- Status Filter -->
-                        <form method="GET" style="display:flex;gap:8px;align-items:center;" id="filterForm">
-                            <select name="status" onchange="document.getElementById('filterForm').submit()" style="height:38px;padding:0 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;">
-                                <option value="">All Statuses</option>
-                                <?php foreach(['PENDING','APPROVED','TO_PAY','IN_PRODUCTION','TO_RECEIVE','COMPLETED','CANCELLED'] as $s): ?>
-                                    <option value="<?php echo $s; ?>" <?php echo $status_filter===$s?'selected':''; ?>>
-                                        <?php echo ucwords(strtolower(str_replace('_',' ',$s))); ?>
-                                    </option>
+
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                                </svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <?php
+                                $sorts = [
+                                    'newest' => 'Newest to Oldest',
+                                    'oldest' => 'Oldest to Newest',
+                                    'az'     => 'A → Z',
+                                    'za'     => 'Z → A',
+                                ];
+                                foreach ($sorts as $key => $label): ?>
+                                <div class="sort-option" 
+                                     :class="{ 'selected': activeSort === '<?php echo $key; ?>' }"
+                                     @click="applySortFilter('<?php echo $key; ?>')">
+                                    <?php echo htmlspecialchars($label); ?>
+                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
                                 <?php endforeach; ?>
-                            </select>
-                            <div class="search-box">
-                                <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                <input type="text" id="searchInput" placeholder="Search customer or service..." value="<?php echo htmlspecialchars($search); ?>">
                             </div>
-                        </form>
+                        </div>
+
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                                Filter
+                                <span id="filterBadgeContainer">
+                                    <?php
+                                    $active_filters_count = count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]));
+                                    if ($active_filters_count > 0): ?>
+                                    <span class="filter-badge"><?php echo $active_filters_count; ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
+
+                            <!-- Filter Panel -->
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false" id="filterPanel">
+                                <div class="filter-panel-header">Filter</div>
+
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from); ?>" @change="applyFilters()">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to); ?>" @change="applyFilters()">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Type -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Payment</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['payment'])">Reset</button>
+                                    </div>
+                                    <select id="fp_payment" class="filter-select" @change="applyFilters()">
+                                        <option value="">All payments</option>
+                                        <option value="UNPAID" <?php echo $payment_filter === 'UNPAID' ? 'selected' : ''; ?>>Unpaid</option>
+                                        <option value="PENDING_VERIFICATION" <?php echo $payment_filter === 'PENDING_VERIFICATION' ? 'selected' : ''; ?>>Verifying</option>
+                                        <option value="PARTIAL" <?php echo $payment_filter === 'PARTIAL' ? 'selected' : ''; ?>>Partial</option>
+                                        <option value="PAID" <?php echo $payment_filter === 'PAID' ? 'selected' : ''; ?>>Paid</option>
+                                    </select>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
+                                    </div>
+                                    <select id="fp_status" class="filter-select" @change="applyFilters()">
+                                        <option value="">All statuses</option>
+                                        <?php foreach(['PENDING','APPROVED','TO_PAY','IN_PRODUCTION','TO_RECEIVE','COMPLETED','CANCELLED'] as $s): ?>
+                                            <option value="<?php echo $s; ?>" <?php echo $status_filter===$s?'selected':''; ?>>
+                                                <?php echo ucwords(strtolower(str_replace('_',' ',$s))); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Keyword Search -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <div class="filter-search-wrap">
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>" @input.debounce.500ms="applyFilters()">
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" id="customsTableContainer">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="border-b-2">
-                                <th class="text-center py-3 pl-1" style="width:80px;">#</th>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <th class="text-left py-3" style="width:1%;">ID</th>
                                 <th class="text-left py-3">Customer</th>
                                 <th class="text-left py-3">Service</th>
-                                <th class="text-center py-3">Status</th>
-                                <th class="text-center py-3">Payment</th>
-                                <th class="text-right py-3">Est. Total</th>
                                 <th class="text-center py-3">Date Submitted</th>
+                                <th class="text-right py-3">Amount</th>
+                                <th class="text-center py-3">Payment</th>
+                                <th class="text-center py-3">Status</th>
                                 <th class="text-right py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="customizationsTableBody">
                             <?php if (empty($jobs)): ?>
-                                <tr id="emptyCustomizationsRow"><td colspan="8" class="py-12 text-center text-gray-400">
+                                <tr id="emptyCustomizationsRow"><td colspan="8" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
                                     <?php echo $search ? 'No customizations found matching "' . htmlspecialchars($search) . '"' : 'No customizations found'; ?>
                                 </td></tr>
                             <?php else: ?>
-                                <tr id="emptyCustomizationsRow" style="display:none;"><td colspan="8" class="py-12 text-center text-gray-400">
+                                <tr id="emptyCustomizationsRow" style="display:none;"><td colspan="8" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
                                     No customizations found
                                 </td></tr>
                                 <?php foreach ($jobs as $jo): 
@@ -246,10 +664,10 @@ function custom_payment_badge($status) {
                                         $order_count = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$jo['customer_id']])[0]['c'] ?? 0;
                                     }
                                 ?>
-                                    <tr class="border-b hover:bg-gray-50">
-                                        <td class="py-3 text-center font-medium text-gray-500"><?php echo $jo['id']; ?></td>
+                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6;">
+                                        <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
                                         <td class="py-3">
-                                            <div class="font-semibold text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
+                                            <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
                                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
                                             </div>
                                             <div class="text-xs text-gray-400" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_email'] ?? ''); ?>">
@@ -264,22 +682,9 @@ function custom_payment_badge($status) {
                                                 <div class="text-xs text-gray-400">Qty: <?php echo $jo['quantity']; ?></div>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="py-3 text-center">
-                                            <?php
-                                                $sc = match($jo['status']) {
-                                                    'PENDING'       => 'background:#dcfce7;color:#166534;',
-                                                    'APPROVED'      => 'background:#dbeafe;color:#1e40af;',
-                                                    'TO_PAY'        => 'background:#fce7f3;color:#9d174d;',
-                                                    'IN_PRODUCTION' => 'background:#d1fae5;color:#065f46;',
-                                                    'TO_RECEIVE'    => 'background:#ede9fe;color:#5b21b6;',
-                                                    'COMPLETED'     => 'background:#dcfce7;color:#166534;',
-                                                    'CANCELLED'     => 'background:#fee2e2;color:#991b1b;',
-                                                    default         => 'background:#fef9c3;color:#854d0e;'
-                                                };
-                                            ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
-                                                <?php echo ucwords(strtolower(str_replace('_',' ',$jo['status']))); ?>
-                                            </span>
+                                        <td class="py-3 text-center text-gray-500 text-xs"><?php echo date('M j, Y', strtotime($jo['created_at'])); ?></td>
+                                        <td class="py-3 text-right">
+                                            <?php echo $jo['estimated_total'] ? '₱' . number_format($jo['estimated_total'], 2) : '<span class="text-gray-400 text-xs">Pending</span>'; ?>
                                         </td>
                                         <td class="py-3 text-center">
                                             <?php
@@ -291,14 +696,27 @@ function custom_payment_badge($status) {
                                                     default                => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $pc; ?>">
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;<?php echo $pc; ?>">
                                                 <?php echo ucwords(strtolower(str_replace('_',' ',$jo['payment_status']))); ?>
                                             </span>
                                         </td>
-                                        <td class="py-3 text-right font-semibold">
-                                            <?php echo $jo['estimated_total'] ? '₱' . number_format($jo['estimated_total'], 2) : '<span class="text-gray-400 text-xs">Pending</span>'; ?>
+                                        <td class="py-3 text-center">
+                                            <?php
+                                                $sc = match($jo['status']) {
+                                                    'PENDING'       => 'background:#fef9c3;color:#92400e;',
+                                                    'APPROVED'      => 'background:#dbeafe;color:#1e40af;',
+                                                    'TO_PAY'        => 'background:#fef3c7;color:#b45309;',
+                                                    'IN_PRODUCTION' => 'background:#d1fae5;color:#065f46;',
+                                                    'TO_RECEIVE'    => 'background:#ede9fe;color:#5b21b6;',
+                                                    'COMPLETED'     => 'background:#dcfce7;color:#166534;',
+                                                    'CANCELLED'     => 'background:#fee2e2;color:#991b1b;',
+                                                    default         => 'background:#fef9c3;color:#854d0e;'
+                                                };
+                                            ?>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;<?php echo $sc; ?>">
+                                                <?php echo ucwords(strtolower(str_replace('_',' ',$jo['status']))); ?>
+                                            </span>
                                         </td>
-                                        <td class="py-3 text-center text-gray-500 text-xs"><?php echo date('M j, Y', strtotime($jo['created_at'])); ?></td>
                                         <td class="py-3 text-right">
                                             <button @click="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">
                                                 View
@@ -558,6 +976,12 @@ function custModal() {
         errorMsg: '',
         job: null,
 
+        // Sort & Filter UI State
+        sortOpen: false,
+        filterOpen: false,
+        activeSort: '<?php echo $sort_by; ?>',
+        hasActiveFilters: <?php echo $active_filters_count > 0 ? 'true' : 'false'; ?>,
+
         // History Modal State
         showHistory: false,
         historyLoading: false,
@@ -648,6 +1072,120 @@ function custModal() {
         }
     };
 }
+
+// ── Filter + Sort helpers ──────────────────────────────
+let searchDebounceTimer;
+
+function buildFilterURL(overrides = {}, isAjax = false) {
+    const params = new URLSearchParams(window.location.search);
+
+    const fields = {
+        status:    () => document.getElementById('fp_status')?.value   || '',
+        payment:   () => document.getElementById('fp_payment')?.value  || '',
+        search:    () => document.getElementById('fp_search')?.value   || '',
+        date_from: () => document.getElementById('fp_date_from')?.value || '',
+        date_to:   () => document.getElementById('fp_date_to')?.value   || '',
+    };
+
+    for (const [key, getter] of Object.entries(fields)) {
+        const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+        if (val) params.set(key, val);
+        else params.delete(key);
+    }
+
+    if (overrides.sort !== undefined) {
+        if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+        else params.delete('sort');
+    }
+
+    if (isAjax) params.set('ajax', '1');
+    else params.delete('ajax');
+
+    params.delete('page');
+    return window.location.pathname + '?' + params.toString();
+}
+
+async function fetchUpdatedTable(overrides = {}) {
+    const url = buildFilterURL(overrides, true);
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.success) {
+            const tableContainer = document.getElementById('customsTableContainer');
+            const paginationContainer = document.getElementById('customizationsPagination');
+            const filterBadgeContainer = document.getElementById('filterBadgeContainer');
+
+            if (tableContainer) tableContainer.innerHTML = data.table;
+            if (paginationContainer) paginationContainer.innerHTML = data.pagination;
+            
+            if (filterBadgeContainer) {
+                if (data.badge > 0) {
+                    filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
+                } else {
+                    filterBadgeContainer.innerHTML = '';
+                }
+            }
+
+            // Update Alpine state for filter button background highlight
+            const root = document.body;
+            if (root && root._x_dataStack) {
+                root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
+            }
+            const displayUrl = buildFilterURL(overrides, false);
+            window.history.replaceState({ path: displayUrl }, '', displayUrl);
+        }
+    } catch (e) {
+        console.error('Error updating table:', e);
+    }
+}
+
+function applyFilters(resetAll = false) {
+    if (resetAll) {
+        const base = window.location.pathname;
+        const branch = new URLSearchParams(window.location.search).get('branch_id');
+        const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
+        window.location.href = target;
+    } else {
+        fetchUpdatedTable();
+    }
+}
+
+function applySortFilter(sortKey) {
+    // Update Alpine state
+    const root = document.body;
+    if (root && root._x_dataStack) {
+        const data = root._x_dataStack[0];
+        data.activeSort = sortKey;
+        data.sortOpen = false;
+    }
+    fetchUpdatedTable({ sort: sortKey });
+}
+
+function resetFilterField(fields) {
+    fields.forEach(f => {
+        const el = document.getElementById('fp_' + f);
+        if (el) el.value = '';
+    });
+    fetchUpdatedTable();
+}
+
+// Real-time listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const inputs = ['fp_status', 'fp_payment', 'fp_date_from', 'fp_date_to'];
+    inputs.forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
+    });
+
+    const searchInput = document.getElementById('fp_search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                fetchUpdatedTable();
+            }, 500);
+        });
+    }
+});
 </script>
 
 </body>

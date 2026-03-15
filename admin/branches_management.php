@@ -44,6 +44,12 @@ $page_title = 'Branch Management - Admin';
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }
+        .branches-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .branches-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .branches-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .branches-table tbody tr { transition: background 0.1s; }
+        .branches-table tbody tr:hover td { background: #f9fafb; }
+        .branches-table tbody tr:last-child td { border-bottom: none; }
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
         .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:500px; max-height:85vh; overflow-y:auto; margin:16px; position:relative; }
         .form-group { margin-bottom: 16px; }
@@ -63,8 +69,10 @@ $page_title = 'Branch Management - Admin';
     <!-- Main Content -->
     <div class="main-content">
         <header>
-            <h1 class="page-title">Branch Management</h1>
-            <button @click="openModal('create')" class="btn-primary">+ Create New Branch</button>
+            <div>
+                <h1 class="page-title" style="margin-bottom:4px;">Branch Management</h1>
+                <p style="font-size:14px;color:#6b7280;">Manage store branches and their assigned staff.</p>
+            </div>
         </header>
 
         <main>
@@ -78,44 +86,48 @@ $page_title = 'Branch Management - Admin';
 
             <!-- Branch Table -->
             <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Branches List</h3>
+                    <button @click="openModal('create')" class="btn-primary" style="height:38px;padding:0 16px;border-radius:10px;font-size:13px;">+ New Branch</button>
+                </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr class="border-b-2">
-                                <th class="px-4 py-3">ID</th>
-                                <th class="px-4 py-3">Branch Name</th>
-                                <th class="px-4 py-3">Address</th>
-                                <th class="px-4 py-3">Contact Number</th>
-                                <th class="px-4 py-3">Staff Assignees</th>
-                                <th class="px-4 py-3">Status</th>
-                                <th class="px-4 py-3 text-right">Actions</th>
+                    <table class="branches-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Branch Name</th>
+                                <th>Address</th>
+                                <th>Contact Number</th>
+                                <th>Staff Assignees</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($branches)): ?>
                                 <tr>
-                                    <td colspan="7" class="py-6 text-center text-gray-500">No branches configured yet.</td>
+                                    <td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No branches configured yet.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($branches as $branch): ?>
-                                    <tr class="border-b hover:bg-gray-50">
-                                        <td class="px-4 py-3 font-medium"><?php echo $branch['id']; ?></td>
-                                        <td class="px-4 py-3 font-semibold text-gray-900"><?php echo htmlspecialchars($branch['branch_name']); ?></td>
-                                        <td class="px-4 py-3 text-gray-600 truncate max-w-xs"><?php echo htmlspecialchars($branch['address'] ?: '—'); ?></td>
-                                        <td class="px-4 py-3 text-gray-600"><?php echo htmlspecialchars($branch['contact_number'] ?: '—'); ?></td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-blue-800 bg-blue-100 rounded-full">
+                                    <tr>
+                                        <td style="color:#9ca3af;font-size:12px;"><?php echo $branch['id']; ?></td>
+                                        <td style="font-weight:600;color:#111827;"><?php echo htmlspecialchars($branch['branch_name']); ?></td>
+                                        <td style="color:#6b7280;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($branch['address'] ?: '—'); ?></td>
+                                        <td><?php echo htmlspecialchars($branch['contact_number'] ?: '—'); ?></td>
+                                        <td>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#dbeafe;color:#1e40af;">
                                                 <?php echo $branch['staff_count']; ?> Staff
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td>
                                             <?php if ($branch['status'] === 'Active'): ?>
-                                                <span class="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">Active</span>
+                                                <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#dcfce7;color:#166534;">Active</span>
                                             <?php else: ?>
-                                                <span class="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800">Inactive</span>
+                                                <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#fee2e2;color:#991b1b;">Inactive</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-4 py-3 text-right">
+                                        <td style="text-align:right;">
                                             <button @click="openModal('update', {
                                                 id: <?php echo $branch['id']; ?>,
                                                 name: '<?php echo addslashes($branch['branch_name']); ?>',
@@ -153,7 +165,8 @@ $page_title = 'Branch Management - Admin';
                 
                 <div class="form-group">
                     <label class="form-label">Branch Name <span style="color:#ef4444">*</span></label>
-                    <input type="text" x-model="form.branch_name" class="form-input" placeholder="e.g. Quezon City Branch" required>
+                    <input type="text" x-model="form.branch_name" class="form-input" placeholder="e.g. Quezon City" required>
+                    <p style="font-size:11px; color:#6b7280; margin-top:4px;">"Branch" will be added automatically (e.g. "Quezon City Branch")</p>
                 </div>
 
                 <div class="form-group">

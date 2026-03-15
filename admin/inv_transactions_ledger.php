@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * New Inventory - Transactions Ledger
  * Professional Transaction-Based Inventory UI
@@ -21,6 +21,7 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         :root {
             --glass-bg: rgba(255, 255, 255, 0.85);
@@ -34,10 +35,12 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         .filter-group input, .filter-group select { height: 36px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; padding: 0 10px; color: #374151; width: auto; background: #fff; }
         .filter-group input:focus, .filter-group select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
         
-        .inv-table { width: 100%; border-collapse: collapse; }
-        .inv-table th { background: #f9fafb; padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: capitalize; color: #4b5563; text-align: left; border-bottom: 2px solid #e5e7eb; letter-spacing: 0.05em; }
-        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #1f2937; vertical-align: middle; }
-        .inv-table tr:hover td { background: #f9fafb; }
+        .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .inv-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .inv-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .inv-table tbody tr:hover td { background: #f9fafb; }
+        .inv-table tbody tr:last-child td { border-bottom: none; }
         
         .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
         .badge-in { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
@@ -84,6 +87,32 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         .btn-out:hover { background: #ef4444; color: #fff; }
 
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* Standardized Toolbar Styles */
+        .toolbar-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; height: 38px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .toolbar-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .toolbar-btn.active { border-color: #0d9488; background: #f0fdfa; color: #0d9488; }
+        .sort-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 220px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 8px; z-index: 100002; }
+        .sort-option { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #4b5563; cursor: pointer; transition: all 0.2s; }
+        .sort-option:hover { background: #f3f4f6; color: #111827; }
+        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
+        .filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); z-index: 100002; overflow: hidden; }
+        .filter-panel-header { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 700; color: #111827; }
+        .filter-section { padding: 16px; border-bottom: 1px solid #f3f4f6; }
+        .filter-section:last-child { border-bottom: none; }
+        .filter-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .filter-section-label { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.025em; }
+        .filter-reset-link { font-size: 11px; font-weight: 600; color: #0d9488; background: none; border: none; cursor: pointer; padding: 0; }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-select, .filter-search-input, .filter-input { width: 100%; height: 40px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; padding: 0 12px; transition: all 0.2s; }
+        .filter-select:focus, .filter-search-input:focus, .filter-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+        .filter-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 700; }
+        .filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
+        .filter-btn-reset { flex: 1; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; }
+        .filter-btn-reset:hover { background: #f9fafb; }
+        .filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #0d9488; color: white; font-size: 10px; font-weight: 700; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body>
@@ -106,63 +135,112 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         <main>
             <!-- Ledger Card -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
-                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;" id="showingCount">0</strong> transactions</span>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Ledger List</h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <button onclick="openModal('purchase')" class="btn-entry btn-in" style="font-size:13px; font-weight:600; padding:0 12px; height:36px; display:inline-flex; align-items:center; gap:6px; border:none; background:#ecfdf5; color:#059669; border-radius:8px; cursor:pointer; transition:all 0.2s ease;">
+                        <button onclick="openModal('purchase')" class="toolbar-btn" style="height:38px; border-color:#059669; color:#059669; background:#ecfdf5; gap:6px;">
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Receive IN
                         </button>
-                        <button onclick="openModal('issue')" class="btn-entry btn-out" style="font-size:13px; font-weight:600; padding:0 12px; height:36px; display:inline-flex; align-items:center; gap:6px; border:none; background:#fef2f2; color:#dc2626; border-radius:8px; cursor:pointer; transition:all 0.2s ease;">
+                        <button onclick="openModal('issue')" class="toolbar-btn" style="height:38px; border-color:#dc2626; color:#dc2626; background:#fef2f2; gap:6px;">
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Issue OUT
                         </button>
-                        
-                        <div style="position:relative; flex-shrink:0; margin-left:8px;">
-                            <input type="date" id="filterStart" value="<?php echo date('Y-m-01'); ?>" onchange="loadTransactions()" style="width:125px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding-left:10px;">
-                        </div>
-                        <span style="color:#d1d5db;">&rarr;</span>
-                        <div style="position:relative; flex-shrink:0;">
-                            <input type="date" id="filterEnd" value="<?php echo date('Y-m-t'); ?>" onchange="loadTransactions()" style="width:125px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding-left:10px;">
+
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">Newest to Oldest <svg x-show="activeSort === 'newest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">Oldest to Newest <svg x-show="activeSort === 'oldest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">Material A → Z <svg x-show="activeSort === 'az'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">Material Z → A <svg x-show="activeSort === 'za'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                            </div>
                         </div>
 
-                        <select id="filterItem" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 10px; color:#374151; width:auto;" onchange="loadTransactions()">
-                            <option value="">All Materials</option>
-                            <?php foreach ($items as $item): ?>
-                                <option value="<?php echo $item['id']; ?>" <?php echo (isset($_GET['item_id']) && $_GET['item_id'] == $item['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($item['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <select id="filterType" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 10px; color:#374151; width:auto;" onchange="loadTransactions()">
-                            <option value="">All Types</option>
-                            <option value="opening_balance">Opening Balance</option>
-                            <option value="purchase">Purchase (IN)</option>
-                            <option value="issue">Issue (OUT)</option>
-                            <option value="adjustment_up">Adj. Up (IN)</option>
-                            <option value="adjustment_down">Adj. Down (OUT)</option>
-                            <option value="return">Return (IN)</option>
-                        </select>
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filter
+                                <span id="filterBadgeContainer"></span>
+                            </button>
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                <div class="filter-panel-header">Filter</div>
+                                
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['start_date','end_date'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div><div class="filter-date-label">From:</div><input type="date" id="fp_start_date" class="filter-input" value="<?php echo date('Y-m-01'); ?>"></div>
+                                        <div><div class="filter-date-label">To:</div><input type="date" id="fp_end_date" class="filter-input" value="<?php echo date('Y-m-t'); ?>"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Material -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Material</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['item_id'])">Reset</button>
+                                    </div>
+                                    <select id="fp_item_id" class="filter-select">
+                                        <option value="">All Materials</option>
+                                        <?php foreach ($items as $item): ?>
+                                            <option value="<?php echo $item['id']; ?>" <?php echo (isset($_GET['item_id']) && $_GET['item_id'] == $item['id']) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($item['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Trans. Type -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Trans. Type</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['type'])">Reset</button>
+                                    </div>
+                                    <select id="fp_type" class="filter-select">
+                                        <option value="">All Types</option>
+                                        <option value="opening_balance">Opening Balance</option>
+                                        <option value="purchase">Purchase (IN)</option>
+                                        <option value="issue">Issue (OUT)</option>
+                                        <option value="adjustment_up">Adj. Up (IN)</option>
+                                        <option value="adjustment_down">Adj. Down (OUT)</option>
+                                        <option value="return">Return (IN)</option>
+                                    </select>
+                                </div>
+
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="inv-table">
                         <thead>
-                            <tr class="border-b-2">
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('id')">Ref # <span id="sort-id"></span></th>
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('transaction_date')">Date <span id="sort-transaction_date"></span></th>
-                                <th class="text-left py-3 cursor-pointer" onclick="handleSort('item_name')">Item Name <span id="sort-item_name"></span></th>
-                                <th class="text-left py-3">Transaction Type</th>
-                                <th class="text-right py-3 cursor-pointer" onclick="handleSort('quantity')">Quantity <span id="sort-quantity"></span></th>
-                                <th class="text-left py-3">Notes</th>
-                                <th class="text-left py-3">Admin</th>
-                                <th class="text-right py-3">Action</th>
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Date</th>
+                                <th>Item Name</th>
+                                <th>Transaction Type</th>
+                                <th style="text-align:right;">Quantity</th>
+                                <th>Notes</th>
+                                <th>Admin</th>
+                                <th style="text-align:right;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="ledgerTableBody">
-                            <tr><td colspan="8" class="py-8 text-center text-gray-500">Retrieving audit logs...</td></tr>
+                            <tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Retrieving audit logs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -282,26 +360,112 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
     const ledgerPerPage = 10;
     let currentSort = 'transaction_date';
     let currentDir = 'DESC';
+    let activeSort = 'newest';
+
+    function filterPanel() {
+        return {
+            sortOpen: false,
+            filterOpen: false,
+            activeSort: activeSort,
+            get hasActiveFilters() {
+                // Check if filters differ from defaults
+                const start = document.getElementById('fp_start_date')?.value;
+                const end = document.getElementById('fp_end_date')?.value;
+                const item = document.getElementById('fp_item_id')?.value;
+                const type = document.getElementById('fp_type')?.value;
+                
+                const defaultStart = '<?php echo date('Y-m-01'); ?>';
+                const defaultEnd = '<?php echo date('Y-m-t'); ?>';
+                
+                return item || type || start !== defaultStart || end !== defaultEnd;
+            }
+        };
+    }
+
+    function applySortFilter(sortKey) {
+        activeSort = sortKey;
+        if (sortKey === 'newest') { currentSort = 'transaction_date'; currentDir = 'DESC'; }
+        else if (sortKey === 'oldest') { currentSort = 'transaction_date'; currentDir = 'ASC'; }
+        else if (sortKey === 'az') { currentSort = 'item_name'; currentDir = 'ASC'; }
+        else if (sortKey === 'za') { currentSort = 'item_name'; currentDir = 'DESC'; }
+        
+        ledgerPage = 1;
+        loadTransactions();
+        
+        const alpineEl = document.querySelector('[x-data="filterPanel()"]');
+        if (alpineEl && alpineEl._x_dataStack) {
+            alpineEl._x_dataStack[0].activeSort = sortKey;
+            alpineEl._x_dataStack[0].sortOpen = false;
+        }
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const el = document.getElementById('fp_' + f);
+            if (el) {
+                if (f === 'start_date') el.value = '<?php echo date('Y-m-01'); ?>';
+                else if (f === 'end_date') el.value = '<?php echo date('Y-m-t'); ?>';
+                else el.value = '';
+            }
+        });
+        ledgerPage = 1;
+        loadTransactions();
+    }
+
+    function applyFilters(reset = false) {
+        if (reset) {
+            ['fp_item_id', 'fp_type'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('fp_start_date').value = '<?php echo date('Y-m-01'); ?>';
+            document.getElementById('fp_end_date').value = '<?php echo date('Y-m-t'); ?>';
+            activeSort = 'newest';
+            currentSort = 'transaction_date';
+            currentDir = 'DESC';
+        }
+        ledgerPage = 1;
+        loadTransactions();
+    }
 
     async function loadTransactions() {
-        const item_id = document.getElementById('filterItem').value;
-        const type = document.getElementById('filterType').value;
-        const start = document.getElementById('filterStart').value;
-        const end = document.getElementById('filterEnd').value;
+        const itemId = document.getElementById('fp_item_id')?.value || '';
+        const type = document.getElementById('fp_type')?.value || '';
+        const start = document.getElementById('fp_start_date')?.value || '';
+        const end = document.getElementById('fp_end_date')?.value || '';
         
         try {
-            const res = await fetch(`inventory_transactions_api.php?action=get_transactions&item_id=${item_id}&type=${type}&start_date=${start}&end_date=${end}&sort=${currentSort}&dir=${currentDir}`);
+            const res = await fetch(`inventory_transactions_api.php?action=get_transactions&item_id=${itemId}&type=${type}&start_date=${start}&end_date=${end}&sort=${currentSort}&dir=${currentDir}`);
             const data = await res.json();
             
             if (data.success) {
                 allTransactions = data.data;
                 renderTransactions(allTransactions);
-                updateSortIcons();
+                updateBadgeCount();
             }
         } catch (e) {
             console.error(e);
             document.getElementById('ledgerTableBody').innerHTML = '<tr><td colspan="8" style="color:red; text-align:center;">Network error.</td></tr>';
         }
+    }
+
+    function updateBadgeCount() {
+        const item = document.getElementById('fp_item_id')?.value;
+        const type = document.getElementById('fp_type')?.value;
+        const start = document.getElementById('fp_start_date')?.value;
+        const end = document.getElementById('fp_end_date')?.value;
+        
+        const defaultStart = '<?php echo date('Y-m-01'); ?>';
+        const defaultEnd = '<?php echo date('Y-m-t'); ?>';
+        
+        let count = 0;
+        if (item) count++;
+        if (type) count++;
+        if (start !== defaultStart) count++;
+        if (end !== defaultEnd) count++;
+        
+        const cont = document.getElementById('filterBadgeContainer');
+        if (cont) cont.innerHTML = count > 0 ? `<span class="filter-badge">${count}</span>` : '';
     }
 
     function renderTransactions(transactions) {
@@ -351,19 +515,19 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
             
             let rollBadge = t.roll_code ? `<span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: ${escapeHtml(t.roll_code)}</span>` : '';
             
-            html += `<tr class="border-b hover:bg-gray-50" style="cursor:pointer;" onclick="viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})">
-                <td class="py-3 font-mono text-xs text-gray-400">#TX-${t.id}</td>
-                <td class="py-3 font-medium text-gray-600">${t.transaction_date}</td>
-                <td class="py-3 font-medium text-gray-900" style="text-transform: capitalize;">${escapeHtml(t.item_name)}${rollBadge}</td>
-                <td class="py-3"><span class="${typeBadgeClass}" style="text-transform: capitalize; pointer-events:none; ${typeBadgeStyle}">${displayType}</span></td>
-                <td class="py-3 text-right">
+            html += `<tr style="cursor:pointer;" onclick="viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+                <td style="font-family:monospace;font-size:12px;color:#9ca3af;">#TX-${t.id}</td>
+                <td style="color:#6b7280;">${t.transaction_date}</td>
+                <td style="font-weight:500;color:#111827;text-transform:capitalize;">${escapeHtml(t.item_name)}${rollBadge}</td>
+                <td><span class="${typeBadgeClass}" style="text-transform:capitalize;pointer-events:none;${typeBadgeStyle}">${displayType}</span></td>
+                <td style="text-align:right;">
                     <span class="${qtyClass}">${displayQty}</span>
-                    <span style="font-size:11px; color:#6b7280; font-weight: 600; margin-left:4px;">${t.unit}</span>
+                    <span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px;">${t.unit}</span>
                 </td>
-                <td class="py-3 text-gray-500" style="font-size:12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(t.notes)}">${escapeHtml(t.notes || '-')}</td>
-                <td class="py-3 font-medium text-gray-800" style="font-size:12px;">${escapeHtml(t.created_by_name || 'System')}</td>
-                <td class="py-3 text-right" style="white-space:nowrap;" onclick="event.stopPropagation()">
-                    <button onclick="event.stopPropagation(); viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})" class="btn-action blue">View</button>
+                <td style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(t.notes)}">${escapeHtml(t.notes || '—')}</td>
+                <td style="font-size:12px;color:#374151;">${escapeHtml(t.created_by_name || 'System')}</td>
+                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                    <button onclick="event.stopPropagation();viewTransaction(${JSON.stringify(t).replace(/"/g,'&quot;')})" class="btn-action blue">View</button>
                 </td>
             </tr>`;
         });
@@ -407,30 +571,7 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
         renderTransactions(allTransactions);
     }
 
-    function handleSort(col) {
-        if (currentSort === col) {
-            currentDir = currentDir === 'ASC' ? 'DESC' : 'ASC';
-        } else {
-            currentSort = col;
-            currentDir = 'DESC';
-        }
-        ledgerPage = 1;
-        loadTransactions();
-    }
-
-    function updateSortIcons() {
-        const cols = ['id', 'transaction_date', 'item_name', 'quantity'];
-        cols.forEach(c => {
-            const el = document.getElementById('sort-' + c);
-            if (!el) return;
-            if (currentSort === c) {
-                el.innerHTML = currentDir === 'ASC' ? ' ▲' : ' ▼';
-                el.style.color = '#3b82f6';
-            } else {
-                el.innerHTML = '';
-            }
-        });
-    }
+    // Removed handleSort and updateSortIcons as sorting is now handled by applySortFilter and Alpine.js
 
     function viewTransaction(t) {
         const isIN = (t.direction === 'IN');
@@ -513,6 +654,13 @@ $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER
 
     document.addEventListener('DOMContentLoaded', loadTransactions);
     
+    document.addEventListener('DOMContentLoaded', () => {
+        ['fp_item_id', 'fp_type', 'fp_start_date', 'fp_end_date'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', () => { ledgerPage = 1; loadTransactions(); });
+        });
+    });
+
     window.addEventListener('click', e => {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
