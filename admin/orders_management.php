@@ -126,6 +126,7 @@ $page_title = 'Orders Management - Admin';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
     <style>
@@ -146,6 +147,99 @@ $page_title = 'Orders Management - Admin';
         @keyframes spin { to { transform: rotate(360deg); } }
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
         .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:720px; max-height:85vh; overflow-y:auto; margin:16px; position:relative; }
+        
+        /* Global Typography Re-sync */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body, button, input, select, table { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; }
+
+        /* Dropdown custom styling - Compact WHITE THEME */
+        el-dropdown button { 
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            border-radius: 8px;
+            background: #ffffff; 
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 36px;
+        }
+        el-dropdown button:hover { background: #f5f7fa; border-color: #d1d5db; }
+        el-menu { 
+            background: #ffffff; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+            min-width: 180px;
+            max-width: 220px;
+            max-height: 240px;
+            overflow-y: auto;
+            margin-top: 6px;
+            padding: 4px 0;
+            transition: opacity 0.15s ease-out;
+            --anchor-gap: 6px;
+        }
+        el-menu[data-closed] { opacity: 0; }
+        el-menu button { 
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #374151;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        el-menu button:hover { background: #f5f7fa; color: #111827; }
+        el-menu .active-filter { background: #f0f9ff; color: #0369a1; font-weight: 600; }
+
+        /* Search Bar - Consistent Admin Style */
+        .search-input-wrap { 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            width: 100%;
+            max-width: 320px;
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: #9ca3af;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+        .search-input {
+            width: 100%;
+            padding: 0 12px 0 36px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            height: 36px;
+            font-size: 13px;
+            color: #374151;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .search-input:focus {
+            border-color: #d1d5db;
+            outline: none;
+            box-shadow: none;
+        }
+        .search-input::placeholder { color: #9ca3af; }
+
+        /* Real-time Loading Overlay */
+        .table-loading { opacity: 0.5; pointer-events: none; transition: opacity 0.2s; }
         
         /* Action Button Style */
         .btn-action {
@@ -170,7 +264,7 @@ $page_title = 'Orders Management - Admin';
         }
     </style>
 </head>
-<body x-data="orderModal()">
+<body x-data="orderManagement()">
 
 <div class="dashboard-container">
     <!-- Sidebar -->
@@ -183,9 +277,9 @@ $page_title = 'Orders Management - Admin';
             <?php render_branch_selector($branchCtx); ?>
         </header>
 
-        <main>
+        <main x-ref="mainContent">
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
-            <!-- KPI Summary Row (matches reports page style) -->
+            <!-- KPI Summary Row -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
                     <div class="kpi-label">Total Orders</div>
@@ -209,42 +303,63 @@ $page_title = 'Orders Management - Admin';
                 </div>
             </div>
 
-            <!-- Orders List & Filters -->
+            <!-- Orders List & Filters (Refined Design) -->
             <div class="card">
-                <form method="GET" action="" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;">
-                    <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
-                    <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:40px; flex-wrap:wrap; padding-top:8px;">
                     
-                    <span style="font-size:13px; color:#6b7280; white-space:nowrap;">Showing <strong style="color:#1f2937;"><?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_orders); ?></strong> of <?php echo $total_orders; ?> orders</span>
-                    
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <select name="payment" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:160px; flex-shrink:0;" onchange="this.form.submit()">
-                            <option value="">Payment: All</option>
-                            <option value="Unpaid" <?php echo $payment_filter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
-                            <option value="Pending Verification" <?php echo $payment_filter === 'Pending Verification' ? 'selected' : ''; ?>>Pending Verification</option>
-                            <option value="Paid" <?php echo $payment_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
-                            <option value="Failed" <?php echo $payment_filter === 'Failed' ? 'selected' : ''; ?>>Failed</option>
-                            <option value="Refunded" <?php echo $payment_filter === 'Refunded' ? 'selected' : ''; ?>>Refunded</option>
-                        </select>
-
-                        <select name="status" style="height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; padding:0 8px; width:140px; flex-shrink:0;" onchange="this.form.submit()">
-                            <option value="">Status: All</option>
-                            <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                            <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
-                            <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
-                            <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
-                            <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                        </select>
-                        
-                        <div style="position:relative; flex-shrink:0;">
-                            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" id="searchInput" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>"
-                                   style="padding-left:32px; width:160px; height:36px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
-                        </div>
+                    <!-- Search Bar (Invisible Underline when inactive) -->
+                    <div class="search-input-wrap">
+                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" 
+                               x-model.debounce.300ms="search" 
+                               @input="fetchOrders()"
+                               placeholder="Search..." 
+                               class="search-input">
                     </div>
-                </form>
+
+                    <!-- White Left-Aligned Dropdowns -->
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <el-dropdown class="inline-block">
+                            <button>
+                                <span x-text="payment === '' ? 'Payment Status' : payment"></span>
+                                <svg viewBox="0 0 20 20" fill="currentColor" style="width:20px; height:20px; opacity:0.8;">
+                                    <path d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <el-menu anchor="bottom end" popover class="origin-top-right">
+                                <div class="py-1">
+                                    <button @click="payment = ''; fetchOrders()" :class="payment === '' ? 'active-filter' : ''">All Payments</button>
+                                    <button @click="payment = 'Unpaid'; fetchOrders()" :class="payment === 'Unpaid' ? 'active-filter' : ''">Unpaid</button>
+                                    <button @click="payment = 'Pending Verification'; fetchOrders()" :class="payment === 'Pending Verification' ? 'active-filter' : ''">Pending Verification</button>
+                                    <button @click="payment = 'Paid'; fetchOrders()" :class="payment === 'Paid' ? 'active-filter' : ''">Paid</button>
+                                    <button @click="payment = 'Failed'; fetchOrders()" :class="payment === 'Failed' ? 'active-filter' : ''">Failed</button>
+                                    <button @click="payment = 'Refunded'; fetchOrders()" :class="payment === 'Refunded' ? 'active-filter' : ''">Refunded</button>
+                                </div>
+                            </el-menu>
+                        </el-dropdown>
+
+                        <el-dropdown class="inline-block">
+                            <button>
+                                <span x-text="status === '' ? 'Order Status' : status"></span>
+                                <svg viewBox="0 0 20 20" fill="currentColor" style="width:20px; height:20px; opacity:0.8;">
+                                    <path d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <el-menu anchor="bottom end" popover class="origin-top-right">
+                                <div class="py-1">
+                                    <button @click="status = ''; fetchOrders()" :class="status === '' ? 'active-filter' : ''">All Statuses</button>
+                                    <button @click="status = 'Pending'; fetchOrders()" :class="status === 'Pending' ? 'active-filter' : ''">Pending</button>
+                                    <button @click="status = 'Processing'; fetchOrders()" :class="status === 'Processing' ? 'active-filter' : ''">Processing</button>
+                                    <button @click="status = 'Ready for Pickup'; fetchOrders()" :class="status === 'Ready for Pickup' ? 'active-filter' : ''">Ready for Pickup</button>
+                                    <button @click="status = 'Completed'; fetchOrders()" :class="status === 'Completed' ? 'active-filter' : ''">Completed</button>
+                                    <button @click="status = 'Cancelled'; fetchOrders()" :class="status === 'Cancelled' ? 'active-filter' : ''">Cancelled</button>
+                                </div>
+                            </el-menu>
+                        </el-dropdown>
+                    </div>
+                </div>
                 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" :class="isFetching ? 'table-loading' : ''" id="ordersTableContainer">
                     <table class="w-full text-sm text-left table-fixed">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                             <?php
@@ -554,10 +669,18 @@ $page_title = 'Orders Management - Admin';
 </div>
 
 <script>
-    // Submit form on enter for search natively handled by form HTML
-
-function orderModal() {
+function orderManagement() {
     return {
+        // Search & Filter State
+        search: '<?php echo addslashes($search); ?>',
+        status: '<?php echo addslashes($status_filter); ?>',
+        payment: '<?php echo addslashes($payment_filter); ?>',
+        sort: '<?php echo addslashes($sort); ?>',
+        dir: '<?php echo addslashes($dir); ?>',
+        page: <?php echo $page; ?>,
+        isFetching: false,
+
+        // Modal State (originally orderModal)
         showModal: false,
         loading: false,
         errorMsg: '',
@@ -567,6 +690,68 @@ function orderModal() {
         updatingStatus: false,
         statusUpdateMsg: '',
         statusUpdateError: false,
+
+        init() {
+            // Hijack pagination links
+            this.updatePaginationLinks();
+        },
+
+        updatePaginationLinks() {
+            document.querySelectorAll('#ordersPagination a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const url = new URL(link.href);
+                    this.page = url.searchParams.get('page') || 1;
+                    this.fetchOrders();
+                });
+            });
+            // Hijack sort links
+            document.querySelectorAll('thead th a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const url = new URL(link.href);
+                    this.sort = url.searchParams.get('sort');
+                    this.dir = url.searchParams.get('dir');
+                    this.fetchOrders();
+                });
+            });
+        },
+
+        async fetchOrders() {
+            this.isFetching = true;
+            const params = new URLSearchParams({
+                search: this.search,
+                status: this.status,
+                payment: this.payment,
+                sort: this.sort,
+                dir: this.dir,
+                page: this.page,
+                ajax: 1
+            });
+
+            try {
+                const response = await fetch('?' + params.toString());
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                
+                // Replace table body and pagination
+                const newTable = doc.querySelector('#ordersTableBody');
+                const newPagination = doc.querySelector('#ordersPagination');
+                
+                if (newTable) document.querySelector('#ordersTableBody').innerHTML = newTable.innerHTML;
+                if (newPagination) document.querySelector('#ordersPagination').innerHTML = newPagination.innerHTML;
+                
+                this.updatePaginationLinks();
+
+                // Update URL without reload
+                window.history.pushState({}, '', '?' + params.toString());
+            } catch (error) {
+                console.error('Fetch error:', error);
+            } finally {
+                this.isFetching = false;
+            }
+        },
 
         openModal(orderId) {
             this.showModal = true;
@@ -676,7 +861,7 @@ function orderModal() {
                     this.statusUpdateMsg = data.message;
                     this.statusUpdateError = false;
                     this.order.status = this.selectedStatus;
-                    // Reload page to refresh KPI counts
+                    // For KPI updates we might still need a reload unless we AJAX-ify them too
                     setTimeout(() => location.reload(), 1200);
                 } else {
                     this.statusUpdateMsg = data.error || 'Update failed.';

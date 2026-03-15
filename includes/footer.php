@@ -333,6 +333,7 @@ function _ft_detect_social(string $url): array {
         var scrollTop = document.getElementById('lp-scroll-top');
         var loaded = false;
         var isOpen = false;
+        var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
 
         // Initialize scroll button visibility
         function updateScrollVisibility() {
@@ -506,9 +507,28 @@ function _ft_detect_social(string $url): array {
             }, 1000);
         }
 
+        // Show login-required prompt in chat
+        function showLoginPrompt() {
+            var bm = document.createElement('div');
+            bm.className = 'cb-msg-bot';
+            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+            bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 14px 16px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 90%; font-size: 14px; line-height: 1.6; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">'
+                + 'Please login to ask a custom question.<br>You can still use the suggested questions below.'
+                + '<br><br><a href="/printflow/public/login.php" style="display:inline-block;padding:8px 18px;background:#111827;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background=\'#374151\'" onmouseout="this.style.background=\'#111827\'">Login</a>'
+                + '</div>';
+            msgs.appendChild(bm);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
         // Send button and input Enter key
         sendBtn.addEventListener('click', function() {
             if (input.value.trim()) {
+                if (!isLoggedIn) {
+                    showLoginPrompt();
+                    input.value = '';
+                    return;
+                }
+
                 var q = input.value.trim();
                 input.value = '';
 
@@ -564,6 +584,11 @@ function _ft_detect_social(string $url): array {
 
         input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && input.value.trim()) {
+                if (!isLoggedIn) {
+                    showLoginPrompt();
+                    input.value = '';
+                    return;
+                }
                 sendBtn.click();
             }
         });

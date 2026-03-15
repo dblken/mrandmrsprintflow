@@ -554,39 +554,73 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
     if ($total_pages <= 1) return '';
     
     $params = $extra_params;
+
+    // Build page range: always show current ±2 pages, plus first and last
+    $window = 2;
+    $pages = [];
+
+    // Always include first page
+    $pages[] = 1;
+
+    // Pages around current
+    $range_start = max(2, $current_page - $window);
+    $range_end   = min($total_pages - 1, $current_page + $window);
+    for ($i = $range_start; $i <= $range_end; $i++) {
+        $pages[] = $i;
+    }
+
+    // Always include last page
+    if ($total_pages > 1) {
+        $pages[] = $total_pages;
+    }
+
+    $pages = array_unique($pages);
+    sort($pages);
+
+    // Shared button styles
+    $base_btn  = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;text-decoration:none;font-size:13px;font-weight:500;transition:all 0.2s;';
+    $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #111827;background:#111827;color:white;text-decoration:none;font-size:13px;font-weight:600;';
+    $hover = ' onmouseover="this.style.background=\'#f5f7fa\'" onmouseout="this.style.background=\'white\'"';
+    $ellipsis = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;">···</span>';
+
     $html = '<div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
-    
+
     // Previous button
     if ($current_page > 1) {
         $params['page'] = $current_page - 1;
         $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>';
     }
-    
-    // Page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
-        $params['page'] = $i;
-        $url = '?' . http_build_query($params);
-        $is_active = ($i === $current_page);
-        $bg = $is_active ? 'background:#1f2937;color:white;border-color:#1f2937;' : 'background:white;color:#374151;border:1px solid #e5e7eb;';
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:' . ($is_active ? '600' : '500') . ';transition:all 0.2s;' . $bg . '"';
-        if (!$is_active) {
-            $html .= ' onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'"';
+
+    $prev_page = null;
+    foreach ($pages as $p) {
+        // Insert ellipsis if there's a gap
+        if ($prev_page !== null && $p - $prev_page > 1) {
+            $html .= $ellipsis;
         }
-        $html .= '>' . $i . '</a>';
+
+        $params['page'] = $p;
+        $url = '?' . http_build_query($params);
+        if ($p === $current_page) {
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $active_btn . '">' . $p . '</a>';
+        } else {
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>' . $p . '</a>';
+        }
+
+        $prev_page = $p;
     }
-    
+
     // Next button
     if ($current_page < $total_pages) {
         $params['page'] = $current_page + 1;
         $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </a>';
     }
-    
+
     $html .= '</div>';
     return $html;
 }
