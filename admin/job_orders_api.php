@@ -195,16 +195,6 @@ try {
             echo json_encode(['success' => $res]);
             break;
 
-        case 'save_ink_usage':
-            $orderId = (int)($_POST['order_id'] ?? 0);
-            $inkDataSrc = $_POST['ink_data'] ?? '[]';
-            $inkData = json_decode($inkDataSrc, true);
-            if (!$orderId) throw new Exception("Order ID required.");
-            
-            $res = JobOrderService::saveInkUsage($orderId, $inkData);
-            echo json_encode(['success' => $res]);
-            break;
-
         default:
             throw new Exception("Unknown action: $action");
     }

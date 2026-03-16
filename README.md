@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 A comprehensive pickup-only printing shop management system built with PHP, MySQL, and Tailwind CSS.
 
@@ -361,6 +360,4 @@ To extend this project:
 4. Test responsive design on mobile devices
 5. Update this README with new features
 
-=======
-# printflowweb
->>>>>>> a5a5b1325c1b16ed6f7f31131658e2c388bf6fcc
+

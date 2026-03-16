@@ -91,12 +91,10 @@ $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
 $sort_clause = match($sort_by) {
-    'oldest'        => " ORDER BY o.order_id ASC",
-    'status'        => " ORDER BY o.status ASC, o.order_id DESC",
-    'customer'      => " ORDER BY customer_name ASC, o.order_id DESC",
-    'total_asc'     => " ORDER BY o.total_amount ASC",
-    'total_desc'    => " ORDER BY o.total_amount DESC",
-    default         => " ORDER BY o.order_id DESC"
+    'oldest'        => " ORDER BY o.order_date ASC",
+    'az'            => " ORDER BY customer_name ASC",
+    'za'            => " ORDER BY customer_name DESC",
+    default         => " ORDER BY o.order_date DESC"
 };
 $sql .= $sort_clause . " LIMIT $per_page OFFSET $offset";
 
@@ -112,6 +110,108 @@ $ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.sta
 $completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Completed' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
 
 $page_title = 'Orders Management - Admin';
+
+// AJAX Partial Response
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <table class="orders-table">
+        <thead>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <th style="width:1%;">Order #</th>
+                <th style="text-align:left;">Customer</th>
+                <th style="width:15%;">Date</th>
+                <th style="width:12%;">Branch</th>
+                <th style="width:12%;">Amount</th>
+                <th style="width:10%;">Payment</th>
+                <th style="width:12%;">Status</th>
+                <th style="width:1%; text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="ordersTableBody">
+            <?php if (empty($orders)): ?>
+                <tr id="emptyOrdersRow">
+                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
+                        <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
+                    </td>
+                </tr>
+            <?php else: ?>
+                <tr id="emptyOrdersRow" style="display:none;">
+                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
+                </tr>
+                <?php foreach ($orders as $order): ?>
+                    <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="color:#1f2937;"><?php echo $order['order_id']; ?></td>
+                        <td>
+                            <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
+                            <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                        </td>
+                        <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
+                        <td><?php
+                            echo get_branch_badge_html(
+                                (int)($order['branch_id'] ?? 0),
+                                $order['branch_name'] ?? 'Main'
+                            );
+                        ?></td>
+                        <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
+                        <td>
+                            <?php
+                                $pc = match($order['payment_status']) {
+                                    'Pending' => 'background:#fef9c3;color:#854d0e;',
+                                    'Paid'    => 'background:#dcfce7;color:#166534;',
+                                    'Failed'  => 'background:#fee2e2;color:#991b1b;',
+                                    default   => 'background:#fef9c3;color:#854d0e;'
+                                };
+                            ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
+                        </td>
+                        <td>
+                            <?php
+                                $sc = match($order['status']) {
+                                    'Pending'           => 'background:#fef9c3;color:#854d0e;',
+                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
+                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
+                                    'Completed'         => 'background:#dcfce7;color:#166534;',
+                                    'Cancelled'         => 'background:#fee2e2;color:#991b1b;',
+                                    default             => 'background:#fef9c3;color:#854d0e;'
+                                };
+                            ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
+                        </td>
+                        <td style="text-align:right;">
+                            <button 
+                                onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)"
+                                class="btn-action blue"
+                            >View</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    $table_html = ob_get_clean();
+
+    ob_start();
+    $pagination_params = [];
+    if ($search)         $pagination_params['search']    = $search;
+    if ($status_filter)  $pagination_params['status']    = $status_filter;
+    if ($payment_filter) $pagination_params['payment']   = $payment_filter;
+    if ($date_from)      $pagination_params['date_from'] = $date_from;
+    if ($date_to)        $pagination_params['date_to']   = $date_to;
+    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+    echo render_pagination($page, $total_pages, $pagination_params); 
+    $pagination_html = ob_get_clean();
+
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_orders),
+        'badge'      => count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]))
+    ]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -134,7 +234,7 @@ $page_title = 'Orders Management - Admin';
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-value { font-size:26px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums; }
+        .kpi-value { font-size:26px; font-weight:500; color:#1f2937; font-variant-numeric:tabular-nums; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
         /* Modal */
         [x-cloak] { display: none !important; }
@@ -147,21 +247,23 @@ $page_title = 'Orders Management - Admin';
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 6px 16px;
-            border: 1px solid #14b8a6;
-            color: #14b8a6;
+            padding: 6px 12px;
+            border: 1px solid transparent;
             background: transparent;
-            border-radius: 9999px;
-            font-size: 13px;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: 500;
             transition: all 0.2s;
             cursor: pointer;
             text-decoration: none;
         }
-        .btn-action:hover {
-            background: #14b8a6;
+        .btn-action.blue {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .btn-action.blue:hover {
+            background: #3b82f6;
             color: white;
-            box-shadow: 0 4px 6px -1px rgba(20, 184, 166, 0.2);
         }
 
         /* ── Toolbar Buttons (Sort / Filter) ─── */
@@ -276,7 +378,7 @@ $page_title = 'Orders Management - Admin';
             border: 1px solid #e5e7eb;
             border-radius: 7px;
             font-size: 13px;
-            padding: 0 10px 0 32px;
+            padding: 0 12px;
             color: #1f2937;
             box-sizing: border-box;
         }
@@ -355,37 +457,85 @@ $page_title = 'Orders Management - Admin';
         }
 
         /* ── Table improvements ─── */
-        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
         .orders-table th {
-            padding: 10px 14px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
             color: #6b7280;
-            background: #f9fafb;
-            border-bottom: 2px solid #e5e7eb;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
             white-space: nowrap;
         }
         .orders-table td {
-            padding: 12px 14px;
+            padding: 12px 16px;
             border-bottom: 1px solid #f3f4f6;
             vertical-align: middle;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            color: #374151;
         }
         .orders-table tbody tr {
             cursor: pointer;
-            transition: background 0.12s;
+            transition: background 0.1s;
         }
-        .orders-table tbody tr:hover { background: #f0fdfa; }
+        .orders-table tbody tr:hover { background: #f9fafb; }
         .orders-table tbody tr:last-child td { border-bottom: none; }
         .cell-ellipsis {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        /* Pagination Styling */
+        #ordersPagination nav {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 20px;
+        }
+        #ordersPagination nav a, 
+        #ordersPagination nav span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            color: #374151;
+            transition: all 0.2s;
+        }
+        #ordersPagination nav a:hover {
+            border-color: #0d9488;
+            color: #0d9488;
+            background: #f0fdfa;
+        }
+        #ordersPagination nav .active,
+        #ordersPagination nav span[aria-current="page"] {
+            background: #0d9488 !important;
+            color: #fff !important;
+            border-color: #0d9488 !important;
+        }
+
+        .mobile-header { display:none; }
+        @media (max-width:768px) {
+            .mobile-header { display:flex;position:fixed;top:0;left:0;right:0;height:60px;background:#fff;z-index:60;padding:0 20px;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb; }
+        }
+
+        .detail-row { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px; }
+        .detail-block { flex:1;min-width:140px;background:#f9fafb;border-radius:8px;padding:12px 14px; }
+        .detail-block label { font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px; }
+        .detail-block span  { font-size:13px;font-weight:400;color:#1f2937; }
+
+        /* Transaction History Tabs */
+        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: 8px; transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
+        .tab-btn.active { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
+        .tab-btn:not(.active) { color: #6b7280; }
+        .history-item { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+        .history-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body x-data="{ ...orderModal(), ...filterPanel() }">
@@ -429,16 +579,16 @@ $page_title = 'Orders Management - Admin';
 
             <!-- Orders List & Filters -->
             <div class="card">
-                <!-- Toolbar: title left, Sort + Filter right -->
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
-                    <div>
-                        <span style="font-size:15px; font-weight:700; color:#111827;">Orders List</span>
-                        <span style="font-size:13px; color:#6b7280; margin-left:8px;">(<?php echo number_format($total_orders); ?> records)</span>
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
+                        Orders List
+                    </h3>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <!-- Branch Selector (re-using the existing logic but fitting the layout) -->
+
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn">
+                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -447,19 +597,17 @@ $page_title = 'Orders Management - Admin';
                             <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
                                 <?php
                                 $sorts = [
-                                    'newest'     => 'Date (Newest First)',
-                                    'oldest'     => 'Date (Oldest First)',
-                                    'status'     => 'Status',
-                                    'customer'   => 'Customer Name',
-                                    'total_desc' => 'Order Total (High → Low)',
-                                    'total_asc'  => 'Order Total (Low → High)',
+                                    'newest' => 'Newest to Oldest',
+                                    'oldest' => 'Oldest to Newest',
+                                    'az'     => 'A → Z',
+                                    'za'     => 'Z → A',
                                 ];
                                 foreach ($sorts as $key => $label): ?>
-                                <div class="sort-option <?php echo $sort_by === $key ? 'selected' : ''; ?>" onclick="applySortFilter('<?php echo $key; ?>')">
+                                <div class="sort-option" 
+                                     :class="{ 'selected': activeSort === '<?php echo $key; ?>' }"
+                                     @click="applySortFilter('<?php echo $key; ?>')">
                                     <?php echo htmlspecialchars($label); ?>
-                                    <?php if ($sort_by === $key): ?>
-                                    <svg class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                    <?php endif; ?>
+                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
@@ -467,16 +615,18 @@ $page_title = 'Orders Management - Admin';
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: filterOpen }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn">
+                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                                 </svg>
                                 Filter
-                                <?php
-                                $active_filters = array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]);
-                                if (count($active_filters) > 0): ?>
-                                <span class="filter-badge"><?php echo count($active_filters); ?></span>
-                                <?php endif; ?>
+                                <span id="filterBadgeContainer">
+                                    <?php
+                                    $active_filters = array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]);
+                                    if (count($active_filters) > 0): ?>
+                                    <span class="filter-badge"><?php echo count($active_filters); ?></span>
+                                    <?php endif; ?>
+                                </span>
                             </button>
 
                             <!-- Filter Panel -->
@@ -523,11 +673,11 @@ $page_title = 'Orders Management - Admin';
                                     </div>
                                     <select id="fp_status" class="filter-select">
                                         <option value="">All statuses</option>
-                                        <option value="Pending"          <?php echo $status_filter === 'Pending'          ? 'selected' : ''; ?>>🟡 Pending</option>
-                                        <option value="Processing"       <?php echo $status_filter === 'Processing'       ? 'selected' : ''; ?>>🔵 Processing</option>
-                                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>🟣 Ready for Pickup</option>
-                                        <option value="Completed"        <?php echo $status_filter === 'Completed'        ? 'selected' : ''; ?>>🟢 Completed</option>
-                                        <option value="Cancelled"        <?php echo $status_filter === 'Cancelled'        ? 'selected' : ''; ?>>🔴 Cancelled</option>
+                                        <option value="Pending"          <?php echo $status_filter === 'Pending'          ? 'selected' : ''; ?>>Pending</option>
+                                        <option value="Processing"       <?php echo $status_filter === 'Processing'       ? 'selected' : ''; ?>>Processing</option>
+                                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
+                                        <option value="Completed"        <?php echo $status_filter === 'Completed'        ? 'selected' : ''; ?>>Completed</option>
+                                        <option value="Cancelled"        <?php echo $status_filter === 'Cancelled'        ? 'selected' : ''; ?>>Cancelled</option>
                                     </select>
                                 </div>
 
@@ -538,33 +688,31 @@ $page_title = 'Orders Management - Admin';
                                         <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <div class="filter-search-wrap">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                         <input type="text" id="fp_search" class="filter-search-input" placeholder="Search..." value="<?php echo htmlspecialchars($search); ?>">
                                     </div>
                                 </div>
 
                                 <!-- Actions -->
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all</button>
-                                    <button class="filter-btn-apply" onclick="applyFilters(false)">Apply now</button>
+                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" id="ordersTableContainer">
                     <table class="orders-table">
                         <thead>
-                            <tr>
-                                <th style="width:8%;">Order #</th>
-                                <th style="width:22%;">Customer</th>
-                                <th style="width:13%;">Date</th>
-                                <th style="width:14%;">Branch</th>
-                                <th style="width:11%;">Total</th>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <th style="width:1%;">Order #</th>
+                                <th style="text-align:left;">Customer</th>
+                                <th style="width:15%;">Date</th>
+                                <th style="width:12%;">Branch</th>
+                                <th style="width:12%;">Amount</th>
                                 <th style="width:10%;">Payment</th>
-                                <th style="width:14%;">Status</th>
-                                <th style="width:8%; text-align:right;">Actions</th>
+                                <th style="width:12%;">Status</th>
+                                <th style="width:1%; text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTableBody">
@@ -575,24 +723,21 @@ $page_title = 'Orders Management - Admin';
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <tr id="emptyOrdersRow" style="display:none;">
-                                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
-                                </tr>
                                 <?php foreach ($orders as $order): ?>
-                                    <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>">
-                                        <td style="font-weight:600; color:#1f2937;"><?php echo $order['order_id']; ?></td>
+                                    <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
+                                        <td style="color:#1f2937;"><?php echo $order['order_id']; ?></td>
                                         <td>
-                                            <div class="cell-ellipsis" style="font-weight:600; color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
+                                            <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                                             <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
                                         </td>
-                                        <td style="color:#6b7280;"><?php echo format_date($order['order_date']); ?></td>
+                                        <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
                                         <td><?php
                                             echo get_branch_badge_html(
                                                 (int)($order['branch_id'] ?? 0),
                                                 $order['branch_name'] ?? 'Main'
                                             );
                                         ?></td>
-                                        <td style="font-weight:700; color:#1f2937;"><?php echo format_currency($order['total_amount']); ?></td>
+                                        <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                                         <td>
                                             <?php
                                                 $pc = match($order['payment_status']) {
@@ -602,7 +747,7 @@ $page_title = 'Orders Management - Admin';
                                                     default   => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
                                         </td>
                                         <td>
                                             <?php
@@ -615,12 +760,12 @@ $page_title = 'Orders Management - Admin';
                                                     default             => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
                                         </td>
                                         <td style="text-align:right;">
                                             <button 
                                                 onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)"
-                                                class="btn-action"
+                                                class="btn-action blue"
                                             >View</button>
                                         </td>
                                     </tr>
@@ -682,38 +827,34 @@ $page_title = 'Orders Management - Admin';
                 </div>
 
                 <!-- Customer & Order Info Grid -->
-                <div style="padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                    <!-- Customer Info -->
-                    <div style="background:#f9fafb;border-radius:10px;padding:16px;border:1px solid #f3f4f6;">
-                        <h4 style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px;">Customer</h4>
-                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                            <div x-text="order?.customer_initial" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;flex-shrink:0;"></div>
-                            <div>
-                                <div x-text="order?.customer_name" style="font-weight:600;font-size:14px;color:#1f2937;"></div>
-                                <div x-text="order?.customer_email" style="font-size:12px;color:#6b7280;"></div>
-                            </div>
+                <div style="padding:24px;">
+                    <div class="detail-row">
+                        <div class="detail-block">
+                            <label>Customer Name</label>
+                            <span x-text="order?.customer_name"></span>
                         </div>
-                        <div style="font-size:13px;color:#6b7280;">
-                            <span>Phone: </span><span x-text="order?.customer_phone" style="color:#1f2937;font-weight:500;"></span>
+                        <div class="detail-block">
+                            <label>Customer Email</label>
+                            <span x-text="order?.customer_email"></span>
+                        </div>
+                        <div class="detail-block">
+                            <label>Customer Phone</label>
+                            <span x-text="order?.customer_phone"></span>
                         </div>
                     </div>
 
-                    <!-- Order Status -->
-                    <div style="background:#f9fafb;border-radius:10px;padding:16px;border:1px solid #f3f4f6;">
-                        <h4 style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px;">Order Status</h4>
-                        <div style="display:flex;flex-direction:column;gap:10px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <span style="font-size:13px;color:#6b7280;">Status</span>
-                                <span x-html="statusBadge(order?.status, 'order')"></span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <span style="font-size:13px;color:#6b7280;">Payment</span>
-                                <span x-html="statusBadge(order?.payment_status, 'payment')"></span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <span style="font-size:13px;color:#6b7280;">Total</span>
-                                <span x-text="order?.total_amount" style="font-weight:700;font-size:16px;color:#1f2937;"></span>
-                            </div>
+                    <div class="detail-row">
+                        <div class="detail-block">
+                            <label>Order Status</label>
+                            <span x-html="statusBadge(order?.status, 'order')"></span>
+                        </div>
+                        <div class="detail-block">
+                            <label>Payment Status</label>
+                            <span x-html="statusBadge(order?.payment_status, 'payment')"></span>
+                        </div>
+                        <div class="detail-block">
+                            <label>Total Amount</label>
+                            <span x-text="order?.total_amount" style="font-size: 15px; font-weight: 700; color: #10b981;"></span>
                         </div>
                     </div>
                 </div>
@@ -837,7 +978,9 @@ $page_title = 'Orders Management - Admin';
 
 <script>
     // ── Filter + Sort helpers ──────────────────────────────
-    function buildFilterURL(overrides = {}) {
+    let searchDebounceTimer;
+
+    function buildFilterURL(overrides = {}, isAjax = false) {
         const params = new URLSearchParams(window.location.search);
 
         const fields = {
@@ -854,45 +997,120 @@ $page_title = 'Orders Management - Admin';
             else params.delete(key);
         }
 
-        // Sort is managed separately
         if (overrides.sort !== undefined) {
             if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
             else params.delete('sort');
+        } else if (document.getElementById('sortBtn')) {
+            const activeSortOpt = document.querySelector('.sort-option.selected');
+            if (activeSortOpt && activeSortOpt.getAttribute('x-data') /* hacky check */) {
+                // Alpine handles this now
+            } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('sort') && urlParams.get('sort') !== 'newest') {
+                    params.set('sort', urlParams.get('sort'));
+                }
+            }
         }
+
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
 
         params.delete('page');
         return window.location.pathname + '?' + params.toString();
     }
 
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.success) {
+                const tableContainer = document.getElementById('ordersTableContainer');
+                const paginationContainer = document.getElementById('ordersPagination');
+                const countBadge = document.querySelector('.card span[style*="6b7280"]');
+                const filterBadgeContainer = document.getElementById('filterBadgeContainer');
+
+                if (tableContainer) tableContainer.innerHTML = data.table;
+                if (paginationContainer) paginationContainer.innerHTML = data.pagination;
+                if (countBadge) countBadge.textContent = `(${data.count} records)`;
+                
+                if (filterBadgeContainer) {
+                    if (data.badge > 0) {
+                        filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
+                    } else {
+                        filterBadgeContainer.innerHTML = '';
+                    }
+                }
+
+                // Update Alpine state for filter button background highlight
+                const root = document.body;
+                if (root && root._x_dataStack) {
+                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
+                }
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+            }
+        } catch (e) {
+            console.error('Error updating table:', e);
+        }
+    }
+
     function applyFilters(resetAll = false) {
         if (resetAll) {
             const base = window.location.pathname;
-            // Keep branch param if present
-            const branch = new URLSearchParams(window.location.search).get('branch');
-            window.location.href = base + (branch ? '?branch=' + encodeURIComponent(branch) : '');
+            const branch = new URLSearchParams(window.location.search).get('branch_id');
+            const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
+            window.location.href = target;
         } else {
-            window.location.href = buildFilterURL();
+            fetchUpdatedTable();
         }
     }
 
     function applySortFilter(sortKey) {
-        window.location.href = buildFilterURL({ sort: sortKey });
+        // Update Alpine state
+        const root = document.body;
+        if (root && root._x_dataStack) {
+            const data = root._x_dataStack[0];
+            data.activeSort = sortKey;
+            data.sortOpen = false;
+        }
+        
+        fetchUpdatedTable({ sort: sortKey });
     }
 
     function resetFilterField(fields) {
-        const overrides = {};
         fields.forEach(f => {
-            overrides[f] = '';
             const el = document.getElementById('fp_' + f);
             if (el) el.value = '';
         });
+        fetchUpdatedTable();
     }
+
+    // Real-time listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = ['fp_status', 'fp_payment', 'fp_date_from', 'fp_date_to'];
+        inputs.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
+        });
+
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    fetchUpdatedTable();
+                }, 500);
+            });
+        }
+    });
 
     // ── Alpine.js data for filter/sort panel toggles ───────
     function filterPanel() {
         return {
             filterOpen: false,
             sortOpen:   false,
+            activeSort: '<?php echo $sort_by; ?>',
+            hasActiveFilters: <?php echo count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
         };
     }
 

@@ -14,15 +14,17 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
-// Ensure birthday column exists (safe migration)
+// Ensure columns exist (safe migration)
 try {
+    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100) NULL AFTER first_name");
     db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE NULL AFTER last_name");
 } catch (Throwable $e) { /* already exists or unsupported – ignore */ }
 
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
-    $first_name = sanitize($_POST['first_name']);
-    $last_name  = sanitize($_POST['last_name']);
+    $first_name  = sanitize($_POST['first_name']);
+    $middle_name = sanitize($_POST['middle_name'] ?? '');
+    $last_name   = sanitize($_POST['last_name']);
     $email      = sanitize($_POST['email']);
     $birthday   = sanitize($_POST['birthday'] ?? '');
     $password   = $_POST['password'];
@@ -69,10 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
             $bday_val = !empty($birthday) ? $birthday : null;
 
             db_execute(
-                "INSERT INTO users (first_name, last_name, birthday, email, password_hash, role, status, branch_id, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, 'Activated', ?, NOW(), NOW())",
-                'ssssssi',
-                [$first_name, $last_name, $bday_val, $email, $password_hash, $role, $branch_id]
+                "INSERT INTO users (first_name, middle_name, last_name, birthday, email, password_hash, role, status, branch_id, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Activated', ?, NOW(), NOW())",
+                'sssssssi',
+                [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $role, $branch_id]
             );
 
             $success = $role . ' account created successfully!';
@@ -86,11 +88,12 @@ $per_page      = 10;
 $search        = trim($_GET['search'] ?? '');
 $role_filter   = $_GET['role'] ?? '';
 $status_filter = $_GET['status'] ?? '';
-$sort_by       = $_GET['sort'] ?? 'newest';
+$sort          = $_GET['sort'] ?? 'newest';
+$dir           = $_GET['dir'] ?? 'DESC';
 $date_from     = $_GET['date_from'] ?? '';
 $date_to       = $_GET['date_to'] ?? '';
 
-$sort_col_sql = match($sort_by) {
+$sort_col_sql = match($sort) {
     'oldest' => 'u.created_at ASC',
     'az'     => 'u.first_name ASC',
     'za'     => 'u.first_name DESC',
@@ -131,7 +134,7 @@ $total_users = db_query("SELECT COUNT(*) as total $sql_base", $types ?: null, $p
 $total_pages = max(1, ceil($total_users / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
-$users = db_query("SELECT u.*, b.branch_name $sql_base ORDER BY $sort_col_sql $dir LIMIT $per_page OFFSET $offset", $types ?: null, $params ?: null) ?: [];
+$users = db_query("SELECT u.*, b.branch_name $sql_base ORDER BY $sort_col_sql LIMIT $per_page OFFSET $offset", $types ?: null, $params ?: null) ?: [];
 
 // Fetch available branches for the creation dropdown
 $branches = db_query("SELECT id, branch_name FROM branches ORDER BY id ASC");
@@ -198,7 +201,7 @@ if (isset($_GET['ajax'])) {
     <?php
     $table_html = ob_get_clean();
     ob_start();
-    $pp = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'date_from'=>$_GET['date_from']??'','date_to'=>$_GET['date_to']??'']);
+    $pp = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$_GET['date_from']??'','date_to'=>$_GET['date_to']??'']);
     echo render_pagination($page, $total_pages, $pp);
     $pagination_html = ob_get_clean();
     echo json_encode(['success'=>true,'table'=>$table_html,'pagination'=>$pagination_html,'count'=>number_format($total_users),'badge'=>count(array_filter([$search,$role_filter,$status_filter,$_GET['date_from']??'',$_GET['date_to']??'']))]);
@@ -237,14 +240,16 @@ if (isset($_GET['ajax'])) {
         /* ===== MINIMALISTIC VIEW MODAL ===== */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9900; align-items:center; justify-content:center; padding:16px; }
         .modal-overlay.is-open { display:flex; }
-        .modal-box { background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.15); width:100%; max-width:580px; max-height:92vh; overflow-y:auto; }
+        .modal-box { background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.15); width:100%; max-width:680px; max-height:92vh; overflow-y:auto; }
         .modal-hdr { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid #f3f4f6; }
         .modal-hdr h2 { font-size:16px; font-weight:700; color:#111827; margin:0; }
         .modal-hdr button { background:none; border:none; font-size:20px; color:#9ca3af; cursor:pointer; line-height:1; padding:2px 6px; }
         .modal-hdr button:hover { color:#374151; }
         .modal-bdy { padding:20px 24px; }
         .mf-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+        .mf-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
         .mf-full { grid-column:1/-1; }
+        .mf-group { display: flex; flex-direction: column; }
         .mf-group label { display:block; font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
         .mf-group input, .mf-group select, .mf-group textarea { width:100%; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; color:#111827; background:#fafafa; outline:none; transition:border-color .15s; box-sizing:border-box; }
         .mf-group input:focus, .mf-group select:focus, .mf-group textarea:focus { border-color:#6366f1; background:#fff; }
@@ -279,45 +284,206 @@ if (isset($_GET['ajax'])) {
         }
         @media(max-width:520px) { .mf-row { grid-template-columns:1fr; } }
 
-        /* ─── Orders-style Sort/Filter toolbar ─── */
-        .toolbar-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:13px; font-weight:500; color:#374151; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
-        .toolbar-btn:hover { border-color:#9ca3af; background:#f9fafb; }
-        .toolbar-btn.active { border-color:#0d9488; color:#0d9488; background:#f0fdfa; }
-        .sort-dropdown { position:absolute; top:calc(100% + 6px); right:0; width:180px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); z-index:300; padding:6px; }
-        .sort-option { padding:9px 12px; font-size:13px; color:#4b5563; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; }
-        .sort-option:hover { background:#f9fafb; }
-        .sort-option.selected { background:#f0fdfa; color:#0d9488; font-weight:600; }
-        .filter-panel { position:absolute; top:calc(100% + 6px); right:0; width:300px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.12); z-index:300; overflow:hidden; }
-        .filter-panel-header { padding:14px 18px; border-bottom:1px solid #f3f4f6; font-size:14px; font-weight:700; color:#111827; }
-        .filter-section { padding:14px 18px; border-bottom:1px solid #f3f4f6; }
-        .filter-section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-        .filter-section-label { font-size:13px; font-weight:600; color:#374151; }
-        .filter-reset-link { font-size:12px; font-weight:600; color:#0d9488; cursor:pointer; background:none; border:none; padding:0; }
-        .filter-reset-link:hover { text-decoration:underline; }
-        .filter-input { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 10px; color:#1f2937; box-sizing:border-box; }
-        .filter-input:focus { outline:none; border-color:#0d9488; }
-        .filter-date-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-        .filter-date-label { font-size:11px; color:#6b7280; margin-bottom:4px; }
-        .filter-select { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 10px; color:#1f2937; background:#fff; box-sizing:border-box; cursor:pointer; }
-        .filter-select:focus { outline:none; border-color:#0d9488; }
-        .filter-search-input { width:100%; height:34px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; padding:0 12px; color:#1f2937; box-sizing:border-box; }
-        .filter-search-input:focus { outline:none; border-color:#0d9488; }
-        .filter-actions { display:flex; gap:8px; padding:14px 18px; border-top:1px solid #f3f4f6; }
-        .filter-btn-reset { flex:1; height:36px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:13px; font-weight:500; color:#374151; cursor:pointer; }
-        .filter-btn-reset:hover { background:#f9fafb; }
-        .filter-badge { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:#0d9488; color:#fff; border-radius:50%; font-size:10px; font-weight:700; }
+        /* ─── Standardized Toolbar Styles ─── */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        .toolbar-btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            height: 38px;
+            border: 1px solid #3b82f6;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #3b82f6;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        .toolbar-btn-primary:hover {
+            background: #eff6ff;
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        /* ── Filter Panel ─── */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 100;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+
+        /* ── Sort Dropdown ─── */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            padding: 6px 0;
+            overflow: hidden;
+        }
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .sort-option:hover { background: #f9fafb; }
+        .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+        .sort-option .check { margin-left: auto; color: #0d9488; }
+
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .filter-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
 
         /* Create-user modal */
         #user-modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9800; justify-content:center; align-items:center; padding:16px; }
         #user-modal-backdrop.is-open { display:flex; }
-        #user-modal-box { background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
+        #user-modal-box { background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:680px; width:100%; max-height:90vh; overflow-y:auto; }
         #user-modal-box .modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid #f3f4f6; }
         #user-modal-box .modal-title { font-size:16px; font-weight:700; color:#111827; margin:0; }
         #user-modal-box .modal-close-x { background:none; border:none; font-size:20px; color:#9ca3af; cursor:pointer; }
         #user-modal-box .modal-close-x:hover { color:#374151; }
+        #user-modal-box .modal-body { padding: 20px 24px; }
         #user-modal-box .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        #user-modal-box .form-group { margin-bottom:14px; padding:0 24px; }
-        #user-modal-box .form-group:first-of-type { margin-top:20px; }
+        #user-modal-box .form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+        #user-modal-box .form-group { margin-bottom:14px; }
         #user-modal-box .form-group label { display:block; font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
         #user-modal-box .form-group input, #user-modal-box .form-group select { width:100%; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; color:#1f2937; background:#fafafa; outline:none; box-sizing:border-box; transition:border-color .15s; }
         #user-modal-box .form-group input:focus, #user-modal-box .form-group select:focus { border-color:#4f46e5; background:#fff; }
@@ -339,11 +505,6 @@ if (isset($_GET['ajax'])) {
     <div class="main-content">
         <header>
             <h1 class="page-title">User & Staff Management</h1>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <button type="button" id="btn-open-user-modal" class="btn-primary">
-                    + Add New User / Staff
-                </button>
-            </div>
         </header>
 
         <main>
@@ -388,18 +549,34 @@ if (isset($_GET['ajax'])) {
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Users & Staff List</h3>
 
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <!-- Add User Button -->
+                        <button type="button" id="btn-open-user-modal" class="toolbar-btn-primary" style="height:38px;">
+                            Add User
+                        </button>
+
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                                </svg>
                                 Sort by
                             </button>
                             <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                                <?php foreach (['newest'=>'Newest to Oldest','oldest'=>'Oldest to Newest','az'=>'A → Z','za'=>'Z → A'] as $k=>$lbl): ?>
-                                <div class="sort-option" :class="{'selected': activeSort === '<?php echo $k; ?>'}" onclick="applySortFilter('<?php echo $k; ?>')">
-                                    <?php echo htmlspecialchars($lbl); ?>
-                                    <svg x-show="activeSort === '<?php echo $k; ?>'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <?php
+                                $sorts = [
+                                    'newest' => 'Newest to Oldest',
+                                    'oldest' => 'Oldest to Newest',
+                                    'az'     => 'A → Z',
+                                    'za'     => 'Z → A',
+                                ];
+                                foreach ($sorts as $key => $label): ?>
+                                <div class="sort-option" 
+                                     :class="{ 'selected': activeSort === '<?php echo $key; ?>' }"
+                                     @click="applySortFilter('<?php echo $key; ?>')">
+                                    <?php echo htmlspecialchars($label); ?>
+                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
@@ -407,17 +584,24 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
                                 Filter
                                 <span id="filterBadgeContainer">
-                                    <?php $afc = count(array_filter([$search,$role_filter,$status_filter])); if ($afc > 0): ?>
-                                    <span class="filter-badge"><?php echo $afc; ?></span>
+                                    <?php
+                                    $active_filters = array_filter([$role_filter, $status_filter, $search, $date_from, $date_to]);
+                                    if (count($active_filters) > 0): ?>
+                                    <span class="filter-badge"><?php echo count($active_filters); ?></span>
                                     <?php endif; ?>
                                 </span>
                             </button>
-                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+
+                            <!-- Filter Panel -->
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false" id="filterPanel">
                                 <div class="filter-panel-header">Filter</div>
+
                                 <!-- Date Range -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -425,10 +609,17 @@ if (isset($_GET['ajax'])) {
                                         <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
                                     </div>
                                     <div class="filter-date-row">
-                                        <div><div class="filter-date-label">From:</div><input type="date" id="fp_date_from" class="filter-input" value=""></div>
-                                        <div><div class="filter-date-label">To:</div><input type="date" id="fp_date_to" class="filter-input" value=""></div>
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from); ?>">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to); ?>">
+                                        </div>
                                     </div>
                                 </div>
+
                                 <!-- Role -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -437,11 +628,12 @@ if (isset($_GET['ajax'])) {
                                     </div>
                                     <select id="fp_role" class="filter-select">
                                         <option value="">All roles</option>
-                                        <option value="Admin" <?php echo $role_filter==='Admin'?'selected':''; ?>>Admin</option>
-                                        <option value="Manager" <?php echo $role_filter==='Manager'?'selected':''; ?>>Manager</option>
-                                        <option value="Staff" <?php echo $role_filter==='Staff'?'selected':''; ?>>Staff</option>
+                                        <option value="Admin"   <?php echo $role_filter === 'Admin'   ? 'selected' : ''; ?>>Admin</option>
+                                        <option value="Manager" <?php echo $role_filter === 'Manager' ? 'selected' : ''; ?>>Manager</option>
+                                        <option value="Staff"   <?php echo $role_filter === 'Staff'   ? 'selected' : ''; ?>>Staff</option>
                                     </select>
                                 </div>
+
                                 <!-- Status -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -450,20 +642,25 @@ if (isset($_GET['ajax'])) {
                                     </div>
                                     <select id="fp_status" class="filter-select">
                                         <option value="">All statuses</option>
-                                        <option value="Activated" <?php echo $status_filter==='Activated'?'selected':''; ?>>Activated</option>
-                                        <option value="Deactivated" <?php echo $status_filter==='Deactivated'?'selected':''; ?>>Deactivated</option>
+                                        <option value="Activated"   <?php echo $status_filter === 'Activated'   ? 'selected' : ''; ?>>Activated</option>
+                                        <option value="Deactivated" <?php echo $status_filter === 'Deactivated' ? 'selected' : ''; ?>>Deactivated</option>
                                     </select>
                                 </div>
-                                <!-- Keyword -->
+
+                                <!-- Keyword Search -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Keyword search</span>
                                         <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
-                                    <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>">
+                                    <div class="filter-search-wrap">
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>">
+                                    </div>
                                 </div>
+
+                                <!-- Actions -->
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
+                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
@@ -533,7 +730,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="usersPagination">
                     <?php
-                    $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
+                    $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$date_from,'date_to'=>$date_to]);
                     echo render_pagination($page, $total_pages, $pagination_params);
                     ?>
                 </div>
@@ -551,13 +748,18 @@ if (isset($_GET['ajax'])) {
             <button type="button" class="modal-close-x" id="btn-close-user-modal-x" aria-label="Close">✕</button>
         </div>
         <form method="POST" action="">
-            <?php echo csrf_field(); ?>
-            <input type="hidden" name="create_staff" value="1">
-            
-            <div class="form-row">
+            <div class="modal-body">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="create_staff" value="1">
+                
+                <div class="form-row-3">
                 <div class="form-group">
                     <label>First Name <span style="color:#ef4444">*</span></label>
                     <input type="text" name="first_name" required placeholder="e.g. Juan">
+                </div>
+                <div class="form-group">
+                    <label>Middle Name</label>
+                    <input type="text" name="middle_name" placeholder="e.g. Santos">
                 </div>
                 <div class="form-group">
                     <label>Last Name <span style="color:#ef4444">*</span></label>
@@ -598,15 +800,16 @@ if (isset($_GET['ajax'])) {
                 </select>
             </div>
 
-            <div class="form-group" id="branch-select-group">
-                <label>Branch Assignment <span style="color:#ef4444">*</span></label>
-                <select name="branch_id" id="user-branch-select">
-                    <option value="">-- Select Branch --</option>
-                    <?php foreach ($branches as $branch): ?>
-                        <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <p class="form-hint">Staff members only see data for their assigned branch.</p>
+                <div class="form-group" id="branch-select-group">
+                    <label>Branch Assignment <span style="color:#ef4444">*</span></label>
+                    <select name="branch_id" id="user-branch-select">
+                        <option value="">-- Select Branch --</option>
+                        <?php foreach ($branches as $branch): ?>
+                            <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="form-hint">Staff members only see data for their assigned branch.</p>
+                </div>
             </div>
 
             <div class="modal-actions">
@@ -749,14 +952,14 @@ if (isset($_GET['ajax'])) {
 
                 <form @submit.prevent="saveUserChanges">
                     <!-- Row 1: First, Middle, Last Name -->
-                    <div class="mf-row" style="grid-template-columns:1fr 1fr 1fr;">
+                    <div class="mf-row-3">
                         <div class="mf-group" :class="{'is-invalid': errors.first_name, 'is-valid': viewModal.user.first_name && !errors.first_name}">
                             <label>First Name *</label>
                             <input type="text" x-model="viewModal.user.first_name" @input="validateField('first_name')" required>
                             <div class="error-message" x-text="errors.first_name"></div>
                         </div>
                         <div class="mf-group" :class="{'is-valid': viewModal.user.middle_name}">
-                            <label>Middle Name (Optional)</label>
+                            <label>Middle Name</label>
                             <input type="text" x-model="viewModal.user.middle_name">
                         </div>
                         <div class="mf-group" :class="{'is-invalid': errors.last_name, 'is-valid': viewModal.user.last_name && !errors.last_name}">
@@ -862,7 +1065,7 @@ if (isset($_GET['ajax'])) {
 
 <script>
 // ── Filter & Sort JS (user_staff_management.php) ────────────────────────────
-let activeSort = '<?php echo $sort_by; ?>';
+let activeSort = '<?php echo $sort ?? "newest"; ?>';
 let searchDebounceTimer = null;
 
 function filterPanel() {
@@ -870,83 +1073,115 @@ function filterPanel() {
         sortOpen: false,
         filterOpen: false,
         activeSort: activeSort,
-        get hasActiveFilters() {
-            return document.getElementById('fp_date_from')?.value ||
-                   document.getElementById('fp_date_to')?.value ||
-                   document.getElementById('fp_role')?.value ||
-                   document.getElementById('fp_status')?.value ||
-                   document.getElementById('fp_search')?.value;
-        }
+        hasActiveFilters: <?php echo count(array_filter([$role_filter, $status_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
     };
 }
 
-function buildFilterURL(page = 1) {
-    const params = new URLSearchParams();
-    params.set('page', page);
-    const df = document.getElementById('fp_date_from')?.value; if (df) params.set('date_from', df);
-    const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
-    const role = document.getElementById('fp_role')?.value;    if (role) params.set('role', role);
-    const st = document.getElementById('fp_status')?.value;    if (st) params.set('status', st);
-    const s = document.getElementById('fp_search')?.value;      if (s) params.set('search', s);
-    if (activeSort !== 'newest') params.set('sort', activeSort);
-    return '?' + params.toString();
+function buildFilterURL(overrides = {}, includeAjax = false) {
+    const params = new URLSearchParams(window.location.search);
+    
+    // Default current values
+    const current = {
+        role:      document.getElementById('fp_role')?.value || '',
+        status:    document.getElementById('fp_status')?.value || '',
+        date_from: document.getElementById('fp_date_from')?.value || '',
+        date_to:   document.getElementById('fp_date_to')?.value || '',
+        search:    document.getElementById('fp_search')?.value || '',
+        sort:      activeSort
+    };
+
+    const combined = { ...current, ...overrides };
+
+    const finalParams = new URLSearchParams();
+    if (combined.page)      finalParams.set('page', combined.page);
+    if (combined.role)      finalParams.set('role', combined.role);
+    if (combined.status)    finalParams.set('status', combined.status);
+    if (combined.date_from) finalParams.set('date_from', combined.date_from);
+    if (combined.date_to)   finalParams.set('date_to', combined.date_to);
+    if (combined.search)    finalParams.set('search', combined.search);
+    if (combined.sort && combined.sort !== 'newest') finalParams.set('sort', combined.sort);
+    
+    if (includeAjax) finalParams.set('ajax', '1');
+    
+    return '?' + finalParams.toString();
 }
 
-function fetchUpdatedTable(page = 1) {
-    const url = buildFilterURL(page) + '&ajax=1';
-    fetch(url)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) return;
-            document.getElementById('usersTableContainer').innerHTML = data.table + '<div id="usersPagination">' + data.pagination + '</div>';
-            // usersCount element replaced with heading - no update needed
-            const cont = document.getElementById('filterBadgeContainer');
-            cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
-            history.replaceState(null, '', buildFilterURL(page));
-        })
-        .catch(console.error);
-}
+async function fetchUpdatedTable(overrides = {}) {
+    try {
+        const url = buildFilterURL(overrides, true);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        
+        if (data.success) {
+            const container = document.getElementById('usersTableContainer');
+            if (container) {
+                container.innerHTML = data.table + '<div id="usersPagination">' + data.pagination + '</div>';
+            }
+            
+            // Update badge
+            const badgeCont = document.getElementById('filterBadgeContainer');
+            if (badgeCont) {
+                badgeCont.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
+            }
+            
+            // Update Alpine hasActiveFilters
+            const alpineEl = document.querySelector('[x-data="filterPanel()"]');
+            if (alpineEl && alpineEl._x_dataStack) {
+                alpineEl._x_dataStack[0].hasActiveFilters = data.badge > 0;
+            }
 
-function applyFilters(reset = false) {
-    if (reset) {
-        ['fp_date_from','fp_date_to','fp_role','fp_status','fp_search'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        activeSort = 'newest';
+            // Update URL bar
+            const displayUrl = buildFilterURL(overrides, false);
+            window.history.replaceState({ path: displayUrl }, '', displayUrl);
+        }
+    } catch (e) {
+        console.error('Error updating table:', e);
     }
-    fetchUpdatedTable(1);
 }
 
-function resetFilterField(fields) {
-    fields.forEach(f => {
-        const map = { date_from:'fp_date_from', date_to:'fp_date_to', role:'fp_role', status:'fp_status', search:'fp_search' };
-        const el = document.getElementById(map[f] || 'fp_' + f);
-        if (el) el.value = '';
-    });
-    fetchUpdatedTable(1);
+function applyFilters(resetAll = false) {
+    if (resetAll) {
+        const base = window.location.pathname;
+        window.location.href = base;
+    } else {
+        fetchUpdatedTable();
+    }
 }
 
 function applySortFilter(sortKey) {
     activeSort = sortKey;
-    fetchUpdatedTable(1);
+    // Update Alpine state
     const alpineEl = document.querySelector('[x-data="filterPanel()"]');
     if (alpineEl && alpineEl._x_dataStack) {
-        alpineEl._x_dataStack[0].activeSort = sortKey;
-        alpineEl._x_dataStack[0].sortOpen   = false;
+        const data = alpineEl._x_dataStack[0];
+        data.activeSort = sortKey;
+        data.sortOpen = false;
     }
+    
+    fetchUpdatedTable({ sort: sortKey });
+}
+
+function resetFilterField(fields) {
+    fields.forEach(f => {
+        const el = document.getElementById('fp_' + f);
+        if (el) el.value = '';
+    });
+    fetchUpdatedTable();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ['fp_date_from','fp_date_to','fp_role','fp_status'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => fetchUpdatedTable());
+    const inputs = ['fp_role', 'fp_status', 'fp_date_from', 'fp_date_to'];
+    inputs.forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
     });
+
     const searchInput = document.getElementById('fp_search');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => fetchUpdatedTable(), 500);
+            searchDebounceTimer = setTimeout(() => {
+                fetchUpdatedTable();
+            }, 500);
         });
     }
 });

@@ -1,16 +1,124 @@
 <?php
-/**
- * Inventory - Items Management (v2)
- * Professional Transaction-Based Inventory UI
- */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Admin', 'Manager']);
 $page_title = 'Inventory Items - Admin';
 
-// Get categories for filters/forms
+// Get parameters
+$cat_id   = (int)($_GET['category_id'] ?? 0);
+$search   = trim($_GET['search'] ?? '');
+$sort     = $_GET['sort'] ?? 'name';
+$dir      = strtoupper($_GET['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+$page     = max(1, (int)($_GET['page'] ?? 1));
+$per_page = 15;
+
+// Build Query
+$sql = "SELECT i.*, c.name as category_name 
+        FROM inv_items i 
+        LEFT JOIN inv_categories c ON i.category_id = c.id 
+        WHERE 1=1";
+$params = [];
+$types = '';
+
+if ($cat_id) {
+    $sql .= " AND i.category_id = ?";
+    $params[] = $cat_id;
+    $types .= 'i';
+}
+if ($search) {
+    $st = '%' . $search . '%';
+    $sql .= " AND (i.name LIKE ? OR i.sku LIKE ?)";
+    $params[] = $st; $params[] = $st;
+    $types .= 'ss';
+}
+
+// Count total for pagination
+$count_sql = "SELECT COUNT(*) as total FROM ({$sql}) as wrap";
+$total_rows = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
+$total_pages = max(1, ceil($total_rows / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+
+$sort_map = [
+    'name' => 'i.name',
+    'id'   => 'i.id'
+];
+$orderBy = $sort_map[$sort] ?? 'i.name';
+$sql .= " ORDER BY $orderBy $dir LIMIT $per_page OFFSET $offset";
+
+$items = db_query($sql, $types ?: null, $params ?: null) ?: [];
+
+// Add stock info
+foreach ($items as &$item) {
+    $item['current_stock'] = InventoryManager::getStockOnHand($item['id']);
+}
+unset($item);
+
+// Get categories for filters
 $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, name ASC") ?: [];
+
+// AJAX Partial Response
+if (isset($_GET['ajax'])) {
+    ob_start();
+    if (empty($items)): ?>
+        <tr id="emptyItemsRow"><td colspan="7" class="py-12 text-center text-gray-500">No inventory items matching the filter.</td></tr>
+    <?php else: 
+        foreach ($items as $item): 
+            $stock = (float)$item['current_stock'];
+            $minStock = (float)$item['reorder_level'];
+            $isOut = $stock <= 0;
+            $isLow = !$isOut && $stock <= $minStock;
+            
+            $stockColor = '#1f2937';
+            if ($isOut) $stockColor = '#991b1b';
+            else if ($isLow) $stockColor = '#d97706';
+            
+            $trackBadge = $item['track_by_roll'] == 1
+                ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
+                : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
+            
+            $statusBadge = ($isLow && !$isOut) ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low Stock</span>' : '';
+            $inactiveBadge = $item['status'] === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
+    ?>
+            <tr class="<?php echo ($isOut || $isLow) ? 'low-stock-row' : ''; ?>" style="cursor:pointer;" onclick="openStockCard(<?php echo $item['id']; ?>)">
+                <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
+                <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
+                <td><?php echo $trackBadge; ?></td>
+                <td><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo number_format($stock, 2); ?></span></td>
+                <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                    <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                </td>
+            </tr>
+    <?php endforeach; ?>
+    <?php endif; ?>
+<?php
+    $table_html = ob_get_clean();
+
+    ob_start();
+    $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir]);
+    echo render_pagination($page, $total_pages, $p);
+    $pagination_html = ob_get_clean();
+
+    $badge_count = count(array_filter([$cat_id, $search]));
+
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_rows),
+        'badge'      => $badge_count,
+        'startIdx'   => $total_rows > 0 ? $offset + 1 : 0,
+        'endIdx'     => min($offset + $per_page, $total_rows),
+        'total'      => $total_rows,
+        'items'      => $items // Keep returning items for Alpine functions like find()
+    ]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -100,31 +208,168 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 
         /* Standardized Toolbar Styles */
-        .toolbar-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; height: 38px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .toolbar-btn:hover { background: #f9fafb; border-color: #d1d5db; }
-        .toolbar-btn.active { border-color: #0d9488; background: #f0fdfa; color: #0d9488; }
-        .sort-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 220px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 8px; z-index: 100; }
-        .sort-option { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #4b5563; cursor: pointer; transition: all 0.2s; }
-        .sort-option:hover { background: #f3f4f6; color: #111827; }
-        .sort-option.selected { background: #f0fdfa; color: #0d9488; font-weight: 600; }
-        .filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 320px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); z-index: 100; overflow: hidden; }
-        .filter-panel-header { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 700; color: #111827; }
-        .filter-section { padding: 16px; border-bottom: 1px solid #f3f4f6; }
-        .filter-section:last-child { border-bottom: none; }
-        .filter-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .filter-section-label { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.025em; }
-        .filter-reset-link { font-size: 11px; font-weight: 600; color: #0d9488; background: none; border: none; cursor: pointer; padding: 0; }
+        /* Standardized Toolbar Styles */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+        .toolbar-btn svg { flex-shrink: 0; }
+
+        /* ── Filter Panel ─── */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 100;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
         .filter-reset-link:hover { text-decoration: underline; }
-        .filter-select, .filter-search-input { width: 100%; height: 40px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; padding: 0 12px; transition: all 0.2s; }
-        .filter-select:focus, .filter-search-input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
-        .filter-actions { padding: 16px; background: #f9fafb; display: flex; gap: 12px; }
-        .filter-btn-reset { flex: 1; height: 40px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 600; color: #ef4444; cursor: pointer; transition: all 0.2s; }
-        .filter-btn-reset:hover { background: #fef2f2; border-color: #fecaca; }
-        .filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #0d9488; color: #fff; font-size: 10px; font-weight: 700; }
-        [x-cloak] { display: none !important; }
-        .filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
-        .filter-btn-reset { flex: 1; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; }
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #0d9488; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
         .filter-btn-reset:hover { background: #f9fafb; }
+
+        /* ── Sort Dropdown ─── */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            padding: 6px 0;
+            overflow: hidden;
+        }
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .sort-option:hover { background: #f9fafb; }
+        .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+        .sort-option .check { margin-left: auto; color: #0d9488; }
+
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
 
         /* Low stock row highlight */
         .low-stock-row td { background-color: #fff5f5 !important; color: #1f2937 !important; }
@@ -158,7 +403,12 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             <!-- Items Card -->
             <div class="card">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
-                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Inventory Items List</h3>
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
+                        Inventory Items List
+                        <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
+                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong> of <?php echo number_format($total_rows); ?> items)
+                        </span>
+                    </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
                         <button class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
@@ -170,10 +420,22 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                                 Sort by
                             </button>
                             <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">Newest to Oldest <svg x-show="activeSort === 'newest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">Oldest to Newest <svg x-show="activeSort === 'oldest'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">A → Z <svg x-show="activeSort === 'az'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">Z → A <svg x-show="activeSort === 'za'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'newest'}" @click="applySortFilter('newest')">
+                                    Newest to Oldest
+                                    <svg x-show="activeSort === 'newest'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'oldest'}" @click="applySortFilter('oldest')">
+                                    Oldest to Newest
+                                    <svg x-show="activeSort === 'oldest'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">
+                                    A → Z
+                                    <svg x-show="activeSort === 'az'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">
+                                    Z → A
+                                    <svg x-show="activeSort === 'za'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
                             </div>
                         </div>
 
@@ -232,11 +494,49 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                             </tr>
                         </thead>
                         <tbody id="itemsTableBody">
-                            <tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Scanning inventory...</td></tr>
+                            <?php if (empty($items)): ?>
+                                <tr id="emptyItemsRow"><td colspan="7" class="py-12 text-center text-gray-500">No inventory items matching the filter.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($items as $item): 
+                                    $stock = (float)$item['current_stock'];
+                                    $minStock = (float)$item['reorder_level'];
+                                    $isOut = $stock <= 0;
+                                    $isLow = !$isOut && $stock <= $minStock;
+                                    
+                                    $stockColor = '#1f2937';
+                                    if ($isOut) $stockColor = '#991b1b';
+                                    else if ($isLow) $stockColor = '#d97706';
+                                    
+                                    $trackBadge = $item['track_by_roll'] == 1
+                                        ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
+                                        : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
+                                    
+                                    $statusBadge = ($isLow && !$isOut) ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low Stock</span>' : '';
+                                    $inactiveBadge = $item['status'] === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
+                                ?>
+                                    <tr class="<?php echo ($isOut || $isLow) ? 'low-stock-row' : ''; ?>" style="cursor:pointer;" onclick="openStockCard(<?php echo $item['id']; ?>)">
+                                        <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
+                                        <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
+                                        <td><?php echo $trackBadge; ?></td>
+                                        <td><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                                        <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo number_format($stock, 2); ?></span></td>
+                                        <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                                        <td style="text-align:right;white-space:nowrap;">
+                                            <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                                            <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
-                <div id="itemsPagination"></div>
+                <div id="itemsPagination">
+                    <?php 
+                        $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir]);
+                        echo render_pagination($page, $total_pages, $p); 
+                    ?>
+                </div>
             </div>
         </main>
     </div>
@@ -454,26 +754,20 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
                 <button type="button" onclick="closeModal()" class="btn-secondary" style="border-radius: 10px; height: 44px; padding: 0 24px;">Cancel</button>
                 <button type="submit" class="btn-primary" id="saveBtn" style="border-radius: 10px; height: 44px; padding: 0 24px; background: var(--primary-gradient);">Save Changes</button>
             </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    let currentItems = [];
+  <script>
+    let currentItems = <?php echo json_encode($items); ?>;
     let usageChart = null;
     let selectedItemForStockCard = null;
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    let currentSort = 'name';
-    let currentDir = 'ASC';
-    let activeSort = 'az'; // default to A-Z
+    let currentPage = <?php echo $page; ?>;
+    let currentSort = '<?php echo $sort; ?>';
+    let currentDir = '<?php echo $dir; ?>';
     let searchDebounceTimer = null;
 
     function filterPanel() {
         return {
             sortOpen: false,
             filterOpen: false,
-            activeSort: activeSort,
+            activeSort: '<?php echo $sort === 'name' ? ($dir === 'ASC' ? 'az' : 'za') : ($sort === 'id' ? ($dir === 'DESC' ? 'newest' : 'oldest') : 'az'); ?>',
             get hasActiveFilters() {
                 return document.getElementById('fp_category')?.value ||
                        document.getElementById('fp_search')?.value;
@@ -481,330 +775,233 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         };
     }
 
-    function applySortFilter(sortKey) {
-        activeSort = sortKey;
-        if (sortKey === 'newest') { currentSort = 'id'; currentDir = 'DESC'; }
-        else if (sortKey === 'oldest') { currentSort = 'id'; currentDir = 'ASC'; }
-        else if (sortKey === 'az') { currentSort = 'name'; currentDir = 'ASC'; }
-        else if (sortKey === 'za') { currentSort = 'name'; currentDir = 'DESC'; }
-        
-        currentPage = 1;
-        loadItems();
-        
-        const alpineEl = document.querySelector('[x-data="filterPanel()"]');
-        if (alpineEl && alpineEl._x_dataStack) {
-            alpineEl._x_dataStack[0].activeSort = sortKey;
-            alpineEl._x_dataStack[0].sortOpen = false;
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => { 
+                    fetchUpdatedTable({ page: 1 }); 
+                }, 500); 
+            });
         }
+        
+        const catSelect = document.getElementById('fp_category');
+        if (catSelect) {
+            catSelect.addEventListener('change', () => { 
+                fetchUpdatedTable({ page: 1 }); 
+            });
+        }
+    });
+
+    function buildFilterURL(overrides = {}, isAjax = false) {
+        const params = new URLSearchParams(window.location.search);
+        
+        const map = {
+            'category_id': 'fp_category',
+            'search': 'fp_search'
+        };
+
+        for (const [param, id] of Object.entries(map)) {
+            const val = document.getElementById(id)?.value;
+            if (val) params.set(param, val);
+            else params.delete(param);
+        }
+
+        if (overrides.page !== undefined) params.set('page', overrides.page);
+        else if (currentPage > 1) params.set('page', currentPage);
+
+        if (overrides.sort !== undefined) {
+            params.set('sort', overrides.sort);
+            currentSort = overrides.sort;
+        } else {
+            params.set('sort', currentSort);
+        }
+
+        if (overrides.dir !== undefined) {
+            params.set('dir', overrides.dir);
+            currentDir = overrides.dir;
+        } else {
+            params.set('dir', currentDir);
+        }
+
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
+
+        return window.location.pathname + '?' + params.toString();
     }
 
-    function resetFilterField(fields) {
-        fields.forEach(f => {
-            const el = document.getElementById('fp_' + f);
-            if (el) el.value = '';
-        });
-        currentPage = 1;
-        loadItems();
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.success) {
+                const tbody = document.getElementById('itemsTableBody');
+                const pagination = document.getElementById('itemsPagination');
+                const showingText = document.getElementById('showingCount');
+                const badgeCont = document.getElementById('filterBadgeContainer');
+
+                if (tbody) tbody.innerHTML = data.table;
+                if (pagination) pagination.innerHTML = data.pagination;
+                if (showingText) {
+                    showingText.textContent = data.startIdx + '–' + data.endIdx;
+                    showingText.nextSibling.textContent = ' of ' + data.total + ' items)';
+                }
+                
+                if (badgeCont) {
+                    badgeCont.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
+                }
+
+                if (data.items) currentItems = data.items;
+                if (overrides.page !== undefined) currentPage = overrides.page;
+
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+            }
+        } catch (e) {
+            console.error('Error updating table:', e);
+        }
     }
 
     function applyFilters(reset = false) {
         if (reset) {
-            ['fp_category', 'fp_search'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            activeSort = 'az';
-            currentSort = 'name';
-            currentDir = 'ASC';
+            window.location.href = window.location.pathname;
+        } else {
+            fetchUpdatedTable({ page: 1 });
         }
-        currentPage = 1;
-        loadItems();
     }
 
-    async function loadItems() {
-        const catId = document.getElementById('fp_category')?.value || '';
-        const search = document.getElementById('fp_search')?.value || '';
+    function applySortFilter(sortKey) {
+        let sort = 'name';
+        let dir = 'ASC';
+
+        if (sortKey === 'newest') { sort = 'id'; dir = 'DESC'; }
+        else if (sortKey === 'oldest') { sort = 'id'; dir = 'ASC'; }
+        else if (sortKey === 'az') { sort = 'name'; dir = 'ASC'; }
+        else if (sortKey === 'za') { sort = 'name'; dir = 'DESC'; }
         
-        try {
-            const res = await fetch(`inventory_items_api.php?action=get_items&category_id=${catId}&search=${encodeURIComponent(search)}&sort=${currentSort}&dir=${currentDir}`);
-            const data = await res.json();
-            
-            if (data.success) {
-                currentItems = data.data;
-                renderItems(currentItems);
-                updateBadgeCount();
-            }
-        } catch (e) {
-            console.error(e);
-            document.getElementById('itemsTableBody').innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Network error.</td></tr>';
-        }
-    }
-
-    function updateBadgeCount() {
-        const cat = document.getElementById('fp_category')?.value;
-        const s = document.getElementById('fp_search')?.value;
-        let count = 0;
-        if (cat) count++;
-        if (s) count++;
-        const cont = document.getElementById('filterBadgeContainer');
-        if (cont) cont.innerHTML = count > 0 ? `<span class="filter-badge">${count}</span>` : '';
-    }
-
-    function renderItems(items) {
-        const tbody = document.getElementById('itemsTableBody');
-        const totalItems = items.length;
-
-        if (totalItems === 0) {
-            const showingCountEl = document.getElementById('showingCount');
-            if (showingCountEl) showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">0</strong> items`;
-            tbody.innerHTML = '<tr id="emptyItemsRow"><td colspan="7" class="py-8 text-center text-gray-500">No inventory items matching the filter.</td></tr>';
-            document.getElementById('itemsPagination').innerHTML = '';
-            return;
+        const root = document.querySelector('[x-data]');
+        if (root && root._x_dataStack) {
+            const data = root._x_dataStack[0];
+            data.activeSort = sortKey;
+            data.sortOpen = false;
         }
 
-        // Sort by severity: Critical (SOH=0) first, then Low Stock, then Normal
-        const sortedItems = [...items].sort((a, b) => {
-            const getSeverity = (it) => {
-                const s = parseFloat(it.current_stock);
-                const r = parseFloat(it.reorder_level);
-                if (s <= 0) return 0;
-                if (s <= r) return 1;
-                return 2;
-            };
-            return getSeverity(a) - getSeverity(b);
+        fetchUpdatedTable({ sort: sort, dir: dir, page: 1 });
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const id = 'fp_' + (f === 'category' ? 'category' : f);
+            const el = document.getElementById(id);
+            if (el) el.value = '';
         });
-
-        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-        if (currentPage > totalPages) currentPage = totalPages;
-        const startIdx = (currentPage - 1) * itemsPerPage;
-        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
-        const pageItems = sortedItems.slice(startIdx, endIdx);
-
-        // Update showing text now that startIdx/endIdx are defined
-        const showingCountEl = document.getElementById('showingCount');
-        if (showingCountEl) {
-            showingCountEl.parentNode.innerHTML = `Showing <strong style="color:#1f2937;" id="showingCount">${startIdx + 1}–${endIdx}</strong> of ${totalItems} items`;
-        }
-
-        let html = '';
-        pageItems.forEach(item => {
-            const stock = parseFloat(item.current_stock);
-            const minStock = parseFloat(item.reorder_level);
-            const unitCost = parseFloat(item.unit_cost || 0);
-            const isOut = stock <= 0;
-            const isLow = !isOut && stock <= minStock;
-
-            let stockColor = '#1f2937';
-            if (isOut) stockColor = '#991b1b';
-            else if (isLow) stockColor = '#d97706';
-
-            let trackBadge = item.track_by_roll == 1
-                ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
-                : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
-
-            let costDisplay = unitCost > 0
-                ? `<span class="font-semibold">₱${unitCost.toLocaleString(undefined, {minimumFractionDigits:2})}</span>`
-                : '<span style="color:#d97706;font-weight:600;">₱0.00</span>';
-
-            let statusBadge = '';
-            if (isLow && !isOut) statusBadge = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;margin-left:8px;">Low Stock</span>';
-
-            // Show inactive badge
-            const inactiveBadge = item.status === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
-
-            html += `<tr class="${(isOut || isLow) ? 'low-stock-row' : ''}" style="cursor:pointer;" onclick="openStockCard(${item.id})">
-                <td style="font-weight:500;text-transform:capitalize;">${escapeHtml(item.name)}${statusBadge}${inactiveBadge}</td>
-                <td>${escapeHtml(item.category_name || 'Uncategorized')}</td>
-                <td>${trackBadge}</td>
-                <td>${costDisplay}</td>
-                <td>
-                    <span class="stock-val" style="color:${stockColor};">${stock.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                </td>
-                <td style="color:#6b7280;font-size:12px;">${escapeHtml(item.unit_of_measure || '')}</td>
-                <td style="text-align:right;white-space:nowrap;">
-                    <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(${item.id})">+ Stock</button>
-                    <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(${item.id})">Edit</button>
-                </td>
-            </tr>`;
-        });
-        tbody.innerHTML = html;
-        renderItemsPagination(totalPages);
-    }
-
-    function renderItemsPagination(totalPages) {
-        const container = document.getElementById('itemsPagination');
-        if (totalPages <= 1) { container.innerHTML = ''; return; }
-
-        let html = '<div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
-
-        // Previous button
-        if (currentPage > 1) {
-            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${currentPage - 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            </a>`;
-        }
-
-        // Page numbers
-        for (let i = 1; i <= totalPages; i++) {
-            const isActive = (i === currentPage);
-            const bg = isActive ? 'background:#1f2937;color:white;border-color:#1f2937;' : 'background:white;color:#374151;border:1px solid #e5e7eb;';
-            const fw = isActive ? '600' : '500';
-            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${i})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:${fw};transition:all 0.2s;${bg}"`;
-            if (!isActive) html += ` onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'"`;
-            html += `>${i}</a>`;
-        }
-
-        // Next button
-        if (currentPage < totalPages) {
-            html += `<a href="#" onclick="event.preventDefault(); goToItemsPage(${currentPage + 1})" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>`;
-        }
-
-        html += '</div>';
-        container.innerHTML = html;
+        fetchUpdatedTable({ page: 1 });
     }
 
     function goToItemsPage(page) {
-        currentPage = page;
-        renderItems(currentItems);
-    }
-
-    function handleSort(col) {
-        if (currentSort === col) {
-            currentDir = currentDir === 'ASC' ? 'DESC' : 'ASC';
-        } else {
-            currentSort = col;
-            currentDir = 'ASC';
-        }
-        currentPage = 1;
-        loadItems();
-    }
-
-    function updateSortIcons() {
-        const cols = ['name', 'category_name', 'track_by_roll', 'unit_cost'];
-        cols.forEach(c => {
-            const el = document.getElementById('sort-' + c);
-            if (!el) return;
-            if (currentSort === c) {
-                el.innerHTML = currentDir === 'ASC' ? ' ▲' : ' ▼';
-                el.style.color = '#6366f1';
-            } else {
-                el.innerHTML = '';
-            }
-        });
+        fetchUpdatedTable({ page: page });
     }
 
     async function openStockCard(itemId) {
         const item = currentItems.find(i => i.id == itemId);
         if (!item) return;
-
         selectedItemForStockCard = item;
-        document.getElementById('scName').textContent = item.name;
-        document.getElementById('scStock').textContent = parseFloat(item.current_stock).toLocaleString();
-        document.getElementById('scUnit').textContent = item.unit_of_measure.toUpperCase();
-        document.getElementById('scMinStock').textContent = parseFloat(item.reorder_level).toLocaleString();
-        document.getElementById('scLedgerLink').href = `inv_transactions_ledger?item_id=${item.id}`;
-
-        loadRecentLedger(item.id);
-
-        if (item.track_by_roll == 1) {
-            document.getElementById('rollKpi').style.display = 'block';
-            document.getElementById('rollDetailsSection').style.display = 'block';
-            loadRollsForItem(item.id);
-        } else {
-            document.getElementById('rollKpi').style.display = 'none';
-            document.getElementById('rollDetailsSection').style.display = 'none';
-        }
-
-        document.getElementById('stockCardModal').style.display = 'flex';
-        renderMiniChart(item.id);
-    }
-
-    async function loadRecentLedger(itemId) {
-        const body = document.getElementById('scLedgerBody');
-        body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#9ca3af;">Loading history...</td></tr>';
         
-        try {
-            const res = await fetch(`inventory_transactions_api.php?action=get_transactions&item_id=${itemId}`);
-            const data = await res.json();
-            
-            if (data.success && data.data.length > 0) {
-                let html = '';
-                // Only show last 5
-                data.data.slice(0, 5).forEach(t => {
-                    const isOut = t.direction === 'OUT';
-                    const color = isOut ? '#ef4444' : '#10b981';
-                    const prefix = isOut ? '-' : '+';
-                    const typeLabel = t.ref_type ? t.ref_type.replace(/_/g, ' ').toUpperCase() : 'ADJUSTMENT';
-                    
-                    html += `<tr>
-                        <td style="padding:10px 12px; border-bottom:1px solid #f3f4f6; color:#6b7280; white-space:nowrap;">${new Date(t.transaction_date).toLocaleDateString()}</td>
-                        <td style="padding:10px 12px; border-bottom:1px solid #f3f4f6;">
-                            <span style="font-weight:700; color:#4b5563; font-size:10px;">${typeLabel}</span>
-                        </td>
-                        <td style="padding:10px 12px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:700; color:${color};">
-                            ${prefix}${parseFloat(t.quantity).toLocaleString()}
-                        </td>
-                    </tr>`;
-                });
-                body.innerHTML = html;
-            } else {
-                body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#9ca3af;">No recent activities found.</td></tr>';
-            }
-        } catch (err) {
-            body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#ef4444;">Failed to load history.</td></tr>';
+        document.getElementById('scName').textContent = item.name;
+        document.getElementById('scStock').textContent = parseFloat(item.current_stock).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('scUnit').textContent = item.unit_of_measure.toUpperCase();
+        document.getElementById('scMinStock').textContent = parseFloat(item.reorder_level).toLocaleString(undefined, {minimumFractionDigits: 2});
+        
+        // Handle roll kpi
+        const rollKpi = document.getElementById('rollKpi');
+        if (item.track_by_roll == 1) {
+            rollKpi.style.display = 'block';
+            document.getElementById('scRoll').textContent = '...'; // Placeholder
+        } else {
+            rollKpi.style.display = 'none';
         }
-    }
 
-    async function loadRollsForItem(itemId) {
+        document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?item_id=${item.id}`;
+        document.getElementById('stockCardModal').style.display = 'flex';
+
+        // Load Stock Card Details (Rolls & Ledger)
         try {
-            const res = await fetch(`inventory_rolls_api.php?action=list_rolls&item_id=${itemId}`);
+            const res = await fetch(`inventory_stock_card_api.php?item_id=${item.id}`);
             const data = await res.json();
             if (data.success) {
-                document.getElementById('scRoll').textContent = data.data.length;
-                const tbody = document.getElementById('scRollBody');
-                tbody.innerHTML = '';
-                data.data.forEach(roll => {
-                    const pct = (roll.remaining_length_ft / roll.total_length_ft) * 100;
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><span style="font-family:monospace; font-weight:700;">${roll.roll_code || '#'+roll.id}</span></td>
-                            <td>${parseFloat(roll.remaining_length_ft).toFixed(2)} / ${parseFloat(roll.total_length_ft).toFixed(0)} ft</td>
+                // Rolls
+                if (item.track_by_roll == 1) {
+                    document.getElementById('rollDetailsSection').style.display = 'block';
+                    document.getElementById('scRoll').textContent = data.rolls.length;
+                    let rollHtml = '';
+                    data.rolls.forEach(r => {
+                        const prog = Math.min(100, Math.max(0, (r.current_length / r.original_length) * 100));
+                        rollHtml += `<tr>
+                            <td><span style="font-family:monospace;font-weight:700;">${r.roll_code}</span></td>
+                            <td><span style="font-weight:700;">${parseFloat(r.current_length).toFixed(2)}</span> / ${parseFloat(r.original_length).toFixed(2)} ft</td>
                             <td>
-                                <div style="width:100%; height:6px; background:#f3f4f6; border-radius:10px; overflow:hidden;">
-                                    <div style="width:${pct}%; height:100%; background:${pct < 20 ? '#ef4444' : '#10b981'};"></div>
+                                <div style="width:100%; height:6px; background:#e5e7eb; border-radius:10px; overflow:hidden;">
+                                    <div style="width:${prog}%; height:100%; background:#10b981; border-radius:10px;"></div>
                                 </div>
                             </td>
-                        </tr>
-                    `;
+                        </tr>`;
+                    });
+                    document.getElementById('scRollBody').innerHTML = rollHtml || '<tr><td colspan="3" style="text-align:center;padding:12px;color:#9ca3af;">No active rolls.</td></tr>';
+                } else {
+                    document.getElementById('rollDetailsSection').style.display = 'none';
+                }
+
+                // Ledger
+                let ledgerHtml = '';
+                data.ledger.forEach(l => {
+                    const isIN = l.direction === 'IN';
+                    const qty = parseFloat(l.quantity);
+                    const qtyDisp = (isIN ? '+' : '-') + qty.toFixed(2);
+                    const qtyColor = isIN ? '#059669' : '#dc2626';
+                    ledgerHtml += `<tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding:8px 12px;color:#6b7280;">${l.transaction_date.split(' ')[0]}</td>
+                        <td style="padding:8px 12px;text-transform:capitalize;">${l.ref_type.replace('_',' ')}</td>
+                        <td style="padding:8px 12px;text-align:right;font-weight:700;color:${qtyColor};">${qtyDisp}</td>
+                    </tr>`;
                 });
+                document.getElementById('scLedgerBody').innerHTML = ledgerHtml || '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No history.</td></tr>';
+
+                // Chart
+                renderUsageChart(data.usage_stats);
             }
-        } catch (e) {}
+        } catch(e) { console.error("Stock Card API error:", e); }
     }
 
-    function renderMiniChart(itemId) {
-        if (usageChart) usageChart.destroy();
+    function renderUsageChart(stats) {
         const ctx = document.getElementById('usageChart').getContext('2d');
+        if (usageChart) usageChart.destroy();
+        
         usageChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                labels: stats.labels,
                 datasets: [{
-                    label: 'Movement',
-                    data: [12, 19, 3, 5, 2, 3, 7],
+                    label: 'Daily Stock-Out Usage',
+                    data: stats.values,
                     borderColor: '#6366f1',
-                    tension: 0.4,
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 2,
                     fill: true,
-                    backgroundColor: 'rgba(99, 102, 241, 0.05)',
-                    pointRadius: 0
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#6366f1'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { display:false }, y: { display:false } }
+                plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 } } }
+                }
             }
         });
     }
@@ -815,36 +1012,40 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
     function editFromStockCard() {
         if (selectedItemForStockCard) {
-            editItem(selectedItemForStockCard);
             closeStockCard();
+            editItem(selectedItemForStockCard);
         }
     }
 
     function handleUomChange() {
         const uom = document.getElementById('itemUnit').value;
-        const section = document.getElementById('rollSettingsSection');
-        const rollInput = document.getElementById('itemRollLength');
+        const rollSec = document.getElementById('rollSettingsSection');
+        const lengthInput = document.getElementById('itemRollLength');
+        const lengthReq = document.getElementById('rollLengthRequired');
+        
         if (uom === 'ft') {
-            section.style.maxHeight = '200px';
-            section.style.opacity = '1';
-            rollInput.required = true;
+            rollSec.style.maxHeight = '200px';
+            rollSec.style.opacity = '1';
+            lengthInput.required = true;
+            lengthReq.style.display = 'inline';
+            document.getElementById('itemTrackByRoll').value = '1';
         } else {
-            section.style.maxHeight = '0';
-            section.style.opacity = '0';
-            rollInput.required = false;
-            rollInput.value = '';
+            rollSec.style.maxHeight = '0';
+            rollSec.style.opacity = '0';
+            lengthInput.required = false;
+            lengthReq.style.display = 'none';
         }
     }
 
-    function openModal(mode = 'create', item = null) {
-        document.getElementById('itemModal').style.display = 'flex';
+    function openModal(mode, item = null) {
+        const modal = document.getElementById('itemModal');
+        modal.style.display = 'flex';
         const form = document.getElementById('itemForm');
         form.reset();
-        // Reset roll section visibility
-        document.getElementById('rollSettingsSection').style.maxHeight = '0';
-        document.getElementById('rollSettingsSection').style.opacity = '0';
-        document.getElementById('itemRollLength').required = false;
         
+        // Default UOM behavior
+        handleUomChange();
+
         if (mode === 'create') {
             document.getElementById('modalTitle').textContent = 'Add New Material';
             document.getElementById('actionType').value = 'create_item';
@@ -906,8 +1107,10 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         // Force focus after display
         setTimeout(() => {
             const qtyInput = document.getElementById('addStockQty');
-            qtyInput.focus();
-            qtyInput.select(); 
+            if (qtyInput) {
+                qtyInput.focus();
+                qtyInput.select();
+            }
         }, 150);
     }
 
@@ -926,7 +1129,6 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
         const rollCode = document.getElementById('addStockRollCode').value;
         const notes = document.getElementById('addStockNotes').value;
         
-        // Call the inventory transactions API to receive stock
         const fd = new FormData();
         fd.set('action', 'record_transaction');
         fd.set('item_id', itemId);
@@ -941,22 +1143,12 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
 
         try {
             const res = await fetch('inventory_transactions_api.php', { method: 'POST', body: fd });
-            const text = await res.text();
-            let data;
-            try { data = JSON.parse(text); } catch(e) { 
-                console.error("Non-JSON API response:", text);
-                alert('Server returned an unexpected response. Please refresh the page and try again (Check Console for details).');
-                return;
-            }
-            
+            const data = await res.json();
             if (data.success) {
                 closeAddStockModal();
-                loadItems();
+                fetchUpdatedTable();
             } else { alert('Operation Failed: ' + data.error); }
-        } catch(err) { 
-            console.error(err);
-            alert('Network communication error. Please try again.'); 
-        }
+        } catch(err) { alert('Network communication error. Please try again.'); }
         finally { btn.disabled = false; btn.textContent = 'Add Stock'; }
     }
 
@@ -976,38 +1168,22 @@ $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, na
             const data = await res.json();
             if (data.success) {
                 closeModal();
-                loadItems();
+                fetchUpdatedTable();
             } else { alert('Error: ' + data.error); }
         } catch (err) { alert('Request failed.'); } 
         finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
-    }
-
-    function suggestSku(name) {
-        // SKU feature removed as per user request
     }
 
     function escapeHtml(unsafe) {
         return (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    document.addEventListener('DOMContentLoaded', loadItems);
-    
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('fp_search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(() => { currentPage = 1; loadItems(); }, 500);
-            });
-        }
-        const catSelect = document.getElementById('fp_category');
-        if (catSelect) {
-            catSelect.addEventListener('change', () => { currentPage = 1; loadItems(); });
-        }
-    });
-
     window.addEventListener('click', e => {
         if (e.target.classList.contains('modal')) e.target.style.display = 'none';
+    });
+
+    window.addEventListener('popstate', (event) => {
+        location.reload(); 
     });
 </script>
 </body>

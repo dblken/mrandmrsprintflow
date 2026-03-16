@@ -77,7 +77,7 @@ $page_title = "User Registration - PrintFlow";
     <title><?php echo $page_title; ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        body { font-family: 'Inter', sans-serif; background: #00151b; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .card { background: white; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; }
         h1 { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
         .form-group { margin-bottom: 1rem; }

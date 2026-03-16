@@ -47,6 +47,11 @@ try {
         $address        = sanitize($data['address'] ?? '');
         $contact_number = sanitize($data['contact_number'] ?? '');
         
+        // Auto-append "Branch" if missing
+        if (!empty($branch_name) && !preg_match('/\bBranch$/i', $branch_name)) {
+            $branch_name .= ' Branch';
+        }
+        
         if (empty($branch_name)) {
             echo json_encode(['success' => false, 'error' => 'Branch Name is required']);
             exit;
@@ -97,6 +102,11 @@ try {
         $address        = sanitize($data['address'] ?? '');
         $contact_number = sanitize($data['contact_number'] ?? '');
         $status         = sanitize($data['status'] ?? 'Active');
+        
+        // Auto-append "Branch" if missing
+        if (!empty($branch_name) && !preg_match('/\bBranch$/i', $branch_name)) {
+            $branch_name .= ' Branch';
+        }
         
         if (!$branch_id) {
             echo json_encode(['success' => false, 'error' => 'Branch ID is required']);

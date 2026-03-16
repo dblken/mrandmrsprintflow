@@ -9,10 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
 
-$all_cart_items = $_SESSION['cart'] ?? [];
-$cart_items = array_filter($all_cart_items, function($item) {
-    return ($item['selected'] ?? true);
-});
+$cart_items = $_SESSION['cart'] ?? [];
 
 if (empty($cart_items)) {
     redirect('cart.php');
@@ -140,11 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 // Determine service type from item category or name
                 $service_type = $item['category'] ?? 'General';
                 $cat_lower = strtolower($service_type . ' ' . ($item['name'] ?? ''));
-                if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin Printing';
+                if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin';
                 elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized Signage';
-                elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) $service_type = 'Sintraboard Standees';
-                elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-shirt Printing';
-                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals/Stickers';
+                elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) $service_type = 'Sintraboard & Standees';
+                elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-Shirt Printing';
+                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals & Stickers';
                 elseif (strpos($cat_lower, 'souvenir') !== false) $service_type = 'Souvenirs';
                 
                 // Parse dimensions from customization data
@@ -169,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 db_execute(
                     "INSERT INTO job_orders (job_title, service_type, customer_id, order_item_id, width_ft, height_ft, quantity, status, customer_type, estimated_total, created_at)
                      VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())",
-                    'ssiiddisd',
+                    'ssiididids',
                     [$job_title, $service_type, $customer_id, $oi_id, $width_ft, $height_ft, $job_qty, $cust_type, $item['price'] * $job_qty]
                 );
             }
@@ -361,4 +358,3 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-

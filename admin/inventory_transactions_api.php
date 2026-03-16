@@ -43,6 +43,8 @@ try {
             $params = [];
             $types = '';
             
+            $search     = sanitize($_GET['search'] ?? '');
+            
             if ($item_id) {
                 $sql .= " AND t.item_id = ?";
                 $params[] = $item_id;
@@ -57,6 +59,12 @@ try {
                 }
                 $params[] = $type;
                 $types .= 's';
+            }
+            if ($search) {
+                $st = '%' . $search . '%';
+                $sql .= " AND (i.name LIKE ? OR t.notes LIKE ? OR t.reference_id LIKE ?)";
+                $params[] = $st; $params[] = $st; $params[] = $st;
+                $types .= 'sss';
             }
             if ($start_date && $end_date) {
                 $sql .= " AND t.transaction_date BETWEEN ? AND ?";
