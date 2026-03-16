@@ -124,7 +124,7 @@ require_once __DIR__ . '/shop_config.php';
                         <?php 
                         $notif_display = $unread_count > 99 ? '99+' : $unread_count; 
                         ?>
-                        <span id="nav-notif-badge" style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:<?php echo ($unread_count > 0 ? 'flex' : 'none'); ?>;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $notif_display; ?></span>
+                        <span id="nav-notif-badge" data-notif-badge style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:<?php echo ($unread_count > 0 ? 'flex' : 'none'); ?>;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $notif_display; ?></span>
                     </a>
 
                     <!-- User Dropdown -->
@@ -237,22 +237,6 @@ require_once __DIR__ . '/shop_config.php';
             if (seg && p.indexOf('/' + seg) !== -1) a.classList.add('nav-active');
         }
     });
-    // Notification Polling
-    function updateNotifCount() {
-        fetch('/printflow/public/api/notification_count.php')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const badge = document.getElementById('nav-notif-badge');
-                    if (badge) {
-                        badge.innerText = data.count > 99 ? '99+' : data.count;
-                        badge.style.display = data.count > 0 ? 'flex' : 'none';
-                    }
-                }
-            })
-            .catch(err => console.error('Notif error:', err));
-    }
-    // Poll every 10 seconds
-    setInterval(updateNotifCount, 10000);
+    // Notification badge and polling are handled by notifications.js (loaded in footer)
 }());
 </script>

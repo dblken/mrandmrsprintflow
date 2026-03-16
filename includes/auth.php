@@ -127,14 +127,27 @@ function get_logged_in_user() {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_user($email, $password, $remember_me = false) {
-    $result = db_query("SELECT * FROM users WHERE email = ? AND status IN ('Activated', 'Pending')", 's', [$email]);
-    
+    // First check if email exists at all (regardless of status)
+    $result = db_query("SELECT * FROM users WHERE email = ?", 's', [$email]);
+
     if (empty($result)) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
-    
+
     $user = $result[0];
-    
+
+    // Account status check — give specific error before password check
+    if ($user['status'] === 'Disabled') {
+        return ['success' => false, 'message' => 'Your account has been disabled. Please contact support.'];
+    }
+    if ($user['status'] === 'Suspended') {
+        return ['success' => false, 'message' => 'Your account has been suspended. Please contact support.'];
+    }
+    // Only allow Activated or Pending status
+    if (!in_array($user['status'], ['Activated', 'Pending'])) {
+        return ['success' => false, 'message' => 'Your account is not active. Please contact support.'];
+    }
+
     if (!password_verify($password, $user['password_hash'])) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
@@ -190,7 +203,7 @@ function login_user($email, $password, $remember_me = false) {
  */
 function login_customer($email, $password, $remember_me = false) {
     $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
-    
+
     // Also try phone-based accounts (contact_number match or phone@phone.local email)
     if (empty($result)) {
         $phone_clean = preg_replace('/[\s\-\(\)]/', '', $email);
@@ -207,9 +220,19 @@ function login_customer($email, $password, $remember_me = false) {
     if (empty($result)) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
-    
+
     $customer = $result[0];
-    
+
+    // Account status check (if the customers table has a status column)
+    if (isset($customer['status'])) {
+        if ($customer['status'] === 'Disabled') {
+            return ['success' => false, 'message' => 'Your account has been disabled. Please contact support.'];
+        }
+        if ($customer['status'] === 'Suspended') {
+            return ['success' => false, 'message' => 'Your account has been suspended. Please contact support.'];
+        }
+    }
+
     if (!password_verify($password, $customer['password_hash'])) {
         return ['success' => false, 'message' => 'Invalid email or password'];
     }
@@ -279,9 +302,9 @@ function login_customer_by_google($email, $first_name, $last_name) {
 function login($email, $password, $remember_me = false) {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-    // Rate limit: block IP after 5 failed attempts within 60 seconds
-    if (RateLimiter::isBlocked('login', $ip, 5, 60)) {
-        return ['success' => false, 'message' => 'Too many login attempts. Please wait a moment and try again.'];
+    // Rate limit: block IP after 5 failed attempts within 15 minutes (900 seconds)
+    if (RateLimiter::isBlocked('login', $ip, 5, 900)) {
+        return ['success' => false, 'message' => 'Too many login attempts. Your access has been temporarily locked for 15 minutes. Please try again later.'];
     }
 
     // Try customer login first
@@ -419,6 +442,7 @@ function register_customer_direct($type, $identifier, $password) {
             
             $_SESSION['otp_pending_email'] = $email;
             $_SESSION['otp_user_type'] = 'Customer';
+            $_SESSION['otp_resend_attempts'] = 0;
 
             return ['success' => true, 'message' => 'Registration successful! Verification code sent.'];
         } else {

@@ -18,7 +18,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     position: fixed;
     inset: 0;
     z-index: 99998;
-    background: rgba(0, 10, 18, 0.78);
+    background: rgba(0, 10, 18, 0.9);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.14s ease-out, visibility 0.14s ease-out;
@@ -34,49 +34,23 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     transform: translate(-50%, -50%);
     z-index: 99999;
     width: 100%;
-    max-width: 28rem;
-    max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: #00232b;
-    border: 1px solid rgba(255,255,255,.09);
-    border-radius: 1rem;
+    max-width: 440px;
+    background: #00151b;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 1.25rem;
     box-shadow: 0 30px 70px rgba(0,0,0,.65), 0 0 50px rgba(83,197,224,.07);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.14s ease-out, visibility 0.14s ease-out;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh; /* Attached scrollbar to modal */
 }
-    .auth-modal-inner {
-        overflow-y: auto;
-        flex: 1;
-        -webkit-overflow-scrolling: touch;
-    }
-    /* Custom scrollbar — Chrome / Edge / Safari */
-    .auth-modal-inner::-webkit-scrollbar {
-        width: 6px;
-    }
-    .auth-modal-inner::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .auth-modal-inner::-webkit-scrollbar-thumb {
-        background: rgba(50, 161, 196, 0.35);
-        border-radius: 3px;
-        transition: background 0.2s;
-    }
-    .auth-modal-inner::-webkit-scrollbar-thumb:hover {
-        background: rgba(83, 197, 224, 0.6);
-    }
-    /* Custom scrollbar — Firefox */
-    .auth-modal-inner {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(50, 161, 196, 0.35) transparent;
-    }
 .auth-modal.is-open {
     opacity: 1;
     visibility: visible;
 }
-    .auth-modal-register { max-width: 28rem; }
+    .auth-modal-register { max-width: 32rem; max-height: 95vh; }
     .auth-modal-close {
         position: absolute;
         right: 1rem;
@@ -97,9 +71,24 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         color: #e0f2fe;
         background: rgba(255,255,255,.08);
     }
-    .auth-modal-inner { padding: 2rem 1.5rem; overflow-y: auto; flex: 1; }
+    .auth-modal-inner { padding: 2rem 1.5rem; }
     .auth-modal h2 { margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 700; color: #ffffff; text-align: center; }
     .auth-modal .auth-modal-sub { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #94a3b8; text-align: center; }
+
+    .auth-modal-scrollable {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 4px; /* Space for custom scrollbar */
+    }
+    .auth-modal-register .auth-modal-scrollable {
+        overflow-y: visible;
+        padding-right: 0;
+    }
+    /* Custom scrollbar for modal */
+    .auth-modal-scrollable::-webkit-scrollbar { width: 6px; }
+    .auth-modal-scrollable::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+    .auth-modal-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .auth-modal-scrollable::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
     .auth-modal .input-field {
         width: 100%;
         padding: 0.55rem 0.85rem;
@@ -124,6 +113,17 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .auth-modal .auth-btn-submit { width: 100%; padding: 0.7rem 1rem; background: #32a1c4; color: #fff; font-weight: 600; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; transition: background .2s, box-shadow .2s; }
     .auth-modal .auth-btn-submit:hover { background: #2a82a3; box-shadow: 0 0 24px rgba(83,197,224,.4); }
     .auth-modal .auth-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-modal .btn-loading-wrap { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .auth-modal .btn-loading-spinner {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.35);
+        border-top-color: #53C5E0;
+        animation: authBtnSpin .8s linear infinite;
+        flex-shrink: 0;
+    }
+    @keyframes authBtnSpin { to { transform: rotate(360deg); } }
     .auth-modal .auth-switch { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: #64748b; }
     .auth-modal .auth-switch a { color: #53C5E0; font-weight: 600; text-decoration: none; }
     .auth-modal .auth-switch a:hover { color: #7acae3; }
@@ -132,6 +132,50 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .auth-modal .auth-field-row label { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #94a3b8; }
     .auth-modal .auth-field-row a { font-size: 0.875rem; color: #53C5E0; }
     .auth-modal input[type="checkbox"] { accent-color: #32a1c4; }
+    .auth-modal .auth-google-wrap { margin-bottom: 1rem; }
+    /* Field-level error messages in modals */
+    .modal-field-error {
+        margin: 0;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        font-size: 0.72rem;
+        color: #f87171;
+        transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+    }
+    .modal-field-error:not(:empty) {
+        margin-top: 6px;
+        max-height: 72px;
+        opacity: 1;
+    }
+    /* Password strength checklist — 2-col 3×2 grid, matching dark modal theme */
+    .reg-pw-checklist {
+        list-style: none;
+        margin: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3px 8px;
+        font-size: 0.7rem;
+        color: #64748b;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        padding: 0;
+        transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease, padding 0.18s ease;
+    }
+    .reg-pw-checklist.is-visible {
+        margin-top: 8px;
+        max-height: 120px;
+        opacity: 1;
+        padding: 8px 0 2px;
+    }
+    .reg-pw-checklist li { transition: color 0.15s; display: flex; align-items: center; gap: 4px; }
+    .reg-pw-checklist li::before { content: '✘'; font-size: 0.65rem; color: #f87171; flex-shrink: 0; }
+    .reg-pw-checklist li.ok { color: #34d399 !important; }
+    .reg-pw-checklist li.ok::before { content: '✔'; color: #34d399; }
+    .reg-pw-checklist li.neutral::before { content: '○'; color: #64748b; }
+    /* Match indicator */
+    .reg-match-ok { margin: 4px 0 0; font-size: 0.72rem; color: #34d399; font-weight: 600; }
     .auth-modal .auth-google-wrap { margin-bottom: 1rem; }
     .auth-modal .auth-btn-google {
         display: flex;
@@ -179,8 +223,6 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .reg-step-line.done { background: #22c55e; }
     .auth-password-wrap { position: relative; }
     .auth-password-wrap .input-field { padding-right: 3rem; }
-    .auth-password-wrap .input-field::-ms-reveal,
-    .auth-password-wrap .input-field::-ms-clear { display: none; }
     .auth-password-toggle {
         position: absolute;
         right: 0.75rem;
@@ -208,38 +250,96 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         height: 1.25rem;
         pointer-events: none;
     }
-
-    /* ═══ Validation Feedback Styles ═══ */
-    .field-error {
-        margin: 0.3rem 0 0; font-size: 0.75rem; color: #f87171;
-        min-height: 1.1em; transition: opacity 0.15s;
+    .auth-modal input[type="password"]::-ms-reveal,
+    .auth-modal input[type="password"]::-ms-clear {
+        display: none;
     }
-    .field-error:empty { opacity: 0; }
-    .field-success {
-        margin: 0.3rem 0 0; font-size: 0.75rem; color: #4ade80;
+    #reg-form-final {
+        display: flex;
+        flex-direction: column;
+        gap: 0.95rem;
     }
-    .input-field.is-invalid { border-color: #f87171 !important; }
-    .input-field.is-valid { border-color: #4ade80 !important; }
-
-    /* Password checklist */
-    .pw-checklist {
-        list-style: none; padding: 0; margin: 0.4rem 0 0;
-        display: none; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.75rem;
+    #reg-form-final .auth-field,
+    #reg-form-final .reg-tabs {
+        margin-bottom: 0;
     }
-    .pw-checklist.active {
-        display: grid;
+    #reg-form-final .auth-btn-submit {
+        margin-top: 0;
     }
-    .pw-checklist li {
-        font-size: 0.7rem; color: #f87171; display: flex; align-items: center; gap: 0.35rem;
-        transition: color 0.2s;
+    #reg-otp-step {
+        display: none;
+        text-align: center;
     }
-    .pw-checklist li.met { color: #4ade80; }
-    .pw-checklist li .ck { display: inline-block; width: 14px; text-align: center; font-weight: 700; }
-
-    /* Confirm match */
-    .pw-match-indicator {
-        margin: 0.3rem 0 0; font-size: 0.75rem; font-weight: 600;
-        min-height: 1.1em;
+    #reg-otp-step.active {
+        display: block;
+    }
+    #reg-otp-step .auth-field {
+        margin-bottom: 0;
+    }
+    #reg-otp-step .auth-modal-sub {
+        margin-bottom: 1rem !important;
+    }
+    #reg-otp-step label {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    .reg-code-inputs {
+        margin: 0.25rem 0 0.25rem;
+    }
+    .reg-code-inputs input {
+        width: 2.85rem;
+        height: 2.9rem;
+        font-size: 1.15rem;
+        border-radius: 0.55rem;
+    }
+    .reg-otp-actions {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    .reg-otp-actions .auth-btn-submit {
+        width: 100%;
+        max-width: 220px;
+        min-height: 46px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+    .reg-otp-resend {
+        margin-top: 0.85rem;
+        font-size: 0.95rem;
+        color: #94a3b8;
+        min-height: 24px;
+    }
+    .reg-otp-resend a {
+        color: #53C5E0;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .reg-otp-resend a:hover {
+        color: #7acae3;
+    }
+    .auth-btn-secondary {
+        width: 100%;
+        padding: 0.7rem 1rem;
+        background: transparent;
+        color: #cbd5e1;
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    .auth-btn-secondary:hover {
+        background: rgba(255,255,255,.06);
+    }
+    @media (max-height: 760px) {
+        .auth-modal-register .auth-modal-scrollable {
+            overflow-y: auto;
+            padding-right: 4px;
+        }
     }
 </style>
 
@@ -248,117 +348,149 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 <!-- Login Modal -->
 <div class="auth-modal" id="auth-modal-login" role="dialog" aria-labelledby="auth-login-title" aria-modal="true">
     <button type="button" class="auth-modal-close" data-auth-close aria-label="Close">&times;</button>
-    <div class="auth-modal-inner">
-        <h2 id="auth-login-title">Welcome Back</h2>
-        <p class="auth-modal-sub">Sign in to your PrintFlow account</p>
-        <div id="auth-login-message"></div>
-        <?php if (!empty($google_client_id)): ?>
-        <div class="auth-field auth-google-wrap">
-            <a href="<?php echo htmlspecialchars($url_google_auth ?? $base_url . '/google-auth/'); ?>?action=login" class="auth-btn-google" aria-label="Sign in with Google">
-                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                Sign in with Google
-            </a>
-        </div>
-        <p class="auth-divider"><span>or</span></p>
-        <?php endif; ?>
-        <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/login/">
-            <?php echo csrf_field(); ?>
-            <div class="auth-field">
-                <label for="auth-email">Email Address</label>
-                <input type="email" id="auth-email" name="email" class="input-field" placeholder="you@example.com" required autocomplete="email" maxlength="100">
-                <p class="field-error" id="auth-email-error"></p>
+    <div class="auth-modal-scrollable">
+        <div class="auth-modal-inner">
+            <h2 id="auth-login-title">Welcome Back</h2>
+            <p class="auth-modal-sub">Sign in to your PrintFlow account</p>
+            <div id="auth-login-message"></div>
+            <?php if (!empty($google_client_id)): ?>
+            <div class="auth-field auth-google-wrap">
+                <a href="<?php echo htmlspecialchars($url_google_auth ?? $base_url . '/google-auth/'); ?>?action=login" class="auth-btn-google" aria-label="Sign in with Google">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign in with Google
+                </a>
             </div>
-            <div class="auth-field">
-                <label for="auth-password">Password</label>
-                <div class="auth-password-wrap">
-                    <input type="password" id="auth-password" name="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" maxlength="100">
-                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="auth-password">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
-                    </button>
+            <p class="auth-divider"><span>or</span></p>
+            <?php endif; ?>
+            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/login/">
+                <?php echo csrf_field(); ?>
+                <div class="auth-field">
+                    <label for="auth-email">Email Address</label>
+                    <input type="email" id="auth-email" name="email" class="input-field"
+                           placeholder="Email address" required
+                           maxlength="150"
+                           autocomplete="email">
+                    <p class="modal-field-error" id="auth-email-error"></p>
                 </div>
-                <p class="field-error" id="auth-password-error"></p>
-            </div>
-            <div class="auth-field-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <label style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.875rem; cursor: pointer;">
-                    <input type="checkbox" name="remember_me" value="1" style="width: 1rem; height: 1rem; accent-color: #32a1c4;">
-                    Remember me
-                </label>
-                <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none;">Forgot password?</a>
-            </div>
-            <button type="submit" class="auth-btn-submit">Sign In</button>
-        </form>
-        <p class="auth-switch">Don't have an account? <a href="#" data-auth-open="register">Register now</a></p>
+                <div class="auth-field">
+                    <label for="auth-password">Password</label>
+                    <div class="auth-password-wrap">
+                        <input type="password" id="auth-password" name="password" class="input-field"
+                               placeholder="Password" required
+                               maxlength="64"
+                               autocomplete="current-password">
+                        <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="auth-password">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                        </button>
+                    </div>
+                    <p class="modal-field-error" id="auth-password-error"></p>
+                </div>
+                <div class="auth-field-row" style="text-align: center; margin-bottom: 1.5rem;">
+                    <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none; display: inline-block; width: 100%;">Forgot password?</a>
+                </div>
+                <button type="submit" class="auth-btn-submit">Sign In</button>
+            </form>
+            <p class="auth-switch">Don't have an account? <a href="#" data-auth-open="register">Register now</a></p>
+        </div>
     </div>
 </div>
 
 <!-- Register Modal — 2-Step OTP Flow -->
 <div class="auth-modal auth-modal-register" id="auth-modal-register" role="dialog" aria-labelledby="auth-register-title" aria-modal="true">
     <button type="button" class="auth-modal-close" data-auth-close aria-label="Close">&times;</button>
-    <div class="auth-modal-inner">
-        <h2 id="auth-register-title">Create Account</h2>
-        <p class="auth-modal-sub">Join PrintFlow — verify your email or phone to get started</p>
-        <div id="auth-register-message"></div>
+    <div class="auth-modal-scrollable">
+        <div class="auth-modal-inner">
+            <h2 id="auth-register-title">Create Account</h2>
+            <p class="auth-modal-sub">Join PrintFlow — verify your email or phone to get started</p>
+            <div id="auth-register-message"></div>
 
-        <!-- Step indicator (Removed) -->
+            <!-- Step indicator (Removed) -->
 
-        <!-- ═══ DIRECT REGISTRATION FORM ═══ -->
-        <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/" id="reg-form-final">
-            <?php echo csrf_field(); ?>
-            <input type="hidden" name="reg_type" value="direct">
-            <input type="hidden" name="identifier_type" id="reg-h-type" value="email">
+            <!-- ═══ DIRECT REGISTRATION FORM ═══ -->
+            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/" id="reg-form-final">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="reg_type" value="direct">
+                <input type="hidden" name="identifier_type" id="reg-h-type" value="email">
 
-            <!-- Tabs -->
-            <div class="reg-tabs">
-                <button type="button" class="reg-tab active" id="reg-tab-email" onclick="regSwitchTab('email')">Email</button>
-                <button type="button" class="reg-tab" id="reg-tab-phone" onclick="regSwitchTab('phone')">Phone</button>
-            </div>
-
-            <!-- Identifier input -->
-            <div class="auth-field">
-                <label id="reg-id-label" for="reg-identifier">Email Address</label>
-                <input type="text" id="reg-identifier" name="identifier" class="input-field" 
-                       placeholder="you@example.com" required maxlength="100"
-                       value="<?php echo htmlspecialchars($_SESSION['otp_pending_email'] ?? ''); ?>">
-                <p class="field-error" id="reg-email-error"></p>
-            </div>
-
-            <!-- Password fields -->
-            <div class="auth-field">
-                <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
-                <div class="auth-password-wrap">
-                    <input type="password" id="reg-password" name="password" class="input-field" placeholder="••••••••" required minlength="8" maxlength="100">
-                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-password">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
-                    </button>
+                <!-- Tabs -->
+                <div class="reg-tabs">
+                    <button type="button" class="reg-tab active" id="reg-tab-email" onclick="regSwitchTab('email')">Email</button>
+                    <button type="button" class="reg-tab" id="reg-tab-phone" onclick="regSwitchTab('phone')">Phone</button>
                 </div>
-                <ul class="pw-checklist" id="reg-pw-checklist">
-                    <li id="pw-rule-len"><span class="ck">✗</span> 8–64 characters</li>
-                    <li id="pw-rule-upper"><span class="ck">✗</span> Uppercase</li>
-                    <li id="pw-rule-lower"><span class="ck">✗</span> Lowercase</li>
-                    <li id="pw-rule-num"><span class="ck">✗</span> Number</li>
-                    <li id="pw-rule-spec"><span class="ck">✗</span> Special char</li>
-                </ul>
-                <div class="pw-strength-wrap">
-                    <div class="pw-strength-track"><div class="pw-strength-fill" id="reg-pw-strength-fill"></div></div>
-                    <span class="pw-strength-label" id="reg-pw-strength-label" style="color:#64748b;"></span>
+
+                <!-- Identifier input -->
+                <div class="auth-field">
+                    <label id="reg-id-label" for="reg-identifier">Email Address</label>
+                    <input type="text" id="reg-identifier" name="identifier" class="input-field"
+                           placeholder="Email address" required
+                           maxlength="150"
+                           autocomplete="email">
+                    <p class="modal-field-error" id="reg-id-error"></p>
                 </div>
-            </div>
-            
-            <div class="auth-field">
-                <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
-                <div class="auth-password-wrap">
-                    <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field" placeholder="••••••••" required minlength="8" maxlength="100">
-                    <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-confirm-pw">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
-                    </button>
+
+                <!-- Password fields -->
+                <div class="auth-field">
+                    <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
+                    <div class="auth-password-wrap">
+                        <input type="password" id="reg-password" name="password" class="input-field"
+                               placeholder="Password" required
+                               maxlength="64"
+                               autocomplete="new-password">
+                        <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-password">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                        </button>
+                    </div>
+                    <!-- Password strength checklist — 2 cols × 3 rows -->
+                    <ul class="reg-pw-checklist" id="reg-pw-checklist">
+                        <li id="reg-pw-len" class="neutral">At least 8 characters</li>
+                        <li id="reg-pw-upper" class="neutral">1 uppercase letter</li>
+                        <li id="reg-pw-lower" class="neutral">1 lowercase letter</li>
+                        <li id="reg-pw-number" class="neutral">1 number</li>
+                        <li id="reg-pw-special" class="neutral">1 special character</li>
+                    </ul>
+                    <p class="modal-field-error" id="reg-password-error"></p>
                 </div>
-                <p class="pw-match-indicator" id="reg-pw-match"></p>
+
+                <div class="auth-field">
+                    <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
+                    <div class="auth-password-wrap">
+                        <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field"
+                               placeholder="Confirm password" required
+                               maxlength="64"
+                               autocomplete="new-password">
+                        <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-confirm-pw">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12 18.75 19.5 12 19.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
+                        </button>
+                    </div>
+                    <p class="modal-field-error" id="reg-confirm-error"></p>
+                    <p class="reg-match-ok" id="reg-match-ok" style="display:none;">✓ Passwords match</p>
+                </div>
+
+                <button type="submit" class="auth-btn-submit">Create Account</button>
+            </form>
+
+            <div id="reg-otp-step" aria-live="polite">
+                <div class="auth-field">
+                    <p class="auth-modal-sub" id="reg-otp-sub" style="margin-bottom:0.9rem;">Enter the 6-digit code sent to your email.</p>
+                    <label for="reg-otp-digit-0">Verification Code</label>
+                    <div class="reg-code-inputs" id="reg-otp-code-inputs">
+                        <input type="text" id="reg-otp-digit-0" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code">
+                        <input type="text" id="reg-otp-digit-1" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                        <input type="text" id="reg-otp-digit-2" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                        <input type="text" id="reg-otp-digit-3" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                        <input type="text" id="reg-otp-digit-4" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                        <input type="text" id="reg-otp-digit-5" class="reg-otp-digit" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                    </div>
+                    <p class="modal-field-error" id="reg-otp-error"></p>
+                </div>
+                <div class="reg-otp-actions">
+                    <button type="button" class="auth-btn-submit" id="reg-otp-verify-btn">Verify Code</button>
+                </div>
+                <p class="reg-otp-resend" id="reg-otp-resend-wrap"></p>
             </div>
 
-            <button type="submit" class="auth-btn-submit" style="margin-top:1.5rem;">Create Account</button>
-        </form>
-
-        <p class="auth-switch">Already have an account? <a href="#" data-auth-open="login">Sign in</a></p>
+            <p class="auth-switch">Already have an account? <a href="#" data-auth-open="login">Sign in</a></p>
+        </div>
     </div>
 </div>
 
@@ -368,7 +500,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     <button type="button" class="auth-modal-close" data-forgot-close aria-label="Close">&times;</button>
     <div class="auth-modal-inner">
         <h2 id="forgot-modal-title">Reset Password</h2>
-        <p class="auth-modal-sub">Enter your email and we'll send you a reset link</p>
+        <p class="auth-modal-sub">Enter your email and we'll send you a reset code</p>
         
         <div id="forgot-message"></div>
         
@@ -381,7 +513,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 <input type="email" id="forgot-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
             </div>
             
-            <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Link</button>
+            <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Code</button>
         </form>
         
         <p class="auth-switch" style="margin-top: 1rem;">
@@ -405,6 +537,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (registerModal) { registerModal.classList.remove('is-open'); }
         var modal = name === 'register' ? registerModal : loginModal;
         if (!modal) return;
+        if (name === 'register') resetRegisterFlow();
         backdrop.classList.add('is-open');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -432,6 +565,19 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         var div = document.createElement('div');
         div.textContent = s;
         return div.innerHTML;
+    }
+    function setButtonLoading(btn, loading, label) {
+        if (!btn) return;
+        if (loading) {
+            if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="btn-loading-wrap"><span class="btn-loading-spinner"></span><span>' + escapeHtml(label || 'Loading...') + '</span></span>';
+            return;
+        }
+        btn.disabled = false;
+        if (btn.dataset.originalHtml) {
+            btn.innerHTML = btn.dataset.originalHtml;
+        }
     }
     function getPasswordIcon(isVisible) {
         return isVisible
@@ -474,118 +620,91 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     // ═══ Forgot Password Modal Logic ═══
     var forgotBackdrop = document.getElementById('forgot-modal-backdrop');
     var forgotModal = document.getElementById('forgot-modal');
-    
-    function openForgotModal() {
-        closeModal(); // Close auth modals first
-        if (forgotBackdrop && forgotModal) {
-            forgotBackdrop.classList.add('is-open');
-            forgotModal.classList.add('is-open');
-            forgotModal.setAttribute('aria-hidden', 'false');
-            forgotBackdrop.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        }
-    }
-    
-    function closeForgotModal() {
-        if (forgotBackdrop && forgotModal) {
-            forgotBackdrop.classList.remove('is-open');
-            forgotModal.classList.remove('is-open');
-            document.body.style.overflow = '';
-            // Clear form
-            var form = document.getElementById('forgot-form');
-            if (form) form.reset();
-            var msg = document.getElementById('forgot-message');
-            if (msg) msg.innerHTML = '';
-        }
-    }
-    
-    // handleForgotSubmit implementation (must handle AJAX)
-    window.handleForgotSubmit = function(e) {
-        e.preventDefault();
-        var type = document.getElementById('forgot-type').value;
-        var identifier = document.getElementById('forgot-identifier').value;
-        var submitBtn = e.target.querySelector('button[type="submit"]');
-        var originalText = submitBtn.textContent;
-        var messageEl = document.getElementById('forgot-message');
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending...';
-
-        var formData = new FormData();
-        formData.append('type', type);
-        formData.append('identifier', identifier);
-
-        fetch('<?php echo $base_url; ?>/public/api_forgot_password.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data.success) {
-                var successMsg = data.message || 'Reset code sent!';
-                if (data.debug && data.debug.reset_code) {
-                    successMsg += '<br><br><strong>DEV MODE:</strong> Code: <code>' + data.debug.reset_code + '</code>';
-                }
-                messageEl.innerHTML = '<div class="auth-alert-success">' + successMsg + '</div>';
-                setTimeout(function() {
-                    window.location.href = '<?php echo $base_url; ?>/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
-                }, 2500);
-            } else {
-                messageEl.innerHTML = '<div class="auth-alert-error">' + (data.message || 'Error occurred') + '</div>';
-            }
-        })
-        .catch(function(err) {
-            messageEl.innerHTML = '<div class="auth-alert-error">Network error. Please try again.</div>';
-        })
-        .finally(function() {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        });
-    };
-    
     function showForgotMessage(type, text) {
         var msgEl = document.getElementById('forgot-message');
         if (msgEl) {
             msgEl.innerHTML = '<div class="auth-alert-' + type + '">' + escapeHtml(text) + '</div>';
         }
     }
-    
+
+    function openForgotModal() {
+        closeModal();
+        if (!forgotBackdrop || !forgotModal) return;
+        forgotBackdrop.classList.add('is-open');
+        forgotModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeForgotModal(backToLogin) {
+        if (!forgotBackdrop || !forgotModal) return;
+        forgotBackdrop.classList.remove('is-open');
+        forgotModal.classList.remove('is-open');
+        document.body.style.overflow = '';
+
+        var form = document.getElementById('forgot-form');
+        if (form) form.reset();
+        var msg = document.getElementById('forgot-message');
+        if (msg) msg.innerHTML = '';
+
+        if (backToLogin) {
+            openModal('login');
+        }
+    }
+
     window.handleForgotSubmit = function(e) {
         e.preventDefault();
-        
+
         var type = document.getElementById('forgot-type').value;
-        var identifier = document.getElementById('forgot-identifier').value;
-        
-        if (!type || !identifier) {
-            showForgotMessage('error', 'Please fill in all fields.');
+        var identifier = (document.getElementById('forgot-identifier').value || '').trim();
+        var submitBtn = e.target.querySelector('button[type="submit"]');
+        var originalText = submitBtn ? submitBtn.textContent : '';
+
+        if (!identifier) {
+            showForgotMessage('error', 'Please enter your email address.');
             return;
         }
-        
-        // Send AJAX request
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+        }
+
         var formData = new FormData();
         formData.append('type', type);
         formData.append('identifier', identifier);
-        
-        fetch('<?php echo $base_url; ?>/api_forgot_password.php', {
+
+        fetch('<?php echo htmlspecialchars($base_url); ?>/public/api_forgot_password.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         })
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
+        .then(function(response) { return response.text(); })
+        .then(function(text) {
+            var data = null;
+            try { data = JSON.parse(text); } catch (err) { data = null; }
+
+            if (!data) {
+                showForgotMessage('error', 'Server error. Please try again.');
+                return;
+            }
             if (data.success) {
-                showForgotMessage('success', data.message || 'Reset link sent successfully! Check your ' + type + '.');
+                showForgotMessage('success', data.message || 'Reset code sent successfully!');
                 setTimeout(function() {
-                    closeForgotModal();
-                    // Optionally redirect to reset page
-                    // window.location.href = '<?php echo $base_url; ?>/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
-                }, 2000);
+                    closeForgotModal(true);
+                }, 900);
             } else {
-                showForgotMessage('error', data.message || 'Failed to send reset link. Please try again.');
+                showForgotMessage('error', data.message || 'Failed to send reset code. Please try again.');
             }
         })
-        .catch(function(error) {
-            showForgotMessage('error', 'An error occurred. Please try again.');
-            console.error('Error:', error);
+        .catch(function() {
+            showForgotMessage('error', 'Network error. Please try again.');
+        })
+        .finally(function() {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText || 'Send Reset Code';
+            }
         });
     };
     
@@ -597,7 +716,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         }
         if (e.target.matches('[data-forgot-close]')) {
             e.preventDefault();
-            closeForgotModal();
+            closeForgotModal(true);
         }
         if (e.target === forgotBackdrop) {
             closeForgotModal();
@@ -605,223 +724,733 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     });
 
     // ═══ Registration logic ═══
+    var regTouched = { identifier: false, password: false, confirm: false };
+    var regPendingEmail = '';
+    var regPendingType = 'email';
+    var regOtpCooldownTimer = null;
+    var regOtpResendAttempts = 0;
+    var regOtpCooldownEndMs = 0;   // absolute timestamp when cooldown ends
+    var regOtpCreatedAtMs   = 0;   // when this OTP was first issued
+    var REG_OTP_EXPIRY_MS   = 10 * 60 * 1000;   // 10 min matches server
+    var REG_OTP_STORAGE_KEY = 'pf_otp_pending';
+
+    function regGetCsrfToken() {
+        // always read fresh from DOM so token is never stale
+        var el = document.querySelector('#reg-form-final input[name="csrf_token"]')
+               || document.querySelector('input[name="csrf_token"]');
+        return el ? el.value : '';
+    }
+
+    // ── sessionStorage helpers ──────────────────────────────────
+    function regSaveOtpState() {
+        try {
+            sessionStorage.setItem(REG_OTP_STORAGE_KEY, JSON.stringify({
+                email:         regPendingEmail,
+                type:          regPendingType,
+                attempts:      regOtpResendAttempts,
+                cooldownEndMs: regOtpCooldownEndMs,
+                createdAtMs:   regOtpCreatedAtMs
+            }));
+        } catch (e) { /* ignore */ }
+    }
+
+    function regClearOtpState() {
+        try { sessionStorage.removeItem(REG_OTP_STORAGE_KEY); } catch (e) { /* ignore */ }
+    }
+
+    function regRestoreOtpState() {
+        var raw;
+        try { raw = sessionStorage.getItem(REG_OTP_STORAGE_KEY); } catch (e) { return false; }
+        if (!raw) return false;
+        var state;
+        try { state = JSON.parse(raw); } catch (e) { return false; }
+        if (!state || !state.email) return false;
+
+        var now = Date.now();
+        var createdAt = state.createdAtMs || 0;
+
+        // OTP expired on the server side (10 min window)
+        if (createdAt && (now - createdAt) > REG_OTP_EXPIRY_MS) {
+            regClearOtpState();
+            setTimeout(function() {
+                openModal('register');
+                var msgEl = document.getElementById('auth-register-message');
+                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Your verification code expired. Please register again to get a new code.</div>';
+            }, 60);
+            return true;
+        }
+
+        regPendingEmail         = state.email;
+        regPendingType          = state.type || 'email';
+        regOtpResendAttempts    = state.attempts || 0;
+        regOtpCooldownEndMs     = state.cooldownEndMs || 0;
+        regOtpCreatedAtMs       = createdAt;
+
+        var remainingSecs = Math.max(0, Math.ceil((regOtpCooldownEndMs - now) / 1000));
+
+        setTimeout(function() {
+            openModal('register');
+            var otpSub = document.getElementById('reg-otp-sub');
+            if (otpSub) {
+                otpSub.textContent = regPendingType === 'email'
+                    ? 'Enter the 6-digit code sent to your email.'
+                    : 'Enter the 6-digit code sent for verification.';
+            }
+            showRegisterStep('otp');
+            regStartOtpCooldown(remainingSecs, true /* restored, skip re-save */);
+        }, 60);
+        return true;
+    }
+
     window.regSwitchTab = function(type) {
         document.getElementById('reg-h-type').value = type;
-        
+        var idEl = document.getElementById('reg-identifier');
+        var errEl = document.getElementById('reg-id-error');
+
         if (type === 'email') {
             document.getElementById('reg-tab-email').classList.add('active');
             document.getElementById('reg-tab-phone').classList.remove('active');
             document.getElementById('reg-id-label').textContent = 'Email Address';
-            document.getElementById('reg-identifier').placeholder = 'you@example.com';
-            document.getElementById('reg-identifier').type = 'email';
+            idEl.placeholder = 'Email address';
+            idEl.type = 'email';
+            idEl.maxLength = 150;
+            idEl.autocomplete = 'email';
         } else {
             document.getElementById('reg-tab-phone').classList.add('active');
             document.getElementById('reg-tab-email').classList.remove('active');
             document.getElementById('reg-id-label').textContent = 'Phone Number';
-            document.getElementById('reg-identifier').placeholder = '09171234567';
-            document.getElementById('reg-identifier').type = 'tel';
+            idEl.placeholder = '09171234567';
+            idEl.type = 'tel';
+            idEl.maxLength = 15;
+            idEl.autocomplete = 'tel';
         }
+        idEl.value = '';
+        regTouched.identifier = false;
+        if (errEl) errEl.textContent = '';
+        regCheckForm(false);
     };
 
-    // ═══ VALIDATION ENGINE ═══
-    var baseUrl = <?php echo json_encode($base_url); ?>;
-
-    // --- Space-blocking helper ---
-    function blockSpaces(el) {
-        if (!el) return;
-        el.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
-        el.addEventListener('paste', function(e) {
-            setTimeout(function() { el.value = el.value.replace(/\s/g, ''); }, 0);
-        });
+    // ── Register modal validators ────────────────────────────────
+    function regValidEmail(val) {
+        if (!val) return 'Email is required.';
+        if (val.length > 150) return 'Email must not exceed 150 characters.';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Invalid email address.';
+        return null;
     }
-    // Apply to login inputs
-    blockSpaces(document.getElementById('auth-email'));
-    blockSpaces(document.getElementById('auth-password'));
-    // Apply to register inputs
-    blockSpaces(document.getElementById('reg-identifier'));
-    blockSpaces(document.getElementById('reg-password'));
-    blockSpaces(document.getElementById('reg-confirm-pw'));
-
-    // --- Login real-time validation ---
-    var loginEmail = document.getElementById('auth-email');
-    var loginPw = document.getElementById('auth-password');
-    var loginEmailErr = document.getElementById('auth-email-error');
-    var loginPwErr = document.getElementById('auth-password-error');
-
-    if (loginEmail) {
-        loginEmail.addEventListener('input', function() {
-            var v = loginEmail.value.trim();
-            if (!v) { loginEmailErr.textContent = ''; loginEmail.classList.remove('is-invalid','is-valid'); return; }
-            var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-            loginEmailErr.textContent = valid ? '' : 'Enter a valid email address.';
-            loginEmail.classList.toggle('is-invalid', !valid);
-            loginEmail.classList.toggle('is-valid', valid);
-        });
-    }
-    if (loginPw) {
-        loginPw.addEventListener('input', function() {
-            var v = loginPw.value;
-            if (!v) { loginPwErr.textContent = ''; loginPw.classList.remove('is-invalid','is-valid'); return; }
-            var ok = v.length >= 8;
-            loginPwErr.textContent = ok ? '' : 'Password must be at least 8 characters.';
-            loginPw.classList.toggle('is-invalid', !ok);
-            loginPw.classList.toggle('is-valid', ok);
-        });
+    function regValidPassword(val) {
+        if (!val) return 'Password is required.';
+        if (val.length < 8) return 'Password must be at least 8 characters.';
+        if (val.length > 64) return 'Password must be at most 64 characters.';
+        if (!/[A-Z]/.test(val)) return 'Need at least 1 uppercase letter.';
+        if (!/[a-z]/.test(val)) return 'Need at least 1 lowercase letter.';
+        if (!/[0-9]/.test(val)) return 'Need at least 1 number.';
+        if (!/[^A-Za-z0-9]/.test(val)) return 'Need at least 1 special character.';
+        return null;
     }
 
-    // --- Registration: Real-time email validation + async uniqueness ---
-    var regEmail = document.getElementById('reg-identifier');
-    var regEmailErr = document.getElementById('reg-email-error');
-    var emailCheckTimer = null;
-    var regEmailAvailable = true; // Track email uniqueness status
-
-    function isEmailTab() {
-        return (document.getElementById('reg-h-type') || {}).value === 'email';
-    }
-
-    if (regEmail) {
-        regEmail.addEventListener('input', function() {
-            if (!isEmailTab()) { regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid','is-valid'); return; }
-            var v = regEmail.value.trim();
-            if (!v) { regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid','is-valid'); return; }
-            var validFmt = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-            if (!validFmt) {
-                regEmailErr.textContent = 'Enter a valid email address.';
-                regEmail.classList.add('is-invalid'); regEmail.classList.remove('is-valid');
+    function regUpdateChecklist() {
+        var checklistEl = document.getElementById('reg-pw-checklist');
+        var val = (document.getElementById('reg-password') || {}).value || '';
+        var hasAny = val.length > 0;
+        if (checklistEl) checklistEl.classList.toggle('is-visible', hasAny);
+        var checks = {
+            'reg-pw-len':     val.length >= 8,
+            'reg-pw-upper':   /[A-Z]/.test(val),
+            'reg-pw-lower':   /[a-z]/.test(val),
+            'reg-pw-number':  /[0-9]/.test(val),
+            'reg-pw-special': /[^A-Za-z0-9]/.test(val)
+        };
+        Object.entries(checks).forEach(function(pair) {
+            var el = document.getElementById(pair[0]);
+            if (!el) return;
+            if (!hasAny) {
+                el.classList.add('neutral');
+                el.classList.remove('ok', 'bad');
             } else {
-                regEmailErr.textContent = ''; regEmail.classList.remove('is-invalid');
+                el.classList.remove('neutral');
+                el.classList.toggle('ok', pair[1]);
+                el.classList.toggle('bad', !pair[1]);
             }
         });
-
-        regEmail.addEventListener('blur', function() {
-            if (!isEmailTab()) return;
-            var v = regEmail.value.trim();
-            if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return;
-            clearTimeout(emailCheckTimer);
-            emailCheckTimer = setTimeout(function() {
-                fetch(baseUrl + '/public/api/check_email.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({email: v})
-                })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (!data.available) {
-                        regEmailErr.textContent = 'This email is already registered.';
-                        regEmail.classList.add('is-invalid'); regEmail.classList.remove('is-valid');
-                        regEmailAvailable = false;
-                    } else {
-                        regEmailErr.textContent = '';
-                        regEmail.classList.add('is-valid'); regEmail.classList.remove('is-invalid');
-                        regEmailAvailable = true;
-                    }
-                })
-                .catch(function() {});
-            }, 400);
-        });
     }
 
-    // --- Registration: Password checklist ---
-    var regPw = document.getElementById('reg-password');
-    var regCpw = document.getElementById('reg-confirm-pw');
-    var pwChecklist = document.getElementById('reg-pw-checklist');
-    var pwRules = {
-        len:   document.getElementById('pw-rule-len'),
-        upper: document.getElementById('pw-rule-upper'),
-        lower: document.getElementById('pw-rule-lower'),
-        num:   document.getElementById('pw-rule-num'),
-        spec:  document.getElementById('pw-rule-spec')
-    };
-    var matchEl = document.getElementById('reg-pw-match');
-
-    function setRule(el, met) {
-        if (!el) return;
-        el.classList.toggle('met', met);
-        var ck = el.querySelector('.ck');
-        if (ck) ck.textContent = met ? '✓' : '✗';
+    function regCheckConfirm(showError) {
+        var pw  = (document.getElementById('reg-password') || {}).value || '';
+        var cpw = (document.getElementById('reg-confirm-pw') || {}).value || '';
+        var errEl = document.getElementById('reg-confirm-error');
+        var okEl  = document.getElementById('reg-match-ok');
+        if (!cpw) {
+            if (errEl && showError) errEl.textContent = 'Please confirm your password.';
+            if (errEl && !showError) errEl.textContent = '';
+            if (okEl) okEl.style.display = 'none';
+            return false;
+        }
+        if (cpw !== pw) {
+            if (errEl && showError) errEl.textContent = 'Passwords do not match.';
+            if (okEl) okEl.style.display = 'none';
+            return false;
+        }
+        if (errEl) errEl.textContent = '';
+        if (okEl) okEl.style.display = '';
+        return true;
     }
 
-    function updatePwChecklist() {
-        var v = regPw ? regPw.value : '';
-        // Show all rules on first keystroke
-        if (v.length > 0 && pwChecklist) pwChecklist.classList.add('active');
-        if (v.length === 0 && pwChecklist) pwChecklist.classList.remove('active');
-        setRule(pwRules.len,   v.length >= 8 && v.length <= 64);
-        setRule(pwRules.upper, /[A-Z]/.test(v));
-        setRule(pwRules.lower, /[a-z]/.test(v));
-        setRule(pwRules.num,   /[0-9]/.test(v));
-        setRule(pwRules.spec,  /[^A-Za-z0-9]/.test(v));
-        updatePwMatch();
-    }
-
-    function updatePwMatch() {
-        if (!regCpw || !matchEl) return;
-        var cpv = regCpw.value;
-        var pv  = regPw ? regPw.value : '';
-        if (!cpv) { matchEl.textContent = ''; matchEl.style.color = ''; return; }
-        if (cpv === pv) {
-            matchEl.textContent = '✓ Passwords match';
-            matchEl.style.color = '#4ade80';
-            regCpw.classList.add('is-valid'); regCpw.classList.remove('is-invalid');
+    function regSetFieldError(inputEl, errEl, msg) {
+        if (!inputEl || !errEl) return;
+        errEl.textContent = msg || '';
+        if (msg) {
+            inputEl.style.borderColor = '#f87171';
         } else {
-            matchEl.textContent = '✗ Passwords do not match';
-            matchEl.style.color = '#f87171';
-            regCpw.classList.add('is-invalid'); regCpw.classList.remove('is-valid');
+            inputEl.style.borderColor = '';
         }
     }
 
-    if (regPw) regPw.addEventListener('input', updatePwChecklist);
-    if (regCpw) regCpw.addEventListener('input', updatePwMatch);
+    function regCheckForm(showErrors) {
+        showErrors = Boolean(showErrors);
+        var idType  = (document.getElementById('reg-h-type') || {}).value || 'email';
+        var idEl    = document.getElementById('reg-identifier');
+        var pwEl    = document.getElementById('reg-password');
+        var cpwEl   = document.getElementById('reg-confirm-pw');
+        var idErrEl = document.getElementById('reg-id-error');
+        var pwErrEl = document.getElementById('reg-password-error');
+        var submitBtn = document.querySelector('#reg-form-final button[type="submit"]');
 
-    // --- Registration form submit guard ---
+        var idVal  = idEl ? idEl.value.trim() : '';
+        var pwVal  = pwEl ? pwEl.value : '';
+
+        var idOk, pwOk, cpwOk;
+
+        // Validate identifier
+        if (idType === 'email') {
+            var idErr = regValidEmail(idVal);
+            regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) ? idErr : '');
+            idOk = !idErr;
+        } else {
+            idOk = idVal.length > 0;
+            regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) && !idOk ? 'Phone number is required.' : '');
+        }
+
+        // Validate password
+        var pwErr = regValidPassword(pwVal);
+        // Password checklist is the primary inline feedback; keep bottom text empty.
+        regSetFieldError(pwEl, pwErrEl, '');
+        pwOk = !pwErr;
+
+        // Validate confirm
+        cpwOk = regCheckConfirm(showErrors || regTouched.confirm);
+
+        // Update checklist
+        regUpdateChecklist();
+
+        // Enable/disable submit
+        if (submitBtn) submitBtn.disabled = !(idOk && pwOk && cpwOk);
+    }
+
+    function showRegisterStep(stepName) {
+        var formEl = document.getElementById('reg-form-final');
+        var otpEl = document.getElementById('reg-otp-step');
+        if (!formEl || !otpEl) return;
+        if (stepName === 'otp') {
+            formEl.style.display = 'none';
+            otpEl.classList.add('active');
+            setTimeout(function() {
+                var first = document.getElementById('reg-otp-digit-0');
+                if (first) first.focus();
+            }, 80);
+        } else {
+            formEl.style.display = '';
+            otpEl.classList.remove('active');
+        }
+    }
+
+    function regOtpCooldownSeconds(attempt) {
+        if (attempt <= 0) return 60;       // initial wait
+        if (attempt === 1) return 300;     // after 1st resend
+        if (attempt === 2) return 900;     // after 2nd resend
+        if (attempt === 3) return 1800;    // after 3rd resend
+        return 3600;                       // after 4th+ resend
+    }
+
+    function regRenderResendUI(remainingSeconds) {
+        var wrap = document.getElementById('reg-otp-resend-wrap');
+        if (!wrap) return;
+        if (remainingSeconds > 0) {
+            var display;
+            if (remainingSeconds >= 3600) {
+                var h = Math.floor(remainingSeconds / 3600);
+                var m = Math.floor((remainingSeconds % 3600) / 60);
+                display = h + (h === 1 ? ' hour' : ' hours');
+                if (m > 0) display += ' ' + m + ' min';
+            } else if (remainingSeconds >= 60) {
+                var m = Math.floor(remainingSeconds / 60);
+                var s = remainingSeconds % 60;
+                display = m + (m === 1 ? ' minute' : ' minutes');
+                if (s > 0) display += ' ' + s + (s === 1 ? ' sec' : ' sec');
+            } else {
+                display = remainingSeconds + (remainingSeconds === 1 ? ' second' : ' seconds');
+            }
+            wrap.textContent = 'Resend available in ' + display;
+        } else {
+            wrap.innerHTML = '<a href="#" id="reg-otp-resend-link">Resend Code</a>';
+            var resendLink = document.getElementById('reg-otp-resend-link');
+            if (resendLink) {
+                resendLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    regHandleResendOtp();
+                });
+            }
+        }
+    }
+
+    function regStartOtpCooldown(seconds, skipSave) {
+        if (regOtpCooldownTimer) {
+            clearInterval(regOtpCooldownTimer);
+            regOtpCooldownTimer = null;
+        }
+        var remaining = Math.max(0, Number(seconds) || 0);
+        // Record absolute end time for refresh-restore
+        regOtpCooldownEndMs = remaining > 0 ? (Date.now() + remaining * 1000) : 0;
+        regRenderResendUI(remaining);
+        if (!skipSave) regSaveOtpState();
+        if (remaining <= 0) return;
+        regOtpCooldownTimer = setInterval(function() {
+            remaining--;
+            regRenderResendUI(remaining);
+            if (remaining <= 0 && regOtpCooldownTimer) {
+                clearInterval(regOtpCooldownTimer);
+                regOtpCooldownTimer = null;
+            }
+        }, 1000);
+    }
+
+    function regHandleResendOtp() {
+        if (!regPendingEmail) {
+            // Fallback: recover pending state after refresh/manual modal reopen
+            try {
+                var raw = sessionStorage.getItem(REG_OTP_STORAGE_KEY);
+                if (raw) {
+                    var s = JSON.parse(raw);
+                    if (s && s.email) regPendingEmail = s.email;
+                }
+            } catch (e) { /* ignore */ }
+        }
+        if (!regPendingEmail) {
+            var missingStateErrEl = document.getElementById('reg-otp-error');
+            if (missingStateErrEl) missingStateErrEl.textContent = 'Verification session missing. Please register again.';
+            showRegisterStep('form');
+            return;
+        }
+        var otpErrorEl = document.getElementById('reg-otp-error');
+        var regMsgEl   = document.getElementById('auth-register-message');
+        var wrap       = document.getElementById('reg-otp-resend-wrap');
+        if (wrap) wrap.textContent = 'Sending new code…';
+
+        var fd = new FormData();
+        fd.append('email',      regPendingEmail);
+        fd.append('csrf_token', regGetCsrfToken());
+
+        fetch('<?php echo htmlspecialchars($base_url); ?>/public/resend_otp.php', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin'
+        })
+        .then(function(res) { return res.text(); })
+        .then(function(text) {
+            // Strip any PHP notices/warnings prepended before JSON
+            var jsonStart = text.indexOf('{');
+            var jsonText  = jsonStart >= 0 ? text.slice(jsonStart) : '';
+            var data = null;
+            try { data = JSON.parse(jsonText); } catch (err) { data = null; }
+            if (!data) {
+                if (otpErrorEl) otpErrorEl.textContent = 'Server error while resending. Please try again.';
+                regRenderResendUI(0);
+                return;
+            }
+            if (!data.success) {
+                if (otpErrorEl) otpErrorEl.textContent = data.message || 'Failed to resend code.';
+                var waitSeconds = Number(data.remaining_seconds || 0);
+                if (waitSeconds > 0) {
+                    regStartOtpCooldown(waitSeconds);
+                } else {
+                    regRenderResendUI(0);
+                }
+                return;
+            }
+            if (otpErrorEl) otpErrorEl.textContent = '';
+            if (regMsgEl) regMsgEl.innerHTML = '<div class="auth-alert-success">' + escapeHtml(data.message || 'A new code has been sent.') + '</div>';
+            regOtpResendAttempts++;
+            var nextSeconds = Math.max(60, Number(data.new_cooldown || regOtpCooldownSeconds(regOtpResendAttempts)));
+            regStartOtpCooldown(nextSeconds);   // saves state internally
+        })
+        .catch(function(err) {
+            if (otpErrorEl) otpErrorEl.textContent = 'Network error. Please try again.';
+            regRenderResendUI(0);
+        });
+    }
+
+    function resetRegisterFlow() {
+        regTouched = { identifier: false, password: false, confirm: false };
+        regPendingEmail      = '';
+        regPendingType       = 'email';
+        regOtpResendAttempts = 0;
+        regOtpCooldownEndMs  = 0;
+        regOtpCreatedAtMs    = 0;
+        regClearOtpState();
+        if (regOtpCooldownTimer) {
+            clearInterval(regOtpCooldownTimer);
+            regOtpCooldownTimer = null;
+        }
+
+        var finalFormEl = document.getElementById('reg-form-final');
+        if (finalFormEl) finalFormEl.reset();
+        showRegisterStep('form');
+
+        var otpDigits = document.querySelectorAll('.reg-otp-digit');
+        var otpErrEl = document.getElementById('reg-otp-error');
+        var regMsgEl = document.getElementById('auth-register-message');
+        if (otpDigits && otpDigits.length) {
+            otpDigits.forEach(function(input) { input.value = ''; });
+        }
+        if (otpErrEl) otpErrEl.textContent = '';
+        if (regMsgEl) regMsgEl.innerHTML = '';
+        regRenderResendUI(0);
+
+        regSwitchTab('email');
+        regCheckForm(false);
+    }
+
+    // Wire up register modal events
+    var regIdEl  = document.getElementById('reg-identifier');
+    var regPwEl  = document.getElementById('reg-password');
+    var regCpwEl = document.getElementById('reg-confirm-pw');
+
+    if (regIdEl) {
+            regIdEl.addEventListener('input', function() {
+            // Strip spaces from email
+            var type = (document.getElementById('reg-h-type') || {}).value || 'email';
+            if (type === 'email') this.value = this.value.replace(/\s/g, '');
+            regCheckForm(false);
+        });
+        regIdEl.addEventListener('blur', function() {
+            regTouched.identifier = true;
+            regCheckForm(true);
+        });
+    }
+    if (regPwEl)  {
+        regPwEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\s/g, '');
+            regTouched.password = true;
+            regCheckForm(false);
+        });
+        regPwEl.addEventListener('blur', function() {
+            regTouched.password = true;
+            regCheckForm(true);
+        });
+    }
+    if (regCpwEl) {
+        regCpwEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\s/g, '');
+            regTouched.confirm = true;
+            regCheckForm(false);
+        });
+        regCpwEl.addEventListener('blur', function() {
+            regTouched.confirm = true;
+            regCheckForm(true);
+        });
+    }
+
+    // Initial state — disable submit until valid
+    var regSubmitBtn = document.querySelector('#reg-form-final button[type="submit"]');
+    if (regSubmitBtn) regSubmitBtn.disabled = true;
+
+    // Register submit -> keep flow in modal and show OTP step
     var finalForm = document.getElementById('reg-form-final');
     if (finalForm) {
         finalForm.addEventListener('submit', function(e) {
-            var pw = regPw ? regPw.value : '';
-            var cpw = regCpw ? regCpw.value : '';
+            e.preventDefault();
+            var idType = (document.getElementById('reg-h-type') || {}).value || 'email';
+            var idVal  = (document.getElementById('reg-identifier') || {}).value.trim() || '';
+            var pw  = (document.getElementById('reg-password') || {}).value || '';
+            var cpw = (document.getElementById('reg-confirm-pw') || {}).value || '';
             var msgEl = document.getElementById('auth-register-message');
-            var errors = [];
+            var submitBtn = finalForm.querySelector('button[type="submit"]');
 
-            if (pw.length < 8)            errors.push('at least 8 characters');
-            if (pw.length > 64)           errors.push('at most 64 characters');
-            if (!/[A-Z]/.test(pw))        errors.push('an uppercase letter');
-            if (!/[a-z]/.test(pw))        errors.push('a lowercase letter');
-            if (!/[0-9]/.test(pw))        errors.push('a number');
-            if (!/[^A-Za-z0-9]/.test(pw)) errors.push('a special character');
+            regTouched.identifier = true;
+            regTouched.password = true;
+            regTouched.confirm = true;
+            regCheckForm(true);
 
-            if (!regEmailAvailable && isEmailTab()) {
-                e.preventDefault();
-                msgEl.innerHTML = '<div class="auth-alert-error">This email is already registered. Please use another.</div>';
+            if (idType === 'email' && regValidEmail(idVal)) {
+                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">' + escapeHtml(regValidEmail(idVal)) + '</div>';
                 return;
             }
-
-            if (errors.length > 0) {
-                e.preventDefault();
-                msgEl.innerHTML = '<div class="auth-alert-error">Password must contain: ' + errors.join(', ') + '.</div>';
+            if (regValidPassword(pw)) {
+                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Please complete all password requirements.</div>';
                 return;
             }
             if (pw !== cpw) {
-                e.preventDefault();
-                msgEl.innerHTML = '<div class="auth-alert-error">Passwords do not match.</div>';
+                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Passwords do not match.</div>';
                 return;
             }
+
+            if (msgEl) msgEl.innerHTML = '';
+            if (submitBtn) setButtonLoading(submitBtn, true, 'Creating...');
+
+            fetch(finalForm.action, {
+                method: 'POST',
+                body: new FormData(finalForm),
+                credentials: 'same-origin'
+            })
+            .then(function(response) {
+                var finalUrl = new URL(response.url, window.location.origin);
+                var errorText = finalUrl.searchParams.get('error');
+
+                if (finalUrl.pathname.indexOf('/verify_email.php') !== -1) {
+                    regPendingType       = idType;
+                    regPendingEmail      = idType === 'email' ? idVal : (idVal + '@phone.local');
+                    regOtpResendAttempts = 0;
+                    regOtpCreatedAtMs    = Date.now();
+                    var otpSub = document.getElementById('reg-otp-sub');
+                    if (otpSub) {
+                        otpSub.textContent = idType === 'email'
+                            ? 'Enter the 6-digit code sent to your email.'
+                            : 'Enter the 6-digit code sent for verification.';
+                    }
+                    showRegisterStep('otp');
+                    regStartOtpCooldown(regOtpCooldownSeconds(0));   // also calls regSaveOtpState
+                    return;
+                }
+
+                if (errorText && msgEl) {
+                    msgEl.innerHTML = '<div class="auth-alert-error">' + escapeHtml(errorText) + '</div>';
+                    var lowerError = (errorText || '').toLowerCase();
+                    if (lowerError.indexOf('email') !== -1 && (lowerError.indexOf('exist') !== -1 || lowerError.indexOf('already') !== -1 || lowerError.indexOf('registered') !== -1)) {
+                        regTouched.identifier = true;
+                        regSetFieldError(
+                            document.getElementById('reg-identifier'),
+                            document.getElementById('reg-id-error'),
+                            errorText
+                        );
+                    }
+                } else if (msgEl) {
+                    msgEl.innerHTML = '<div class="auth-alert-error">Registration failed. Please try again.</div>';
+                }
+            })
+            .catch(function() {
+                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Network error. Please try again.</div>';
+            })
+            .finally(function() {
+                if (submitBtn) setButtonLoading(submitBtn, false);
+            });
         });
     }
-    // Handle URL parameters for opening modals (e.g. from redirects)
-    const urlParams = new URLSearchParams(window.location.search);
-    const openModalParam = urlParams.get('auth_modal'); // Renamed to avoid conflict with existing openModal function
-    const authErrorParam = urlParams.get('error'); // Renamed to avoid conflict with existing authError variable
-    
-    if (openModalParam === 'register') {
-        openModal('register'); // Use existing openModal function
-        if (authErrorParam) {
-            showMessage('register', 'error', authErrorParam); // Use existing showMessage function
+
+    var otpInputs = Array.prototype.slice.call(document.querySelectorAll('.reg-otp-digit'));
+    var otpErrorEl = document.getElementById('reg-otp-error');
+    var otpVerifyBtn = document.getElementById('reg-otp-verify-btn');
+
+    function readOtpCode() {
+        return otpInputs.map(function(input) { return input.value || ''; }).join('');
+    }
+
+    function fillOtpDigits(rawValue, startIndex) {
+        var digits = (rawValue || '').replace(/\D/g, '').split('');
+        if (!digits.length) return;
+        var idx = typeof startIndex === 'number' ? startIndex : 0;
+        for (var i = 0; i < digits.length && idx + i < otpInputs.length; i++) {
+            otpInputs[idx + i].value = digits[i];
         }
-    } else if (openModalParam === 'login') {
-        openModal('login'); // Use existing openModal function
-        if (authErrorParam) {
-            showMessage('login', 'error', authErrorParam); // Use existing showMessage function
+        var focusIndex = Math.min(idx + digits.length, otpInputs.length - 1);
+        if (otpInputs[focusIndex]) otpInputs[focusIndex].focus();
+    }
+
+    if (otpInputs.length) {
+        otpInputs.forEach(function(input, index) {
+            input.addEventListener('input', function() {
+                var digits = this.value.replace(/\D/g, '');
+                if (digits.length > 1) {
+                    this.value = '';
+                    fillOtpDigits(digits, index);
+                } else {
+                    this.value = digits;
+                    if (digits && index < otpInputs.length - 1) otpInputs[index + 1].focus();
+                }
+                if (otpErrorEl) otpErrorEl.textContent = '';
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !this.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                    otpInputs[index - 1].value = '';
+                }
+                if (e.key === 'ArrowLeft' && index > 0) {
+                    e.preventDefault();
+                    otpInputs[index - 1].focus();
+                }
+                if (e.key === 'ArrowRight' && index < otpInputs.length - 1) {
+                    e.preventDefault();
+                    otpInputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                fillOtpDigits((e.clipboardData || window.clipboardData).getData('text'), index);
+                if (otpErrorEl) otpErrorEl.textContent = '';
+            });
+        });
+    }
+
+    if (otpVerifyBtn) {
+        otpVerifyBtn.addEventListener('click', function() {
+            var code = readOtpCode();
+            if (!regPendingEmail) {
+                if (otpErrorEl) otpErrorEl.textContent = 'Please submit registration first.';
+                showRegisterStep('form');
+                return;
+            }
+            if (!/^\d{6}$/.test(code)) {
+                if (otpErrorEl) otpErrorEl.textContent = 'Please enter a valid 6-digit code.';
+                return;
+            }
+
+            var originalText = otpVerifyBtn.textContent;
+            otpVerifyBtn.disabled = true;
+            otpVerifyBtn.textContent = 'Verifying...';
+
+            var fd = new FormData();
+            fd.append('email', regPendingEmail);
+            fd.append('otp', code);
+
+            fetch('<?php echo htmlspecialchars($base_url); ?>/public/verify_otp.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            })
+            .then(function(response) {
+                var finalUrl = new URL(response.url, window.location.origin);
+                var successText = finalUrl.searchParams.get('success');
+                var errorText = finalUrl.searchParams.get('error');
+
+                if (finalUrl.searchParams.get('auth_modal') === 'login') {
+                    regClearOtpState();
+                    openModal('login');
+                    showMessage('login', 'success', successText || 'Email verified. Please log in.');
+                    return;
+                }
+                if (errorText && otpErrorEl) {
+                    var lower = String(errorText || '').toLowerCase();
+                    if (lower.indexOf('incorrect') !== -1 || lower.indexOf('wrong') !== -1) {
+                        otpErrorEl.textContent = 'Incorrect OTP. Please try again.';
+                    } else {
+                        otpErrorEl.textContent = errorText;
+                    }
+                } else if (otpErrorEl) {
+                    otpErrorEl.textContent = 'Invalid or expired code.';
+                }
+            })
+            .catch(function() {
+                if (otpErrorEl) otpErrorEl.textContent = 'Network error. Please try again.';
+            })
+            .finally(function() {
+                otpVerifyBtn.disabled = false;
+                otpVerifyBtn.textContent = originalText || 'Verify Code';
+            });
+        });
+    }
+
+    // ── Restore OTP state if user refreshed during verification ──
+    regRestoreOtpState();
+
+    // ── Login modal validation + async submit ───────────────────
+    var loginEmailEl  = document.getElementById('auth-email');
+    var loginPwEl     = document.getElementById('auth-password');
+    var loginEmailErr = document.getElementById('auth-email-error');
+    var loginPwErr    = document.getElementById('auth-password-error');
+    var loginForm = document.querySelector('#auth-modal-login form');
+    var loginSubmitBtn = loginForm ? loginForm.querySelector('button[type="submit"]') : null;
+
+    function setLoginFieldError(inputEl, errEl, message) {
+        if (!inputEl || !errEl) return;
+        errEl.textContent = message || '';
+        inputEl.style.borderColor = message ? '#f87171' : '';
+    }
+
+    function validateLoginEmail() {
+        if (!loginEmailEl) return false;
+        loginEmailEl.value = loginEmailEl.value.replace(/\s/g, '').trim();
+        var val = loginEmailEl.value;
+        if (!val) {
+            setLoginFieldError(loginEmailEl, loginEmailErr, 'Email is required.');
+            return false;
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            setLoginFieldError(loginEmailEl, loginEmailErr, 'Please enter a valid email address.');
+            return false;
+        }
+        setLoginFieldError(loginEmailEl, loginEmailErr, '');
+        return true;
+    }
+
+    function validateLoginPassword() {
+        if (!loginPwEl) return false;
+        var val = loginPwEl.value || '';
+        if (!val.trim()) {
+            setLoginFieldError(loginPwEl, loginPwErr, 'Password is required.');
+            return false;
+        }
+        setLoginFieldError(loginPwEl, loginPwErr, '');
+        return true;
+    }
+
+    if (loginEmailEl) {
+        loginEmailEl.addEventListener('input', function() {
+            if (loginEmailErr && loginEmailErr.textContent) validateLoginEmail();
+        });
+        loginEmailEl.addEventListener('blur', validateLoginEmail);
+    }
+    if (loginPwEl) {
+        loginPwEl.addEventListener('input', function() {
+            if (loginPwErr && loginPwErr.textContent) validateLoginPassword();
+        });
+        loginPwEl.addEventListener('blur', validateLoginPassword);
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            var emailOk = validateLoginEmail();
+            var pwOk = validateLoginPassword();
+            if (!emailOk || !pwOk) return;
+
+            if (loginSubmitBtn) setButtonLoading(loginSubmitBtn, true, 'Signing in...');
+
+            fetch(loginForm.action, {
+                method: 'POST',
+                body: new FormData(loginForm),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    window.location.href = data.redirect || '<?php echo $base_url; ?>/';
+                    return;
+                }
+                var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
+                setLoginFieldError(loginEmailEl, loginEmailErr, fieldErrors.email || '');
+                setLoginFieldError(loginPwEl, loginPwErr, fieldErrors.password || (data && data.message ? data.message : 'Login failed.'));
+            })
+            .catch(function() {
+                setLoginFieldError(loginPwEl, loginPwErr, 'Network error. Please try again.');
+            })
+            .finally(function() {
+                if (loginSubmitBtn) setButtonLoading(loginSubmitBtn, false);
+            });
+        });
     }
 })();
 </script>

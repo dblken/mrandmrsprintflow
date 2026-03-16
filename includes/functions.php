@@ -176,7 +176,22 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
             send_email($user[0]['email'], "PrintFlow Notification", $message);
         }
     }
-    
+
+    // ── Web Push dispatch ────────────────────────────────────────────────────
+    if ($result) {
+        $push_helper = __DIR__ . '/push_helper.php';
+        if (file_exists($push_helper)) {
+            require_once $push_helper;
+            if (function_exists('push_notify_user') && function_exists('push_url_for_type')) {
+                push_notify_user((int)$user_id, $user_type, [
+                    'body' => $message,
+                    'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
+                    'url'  => push_url_for_type($type, $data_id, $user_type),
+                ]);
+            }
+        }
+    }
+
     return $result;
 }
 
@@ -579,7 +594,7 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
 
     // Shared button styles
     $base_btn  = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;text-decoration:none;font-size:13px;font-weight:500;transition:all 0.2s;';
-    $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #111827;background:#111827;color:white;text-decoration:none;font-size:13px;font-weight:600;';
+    $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #0d9488;background:#0d9488;color:white;text-decoration:none;font-size:13px;font-weight:600;';
     $hover = ' onmouseover="this.style.background=\'#f5f7fa\'" onmouseout="this.style.background=\'white\'"';
     $ellipsis = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;">···</span>';
 

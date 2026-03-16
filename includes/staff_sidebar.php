@@ -4,9 +4,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Staff';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending';
-$user_id = get_user_id();
-$user_type = get_user_type();
-$unread_notif_count = get_unread_notification_count($user_id, $user_type);
+require_once __DIR__ . '/shop_config.php';
+
+// Unread notification count for badge
+if (!function_exists('db_query')) require_once __DIR__ . '/db.php';
+$_staff_unread_notif = 0;
+if (isset($_SESSION['user_id'])) {
+    $r = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$_SESSION['user_id']]);
+    $_staff_unread_notif = (int)($r[0]['count'] ?? 0);
+}
 ?>
 
 <aside class="sidebar">
@@ -89,7 +95,7 @@ $unread_notif_count = get_unread_notification_count($user_id, $user_type);
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <span id="sidebar-notif-badge" class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
+                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="display:<?php echo $_staff_unread_notif > 0 ? 'inline-flex' : 'none'; ?>;"><?php echo min($_staff_unread_notif, 99) ?: ''; ?></span>
             </a>
         </div>
         <?php endif; ?>
@@ -146,23 +152,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Notification Polling
-    function updateSidebarNotifCount() {
-        fetch('/printflow/public/api/notification_count.php')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const badge = document.getElementById('sidebar-notif-badge');
-                    if (badge) {
-                        badge.innerText = data.count > 99 ? '99+' : data.count;
-                        badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
-                    }
-                }
-            })
-            .catch(err => console.error('Sidebar notif error:', err));
-    }
-    // Poll every 10 seconds
-    setInterval(updateSidebarNotifCount, 10000);
 });
 </script>
+
+<?php
+$_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
+$_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Staff';
+?>
+<script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
+<script src="/printflow/public/assets/js/notifications.js" defer></script>

@@ -85,8 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 [$order_id, '/uploads/designs/' . $filename, $design_notes]
                             );
 
-                            // Create notification for admin
-                            create_notification(null, 'Admin', "New design uploaded for Order #{$order_id}", 'Design', true, false);
+                            // Notify all admins/staff of the new design upload
+                            $designAdmins = db_query("SELECT user_id, user_type FROM users WHERE user_type IN ('Admin','Manager') AND status = 'Activated'", '', []);
+                            foreach ((array)$designAdmins as $u) {
+                                create_notification((int)$u['user_id'], $u['user_type'], "New design uploaded for Order #{$order_id}", 'Design', false, false, $order_id);
+                            }
+                            $designStaff = db_query("SELECT user_id FROM users WHERE user_type = 'Staff' AND status = 'Activated'", '', []);
+                            foreach ((array)$designStaff as $u) {
+                                create_notification((int)$u['user_id'], 'Staff', "New design uploaded for Order #{$order_id}", 'Design', false, false, $order_id);
+                            }
 
                             $success = 'Design uploaded successfully! Awaiting approval.';
                         } else {

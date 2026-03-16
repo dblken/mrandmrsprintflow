@@ -24,25 +24,65 @@ $success = '';
 $timeout_expired = isset($_GET['timeout']) && $_GET['timeout'] === '1';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $is_ajax = (
+        (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+        (isset($_SERVER['HTTP_ACCEPT']) && strpos((string) $_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+    );
+    $field_errors = ['email' => '', 'password' => ''];
+
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
+        $field_errors['password'] = $error;
     } else {
         $email = sanitize($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $remember_me = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
-        
-        if (empty($email) || empty($password)) {
-            $error = 'Please fill in all fields';
-        } else {
+
+        if (empty($email)) {
+            $field_errors['email'] = 'Email is required.';
+            $error = 'Please enter your email.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $field_errors['email'] = 'Please enter a valid email address.';
+            $error = 'Invalid email format.';
+        }
+
+        if (empty($password)) {
+            $field_errors['password'] = 'Password is required.';
+            if (empty($error)) {
+                $error = 'Please enter your password.';
+            }
+        }
+
+        if (!$error) {
             $result = login($email, $password, $remember_me);
-            
+
             if ($result['success']) {
+                if ($is_ajax) {
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => true,
+                        'redirect' => $result['redirect']
+                    ]);
+                    exit;
+                }
                 redirect($result['redirect']);
             } else {
                 $error = $result['message'];
+                $field_errors['password'] = $result['message'];
             }
         }
     }
+
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => $error ?: 'Login failed.',
+            'field_errors' => $field_errors
+        ]);
+        exit;
+    }
+
     // Redirect back with modal params so modal can open with error (for modal flow)
     if ($error) {
         $return_path = '/printflow/';
@@ -79,7 +119,7 @@ $base_url = get_base_url();
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f3f4f6;
+            background: #00151b;
             padding: 1rem;
         }
         .auth-card {
@@ -132,6 +172,10 @@ $base_url = get_base_url();
         .form-input.is-valid { border-color: #4ade80 !important; box-shadow: 0 0 0 3px rgba(74,222,128,0.1) !important; }
         .field-error-login { margin: 4px 0 0; font-size: 12px; color: #ef4444; min-height: 16px; }
         .form-input::placeholder { color: #b0b5bf; }
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none;
+        }
         .password-wrapper { position: relative; }
         .password-toggle {
             position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
@@ -167,6 +211,16 @@ $base_url = get_base_url();
             box-shadow: 0 6px 20px rgba(99,102,241,0.35);
         }
         .btn-submit:active { transform: translateY(0); }
+        .btn-inline-loader { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-inline-loader .spinner {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.35);
+            border-top-color: #53C5E0;
+            animation: pfBtnSpin .8s linear infinite;
+        }
+        @keyframes pfBtnSpin { to { transform: rotate(360deg); } }
         .divider {
             display: flex; align-items: center; gap: 12px;
             margin: 24px 0;
@@ -220,7 +274,7 @@ $base_url = get_base_url();
         <div class="alert-success"><?php echo htmlspecialchars($success); ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="">
+    <form method="POST" action="" id="login-form" novalidate>
         <?php echo csrf_field(); ?>
 
         <div class="form-group">
@@ -659,6 +713,115 @@ function togglePassword() {
 function signInWithGoogle() {
     window.location.href = '/printflow/public/google_auth.php?action=login';
 }
+
+// Login validation and async submit (no full page reload for field errors)
+(function () {
+    var form = document.getElementById('login-form');
+    if (!form) return;
+
+    var emailEl = document.getElementById('email');
+    var pwEl = document.getElementById('password');
+    var emailErrEl = document.getElementById('login-email-error');
+    var pwErrEl = document.getElementById('login-pw-error');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var submitOriginalHtml = submitBtn ? submitBtn.innerHTML : '';
+
+    function setSubmitLoading(loading, text) {
+        if (!submitBtn) return;
+        if (loading) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="btn-inline-loader"><span class="spinner"></span><span>' + (text || 'Loading...') + '</span></span>';
+            return;
+        }
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = submitOriginalHtml || 'Sign In';
+    }
+
+    function setFieldState(inputEl, errEl, msg) {
+        if (!inputEl || !errEl) return;
+        errEl.textContent = msg || '';
+        inputEl.classList.toggle('is-invalid', Boolean(msg));
+        if (!msg && inputEl.value.trim()) {
+            inputEl.classList.add('is-valid');
+        } else if (msg) {
+            inputEl.classList.remove('is-valid');
+        } else {
+            inputEl.classList.remove('is-valid');
+        }
+    }
+
+    function validateEmail() {
+        var value = (emailEl.value || '').trim();
+        emailEl.value = value;
+        if (!value) {
+            setFieldState(emailEl, emailErrEl, 'Email is required.');
+            return false;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            setFieldState(emailEl, emailErrEl, 'Please enter a valid email address.');
+            return false;
+        }
+        setFieldState(emailEl, emailErrEl, '');
+        return true;
+    }
+
+    function validatePassword() {
+        var value = pwEl.value || '';
+        if (!value.trim()) {
+            setFieldState(pwEl, pwErrEl, 'Password is required.');
+            return false;
+        }
+        setFieldState(pwEl, pwErrEl, '');
+        return true;
+    }
+
+    if (emailEl) {
+        emailEl.addEventListener('blur', validateEmail);
+        emailEl.addEventListener('input', function () {
+            if (emailErrEl.textContent) validateEmail();
+        });
+    }
+    if (pwEl) {
+        pwEl.addEventListener('input', function () {
+            if (pwErrEl.textContent) validatePassword();
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        var emailOk = validateEmail();
+        var pwOk = validatePassword();
+        if (!emailOk || !pwOk) return;
+
+        setSubmitLoading(true, 'Signing in...');
+
+        fetch(form.action || window.location.href, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.success) {
+                    window.location.href = data.redirect || '/printflow/';
+                    return;
+                }
+                var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
+                setFieldState(emailEl, emailErrEl, fieldErrors.email || '');
+                setFieldState(pwEl, pwErrEl, fieldErrors.password || (data && data.message ? data.message : 'Unable to sign in.'));
+            })
+            .catch(function () {
+                setFieldState(pwEl, pwErrEl, 'Network error. Please try again.');
+            })
+            .finally(function () {
+                setSubmitLoading(false);
+            });
+    });
+})();
 
 // ── Forgot Password Modal State ──────────────────────────────
 var fmIdentifier  = '';
@@ -1109,402 +1272,6 @@ document.addEventListener('keydown', function(e) {
         if (modal && modal.classList.contains('is-open')) closeForgotModal();
     }
 });
-</script>
-</body>
-</html>
-
-    position: fixed;
-    inset: 0;
-    z-index: 99998;
-    background: rgba(0, 0, 0, 0.6);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
-}
-.forgot-modal-backdrop.is-open {
-    opacity: 1;
-    visibility: visible;
-}
-.forgot-modal {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 99999;
-    width: 100%;
-    max-width: 450px;
-    max-height: 90vh;
-    overflow-y: auto;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
-}
-.forgot-modal.is-open {
-    opacity: 1;
-    visibility: visible;
-}
-.forgot-modal-close {
-    position: absolute;
-    right: 1rem;
-    top: 1rem;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #9ca3af;
-    background: none;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: color 0.2s, background 0.2s;
-    font-size: 24px;
-    line-height: 1;
-}
-.forgot-modal-close:hover {
-    color: #111827;
-    background: #f3f4f6;
-}
-.forgot-modal-inner {
-    padding: 2.5rem 2rem 2rem;
-}
-.forgot-modal h2 {
-    margin: 0 0 0.5rem 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: #111827;
-    text-align: center;
-}
-.forgot-modal .forgot-modal-sub {
-    margin: 0 0 1.75rem 0;
-    font-size: 14px;
-    color: #6b7280;
-    text-align: center;
-    line-height: 1.5;
-}
-.forgot-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1.5px solid #e5e7eb;
-}
-.forgot-tab {
-    flex: 1;
-    padding: 10px 16px;
-    text-align: center;
-    font-size: 14px;
-    font-weight: 600;
-    background: white;
-    color: #6b7280;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.forgot-tab.active {
-    background: linear-gradient(135deg, #6366f1, #7c3aed);
-    color: white;
-}
-.forgot-tab:not(.active):hover {
-    background: #f9fafb;
-    color: #111827;
-}
-.forgot-form-group {
-    margin-bottom: 1.25rem;
-}
-.forgot-form-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 8px;
-}
-.forgot-form-input {
-    width: 100%;
-    padding: 12px 14px;
-    font-size: 14px;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 10px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.forgot-form-input:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-.forgot-btn-submit {
-    width: 100%;
-    padding: 12px;
-    background: linear-gradient(135deg, #6366f1, #7c3aed);
-    color: white;
-    font-weight: 600;
-    font-size: 14px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    margin-top: 0.5rem;
-}
-.forgot-btn-submit:hover {
-    opacity: 0.9;
-}
-.forgot-btn-submit:active {
-    transform: scale(0.98);
-}
-.forgot-alert {
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 13px;
-    margin-bottom: 1rem;
-    font-weight: 500;
-}
-.forgot-alert-success {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #15803d;
-}
-.forgot-alert-error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
-}
-.forgot-back {
-    text-align: center;
-    margin-top: 1.25rem;
-    font-size: 14px;
-    color: #6b7280;
-}
-.forgot-back a {
-    color: #6366f1;
-    text-decoration: none;
-    font-weight: 600;
-}
-.forgot-back a:hover {
-    color: #4f46e5;
-}
-</style>
-
-<div class="forgot-modal-backdrop" id="forgot-modal-backdrop"></div>
-
-<div class="forgot-modal" id="forgot-modal" role="dialog" aria-labelledby="forgot-modal-title" aria-modal="true">
-    <button type="button" class="forgot-modal-close" onclick="closeForgotModal()" aria-label="Close">&times;</button>
-    <div class="forgot-modal-inner">
-        <h2 id="forgot-modal-title">Reset Password</h2>
-        <p class="forgot-modal-sub">Enter your email and we'll send you a reset code</p>
-        
-        <div id="forgot-message"></div>
-        
-        <!-- Form -->
-        <form id="forgot-form" onsubmit="handleForgotSubmit(event)">
-            <input type="hidden" id="forgot-type" value="email">
-            
-            <div class="forgot-form-group">
-                <label id="forgot-label" for="forgot-identifier">Email Address</label>
-                <input type="email" id="forgot-identifier" class="forgot-form-input" placeholder="you@example.com" required>
-            </div>
-            
-            <button type="submit" class="forgot-btn-submit">Send Reset Code</button>
-        </form>
-        
-        <p class="forgot-back">
-            <a href="#" onclick="closeForgotModal(); return false;">Back to login</a>
-        </p>
-    </div>
-</div>
-
-<script>
-function togglePassword() {
-    const pw = document.getElementById('password');
-    pw.type = pw.type === 'password' ? 'text' : 'password';
-}
-
-function signInWithGoogle() {
-    // Redirect to Google OAuth endpoint
-    window.location.href = '/printflow/public/google_auth.php?action=login';
-}
-
-// Forgot Password Modal Functions
-function openForgotModal() {
-    const backdrop = document.getElementById('forgot-modal-backdrop');
-    const modal = document.getElementById('forgot-modal');
-    backdrop.classList.add('is-open');
-    modal.classList.add('is-open');
-    // Remove aria-hidden completely when modal is open to avoid conflicts
-    modal.removeAttribute('aria-hidden');
-    backdrop.removeAttribute('aria-hidden');
-    document.body.style.overflow = 'hidden';
-    
-    // Focus the first input for accessibility
-    setTimeout(() => {
-        const firstInput = modal.querySelector('#forgot-identifier');
-        if (firstInput) firstInput.focus();
-    }, 100);
-}
-
-function closeForgotModal() {
-    const backdrop = document.getElementById('forgot-modal-backdrop');
-    const modal = document.getElementById('forgot-modal');
-    backdrop.classList.remove('is-open');
-    modal.classList.remove('is-open');
-    // Restore aria-hidden when modal is closed
-    modal.setAttribute('aria-hidden', 'true');
-    backdrop.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    // Clear form
-    document.getElementById('forgot-form').reset();
-    document.getElementById('forgot-message').innerHTML = '';
-}
-
-function showForgotMessage(type, text) {
-    const msgEl = document.getElementById('forgot-message');
-    msgEl.innerHTML = '<div class="forgot-alert forgot-alert-' + type + '">' + escapeHtml(text) + '</div>';
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function handleForgotSubmit(e) {
-    e.preventDefault();
-    
-    const type = document.getElementById('forgot-type').value;
-    const identifier = document.getElementById('forgot-identifier').value;
-    
-    console.log('Submitting forgot password request:', { type, identifier });
-    
-    // Show loading state
-    const submitBtn = document.querySelector('.forgot-btn-submit');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Sending...';
-    submitBtn.disabled = true;
-    
-    // Send AJAX request to backend
-    const formData = new FormData();
-    formData.append('type', type);
-    formData.append('identifier', identifier);
-    
-    fetch('api_forgot_password.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        
-        if (!response.ok) {
-            throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-        }
-        return response.text(); // Get as text first to debug
-    })
-    .then(text => {
-        console.log('Raw response:', text);
-        try {
-            const data = JSON.parse(text);
-            console.log('API Response:', data);
-            
-            if (data.success) {
-                showForgotMessage('success', data.message || 'Reset code sent successfully! Check your ' + type + '.');
-                
-                // Show debug info if available
-                if (data.debug && data.debug.reset_code) {
-                    console.log('DEBUG - Reset code:', data.debug.reset_code);
-                    showForgotMessage('success', 
-                        data.message + '<br><br><strong>DEV MODE:</strong> Reset code is <code>' + 
-                        data.debug.reset_code + '</code>'
-                    );
-                }
-                
-                // Optionally redirect to reset code page after a delay
-                setTimeout(() => {
-                    window.location.href = '/printflow/public/reset-password.php?type=' + type + '&identifier=' + encodeURIComponent(identifier);
-                }, 3000);
-            } else {
-                showForgotMessage('error', data.message || 'Failed to send reset code. Please try again.');
-            }
-        } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            console.log('Server returned HTML instead of JSON - check if API file exists');
-            showForgotMessage('error', 'Server configuration error. The API endpoint may not exist or returned invalid data.');
-        }
-    })
-    .catch(error => {
-        console.error('Fetch error:', error);
-        showForgotMessage('error', 'Network error: ' + error.message + '. Please check if the server is running.');
-    })
-    .finally(() => {
-        // Restore button
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-    });
-}
-
-// Event listeners
-document.addEventListener('click', function(e) {
-    if (e.target.matches('[data-forgot-modal]')) {
-        e.preventDefault();
-        openForgotModal();
-    }
-    if (e.target === document.getElementById('forgot-modal-backdrop')) {
-        closeForgotModal();
-    }
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('forgot-modal');
-        if (modal && modal.classList.contains('is-open')) {
-            closeForgotModal();
-        }
-    }
-});
-</script>
-
-<!-- Login Validation -->
-<script>
-(function() {
-    function blockSpaces(el) {
-        if (!el) return;
-        el.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
-        el.addEventListener('paste', function(e) {
-            setTimeout(function() { el.value = el.value.replace(/\s/g, ''); }, 0);
-        });
-    }
-
-    var emailEl = document.getElementById('email');
-    var pwEl = document.getElementById('password');
-    var emailErr = document.getElementById('login-email-error');
-    var pwErr = document.getElementById('login-pw-error');
-
-    blockSpaces(emailEl);
-    blockSpaces(pwEl);
-
-    if (emailEl && emailErr) {
-        emailEl.addEventListener('input', function() {
-            var v = emailEl.value.trim();
-            if (!v) { emailErr.textContent = ''; emailEl.classList.remove('is-invalid','is-valid'); return; }
-            var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-            emailErr.textContent = valid ? '' : 'Enter a valid email address.';
-            emailEl.classList.toggle('is-invalid', !valid);
-            emailEl.classList.toggle('is-valid', valid);
-        });
-    }
-    if (pwEl && pwErr) {
-        pwEl.addEventListener('input', function() {
-            var v = pwEl.value;
-            if (!v) { pwErr.textContent = ''; pwEl.classList.remove('is-invalid','is-valid'); return; }
-            var ok = v.length >= 8;
-            pwErr.textContent = ok ? '' : 'Password must be at least 8 characters.';
-            pwEl.classList.toggle('is-invalid', !ok);
-            pwEl.classList.toggle('is-valid', ok);
-        });
-    }
-})();
 </script>
 </body>
 </html>
