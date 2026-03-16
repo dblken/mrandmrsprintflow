@@ -3,7 +3,7 @@
  * Strategy: App Shell (instant open) + Stale-While-Revalidate for pages
  */
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -177,34 +177,89 @@ function isStaticAsset(pathname) {
 }
 
 // ── Push Notifications ────────────────────────────────────────────────────────
+
+/**
+ * push event — background push delivered by the push service.
+ * The payload is a JSON object matching the PrintFlow notification shape:
+ *   { title, body, icon, badge, tag, url }
+ */
 self.addEventListener('push', (event) => {
-    let data = {
+    const defaults = {
         title: 'PrintFlow',
-        body: 'You have a new update',
-        icon: '/printflow/public/assets/images/icon-192.png',
+        body:  'You have a new update',
+        icon:  '/printflow/public/assets/images/icon-192.png',
         badge: '/printflow/public/assets/images/icon-72.png',
+        tag:   'pf-general',
+        url:   '/printflow/',
     };
+
+    let payload = { ...defaults };
     if (event.data) {
-        try { data = { ...data, ...event.data.json() }; }
-        catch { data.body = event.data.text(); }
+        try { payload = { ...defaults, ...event.data.json() }; }
+        catch { payload.body = event.data.text() || defaults.body; }
     }
+
     event.waitUntil(
-        self.registration.showNotification(data.title, {
-            body: data.body, icon: data.icon, badge: data.badge,
-            data: { url: data.url || '/printflow/' }
-        })
+        (async () => {
+            // Check if the user is actively viewing the target page
+            const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+            const targetUrl = new URL(payload.url, self.location.origin).href;
+
+            for (const client of windowClients) {
+                const clientUrl = new URL(client.url, self.location.origin).href;
+                if (clientUrl === targetUrl && client.visibilityState === 'visible') {
+                    // User is on the page — send a message to update UI, skip OS notification
+                    client.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
+                    return;
+                }
+            }
+
+            // Show OS-level notification
+            await self.registration.showNotification(payload.title, {
+                body:    payload.body,
+                icon:    payload.icon,
+                badge:   payload.badge,
+                tag:     payload.tag,         // Replace previous notification with same tag
+                renotify: false,              // Don't vibrate/sound for tag replacements
+                data:    { url: payload.url },
+            });
+        })()
     );
 });
 
+/**
+ * notificationclick — user tapped the OS notification.
+ * Focus an existing tab on the target URL, or open a new one.
+ */
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const target = event.notification.data?.url || '/printflow/';
+
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-            for (const client of list) {
-                if (client.url === target && 'focus' in client) return client.focus();
+        (async () => {
+            const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+            // Prefer exact URL match, then any open PrintFlow window
+            let bestClient = null;
+            for (const client of windowClients) {
+                if (new URL(client.url).pathname === new URL(target, self.location.origin).pathname) {
+                    bestClient = client;
+                    break;
+                }
+                if (!bestClient) bestClient = client;
             }
-            if (clients.openWindow) return clients.openWindow(target);
-        })
+
+            if (bestClient) {
+                await bestClient.focus();
+                // Tell the open tab to navigate if it's on a different path
+                if (new URL(bestClient.url).pathname !== new URL(target, self.location.origin).pathname) {
+                    bestClient.postMessage({ type: 'PF_NAVIGATE', url: target });
+                }
+                return;
+            }
+
+            // No open window — open a new tab
+            if (clients.openWindow) await clients.openWindow(target);
+        })()
     );
 });
