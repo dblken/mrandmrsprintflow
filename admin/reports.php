@@ -123,12 +123,11 @@ if (!$branch_empty && $total_orders > 0) {
     try {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
         $top_kpi_location = db_query(
-            "SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(c.address,',',-2),',',1)) as city,
-                    COUNT(*) as cnt
+            "SELECT TRIM(c.city) as city, COUNT(*) as cnt
              FROM orders o JOIN customers c ON o.customer_id=c.customer_id
              WHERE o.order_date BETWEEN ? AND ?
-               AND c.address IS NOT NULL AND TRIM(c.address) != ''$b
-             GROUP BY city HAVING LENGTH(TRIM(city)) > 2
+               AND c.city IS NOT NULL AND TRIM(c.city) != ''$b
+             GROUP BY c.city HAVING LENGTH(TRIM(c.city)) > 2
              ORDER BY cnt DESC LIMIT 1",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         )[0] ?? null;
@@ -284,12 +283,12 @@ if (!$branch_empty && $total_orders > 0) {
     try {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
         $customer_locations = db_query(
-            "SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(c.address,',',-2),',',1)) as city,
+            "SELECT TRIM(c.city) as city,
                     COUNT(DISTINCT o.order_id) as orders
              FROM orders o JOIN customers c ON o.customer_id=c.customer_id
              WHERE o.order_date BETWEEN ? AND ?
-               AND c.address IS NOT NULL AND TRIM(c.address) != ''$b
-             GROUP BY city HAVING LENGTH(TRIM(city)) > 2
+               AND c.city IS NOT NULL AND TRIM(c.city) != ''$b
+             GROUP BY c.city HAVING LENGTH(TRIM(c.city)) > 2
              ORDER BY orders DESC LIMIT 12",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
