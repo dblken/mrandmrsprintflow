@@ -16,6 +16,11 @@ if ($action === '') {
 }
 
 $fetchJson = static function (string $url): array {
+    $cachePath = __DIR__ . '/../tmp/psgc_cache_' . md5($url) . '.json';
+    if (file_exists($cachePath) && (time() - filemtime($cachePath) < 86400)) {
+        return json_decode(file_get_contents($cachePath), true);
+    }
+
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -41,6 +46,10 @@ $fetchJson = static function (string $url): array {
     }
     $decoded = json_decode($body, true);
     if (!is_array($decoded)) throw new RuntimeException('Invalid address dataset response.');
+
+    if (!is_dir(__DIR__ . '/../tmp')) mkdir(__DIR__ . '/../tmp', 0777, true);
+    file_put_contents($cachePath, $body);
+
     return $decoded;
 };
 
