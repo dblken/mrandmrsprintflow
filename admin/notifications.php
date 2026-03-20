@@ -60,17 +60,30 @@ if (!empty($search)) {
     $types .= 's';
 }
 
-$notifications = db_query("SELECT * FROM notifications WHERE $where ORDER BY created_at DESC LIMIT 100", $types, $params);
+$per_page = 15;
+$page = max(1, (int)($_GET['page'] ?? 1));
+$count_row = db_query("SELECT COUNT(*) as cnt FROM notifications WHERE $where", $types, $params);
+$total_count = (int)($count_row[0]['cnt'] ?? 0);
+$total_pages = max(1, (int)ceil(max(1, $total_count) / $per_page));
+if ($page > $total_pages) {
+    $page = $total_pages;
+}
+$offset = ($page - 1) * $per_page;
+$notifications = db_query(
+    "SELECT * FROM notifications WHERE $where ORDER BY created_at DESC LIMIT ? OFFSET ?",
+    $types . 'ii',
+    array_merge($params, [$per_page, $offset])
+) ?: [];
 
-// Get unread count
+// Get unread count (global)
 $unread_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$admin_id]);
 $unread_count = $unread_result[0]['count'] ?? 0;
 
-// Get counts by type
-$type_counts = [
-    'all' => count($notifications),
-    'unread' => $unread_count,
-];
+$notif_filter_badge = ($filter !== 'all' ? 1 : 0) + ($search !== '' ? 1 : 0);
+$notif_pagination_params = ['filter' => $filter];
+if ($search !== '') {
+    $notif_pagination_params['search'] = $search;
+}
 
 $page_title = 'Notifications - Admin';
 ?>
@@ -81,61 +94,142 @@ $page_title = 'Notifications - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-        /* ── Tab Bar ───────────────────────────────── */
-        .notif-tab-bar {
+        [x-cloak] { display: none !important; }
+        /* Products-style toolbar + filter (notifications) */
+        .notif-card-head {
             display: flex;
-            gap: 0;
-            border-bottom: 1px solid #e5e7eb;
-            overflow-x: auto;
-            margin-bottom: 0;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid #f3f4f6;
         }
-        .notif-tab-bar::-webkit-scrollbar { display: none; }
-        .notif-tab {
+        .notif-card-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+        .notif-card-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .toolbar-btn {
             display: inline-flex;
             align-items: center;
-            gap: 7px;
-            padding: 12px 18px;
-            font-size: 14px;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 500;
-            color: #6b7280;
-            background: none;
-            border: none;
-            border-bottom: 2px solid transparent;
+            color: #374151;
             cursor: pointer;
             transition: all 0.15s;
             white-space: nowrap;
+            height: 38px;
+        }
+        .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        .toolbar-btn.active { border-color: #00232b; color: #00232b; background: #e8f1f3; }
+        .toolbar-btn svg { flex-shrink: 0; }
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label { font-size: 13px; font-weight: 600; color: #374151; }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #00232b;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-select {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #00232b; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #00232b; }
+        .filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #00232b;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .notif-header-primary {
+            height: 38px;
+            padding: 0 16px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             text-decoration: none;
-            margin-bottom: -1px;
+            background: #00232b;
+            color: #fff !important;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
         }
-        .notif-tab:hover { color: #111827; border-bottom-color: #9ca3af; }
-        .notif-tab.active { color: #111827; font-weight: 600; border-bottom-color: #111827; }
-        .notif-tab .tab-count {
-            display: inline-flex; align-items: center; justify-content: center;
-            min-width: 20px; height: 20px; padding: 0 6px;
-            background: #f3f4f6; color: #6b7280;
-            border-radius: 20px; font-size: 11px; font-weight: 700;
-        }
-        .notif-tab.active .tab-count { background: #111827; color: #fff; }
-        .notif-tab.has-unread .tab-count { background: #ef4444; color: #fff; }
-
-        /* ── Search ───────────────────────────────── */
-        .notif-search-wrap {
-            position: relative;
-        }
-        .notif-search-wrap svg {
-            position: absolute; left: 12px; top: 50%;
-            transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af;
-        }
-        .notif-search-wrap input {
-            width: 100%; height: 38px;
-            padding: 0 12px 0 36px;
-            border: 1px solid #e5e7eb; border-radius: 10px;
-            font-size: 13px; outline: none; transition: all 0.2s;
-            background: #fff; color: #374151;
-        }
-        .notif-search-wrap input:focus { border-color: #374151; box-shadow: 0 0 0 3px rgba(17,24,39,0.06); }
+        .notif-header-primary:hover { background: #00151a; color: #fff !important; }
 
         /* ── Notification Row ──────────────────────── */
         .notif-item {
@@ -151,7 +245,7 @@ $page_title = 'Notifications - Admin';
         .notif-item:hover { background: #fafafa; margin: 0 -20px; padding: 16px 20px; border-radius: 8px; }
         .notif-dot {
             width: 8px; height: 8px; border-radius: 50%;
-            background: #3b82f6; flex-shrink: 0; margin-top: 6px;
+            background: #00232b; flex-shrink: 0; margin-top: 6px;
         }
         .notif-dot.read { background: transparent; border: 2px solid #e5e7eb; }
         .notif-icon-wrap {
@@ -220,7 +314,7 @@ $page_title = 'Notifications - Admin';
         <header>
             <div>
                 <h1 class="page-title" style="margin-bottom:4px;">Notifications</h1>
-                <p style="font-size:14px;color:#6b7280;"><?php echo $unread_count; ?> unread notification<?php echo $unread_count !== 1 ? 's' : ''; ?></p>
+                <p style="font-size:14px;color:#6b7280;"><?php echo $unread_count; ?> unread · <?php echo number_format($total_count); ?> matching this view</p>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
                 <button onclick="refreshNotifications()" class="btn-secondary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
@@ -230,7 +324,7 @@ $page_title = 'Notifications - Admin';
                     Refresh
                 </button>
                 <?php if ($unread_count > 0): ?>
-                <a href="?action=mark_all_read" class="btn-primary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+                <a href="?action=mark_all_read" class="notif-header-primary">
                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
@@ -242,38 +336,53 @@ $page_title = 'Notifications - Admin';
 
         <main>
             <div class="card" style="padding:0;overflow:hidden;">
-                <!-- Top Bar: Search + Tabs -->
-                <div style="padding:20px 20px 0;">
-                    <!-- Search -->
-                    <div class="notif-search-wrap" style="margin-bottom:16px;">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                        <input type="text" id="search-input" placeholder="Search notifications..." value="<?php echo htmlspecialchars($search); ?>">
+                <div class="notif-card-head" x-data="notifFilterPanel()">
+                    <div>
+                        <h3>Notifications</h3>
+                        <div class="notif-card-sub">Page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?> · <?php echo number_format($total_count); ?> total</div>
                     </div>
-
-                    <!-- Tab Bar -->
-                    <div class="notif-tab-bar">
-                        <a href="?filter=all<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'all' ? 'active' : ''; ?>">
-                            All <span class="tab-count"><?php echo count($notifications); ?></span>
-                        </a>
-                        <a href="?filter=unread<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'unread' ? 'active' : ''; ?> <?php echo $unread_count > 0 ? 'has-unread' : ''; ?>">
-                            Unread <span class="tab-count"><?php echo $unread_count; ?></span>
-                        </a>
-                        <a href="?filter=Order<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'Order' ? 'active' : ''; ?>">
-                            Orders
-                        </a>
-                        <a href="?filter=Stock<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'Stock' ? 'active' : ''; ?>">
-                            Inventory
-                        </a>
-                        <a href="?filter=System<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'System' ? 'active' : ''; ?>">
-                            System
-                        </a>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <div style="position:relative;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                                Filter
+                                <?php if ($notif_filter_badge > 0): ?>
+                                <span class="filter-badge"><?php echo $notif_filter_badge; ?></span>
+                                <?php endif; ?>
+                            </button>
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                <div class="filter-panel-header">Filter</div>
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Type</span>
+                                        <button type="button" class="filter-reset-link" onclick="notifResetField('filter')">Reset</button>
+                                    </div>
+                                    <select id="nt_fp_filter" class="filter-select">
+                                        <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All notifications</option>
+                                        <option value="unread" <?php echo $filter === 'unread' ? 'selected' : ''; ?>>Unread only</option>
+                                        <option value="Order" <?php echo $filter === 'Order' ? 'selected' : ''; ?>>Orders</option>
+                                        <option value="Stock" <?php echo $filter === 'Stock' ? 'selected' : ''; ?>>Inventory</option>
+                                        <option value="System" <?php echo $filter === 'System' ? 'selected' : ''; ?>>System</option>
+                                    </select>
+                                </div>
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button type="button" class="filter-reset-link" onclick="notifResetField('search')">Reset</button>
+                                    </div>
+                                    <input type="text" id="nt_fp_search" class="filter-search-input" placeholder="Search message..." value="<?php echo htmlspecialchars($search); ?>">
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="filter-btn-reset" style="width:100%;" onclick="notifResetAllFilters()">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Notification List -->
-                <div style="padding:0 20px 20px;" id="notifications-container">
+                <div style="padding:0 20px 12px;" id="notifications-container">
                     <?php if (empty($notifications)): ?>
                         <div class="empty-notif">
                             <div class="empty-notif-icon">
@@ -343,12 +452,64 @@ $page_title = 'Notifications - Admin';
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                <div id="nt-pagination" style="padding: 0 20px 20px;">
+                    <?php echo render_pagination($page, $total_pages, $notif_pagination_params); ?>
+                </div>
             </div>
         </main>
     </div>
 </div>
 
 <script>
+function notifFilterPanel() {
+    return {
+        filterOpen: false,
+        get hasActiveFilters() {
+            var f = document.getElementById('nt_fp_filter');
+            var s = document.getElementById('nt_fp_search');
+            var fv = f ? f.value : 'all';
+            var sv = s ? (s.value || '').trim() : '';
+            return fv !== 'all' || sv.length > 0;
+        }
+    };
+}
+function notifNavigate(page) {
+    var p = new URLSearchParams();
+    var ff = document.getElementById('nt_fp_filter');
+    p.set('filter', ff ? ff.value : 'all');
+    var si = document.getElementById('nt_fp_search');
+    var q = si ? (si.value || '').trim() : '';
+    if (q) p.set('search', q);
+    if (page && page > 1) p.set('page', String(page));
+    window.location.href = (window.location.pathname || '') + '?' + p.toString();
+}
+function notifResetAllFilters() {
+    window.location.href = window.location.pathname || 'notifications.php';
+}
+function notifResetField(which) {
+    if (which === 'filter') {
+        var el = document.getElementById('nt_fp_filter');
+        if (el) el.value = 'all';
+    }
+    if (which === 'search') {
+        var el2 = document.getElementById('nt_fp_search');
+        if (el2) el2.value = '';
+    }
+    notifNavigate(1);
+}
+var ntSearchTimer = null;
+document.addEventListener('DOMContentLoaded', function () {
+    var sel = document.getElementById('nt_fp_filter');
+    if (sel) sel.addEventListener('change', function () { notifNavigate(1); });
+    var inp = document.getElementById('nt_fp_search');
+    if (inp) {
+        inp.addEventListener('input', function () {
+            clearTimeout(ntSearchTimer);
+            ntSearchTimer = setTimeout(function () { notifNavigate(1); }, 500);
+        });
+    }
+});
+
 // Auto-refresh every 10 seconds
 let autoRefreshInterval;
 
@@ -364,7 +525,7 @@ function stopAutoRefresh() {
 
 function checkForNewNotifications() {
     const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    const searchInput = document.getElementById('search-input');
+    const searchInput = document.getElementById('nt_fp_search');
     if (searchInput && !searchInput.value && (currentFilter === 'all' || currentFilter === 'unread')) {
         refreshPage();
     }
@@ -439,22 +600,6 @@ function deleteNotification(notifId) {
         })
         .catch(error => console.error('Error:', error));
 }
-
-// Search functionality
-let searchTimeout;
-document.getElementById('search-input').addEventListener('input', function(e) {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        const search = e.target.value;
-        const url = new URL(window.location);
-        if (search) {
-            url.searchParams.set('search', search);
-        } else {
-            url.searchParams.delete('search');
-        }
-        window.location = url;
-    }, 500);
-});
 
 // Start auto-refresh
 startAutoRefresh();

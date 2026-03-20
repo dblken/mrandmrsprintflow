@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Chatbot Standalone Test</title>
+    <title>Support chat — standalone test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -79,16 +79,16 @@
     </style>
 </head>
 <body>
-    <h1>Standalone Chatbot Test</h1>
+    <h1>Standalone support chat test</h1>
     <p>Scroll down and look for the cyan button...</p>
     <p style="margin-top: 200px;">Can you see the chat button?</p>
 
-    <!-- CHATBOT WIDGET -->
+    <!-- Support chat widget -->
     <div class="lp-chatbot-container" id="lp-chatbot-container">
         <button class="lp-chatbot-toggle" id="lp-chatbot-toggle">💬</button>
         <div class="lp-chatbot-window lp-chatbot-hidden" id="lp-chatbot-window">
             <div class="lp-chatbot-header">
-                <h3>Chat</h3>
+                <h3>Support chat</h3>
                 <button class="lp-chatbot-close" id="lp-chatbot-close">×</button>
             </div>
         </div>
@@ -97,14 +97,14 @@
     <script>
         document.getElementById('lp-chatbot-toggle').addEventListener('click', function() {
             document.getElementById('lp-chatbot-window').classList.toggle('lp-chatbot-hidden');
-            console.log('✅ Chatbot toggled!');
+            console.log('✅ Support chat toggled!');
         });
         
         document.getElementById('lp-chatbot-close').addEventListener('click', function() {
             document.getElementById('lp-chatbot-window').classList.add('lp-chatbot-hidden');
         });
 
-        console.log('✅ Chatbot script loaded');
+        console.log('✅ Support chat script loaded');
     </script>
 </body>
 </html>

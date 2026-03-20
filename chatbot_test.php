@@ -215,10 +215,10 @@
     </style>
 </head>
 <body>
-    <h1>🧪 ChatBot Test Page</h1>
+    <h1>🧪 Support chat test page</h1>
     <p>Scroll down and look for the <strong>cyan chat bubble button</strong> in the bottom-right corner of your screen.</p>
     
-    <p>This is a test page to verify the chatbot widget displays correctly. The chat button should appear as a <strong>bright cyan/teal circle</strong> with a chat icon inside it.</p>
+    <p>This is a test page to verify the support chat widget displays correctly. The chat button should appear as a <strong>bright cyan/teal circle</strong> with a chat icon inside it.</p>
     
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
     <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
@@ -231,7 +231,7 @@
         </button>
         <div class="lp-chatbot-window lp-chatbot-hidden" id="lp-chatbot-window">
             <div class="lp-chatbot-header">
-                <h3>PrintFlow Assistant</h3>
+                <h3>Support chat</h3>
                 <button class="lp-chatbot-close" id="lp-chatbot-close">×</button>
             </div>
             <div class="lp-chatbot-content" id="lp-chatbot-content">

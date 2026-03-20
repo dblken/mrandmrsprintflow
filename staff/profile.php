@@ -162,7 +162,7 @@ $page_title = 'My Profile - Staff';
         textarea.input-field { resize: vertical; min-height: 80px; }
     </style>
 </head>
-<body>
+<body data-turbo="false">
 
 <div class="dashboard-container">
     <!-- Sidebar -->

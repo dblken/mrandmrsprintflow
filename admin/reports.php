@@ -11,6 +11,8 @@ require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 
+$reports_href_base = rtrim(AUTH_REDIRECT_BASE, '/') . '/admin/reports.php';
+
 // ── Branch context ────────────────────────────────────────────────────────────
 $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id'];   // 'all' | int
@@ -30,6 +32,28 @@ if (!in_array($chart_sort, $valid_sorts)) $chart_sort = 'value_desc';
 // ── Sales trend metric (revenue|orders) ───────────────────────────────────────
 $trend_metric = $_GET['trend_metric'] ?? 'revenue';
 if (!in_array($trend_metric, ['revenue','orders'])) $trend_metric = 'revenue';
+
+$y_cal = (int) date('Y');
+$heatmap_year = isset($_GET['heatmap_year']) ? (int) $_GET['heatmap_year'] : $y_cal;
+if ($heatmap_year < $y_cal - 8 || $heatmap_year > $y_cal + 1) {
+    $heatmap_year = $y_cal;
+}
+
+/** Stable reports URL query (explicit keys + full path fixes Turbo / relative ? links). */
+function reports_page_query(array $overrides = []): string {
+    $keys = ['from', 'to', 'branch_id', 'chart_sort', 'trend_metric', 'txn_pay', 'txn_page', 'heatmap_year'];
+    $q = [];
+    foreach ($keys as $k) {
+        if (array_key_exists($k, $overrides)) {
+            if ($overrides[$k] !== null && $overrides[$k] !== '') {
+                $q[$k] = $overrides[$k];
+            }
+        } elseif (isset($_GET[$k]) && $_GET[$k] !== '') {
+            $q[$k] = $_GET[$k];
+        }
+    }
+    return http_build_query($q);
+}
 
 // ── Recent transactions payment filter ───────────────────────────────────────
 $txn_payment_filter = $_GET['txn_pay'] ?? 'all';
@@ -264,6 +288,11 @@ if (!$branch_empty && $total_orders > 0) {
 
 // ── 7. Revenue distribution (donut) ──────────────────────────────────────────
 $rev_donut = array_slice($top_products, 0, 7);
+$donut_palette = ['#00232b', '#53C5E0', '#0F4C5C', '#3498DB', '#6C5CE7', '#3A86A8', '#8ED6E6', '#6B7C85', '#F39C12', '#2ECC71'];
+$rev_donut_total = 0.0;
+foreach ($rev_donut as $rd) {
+    $rev_donut_total += round((float)($rd['revenue'] ?? 0), 2);
+}
 
 // ── 8. Order status ───────────────────────────────────────────────────────────
 $status_data = [];
@@ -285,15 +314,17 @@ $heatmap_products = [];
 if (!$branch_empty) {
     try {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
+        $hmTypes = 'i' . $bt;
+        $hmParams = array_merge([$heatmap_year], $bp);
         $hmRaw = db_query(
             "SELECT p.name AS product, MONTH(o.order_date) as mo, SUM(oi.quantity) as qty
              FROM order_items oi
              JOIN products p ON oi.product_id=p.product_id
              JOIN orders o ON oi.order_id=o.order_id
-             WHERE YEAR(o.order_date) = YEAR(NOW())$b
+             WHERE YEAR(o.order_date) = ?$b
              GROUP BY p.product_id, p.name, MONTH(o.order_date)
              ORDER BY p.name, mo",
-            $bt, $bp
+            $hmTypes, $hmParams
         ) ?: [];
     } catch(Exception $e){ $hmRaw = []; }
 
@@ -504,6 +535,7 @@ if (!$branch_empty && !empty($top_products)) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo $page_title; ?></title>
+<?php require_once __DIR__ . '/../includes/favicon_links.php'; ?>
 <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
 <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
@@ -521,7 +553,7 @@ if (!$branch_empty && !empty($top_products)) {
 .ana-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
 .ana-hd   { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; }
 .ana-hd h3{ margin:0; font-size:14px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; white-space:nowrap; }
-.ana-hd h3 svg{ width:16px; height:16px; color:#6366f1; flex-shrink:0; }
+.ana-hd h3 svg{ width:16px; height:16px; color:#53C5E0; flex-shrink:0; }
 .ana-bd   { padding:20px; }
 .ana-bd-0 { padding:0; }
 
@@ -531,7 +563,7 @@ if (!$branch_empty && !empty($top_products)) {
 .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; }
 .kpi-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.08); }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
-.kpi-ind::before  { background:linear-gradient(90deg,#6366f1,#818cf8); }
+.kpi-ind::before  { background:linear-gradient(90deg,#00232b,#53C5E0); }
 .kpi-em::before   { background:linear-gradient(90deg,#059669,#34d399); }
 .kpi-amb::before  { background:linear-gradient(90deg,#f59e0b,#fcd34d); }
 .kpi-vio::before  { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
@@ -552,7 +584,7 @@ if (!$branch_empty && !empty($top_products)) {
     transition: all 0.15s; white-space: nowrap; box-sizing: border-box;
 }
 .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
-.toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+.toolbar-btn.active { border-color: #00232b; color: #00232b; background: #ecf8fb; }
 .toolbar-btn svg { flex-shrink: 0; }
 .filter-panel {
     position: absolute; top: calc(100% + 6px); right: 0; width: 320px;
@@ -592,9 +624,80 @@ if (!$branch_empty && !empty($top_products)) {
 .empty-kpi   { font-size:24px; font-weight:800; color:#d1d5db; }
 
 /* ── Chart boxes ────────────────────── */
-.ch-box     { width:100%; }
+.ch-box     { width:100%; position:relative; }
 .ch-empty   { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#9ca3af; font-size:13px; padding:40px 16px; }
 .ch-empty svg{ opacity:.35; }
+
+/* ── Revenue donut (layout + custom legend) ───────────────────────── */
+.rev-donut-card-hd { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.rev-donut-growth { font-size:12px; font-weight:700; white-space:nowrap; padding:4px 10px; border-radius:8px; background:#E5EEF2; color:#0F4C5C; }
+.rev-donut-growth.up { background:#d1fae5; color:#047857; }
+.rev-donut-growth.dn { background:#fee2e2; color:#b91c1c; }
+.rev-donut-body { padding-top:4px; }
+.rev-donut-row { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:center; gap:20px 28px; }
+.rev-donut-chart-wrap { flex:0 0 auto; width:min(100%,260px); height:240px; margin:0 auto; }
+.rev-donut-legend-wrap { flex:1 1 220px; min-width:180px; max-width:420px; margin:0 auto; }
+.rev-donut-legend { list-style:none; margin:0; padding:0; column-count:2; column-gap:20px; font-size:12px; }
+@media (max-width:640px) {
+    .rev-donut-legend { column-count:1; }
+}
+.rev-donut-legend li { break-inside:avoid; display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+.rev-donut-legend li:last-child { border-bottom:none; }
+.rev-donut-swatch { flex:0 0 10px; width:10px; height:10px; border-radius:3px; margin-top:3px; }
+.rev-donut-legend-txt { flex:1; min-width:0; line-height:1.35; word-wrap:break-word; overflow-wrap:anywhere; color:#374151; font-weight:600; }
+.rev-donut-legend-meta { display:block; font-size:11px; font-weight:500; color:#6B7C85; margin-top:2px; }
+
+/* Heatmap year control */
+.heatmap-year-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
+.heatmap-year-select { min-width:5.5rem; }
+
+/* Chart loading (Apex) — skeleton until render completes */
+.ch-box.pf-chart-loading::after {
+    content:'';
+    position:absolute; inset:0; border-radius:8px;
+    background:linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 45%,#f8fafc 55%,#f1f5f9 100%);
+    background-size:200% 100%;
+    animation:pf-chart-shimmer 1.1s ease-in-out infinite;
+    pointer-events:none; z-index:3;
+}
+@keyframes pf-chart-shimmer {
+    0% { background-position:100% 0; opacity:1; }
+    100% { background-position:-100% 0; opacity:.85; }
+}
+.ch-box.pf-chart-loading .apexcharts-canvas { opacity:0; }
+.ch-box:not(.pf-chart-loading) .apexcharts-canvas { transition:opacity .35s ease; }
+.ch-box.pf-chart-reveal-done .apexcharts-inner { animation:pf-chart-fade-in 1.05s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes pf-chart-fade-in { from { opacity:.45; } to { opacity:1; } }
+#ch-heatmap .apexcharts-heatmap-rect { transition:fill 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.55s ease; }
+/* Promote chart SVG layer so scroll + Apex intro animations stay smoother */
+.main-content .ch-box .apexcharts-inner { transform:translateZ(0); }
+
+/* Customer locations — top city */
+.top-location-pill { font-size:11px; font-weight:600; color:#0F4C5C; background:#E5EEF2; padding:5px 12px; border-radius:8px; border:1px solid #cfe8ef; }
+
+/* ApexCharts — readable tooltips & crosshair (avoid white-on-white) */
+.apexcharts-tooltip { color:#f8fafc !important; background:#1e293b !important; border:1px solid #334155 !important; box-shadow:0 8px 24px rgba(0,0,0,.2) !important; }
+.apexcharts-tooltip-title { color:#e2e8f0 !important; border-bottom:1px solid #334155 !important; }
+.apexcharts-tooltip-series-group { padding:4px 0 !important; }
+.apexcharts-tooltip-y-group { color:#f8fafc !important; }
+.apexcharts-tooltip-marker { color: inherit !important; }
+/* Sales trend — strong crosshair + dark toolbar/zoom glyphs (Apex defaults can be near-white) */
+#ch-trend .apexcharts-xcrosshairs,
+#ch-trend .apexcharts-xcrosshairs line { stroke:#001018 !important; stroke-width:2px !important; opacity:1 !important; }
+#ch-trend .apexcharts-ycrosshairs { stroke:#0F4C5C !important; stroke-width:1px !important; stroke-dasharray:4 3 !important; opacity:0.75 !important; }
+#ch-trend .apexcharts-marker,
+#ch-trend .apexcharts-marker path { fill:#00232b !important; stroke:#53C5E0 !important; stroke-width:2px !important; }
+#ch-trend .apexcharts-toolbar { z-index:12; }
+#ch-trend .apexcharts-toolbar svg,
+#ch-trend .apexcharts-toolbar svg line,
+#ch-trend .apexcharts-toolbar svg path,
+#ch-trend .apexcharts-toolbar svg polyline,
+#ch-trend .apexcharts-toolbar svg rect { stroke:#00232b !important; fill:#00232b !important; color:#00232b !important; }
+#ch-trend .apexcharts-zoom-icon svg,
+#ch-trend .apexcharts-pan-icon svg,
+#ch-trend .apexcharts-reset-icon svg { stroke:#00232b !important; fill:none !important; }
+.apexcharts-xcrosshairs { stroke:#00232b !important; stroke-width:1px !important; opacity:0.85 !important; }
+.apexcharts-ycrosshairs { stroke:#6B7C85 !important; stroke-dasharray:4 3 !important; opacity:0.5 !important; }
 
 /* ── Tables ─────────────────────────── */
 .rpt-tbl { width:100%; border-collapse:collapse; }
@@ -616,25 +719,25 @@ if (!$branch_empty && !empty($top_products)) {
 .b-purple { background:#ede9fe; color:#7c3aed; }
 
 /* ── Insights ───────────────────────── */
-.ins-panel { background:linear-gradient(135deg,#1e1b4b 0%,#312e81 55%,#4338ca 100%); border-radius:14px; padding:22px 26px; color:#fff; }
+.ins-panel { background:linear-gradient(135deg,#001018 0%,#00232b 38%,#0F4C5C 68%,#3A86A8 100%); border-radius:14px; padding:22px 26px; color:#fff; }
 .ins-title { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:7px; }
 .ins-list  { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; }
 .ins-list li{ font-size:13px; line-height:1.55; opacity:.9; display:flex; gap:9px; align-items:flex-start; }
-.ins-list li::before{ content:'→'; color:#818cf8; font-weight:700; flex-shrink:0; }
-.ins-list strong{ color:#e0e7ff; }
+.ins-list li::before{ content:'→'; color:#53C5E0; font-weight:700; flex-shrink:0; }
+.ins-list strong{ color:#b8eaf4; }
 
 /* ── Forecast chips ─────────────────── */
 .fc-row  { display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; }
 .fc-chip { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:12px 16px; flex:1; min-width:140px; }
 .fc-lbl  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:rgba(255,255,255,.55); margin-bottom:4px; }
-.fc-val  { font-size:20px; font-weight:800; color:#e0e7ff; line-height:1.1; }
+.fc-val  { font-size:20px; font-weight:800; color:#e8f8fc; line-height:1.1; }
 .fc-sub  { font-size:11px; color:rgba(255,255,255,.45); margin-top:2px; }
 
 /* ── Seasonal event badges ──────────── */
 .ev-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; margin:4px 4px 0 0; }
 
 /* ── Forecast product bars ──────────── */
-.fc-prod-bar { height:6px; background:#e0e7ff; border-radius:3px; overflow:hidden; }
+.fc-prod-bar { height:6px; background:rgba(83,197,224,.25); border-radius:3px; overflow:hidden; }
 .fc-prod-fill{ height:100%; border-radius:3px; }
 
 /* ── Stock bar ──────────────────────── */
@@ -644,12 +747,44 @@ if (!$branch_empty && !empty($top_products)) {
 .sk-warn     { background:#f59e0b; }
 .sk-danger   { background:#ef4444; }
 
-/* ── Print ──────────────────────────── */
+/* ── Print-only elements (hidden on screen) ───────────────────────────────── */
+.print-report-header, .print-report-footer { display:none; }
+
+/* ── Print-optimized layout ───────────────────────────────────────────────── */
 @media print {
-    .sidebar,.mobile-header,header,.no-print{ display:none !important; }
-    .main-content{ margin-left:0 !important; }
-    .ana-card{ break-inside:avoid; margin-bottom:14px; }
+    .sidebar,.mobile-header,header,.no-print,.branch-context-banner{ display:none !important; }
+    .main-content{ margin-left:0 !important; padding:0 !important; }
+    .ana-wrap{ gap:16px !important; }
+    .ana-card{ break-inside:avoid; margin-bottom:16px; box-shadow:none !important; border:1px solid #ddd !important; }
+    .print-page-break{ page-break-before:always; }
+    .print-page-break:first-of-type{ page-break-before:auto; }
+    .ana-card:hover{ box-shadow:none !important; }
     .ana-grid,.ana-grid3{ display:block !important; }
+    .print-hide{ display:none !important; }
+    .print-report-header{ display:block !important; margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid #333; }
+    .print-report-footer{ display:block !important; margin-top:24px; padding-top:12px; border-top:1px solid #999; font-size:11px; color:#666; text-align:center; }
+    .kpi-card{ box-shadow:none !important; border:1px solid #ddd !important; }
+    .kpi-card::before{ display:none !important; }
+    .kpi-lbl{ color:#555 !important; }
+    .kpi-val{ color:#111 !important; }
+    .kpi-sub,.kpi-updated{ color:#666 !important; }
+    .t-up,.t-dn{ color:#333 !important; }
+    .rpt-tbl th,.rpt-tbl td{ padding:10px 12px !important; font-size:12px !important; color:#222 !important; }
+    .rpt-tbl th{ background:#f0f0f0 !important; color:#333 !important; }
+    .rpt-tbl tr:hover td{ background:#fff !important; }
+    .badge{ background:#e5e5e5 !important; color:#333 !important; border:1px solid #ccc; }
+    .ins-panel{ background:#f5f5f5 !important; color:#333 !important; border:1px solid #ddd; }
+    .ins-panel .fc-chip{ background:#fff !important; border:1px solid #ddd !important; }
+    .ins-panel .fc-lbl,.ins-panel .fc-sub{ color:#666 !important; }
+    .ins-panel .fc-val{ color:#111 !important; }
+    .ins-list li::before{ color:#666 !important; }
+    .ins-list strong{ color:#111 !important; }
+    @page{ margin:1.5cm; size:A4; }
+    body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; background:#fff !important; }
+    .rpt-tbl{ width:100% !important; }
+    .rpt-tbl th,.rpt-tbl td{ word-wrap:break-word; overflow-wrap:break-word; }
+    .ch-box{ min-height:200px !important; }
+    .ana-wrap{ max-width:100% !important; }
 }
 </style>
 </head>
@@ -663,6 +798,16 @@ if (!$branch_empty && !empty($top_products)) {
         </header>
         <main>
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
+
+            <!-- ── Print Report Header (visible only when printing) ── -->
+            <div class="print-report-header">
+                <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111;">PrintFlow Sales Report</h1>
+                <div style="font-size:13px;color:#444;line-height:1.6;">
+                    <strong>Branch:</strong> <?php echo htmlspecialchars($branchName); ?> &nbsp;|&nbsp;
+                    <strong>Date Range:</strong> <?php echo date('M j, Y',strtotime($from)); ?> – <?php echo date('M j, Y',strtotime($to)); ?> &nbsp;|&nbsp;
+                    <strong>Generated:</strong> <?php echo date('F j, Y g:i A'); ?>
+                </div>
+            </div>
 
             <!-- ── Toolbar: Filter, Sort, Print ── -->
             <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;" x-data="reportsFilterPanel()">
@@ -744,18 +889,29 @@ if (!$branch_empty && !empty($top_products)) {
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             Export
                         </button>
-                        <div class="sort-dropdown" x-show="exportOpen" x-cloak @click.outside="exportOpen=false" style="min-width:160px;">
-                            <a href="/printflow/admin/reports_export.php?report=sales&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Sales</a>
-                            <a href="/printflow/admin/reports_export.php?report=orders&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Orders</a>
-                            <a href="/printflow/admin/reports_export.php?report=customers&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Customers</a>
-                            <a href="javascript:window.print()" class="sort-option" style="text-decoration:none;">PDF – Print</a>
+                        <div class="sort-dropdown" x-show="exportOpen" x-cloak @click.outside="exportOpen=false" style="min-width:180px;">
+                            <?php
+                            $exportBase = '/printflow/admin/reports_export.php?from='.urlencode($from).'&to='.urlencode($to).($branchId !== 'all' ? '&branch_id='.(int)$branchId : '');
+                            ?>
+                            <a href="<?php echo $exportBase; ?>&report=sales" class="sort-option" style="text-decoration:none;">CSV – Sales</a>
+                            <a href="<?php echo $exportBase; ?>&report=orders" class="sort-option" style="text-decoration:none;">CSV – Orders</a>
+                            <a href="<?php echo $exportBase; ?>&report=customers" class="sort-option" style="text-decoration:none;">CSV – Customers</a>
+                            <?php
+                            $excelBase = '/printflow/admin/reports_export_excel.php?from='.urlencode($from).'&to='.urlencode($to).($branchId !== 'all' ? '&branch_id='.(int)$branchId : '');
+                            $printUrl = '/printflow/admin/reports_print.php?report=orders&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId);
+                            $printCustUrl = '/printflow/admin/reports_print.php?report=customers&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId);
+                            ?>
+                            <a href="<?php echo $excelBase; ?>&report=orders" class="sort-option" style="text-decoration:none;">Excel – Orders</a>
+                            <a href="<?php echo $excelBase; ?>&report=customers" class="sort-option" style="text-decoration:none;">Excel – Customers</a>
+                            <a href="<?php echo $printUrl; ?>" target="_blank" class="sort-option" style="text-decoration:none;">Print – Orders</a>
+                            <a href="<?php echo $printCustUrl; ?>" target="_blank" class="sort-option" style="text-decoration:none;">Print – Customers</a>
                         </div>
                     </div>
-                    <!-- Print -->
-                    <button class="toolbar-btn" onclick="window.print()" style="height:38px;">
+                    <!-- Print Report -->
+                    <a href="<?php echo $printUrl ?? '/printflow/admin/reports_print.php?report=orders&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId); ?>" target="_blank" class="toolbar-btn" style="height:38px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit;" title="Open print-optimized report">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                        Print
-                    </button>
+                        Print Report
+                    </a>
                 </div>
             </div>
 
@@ -844,10 +1000,10 @@ if (!$branch_empty && !empty($top_products)) {
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         12-Month Sales Trend
                     </h3>
-                    <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;" class="no-print">
                         <span style="font-size:11px;color:#6b7280;">Show:</span>
-                        <a href="?<?php echo http_build_query(array_merge($_GET,['trend_metric'=>'revenue'])); ?>" class="toolbar-btn <?php echo $trend_metric==='revenue'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Revenue</a>
-                        <a href="?<?php echo http_build_query(array_merge($_GET,['trend_metric'=>'orders'])); ?>" class="toolbar-btn <?php echo $trend_metric==='orders'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Orders</a>
+                        <a href="<?php echo htmlspecialchars($reports_href_base.'?'.reports_page_query(['trend_metric'=>'revenue'])); ?>" class="toolbar-btn <?php echo $trend_metric==='revenue'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Revenue</a>
+                        <a href="<?php echo htmlspecialchars($reports_href_base.'?'.reports_page_query(['trend_metric'=>'orders'])); ?>" class="toolbar-btn <?php echo $trend_metric==='orders'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Orders</a>
                         <span style="font-size:11px;color:#9ca3af;">· <?php echo $next_month_label; ?> forecast</span>
                     </div>
                 </div>
@@ -857,7 +1013,7 @@ if (!$branch_empty && !empty($top_products)) {
             </div>
 
             <!-- ══ PRODUCT DEMAND FORECAST ═══════════════════════════════════ -->
-            <div class="ana-card">
+            <div class="ana-card print-hide">
                 <div class="ana-hd">
                     <h3>
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -880,7 +1036,7 @@ if (!$branch_empty && !empty($top_products)) {
                         <div>
                             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-bottom:12px;">Top Predicted Demand</div>
                             <?php
-                            $fc_colors = ['#6366f1','#8b5cf6','#ec4899','#f97316','#10b981','#3b82f6'];
+                            $fc_colors = ['#00232b','#53C5E0','#0F4C5C','#3498DB','#6C5CE7','#3A86A8'];
                             $fc_max = 1;
                             foreach ($fc_series_data as $pd) $fc_max = max($fc_max, max($pd['fore']));
                             $fc_i = 0;
@@ -910,7 +1066,7 @@ if (!$branch_empty && !empty($top_products)) {
 
             <!-- ══ BEST SERVICES (H-Bar) | REVENUE DONUT ════════════════════ -->
             <div class="ana-grid">
-                <div class="ana-card">
+                <div class="ana-card print-hide">
                     <div class="ana-hd">
                         <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Best Selling Services</h3>
                     </div>
@@ -923,12 +1079,42 @@ if (!$branch_empty && !empty($top_products)) {
                     </div>
                 </div>
                 <div class="ana-card">
-                    <div class="ana-hd">
-                        <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>Revenue Distribution</h3>
+                    <div class="ana-hd rev-donut-card-hd">
+                        <h3 style="margin:0;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>Revenue Distribution</h3>
+                        <?php if (!empty($rev_donut) && $revenue_delta !== null): ?>
+                        <span class="rev-donut-growth <?php echo $revenue_delta > 0 ? 'up' : ($revenue_delta < 0 ? 'dn' : ''); ?>">vs prior period: <?php echo $revenue_delta > 0 ? '+' : ''; ?><?php echo htmlspecialchars((string)$revenue_delta); ?>%</span>
+                        <?php endif; ?>
                     </div>
-                    <div class="ana-bd">
+                    <div class="ana-bd rev-donut-body">
                         <?php if (!empty($rev_donut)): ?>
-                        <div class="ch-box" style="height:280px;"><div id="ch-donut"></div></div>
+                        <div class="rev-donut-row">
+                            <div class="rev-donut-chart-wrap ch-box"><div id="ch-donut"></div></div>
+                            <div class="rev-donut-legend-wrap">
+                                <ul class="rev-donut-legend" aria-label="Revenue by service">
+                                    <?php
+                                    $di = 0;
+                                    foreach ($rev_donut as $rd):
+                                        $amt = round((float)($rd['revenue'] ?? 0), 2);
+                                        $pct = $rev_donut_total > 0 ? round(($amt / $rev_donut_total) * 100, 1) : 0;
+                                        $col = $donut_palette[$di % count($donut_palette)];
+                                        $nm = (string)($rd['product_name'] ?? '');
+                                        $short = $nm;
+                                        if (mb_strlen($nm) > 36) {
+                                            $short = rtrim(mb_substr($nm, 0, 36)) . '…';
+                                        }
+                                        $di++;
+                                    ?>
+                                    <li>
+                                        <span class="rev-donut-swatch" style="background:<?php echo htmlspecialchars($col); ?>;"></span>
+                                        <div class="rev-donut-legend-txt">
+                                            <?php echo htmlspecialchars($short); ?>
+                                            <span class="rev-donut-legend-meta">₱<?php echo number_format($amt, 0); ?> · <?php echo htmlspecialchars((string)$pct); ?>%</span>
+                                        </div>
+                                    </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        </div>
                         <?php else: ?>
                         <div class="ch-empty"><svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>No revenue data for this period</div>
                         <?php endif; ?>
@@ -937,27 +1123,35 @@ if (!$branch_empty && !empty($top_products)) {
             </div>
 
             <!-- ══ SEASONAL HEATMAP ══════════════════════════════════════════ -->
-            <div class="ana-card">
-                <div class="ana-hd">
-                    <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Seasonal Demand Heatmap — <?php echo date('Y'); ?></h3>
-                    <span style="font-size:11px;color:#6b7280;">Darker color = higher demand volume</span>
+            <div class="ana-card print-hide">
+                <div class="ana-hd" style="align-items:center;">
+                    <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Seasonal Demand Heatmap — <?php echo (int)$heatmap_year; ?></h3>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <label class="heatmap-year-label" for="pf-heatmap-year">Year</label>
+                        <select id="pf-heatmap-year" class="chart-select heatmap-year-select" aria-label="Heatmap year">
+                            <?php for ($yy = $y_cal + 1; $yy >= $y_cal - 8; $yy--): ?>
+                            <option value="<?php echo $yy; ?>" <?php echo $yy === (int)$heatmap_year ? 'selected' : ''; ?>><?php echo $yy; ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <span style="font-size:11px;color:#6b7280;">Darker = higher volume</span>
+                    </div>
                 </div>
                 <div class="ana-bd">
                     <?php if (!empty($heatmap_products)): ?>
                     <div class="ch-box" style="height:<?php echo max(200,count($heatmap_products)*46+50); ?>px;"><div id="ch-heatmap"></div></div>
                     <?php else: ?>
-                    <div class="ch-empty"><svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>No heatmap data for <?php echo date('Y'); ?></div>
+                    <div class="ch-empty"><svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>No heatmap data for <?php echo (int)$heatmap_year; ?></div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <!-- ══ CUSTOMER LOCATIONS | CUSTOMIZATION USAGE ════════════════ -->
-            <div class="ana-grid">
+            <div class="ana-grid print-hide">
                 <div class="ana-card">
                     <div class="ana-hd">
                         <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Customer Locations</h3>
                         <?php if (!empty($customer_locations)): ?>
-                        <span style="font-size:11px;font-weight:600;color:#059669;background:#d1fae5;padding:4px 10px;border-radius:20px;">🏆 Top: <?php echo htmlspecialchars(trim($customer_locations[0]['city'])); ?></span>
+                        <span class="top-location-pill">Top Location: <?php echo htmlspecialchars(trim($customer_locations[0]['city'])); ?></span>
                         <?php endif; ?>
                     </div>
                     <div class="ana-bd">
@@ -984,7 +1178,7 @@ if (!$branch_empty && !empty($top_products)) {
 
             <!-- ══ BRANCH COMPARISON ════════════════════════════════════════ -->
             <?php if (count($branch_perf) > 1): ?>
-            <div class="ana-card">
+            <div class="ana-card print-hide">
                 <div class="ana-hd">
                     <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>Branch Performance Comparison</h3>
                 </div>
@@ -995,7 +1189,7 @@ if (!$branch_empty && !empty($top_products)) {
             <?php endif; ?>
 
             <!-- ══ ORDER STATUS | TOP CUSTOMERS ══════════════════════════════ -->
-            <div class="ana-grid">
+            <div class="ana-grid print-hide">
                 <div class="ana-card">
                     <div class="ana-hd">
                         <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Order Status Breakdown</h3>
@@ -1035,7 +1229,7 @@ if (!$branch_empty && !empty($top_products)) {
             </div>
 
             <!-- ══ AI INSIGHTS + FORECAST PANEL ════════════════════════════ -->
-            <div class="ins-panel">
+            <div class="ins-panel print-hide">
                 <div class="ins-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                     <span style="display:flex;align-items:center;gap:8px;">
                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
@@ -1089,7 +1283,7 @@ if (!$branch_empty && !empty($top_products)) {
 
             <!-- ══ INVENTORY ALERTS ════════════════════════════════════════ -->
             <?php if (!empty($low_stock)): ?>
-            <div class="ana-card">
+            <div class="ana-card print-hide">
                 <div class="ana-hd">
                     <h3 style="color:#ef4444;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#ef4444;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Low Stock Alerts</h3>
                     <span style="font-size:11px;color:#ef4444;"><?php echo count($low_stock); ?> item<?php echo count($low_stock)>1?'s':''; ?> need attention</span>
@@ -1117,7 +1311,7 @@ if (!$branch_empty && !empty($top_products)) {
             <?php endif; ?>
 
             <!-- ══ RECENT TRANSACTIONS ════════════════════════════════════ -->
-            <div class="ana-card">
+            <div class="ana-card print-page-break">
                 <div class="ana-hd">
                     <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Recent Transactions</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
@@ -1146,7 +1340,7 @@ if (!$branch_empty && !empty($top_products)) {
                                 $orderUrl = '/printflow/admin/orders_management.php?order_id='.(int)$ro['order_id'];
                             ?>
                             <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
-                                <td style="font-weight:700;color:#6366f1;">#<?php echo $ro['order_id']; ?></td>
+                                <td style="font-weight:700;color:#00232b;">#<?php echo $ro['order_id']; ?></td>
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
                                 <td style="color:#6b7280;white-space:nowrap;"><?php echo date('M d, Y',strtotime($ro['order_date'])); ?></td>
                                 <td class="num">₱<?php echo number_format((float)$ro['total_amount'],2); ?></td>
@@ -1157,7 +1351,7 @@ if (!$branch_empty && !empty($top_products)) {
                             </tbody>
                         </table>
                     </div>
-                    <?php echo render_pagination($txn_page, $txn_pages, array_filter(['from'=>$from,'to'=>$to,'txn_pay'=>$txn_payment_filter,'branch_id'=>$branchId !== 'all' ? $branchId : null,'chart_sort'=>$chart_sort,'trend_metric'=>$trend_metric]), 'txn_page'); ?>
+                    <?php echo render_pagination($txn_page, $txn_pages, array_filter(['from'=>$from,'to'=>$to,'txn_pay'=>$txn_payment_filter,'branch_id'=>$branchId !== 'all' ? $branchId : null,'chart_sort'=>$chart_sort,'trend_metric'=>$trend_metric,'heatmap_year'=>$heatmap_year]), 'txn_page'); ?>
                     <?php else: ?>
                     <div class="ch-empty">No transactions for this period</div>
                     <?php endif; ?>
@@ -1166,342 +1360,16 @@ if (!$branch_empty && !empty($top_products)) {
 
             <?php endif; /* branch_empty */ ?>
 
+            <!-- ── Print Footer (visible only when printing) ── -->
+            <div class="print-report-footer">
+                Generated by PrintFlow System &nbsp;·&nbsp; <?php echo date('F j, Y'); ?>
+            </div>
+
             </div><!-- /.ana-wrap -->
         </main>
     </div>
 </div>
 
-<script>
-function reportsFilterPanel() {
-    const defFrom = '<?php echo date("Y-m-01"); ?>';
-    const defTo   = '<?php echo date("Y-m-d"); ?>';
-    return {
-        filterOpen: false,
-        sortOpen: false,
-        get hasActiveFilters() {
-            const f = document.getElementById('fp_from')?.value || defFrom;
-            const t = document.getElementById('fp_to')?.value || defTo;
-            return f !== defFrom || t !== defTo;
-        },
-        get filterCount() {
-            return this.hasActiveFilters ? 1 : 0;
-        },
-        resetDateRange() {
-            const f = document.getElementById('fp_from');
-            const t = document.getElementById('fp_to');
-            if (f) f.value = defFrom;
-            if (t) t.value = defTo;
-        },
-        resetFilters() {
-            this.resetDateRange();
-            document.getElementById('reportsFilterForm')?.submit();
-        },
-        setPreset(preset) {
-            const today = new Date();
-            let from, to;
-            if (preset === 'last_7') {
-                to = new Date(today);
-                from = new Date(today);
-                from.setDate(from.getDate() - 7);
-            } else if (preset === 'last_30') {
-                to = new Date(today);
-                from = new Date(today);
-                from.setDate(from.getDate() - 30);
-            } else if (preset === 'this_month') {
-                from = new Date(today.getFullYear(), today.getMonth(), 1);
-                to = new Date(today);
-            } else if (preset === 'last_3') {
-                to = new Date(today);
-                from = new Date(today);
-                from.setMonth(from.getMonth() - 3);
-            } else if (preset === 'last_6') {
-                to = new Date(today);
-                from = new Date(today);
-                from.setMonth(from.getMonth() - 6);
-            } else if (preset === 'last_12') {
-                to = new Date(today);
-                from = new Date(today);
-                from.setMonth(from.getMonth() - 12);
-            } else return;
-            const fmt = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-            const f = document.getElementById('fp_from');
-            const t = document.getElementById('fp_to');
-            if (f) f.value = fmt(from);
-            if (t) t.value = fmt(to);
-        }
-    };
-}
-
-const PF_PAL = ['#6366f1','#8b5cf6','#ec4899','#f97316','#10b981','#3b82f6','#f59e0b','#14b8a6','#84cc16','#06b6d4'];
-const PF_OPT = { toolbar:{show:false}, animations:{speed:500,animateGradually:{enabled:true,delay:80}}, fontFamily:'inherit' };
-
-<?php if (!$branch_empty): ?>
-
-// ── 1. Sales Trend ─────────────────────────────────────────────────────────
-(function(){
-    const labels   = <?php echo json_encode(array_merge($trend12_labels, [$next_month_label])); ?>;
-    const revs     = <?php echo json_encode(array_merge($trend12_revenues, [$forecast_revenue])); ?>;
-    const ords     = <?php echo json_encode(array_merge($trend12_orders, [$forecast_orders])); ?>;
-    const fcast    = <?php echo json_encode($next_month_label); ?>;
-    const curMon   = labels[labels.length - 2] || <?php echo json_encode(date('M Y')); ?>;
-    const metric  = <?php echo json_encode($trend_metric); ?>;
-    const data    = metric === 'revenue' ? revs : ords;
-    const series  = metric === 'revenue'
-        ? [{name:'Revenue (₱)', data:revs, type:'area'}]
-        : [{name:'Orders', data:ords, type:'area'}];
-    const yFmt    = metric === 'revenue' ? (v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:0})) : (v=>Math.round(v)+(metric==='orders'?' orders':''));
-
-    new ApexCharts(document.getElementById('ch-trend'), {
-        chart: {...PF_OPT, type:'area', height:300},
-        series: series,
-        xaxis:{categories:labels, labels:{rotate:-30, style:{fontSize:'11px'}}},
-        yaxis:{labels:{formatter:v=>metric==='revenue'?'₱'+Number(v).toLocaleString():Math.round(v)}},
-        colors:['#6366f1'],
-        fill:{type:'gradient', gradient:{shadeIntensity:.6, opacityFrom:.35, opacityTo:.06}},
-        stroke:{curve:'smooth', width:3},
-        markers:{size:0, hover:{size:5}},
-        dataLabels:{enabled:false},
-        tooltip:{shared:true, intersect:false, y:{formatter:yFmt}},
-        annotations:{xaxis:[
-            {x:curMon, borderColor:'#94a3b8', strokeDashArray:4, label:{text:'Current Month',style:{color:'#64748b',background:'#f1f5f9',fontSize:'10px'}}},
-            {x:fcast, borderColor:'#6366f1', strokeDashArray:4, label:{text:'Forecast',style:{color:'#fff',background:'#6366f1',fontSize:'10px'}}}
-        ]},
-        legend:{show:false},
-        grid:{borderColor:'#f1f5f9', strokeDashArray:2, xaxis:{lines:{show:true}}, yaxis:{lines:{show:true}}}
-    }).render();
-})();
-
-// ── 2. Product Demand Forecast ─────────────────────────────────────────────
-<?php if ($can_forecast && !empty($fc_series_data)): ?>
-(function(){
-    const allLabels = <?php echo json_encode($fc_all_labels); ?>;
-    const fcastStart = <?php echo json_encode(reset($fc_fore_labels)); ?>;
-    const series = [];
-    const colors = [];
-    const dashes = [];
-    const pal = PF_PAL;
-    let ci = 0;
-
-    <?php
-    $fc_js_data = [];
-    foreach ($fc_series_data as $prod => $pd) {
-        $fc_js_data[] = [
-            'name' => $prod,
-            'hist' => $pd['hist'],
-            'fore' => $pd['fore'],
-        ];
-    }
-    echo 'const fcData = '.json_encode($fc_js_data).";\n";
-    ?>
-
-    fcData.forEach(function(p, idx){
-        const color = pal[idx % pal.length];
-        // Historical series (6 points + 3 nulls)
-        const histData = [...p.hist, null, null, null];
-        // Forecast series (5 nulls + bridge + 3 forecast)
-        const foreData = [...new Array(5).fill(null), p.hist[p.hist.length-1], ...p.fore];
-
-        series.push({name: p.name + ' (actual)',   data: histData});
-        series.push({name: p.name + ' (forecast)', data: foreData});
-        colors.push(color, color);
-        dashes.push(0, 6);
-        ci++;
-    });
-
-    new ApexCharts(document.getElementById('ch-forecast'), {
-        chart: {...PF_OPT, type:'line', height:290},
-        series: series,
-        xaxis: {categories: allLabels, labels:{style:{fontSize:'10px'}, rotate:-30}},
-        yaxis: {labels:{formatter:v=>v!=null?Math.round(v):''}},
-        colors: colors,
-        stroke: {curve:'smooth', width:2, dashArray:dashes},
-        markers:{size:2, hover:{size:4}},
-        tooltip:{shared:false, intersect:true, y:{formatter:v=>v!=null?v+' orders':'-'}},
-        annotations:{xaxis:[{x:fcastStart, borderColor:'#f59e0b', strokeDashArray:5,
-            label:{text:'Forecast →',style:{color:'#fff',background:'#f59e0b',fontSize:'10px'}}}]},
-        legend:{show:false},
-        grid:{borderColor:'#f3f4f6',strokeDashArray:4}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 3. Best Selling Products (H-Bar) ───────────────────────────────────────
-<?php if (!empty($top_products)): ?>
-(function(){
-    const names = <?php
-        $names = [];
-        $i = 1;
-        foreach ($top_products as $p) {
-            $trend = '';
-            if (!empty($top_products_prev) && isset($p['product_id'])) {
-                $prev = $top_products_prev[(int)$p['product_id']] ?? 0;
-                $curr = (int)$p['qty_sold'];
-                if ($prev > 0) {
-                    $chg = round((($curr - $prev) / $prev) * 100);
-                    $trend = $chg != 0 ? ($chg > 0 ? "+{$chg}%" : "{$chg}%") : '';
-                }
-            }
-            $label = '#'.$i.' '.mb_substr($p['product_name'],0,20);
-            if ($trend) $label .= ' · '.$trend;
-            $names[] = $label;
-            $i++;
-        }
-        echo json_encode($names);
-    ?>;
-    const qtys  = <?php echo json_encode(array_map(fn($p)=>(int)$p['qty_sold'], $top_products)); ?>;
-    new ApexCharts(document.getElementById('ch-products'), {
-        chart:{...PF_OPT, type:'bar', height:280},
-        plotOptions:{bar:{horizontal:true, borderRadius:6, barHeight:'70%', distributed:true}},
-        series:[{name:'Units Sold', data:qtys}],
-        xaxis:{categories:names, labels:{style:{fontSize:'11px'}}},
-        colors:PF_PAL, legend:{show:false},
-        dataLabels:{enabled:true, offsetX:4, style:{fontSize:'10px',colors:['#374151']}},
-        tooltip:{y:{formatter:v=>v+' units'}},
-        grid:{borderColor:'#f1f5f9', strokeDashArray:2, xaxis:{lines:{show:true}}}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 4. Revenue Donut ───────────────────────────────────────────────────────
-<?php if (!empty($rev_donut)): ?>
-(function(){
-    const vals   = <?php echo json_encode(array_map(fn($p)=>round((float)$p['revenue'],2), $rev_donut)); ?>;
-    const total  = vals.reduce((a,b)=>a+b,0);
-    const labels = <?php
-        $tot = array_sum(array_map(fn($x)=>round((float)$x['revenue'],2), $rev_donut));
-        echo json_encode(array_map(function($p) use ($tot) {
-            $pct = $tot > 0 ? round(((float)$p['revenue']/$tot)*100, 1) : 0;
-            return $p['product_name'].' – ₱'.number_format((float)$p['revenue'],0).' ('.$pct.'%)';
-        }, $rev_donut));
-    ?>;
-    const revGrowth = <?php echo $revenue_delta !== null ? (float)$revenue_delta : 'null'; ?>;
-    const centerLabel = revGrowth !== null
-        ? '₱'+total.toLocaleString(undefined,{minimumFractionDigits:0}) + '\n' + (revGrowth>=0?'+':'') + revGrowth + '%'
-        : '₱'+total.toLocaleString(undefined,{minimumFractionDigits:0});
-    new ApexCharts(document.getElementById('ch-donut'), {
-        chart:{...PF_OPT, type:'donut', height:280},
-        series:vals, labels:labels, colors:PF_PAL,
-        plotOptions:{pie:{donut:{size:'65%', labels:{show:true, total:{show:true, label:'Total Revenue', formatter:()=>centerLabel}}}}},
-        tooltip:{y:{formatter:v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2})+' ('+((v/total)*100).toFixed(1)+'%)'}},
-        legend:{position:'bottom', fontSize:'11px', itemMargin:{vertical:4}},
-        dataLabels:{enabled:true, formatter:v=>v.toFixed(1)+'%', style:{fontSize:'10px'}}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 5. Seasonal Heatmap ────────────────────────────────────────────────────
-<?php if (!empty($heatmap_products)): ?>
-(function(){
-    const series = <?php
-        $hm = [];
-        foreach ($heatmap_products as $prod => $mo) {
-            $row = [];
-            for ($m=1;$m<=12;$m++) {
-                $row[] = ['x'=>date('M',mktime(0,0,0,$m,1)), 'y'=>(int)($mo[$m]??0)];
-            }
-            $hm[] = ['name'=>$prod, 'data'=>$row];
-        }
-        echo json_encode($hm);
-    ?>;
-    new ApexCharts(document.getElementById('ch-heatmap'), {
-        chart:{...PF_OPT, type:'heatmap', height:<?php echo max(200,count($heatmap_products)*46+50); ?>},
-        series:series, colors:['#6366f1'],
-        plotOptions:{heatmap:{enableShades:true, shadeIntensity:.85, colorScale:{ranges:[
-            {from:0,to:0,   color:'#f1f5f9', name:'None'},
-            {from:1,to:5,   color:'#c7d2fe', name:'Low'},
-            {from:6,to:15,  color:'#818cf8', name:'Medium'},
-            {from:16,to:999,color:'#3730a3', name:'High'}
-        ]}}},
-        dataLabels:{enabled:true, style:{fontSize:'10px',colors:['#1e293b']}},
-        tooltip:{y:{formatter:v=>v+' units'}},
-        xaxis:{labels:{style:{fontSize:'10px'}}},
-        yaxis:{labels:{style:{fontSize:'10px'}}},
-        legend:{position:'bottom', fontSize:'11px'}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 6. Customer Locations ──────────────────────────────────────────────────
-<?php if (!empty($customer_locations)): ?>
-(function(){
-    const cities = <?php echo json_encode(array_map(fn($l)=>trim($l['city']), $customer_locations)); ?>;
-    const cnts   = <?php echo json_encode(array_map(fn($l)=>(int)$l['orders'], $customer_locations)); ?>;
-    new ApexCharts(document.getElementById('ch-locs'), {
-        chart:{...PF_OPT, type:'bar', height:280},
-        series:[{name:'Orders', data:cnts}],
-        xaxis:{categories:cities, labels:{style:{fontSize:'10px'}, rotate:-30}},
-        colors:['#6366f1'],
-        plotOptions:{bar:{borderRadius:6, columnWidth:'55%', distributed:true}},
-        legend:{show:false},
-        dataLabels:{enabled:true, style:{fontSize:'10px',colors:['#374151']}},
-        tooltip:{y:{formatter:v=>v+' orders'}},
-        grid:{borderColor:'#f3f4f6'}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 7. Customization Usage (Stacked H-Bar) ─────────────────────────────────
-<?php if (!empty($custom_usage)): ?>
-(function(){
-    const prods = <?php echo json_encode(array_map(fn($c)=>mb_substr($c['product'],0,22),$custom_usage)); ?>;
-    const cust  = <?php echo json_encode(array_map(fn($c)=>(int)$c['custom_count'],$custom_usage)); ?>;
-    const tmpl  = <?php echo json_encode(array_map(fn($c)=>(int)$c['template_count'],$custom_usage)); ?>;
-    new ApexCharts(document.getElementById('ch-custom'), {
-        chart:{...PF_OPT, type:'bar', height:280, stacked:true},
-        series:[{name:'Custom Upload',data:cust},{name:'Template / No Upload',data:tmpl}],
-        xaxis:{categories:prods, labels:{style:{fontSize:'10px'}}},
-        colors:['#6366f1','#e0e7ff'],
-        plotOptions:{bar:{horizontal:true, borderRadius:4, barHeight:'60%'}},
-        legend:{position:'bottom', fontSize:'11px'},
-        tooltip:{shared:true, intersect:false},
-        grid:{borderColor:'#f3f4f6'}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 8. Branch Comparison (Grouped Bar) ─────────────────────────────────────
-<?php if (count($branch_perf) > 1): ?>
-(function(){
-    const branches = <?php echo json_encode(array_map(fn($b)=>$b['branch_name'],$branch_perf)); ?>;
-    const revs     = <?php echo json_encode(array_map(fn($b)=>round((float)$b['revenue'],2),$branch_perf)); ?>;
-    const ords     = <?php echo json_encode(array_map(fn($b)=>(int)$b['orders'],$branch_perf)); ?>;
-    new ApexCharts(document.getElementById('ch-branches'), {
-        chart:{...PF_OPT, type:'bar', height:270},
-        series:[{name:'Revenue (₱)',data:revs},{name:'Orders',data:ords}],
-        xaxis:{categories:branches, labels:{style:{fontSize:'11px'}}},
-        yaxis:[
-            {title:{text:'Revenue',style:{color:'#9ca3af'}}, labels:{formatter:v=>'₱'+v.toLocaleString()}},
-            {opposite:true, title:{text:'Orders',style:{color:'#9ca3af'}}, labels:{formatter:v=>Math.round(v)}}
-        ],
-        colors:['#6366f1','#10b981'],
-        plotOptions:{bar:{borderRadius:4, columnWidth:'45%'}},
-        legend:{position:'top', fontSize:'12px'},
-        tooltip:{shared:true, intersect:false,
-            y:[{formatter:v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2})},{formatter:v=>v+' orders'}]},
-        grid:{borderColor:'#f3f4f6'}
-    }).render();
-})();
-<?php endif; ?>
-
-// ── 9. Order Status (Donut) ────────────────────────────────────────────────
-<?php if (!empty($status_data)): ?>
-(function(){
-    const statusColors = {'Pending':'#f59e0b','Processing':'#3b82f6','Ready for Pickup':'#06b6d4','Completed':'#10b981','Cancelled':'#ef4444','Design Approved':'#8b5cf6'};
-    const labels = <?php echo json_encode(array_map(fn($d)=>$d['status'],$status_data)); ?>;
-    const vals   = <?php echo json_encode(array_map(fn($d)=>(int)$d['cnt'],$status_data)); ?>;
-    const colors = labels.map(l=>statusColors[l]||'#9ca3af');
-    new ApexCharts(document.getElementById('ch-status'), {
-        chart:{...PF_OPT, type:'donut', height:280},
-        series:vals, labels:labels, colors:colors,
-        plotOptions:{pie:{donut:{size:'60%'}}},
-        legend:{position:'bottom', fontSize:'11px', itemMargin:{vertical:3}},
-        dataLabels:{enabled:true, formatter:v=>v.toFixed(1)+'%', style:{fontSize:'10px'}},
-        tooltip:{y:{formatter:v=>v+' orders'}}
-    }).render();
-})();
-<?php endif; ?>
-
-<?php endif; /* !branch_empty */ ?>
-</script>
+<?php include __DIR__ . '/../includes/reports_analytics_scripts.php'; ?>
 </body>
 </html>

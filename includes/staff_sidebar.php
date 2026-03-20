@@ -14,6 +14,8 @@ if (isset($_SESSION['user_id'])) {
     $_staff_unread_notif = (int)($r[0]['count'] ?? 0);
 }
 ?>
+<div id="printflow-persistent-sidebar" data-turbo-permanent>
+<?php include __DIR__ . '/sidebar_layout_boot.php'; ?>
 
 <aside class="sidebar">
     <div class="sidebar-header">
@@ -21,7 +23,7 @@ if (isset($_SESSION['user_id'])) {
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
-        <button id="global-sidebar-toggle" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:16px; padding:4px;" title="Toggle Sidebar">
+        <button id="global-sidebar-toggle" style="background:none; border:none; color:rgba(255,255,255,0.55); cursor:pointer; font-size:16px; padding:4px;" title="Toggle Sidebar">
             <i class="fas fa-chevron-left" id="sidebar-toggle-icon"></i>
         </button>
     </div>
@@ -111,7 +113,7 @@ if (isset($_SESSION['user_id'])) {
                 <div class="user-role">Staff<?php if ($is_pending): ?> <span style="color:#f59e0b;">• Pending</span><?php endif; ?></div>
             </div>
         </a>
-        <a href="/printflow/logout/" class="logout-btn">
+        <a href="/printflow/logout/" class="logout-btn" data-turbo="false">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
@@ -127,19 +129,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleIcon = document.getElementById('sidebar-toggle-icon');
     
     // Check localStorage for saved state
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true' || localStorage.getItem('sidebarCollapsed') === '1';
+    if (collapsed) {
         sidebar.classList.add('collapsed');
         if (toggleIcon) {
             toggleIcon.classList.remove('fa-chevron-left');
             toggleIcon.classList.add('fa-chevron-right');
         }
+    } else {
+        sidebar.classList.remove('collapsed');
+        if (toggleIcon) {
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-left');
+        }
     }
+    document.body.classList.remove('sidebar-collapsed');
+    document.documentElement.classList.remove('sidebar-preload-collapsed');
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            document.documentElement.classList.add('sidebar-transitions-enabled');
+        });
+    });
     
     if (toggleBtn) {
         toggleBtn.addEventListener('click', function() {
+            if (sidebar.dataset.pfToggleLock === '1') return;
+            sidebar.dataset.pfToggleLock = '1';
             sidebar.classList.toggle('collapsed');
             const isCollapsed = sidebar.classList.contains('collapsed');
-            localStorage.setItem('sidebarCollapsed', isCollapsed);
+            localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+            window.setTimeout(function () { sidebar.dataset.pfToggleLock = '0'; }, 320);
             
             if (toggleIcon) {
                 if (isCollapsed) {
@@ -162,3 +181,4 @@ $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Sta
 <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
 <script src="/printflow/public/assets/js/notifications.js" defer></script>
 <script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>
+</div>
