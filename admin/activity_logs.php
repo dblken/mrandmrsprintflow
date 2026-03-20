@@ -134,7 +134,7 @@ $page_title = 'Activity Logs - Admin';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <style>
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 
@@ -311,14 +311,14 @@ $page_title = 'Activity Logs - Admin';
         /* Logs Table */
         .logs-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
         .logs-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
-        .logs-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .logs-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; word-break: break-word; }
         .logs-table tbody tr:hover td { background: #f9fafb; }
         .logs-table tbody tr:last-child td { border-bottom: none; }
-        .logs-table .col-timestamp { width: 165px; }
-        .logs-table .col-user { width: 140px; }
-        .logs-table .col-role { width: 90px; }
-        .logs-table .col-action { width: 160px; }
-        .logs-table .col-desc { width: auto; }
+        .logs-table .col-timestamp { width: 15%; }
+        .logs-table .col-user { width: 14%; }
+        .logs-table .col-role { width: 9%; }
+        .logs-table .col-action { width: 16%; }
+        .logs-table .col-desc { width: 46%; }
         .role-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         .role-badge.admin { background: #fee2e2; color: #991b1b; }
         .role-badge.staff { background: #dbeafe; color: #1e40af; }

@@ -42,7 +42,18 @@ if ($error_param) {
 
 // Step 1: No code -> redirect to Google
 if ($code === '') {
-    $state = bin2hex(random_bytes(12));
+    $state = bin2hex(random_bytes(16));
+    // Store state in a SameSite=Lax cookie so it survives the redirect back from Google.
+    // The main session cookie uses SameSite=Strict and may not be sent on OAuth callback.
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    setcookie('oauth_state', $state, [
+        'expires' => time() + 600, // 10 min
+        'path' => '/',
+        'domain' => '',
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     if (session_status() === PHP_SESSION_NONE) session_start();
     $_SESSION['google_oauth_state'] = $state;
     $url = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
@@ -59,13 +70,26 @@ if ($code === '') {
 }
 
 // Step 2: Exchange code for tokens
-if (session_status() === PHP_SESSION_NONE) session_start();
 $state_sent = $_GET['state'] ?? '';
-if (empty($_SESSION['google_oauth_state']) || !hash_equals($_SESSION['google_oauth_state'], $state_sent)) {
+$state_from_cookie = $_COOKIE['oauth_state'] ?? '';
+// Accept state from either session (if available) or cookie (SameSite=Lax survives OAuth redirect)
+$state_valid = false;
+if ($state_sent !== '') {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (!empty($_SESSION['google_oauth_state']) && hash_equals($_SESSION['google_oauth_state'], $state_sent)) {
+        $state_valid = true;
+    } elseif ($state_from_cookie !== '' && hash_equals($state_from_cookie, $state_sent)) {
+        $state_valid = true;
+    }
+}
+// Clear the state cookie (one-time use)
+setcookie('oauth_state', '', ['expires' => time() - 3600, 'path' => '/']);
+if (!$state_valid) {
+    if (session_status() === PHP_SESSION_ACTIVE) unset($_SESSION['google_oauth_state']);
     header('Location: ' . $base_url . '/?auth_modal=login&error=' . urlencode('Invalid state. Please try again.'));
     exit;
 }
-unset($_SESSION['google_oauth_state']);
+if (session_status() === PHP_SESSION_ACTIVE) unset($_SESSION['google_oauth_state']);
 
 $token_url = 'https://oauth2.googleapis.com/token';
 $token_body = [
@@ -112,7 +136,9 @@ $last_name = $user['family_name'] ?? '';
 
 $result = login_customer_by_google($email, $first_name, $last_name);
 if ($result['success']) {
-    header('Location: ' . $result['redirect']);
+    // Use absolute URL so redirect works reliably after OAuth callback
+    $redirect_url = $scheme . '://' . $host . $result['redirect'];
+    header('Location: ' . $redirect_url);
     exit;
 }
 header('Location: ' . $base_url . '/?auth_modal=login&error=' . urlencode($result['message']));

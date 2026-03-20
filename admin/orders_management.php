@@ -20,7 +20,6 @@ $branchId  = $branchCtx['selected_branch_id'];
 
 // Get filter parameters
 $status_filter  = $_GET['status']   ?? '';
-$payment_filter = $_GET['payment']  ?? '';
 $search         = $_GET['search']   ?? '';
 $date_from      = $_GET['date_from'] ?? '';
 $date_to        = $_GET['date_to']   ?? '';
@@ -51,12 +50,6 @@ if ($branch_filter !== '') {
 if (!empty($status_filter)) {
     $sql .= " AND o.status = ?";
     $params[] = $status_filter;
-    $types .= 's';
-}
-
-if (!empty($payment_filter)) {
-    $sql .= " AND o.payment_status = ?";
-    $params[] = $payment_filter;
     $types .= 's';
 }
 
@@ -123,7 +116,6 @@ if (isset($_GET['ajax'])) {
                 <th style="width:15%;">Date</th>
                 <th style="width:12%;">Branch</th>
                 <th style="width:12%;">Amount</th>
-                <th style="width:10%;">Payment</th>
                 <th style="width:12%;">Status</th>
                 <th style="width:1%; text-align:right;">Actions</th>
             </tr>
@@ -131,13 +123,13 @@ if (isset($_GET['ajax'])) {
         <tbody id="ordersTableBody">
             <?php if (empty($orders)): ?>
                 <tr id="emptyOrdersRow">
-                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
+                    <td colspan="7" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
                         <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
                     </td>
                 </tr>
             <?php else: ?>
                 <tr id="emptyOrdersRow" style="display:none;">
-                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
+                    <td colspan="7" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
                 </tr>
                 <?php foreach ($orders as $order): ?>
                     <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
@@ -156,24 +148,13 @@ if (isset($_GET['ajax'])) {
                         <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                         <td>
                             <?php
-                                $pc = match($order['payment_status']) {
-                                    'Pending' => 'background:#fef9c3;color:#854d0e;',
-                                    'Paid'    => 'background:#dcfce7;color:#166534;',
-                                    'Failed'  => 'background:#fee2e2;color:#991b1b;',
-                                    default   => 'background:#fef9c3;color:#854d0e;'
-                                };
-                            ?>
-                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
-                        </td>
-                        <td>
-                            <?php
                                 $sc = match($order['status']) {
-                                    'Pending'           => 'background:#fef9c3;color:#854d0e;',
+                                    'Pending'           => 'background:#fef3c7;color:#92400e;',
                                     'Processing'        => 'background:#dbeafe;color:#1e40af;',
                                     'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
                                     'Completed'         => 'background:#dcfce7;color:#166534;',
-                                    'Cancelled'         => 'background:#fee2e2;color:#991b1b;',
-                                    default             => 'background:#fef9c3;color:#854d0e;'
+                                    'Cancelled'         => 'background:#fecaca;color:#b91c1c;',
+                                    default             => 'background:#f3f4f6;color:#374151;'
                                 };
                             ?>
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
@@ -193,13 +174,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = [];
-    if ($search)         $pagination_params['search']    = $search;
-    if ($status_filter)  $pagination_params['status']    = $status_filter;
-    if ($payment_filter) $pagination_params['payment']   = $payment_filter;
-    if ($date_from)      $pagination_params['date_from'] = $date_from;
-    if ($date_to)        $pagination_params['date_to']   = $date_to;
-    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+    $pagination_params = array_filter(['search'=>$search, 'status'=>$status_filter, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params); 
     $pagination_html = ob_get_clean();
 
@@ -208,7 +183,7 @@ if (isset($_GET['ajax'])) {
         'table'      => $table_html,
         'pagination' => $pagination_html,
         'count'      => number_format($total_orders),
-        'badge'      => count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]))
+        'badge'      => count(array_filter([$status_filter, $search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }))
     ]);
     exit;
 }
@@ -220,7 +195,7 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
     <style>
@@ -622,7 +597,7 @@ if (isset($_GET['ajax'])) {
                                 Filter
                                 <span id="filterBadgeContainer">
                                     <?php
-                                    $active_filters = array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]);
+                                    $active_filters = array_filter([$status_filter, $search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; });
                                     if (count($active_filters) > 0): ?>
                                     <span class="filter-badge"><?php echo count($active_filters); ?></span>
                                     <?php endif; ?>
@@ -649,20 +624,6 @@ if (isset($_GET['ajax'])) {
                                             <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to); ?>">
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- Payment Type -->
-                                <div class="filter-section">
-                                    <div class="filter-section-head">
-                                        <span class="filter-section-label">Payment</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['payment'])">Reset</button>
-                                    </div>
-                                    <select id="fp_payment" class="filter-select">
-                                        <option value="">All payments</option>
-                                        <option value="Pending" <?php echo $payment_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                        <option value="Paid"    <?php echo $payment_filter === 'Paid'    ? 'selected' : ''; ?>>Paid</option>
-                                        <option value="Failed"  <?php echo $payment_filter === 'Failed'  ? 'selected' : ''; ?>>Failed</option>
-                                    </select>
                                 </div>
 
                                 <!-- Status -->
@@ -710,7 +671,6 @@ if (isset($_GET['ajax'])) {
                                 <th style="width:15%;">Date</th>
                                 <th style="width:12%;">Branch</th>
                                 <th style="width:12%;">Amount</th>
-                                <th style="width:10%;">Payment</th>
                                 <th style="width:12%;">Status</th>
                                 <th style="width:1%; text-align:right;">Actions</th>
                             </tr>
@@ -718,71 +678,54 @@ if (isset($_GET['ajax'])) {
                         <tbody id="ordersTableBody">
                             <?php if (empty($orders)): ?>
                                 <tr id="emptyOrdersRow">
-                                    <td colspan="8" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
+                                    <td colspan="7" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
                                         <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach ($orders as $order): ?>
-                                    <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
-                                        <td style="color:#1f2937;"><?php echo $order['order_id']; ?></td>
-                                        <td>
-                                            <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
-                                            <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
-                                        </td>
-                                        <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
-                                        <td><?php
-                                            echo get_branch_badge_html(
-                                                (int)($order['branch_id'] ?? 0),
-                                                $order['branch_name'] ?? 'Main'
-                                            );
-                                        ?></td>
-                                        <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
-                                        <td>
-                                            <?php
-                                                $pc = match($order['payment_status']) {
-                                                    'Pending' => 'background:#fef9c3;color:#854d0e;',
-                                                    'Paid'    => 'background:#dcfce7;color:#166534;',
-                                                    'Failed'  => 'background:#fee2e2;color:#991b1b;',
-                                                    default   => 'background:#fef9c3;color:#854d0e;'
-                                                };
-                                            ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $pc; ?>"><?php echo $order['payment_status']; ?></span>
-                                        </td>
-                                        <td>
-                                            <?php
-                                                $sc = match($order['status']) {
-                                                    'Pending'           => 'background:#fef9c3;color:#854d0e;',
-                                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
-                                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
-                                                    'Completed'         => 'background:#dcfce7;color:#166534;',
-                                                    'Cancelled'         => 'background:#fee2e2;color:#991b1b;',
-                                                    default             => 'background:#fef9c3;color:#854d0e;'
-                                                };
-                                            ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
-                                        </td>
-                                        <td style="text-align:right;">
-                                            <button 
-                                                onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)"
-                                                class="btn-action blue"
-                                            >View</button>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
+                <?php foreach ($orders as $order): ?>
+                    <tr data-order-id="<?php echo $order['order_id']; ?>" @click="openModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;">
+                        <td style="color:#1f2937;"><?php echo $order['order_id']; ?></td>
+                        <td>
+                            <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
+                            <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                        </td>
+                        <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
+                        <td><?php
+                            echo get_branch_badge_html(
+                                (int)($order['branch_id'] ?? 0),
+                                $order['branch_name'] ?? 'Main'
+                            );
+                        ?></td>
+                        <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
+                        <td>
+                            <?php
+                                $sc = match($order['status']) {
+                                    'Pending'           => 'background:#fef3c7;color:#92400e;',
+                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
+                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
+                                    'Completed'         => 'background:#dcfce7;color:#166534;',
+                                    'Cancelled'         => 'background:#fecaca;color:#b91c1c;',
+                                    default             => 'background:#f3f4f6;color:#374151;'
+                                };
+                            ?>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
+                        </td>
+                        <td style="text-align:right;" @click.stop>
+                            <button 
+                                @click="openModal(<?php echo $order['order_id']; ?>)"
+                                class="btn-action blue"
+                            >View</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
                 <div id="ordersPagination">
                     <?php 
-                    $pagination_params = [];
-                    if ($search)         $pagination_params['search']    = $search;
-                    if ($status_filter)  $pagination_params['status']    = $status_filter;
-                    if ($payment_filter) $pagination_params['payment']   = $payment_filter;
-                    if ($date_from)      $pagination_params['date_from'] = $date_from;
-                    if ($date_to)        $pagination_params['date_to']   = $date_to;
-                    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+                    $pagination_params = array_filter(['search'=>$search, 'status'=>$status_filter, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
@@ -985,7 +928,6 @@ if (isset($_GET['ajax'])) {
 
         const fields = {
             status:    () => document.getElementById('fp_status')?.value   || '',
-            payment:   () => document.getElementById('fp_payment')?.value  || '',
             search:    () => document.getElementById('fp_search')?.value   || '',
             date_from: () => document.getElementById('fp_date_from')?.value || '',
             date_to:   () => document.getElementById('fp_date_to')?.value   || '',
@@ -1042,11 +984,8 @@ if (isset($_GET['ajax'])) {
                     }
                 }
 
-                // Update Alpine state for filter button background highlight
-                const root = document.body;
-                if (root && root._x_dataStack) {
-                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
-                }
+                // Update Alpine state for filter button background highlight (no _x_dataStack)
+                window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
                 const displayUrl = buildFilterURL(overrides, false);
                 window.history.replaceState({ path: displayUrl }, '', displayUrl);
             }
@@ -1067,14 +1006,7 @@ if (isset($_GET['ajax'])) {
     }
 
     function applySortFilter(sortKey) {
-        // Update Alpine state
-        const root = document.body;
-        if (root && root._x_dataStack) {
-            const data = root._x_dataStack[0];
-            data.activeSort = sortKey;
-            data.sortOpen = false;
-        }
-        
+        window.dispatchEvent(new CustomEvent('sort-changed', { detail: { sortKey } }));
         fetchUpdatedTable({ sort: sortKey });
     }
 
@@ -1088,7 +1020,7 @@ if (isset($_GET['ajax'])) {
 
     // Real-time listeners
     document.addEventListener('DOMContentLoaded', () => {
-        const inputs = ['fp_status', 'fp_payment', 'fp_date_from', 'fp_date_to'];
+        const inputs = ['fp_status', 'fp_date_from', 'fp_date_to'];
         inputs.forEach(id => {
             document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
         });
@@ -1104,19 +1036,33 @@ if (isset($_GET['ajax'])) {
         }
     });
 
-    // ── Alpine.js data for filter/sort panel toggles ───────
+    // ── Alpine.js: merged orders page (modal + filter) ──────
+    function ordersPage() {
+        return { ...orderModal(), ...filterPanel() };
+    }
+
+    // ── Alpine.js: merged page state (order modal + filter/sort) ───
+    function ordersPage() {
+        return { ...orderModal(), ...filterPanel() };
+    }
+
     function filterPanel() {
         return {
             filterOpen: false,
             sortOpen:   false,
             activeSort: '<?php echo $sort_by; ?>',
-            hasActiveFilters: <?php echo count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
+            hasActiveFilters: <?php echo count(array_filter([$status_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
         };
+    }
+
+    // Merged page component (order modal + filter panel)
+    function ordersPage() {
+        return { ...orderModal(), ...filterPanel() };
     }
 
     // ── Alpine.js data for order modal ─────────────────────
     function orderModal() {
-        const obj = {
+        return {
             showModal: false,
             loading: false,
             errorMsg: '',
@@ -1126,6 +1072,12 @@ if (isset($_GET['ajax'])) {
             updatingStatus: false,
             statusUpdateMsg: '',
             statusUpdateError: false,
+
+            init() {
+                window.addEventListener('open-order-modal', e => this.openModal(e.detail.orderId));
+                window.addEventListener('filter-badge-update', e => { this.hasActiveFilters = (e.detail.badge > 0); });
+                window.addEventListener('sort-changed', e => { this.activeSort = e.detail.sortKey; this.sortOpen = false; });
+            },
 
             openModal(orderId) {
                 this.showModal = true;
@@ -1250,9 +1202,9 @@ if (isset($_GET['ajax'])) {
                     order: {
                         'Pending': 'background:#fef3c7;color:#92400e;',
                         'Processing': 'background:#dbeafe;color:#1e40af;',
-                        'Ready for Pickup': 'background:#dcfce7;color:#166534;',
+                        'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
                         'Completed': 'background:#dcfce7;color:#166534;',
-                        'Cancelled': 'background:#fee2e2;color:#991b1b;'
+                        'Cancelled': 'background:#fecaca;color:#b91c1c;'
                     },
                     payment: {
                         'Pending': 'background:#fef3c7;color:#92400e;',
@@ -1266,28 +1218,11 @@ if (isset($_GET['ajax'])) {
                 return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${status || 'N/A'}</span>`;
             }
         };
-
-        // Expose to global so onclick= attributes can reach it
-        document.addEventListener('alpine:initialized', () => {});
-        window.orderModalInstance = obj;
-        return obj;
     }
 
-    // Global bridge: called by onclick on table rows/buttons
-    // Delegates to the Alpine component via its root element
+    // Global bridge: dispatches custom event so Alpine receives it (no _x_dataStack)
     function openOrderModal(orderId) {
-        const root = document.body;
-        if (root && root._x_dataStack) {
-            const data = root._x_dataStack[0];
-            if (data && data.openModal) {
-                data.openModal(orderId);
-                return;
-            }
-        }
-        // Fallback using Alpine.evaluate
-        if (window.Alpine) {
-            Alpine.evaluate(document.body, `openModal(${orderId})`);
-        }
+        window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } }));
     }
 </script>
 

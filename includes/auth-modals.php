@@ -401,7 +401,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     <div class="auth-modal-scrollable">
         <div class="auth-modal-inner">
             <h2 id="auth-register-title">Create Account</h2>
-            <p class="auth-modal-sub">Join PrintFlow — verify your email or phone to get started</p>
+            <p class="auth-modal-sub">Join PrintFlow — verify your email to get started</p>
             <div id="auth-register-message"></div>
 
             <!-- Step indicator (Removed) -->
@@ -412,13 +412,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 <input type="hidden" name="reg_type" value="direct">
                 <input type="hidden" name="identifier_type" id="reg-h-type" value="email">
 
-                <!-- Tabs -->
-                <div class="reg-tabs">
-                    <button type="button" class="reg-tab active" id="reg-tab-email" onclick="regSwitchTab('email')">Email</button>
-                    <button type="button" class="reg-tab" id="reg-tab-phone" onclick="regSwitchTab('phone')">Phone</button>
-                </div>
-
-                <!-- Identifier input -->
+                <!-- Identifier input (email only) -->
                 <div class="auth-field">
                     <label id="reg-id-label" for="reg-identifier">Email Address</label>
                     <input type="text" id="reg-identifier" name="identifier" class="input-field"
@@ -803,30 +797,12 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     }
 
     window.regSwitchTab = function(type) {
-        document.getElementById('reg-h-type').value = type;
+        document.getElementById('reg-h-type').value = 'email';
         var idEl = document.getElementById('reg-identifier');
         var errEl = document.getElementById('reg-id-error');
-
-        if (type === 'email') {
-            document.getElementById('reg-tab-email').classList.add('active');
-            document.getElementById('reg-tab-phone').classList.remove('active');
-            document.getElementById('reg-id-label').textContent = 'Email Address';
-            idEl.placeholder = 'Email address';
-            idEl.type = 'email';
-            idEl.maxLength = 150;
-            idEl.autocomplete = 'email';
-        } else {
-            document.getElementById('reg-tab-phone').classList.add('active');
-            document.getElementById('reg-tab-email').classList.remove('active');
-            document.getElementById('reg-id-label').textContent = 'Phone Number';
-            idEl.placeholder = '09171234567';
-            idEl.type = 'tel';
-            idEl.maxLength = 15;
-            idEl.autocomplete = 'tel';
-        }
-        idEl.value = '';
-        regTouched.identifier = false;
+        if (idEl) { idEl.placeholder = 'Email address'; idEl.type = 'email'; idEl.maxLength = 150; idEl.autocomplete = 'email'; }
         if (errEl) errEl.textContent = '';
+        regTouched.identifier = false;
         regCheckForm(false);
     };
 
@@ -920,15 +896,10 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
         var idOk, pwOk, cpwOk;
 
-        // Validate identifier
-        if (idType === 'email') {
-            var idErr = regValidEmail(idVal);
-            regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) ? idErr : '');
-            idOk = !idErr;
-        } else {
-            idOk = idVal.length > 0;
-            regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) && !idOk ? 'Phone number is required.' : '');
-        }
+        // Validate identifier (email only)
+        var idErr = regValidEmail(idVal);
+        regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) ? idErr : '');
+        idOk = !idErr;
 
         // Validate password
         var pwErr = regValidPassword(pwVal);
@@ -1095,6 +1066,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         regOtpResendAttempts = 0;
         regOtpCooldownEndMs  = 0;
         regOtpCreatedAtMs    = 0;
+        regPhoneVerified     = false;
         regClearOtpState();
         if (regOtpCooldownTimer) {
             clearInterval(regOtpCooldownTimer);
@@ -1117,6 +1089,146 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
         regSwitchTab('email');
         regCheckForm(false);
+    }
+
+    var apiBase = '<?php echo htmlspecialchars($base_url); ?>/public';
+
+    function openPhoneOtpModal() {
+        var b = document.getElementById('phone-otp-backdrop');
+        var m = document.getElementById('phone-otp-modal');
+        if (b) b.classList.add('is-open');
+        if (m) m.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function() {
+            var f = document.getElementById('phone-otp-digit-0');
+            if (f) f.focus();
+        }, 80);
+    }
+    function closePhoneOtpModal() {
+        var b = document.getElementById('phone-otp-backdrop');
+        var m = document.getElementById('phone-otp-modal');
+        if (b) b.classList.remove('is-open');
+        if (m) m.classList.remove('is-open');
+        document.body.style.overflow = '';
+        var digits = document.querySelectorAll('#phone-otp-code-inputs input');
+        if (digits) digits.forEach(function(i) { i.value = ''; });
+        var err = document.getElementById('phone-otp-error');
+        if (err) err.textContent = '';
+    }
+
+    document.getElementById('reg-verify-phone-btn').addEventListener('click', function() {
+        var idVal = (document.getElementById('reg-identifier') || {}).value.trim() || '';
+        var err = regValidPhone(idVal);
+        if (err) {
+            regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), err);
+            return;
+        }
+        var digits = idVal.replace(/\D/g, '');
+        var query = digits.indexOf('63') === 0 ? digits : ('63' + digits.replace(/^0/, ''));
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Verifying...';
+        fetch(apiBase + '/api/phone_verify.php?number=' + encodeURIComponent(query))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.valid) {
+                regPhoneVerified = true;
+                regPhoneCarrier = (data.carrier || '') + (data.location ? ' • ' + data.location : '');
+                var ve = document.getElementById('reg-phone-verified');
+                if (ve) { ve.textContent = '✓ ' + regPhoneCarrier || 'Valid number'; ve.style.display = 'block'; }
+                regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), '');
+            } else {
+                regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), data.error || 'Invalid phone number');
+            }
+        })
+        .catch(function() {
+            regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), 'Network error. Please try again.');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Verify Number';
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-phone-otp-close]') || e.target.id === 'phone-otp-backdrop') {
+            e.preventDefault();
+            closePhoneOtpModal();
+        }
+    });
+
+    var phoneOtpInputs = Array.prototype.slice.call(document.querySelectorAll('#phone-otp-code-inputs input'));
+    var phoneOtpErr = document.getElementById('phone-otp-error');
+    var phoneOtpVerifyBtn = document.getElementById('phone-otp-verify-btn');
+
+    function readPhoneOtpCode() {
+        return phoneOtpInputs.map(function(i) { return i.value || ''; }).join('');
+    }
+    function fillPhoneOtpDigits(raw, startIdx) {
+        var digits = (raw || '').replace(/\D/g, '').split('');
+        for (var i = 0; i < digits.length && startIdx + i < phoneOtpInputs.length; i++)
+            phoneOtpInputs[startIdx + i].value = digits[i];
+        if (phoneOtpInputs[Math.min(startIdx + digits.length, 5)]) phoneOtpInputs[Math.min(startIdx + digits.length, 5)].focus();
+    }
+
+    if (phoneOtpInputs.length) {
+        phoneOtpInputs.forEach(function(inp, idx) {
+            inp.addEventListener('input', function() {
+                var d = this.value.replace(/\D/g, '');
+                if (d.length > 1) { this.value = ''; fillPhoneOtpDigits(d, idx); } else { this.value = d; if (d && idx < 5) phoneOtpInputs[idx + 1].focus(); }
+                if (phoneOtpErr) phoneOtpErr.textContent = '';
+            });
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !this.value && idx > 0) { phoneOtpInputs[idx - 1].focus(); phoneOtpInputs[idx - 1].value = ''; }
+            });
+            inp.addEventListener('paste', function(e) {
+                e.preventDefault();
+                fillPhoneOtpDigits((e.clipboardData || window.clipboardData).getData('text'), idx);
+            });
+        });
+    }
+
+    if (phoneOtpVerifyBtn) {
+        phoneOtpVerifyBtn.addEventListener('click', function() {
+            var code = readPhoneOtpCode();
+            if (!regPendingEmail) {
+                if (phoneOtpErr) phoneOtpErr.textContent = 'Session expired. Please register again.';
+                closePhoneOtpModal();
+                openModal('register');
+                return;
+            }
+            if (!/^\d{6}$/.test(code)) {
+                if (phoneOtpErr) phoneOtpErr.textContent = 'Please enter a valid 6-digit code.';
+                return;
+            }
+            var origText = phoneOtpVerifyBtn.textContent;
+            phoneOtpVerifyBtn.disabled = true;
+            phoneOtpVerifyBtn.textContent = 'Verifying...';
+            var fd = new FormData();
+            fd.append('email', regPendingEmail);
+            fd.append('otp', code);
+            fetch(apiBase + '/verify_otp.php', { method: 'POST', body: fd, credentials: 'same-origin', redirect: 'follow' })
+            .then(function(r) {
+                var finalUrl = new URL(r.url, window.location.origin);
+                var success = finalUrl.searchParams.get('auth_modal') === 'login' || finalUrl.searchParams.get('success');
+                var errParam = finalUrl.searchParams.get('error');
+                if (success) {
+                    regClearOtpState();
+                    closePhoneOtpModal();
+                    openModal('login');
+                    showMessage('login', 'success', 'Phone verified. Please log in.');
+                } else {
+                    if (phoneOtpErr) phoneOtpErr.textContent = (errParam && (errParam.indexOf('incorrect') !== -1 || errParam.indexOf('wrong') !== -1)) ? 'Incorrect OTP. Please try again.' : (errParam || 'Invalid or expired code.');
+                    phoneOtpVerifyBtn.disabled = false;
+                    phoneOtpVerifyBtn.textContent = origText || 'Verify Code';
+                }
+            })
+            .catch(function() {
+                if (phoneOtpErr) phoneOtpErr.textContent = 'Network error.';
+                phoneOtpVerifyBtn.disabled = false;
+                phoneOtpVerifyBtn.textContent = origText || 'Verify Code';
+            });
+        });
     }
 
     // Wire up register modal events
@@ -1207,17 +1319,20 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
                 if (finalUrl.pathname.indexOf('/verify_email.php') !== -1) {
                     regPendingType       = idType;
-                    regPendingEmail      = idType === 'email' ? idVal : (idVal + '@phone.local');
+                    regPendingEmail      = idType === 'email' ? idVal : (idVal.trim() + '@phone.local');
                     regOtpResendAttempts = 0;
                     regOtpCreatedAtMs    = Date.now();
-                    var otpSub = document.getElementById('reg-otp-sub');
-                    if (otpSub) {
-                        otpSub.textContent = idType === 'email'
-                            ? 'Enter the 6-digit code sent to your email.'
-                            : 'Enter the 6-digit code sent for verification.';
+                    if (idType === 'phone') {
+                        closeModal();
+                        regSaveOtpState();
+                        openPhoneOtpModal();
+                        regStartOtpCooldown(regOtpCooldownSeconds(0));
+                        return;
                     }
+                    var otpSub = document.getElementById('reg-otp-sub');
+                    if (otpSub) otpSub.textContent = 'Enter the 6-digit code sent to your email.';
                     showRegisterStep('otp');
-                    regStartOtpCooldown(regOtpCooldownSeconds(0));   // also calls regSaveOtpState
+                    regStartOtpCooldown(regOtpCooldownSeconds(0));
                     return;
                 }
 
@@ -1429,6 +1544,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             fetch(loginForm.action, {
                 method: 'POST',
                 body: new FormData(loginForm),
+                credentials: 'same-origin',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
@@ -1436,8 +1552,16 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             })
             .then(function(response) { return response.json(); })
             .then(function(data) {
-                if (data && data.success) {
-                    window.location.href = data.redirect || '<?php echo $base_url; ?>/';
+                if (data && data.success && data.redirect) {
+                    var target = data.redirect;
+                    if (target.indexOf('/') === 0 && target.indexOf('//') !== 0) {
+                        target = window.location.origin + target;
+                    }
+                    window.location.replace(target);
+                    return;
+                }
+                if (data && data.success && !data.redirect) {
+                    window.location.replace('<?php echo $base_url; ?>/');
                     return;
                 }
                 var fieldErrors = (data && data.field_errors) ? data.field_errors : {};

@@ -10,12 +10,12 @@ require_once __DIR__ . '/../includes/functions.php';
 // Redirect if already logged in
 if (is_logged_in()) {
     $user_type = get_user_type();
-    if ($user_type === 'Admin') {
-        redirect('/printflow/admin/dashboard.php');
+    if ($user_type === 'Admin' || $user_type === 'Manager') {
+        redirect(AUTH_REDIRECT_BASE . '/admin/dashboard.php');
     } elseif ($user_type === 'Staff') {
-        redirect('/printflow/staff/dashboard.php');
+        redirect(AUTH_REDIRECT_BASE . '/staff/dashboard.php');
     } else {
-        redirect('/printflow/customer/services.php');
+        redirect(AUTH_REDIRECT_BASE . '/customer/services.php');
     }
 }
 
@@ -711,7 +711,7 @@ function togglePassword() {
 }
 
 function signInWithGoogle() {
-    window.location.href = '/printflow/public/google_auth.php?action=login';
+    window.location.href = '/printflow/google-auth/';
 }
 
 // Login validation and async submit (no full page reload for field errors)

@@ -66,26 +66,47 @@ function handle_product_photo_upload($file, $product_id = null) {
 // Handle product creation/update/delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     if (isset($_POST['create_product'])) {
-        $name = sanitize($_POST['name'] ?? '');
+        $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $sku = trim($_POST['sku'] ?? '');
         $category = sanitize($_POST['category'] ?? '');
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
-        $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
+        $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
+        if ($low_stock_level < 1) $low_stock_level = 10;
+        // Ensure status is exactly one of the DB enum values
+        $statusRaw = trim((string)($_POST['status'] ?? ''));
+        $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
 
-        if (!$name) {
-            $error = 'Product name is required.';
-        } elseif ($price <= 0) {
-            $error = 'Price must be greater than zero.';
+        // Server-side validation
+        if (strlen($name) < 2) {
+            $error = $name ? 'Product name must be at least 2 characters.' : 'Product name is required.';
+        } elseif (strlen($name) > 100) {
+            $error = 'Product name must not exceed 100 characters.';
+        } elseif (preg_match('/^\d+$/', $name)) {
+            $error = 'Product name cannot contain only numbers.';
+        } elseif (strlen($description) > 500) {
+            $error = 'Description must not exceed 500 characters.';
+        } elseif ($price < 1.00 || $price > 1000000) {
+            $error = $price <= 0 ? 'Price is required and must be greater than 0.' : 'Price must be between ₱1.00 and ₱1,000,000.00.';
+        } elseif ($stock_quantity < 0) {
+            $error = 'Quantity must be a non-negative whole number.';
+        } elseif ($low_stock_level < 0) {
+            $error = 'Low stock level must be a non-negative whole number.';
+        } elseif ($low_stock_level > $stock_quantity) {
+            $error = 'Low stock level cannot exceed quantity.';
+        } elseif (empty($category) || $category === '-- Select Category --') {
+            $error = 'Please select a category.';
+        } elseif (empty($_FILES['photo']['name']) || ($_FILES['photo']['error'] ?? 0) === UPLOAD_ERR_NO_FILE) {
+            $error = 'Product photo is required.';
         } else {
             // Allow empty SKU - treat as NULL
-            $sku_val = $sku !== '' ? $sku : null;
-            if ($sku_val !== null) {
+            $sku_val = $sku !== '' ? trim($sku) : null;
+            if ($sku_val !== null && $sku_val !== '') {
                 // Check for duplicate SKU
                 $exists = db_query("SELECT product_id FROM products WHERE sku = ?", 's', [$sku_val]);
                 if (!empty($exists)) {
-                    $error = "A product with SKU '$sku_val' already exists.";
+                    $error = "A product with SKU '" . htmlspecialchars($sku_val) . "' already exists.";
                 }
             }
 
@@ -95,9 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
                     
                     $result = db_execute(
-                        "INSERT INTO products (name, sku, category, description, price, stock_quantity, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                        'ssssdiis',
-                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $status, $photo_path]
+                        "INSERT INTO products (name, sku, category, description, price, stock_quantity, low_stock_level, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        'ssssdiiss',
+                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path]
                     );
 
                     if ($result) {
@@ -113,16 +134,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         }
     } elseif (isset($_POST['update_product'])) {
         $product_id = (int)$_POST['product_id'];
-        $name = sanitize($_POST['name'] ?? '');
+        $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $sku = trim($_POST['sku'] ?? '');
         $category = sanitize($_POST['category'] ?? '');
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
-        $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
+        $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
+        // Ensure status matches DB enum exactly
+        $statusRaw = trim((string)($_POST['status'] ?? ''));
+        $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
 
-        $sku_val = $sku !== '' ? $sku : null;
+        $sku_val = $sku !== '' ? trim($sku) : null;
 
+        // Server-side validation for update (photo optional)
+        if (strlen($name) < 2) {
+            $error = $name ? 'Product name must be at least 2 characters.' : 'Product name is required.';
+        } elseif (strlen($name) > 100) {
+            $error = 'Product name must not exceed 100 characters.';
+        } elseif (preg_match('/^\d+$/', $name)) {
+            $error = 'Product name cannot contain only numbers.';
+        } elseif (strlen($description) > 500) {
+            $error = 'Description must not exceed 500 characters.';
+        } elseif ($price < 1.00 || $price > 1000000) {
+            $error = $price <= 0 ? 'Price is required and must be greater than 0.' : 'Price must be between ₱1.00 and ₱1,000,000.00.';
+        } elseif ($stock_quantity < 0 || $stock_quantity != floor($stock_quantity)) {
+            $error = 'Quantity must be a non-negative whole number.';
+        } elseif ($low_stock_level < 0 || $low_stock_level != floor($low_stock_level)) {
+            $error = 'Low stock level must be a non-negative whole number.';
+        } elseif ($low_stock_level > $stock_quantity) {
+            $error = 'Low stock level cannot exceed quantity.';
+        } elseif (empty($category) || $category === '-- Select Category --') {
+            $error = 'Please select a category.';
+        } else {
+            if ($sku_val !== null && $sku_val !== '') {
+                $exists = db_query("SELECT product_id FROM products WHERE sku = ? AND product_id != ?", 'si', [$sku_val, $product_id]);
+                if (!empty($exists)) {
+                    $error = "A product with SKU '" . htmlspecialchars($sku_val) . "' already exists.";
+                }
+            }
+        }
+
+        if (!$error) {
         try {
             // Handle photo upload (only if a new file is provided)
             $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
@@ -130,16 +183,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             if ($photo_path) {
                 // Update with new photo
                 $result = db_execute(
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdissi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $status, $photo_path, $product_id]
+                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
+                    'ssssdiissi',
+                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path, $product_id]
                 );
             } else {
                 // Update without changing photo
                 $result = db_execute(
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdisi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $status, $product_id]
+                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
+                    'ssssdiisi',
+                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $product_id]
                 );
             }
 
@@ -152,13 +205,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         } catch (Exception $e) {
             $error = "Upload error: " . $e->getMessage();
         }
-    } elseif (isset($_POST['delete_product'])) {
-        $product_id = (int)$_POST['product_id'];
-        $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
-        $new_status = (($current[0]['status'] ?? 'Activated') === 'Activated') ? 'Deactivated' : 'Activated';
+    }
+} elseif (isset($_POST['archive_product'])) {
+    $product_id = (int)$_POST['product_id'];
+    db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+    $success = 'Product archived successfully!';
+} elseif (isset($_POST['restore_product'])) {
+    $product_id = (int)$_POST['product_id'];
+    db_execute("UPDATE products SET status = 'Activated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+    $success = 'Product restored successfully!';
+} elseif (isset($_POST['delete_product'])) {
+    $product_id = (int)$_POST['product_id'];
+    $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+    $status = $current[0]['status'] ?? '';
+    
+    if ($status === 'Archived') {
+        db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
+        $success = 'Product deleted permanently!';
+    } else {
+        $new_status = ($status === 'Activated') ? 'Deactivated' : 'Activated';
         db_execute("UPDATE products SET status = ?, updated_at = NOW() WHERE product_id = ?", 'si', [$new_status, $product_id]);
         $success = 'Product ' . strtolower($new_status) . ' successfully!';
     }
+}
+}
+
+// Handle AJAX for Archive Storage Modal
+if (isset($_GET['get_archived'])) {
+    header('Content-Type: application/json');
+    $archived = db_query("SELECT * FROM products WHERE status = 'Archived' ORDER BY updated_at DESC");
+    
+    $html = '<table class="orders-table" style="width:100%;">';
+    $html .= '<thead><tr><th>SKU</th><th>Name</th><th>Category</th><th style="text-align:right;">Actions</th></tr></thead>';
+    $html .= '<tbody>';
+    
+    if (empty($archived)) {
+        $html .= '<tr><td colspan="4" style="padding:40px;text-align:center;color:#9ca3af;">No archived products found.</td></tr>';
+    } else {
+        foreach ($archived as $p) {
+            $html .= '<tr>';
+            $html .= '<td style="font-family:monospace;font-size:12px;">' . htmlspecialchars($p['sku'] ?? '—') . '</td>';
+            $html .= '<td style="font-weight:500; max-width:300px; word-break: break-word; overflow-wrap: anywhere;">' . htmlspecialchars($p['name']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($p['category'] ?? '—') . '</td>';
+            $html .= '<td style="text-align:right;white-space:nowrap;">';
+            $html .= '<form method="POST" class="inline product-status-form" style="display:inline-block;margin-right:4px;" data-action="Restore" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= csrf_field();
+            $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
+            $html .= '<button type="submit" name="restore_product" class="btn-action teal">Restore</button></form>';
+            $html .= '<form method="POST" class="inline product-status-form" style="display:inline-block;" data-action="Delete Permanently" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= csrf_field();
+            $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
+            $html .= '<button type="submit" name="delete_product" class="btn-action red">Delete</button></form>';
+            $html .= '</td></tr>';
+        }
+    }
+    $html .= '</tbody></table>';
+    
+    echo json_encode(['success' => true, 'html' => $html]);
+    exit;
 }
 
 // Get all products
@@ -167,11 +271,12 @@ $per_page      = 10;
 $search        = trim($_GET['search'] ?? '');
 $cat_filter    = $_GET['category'] ?? '';
 $status_filter = $_GET['status'] ?? '';
+$stock_filter  = $_GET['stock_status'] ?? '';
 $sort_by       = $_GET['sort'] ?? 'newest';
 $date_from     = $_GET['date_from'] ?? '';
 $date_to       = $_GET['date_to'] ?? '';
 
-$sql    = "SELECT * FROM products WHERE 1=1";
+$sql    = "SELECT * FROM products WHERE status != 'Archived'";
 $params = []; $types = '';
 
 if ($search) {
@@ -189,6 +294,13 @@ if ($status_filter) {
     $sql .= " AND status = ?";
     $params[] = $status_filter;
     $types .= 's';
+}
+if ($stock_filter === 'out_of_stock') {
+    $sql .= " AND stock_quantity <= 0";
+} elseif ($stock_filter === 'low_stock') {
+    $sql .= " AND stock_quantity > 0 AND stock_quantity <= COALESCE(low_stock_level, 10)";
+} elseif ($stock_filter === 'in_stock') {
+    $sql .= " AND stock_quantity > COALESCE(low_stock_level, 10)";
 }
 if (!empty($date_from)) {
     $sql .= " AND DATE(created_at) >= ?";
@@ -219,13 +331,13 @@ $products = db_query($sql, $types ?: null, $params ?: null) ?: [];
 $page_title = 'Products Management - Admin';
 
 // Summary stats
-$stat_total     = db_query("SELECT COUNT(*) as c FROM products")[0]['c'] ?? 0;
+$stat_total     = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived'")[0]['c'] ?? 0;
 $stat_active    = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
 $stat_inactive  = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
-$stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE stock_quantity < 10")[0]['c'] ?? 0;
+$stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived' AND stock_quantity <= COALESCE(low_stock_level, 10)")[0]['c'] ?? 0;
 
 // Distinct categories for filter
-$categories = db_query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC") ?: [];
+$categories = db_query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' AND status != 'Archived' ORDER BY category ASC") ?: [];
 
 // AJAX response
 if (isset($_GET['ajax'])) {
@@ -239,39 +351,74 @@ if (isset($_GET['ajax'])) {
                 <th>Name</th>
                 <th>Category</th>
                 <th>Price</th>
-                <th>Stock</th>
+                <th>Quantity</th>
+                <th>Stock Status</th>
                 <th>Status</th>
                 <th style="text-align:right;">Actions</th>
             </tr>
         </thead>
         <tbody id="productsTableBody">
             <?php if (empty($products)): ?>
-                <tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No products found.</td></tr>
+                <tr><td colspan="9" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No products found.</td></tr>
             <?php else: ?>
                 <?php foreach ($products as $product): ?>
-                    <?php $isLowStock = $product['stock_quantity'] < 10; ?>
-                    <tr class="<?php echo $isLowStock ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
+                    <?php
+                    $low = (int)($product['low_stock_level'] ?? 10);
+                    $stockStatus = get_stock_status($product['stock_quantity'], $low);
+                    $isLowOrOut = in_array($stockStatus, ['Low Stock','Out of Stock']);
+                    $stockBadge = match($stockStatus) {
+                        'In Stock' => 'background:#dcfce7;color:#166534;',
+                        'Low Stock' => 'background:#fef9c3;color:#854d0e;',
+                        'Out of Stock' => 'background:#fee2e2;color:#991b1b;',
+                        default => 'background:#f3f4f6;color:#374151;'
+                    };
+                    ?>
+                    <tr class="<?php echo $isLowOrOut ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
                         <td style="color:#1f2937;"><?php echo $product['product_id']; ?></td>
                         <td style="font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
-                        <td style="font-weight:500;color:#1f2937;"><?php echo htmlspecialchars($product['name']); ?></td>
+                        <td style="font-weight:500;color:#1f2937;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($product['name']); ?></td>
                         <td><?php echo htmlspecialchars($product['category'] ?? '—'); ?></td>
-                        <td style="font-weight:600;color:#1f2937;"><?php echo format_currency($product['price']); ?></td>
+                        <td style="font-weight:600;color:#1f2937;white-space:nowrap;">₱<?php echo number_format($product['price'], 2); ?></td>
                         <td>
-                            <span style="font-weight:<?php echo $isLowStock ? 'bold' : '400'; ?>;color:<?php echo $isLowStock ? '#dc2626' : '#374151'; ?>;"><?php echo $product['stock_quantity']; ?></span>
+                            <span style="font-weight:<?php echo $isLowOrOut ? 'bold' : '400'; ?>;color:<?php echo $stockStatus === 'Out of Stock' ? '#dc2626' : ($stockStatus === 'Low Stock' ? '#b45309' : '#374151'); ?>;"><?php echo $product['stock_quantity']; ?></span>
+                        </td>
+                        <td>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $stockBadge; ?>"><?php echo $stockStatus; ?></span>
                         </td>
                         <td>
                             <?php $sc = match($product['status']) { 'Activated' => 'background:#dcfce7;color:#166534;', 'Deactivated' => 'background:#fee2e2;color:#991b1b;', default => 'background:#fef9c3;color:#854d0e;' }; ?>
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo $product['status']; ?></span>
                         </td>
                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
-                            <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
-                            <form method="POST" class="inline" onsubmit="return confirm('<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?> this product?');">
-                                <?php echo csrf_field(); ?>
-                                <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
-                                    <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
-                                </button>
-                            </form>
+                            <button class="btn-action blue" onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
+                            
+                            <?php if ($product['status'] !== 'Archived'): ?>
+                                <form method="POST" class="inline product-status-form" data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                    <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
+                                        <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
+                                    </button>
+                                </form>
+                                <?php if ($product['status'] === 'Deactivated'): ?>
+                                    <form method="POST" class="inline product-status-form" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                        <?php echo csrf_field(); ?>
+                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                        <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
+                                    </form>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <form method="POST" class="inline product-status-form" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                    <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
+                                </form>
+                                <form method="POST" class="inline product-status-form" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                    <button type="submit" name="delete_product" class="btn-action red">Delete</button>
+                                </form>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -281,7 +428,7 @@ if (isset($_GET['ajax'])) {
     <?php
     $table_html = ob_get_clean();
     ob_start();
-    $pp = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
+    $pp = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'stock_status'=>$stock_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pp);
     $pagination_html = ob_get_clean();
     echo json_encode([
@@ -289,7 +436,7 @@ if (isset($_GET['ajax'])) {
         'table'      => $table_html,
         'pagination' => $pagination_html,
         'count'      => number_format($total_products),
-        'badge'      => count(array_filter([$search,$cat_filter,$status_filter,$date_from,$date_to]))
+        'badge'      => count(array_filter([$search,$cat_filter,$status_filter,$stock_filter,$date_from,$date_to], function($v) { return $v !== null && $v !== ''; }))
     ]);
     exit;
 }
@@ -301,7 +448,8 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
+    <script src="/printflow/public/assets/js/product-form-validation.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action {
@@ -326,6 +474,8 @@ if (isset($_GET['ajax'])) {
         .btn-action.blue:hover { background: #3b82f6; color: white; }
         .btn-action.red { color: #ef4444; border-color: #ef4444; }
         .btn-action.red:hover { background: #ef4444; color: white; }
+        .btn-action.gray { color: #6b7280; border-color: #d1d5db; }
+        .btn-action.gray:hover { background: #6b7280; color: white; }
 
         /* KPI Row */
         .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
@@ -509,7 +659,8 @@ if (isset($_GET['ajax'])) {
             font-size: 10px;
             font-weight: 700;
         }
-        #product-modal-overlay {
+        #product-modal-overlay,
+        #view-product-modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
@@ -519,49 +670,67 @@ if (isset($_GET['ajax'])) {
             justify-content: center;
             padding: 16px;
         }
-        #product-modal-overlay.active {
+        #product-modal-overlay.active,
+        #view-product-modal-overlay.active {
             display: flex;
         }
-        #product-modal {
+        #product-modal { max-width: 580px; }
+        #view-product-modal { max-width: 800px; }
+        #product-modal,
+        #view-product-modal {
             background: white;
             border-radius: 12px;
             box-shadow: 0 25px 50px rgba(0,0,0,0.25);
             width: 100%;
-            max-width: 640px;
             max-height: 90vh;
             overflow-y: auto;
         }
-        #product-modal .modal-header {
-            padding: 24px;
+        #product-modal .modal-header,
+        #view-product-modal .modal-header {
+            padding: 18px 20px;
             border-bottom: 1px solid #e5e7eb;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        #product-modal .modal-body {
-            padding: 24px;
+        #product-modal .modal-body,
+        #view-product-modal .modal-body {
+            padding: 18px 20px 20px;
         }
-        #product-modal .form-row {
+        #product-modal .form-row,
+        #view-product-modal .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
+            gap: 14px;
+            margin-bottom: 12px;
         }
-        #product-modal .form-group {
-            margin-bottom: 16px;
+        #product-modal .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 12px;
         }
+        #product-modal .form-group,
+        #view-product-modal .form-group {
+            margin-bottom: 12px;
+        }
+        #product-modal .form-group:last-child,
+        #view-product-modal .form-group:last-child { margin-bottom: 0; }
+        #product-modal .form-row .form-group,
+        #product-modal .form-row-3 .form-group,
+        #view-product-modal .form-row .form-group { margin-bottom: 0; }
         #product-modal .form-group label {
             display: block;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
             color: #374151;
         }
         #product-modal .form-group input,
         #product-modal .form-group select,
         #product-modal .form-group textarea {
             width: 100%;
-            padding: 8px 12px;
+            padding: 8px 11px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 14px;
@@ -572,34 +741,167 @@ if (isset($_GET['ajax'])) {
         #product-modal .form-group select:focus,
         #product-modal .form-group textarea:focus {
             outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+            border-color: #0d9488;
+            box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
         }
-        #product-modal .modal-footer {
+        #product-modal .form-group small {
+            display: block;
+            color: #6b7280;
+            font-size: 11px;
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444 !important; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #22c55e !important; }
+        #product-modal .field-error { display: block; font-size: 12px; color: #ef4444; margin-top: 4px; min-height: 18px; }
+        #product-modal .form-group.has-error .field-error { display: block; }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #22c55e; }
+        #product-modal .field-error { display: block; color: #ef4444; font-size: 12px; margin-top: 4px; }
+        #product-modal .field-success { display: block; color: #22c55e; font-size: 12px; margin-top: 4px; }
+        /* Form validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444 !important; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #22c55e !important; }
+        #product-modal .field-error { display: block; font-size: 12px; color: #dc2626; margin-top: 4px; }
+        #product-modal .field-success { display: inline-block; font-size: 12px; color: #16a34a; margin-left: 6px; }
+        #product-modal .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444 !important; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #10b981 !important; }
+        #product-modal .field-error { display: block; color: #ef4444; font-size: 12px; margin-top: 4px; }
+        #product-modal .field-success { display: block; color: #10b981; font-size: 11px; margin-top: 4px; }
+        #product-modal .field-error { display:block; font-size:12px; color:#dc2626; margin-top:4px; }
+        #product-modal .field-success { display:block; font-size:12px; color:#16a34a; margin-top:4px; }
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color:#dc2626; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select { border-color:#16a34a; }
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239,68,68,0.15);
+        }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea {
+            border-color: #10b981;
+        }
+        #product-modal .field-error {
+            display: block;
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+            line-height: 1.3;
+        }
+        #product-modal .field-success {
+            color: #059669;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #22c55e; }
+        #product-modal .field-error { display: block; font-size: 12px; color: #dc2626; margin-top: 4px; }
+        #product-modal .field-success { display: block; font-size: 11px; color: #16a34a; margin-top: 4px; }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239,68,68,0.15);
+        }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea {
+            border-color: #22c55e !important;
+        }
+        #product-modal .field-error {
+            display: block;
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        #product-modal .field-success {
+            color: #16a34a;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444 !important; }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #22c55e !important; }
+        .field-error { display: block; font-size: 12px; color: #ef4444; margin-top: 4px; }
+        .field-success { display: block; font-size: 11px; color: #22c55e; margin-top: 4px; }
+        /* Validation states */
+        #product-modal .form-group.has-error input,
+        #product-modal .form-group.has-error select,
+        #product-modal .form-group.has-error textarea { border-color: #ef4444 !important; box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
+        #product-modal .form-group.has-success input,
+        #product-modal .form-group.has-success select,
+        #product-modal .form-group.has-success textarea { border-color: #10b981 !important; }
+        #product-modal .field-error { display: block; color: #dc2626; font-size: 12px; margin-top: 4px; }
+        #product-modal .field-success { display: block; color: #059669; font-size: 11px; margin-top: 4px; }
+        #product-modal .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+        #product-modal .modal-footer,
+        #view-product-modal .modal-footer {
             display: flex;
-            gap: 12px;
-            margin-top: 24px;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #e5e7eb;
         }
-        #product-modal .modal-footer button {
+        #product-modal .modal-footer button,
+        #view-product-modal .modal-footer button {
             flex: 1;
-            padding: 10px;
+            padding: 10px 16px;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
             border: none;
+            transition: all 0.2s;
         }
-        #product-modal .btn-cancel {
+        #product-modal .btn-cancel,
+        #view-product-modal .btn-cancel {
             background: #f3f4f6;
             color: #374151;
         }
-        #product-modal .btn-cancel:hover { background: #e5e7eb; }
+        #product-modal .btn-cancel:hover,
+        #view-product-modal .btn-cancel:hover { background: #e5e7eb; color: #111827; }
         #product-modal .btn-save {
-            background: #1f2937;
+            background: #0d9488;
             color: white;
         }
+        #product-modal .btn-save:hover { background: #0f766e; }
         #product-modal .btn-save:hover { background: #374151; }
-        #close-modal-btn {
+        #close-modal-btn,
+        #close-view-modal-btn {
             background: none;
             border: none;
             cursor: pointer;
@@ -607,9 +909,35 @@ if (isset($_GET['ajax'])) {
             padding: 4px;
             line-height: 1;
         }
-        #close-modal-btn:hover { color: #374151; }
+        #close-modal-btn:hover,
+        #close-view-modal-btn:hover { color: #374151; }
+
+        /* View Modal Specifics */
+        .view-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .view-value-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #374151;
+            font-size: 14px;
+            min-height: 38px;
+            display: block; /* Changed from flex to block for text wrapping */
+            word-break: break-all;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+        }
         @media (max-width: 600px) {
             #product-modal .form-row { grid-template-columns: 1fr; }
+            #product-modal .form-row-3 { grid-template-columns: 1fr; }
         }
 
         /* Orders-style table */
@@ -624,7 +952,8 @@ if (isset($_GET['ajax'])) {
         .low-stock-row td { background-color: #fff5f5 !important; color: #374151 !important; }
         .low-stock-row:hover td { background-color: #fee2e2 !important; }
 
-        /* Add Product blue hover */
+        /* Add Product blue text */
+        .toolbar-btn.btn-add-product { color: #3b82f6; border-color: #3b82f6; }
         .toolbar-btn.btn-add-product:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     </style>
 </head>
@@ -672,7 +1001,7 @@ if (isset($_GET['ajax'])) {
                 <div class="kpi-card amber">
                     <div class="kpi-label">Low Stock</div>
                     <div class="kpi-value"><?php echo $stat_low_stock; ?></div>
-                    <div class="kpi-sub">Below 10 units</div>
+                    <div class="kpi-sub">At or below threshold</div>
                 </div>
             </div>
 
@@ -681,7 +1010,13 @@ if (isset($_GET['ajax'])) {
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="productsListHeader">Products List</h3>
 
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button class="toolbar-btn btn-add-product" type="button" onclick="openProductModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Product</button>
+                        <button class="toolbar-btn" type="button" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
+                        <button class="toolbar-btn" type="button" onclick="openArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280; display:flex; align-items:center; gap:6px;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                            </svg>
+                            Archived Items
+                        </button>
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
@@ -709,7 +1044,7 @@ if (isset($_GET['ajax'])) {
                                 </svg>
                                 Filter
                                 <span id="filterBadgeContainer">
-                                    <?php $afc = count(array_filter([$search,$cat_filter,$status_filter,$date_from,$date_to])); if ($afc > 0): ?>
+                                    <?php $afc = count(array_filter([$search,$cat_filter,$status_filter,$stock_filter,$date_from,$date_to], function($v) { return $v !== null && $v !== ''; })); if ($afc > 0): ?>
                                     <span class="filter-badge"><?php echo $afc; ?></span>
                                     <?php endif; ?>
                                 </span>
@@ -764,6 +1099,20 @@ if (isset($_GET['ajax'])) {
                                     </select>
                                 </div>
 
+                                <!-- Stock Status -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Stock Status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['stock_status'])">Reset</button>
+                                    </div>
+                                    <select id="fp_stock_status" class="filter-select">
+                                        <option value="">All stock</option>
+                                        <option value="in_stock" <?php echo $stock_filter==='in_stock'?'selected':''; ?>>In Stock</option>
+                                        <option value="low_stock" <?php echo $stock_filter==='low_stock'?'selected':''; ?>>Low Stock</option>
+                                        <option value="out_of_stock" <?php echo $stock_filter==='out_of_stock'?'selected':''; ?>>Out of Stock</option>
+                                    </select>
+                                </div>
+
                                 <!-- Keyword Search -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -793,7 +1142,8 @@ if (isset($_GET['ajax'])) {
                                 <th>Name</th>
                                 <th>Category</th>
                                 <th>Price</th>
-                                <th>Stock</th>
+                                <th>Quantity</th>
+                                <th>Stock Status</th>
                                 <th>Status</th>
                                 <th style="text-align:right;">Actions</th>
                             </tr>
@@ -801,27 +1151,41 @@ if (isset($_GET['ajax'])) {
                         <tbody id="productsTableBody">
                             <?php if (empty($products)): ?>
                                 <tr id="emptyProductsRow">
-                                    <td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">
+                                    <td colspan="9" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">
                                         <?php echo $search ? 'No products found matching "' . htmlspecialchars($search) . '"' : 'No products yet.'; ?>
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($products as $product): ?>
-                                    <?php $isLowStock = $product['stock_quantity'] < 10; ?>
-                                    <tr class="<?php echo $isLowStock ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
+                                    <?php
+                                    $low = (int)($product['low_stock_level'] ?? 10);
+                                    $stockStatus = get_stock_status($product['stock_quantity'], $low);
+                                    $isLowOrOut = in_array($stockStatus, ['Low Stock','Out of Stock']);
+                                    $stockBadge = match($stockStatus) {
+                                        'In Stock' => 'background:#dcfce7;color:#166534;',
+                                        'Low Stock' => 'background:#fef9c3;color:#854d0e;',
+                                        'Out of Stock' => 'background:#fee2e2;color:#991b1b;',
+                                        default => 'background:#f3f4f6;color:#374151;'
+                                    };
+                                    ?>
+                                    <tr class="<?php echo $isLowOrOut ? 'low-stock-row' : ''; ?>" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
                                         <td style="color:#1f2937;"><?php echo $product['product_id']; ?></td>
                                         <td style="font-family:monospace;font-size:12px;"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
-                                        <td style="font-weight:500;color:#1f2937;"><?php echo htmlspecialchars($product['name']); ?></td>
+                                        <td style="font-weight:500;color:#1f2937;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($product['name']); ?></td>
                                         <td><?php echo htmlspecialchars($product['category'] ?? '—'); ?></td>
-                                        <td style="font-weight:600;color:#1f2937;"><?php echo format_currency($product['price']); ?></td>
+                                        <td style="font-weight:600;color:#1f2937;white-space:nowrap;">₱<?php echo number_format($product['price'], 2); ?></td>
                                         <td>
-                                            <span style="font-weight:<?php echo $isLowStock ? 'bold' : '400'; ?>;color:<?php echo $isLowStock ? '#dc2626' : '#374151'; ?>;"><?php echo $product['stock_quantity']; ?></span>
+                                            <span style="font-weight:<?php echo $isLowOrOut ? 'bold' : '400'; ?>;color:<?php echo $stockStatus === 'Out of Stock' ? '#dc2626' : ($stockStatus === 'Low Stock' ? '#b45309' : '#374151'); ?>;"><?php echo $product['stock_quantity']; ?></span>
+                                        </td>
+                                        <td>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $stockBadge; ?>"><?php echo $stockStatus; ?></span>
                                         </td>
                                         <td>
                                             <?php
                                                 $sc = match($product['status']) {
                                                     'Activated'   => 'background:#dcfce7;color:#166534;',
                                                     'Deactivated' => 'background:#fee2e2;color:#991b1b;',
+                                                    'Archived'    => 'background:#f3f4f6;color:#374151;',
                                                     default       => 'background:#fef9c3;color:#854d0e;'
                                                 };
                                             ?>
@@ -831,14 +1195,35 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
-                                                onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
-                                            <form method="POST" class="inline" onsubmit="return confirm('<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?> this product?');">
-                                                <?php echo csrf_field(); ?>
-                                                <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                                <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
-                                                    <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
-                                                </button>
-                                            </form>
+                                                onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
+                                            
+                                            <?php if ($product['status'] !== 'Archived'): ?>
+                                                <form method="POST" class="inline product-status-form" data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                    <?php echo csrf_field(); ?>
+                                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                    <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
+                                                        <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
+                                                    </button>
+                                                </form>
+                                                <?php if ($product['status'] === 'Deactivated'): ?>
+                                                    <form method="POST" class="inline product-status-form" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                        <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                        <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <form method="POST" class="inline product-status-form" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                    <?php echo csrf_field(); ?>
+                                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                    <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
+                                                </form>
+                                                <form method="POST" class="inline product-status-form" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                    <?php echo csrf_field(); ?>
+                                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                    <button type="submit" name="delete_product" class="btn-action red">Delete</button>
+                                                </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -848,13 +1233,37 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="productsPagination">
                     <?php
-                    $pagination_params = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to]);
+                    $pagination_params = array_filter(['search'=>$search,'category'=>$cat_filter,'status'=>$status_filter,'stock_status'=>$stock_filter,'sort'=>$sort_by,'date_from'=>$date_from,'date_to'=>$date_to], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params);
                     ?>
                 </div>
                 </div>
             </div>
         </main>
+    </div>
+</div>
+
+<!-- Product Status Confirmation Modal -->
+<div id="productStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:16px;flex-direction:column;">
+    <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
+        <div id="productStatusConfirmIcon" style="width:48px;height:48px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#6b7280;">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <h3 id="productStatusConfirmTitle" style="font-size:18px;font-weight:700;color:#1f2937;margin:0 0 8px;">Confirm Action</h3>
+        <p id="productStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;word-break:break-word;overflow-wrap:anywhere;">Are you sure you want to proceed?</p>
+        
+        <div id="productStatusInfoBox" style="font-size:12px;color:#6b7280;background:#f9fafb;padding:12px;border-radius:10px;margin-bottom:24px;text-align:left;border:1px solid #e5e7eb;line-height:1.5;">
+            <div style="font-weight:700;margin-bottom:4px;color:#374151;display:flex;align-items:center;gap:5px;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                What happens next?
+            </div>
+            <div id="productStatusInfoText">Action details will appear here.</div>
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button type="button" id="productStatusConfirmCancel" style="flex:1;padding:12px 16px;border:1px solid #e5e7eb;background:white;border-radius:10px;font-size:14px;font-weight:600;color:#4b5563;cursor:pointer;transition:all 0.2s;">Cancel</button>
+            <button type="button" id="productStatusConfirmOk" style="flex:1;padding:12px 16px;border:none;background:#3b82f6;border-radius:10px;font-size:14px;font-weight:600;color:white;cursor:pointer;transition:all 0.2s;">Confirm</button>
+        </div>
     </div>
 </div>
 
@@ -876,9 +1285,10 @@ if (isset($_GET['ajax'])) {
                 <input type="hidden" id="modal-product-id" name="product_id" value="">
 
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" id="fg-name">
                         <label for="modal-name">Product Name <span style="color:red">*</span></label>
-                        <input type="text" id="modal-name" name="name" required placeholder="e.g. Custom Tarpaulin">
+                        <input type="text" id="modal-name" name="name" placeholder="e.g. Custom Tarpaulin">
+                        <span id="err-name" class="field-error"></span>
                     </div>
                     <div class="form-group">
                         <label for="modal-sku">SKU</label>
@@ -887,9 +1297,9 @@ if (isset($_GET['ajax'])) {
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" id="fg-category">
                         <label for="modal-category">Category <span style="color:red">*</span></label>
-                        <select id="modal-category" name="category" required>
+                        <select id="modal-category" name="category">
                             <option value="">-- Select Category --</option>
                             <option value="Tarpaulin">Tarpaulin</option>
                             <option value="T-Shirt">T-Shirt</option>
@@ -900,41 +1310,58 @@ if (isset($_GET['ajax'])) {
                             <option value="Merchandise">Merchandise</option>
                             <option value="Print">Print</option>
                         </select>
+                        <span id="err-category" class="field-error"></span>
                     </div>
-                    <div class="form-group">
-                        <label for="modal-price">Price (PHP) <span style="color:red">*</span></label>
-                        <input type="number" id="modal-price" name="price" step="0.01" min="0.01" required placeholder="0.00">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="modal-description">Description</label>
-                    <textarea id="modal-description" name="description" rows="3" placeholder="Optional description..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="modal-photo">Product Photo</label>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <div id="photo-preview" style="width:100%; max-width:300px; height:200px; border:2px dashed #d1d5db; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                            <img id="photo-preview-img" src="" alt="Product photo" style="width:100%; height:100%; object-fit:cover; display:none;">
-                            <span id="photo-preview-text" style="color:#9ca3af; font-size:14px;">No photo uploaded</span>
-                        </div>
-                        <input type="file" id="modal-photo" name="photo" accept="image/jpeg,image/jpg,image/png,image/gif" style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;">
-                        <small style="color:#6b7280;">Supported formats: JPG, PNG, GIF (Max 5MB)</small>
+                    <div class="form-group" id="fg-price">
+                        <label for="modal-price">Price (₱) <span style="color:red">*</span></label>
+                        <input type="number" id="modal-price" name="price" step="0.01" min="0.01" placeholder="0.00">
+                        <span id="err-price" class="field-error"></span>
                     </div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label for="modal-stock">Stock Quantity <span style="color:red">*</span></label>
-                        <input type="number" id="modal-stock" name="stock_quantity" min="0" required value="0">
+                    <div class="form-group" id="fg-description" style="grid-column:1/-1;">
+                        <label for="modal-description">Description</label>
+                        <textarea id="modal-description" name="description" rows="2" maxlength="500" placeholder="Optional description (max 500 chars)..."></textarea>
+                        <span id="err-description" class="field-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-group" id="fg-photo">
+                    <label for="modal-photo">Product Photo <span style="color:red">*</span></label>
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                        <div id="photo-preview" style="width:110px; height:82px; flex-shrink:0; border:2px dashed #d1d5db; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <img id="photo-preview-img" src="" alt="" style="width:100%; height:100%; object-fit:cover; display:none;">
+                            <span id="photo-preview-text" style="color:#9ca3af; font-size:11px; text-align:center; padding:4px;">No photo</span>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <input type="file" id="modal-photo" name="photo" accept="image/jpeg,image/jpg,image/png,image/gif" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-size:12px;">
+                            <small>JPG, PNG, GIF only. Max 5MB.</small>
+                        </div>
+                    </div>
+                    <span id="err-photo" class="field-error"></span>
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group" id="fg-stock">
+                        <label for="modal-stock">Quantity <span style="color:#dc2626">*</span></label>
+                        <input type="number" id="modal-stock" name="stock_quantity" min="0" value="0" step="1">
+                        <span id="err-stock" class="field-error"></span>
+                    </div>
+                    <div class="form-group" id="fg-low-stock">
+                        <label for="modal-low-stock">Low Stock Level <span style="color:#dc2626">*</span></label>
+                        <input type="number" id="modal-low-stock" name="low_stock_level" min="0" value="10" step="1">
+                        <small>Warn when stock falls below this. Must be ≤ Quantity.</small>
+                        <span id="err-low-stock" class="field-error"></span>
                     </div>
                     <div class="form-group">
                         <label for="modal-status">Status</label>
                         <select id="modal-status" name="status">
                             <option value="Activated">Activated</option>
                             <option value="Deactivated">Deactivated</option>
+                            <option value="Archived">Archived</option>
                         </select>
+                        <small>Product visibility</small>
                     </div>
                 </div>
 
@@ -951,62 +1378,82 @@ if (isset($_GET['ajax'])) {
 <div id="view-product-modal-overlay" onclick="handleViewOverlayClick(event)">
     <div id="view-product-modal">
         <div class="modal-header">
-            <h3 id="view-modal-title" style="font-size:18px; font-weight:700; margin:0;">Product Details</h3>
+            <h3 style="font-size:18px; font-weight:700; margin:0; display:flex; align-items:center; gap:8px;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                Product Details
+            </h3>
             <button id="close-view-modal-btn" onclick="closeViewModal()">
                 <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
         </div>
-        <div class="modal-body">
-            <div class="form-row">
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Product Name</label>
-                    <div id="view-product-name" style="font-size:20px; font-weight:700; color:#1f2937; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+        <div class="modal-body" style="padding:24px; overflow-x:hidden;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; min-width:0;">
+                <!-- Left Side: Details -->
+                <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+                    <div>
+                        <label class="view-label">Product Name</label>
+                        <div id="view-product-name" class="view-value-box" style="font-size:18px; font-weight:700; color:#111827;">-</div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">SKU</label>
+                            <div id="view-product-sku" class="view-value-box" style="font-family:monospace;">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Category</label>
+                            <div id="view-product-category" class="view-value-box">-</div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">Price</label>
+                            <div id="view-product-price" class="view-value-box" style="color:#0d9488; font-weight:700; font-size:16px;">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Stock Status</label>
+                            <div id="view-product-stock-status" style="height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:12px; font-weight:700;">-</div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">Current Quantity</label>
+                            <div id="view-product-stock" class="view-value-box" style="font-weight:700;">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Low Stock Warning</label>
+                            <div id="view-product-low-stock" class="view-value-box">-</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="view-label">Product Visibility</label>
+                        <div id="view-product-status" style="height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:12px; font-weight:700;">-</div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">SKU</label>
-                    <div id="view-product-sku" style="font-size:14px; font-weight:500; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+
+                <!-- Right Side: Photo & Description -->
+                <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+                    <div>
+                        <label class="view-label">Product Photo</label>
+                        <div style="width:100%; height:200px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                            <img id="view-product-photo-img" src="" alt="" style="width:100%; height:100%; object-fit:cover; display:none;">
+                            <span id="view-product-photo-text" style="color:#9ca3af; font-size:12px; text-align:center; padding:20px;">No photo available</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="view-label">Description</label>
+                        <div id="view-product-description" class="view-value-box" style="min-height:80px; font-size:13px; line-height:1.5; white-space:pre-wrap;">-</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Category</label>
-                    <div id="view-product-category" style="font-size:14px; font-weight:600; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
-                </div>
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Price</label>
-                    <div id="view-product-price" style="font-size:18px; font-weight:700; color:#1f2937; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Stock Quantity</label>
-                    <div id="view-product-stock" style="font-size:16px; font-weight:600; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
-                </div>
-                <div class="form-group">
-                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Status</label>
-                    <div id="view-product-status" style="padding:8px 12px; border-radius:20px; font-size:12px; font-weight:600; text-align:center;">-</div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Product Photo</label>
-                <div id="view-product-photo" style="width:100%; max-width:400px; height:250px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="view-product-photo-img" src="" alt="Product photo" style="width:100%; height:100%; object-fit:cover; display:none;">
-                    <span id="view-product-photo-text" style="color:#9ca3af; font-size:14px;">No photo available</span>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Description</label>
-                <div id="view-product-description" style="font-size:14px; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; min-height:60px;">-</div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn-cancel" onclick="closeViewModal()">Close</button>
+            <div class="modal-footer" style="margin-top:24px; justify-content:flex-end;">
+                <button type="button" class="btn-cancel" onclick="closeViewModal()" style="max-width:120px;">Close</button>
             </div>
         </div>
     </div>
@@ -1027,6 +1474,7 @@ function filterPanel() {
                    document.getElementById('fp_date_to')?.value ||
                    document.getElementById('fp_category')?.value ||
                    document.getElementById('fp_status')?.value ||
+                   document.getElementById('fp_stock_status')?.value ||
                    document.getElementById('fp_search')?.value;
         }
     };
@@ -1039,6 +1487,7 @@ function buildFilterURL(page = 1) {
     const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
     const cat = document.getElementById('fp_category')?.value; if (cat) params.set('category', cat);
     const st = document.getElementById('fp_status')?.value;   if (st) params.set('status', st);
+    const stock = document.getElementById('fp_stock_status')?.value; if (stock) params.set('stock_status', stock);
     const s = document.getElementById('fp_search')?.value;     if (s) params.set('search', s);
     if (activeSort !== 'newest') params.set('sort', activeSort);
     return '?' + params.toString();
@@ -1062,7 +1511,7 @@ function fetchUpdatedTable(page = 1) {
 
 function applyFilters(reset = false) {
     if (reset) {
-        ['fp_date_from','fp_date_to','fp_category','fp_status','fp_search'].forEach(id => {
+        ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status','fp_search'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -1073,7 +1522,7 @@ function applyFilters(reset = false) {
 
 function resetFilterField(fields) {
     fields.forEach(f => {
-        const map = { date_from:'fp_date_from', date_to:'fp_date_to', category:'fp_category', status:'fp_status', search:'fp_search' };
+        const map = { date_from:'fp_date_from', date_to:'fp_date_to', category:'fp_category', status:'fp_status', stock_status:'fp_stock_status', search:'fp_search' };
         const el = document.getElementById(map[f] || 'fp_' + f);
         if (el) el.value = '';
     });
@@ -1092,7 +1541,7 @@ function applySortFilter(sortKey) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ['fp_date_from','fp_date_to','fp_category','fp_status'].forEach(id => {
+    ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => fetchUpdatedTable());
     });
@@ -1105,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function openProductModal(mode, product) {
+function openModal(mode, product) {
     var overlay = document.getElementById('product-modal-overlay');
     var title   = document.getElementById('modal-title');
     var modeInput = document.getElementById('modal-mode-input');
@@ -1127,6 +1576,7 @@ function openProductModal(mode, product) {
         document.getElementById('modal-price').value       = product.price || '';
         document.getElementById('modal-description').value = product.description || '';
         document.getElementById('modal-stock').value       = product.stock_quantity || 0;
+        document.getElementById('modal-low-stock').value   = product.low_stock_level ?? 10;
         document.getElementById('modal-status').value      = product.status || 'Activated';
         
         // Load existing photo preview if available
@@ -1149,6 +1599,7 @@ function openProductModal(mode, product) {
         submitBtn.textContent = 'Create Product';
         document.getElementById('modal-product-id').value = '';
         document.getElementById('modal-stock').value = '0';
+        document.getElementById('modal-low-stock').value = '10';
         document.getElementById('modal-status').value = 'Activated';
         
         // Clear photo preview for new product
@@ -1260,6 +1711,102 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+var _productStatusForm = null;
+var _productStatusButtonName = null;
+
+function showProductStatusModal(event, form) {
+    if (event) event.preventDefault();
+    var action = form.getAttribute('data-action') || 'proceed';
+    var productName = form.getAttribute('data-product-name') || 'this product';
+    _productStatusForm = form;
+    
+    var btn = form.querySelector('button[type="submit"]');
+    _productStatusButtonName = btn ? btn.getAttribute('name') : null;
+
+    var modal = document.getElementById('productStatusConfirmModal');
+    var title = document.getElementById('productStatusConfirmTitle');
+    var text  = document.getElementById('productStatusConfirmText');
+    var info  = document.getElementById('productStatusInfoText');
+    var box   = document.getElementById('productStatusInfoBox');
+    var okBtn = document.getElementById('productStatusConfirmOk');
+    var icon  = document.getElementById('productStatusConfirmIcon');
+
+    // Close other modals to prevent overlap (as requested)
+    closeArchiveModal();
+    closeProductModal(); 
+    closeViewModal();
+
+    title.textContent = 'Confirm ' + action;
+    text.innerHTML = 'Are you sure you want to ' + action.toLowerCase() + ' <br><strong style="color:#111827;">' + productName + '</strong>?';
+    
+    // Consequence logic
+    var msg = "";
+    var themeColor = "#3b82f6"; // Default blue
+    
+    if (action === 'Deactivate') {
+        msg = "Deactivating this product will hide it from the POS and Online Ordering, but its records will remain in the inventory.";
+        themeColor = "#ef4444"; // Red for deactivation
+    } else if (action === 'Activate') {
+        msg = "This will make the product visible again in the POS and Online Ordering for customers and staff.";
+        themeColor = "#14b8a6"; // Teal for activation
+    } else if (action === 'Archive') {
+        msg = "Archiving will remove this item from the main products list. You can still access and restore it from the <em>Archive Storage</em>.";
+        themeColor = "#6b7280"; // Gray for archive
+    } else if (action === 'Restore') {
+        msg = "This will bring the product back to the active list and make it available for use in the system.";
+        themeColor = "#14b8a6"; 
+    } else if (action === 'Delete Permanently') {
+        msg = "<strong>Warning:</strong> This action is permanent and cannot be undone. All associated product data will be removed.";
+        themeColor = "#ef4444";
+        box.style.background = "#fff5f5";
+        box.style.borderColor = "#fecaca";
+        box.style.color = "#991b1b";
+    }
+
+    if (action !== 'Delete Permanently') {
+        box.style.background = "#f9fafb";
+        box.style.borderColor = "#e5e7eb";
+        box.style.color = "#6b7280";
+    }
+
+    info.innerHTML = msg;
+    okBtn.style.background = themeColor;
+    icon.style.color = themeColor;
+    icon.style.background = themeColor + '15'; // 10% opacity
+
+    modal.style.display = 'flex';
+}
+
+function closeProductStatusModal() {
+    var modal = document.getElementById('productStatusConfirmModal');
+    modal.style.display = 'none';
+    _productStatusForm = null;
+    _productStatusButtonName = null;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var cancelBtn = document.getElementById('productStatusConfirmCancel');
+    var okBtn = document.getElementById('productStatusConfirmOk');
+    var modal = document.getElementById('productStatusConfirmModal');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeProductStatusModal);
+    if (okBtn) okBtn.addEventListener('click', function() {
+        if (_productStatusForm) {
+            if (_productStatusButtonName) {
+                var hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = _productStatusButtonName;
+                hiddenInput.value = '1';
+                _productStatusForm.appendChild(hiddenInput);
+            }
+            _productStatusForm.submit();
+        }
+        closeProductStatusModal();
+    });
+    if (modal) modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeProductStatusModal();
+    });
+});
+
 function handleOverlayClick(event) {
     if (event.target === document.getElementById('product-modal-overlay')) {
         closeProductModal();
@@ -1268,8 +1815,13 @@ function handleOverlayClick(event) {
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        closeProductModal();
-        closeViewModal();
+        var statusModal = document.getElementById('productStatusConfirmModal');
+        if (statusModal && statusModal.style.display === 'flex') {
+            closeProductStatusModal();
+        } else {
+            closeProductModal();
+            closeViewModal();
+        }
     }
 });
 
@@ -1288,10 +1840,20 @@ function openViewModal(product) {
     name.textContent = product.name || '-';
     sku.textContent = product.sku || '—';
     category.textContent = product.category || '—';
-    price.textContent = formatCurrency(product.price || 0);
+    price.textContent = '₱' + (product.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     stock.textContent = product.stock_quantity || '0';
-    
-    // Set status with styling
+    document.getElementById('view-product-low-stock').textContent = product.low_stock_level ?? 10;
+
+    // Stock Status (auto-computed)
+    var stockStatusEl = document.getElementById('view-product-stock-status');
+    var qty = parseInt(product.stock_quantity || 0, 10);
+    var lowLevel = parseInt(product.low_stock_level || 10, 10);
+    var stockStatusText = qty <= 0 ? 'Out of Stock' : (qty <= lowLevel ? 'Low Stock' : 'In Stock');
+    stockStatusEl.textContent = stockStatusText;
+    stockStatusEl.style.background = stockStatusText === 'In Stock' ? '#dcfce7' : (stockStatusText === 'Low Stock' ? '#fef9c3' : '#fee2e2');
+    stockStatusEl.style.color = stockStatusText === 'In Stock' ? '#166534' : (stockStatusText === 'Low Stock' ? '#854d0e' : '#991b1b');
+
+    // Set status (Activated/Deactivated) with styling
     status.textContent = product.status || 'Activated';
     if (product.status === 'Activated') {
         status.style.background = '#dcfce7';
@@ -1337,9 +1899,73 @@ function handleViewOverlayClick(event) {
 function formatCurrency(amount) {
     return '₱' + (amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+</script>
 
-// Search and filtering now handled server-side.
+<!-- Archived Items Modal -->
+<div id="archive-storage-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:16px;">
+    <div id="archive-storage-modal" style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="background:#f3f4f6;padding:8px;border-radius:10px;color:#6b7280;">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Archived Items</h3>
+                    <p style="font-size:12px;color:#6b7280;margin:0;">Manage archived products here.</p>
+                </div>
+            </div>
+            <button onclick="closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px;line-height:1;">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body" style="padding:0;overflow-y:auto;flex:1;">
+            <div id="archived-products-container" style="min-height:200px;">
+                <!-- Content loaded via AJAX -->
+                <div style="padding:60px;text-align:center;color:#9ca3af;">
+                    <div class="spinner" style="margin:0 auto 12px;"></div>
+                    <p>Loading archived products...</p>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;">
+            <button type="button" class="btn-cancel" onclick="closeArchiveModal()" style="padding:8px 20px;background:#f3f4f6;border:none;border-radius:8px;color:#374151;font-weight:600;cursor:pointer;">Close</button>
+        </div>
+    </div>
+</div>
 
+<script>
+// Archive Modal Functions
+function openArchiveModal() {
+    document.getElementById('archive-storage-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    fetchArchivedProducts();
+}
+
+function closeArchiveModal() {
+    document.getElementById('archive-storage-overlay').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function fetchArchivedProducts() {
+    const container = document.getElementById('archived-products-container');
+    fetch('?get_archived=1')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                container.innerHTML = data.html;
+            } else {
+                container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Failed to load archived products.</div>';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Error loading archived products.</div>';
+        });
+}
 </script>
 
 </body>

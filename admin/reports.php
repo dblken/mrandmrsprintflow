@@ -22,6 +22,11 @@ $from  = date('Y-m-d', strtotime($_GET['from'] ?? date('Y-m-01')));
 $to    = date('Y-m-d', strtotime($_GET['to']   ?? date('Y-m-d')));
 $toEnd = $to . ' 23:59:59';
 
+// ── Chart sort (value_desc|value_asc|month_asc|month_desc) ────────────────────
+$chart_sort = $_GET['chart_sort'] ?? 'value_desc';
+$valid_sorts = ['value_desc','value_asc','month_asc','month_desc'];
+if (!in_array($chart_sort, $valid_sorts)) $chart_sort = 'value_desc';
+
 // ── Forecast helpers ──────────────────────────────────────────────────────────
 
 /** Simple trend-based 3-month forecast from a historical array. */
@@ -161,6 +166,12 @@ if (!$branch_empty) {
 $forecast_revenue = !empty($trend12_revenues) ? pf_linreg($trend12_revenues) : 0;
 $forecast_orders  = !empty($trend12_orders)   ? (int)pf_linreg($trend12_orders) : 0;
 $next_month_label = date('M Y', strtotime('+1 month'));
+// Apply month sort to 12-month trend
+if ($chart_sort === 'month_desc' && !empty($trend12_labels)) {
+    $trend12_labels  = array_reverse($trend12_labels);
+    $trend12_revenues = array_reverse($trend12_revenues);
+    $trend12_orders   = array_reverse($trend12_orders);
+}
 
 // ── 5. Per-product forecast (last 6 months → next 3 months) ─────────────────
 $fc_hist_labels = $fc_fore_labels = [];
@@ -231,6 +242,7 @@ if (!$branch_empty && $total_orders > 0) {
              GROUP BY p.product_id, p.name ORDER BY qty_sold DESC LIMIT 10",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
+        if ($chart_sort === 'value_asc') $top_products = array_reverse($top_products);
     } catch(Exception $e){}
 }
 
@@ -248,6 +260,7 @@ if (!$branch_empty && $total_orders > 0) {
              GROUP BY o.status ORDER BY cnt DESC",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
+        if ($chart_sort === 'value_asc') $status_data = array_reverse($status_data);
     } catch(Exception $e){}
 }
 
@@ -275,6 +288,7 @@ if (!$branch_empty) {
     }
     arsort($heatmap_products);
     $heatmap_products = array_slice($heatmap_products, 0, 8, true);
+    if ($chart_sort === 'value_asc') $heatmap_products = array_reverse($heatmap_products, true);
 }
 
 // ── 10. Customer locations ────────────────────────────────────────────────────
@@ -292,6 +306,7 @@ if (!$branch_empty && $total_orders > 0) {
              ORDER BY orders DESC LIMIT 12",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
+        if ($chart_sort === 'value_asc') $customer_locations = array_reverse($customer_locations);
     } catch(Exception $e){}
 }
 
@@ -314,6 +329,7 @@ if (!$branch_empty && $total_orders > 0) {
              ORDER BY (custom_count + template_count) DESC LIMIT 8",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
+        if ($chart_sort === 'value_asc') $custom_usage = array_reverse($custom_usage);
     } catch(Exception $e){}
 }
 
@@ -329,6 +345,7 @@ try {
          GROUP BY b.id, b.branch_name ORDER BY revenue DESC",
         'ss', [$from, $toEnd]
     ) ?: [];
+    if ($chart_sort === 'value_asc') $branch_perf = array_reverse($branch_perf);
 } catch(Exception $e){}
 
 // ── 13. Top customers ─────────────────────────────────────────────────────────
@@ -344,6 +361,7 @@ if (!$branch_empty && $total_orders > 0) {
              GROUP BY c.customer_id ORDER BY spent DESC LIMIT 8",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         ) ?: [];
+        if ($chart_sort === 'value_asc') $top_customers = array_reverse($top_customers);
     } catch(Exception $e){}
 }
 
@@ -443,6 +461,7 @@ $page_title = 'Reports & Analytics — Admin';
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo $page_title; ?></title>
 <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+<script src="/printflow/public/assets/js/alpine.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
 <?php include __DIR__ . '/../includes/admin_style.php'; ?>
 <?php render_branch_css(); ?>
@@ -478,13 +497,46 @@ $page_title = 'Reports & Analytics — Admin';
 .t-dn     { color:#ef4444; font-weight:700; }
 .t-fl     { color:#6b7280; }
 
-/* ── Filter bar ─────────────────────── */
-.flt-bar  { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
-.flt-ctrl { display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:7px 14px; }
-.flt-ctrl label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; }
-.flt-ctrl input[type=date] { padding:5px 9px; border:1px solid #e5e7eb; border-radius:7px; font-size:12px; }
-.flt-ctrl input[type=date]:focus { outline:none; border-color:#6366f1; }
-.flt-btn  { padding:6px 16px; background:#6366f1; color:#fff; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; }
+/* ── Toolbar (Filter / Sort / Print) ─── */
+.toolbar-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; height: 38px;
+    border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+    font-size: 13px; font-weight: 500; color: #374151; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; box-sizing: border-box;
+}
+.toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+.toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+.toolbar-btn svg { flex-shrink: 0; }
+.filter-panel {
+    position: absolute; top: calc(100% + 6px); right: 0; width: 320px;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 200; overflow: hidden;
+}
+.filter-panel-header { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 700; color: #111827; }
+.filter-section { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; }
+.filter-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.filter-section-label { font-size: 13px; font-weight: 600; color: #374151; }
+.filter-reset-link { font-size: 12px; font-weight: 600; color: #0d9488; cursor: pointer; background: none; border: none; padding: 0; }
+.filter-reset-link:hover { text-decoration: underline; }
+.filter-input { width: 100%; height: 34px; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 13px; padding: 0 10px; color: #1f2937; box-sizing: border-box; }
+.filter-input:focus { outline: none; border-color: #0d9488; }
+.filter-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+.filter-select { width: 100%; height: 34px; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 13px; padding: 0 10px; color: #1f2937; background: #fff; box-sizing: border-box; cursor: pointer; }
+.filter-select:focus { outline: none; border-color: #0d9488; }
+.filter-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #f3f4f6; }
+.filter-btn-reset { flex: 1; height: 36px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; }
+.filter-btn-reset:hover { background: #f9fafb; }
+.filter-btn-apply { flex: 1; height: 36px; border: none; background: #0d9488; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.filter-btn-apply:hover { background: #0f766e; }
+.filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #0d9488; color: #fff; border-radius: 50%; font-size: 10px; font-weight: 700; }
+.sort-dropdown { position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 200; padding: 6px 0; }
+.sort-option { display: flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 13px; color: #374151; cursor: pointer; transition: background 0.1s; }
+.sort-option:hover { background: #f9fafb; }
+.sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+.sort-option .check { margin-left: auto; color: #0d9488; }
+[x-cloak] { display: none !important; }
 
 /* ── Empty state ────────────────────── */
 .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:56px 24px; text-align:center; }
@@ -560,30 +612,86 @@ $page_title = 'Reports & Analytics — Admin';
         <header>
             <h1 class="page-title">Reports & Analytics</h1>
             <?php render_branch_selector($branchCtx); ?>
-            <button class="btn-secondary no-print" onclick="window.print()" style="display:flex;align-items:center;gap:5px;">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                Print
-            </button>
         </header>
         <main>
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
 
-            <!-- ── Date Filter ── -->
-            <div class="flt-bar no-print" style="margin-bottom:22px;">
+            <!-- ── Toolbar: Filter, Sort, Print ── -->
+            <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;" x-data="reportsFilterPanel()">
                 <div style="font-size:13px;color:#6b7280;">
                     <?php echo htmlspecialchars($branchName); ?> &nbsp;·&nbsp;
                     <?php echo date('M d, Y',strtotime($from)); ?> – <?php echo date('M d, Y',strtotime($to)); ?>
                 </div>
-                <form method="GET" class="flt-ctrl">
-                    <?php if ($branchId !== 'all'): ?>
-                    <input type="hidden" name="branch_id" value="<?php echo (int)$branchId; ?>">
-                    <?php endif; ?>
-                    <label>From</label>
-                    <input type="date" name="from" value="<?php echo $from; ?>">
-                    <label>To</label>
-                    <input type="date" name="to"   value="<?php echo $to; ?>">
-                    <button type="submit" class="flt-btn">Apply</button>
-                </form>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <!-- Sort -->
+                    <div style="position:relative;">
+                        <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                            </svg>
+                            Sort
+                        </button>
+                        <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                            <?php foreach (['value_desc'=>'By value (highest first)','value_asc'=>'By value (lowest first)','month_asc'=>'By month (Jan→Dec)','month_desc'=>'By month (Dec→Jan)'] as $key => $label): ?>
+                            <a href="?<?php echo http_build_query(array_merge($_GET, ['chart_sort'=>$key])); ?>" class="sort-option" style="text-decoration:none;" :class="{ 'selected': '<?php echo $chart_sort; ?>' === '<?php echo $key; ?>' }">
+                                <?php echo htmlspecialchars($label); ?>
+                                <?php if ($chart_sort === $key): ?><svg class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><?php endif; ?>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <!-- Filter -->
+                    <div style="position:relative;">
+                        <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            </svg>
+                            Filter
+                            <span x-show="hasActiveFilters"><span class="filter-badge" x-text="filterCount"></span></span>
+                        </button>
+                        <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                            <div class="filter-panel-header">Filter</div>
+                            <form method="GET" id="reportsFilterForm">
+                                <?php if ($branchId !== 'all'): ?><input type="hidden" name="branch_id" value="<?php echo (int)$branchId; ?>"><?php endif; ?>
+                                <input type="hidden" name="chart_sort" value="<?php echo htmlspecialchars($chart_sort); ?>">
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button type="button" class="filter-reset-link" @click="resetDateRange()">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" name="from" id="fp_from" class="filter-input" value="<?php echo htmlspecialchars($from); ?>">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" name="to" id="fp_to" class="filter-input" value="<?php echo htmlspecialchars($to); ?>">
+                                        </div>
+                                    </div>
+                                    <div style="margin-top:10px;">
+                                        <div class="filter-date-label">Quick presets</div>
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('this_month')">This month</button>
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_3')">Last 3 months</button>
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_6')">Last 6 months</button>
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_12')">Last 12 months</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="filter-btn-reset" @click="resetFilters()">Reset</button>
+                                    <button type="submit" class="filter-btn-apply">Apply</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- Print -->
+                    <button class="toolbar-btn" onclick="window.print()" style="height:38px;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        Print
+                    </button>
+                </div>
             </div>
 
             <div class="ana-wrap">
@@ -968,6 +1076,58 @@ $page_title = 'Reports & Analytics — Admin';
 </div>
 
 <script>
+function reportsFilterPanel() {
+    const defFrom = '<?php echo date("Y-m-01"); ?>';
+    const defTo   = '<?php echo date("Y-m-d"); ?>';
+    return {
+        filterOpen: false,
+        sortOpen: false,
+        get hasActiveFilters() {
+            const f = document.getElementById('fp_from')?.value || defFrom;
+            const t = document.getElementById('fp_to')?.value || defTo;
+            return f !== defFrom || t !== defTo;
+        },
+        get filterCount() {
+            return this.hasActiveFilters ? 1 : 0;
+        },
+        resetDateRange() {
+            const f = document.getElementById('fp_from');
+            const t = document.getElementById('fp_to');
+            if (f) f.value = defFrom;
+            if (t) t.value = defTo;
+        },
+        resetFilters() {
+            this.resetDateRange();
+            document.getElementById('reportsFilterForm')?.submit();
+        },
+        setPreset(preset) {
+            const today = new Date();
+            let from, to;
+            if (preset === 'this_month') {
+                from = new Date(today.getFullYear(), today.getMonth(), 1);
+                to = new Date(today);
+            } else if (preset === 'last_3') {
+                to = new Date(today);
+                from = new Date(today);
+                from.setMonth(from.getMonth() - 3);
+            } else if (preset === 'last_6') {
+                to = new Date(today);
+                from = new Date(today);
+                from.setMonth(from.getMonth() - 6);
+            } else if (preset === 'last_12') {
+                to = new Date(today);
+                from = new Date(today);
+                from.setMonth(from.getMonth() - 12);
+            } else return;
+            const fmt = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            const f = document.getElementById('fp_from');
+            const t = document.getElementById('fp_to');
+            if (f) f.value = fmt(from);
+            if (t) t.value = fmt(to);
+        }
+    };
+}
+
 const PF_PAL = ['#6366f1','#8b5cf6','#ec4899','#f97316','#10b981','#3b82f6','#f59e0b','#14b8a6','#84cc16','#06b6d4'];
 const PF_OPT = { toolbar:{show:false}, animations:{speed:500,animateGradually:{enabled:true,delay:80}}, fontFamily:'inherit' };
 

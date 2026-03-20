@@ -280,6 +280,10 @@ $page_title = 'Orders - Staff';
         .badge-gray { background: #f3f4f6; color: #374151; }
         .badge-purple { background: #ede9fe; color: #5b21b6; }
 
+        /* Table hover + clickable rows */
+        .staff-orders-table tbody tr { transition: background 0.1s; }
+        .staff-orders-table tbody tr:hover td { background: #f9fafb; }
+
         /* ── Centered Status Overlay ───────────────────────── */
         .om-status-overlay {
             position: absolute; inset: 0;
@@ -330,7 +334,6 @@ $page_title = 'Orders - Staff';
                         <label>Filter by Status</label>
                         <select name="status" class="input-field">
                             <option value="">All Statuses</option>
-                            <option value="Pending Review" <?php echo $status_filter === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
                             <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                             <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                             <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
@@ -344,7 +347,7 @@ $page_title = 'Orders - Staff';
             <!-- Orders Table -->
             <div class="card">
                 <div class="overflow-x-auto">
-                    <table>
+                    <table class="staff-orders-table">
                         <thead>
                             <tr style="border-bottom: 2px solid #e2e8f0;">
                                 <th style="padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; font-weight: 700;">Order #</th>
@@ -357,7 +360,7 @@ $page_title = 'Orders - Staff';
                         </thead>
                         <tbody>
                             <?php foreach ($orders as $order): ?>
-                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <tr class="staff-order-row" onclick="openOrderModal(<?php echo $order['order_id']; ?>)" style="border-bottom: 1px solid #f1f5f9; cursor: pointer;">
                                     <td style="padding: 16px 12px; vertical-align: middle;">
                                         <div style="font-weight: 700; color: #1e293b; font-size: 14px; display: flex; align-items: center; gap: 8px;">
                                             #<?php echo $order['order_id']; ?>
@@ -524,7 +527,6 @@ function statusBadge(val) {
     const map = {
         'Completed':        'badge-green',
         'Pending':          'badge-yellow',
-        'Pending Review':   'badge-yellow',
         'Pending Approval': 'badge-yellow',
         'Processing':       'badge-blue',
         'In Production':    'badge-blue',

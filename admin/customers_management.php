@@ -96,10 +96,10 @@ if (isset($_GET['ajax'])) {
                         <td><?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?></td>
                         <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
                         <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
-                            <button onclick="openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
+                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
                                 Profile
                             </button>
-                            <button onclick="openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
+                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
                                 Transactions
                             </button>
                         </td>
@@ -112,11 +112,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = [];
-    if ($search) $pagination_params['search'] = $search;
-    if ($date_from) $pagination_params['date_from'] = $date_from;
-    if ($date_to) $pagination_params['date_to'] = $date_to;
-    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params); 
     $pagination_html = ob_get_clean();
 
@@ -167,7 +163,7 @@ $page_title = 'Customers Management - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* KPI Row - matches dashboard page */
@@ -425,9 +421,13 @@ $page_title = 'Customers Management - Admin';
             .print-header p { font-size: 12px; color: #6b7280; }
         }
         .print-header { display: none; }
+
+        /* Modal Styles */
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
+        .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
     </style>
 </head>
-<body x-data="{ ...customerModal(), ...filterPanel() }">
+<body x-data="customerModal()">
 
 <div class="dashboard-container">
     <!-- Mobile Header -->
@@ -533,7 +533,7 @@ $page_title = 'Customers Management - Admin';
                                 Filter
                                 <span id="filterBadgeContainer">
                                     <?php
-                                    $active_filters_count = count(array_filter([$search, $date_from, $date_to]));
+                                    $active_filters_count = count(array_filter([$search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }));
                                     if ($active_filters_count > 0): ?>
                                     <span class="filter-badge"><?php echo $active_filters_count; ?></span>
                                     <?php endif; ?>
@@ -595,7 +595,7 @@ $page_title = 'Customers Management - Admin';
                         </thead>
                         <tbody id="customersTableBody">
                             <?php foreach ($customers as $customer): ?>
-                                <tr class="customer-row" onclick="document.querySelector('[x-data]')?.__x?.$data?.openModal(<?php echo $customer['customer_id']; ?>)" @click="openModal(<?php echo $customer['customer_id']; ?>)">
+                                <tr class="customer-row" onclick="openModal(<?php echo $customer['customer_id']; ?>)">
                                     <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
                                     <td style="font-weight:500;color:#1f2937;" class="name-cell">
                                         <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
@@ -603,11 +603,11 @@ $page_title = 'Customers Management - Admin';
                                     <td class="email-cell"><?php echo htmlspecialchars($customer['email']); ?></td>
                                     <td><?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?></td>
                                     <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
-                                    <td style="text-align:right;" class="no-print actions" @click.stop>
-                                        <button @click="openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
+                                    <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
+                                        <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
                                             Profile
                                         </button>
-                                        <button @click="openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
+                                        <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
                                             Transactions
                                         </button>
                                     </td>
@@ -621,8 +621,7 @@ $page_title = 'Customers Management - Admin';
                 </div>
                 <div id="customersPagination">
                     <?php 
-                    $pagination_params = [];
-                    if ($search) $pagination_params['search'] = $search;
+                    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
@@ -759,9 +758,13 @@ $page_title = 'Customers Management - Admin';
                             </template>
                             <!-- Orders Pagination -->
                             <div x-show="ordersPagination && ordersPagination.total_pages > 1" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <button x-show="ordersPagination.current_page > 1" @click="loadTransTabData('orders', ordersPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
-                                <span style="font-size:12px;color:#6b7280;" x-text="`Page ${ordersPagination.current_page} of ${ordersPagination.total_pages}`"></span>
-                                <button x-show="ordersPagination.current_page < ordersPagination.total_pages" @click="loadTransTabData('orders', ordersPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                <template x-if="ordersPagination">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <button x-show="ordersPagination.current_page > 1" @click="loadTransTabData('orders', ordersPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
+                                        <span style="font-size:12px;color:#6b7280;" x-text="'Page ' + ordersPagination.current_page + ' of ' + ordersPagination.total_pages"></span>
+                                        <button x-show="ordersPagination.current_page < ordersPagination.total_pages" @click="loadTransTabData('orders', ordersPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 
@@ -784,9 +787,13 @@ $page_title = 'Customers Management - Admin';
                             </template>
                             <!-- Customizations Pagination -->
                             <div x-show="customizationsPagination && customizationsPagination.total_pages > 1" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <button x-show="customizationsPagination.current_page > 1" @click="loadTransTabData('customizations', customizationsPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
-                                <span style="font-size:12px;color:#6b7280;" x-text="`Page ${customizationsPagination.current_page} of ${customizationsPagination.total_pages}`"></span>
-                                <button x-show="customizationsPagination.current_page < customizationsPagination.total_pages" @click="loadTransTabData('customizations', customizationsPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                <template x-if="customizationsPagination">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <button x-show="customizationsPagination.current_page > 1" @click="loadTransTabData('customizations', customizationsPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
+                                        <span style="font-size:12px;color:#6b7280;" x-text="'Page ' + customizationsPagination.current_page + ' of ' + customizationsPagination.total_pages"></span>
+                                        <button x-show="customizationsPagination.current_page < customizationsPagination.total_pages" @click="loadTransTabData('customizations', customizationsPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -911,15 +918,20 @@ $page_title = 'Customers Management - Admin';
         }
     });
 
-    // ── Alpine.js filterPanel for button toggle state only ──
-    function filterPanel() {
-        return {
-            sortOpen: false,
-            filterOpen: false,
-            activeSort: '<?php echo $sort_by; ?>',
-            hasActiveFilters: <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>,
-        };
-    }
+    // ── Alpine.js filterPanel state (merged into customerModal via x-data) ──
+    // NOTE: filterPanel state is inlined into the customerModal() return object below.
+    // These globals are used to sync sort state.
+    let _activeSortKey = '<?php echo $sort_by; ?>';
+    let _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
+
+    // Global bridge for onclick in table rows/buttons (incl. AJAX-loaded table)
+    // Uses custom events so Alpine reliably receives the call
+    window.openModal = function(id) {
+        window.dispatchEvent(new CustomEvent('open-customer-modal', { detail: { id } }));
+    };
+    window.openTransactionModal = function(id) {
+        window.dispatchEvent(new CustomEvent('open-transaction-modal', { detail: { id } }));
+    };
 
     // Customer Modal (Alpine.js component)
     function customerModal() {
@@ -929,6 +941,12 @@ $page_title = 'Customers Management - Admin';
             errorMsg: '',
             customer: null,
 
+            // Sort/Filter panel state (inlined from filterPanel())
+            sortOpen: false,
+            filterOpen: false,
+            activeSort: '<?php echo $sort_by; ?>',
+            hasActiveFilters: <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>,
+
             // Transaction Modal State
             showTransactionModal: false,
             transLoading: false,
@@ -937,8 +955,14 @@ $page_title = 'Customers Management - Admin';
             tabLoading: false,
             orders: [],
             customizations: [],
-            ordersPagination: null,
-            customizationsPagination: null,
+            ordersPagination: { current_page: 1, total_pages: 1 },
+            customizationsPagination: { current_page: 1, total_pages: 1 },
+
+            init() {
+                const self = this;
+                window.addEventListener('open-customer-modal', e => { self.openModal(e.detail.id); });
+                window.addEventListener('open-transaction-modal', e => { self.openTransactionModal(e.detail.id); });
+            },
 
             openModal(id) {
                 this.showModal = true;
@@ -946,8 +970,15 @@ $page_title = 'Customers Management - Admin';
                 this.errorMsg = '';
                 this.customer = null;
 
-                fetch('api_customer_details.php?id=' + id)
-                    .then(r => r.json())
+                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                    .then(async r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            const text = await r.text();
+                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
+                        }
+                        return r.json();
+                    })
                     .then(data => {
                         this.loading = false;
                         if(data.success) { 
@@ -958,7 +989,7 @@ $page_title = 'Customers Management - Admin';
                     })
                     .catch(e => { 
                         this.loading = false; 
-                        this.errorMsg = 'Failed to load customer details.'; 
+                        this.errorMsg = (e.message || 'Failed to load customer details.').replace(/\(HTML\/login redirect\)/, ' — please refresh and log in again.');
                         console.error('Fetch error:', e);
                     });
             },
@@ -972,8 +1003,15 @@ $page_title = 'Customers Management - Admin';
                 this.customizations = [];
 
                 // Load basic info first for the header
-                fetch('api_customer_details.php?id=' + id)
-                    .then(r => r.json())
+                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                    .then(async r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            const text = await r.text();
+                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
+                        }
+                        return r.json();
+                    })
                     .then(data => {
                         this.transLoading = false;
                         if(data.success) {
@@ -995,15 +1033,15 @@ $page_title = 'Customers Management - Admin';
                 
                 try {
                     if (tab === 'orders') {
-                        const res = await fetch(`api_customer_details.php?customer_id=${this.customer.customer_id}&page=${page}`);
+                        const res = await fetch(`api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                         const data = await res.json();
                         this.orders = data.data || [];
-                        this.ordersPagination = data.pagination || null;
+                        this.ordersPagination = data.pagination || { current_page: 1, total_pages: 1 };
                     } else if (tab === 'customizations') {
-                        const res = await fetch(`job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`);
+                        const res = await fetch(`job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                         const data = await res.json();
                         this.customizations = data.data || [];
-                        this.customizationsPagination = data.pagination || null;
+                        this.customizationsPagination = data.pagination || { current_page: 1, total_pages: 1 };
                     }
                 } catch (e) {
                     console.error(`Error loading ${tab}:`, e);
@@ -1018,21 +1056,28 @@ $page_title = 'Customers Management - Admin';
                     'Paid': 'background:#dcfce7;color:#166534;',
                     'Failed': 'background:#fee2e2;color:#991b1b;',
                     'UNPAID': 'background:#fee2e2;color:#991b1b;',
-                    'PARTIAL': 'background:#fef9c3;color:#854d0e;',
+                    'PARTIAL': 'background:#fef3c7;color:#b45309;',
+                    'PAID': 'background:#dcfce7;color:#166534;',
                 };
                 const sc = {
-                    'Pending': 'background:#fef9c3;color:#854d0e;',
+                    'Pending': 'background:#fef3c7;color:#92400e;',
+                    'Pending Review': 'background:#fef3c7;color:#92400e;',
+                    'To Pay': 'background:#fce7f3;color:#9d174d;',
                     'Processing': 'background:#dbeafe;color:#1e40af;',
                     'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
                     'Completed': 'background:#dcfce7;color:#166534;',
-                    'Cancelled': 'background:#fee2e2;color:#991b1b;',
-                    'PENDING': 'background:#fef9c3;color:#854d0e;',
+                    'Cancelled': 'background:#fecaca;color:#b91c1c;',
+                    'PENDING': 'background:#fef3c7;color:#92400e;',
                     'APPROVED': 'background:#dbeafe;color:#1e40af;',
-                    'IN_PRODUCTION': 'background:#ede9fe;color:#5b21b6;',
+                    'TO_PAY': 'background:#fce7f3;color:#9d174d;',
+                    'IN_PRODUCTION': 'background:#d1fae5;color:#065f46;',
+                    'TO_RECEIVE': 'background:#ede9fe;color:#5b21b6;',
                     'COMPLETED': 'background:#dcfce7;color:#166534;',
+                    'CANCELLED': 'background:#fecaca;color:#b91c1c;',
                 };
                 const style = pc[status] || sc[status] || 'background:#f3f4f6;color:#6b7280;';
-                return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;${style}">${status}</span>`;
+                const displayStatus = (status === 'Pending Review') ? 'Pending' : (status || 'N/A');
+                return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;${style}">${displayStatus}</span>`;
             }
         };
     }

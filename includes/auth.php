@@ -247,6 +247,10 @@ function login_customer($email, $password, $remember_me = false) {
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_CUSTOMER_DAYS);
     }
+    // Load persisted cart from database
+    if (function_exists('load_customer_cart_into_session')) {
+        load_customer_cart_into_session($customer['customer_id']);
+    }
     return [
         'success' => true,
         'message' => 'Login successful',
@@ -276,6 +280,9 @@ function login_customer_by_google($email, $first_name, $last_name) {
         $_SESSION['user_name'] = ($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '');
         $_SESSION['user_email'] = $customer['email'];
         SessionManager::regenerate();
+        if (function_exists('load_customer_cart_into_session')) {
+            load_customer_cart_into_session($customer['customer_id']);
+        }
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
@@ -289,6 +296,9 @@ function login_customer_by_google($email, $first_name, $last_name) {
     $_SESSION['user_name'] = $first_name . ' ' . $last_name;
     $_SESSION['user_email'] = $email;
     SessionManager::regenerate();
+    if (function_exists('load_customer_cart_into_session')) {
+        load_customer_cart_into_session($cid);
+    }
     return ['success' => true, 'message' => 'Account created', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
 }
 
@@ -431,11 +441,31 @@ function register_customer_direct($type, $identifier, $password) {
         // Save OTP to database
         db_execute("UPDATE customers SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE customer_id = ?", 'sssi', [$otp, $expiry, $now, $result]);
 
-        // Send OTP email
-        require_once __DIR__ . '/otp_mailer.php';
-        $mail_res = send_otp_email($email, $otp);
+        $otp_sent = false;
+        $mail_res = null;
+        if ($contact_number) {
+            // Phone registration: send OTP via SMS (Philippines)
+            require_once __DIR__ . '/email_sms_config.php';
+            if (defined('SMS_ENABLED') && SMS_ENABLED && function_exists('send_sms')) {
+                $phone_e164 = preg_replace('/\D/', '', $contact_number);
+                if (preg_match('/^0(\d{10})$/', $phone_e164, $m)) $phone_e164 = '63' . $m[1];
+                elseif (strlen($phone_e164) === 10 && $phone_e164[0] === '9') $phone_e164 = '63' . $phone_e164;
+                $otp_sent = send_sms('+' . $phone_e164, "PrintFlow: Your verification code is {$otp}. Valid for 10 minutes.");
+            }
+            if (!$otp_sent) {
+                // Fallback: email to placeholder (won't work, but keeps flow; or log)
+                require_once __DIR__ . '/otp_mailer.php';
+                $mail_res = send_otp_email($email, $otp);
+                $otp_sent = isset($mail_res['success']) && $mail_res['success'] === true;
+            }
+        } else {
+            // Email registration: send OTP via email
+            require_once __DIR__ . '/otp_mailer.php';
+            $mail_res = send_otp_email($email, $otp);
+            $otp_sent = isset($mail_res['success']) && $mail_res['success'] === true;
+        }
 
-        if (isset($mail_res['success']) && $mail_res['success'] === true) {
+        if ($otp_sent) {
             // Auto-login after registration (Optional - we can keep it or remove it)
             // But if we want them to verify first, maybe don't set user_id yet?
             // Existing flow expects them to be "half-logged in" or just have session markers.
@@ -446,9 +476,12 @@ function register_customer_direct($type, $identifier, $password) {
 
             return ['success' => true, 'message' => 'Registration successful! Verification code sent.'];
         } else {
-            // ROLLBACK: Delete the customer record if mail failed
+            // ROLLBACK: Delete the customer record if OTP delivery failed
             db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$result]);
-            return ['success' => false, 'message' => 'Failed to send verification email: ' . ($mail_res['message'] ?? 'Unknown error')];
+            $msg = $contact_number
+                ? 'Failed to send SMS. Ensure SMS is configured (Semaphore for PH).'
+                : ('Failed to send verification email: ' . ($mail_res['message'] ?? 'Unknown error'));
+            return ['success' => false, 'message' => $msg];
         }
     }
 

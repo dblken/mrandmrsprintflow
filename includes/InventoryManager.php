@@ -18,14 +18,32 @@ class InventoryManager {
         $quantity = abs((float)$quantity);
         $userId = $userId ?: ($_SESSION['user_id'] ?? null);
 
-        // Deduplication check (UNIQUE key in DB will also catch this but we can handle it gracefully here)
-        // Note: The DB unique key is `uq_txn_ref` (ref_type, ref_id, item_id, direction, roll_id)
-        
-        $sql = "INSERT INTO inventory_transactions (item_id, roll_id, direction, quantity, uom, ref_type, ref_id, notes, created_by, transaction_date) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
+        // Core fields
+        $fields = [
+            'item_id'          => ['type' => 'i', 'val' => $itemId],
+            'direction'        => ['type' => 's', 'val' => $direction],
+            'quantity'         => ['type' => 's', 'val' => (string)$quantity],
+            'uom'              => ['type' => 's', 'val' => $uom],
+            'ref_type'         => ['type' => 's', 'val' => $refType],
+            'notes'            => ['type' => 's', 'val' => $notes],
+            'transaction_date' => ['type' => 's', 'val' => $date]
+        ];
+
+        // Optional fields
+        if ($rollId !== null) $fields['roll_id'] = ['type' => 'i', 'val' => $rollId];
+        if ($refId !== null)  $fields['ref_id']  = ['type' => 'i', 'val' => $refId];
+        if ($userId !== null) $fields['created_by'] = ['type' => 'i', 'val' => $userId];
+
+        $cols = array_keys($fields);
+        $placeholders = array_fill(0, count($fields), '?');
+        $types = implode('', array_column($fields, 'type'));
+        $values = array_column($fields, 'val');
+
+        $sql = "INSERT INTO inventory_transactions (" . implode(', ', $cols) . ") 
+                VALUES (" . implode(', ', $placeholders) . ")";
+
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("iissssssis", $itemId, $rollId, $direction, $quantity, $uom, $refType, $refId, $notes, $userId, $date);
+        $stmt->bind_param($types, ...$values);
         
         try {
             if ($stmt->execute()) {
@@ -46,7 +64,7 @@ class InventoryManager {
     /**
      * Receives new stock (IN).
      */
-    public static function receiveStock($itemId, $quantity, $uom = null, $rollData = null) {
+    public static function receiveStock($itemId, $quantity, $uom = null, $rollData = null, $refType = 'PURCHASE', $refId = null, $notes = '', $transactionDate = null) {
         global $conn;
         
         $item = self::getItem($itemId);
@@ -57,10 +75,11 @@ class InventoryManager {
             $uom = $uom ?: $item['unit_of_measure'];
             $rollId = null;
 
-            // Handle roll creation if it's a roll item and data is provided
+            // Handle roll creation if it's a roll item
             if ($item['track_by_roll']) {
                 require_once __DIR__ . '/RollService.php';
-                $rollCode = $rollData['roll_code'] ?? '';
+                $rollDataSafe = $rollData ?? [];
+                $rollCode = $rollDataSafe['roll_code'] ?? '';
                 if (empty($rollCode)) {
                     $rollCode = 'AUTO-' . strtoupper(substr($item['name'], 0, 3)) . '-' . date('YmdHis');
                 }
@@ -68,12 +87,14 @@ class InventoryManager {
                     $itemId, 
                     $quantity, // For new reception, total length = quantity received
                     $rollCode, 
-                    $rollData['supplier'] ?? null
+                    $rollDataSafe['supplier'] ?? null,
+                    $rollDataSafe['width_ft'] ?? 0
                 );
             }
 
             // Record transaction
-            self::recordTransaction($itemId, 'IN', $quantity, $uom, 'PURCHASE', null, $rollId);
+            $refType = strtoupper($refType ?: 'PURCHASE');
+            self::recordTransaction($itemId, 'IN', $quantity, $uom, $refType, $refId, $rollId, $notes, null, $transactionDate);
 
             $conn->commit();
             return true;

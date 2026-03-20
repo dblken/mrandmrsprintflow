@@ -17,7 +17,7 @@ if (!has_role(['Admin', 'Staff'])) {
 header('Content-Type: application/json');
 
 try {
-    $products = db_query("
+    $rows = db_query("
         SELECT 
             product_id, 
             name as product_name, 
@@ -25,14 +25,20 @@ try {
             category, 
             price, 
             stock_quantity, 
+            COALESCE(low_stock_level, 10) as low_stock_level,
             product_image 
         FROM products 
         WHERE status = 'Activated' 
         AND category IN ('Tarpaulin', 'T-Shirt', 'Stickers', 'Glass/Wall', 'Transparent Stickers', 'Reflectorized', 'Sintraboard', 'Standees', 'Souvenirs', 'Apparel', 'Signage', 'Merchandise', 'Decals & Stickers', 'T-Shirt Printing')
         ORDER BY category ASC, name ASC
     ");
-
-    echo json_encode(['success' => true, 'products' => ($products ?: [])]);
+    $products = [];
+    foreach ($rows ?: [] as $p) {
+        $p['stock_status'] = get_stock_status($p['stock_quantity'], $p['low_stock_level']);
+        $p['quantity'] = (int) ($p['stock_quantity'] ?? 0);
+        $products[] = $p;
+    }
+    echo json_encode(['success' => true, 'products' => $products]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }

@@ -226,6 +226,66 @@ function get_customer_id() {
 }
 
 /**
+ * Load customer cart from database into session.
+ * Call after customer login or when session cart is empty.
+ * @param int $customer_id
+ * @return void
+ */
+function load_customer_cart_into_session($customer_id) {
+    if (!$customer_id) return;
+    $rows = db_query("SELECT product_id, variant_id, quantity FROM customer_cart WHERE customer_id = ?", 'i', [$customer_id]);
+    if (empty($rows)) return;
+    $_SESSION['cart'] = [];
+    foreach ($rows as $r) {
+        $pid = (int)$r['product_id'];
+        $vid = isset($r['variant_id']) && $r['variant_id'] !== '' && $r['variant_id'] !== null ? (int)$r['variant_id'] : null;
+        $qty = max(0, (int)$r['quantity']);
+        if ($qty <= 0 || $pid <= 0) continue;
+        $product = db_query("SELECT name, price, category FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
+        if (empty($product)) continue;
+        $product = $product[0];
+        $price = (float)$product['price'];
+        $variant_name = '';
+        if ($vid) {
+            $v = db_query("SELECT variant_name, price FROM product_variants WHERE variant_id = ? AND product_id = ? AND status = 'Active'", 'ii', [$vid, $pid]);
+            if (!empty($v)) {
+                $variant_name = $v[0]['variant_name'] ?? '';
+                $price = (float)$v[0]['price'];
+            }
+        }
+        $key = $pid . '_' . ($vid ?? '0');
+        $_SESSION['cart'][$key] = [
+            'product_id' => $pid,
+            'variant_id' => $vid,
+            'name' => $product['name'],
+            'category' => $product['category'] ?? '',
+            'variant_name' => $variant_name,
+            'quantity' => $qty,
+            'price' => $price,
+        ];
+    }
+}
+
+/**
+ * Sync session cart to customer_cart table.
+ * @param int $customer_id
+ * @return void
+ */
+function sync_cart_to_db($customer_id) {
+    if (!$customer_id) return;
+    db_execute("DELETE FROM customer_cart WHERE customer_id = ?", 'i', [$customer_id]);
+    if (empty($_SESSION['cart'])) return;
+    foreach ($_SESSION['cart'] as $key => $item) {
+        $qty = (int)($item['quantity'] ?? 0);
+        if ($qty <= 0) continue;
+        $pid = (int)($item['product_id'] ?? 0);
+        $vid = isset($item['variant_id']) && $item['variant_id'] !== null ? (int)$item['variant_id'] : 0;
+        if ($pid <= 0) continue;
+        db_execute("INSERT INTO customer_cart (customer_id, product_id, variant_id, quantity, updated_at) VALUES (?, ?, ?, ?, NOW())", 'iiii', [$customer_id, $pid, $vid, $qty]);
+    }
+}
+
+/**
  * Get customer cancellation count (last 30 days)
  * @param int $customer_id
  * @return int
@@ -428,6 +488,7 @@ function status_badge($status, $type = 'order') {
     $colors = [
         'order' => [
             'Pending' => 'bg-yellow-100 text-yellow-800',
+            'Pending Review' => 'bg-yellow-100 text-yellow-800',
             'Processing' => 'bg-blue-100 text-blue-800',
             'Ready for Pickup' => 'bg-green-100 text-green-800',
             'Completed' => 'bg-green-100 text-green-800',
@@ -446,8 +507,10 @@ function status_badge($status, $type = 'order') {
     ];
     
     $color = $colors[$type][$status] ?? 'bg-gray-100 text-gray-800';
+    // Display "Pending" instead of "Pending Review" for consistency
+    $display = ($status === 'Pending Review') ? 'Pending' : $status;
     
-    return "<span class='px-2 py-1 text-xs font-semibold rounded-full {$color}'>" . htmlspecialchars($status) . "</span>";
+    return "<span class='px-2 py-1 text-xs font-semibold rounded-full {$color}'>" . htmlspecialchars($display) . "</span>";
 }
 
 /**
@@ -457,6 +520,16 @@ function status_badge($status, $type = 'order') {
  */
 function sanitize($input) {
     return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Normalize branch name for Add/Edit: trim, strip trailing "Branch", title-case
+ * System auto-appends " Branch" — user should not type it.
+ */
+function normalize_branch_name($name) {
+    $name = trim($name);
+    $name = preg_replace('/\s+Branch\s*$/i', '', $name);
+    return ucwords(strtolower($name));
 }
 
 /**
@@ -527,6 +600,20 @@ function is_low_stock($product_id, $threshold = 10) {
 }
 
 /**
+ * Compute stock status from quantity and low_stock_level (not stored in DB)
+ * @param int $stock_quantity
+ * @param int $low_stock_level
+ * @return string "Out of Stock"|"Low Stock"|"In Stock"
+ */
+function get_stock_status($stock_quantity, $low_stock_level = 10) {
+    $qty = (int) $stock_quantity;
+    $low = (int) ($low_stock_level ?? 10);
+    if ($qty <= 0) return 'Out of Stock';
+    if ($qty <= $low) return 'Low Stock';
+    return 'In Stock';
+}
+
+/**
  * Get app setting
  * @param string $key
  * @param mixed $default
@@ -566,6 +653,9 @@ function set_setting($key, $value) {
  * @return string HTML string
  */
 function render_pagination($current_page, $total_pages, $extra_params = []) {
+    $current_page = (int)$current_page;
+    $total_pages   = (int)$total_pages;
+
     if ($total_pages <= 1) return '';
     
     $params = $extra_params;

@@ -12,6 +12,7 @@ $search   = trim($_GET['search'] ?? '');
 $sort     = $_GET['sort'] ?? 'name';
 $dir      = strtoupper($_GET['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
 $page     = max(1, (int)($_GET['page'] ?? 1));
+$track_by = isset($_GET['track_by_roll']) && $_GET['track_by_roll'] !== '' ? (int)$_GET['track_by_roll'] : null;
 $per_page = 15;
 
 // Build Query
@@ -25,6 +26,11 @@ $types = '';
 if ($cat_id) {
     $sql .= " AND i.category_id = ?";
     $params[] = $cat_id;
+    $types .= 'i';
+}
+if ($track_by !== null) {
+    $sql .= " AND i.track_by_roll = ?";
+    $params[] = $track_by;
     $types .= 'i';
 }
 if ($search) {
@@ -86,10 +92,10 @@ if (isset($_GET['ajax'])) {
                 <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
                 <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
                 <td><?php echo $trackBadge; ?></td>
-                <td><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo number_format($stock, 2); ?></span></td>
+                <td><span class="font-semibold" style="white-space:nowrap;">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                 <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
-                <td style="text-align:right;white-space:nowrap;">
+                <td class="no-truncate" style="text-align:right;">
                     <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                     <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                 </td>
@@ -100,11 +106,11 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir]);
+    $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $p);
     $pagination_html = ob_get_clean();
 
-    $badge_count = count(array_filter([$cat_id, $search]));
+    $badge_count = count(array_filter([$cat_id ?: '', $search, $track_by], function($v) { return $v !== null && $v !== ''; }));
 
     echo json_encode([
         'success'    => true,
@@ -129,7 +135,7 @@ if (isset($_GET['ajax'])) {
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
@@ -145,7 +151,8 @@ if (isset($_GET['ajax'])) {
         
         .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
         .inv-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
-        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .no-truncate { max-width: none !important; overflow: visible !important; white-space: nowrap !important; text-overflow: clip !important; }
         .inv-table tbody tr { cursor: pointer; transition: background 0.1s; }
         .inv-table tbody tr:hover td { background: #f9fafb; }
         .inv-table tbody tr:last-child td { border-bottom: none; }
@@ -157,6 +164,16 @@ if (isset($_GET['ajax'])) {
         .badge-indigo { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
         
         .stock-val { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+        .locked-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: default;
+        }
+        .locked-select:disabled {
+            color: #374151;
+            opacity: 1;
+        }
         .btn-action {
             display: inline-flex; align-items: center; justify-content: center;
             padding: 5px 12px; min-width: 80px; border: 1px solid transparent;
@@ -177,24 +194,54 @@ if (isset($_GET['ajax'])) {
         
         /* Modals */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 110000; align-items: center; justify-content: center; padding: 16px; overflow: hidden; pointer-events: auto !important; }
-        .modal-content { background: #fff; border-radius: 12px; width: 95%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); position: relative; z-index: 110001; animation: fadeIn 0.3s ease forwards; pointer-events: auto !important; }
+        .modal-content { background: white; border-radius: 20px; width: 90%; max-width: 800px; padding: 24px; position: relative; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); z-index: 110001; animation: fadeIn 0.3s ease forwards; pointer-events: auto !important; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .modal-title { font-size: 18px; font-weight: 700; color: #111827; }
+        .modal-title { font-size: 18px; font-weight: 700; color: #111827; padding-right: 40px; overflow-wrap: break-word; word-break: break-word; -webkit-hyphens: auto; -ms-hyphens: auto; hyphens: auto; line-height: 1.4; }
         .close-btn { background: none; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .close-btn:hover { color: #374151; }
         
         .modal input, .modal select, .modal textarea { pointer-events: auto !important; cursor: text; }
+        .modal label { margin-bottom: 6px; display: block; font-weight: 700; color: #4b5563; font-size: 12px; text-transform: uppercase; letter-spacing: 0.025em; }
         
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
-        .form-group.full { grid-column: span 2; }
+        /* New Modal Grid System */
+        .modal-section { margin-bottom: 32px; }
+        .modal-section:last-child { margin-bottom: 0; }
+        .section-header { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 16px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px; }
         
-        /* Ensure select elements in modal have consistent height and style */
-        .modal select, .modal input:not([type="checkbox"]) { height: 44px; width: 100% !important; display: block; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 14px; font-size: 14px; background: #fff; color: #1f2937; }
-        .modal label { margin-bottom: 8px; display: block; font-weight: 700; color: #374151; font-size: 13px; }
+        .form-row-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 20px; margin-bottom: 16px; align-items: flex-start; }
+        .form-col-full { grid-column: span 2; }
+        
+        /* Proportional Widths */
+        .w-35 { width: 35% !important; min-width: 140px; }
+        .w-40 { width: 40% !important; min-width: 150px; }
+        .w-50 { width: 50% !important; }
+        .w-60 { width: 60% !important; }
+        .w-100 { width: 100% !important; }
+
+        @media (max-width: 600px) {
+            .form-row-grid { grid-template-columns: 1fr; gap: 16px; }
+            .form-col-full { grid-column: span 1; }
+            .w-35, .w-40, .w-50 { width: 100% !important; }
+        }
+
+        .preview-badge { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 16px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13px; font-weight: 600; color: #374151; width: 100%; box-sizing: border-box; }
+
+        /* Validation Styles */
+        .field-error { color: #dc2626; font-size: 11px; margin-top: 4px; display: none; font-weight: 500; }
+        .input-error { border-color: #dc2626 !important; background-color: #fffafb !important; }
+        .input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important; }
+        .input-success { border-color: #10b981 !important; }
+        
+        #saveBtn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
+        .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Premium Stock Card Modal */
-        #stockCardModal .modal-content, #itemModal .modal-content { max-width: 850px; }
-        .stock-card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+        .sc-cards-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+        .sc-card { flex: 1; min-width: 140px; max-width: 160px; border-radius: 12px; padding: 14px; text-align: center; }
+        @media (max-width: 600px) {
+            .sc-card { flex: 1 1 calc(50% - 12px); max-width: none; }
+        }
         .kpi-mini-card { padding: 16px; border-radius: 16px; background: #f9fafb; border: 1px solid #e5e7eb; }
         .kpi-mini-card .label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: capitalize; margin-bottom: 2px; }
         .kpi-mini-card .value { font-size: 20px; font-weight: 800; color: #1f2937; }
@@ -383,15 +430,8 @@ if (isset($_GET['ajax'])) {
 
     <div class="main-content">
         <header>
-            <div>
-                <h1 class="page-title" style="margin-bottom: 4px;">Inventory Master V2</h1>
-                <p style="font-size: 14px; color: #6b7280;">Centralized material tracking with individual roll management.</p>
-            </div>
+            <h1 class="page-title">Inventory Master V2</h1>
             <div style="display: flex; gap: 12px;">
-                <a href="inv_rolls_management" class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    Roll Tracking
-                </a>
                 <a href="inv_transactions_ledger" class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     Transaction Ledger
@@ -444,7 +484,14 @@ if (isset($_GET['ajax'])) {
                             <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 Filter
-                                <span id="filterBadgeContainer"></span>
+                                <span id="filterBadgeContainer">
+                                    <?php 
+                                        $initial_badge = count(array_filter([$cat_id ?: '', $search, $track_by], function($v) { return $v !== null && $v !== ''; }));
+                                        if ($initial_badge > 0): ?>
+                                            <span class="filter-badge"><?php echo $initial_badge; ?></span>
+                                        <?php endif; 
+                                    ?>
+                                </span>
                             </button>
                             <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
                                 <div class="filter-panel-header">Filter</div>
@@ -463,6 +510,18 @@ if (isset($_GET['ajax'])) {
                                     </select>
                                 </div>
 
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Tracking Type</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['track_by_roll'])">Reset</button>
+                                    </div>
+                                    <select id="fp_track_by_roll" class="filter-select">
+                                        <option value="">All Tracking</option>
+                                        <option value="0" <?php echo ($track_by === 0) ? 'selected' : ''; ?>>Standard (Ledger)</option>
+                                        <option value="1" <?php echo ($track_by === 1) ? 'selected' : ''; ?>>Roll-Based (Individual)</option>
+                                    </select>
+                                </div>
+                                
                                 <!-- Keyword -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -480,7 +539,7 @@ if (isset($_GET['ajax'])) {
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" style="border:1px solid #f3f4f6; border-radius:12px;">
                     <table class="inv-table" style="width:100%;border-collapse:collapse;font-size:13px;">
                         <thead>
                             <tr>
@@ -515,13 +574,15 @@ if (isset($_GET['ajax'])) {
                                     $inactiveBadge = $item['status'] === 'INACTIVE' ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#6b7280;margin-left:6px;">Inactive</span>' : '';
                                 ?>
                                     <tr class="<?php echo ($isOut || $isLow) ? 'low-stock-row' : ''; ?>" style="cursor:pointer;" onclick="openStockCard(<?php echo $item['id']; ?>)">
-                                        <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
-                                        <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
+                                        <td class="truncate" style="font-weight:500;text-transform:capitalize;" title="<?php echo htmlspecialchars($item['name']); ?>">
+                                            <?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?>
+                                        </td>
+                                        <td class="truncate" title="<?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?>"><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
                                         <td><?php echo $trackBadge; ?></td>
-                                        <td><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                                        <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo number_format($stock, 2); ?></span></td>
-                                        <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
-                                        <td style="text-align:right;white-space:nowrap;">
+                                        <td style="white-space:nowrap;"><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                                        <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
+                                        <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                                        <td class="no-truncate" style="text-align:right;">
                                             <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                                             <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                                         </td>
@@ -533,7 +594,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="itemsPagination">
                     <?php 
-                        $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir]);
+                        $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by], function($v) { return $v !== null && $v !== ''; });
                         echo render_pagination($page, $total_pages, $p); 
                     ?>
                 </div>
@@ -547,8 +608,8 @@ if (isset($_GET['ajax'])) {
     <div class="modal-content" style="max-width:450px;">
         <div class="modal-header">
             <div>
-                <h3 class="modal-title">Inventory: Stock Intake</h3>
-                <p style="font-size:13px;color:#6b7280;margin-top:2px;" id="addStockItemName">Item Name</p>
+                <h3 class="modal-title" style="padding-right:30px;">Inventory: Stock Intake</h3>
+                <p style="font-size:13px;color:#6b7280;margin-top:2px; padding-right:30px; overflow-wrap:break-word; word-break:break-word; hyphens:auto;" id="addStockItemName">Item Name</p>
             </div>
             <button class="close-btn" onclick="closeAddStockModal()">&times;</button>
         </div>
@@ -556,17 +617,25 @@ if (isset($_GET['ajax'])) {
             <input type="hidden" id="addStockItemId">
             <input type="hidden" id="addStockIsRoll">
             <input type="hidden" id="addStockUom">
+            <input type="hidden" id="addStockCurrentStock" value="0">
             <div class="form-grid" style="grid-template-columns:1fr;">
                 <div class="filter-group">
                     <label for="addStockQty">Quantity to Add *</label>
-                    <input type="number" step="0.01" min="0.01" id="addStockQty" required placeholder="e.g. 164.00" autofocus>
+                    <input type="number" step="any" min="0" max="100000" id="addStockQty" placeholder="e.g. 50" autofocus inputmode="decimal">
+                    <div id="addStockQtyError" style="display:none; font-size:12px; color:#dc2626; margin-top:4px;">Please enter a valid quantity</div>
+                    <div id="addStockPreview" style="font-size:13px; font-weight:600; color:#059669; margin-top:6px;">New Stock After Adding: —</div>
+                    <div id="addStockLargeWarning" style="display:none; font-size:13px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; margin-top:8px; border:1px solid #fde68a;">
+                        ⚠️ You are adding a large quantity. Please double check.
+                    </div>
                 </div>
                 <div class="filter-group" id="addStockRollGroup" style="display:none; background:#f0f7ff; padding:12px; border-radius:10px; border:1px solid #dbeafe;">
                     <label for="addStockRollCode">Roll Identification</label>
                     <input type="text" id="addStockRollCode" placeholder="e.g. ROLL-001" style="margin-bottom:12px;">
+                    <span id="err-addStockRollCode" class="field-error"></span>
                     
                     <label for="addStockWidth">Roll Width (ft) *</label>
                     <input type="number" step="1" min="1" max="12" id="addStockWidth" placeholder="e.g. 6 or 10">
+                    <span id="err-addStockWidth" class="field-error"></span>
                     <p style="font-size:10px;color:#3b82f6;margin-top:4px;line-height:1.4;">Specify width for tarpaulin/vinyl rolls. <br>Leave code empty to auto-generate.</p>
                 </div>
                 <div class="filter-group">
@@ -576,84 +645,153 @@ if (isset($_GET['ajax'])) {
             </div>
             <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid #f3f4f6;">
                 <button type="button" onclick="closeAddStockModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
-                <button type="submit" id="addStockBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#059669;">Add Stock</button>
+                <button type="submit" id="addStockBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#059669;" disabled>Add Stock</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Stock Card View Modal (PREMIUM) -->
-<div id="stockCardModal" class="modal">
-    <div class="modal-content">
+<!-- Add Stock Confirmation Modal -->
+<div id="addStockConfirmModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:420px;">
         <div class="modal-header">
-            <div>
-                <h3 class="modal-title" id="scName">Item Name</h3>
-            </div>
+            <h3 class="modal-title">Confirm Stock Addition</h3>
+            <button class="close-btn" onclick="closeAddStockConfirmModal()">&times;</button>
+        </div>
+        <div style="padding:0 0 20px; font-size:14px; color:#374151;">
+            <p style="margin-bottom:12px;">You are about to add: <strong id="addStockConfirmQty">0</strong></p>
+            <p>New total will be: <strong id="addStockConfirmTotal">0</strong></p>
+            <p style="margin-top:16px; color:#6b7280;">Are you sure you want to continue?</p>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+            <button type="button" onclick="closeAddStockConfirmModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
+            <button type="button" id="addStockConfirmBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#059669;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Card View Modal (SaaS-style) -->
+<div id="stockCardModal" class="modal">
+    <div class="modal-content" style="max-width: 680px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="scName" style="padding-right:30px; word-break:break-all; overflow-wrap:anywhere;">Item Name</h3>
             <button class="close-btn" onclick="closeStockCard()">×</button>
         </div>
-        
-        <div class="stock-card-grid">
-            <div class="kpi-mini-card" style="background: #f0f9ff; border-color: #bae6fd;">
-                <div class="label">Stock Level</div>
-                <div class="value" style="color: #0369a1;" id="scStock">0.00</div>
-                <div style="font-size: 11px; font-weight: 600; color: #0ea5e9; margin-top: 4px;" id="scUnit">UNIT</div>
+
+        <!-- Summary Cards -->
+        <div class="sc-cards-grid" id="scCardsContainer">
+            <div class="sc-card" style="background:#f0f9ff; border:1px solid #bae6fd;">
+                <div class="sc-card-label" style="font-size:11px; font-weight:700; color:#0369a1; text-transform:uppercase; letter-spacing:0.05em;">Current Stock</div>
+                <div style="display:flex; align-items:baseline; justify-content:center; gap:4px;">
+                    <span class="sc-card-value" id="scStock" style="font-size:20px; font-weight:800; color:#0c4a6e;">0</span>
+                    <span id="scUnit" style="font-size:11px; font-weight:700; color:#0ea5e9; text-transform:uppercase;">UNIT</span>
+                </div>
             </div>
-            <div class="kpi-mini-card" id="rollKpi" style="background: #fdf2f8; border-color: #fbcfe8;">
-                <div class="label">Roll Count</div>
-                <div class="value" style="color: #be185d;" id="scRoll">0</div>
-                <div style="font-size: 11px; font-weight: 600; color: #db2777; margin-top: 4px;">active rolls</div>
+            <div class="sc-card" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                <div class="sc-card-label" style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.05em;">Reorder Level</div>
+                <div class="sc-card-value" id="scMinStock" style="font-size:20px; font-weight:800; color:#166534;">0</div>
             </div>
-            <div class="kpi-mini-card" style="background: #f0fdf4; border-color: #bbf7d0;">
-                <div class="label">Reorder At</div>
-                <div class="value" style="color: #15803d;" id="scMinStock">0.00</div>
-                <div style="font-size: 11px; font-weight: 600; color: #16a34a; margin-top: 4px;">minimum</div>
+            <div class="sc-card" id="scStatusCard" style="border:1px solid; display:flex; flex-direction:column; justify-content:center;">
+                <div class="sc-card-label" style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Stock Status</div>
+                <div class="sc-card-value" id="scStatusText" style="font-size:16px; font-weight:700;">—</div>
+            </div>
+            <div class="sc-card" id="scRollCard" style="background:#fdf2f8; border:1px solid #fbcfe8;">
+                <div class="sc-card-label" style="font-size:11px; font-weight:700; color:#be185d; text-transform:uppercase; letter-spacing:0.05em;">Available Rolls</div>
+                <div style="display:flex; align-items:baseline; justify-content:center; gap:4px;">
+                    <span class="sc-card-value" id="scRoll" style="font-size:20px; font-weight:800; color:#9d174d;">0</span>
+                    <span style="font-size:11px; font-weight:700; color:#db2777; text-transform:uppercase;">Rolls</span>
+                </div>
             </div>
         </div>
 
-        <div id="rollDetailsSection" style="display: none;">
-            <h4 style="margin-top: 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; color: #6b7280;">Active Rolls</h4>
-            <div style="max-height: 200px; overflow-y: auto;">
-                <table class="roll-list-table">
-                    <thead>
-                        <tr>
-                            <th>Roll Code</th>
-                            <th>Remaining</th>
-                            <th>Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody id="scRollBody"></tbody>
-                </table>
+        <!-- Stock Health Progress Bar -->
+        <div style="margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:12px; font-weight:600; color:#4b5563;">Stock vs Reorder Level</span>
+                <span id="scProgressText" style="font-size:12px; font-weight:700; color:#374151;">0 / 0</span>
+            </div>
+            <div id="scProgressBg" style="height:10px; background:#e5e7eb; border-radius:9999px; overflow:hidden;">
+                <div id="scProgressFill" style="height:100%; border-radius:9999px; transition: width 0.3s, background 0.3s;"></div>
             </div>
         </div>
 
-        <div class="chart-container">
-            <canvas id="usageChart"></canvas>
+        <!-- Smart Status Message -->
+        <div id="scStatusMsg" style="padding:12px 16px; border-radius:10px; font-size:14px; font-weight:600; margin-bottom:20px;"></div>
+
+        <!-- Product Details -->
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:20px;">
+            <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">Product Details</div>
+            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px 24px; font-size:13px;">
+                <div><span style="color:#6b7280;">Category:</span> <span id="scCategory" style="font-weight:600;">—</span></div>
+                <div><span style="color:#6b7280;">Unit:</span> <span id="scUnitDetail" style="font-weight:600;">—</span></div>
+                <div><span style="color:#6b7280;">Unit Cost:</span> <span id="scUnitCost" style="font-weight:600;">—</span></div>
+                <div><span style="color:#6b7280;">Tracking Type:</span> <span id="scTrackType" style="font-weight:600;">—</span></div>
+                <div style="grid-column:1/-1;"><span style="color:#6b7280;">Last Updated:</span> <span id="scLastUpdated" style="font-weight:600;">—</span></div>
+            </div>
         </div>
 
-        <div id="recentTransactionsSection" style="margin-top: 24px;">
+        <!-- Recent Activity (5 records) -->
+        <div style="margin-bottom:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: #6b7280;">Recent Ledger Activities</h4>
+                <span style="font-size:13px; font-weight:700; color:#374151;">Recent Activity</span>
+                <a id="scSeeAllLedgerLink" href="#" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all →</a>
             </div>
-            <div style="background:#f9fafb; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden;">
-                <table style="width:100%; font-size:12px; border-collapse:collapse;">
+            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
+                <table style="width:100%; font-size:13px; border-collapse:collapse;">
                     <thead>
-                        <tr style="background:#f3f4f6; text-align:left;">
-                            <th style="padding:8px 12px; font-weight:700; color:#4b5563;">Date</th>
-                            <th style="padding:8px 12px; font-weight:700; color:#4b5563;">Type</th>
-                            <th style="padding:8px 12px; font-weight:700; color:#4b5563; text-align:right;">Qty</th>
+                        <tr style="background:#f9fafb;">
+                            <th style="text-align:left; padding:12px; color:#6b7280; width:100px;">Date</th>
+                            <th style="text-align:left; padding:12px; color:#6b7280; width:120px;">Action</th>
+                            <th style="text-align:right; padding:12px; color:#6b7280; width:100px;">Quantity</th>
+                            <th style="text-align:right; padding:12px; color:#6b7280; width:120px;">Balance After</th>
                         </tr>
                     </thead>
                     <tbody id="scLedgerBody">
-                        <tr><td colspan="3" style="text-align:center; padding:20px; color:#9ca3af;">Loading history...</td></tr>
+                        <tr><td colspan="4" style="text-align:center; padding:24px; color:#9ca3af;">No recent activity</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div style="margin-top: 24px; display: flex; gap: 12px;">
-            <button onclick="editFromStockCard()" class="btn-edit" style="flex: 1; height: 44px; border-radius: 10px;">Edit Settings</button>
-            <a id="scLedgerLink" href="inv_transactions_ledger" class="btn-secondary" style="flex: 1; height: 44px; border-radius: 10px; display: flex; align-items:center; justify-content:center; text-decoration:none;">View Ledger</a>
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+            <button onclick="closeStockCard(); if(selectedItemForStockCard) openAddStockModal(selectedItemForStockCard)" class="btn-action teal" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">+ Add Stock</button>
+            <button onclick="closeStockCard(); if(selectedItemForStockCard) openDeductStockModal(selectedItemForStockCard)" class="btn-action red" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">− Deduct Stock</button>
+            <button onclick="editFromStockCard()" class="btn-action blue" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px;">Edit Settings</button>
+            <a id="scLedgerLink" href="inv_transactions_ledger.php" class="btn-action" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px; border:1px solid #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center; text-decoration:none;">View Full Ledger</a>
         </div>
+    </div>
+</div>
+
+<!-- Deduct Stock Modal -->
+<div id="deductStockModal" class="modal">
+    <div class="modal-content" style="max-width:450px;">
+        <div class="modal-header">
+            <div>
+                <h3 class="modal-title" style="padding-right:30px;">Deduct Stock</h3>
+                <p style="font-size:13px;color:#6b7280;margin-top:2px; padding-right:30px; overflow-wrap:break-word; word-break:break-word; hyphens:auto;" id="deductStockItemName">Item Name</p>
+            </div>
+            <button class="close-btn" onclick="closeDeductStockModal()">&times;</button>
+        </div>
+        <form id="deductStockForm" onsubmit="saveDeductStock(event)">
+            <input type="hidden" id="deductStockItemId">
+            <input type="hidden" id="deductStockUom">
+            <div class="form-row-grid">
+                <div>
+                    <label for="deductStockQty">Quantity to Deduct *</label>
+                    <input type="number" step="0.01" min="0.01" id="deductStockQty" required placeholder="e.g. 10" autofocus class="w-100">
+                    <span id="err-deductStockQty" class="field-error"></span>
+                </div>
+                <div>
+                    <label for="deductStockNotes">Notes</label>
+                    <input type="text" id="deductStockNotes" placeholder="e.g. Used for job order" class="w-100">
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid #f3f4f6;">
+                <button type="button" onclick="closeDeductStockModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
+                <button type="submit" id="deductStockBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#dc2626;">Deduct Stock</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -661,103 +799,180 @@ if (isset($_GET['ajax'])) {
 <div id="itemModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title" id="modalTitle">Material Settings</h3>
+            <h3 class="modal-title" id="modalTitle" style="padding-right:30px;">Material Settings</h3>
             <button class="close-btn" onclick="closeModal()">×</button>
         </div>
+        <!-- Top Info (Edit mode only) -->
+        <!-- Top Info Removed -->
         <form id="itemForm" onsubmit="saveItem(event)">
             <input type="hidden" id="itemId" name="id">
             <input type="hidden" id="actionType" name="action" value="create_item">
 
             <!-- Section: Material Information -->
-            <div style="margin-bottom:24px;">
-                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">Material Information</p>
-                <div class="form-grid" style="margin-bottom:0;">
-                    <div class="form-group full">
+            <div class="modal-section">
+                <p class="section-header">Material Information</p>
+                <div class="form-row-grid" style="grid-template-columns: 2fr 1fr;">
+                    <div>
                         <label for="itemName">Item Name <span style="color:#ef4444">*</span></label>
-                        <input type="text" id="itemName" name="name" required placeholder="e.g. 3FT Tarpaulin Gloss">
+                        <input type="text" id="itemName" name="name" required placeholder="name" class="w-100">
+                        <span id="err-itemName" class="field-error"></span>
                     </div>
-                    <div class="filter-group">
-                        <label for="itemCategory">Category</label>
-                        <select id="itemCategory" name="category_id">
+                    <div>
+                        <label for="itemCategory">Category <span style="color:#ef4444">*</span></label>
+                        <select id="itemCategory" name="category_id" class="w-100" onchange="handleCategoryChange()">
                             <option value="">Select Category</option>
                             <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                                <option value="<?php echo $cat['id']; ?>" 
+                                        data-uom="<?php echo htmlspecialchars($cat['default_uom'] ?? ''); ?>"
+                                        data-roll="<?php echo $cat['default_track_by_roll'] ?? 0; ?>">
+                                    <?php echo htmlspecialchars($cat['name']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
+                        <span id="err-itemCategory" class="field-error"></span>
                     </div>
-                    <div class="filter-group">
-                        <label for="itemUnit">Unit of Measure (UOM) <span style="color:#ef4444">*</span></label>
-                        <select id="itemUnit" name="unit" required onchange="handleUomChange()">
+                </div>
+                <div class="form-row-grid">
+                    <div>
+                        <label for="itemUnit">Unit of Measure (UOM) <span style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
+                        <select id="itemUnit" name="unit" required onchange="handleUomChange()" class="w-100 locked-select">
+                            <option value="">Select Category First</option>
                             <option value="pcs">Pieces (pcs)</option>
                             <option value="ft">Feet (ft)</option>
                             <option value="btl">Bottles (btl)</option>
-                            <option value="set">Sets (set)</option>
                         </select>
+                        <span id="err-itemUnit" class="field-error"></span>
                     </div>
-                    <div class="filter-group">
+                    <div>
                         <label for="itemUnitCost">Unit Cost (₱) <span style="color:#ef4444">*</span></label>
-                        <input type="number" step="0.01" min="0" id="itemUnitCost" name="unit_cost" value="0.00" required>
+                        <input type="number" step="0.01" min="0" id="itemUnitCost" name="unit_cost" value="0.00" required class="w-100">
+                        <span id="err-itemUnitCost" class="field-error"></span>
                     </div>
                 </div>
-            </div>
-
-            <!-- Section: Inventory Control -->
-            <div style="margin-bottom:24px;">
-                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">Inventory Control</p>
-                <div class="form-grid" style="margin-bottom:0;">
-                    <div class="filter-group">
-                        <label for="itemTrackByRoll">Tracking Mode</label>
-                        <select id="itemTrackByRoll" name="track_by_roll">
+                <div class="form-row-grid" style="grid-template-columns: 1.2fr 1fr 1fr; gap:16px;">
+                    <div>
+                        <label for="itemTrackByRoll">Tracking Mode <span style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
+                        <select id="itemTrackByRoll" name="track_by_roll" class="w-100 locked-select">
                             <option value="0">Standard (Ledger)</option>
                             <option value="1">Roll-Based (Individual)</option>
                         </select>
                     </div>
-                    <div class="filter-group">
+                    <div>
                         <label for="itemMinStock">Reorder Level <span style="color:#ef4444">*</span></label>
-                        <input type="number" step="0.01" min="0" id="itemMinStock" name="min_stock_level" value="0.00" required>
+                        <input type="number" step="0.01" min="0" id="itemMinStock" name="min_stock_level" value="0.00" required class="w-100">
+                        <span id="err-itemMinStock" class="field-error"></span>
                     </div>
-                    <div class="filter-group" id="startingStockGroup">
-                        <label for="itemStartingStock">Initial Stock</label>
-                        <input type="number" step="0.01" min="0" id="itemStartingStock" name="starting_stock" value="0.00">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section: Roll Material Settings (conditional) -->
-            <div id="rollSettingsSection" style="margin-bottom:24px; overflow:hidden; transition: max-height 0.35s ease, opacity 0.3s ease; max-height:0; opacity:0;">
-                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:14px;border-bottom:1px solid #e0e7ff;padding-bottom:8px; background:#eef2ff; padding:8px 12px; border-radius:8px;">🪄 Roll Material Settings</p>
-                <div class="form-grid" style="margin-bottom:0;">
-                    <div class="filter-group form-group full">
-                        <label for="itemRollLength">Standard Roll Length (ft) <span style="color:#ef4444" id="rollLengthRequired">*</span></label>
-                        <input type="number" step="0.01" min="1" max="1000" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00">
-                        <p style="font-size:11px;color:#6b7280;margin-top:6px;">Used for roll-based materials like tarpaulin or vinyl. Must be between 1 and 1000 ft.</p>
+                    <div>
+                        <label>Preview Status</label>
+                        <div id="editModalReorderPreview" class="preview-badge" style="height:38px; display:flex; align-items:center; justify-content:center; padding:0 12px; font-weight:600;">In Stock</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Section: System Settings -->
-            <div style="margin-bottom:24px;">
-                <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:14px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;">System Settings</p>
-                <div class="form-grid" style="margin-bottom:0;">
-                    <div class="filter-group">
+            <!-- Alerts Section -->
+            <div id="reorderAlertsGroup" class="modal-section" style="margin-top:-24px; margin-bottom: 16px;">
+                <div class="form-col-full">
+                    <p style="font-size:11px; color:#6b7280; margin-bottom:4px;">You will be warned when stock reaches the Reorder Level.</p>
+                    <div id="editModalReorderWarnHigh" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">⚠️ This may mark your stock as low immediately</div>
+                    <div id="editModalReorderWarnLow" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">⚠️ You may run out of stock before being warned</div>
+                    <div id="editModalReorderError" style="display:none; font-size:11px; color:#dc2626; margin-top:2px;">Please enter a value between 0.01 and 10,000</div>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Initial Balance | Roll Settings | System Status -->
+            <div class="form-row" style="display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: stretch; gap: 16px; margin-bottom: 20px;">
+                <!-- Column 1: Initial Stock (Create Mode Only) -->
+                <div id="startingStockGroup" style="display:none; background:#fcfcfd; border:1px solid #f3f4f6; padding:16px; border-radius:12px;">
+                    <p class="section-header" style="margin-top:0;">Initial Balance</p>
+                    <label for="itemStartingStock">Initial Stock Quantity</label>
+                    <input type="number" step="0.01" min="0" id="itemStartingStock" name="starting_stock" value="0.00" class="w-100">
+                    <p style="font-size:10px; color:#9ca3af; margin-top:8px; line-height: 1.4;">Opening balance for new item record</p>
+                </div>
+
+                <!-- Column 2: Roll Settings (UOM: ft Only) -->
+                <div id="rollSettingsSection" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:16px;">
+                    <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0369a1;margin-bottom:14px;border-bottom:1px solid #bae6fd;padding-bottom:8px;">Roll Settings</p>
+                    <label for="itemRollLength">Roll Length (ft) <span style="color:#ef4444" id="rollLengthRequired">*</span></label>
+                    <input type="number" step="0.01" min="1" max="1000" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00" class="w-100">
+                    <span id="err-itemRollLength" class="field-error"></span>
+                </div>
+
+                <!-- Column 3: System Status -->
+                <div id="statusSection" class="modal-section" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin-bottom:0;">
+                    <p class="section-header" style="margin-top:0;">System Status</p>
+                    <div style="margin-bottom:0;">
                         <label for="itemStatus">Status</label>
-                        <select id="itemStatus" name="status">
+                        <select id="itemStatus" name="status" class="w-100">
                             <option value="ACTIVE">Active</option>
                             <option value="INACTIVE">Inactive</option>
                         </select>
+                        <div id="statusHelperMessage" style="display:none; margin-top:8px;">
+                            <p style="font-size:11px;color:#9ca3af;line-height:1.4;">Inactive materials are hidden from new orders and POS.</p>
+                        </div>
                     </div>
                 </div>
-                <p style="font-size:11px;color:#9ca3af;margin-top:6px;">Inactive materials are hidden from new orders and POS. Historical records are preserved.</p>
+            </div>
+            
+            <!-- Change Summary (Edit mode, when changed) -->
+            <div id="editModalChangeSummary" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+                <div style="font-size:12px; font-weight:700; color:#166534; margin-bottom:8px;">Changes Summary</div>
+                <div id="editModalChangeSummaryContent" style="font-size:13px; color:#374151;"></div>
             </div>
             
             <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top:16px; border-top:1px solid #f3f4f6;">
                 <button type="button" onclick="closeModal()" class="btn-secondary" style="border-radius: 10px; height: 44px; padding: 0 24px;">Cancel</button>
-                <button type="submit" class="btn-primary" id="saveBtn" style="border-radius: 10px; height: 44px; padding: 0 24px; background: var(--primary-gradient);">Save Changes</button>
+                <button type="submit" class="btn-primary" id="saveBtn" style="border-radius: 10px; height: 44px; padding: 0 24px; background: #10b981; border:none; transition: background 0.2s;">Save Changes</button>
             </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Stock Large Quantity Confirm Modal -->
+<div id="addStockConfirmModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:380px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
+        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0 0 8px;">Confirm Large Quantity</h3>
+        <p style="font-size:14px;color:#6b7280;margin:0 0 4px;">You are adding <strong id="addStockConfirmQty"></strong> units.</p>
+        <p style="font-size:14px;color:#6b7280;margin:0 0 20px;">New total will be <strong id="addStockConfirmTotal"></strong>.</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button type="button" onclick="closeAddStockConfirmModal(); addStockPendingSubmit = false;" style="flex:1;padding:10px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Cancel</button>
+            <button type="button" id="addStockConfirmBtn" style="flex:1;padding:10px 16px;border:none;background:#0d9488;border-radius:8px;font-size:14px;font-weight:600;color:white;cursor:pointer;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Deduct Stock Modal -->
+<div id="deductStockModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:480px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);position:relative;">
+        <button type="button" onclick="closeDeductStockModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:20px;">&times;</button>
+        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0 0 4px;">Deduct Stock</h3>
+        <p id="deductStockItemName" style="font-size:13px;color:#6b7280;margin:0 0 20px;"></p>
+        
+        <input type="hidden" id="deductStockItemId">
+        <input type="hidden" id="deductStockUom" value="pcs">
+
+        <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">QUANTITY TO DEDUCT <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="deductStockQty" step="0.01" min="0.01" placeholder="Enter quantity" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">NOTES</label>
+            <textarea id="deductStockNotes" rows="2" placeholder="Reason for deduction..." style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" onclick="closeDeductStockModal()" style="padding:10px 20px;border:1px solid #e5e7eb;background:white;border-radius:8px;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Cancel</button>
+            <button type="button" id="deductStockBtn" onclick="saveDeductStock(event)" style="padding:10px 20px;border:none;background:#ef4444;border-radius:8px;font-size:14px;font-weight:600;color:white;cursor:pointer;">Deduct</button>
+        </div>
+    </div>
+</div>
+
   <script>
+    const ADMIN_API_BASE = '/printflow/admin/';
     let currentItems = <?php echo json_encode($items); ?>;
     let usageChart = null;
     let selectedItemForStockCard = null;
+    let editItemOriginalValues = {};
     let currentPage = <?php echo $page; ?>;
     let currentSort = '<?php echo $sort; ?>';
     let currentDir = '<?php echo $dir; ?>';
@@ -770,6 +985,7 @@ if (isset($_GET['ajax'])) {
             activeSort: '<?php echo $sort === 'name' ? ($dir === 'ASC' ? 'az' : 'za') : ($sort === 'id' ? ($dir === 'DESC' ? 'newest' : 'oldest') : 'az'); ?>',
             get hasActiveFilters() {
                 return document.getElementById('fp_category')?.value ||
+                       document.getElementById('fp_track_by_roll')?.value !== '' ||
                        document.getElementById('fp_search')?.value;
             }
         };
@@ -792,13 +1008,127 @@ if (isset($_GET['ajax'])) {
                 fetchUpdatedTable({ page: 1 }); 
             });
         }
+
+        const trackBySelect = document.getElementById('fp_track_by_roll');
+        if (trackBySelect) {
+            trackBySelect.addEventListener('change', () => {
+                fetchUpdatedTable({ page: 1 });
+            });
+        }
+
+        const addStockQty = document.getElementById('addStockQty');
+        if (addStockQty) {
+            addStockQty.addEventListener('input', updateAddStockUI);
+            addStockQty.addEventListener('change', updateAddStockUI);
+        }
+        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const eventType = (el.tagName === 'SELECT') ? 'change' : 'input';
+                el.addEventListener(eventType, () => validateField(id));
+                if (id === 'itemName') {
+                    el.addEventListener('input', handleItemNameInput);
+                }
+            }
+        });
     });
+
+    function handleItemNameInput(e) {
+        let val = e.target.value;
+        // Block leading spaces
+        if (val.startsWith(' ')) {
+            val = val.trimStart();
+        }
+        // Auto Capitalize (Title Case)
+        e.target.value = val.replace(/\b\w/g, l => l.toUpperCase());
+        validateField('itemName');
+    }
+
+    function validateField(id) {
+        const el = document.getElementById(id);
+        const errEl = document.getElementById('err-' + id);
+        let isValid = true;
+        let msg = '';
+
+        const val = el.value.trim();
+
+        switch(id) {
+            case 'itemName':
+                if (!val) { msg = 'Item name is required.'; isValid = false; }
+                else if (val.length < 2) { msg = 'Item name must be at least 2 characters.'; isValid = false; }
+                else if (/^\d+$/.test(val)) { msg = 'Item name cannot contain only numbers.'; isValid = false; }
+                break;
+            case 'itemCategory':
+                if (!val) { msg = 'Please select a category.'; isValid = false; }
+                break;
+            case 'itemUnit':
+                if (!val) { msg = 'Please select a unit of measure.'; isValid = false; }
+                break;
+            case 'itemUnitCost':
+                const cost = parseFloat(val);
+                if (isNaN(cost)) { msg = 'Unit cost is required.'; isValid = false; }
+                else if (cost <= 0) { msg = 'Unit cost must be greater than 0.'; isValid = false; }
+                else if (cost > 1000000) { msg = 'Unit cost is too high (max 1M).'; isValid = false; }
+                break;
+            case 'itemMinStock':
+                const min = parseFloat(val);
+                if (isNaN(min)) { msg = 'Reorder level is required.'; isValid = false; }
+                else if (min < 0) { msg = 'Reorder level cannot be negative.'; isValid = false; }
+                break;
+        }
+
+        updateValidationUI(id, isValid, msg);
+        updateSaveButtonState();
+        if (id === 'itemMinStock' || id === 'itemName') updateEditModalUI();
+        return isValid;
+    }
+
+    function updateValidationUI(id, isValid, msg) {
+        const el = document.getElementById(id);
+        const errEl = document.getElementById('err-' + id);
+        if (!errEl) return;
+
+        if (!isValid) {
+            el.classList.add('input-error');
+            el.classList.remove('input-success');
+            errEl.textContent = msg;
+            errEl.style.display = 'block';
+        } else {
+            el.classList.remove('input-error');
+            if (el.value.trim() !== '') el.classList.add('input-success');
+            else el.classList.remove('input-success');
+            errEl.style.display = 'none';
+        }
+    }
+
+    function updateSaveButtonState() {
+        const fields = ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock'];
+        let allValid = true;
+        
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            const val = el.value.trim();
+            if (!val) allValid = false;
+            if (el.classList.contains('input-error')) allValid = false;
+        });
+
+        // Special check for Roll Length if UOM is ft
+        const uom = document.getElementById('itemUnit').value;
+        if (uom === 'ft') {
+            const rl = document.getElementById('itemRollLength').value;
+            const rlVal = parseFloat(rl);
+            if (isNaN(rlVal) || rlVal < 1 || rlVal > 1000) allValid = false;
+        }
+
+        document.getElementById('saveBtn').disabled = !allValid;
+    }
 
     function buildFilterURL(overrides = {}, isAjax = false) {
         const params = new URLSearchParams(window.location.search);
         
         const map = {
             'category_id': 'fp_category',
+            'track_by_roll': 'fp_track_by_roll',
             'search': 'fp_search'
         };
 
@@ -904,110 +1234,144 @@ if (isset($_GET['ajax'])) {
         fetchUpdatedTable({ page: page });
     }
 
+    function fmtQty(val, isPcs) {
+        return isPcs ? String(Math.round(val)) : parseFloat(val).toFixed(2);
+    }
+
     async function openStockCard(itemId) {
         const item = currentItems.find(i => i.id == itemId);
         if (!item) return;
         selectedItemForStockCard = item;
         
-        document.getElementById('scName').textContent = item.name;
-        document.getElementById('scStock').textContent = parseFloat(item.current_stock).toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('scUnit').textContent = item.unit_of_measure.toUpperCase();
-        document.getElementById('scMinStock').textContent = parseFloat(item.reorder_level).toLocaleString(undefined, {minimumFractionDigits: 2});
+        const stock = parseFloat(item.current_stock || 0);
+        const reorder = parseFloat(item.reorder_level || 0);
+        const uom = (item.unit_of_measure || 'pcs').toUpperCase();
+        const isPcs = (item.unit_of_measure || '').toLowerCase() === 'pcs';
         
-        // Handle roll kpi
-        const rollKpi = document.getElementById('rollKpi');
-        if (item.track_by_roll == 1) {
-            rollKpi.style.display = 'block';
-            document.getElementById('scRoll').textContent = '...'; // Placeholder
+        // Stock status (computed dynamically)
+        let statusText, statusBg, statusColor, statusBorder;
+        if (stock <= 0) {
+            statusText = 'Out of Stock';
+            statusBg = '#fef2f2'; statusColor = '#991b1b'; statusBorder = '#fecaca';
+        } else if (reorder > 0 && stock <= reorder) {
+            statusText = 'Low Stock';
+            statusBg = '#fef9c3'; statusColor = '#854d0e'; statusBorder = '#fde68a';
         } else {
-            rollKpi.style.display = 'none';
+            statusText = 'In Stock';
+            statusBg = '#dcfce7'; statusColor = '#166534'; statusBorder = '#bbf7d0';
         }
-
+        
+        document.getElementById('scName').textContent = item.name;
+        document.getElementById('scStock').textContent = fmtQty(stock, isPcs);
+        document.getElementById('scUnit').textContent = uom;
+        document.getElementById('scMinStock').textContent = fmtQty(reorder, isPcs);
+        document.getElementById('scStatusText').textContent = statusText;
+        document.getElementById('scStatusCard').style.background = statusBg;
+        document.getElementById('scStatusCard').style.borderColor = statusBorder;
+        document.getElementById('scStatusCard').querySelector('.sc-card-value').style.color = statusColor;
+        
+        const rollCard = document.getElementById('scRollCard');
+        rollCard.style.display = item.track_by_roll == 1 ? 'block' : 'none';
+        document.getElementById('scRoll').textContent = '0';
+        
+        // Progress bar (stock vs reorder)
+        const maxVal = Math.max(reorder, stock, 1);
+        const pct = Math.min(100, (stock / maxVal) * 100);
+        document.getElementById('scProgressFill').style.width = pct + '%';
+        document.getElementById('scProgressText').textContent = fmtQty(stock, isPcs) + ' / ' + fmtQty(reorder, isPcs);
+        let progColor = '#10b981';
+        if (stock <= 0) progColor = '#dc2626';
+        else if (reorder > 0 && stock <= reorder) progColor = '#eab308';
+        document.getElementById('scProgressFill').style.background = progColor;
+        
+        // Status message
+        const msgEl = document.getElementById('scStatusMsg');
+        if (stock <= 0) {
+            msgEl.textContent = 'Out of stock. Immediate restocking required';
+            msgEl.style.background = '#fef2f2'; msgEl.style.color = '#991b1b'; msgEl.style.border = '1px solid #fecaca';
+        } else if (reorder > 0 && stock <= reorder) {
+            msgEl.textContent = 'Stock is getting low. Consider restocking';
+            msgEl.style.background = '#fef9c3'; msgEl.style.color = '#854d0e'; msgEl.style.border = '1px solid #fde68a';
+        } else {
+            msgEl.textContent = 'Stock level is healthy';
+            msgEl.style.background = '#dcfce7'; msgEl.style.color = '#166534'; msgEl.style.border = '1px solid #bbf7d0';
+        }
+        
+        // Product details
+        document.getElementById('scCategory').textContent = item.category_name || 'Uncategorized';
+        document.getElementById('scUnitDetail').textContent = uom;
+        document.getElementById('scUnitCost').textContent = '₱' + parseFloat(item.unit_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('scTrackType').textContent = item.track_by_roll == 1 ? 'Roll-Based' : 'Standard';
+        document.getElementById('scLastUpdated').textContent = item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '—';
+        
         document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?item_id=${item.id}`;
+        const ledgerUrl = `inv_transactions_ledger.php?item_id=${item.id}`;
+        const seeAllLink = document.getElementById('scSeeAllLedgerLink');
+        if (seeAllLink) { seeAllLink.href = ledgerUrl; }
         document.getElementById('stockCardModal').style.display = 'flex';
+        
+        document.getElementById('scLedgerBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#9ca3af;">Loading...</td></tr>';
 
-        // Load Stock Card Details (Rolls & Ledger)
         try {
-            const res = await fetch(`inventory_stock_card_api.php?item_id=${item.id}`);
+            const res = await fetch(ADMIN_API_BASE + `inventory_stock_card_api.php?item_id=${item.id}`);
             const data = await res.json();
             if (data.success) {
-                // Rolls
-                if (item.track_by_roll == 1) {
-                    document.getElementById('rollDetailsSection').style.display = 'block';
-                    document.getElementById('scRoll').textContent = data.rolls.length;
-                    let rollHtml = '';
-                    data.rolls.forEach(r => {
-                        const prog = Math.min(100, Math.max(0, (r.current_length / r.original_length) * 100));
-                        rollHtml += `<tr>
-                            <td><span style="font-family:monospace;font-weight:700;">${r.roll_code}</span></td>
-                            <td><span style="font-weight:700;">${parseFloat(r.current_length).toFixed(2)}</span> / ${parseFloat(r.original_length).toFixed(2)} ft</td>
-                            <td>
-                                <div style="width:100%; height:6px; background:#e5e7eb; border-radius:10px; overflow:hidden;">
-                                    <div style="width:${prog}%; height:100%; background:#10b981; border-radius:10px;"></div>
-                                </div>
-                            </td>
-                        </tr>`;
-                    });
-                    document.getElementById('scRollBody').innerHTML = rollHtml || '<tr><td colspan="3" style="text-align:center;padding:12px;color:#9ca3af;">No active rolls.</td></tr>';
-                } else {
-                    document.getElementById('rollDetailsSection').style.display = 'none';
-                }
-
-                // Ledger
+                document.getElementById('scRoll').textContent = (data.rolls || []).length;
+                
+                const ledger = data.ledger || [];
                 let ledgerHtml = '';
-                data.ledger.forEach(l => {
+                ledger.forEach(l => {
                     const isIN = l.direction === 'IN';
                     const qty = parseFloat(l.quantity);
-                    const qtyDisp = (isIN ? '+' : '-') + qty.toFixed(2);
+                    const qtyDisp = (isIN ? '+' : '-') + fmtQty(qty, data.is_pcs);
+                    const balDisp = fmtQty(parseFloat(l.balance_after || 0), data.is_pcs);
                     const qtyColor = isIN ? '#059669' : '#dc2626';
-                    ledgerHtml += `<tr style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="padding:8px 12px;color:#6b7280;">${l.transaction_date.split(' ')[0]}</td>
-                        <td style="padding:8px 12px;text-transform:capitalize;">${l.ref_type.replace('_',' ')}</td>
-                        <td style="padding:8px 12px;text-align:right;font-weight:700;color:${qtyColor};">${qtyDisp}</td>
+                    const act = l.action_display || (l.ref_type || '').replace(/_/g, ' ');
+                    ledgerHtml += `<tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:10px 12px;color:#6b7280;white-space:nowrap;">${(l.transaction_date || '').split(' ')[0]}</td>
+                        <td style="padding:10px 12px;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${act}">${act}</td>
+                        <td style="padding:10px 12px;text-align:right;font-weight:700;color:${qtyColor};">${qtyDisp}</td>
+                        <td style="padding:10px 12px;text-align:right;font-weight:600;color:#374151;">${balDisp}</td>
                     </tr>`;
                 });
-                document.getElementById('scLedgerBody').innerHTML = ledgerHtml || '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No history.</td></tr>';
-
-                // Chart
-                renderUsageChart(data.usage_stats);
+                document.getElementById('scLedgerBody').innerHTML = ledgerHtml || '<tr><td colspan="4" style="text-align:center;padding:24px;color:#9ca3af;">No recent activity</td></tr>';
+            } else {
+                document.getElementById('scLedgerBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#9ca3af;">No recent activity</td></tr>';
             }
-        } catch(e) { console.error("Stock Card API error:", e); }
-    }
-
-    function renderUsageChart(stats) {
-        const ctx = document.getElementById('usageChart').getContext('2d');
-        if (usageChart) usageChart.destroy();
-        
-        usageChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: stats.labels,
-                datasets: [{
-                    label: 'Daily Stock-Out Usage',
-                    data: stats.values,
-                    borderColor: '#6366f1',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#6366f1'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 } } }
-                }
-            }
-        });
+        } catch (e) {
+            console.error('Stock Card API error:', e);
+            document.getElementById('scLedgerBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#9ca3af;">No recent activity</td></tr>';
+        }
     }
 
     function closeStockCard() {
         document.getElementById('stockCardModal').style.display = 'none';
+    }
+
+    function handleCategoryChange() {
+        const catSelect = document.getElementById('itemCategory');
+        const selectedOpt = catSelect.options[catSelect.selectedIndex];
+        if (!selectedOpt || !selectedOpt.value) return;
+
+        const uom = selectedOpt.getAttribute('data-uom');
+        const isRoll = selectedOpt.getAttribute('data-roll');
+
+        // Only auto-fill if it's a NEW item (mode check)
+        const isCreate = document.getElementById('actionType').value === 'create_item';
+        if (isCreate) {
+            if (uom) {
+                document.getElementById('itemUnit').value = uom;
+                handleUomChange();
+                // Lock them
+                document.getElementById('itemUnit').disabled = true;
+                document.getElementById('itemUnit').style.background = '#fcfcfd';
+                document.getElementById('itemTrackByRoll').disabled = true;
+                document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
+            }
+            if (isRoll !== null) {
+                document.getElementById('itemTrackByRoll').value = isRoll;
+            }
+        }
     }
 
     function editFromStockCard() {
@@ -1024,14 +1388,12 @@ if (isset($_GET['ajax'])) {
         const lengthReq = document.getElementById('rollLengthRequired');
         
         if (uom === 'ft') {
-            rollSec.style.maxHeight = '200px';
-            rollSec.style.opacity = '1';
+            rollSec.style.display = 'block';
             lengthInput.required = true;
             lengthReq.style.display = 'inline';
             document.getElementById('itemTrackByRoll').value = '1';
         } else {
-            rollSec.style.maxHeight = '0';
-            rollSec.style.opacity = '0';
+            rollSec.style.display = 'none';
             lengthInput.required = false;
             lengthReq.style.display = 'none';
         }
@@ -1043,7 +1405,20 @@ if (isset($_GET['ajax'])) {
         const form = document.getElementById('itemForm');
         form.reset();
         
-        // Default UOM behavior
+        // Top info removed
+        editItemOriginalValues = {};
+        
+        // Clear previous validation states
+        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('input-error', 'input-success');
+                const err = document.getElementById('err-' + id);
+                if (err) { err.style.display = 'none'; err.textContent = ''; }
+            }
+        });
+        document.getElementById('saveBtn').disabled = true;
+        
         handleUomChange();
 
         if (mode === 'create') {
@@ -1051,9 +1426,18 @@ if (isset($_GET['ajax'])) {
             document.getElementById('actionType').value = 'create_item';
             document.getElementById('itemId').value = '';
             document.getElementById('itemUnitCost').value = '0.00';
-            document.getElementById('itemMinStock').value = '0.00';
+            document.getElementById('itemMinStock').value = '1';
             document.getElementById('startingStockGroup').style.display = 'block';
             document.getElementById('itemStatus').value = 'ACTIVE';
+            
+            // Lock them by default for new items until category is selected
+            document.getElementById('itemUnit').disabled = true;
+            document.getElementById('itemUnit').style.background = '#fcfcfd';
+            document.getElementById('itemTrackByRoll').disabled = true;
+            document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
+
+            selectedItemForStockCard = null;
+            setTimeout(updateEditModalUI, 0);
         } else {
             document.getElementById('modalTitle').textContent = 'Edit Material Settings';
             document.getElementById('actionType').value = 'update_item';
@@ -1063,13 +1447,121 @@ if (isset($_GET['ajax'])) {
             document.getElementById('itemUnit').value = item.unit_of_measure;
             document.getElementById('itemUnitCost').value = item.unit_cost || '0.00';
             document.getElementById('itemTrackByRoll').value = item.track_by_roll;
-            document.getElementById('itemMinStock').value = item.reorder_level;
+            document.getElementById('itemMinStock').value = item.reorder_level || '1';
             document.getElementById('itemStatus').value = item.status;
             document.getElementById('startingStockGroup').style.display = 'none';
-            // Set roll length if UOM is ft
+
+            // Lock them in Edit mode
+            document.getElementById('itemUnit').disabled = true;
+            document.getElementById('itemUnit').style.background = '#fcfcfd';
+            document.getElementById('itemTrackByRoll').disabled = true;
+            document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
             if (item.unit_of_measure === 'ft') {
                 document.getElementById('itemRollLength').value = item.default_roll_length_ft || '';
                 setTimeout(handleUomChange, 0);
+            }
+            editItemOriginalValues = {
+                reorder_level: String(item.reorder_level || '0'),
+                roll_length: String(item.default_roll_length_ft || '')
+            };
+            selectedItemForStockCard = item;
+            // Stock info removed from modal top
+        }
+        setTimeout(updateEditModalUI, 50);
+    }
+
+    function updateEditModalUI() {
+        const actionTypeEl = document.getElementById('actionType');
+        if (!actionTypeEl) return;
+        const isEdit = actionTypeEl.value === 'update_item';
+        const minStock = document.getElementById('itemMinStock');
+        const rollLength = document.getElementById('itemRollLength');
+        const reorderVal = parseFloat(minStock?.value || 0);
+        const rollVal = parseFloat(rollLength?.value || 0);
+        const currentStock = parseFloat(selectedItemForStockCard?.current_stock || 0);
+        
+        const uom = document.getElementById('itemUnit')?.value || 'pcs';
+        const isPcs = (uom || '').toLowerCase() === 'pcs';
+        
+        let reorderValid = true;
+        const reorderErr = document.getElementById('err-itemMinStock');
+        const reorderWarnHigh = document.getElementById('editModalReorderWarnHigh');
+        const reorderWarnLow = document.getElementById('editModalReorderWarnLow');
+        
+        if (reorderVal <= 0 || reorderVal > 10000) {
+            reorderValid = false;
+            if (reorderErr) reorderErr.style.display = 'block';
+            if (reorderWarnHigh) reorderWarnHigh.style.display = 'none';
+            if (reorderWarnLow) reorderWarnLow.style.display = 'none';
+        } else {
+            if (reorderErr) reorderErr.style.display = 'none';
+            if (reorderWarnHigh) reorderWarnHigh.style.display = (isEdit && currentStock > 0 && reorderVal > currentStock) ? 'block' : 'none';
+            if (reorderWarnLow) reorderWarnLow.style.display = (reorderVal > 0 && reorderVal < 10) ? 'block' : 'none';
+        }
+        
+        let statusPreview = '—';
+        let badgeStyle = 'background:#f9fafb; color:#374151;';
+        if (reorderVal >= 0) {
+            if (isEdit) {
+                if (currentStock <= 0) {
+                    statusPreview = 'Out of Stock';
+                    badgeStyle = 'background:#fef2f2; color:#991b1b; border-color:#fecaca;';
+                } else if (currentStock <= reorderVal) {
+                    statusPreview = 'Low Stock';
+                    badgeStyle = 'background:#fef9c3; color:#854d0e; border-color:#fde68a;';
+                } else {
+                    statusPreview = 'In Stock';
+                    badgeStyle = 'background:#dcfce7; color:#166534; border-color:#bbf7d0;';
+                }
+            } else {
+                statusPreview = 'In Stock (Initial)';
+                badgeStyle = 'background:#dcfce7; color:#166534; border-color:#bbf7d0;';
+            }
+        }
+        const previewEl = document.getElementById('editModalReorderPreview');
+        if (previewEl) {
+            previewEl.textContent = statusPreview;
+            previewEl.style.cssText = badgeStyle;
+        }
+
+        const status = document.getElementById('itemStatus')?.value;
+        const statusHelper = document.getElementById('statusHelperMessage');
+        if (statusHelper) {
+            statusHelper.style.display = status === 'INACTIVE' ? 'block' : 'none';
+        }
+        
+        const rollSec = document.getElementById('rollSettingsSection');
+        const rollErr = document.getElementById('err-itemRollLength');
+        const rollSectionVisible = document.getElementById('itemUnit')?.value === 'ft';
+        let rollValid = true;
+        if (rollSectionVisible) {
+            rollValid = !isNaN(rollVal) && rollVal >= 1 && rollVal <= 1000;
+            if (rollErr) rollErr.style.display = (!rollValid && String(rollLength?.value || '').trim() !== '') ? 'block' : 'none';
+        }
+        
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) saveBtn.disabled = !reorderValid || (rollSectionVisible && !rollValid);
+        
+        if (isEdit && editItemOriginalValues && Object.keys(editItemOriginalValues).length) {
+            const changes = [];
+            const origReorder = parseFloat(editItemOriginalValues.reorder_level || 0);
+            if (Math.abs(reorderVal - origReorder) > 0.001) {
+                changes.push('Reorder Level: ' + (origReorder || '0') + ' → ' + (isPcs ? Math.round(reorderVal) : reorderVal.toFixed(2)));
+                if (statusPreview !== '—') changes.push('This will change stock status to ' + statusPreview);
+            }
+            const origRoll = parseFloat(editItemOriginalValues.roll_length || 0);
+            if (rollSectionVisible && Math.abs(rollVal - origRoll) > 0.001) {
+                changes.push('Standard Roll Length: ' + (editItemOriginalValues.roll_length || '—') + ' → ' + rollVal);
+            }
+            const sumEl = document.getElementById('editModalChangeSummary');
+            const sumContent = document.getElementById('editModalChangeSummaryContent');
+            if (sumEl && sumContent) {
+                if (changes.length > 0) {
+                    sumEl.style.display = 'block';
+                    sumContent.innerHTML = changes.map(c => '<div style="margin-bottom:4px;">• ' + c + '</div>').join('');
+                } else {
+                    sumEl.style.display = 'none';
+                }
             }
         }
     }
@@ -1089,39 +1581,164 @@ if (isset($_GET['ajax'])) {
     }
 
     function openAddStockModal(item) {
+        const currentStock = parseFloat(item.current_stock || 0);
         document.getElementById('addStockItemName').textContent = item.name;
         document.getElementById('addStockItemId').value = item.id;
         document.getElementById('addStockIsRoll').value = item.track_by_roll;
         document.getElementById('addStockUom').value = item.unit_of_measure || 'pcs';
+        document.getElementById('addStockCurrentStock').value = currentStock;
         document.getElementById('addStockQty').value = '';
         document.getElementById('addStockRollCode').value = '';
-        document.getElementById('addStockWidth').value = item.roll_length_ft || ''; // Default to item width if available
+        document.getElementById('addStockWidth').value = item.default_roll_width_ft || '1'; // Default to 1 if no width specified
         document.getElementById('addStockNotes').value = '';
+        document.getElementById('addStockQtyError').style.display = 'none';
+        document.getElementById('addStockLargeWarning').style.display = 'none';
         
-        // Show roll group only for roll-based items
         const isRoll = item.track_by_roll == 1;
-        document.getElementById('addStockRollGroup').style.display = isRoll ? 'block' : 'none';
-        document.getElementById('addStockWidth').required = isRoll;
+        // Hidden per user request ("you can hide them") - keeps modal clean for simple intake
+        document.getElementById('addStockRollGroup').style.display = 'none';
+        document.getElementById('addStockWidth').required = false; 
         
+        updateAddStockUI();
         document.getElementById('addStockModal').style.display = 'flex';
-        // Force focus after display
         setTimeout(() => {
             const qtyInput = document.getElementById('addStockQty');
-            if (qtyInput) {
-                qtyInput.focus();
-                qtyInput.select();
-            }
+            if (qtyInput) qtyInput.focus();
         }, 150);
     }
+
+    function updateAddStockUI() {
+        const qtyInput = document.getElementById('addStockQty');
+        const currentStock = parseFloat(document.getElementById('addStockCurrentStock').value || 0);
+        const raw = (qtyInput && qtyInput.value) ? String(qtyInput.value).trim() : '';
+        const num = parseFloat(raw);
+        const uom = document.getElementById('addStockUom').value || 'pcs';
+        const isPcs = (uom || '').toLowerCase() === 'pcs';
+        
+        let valid = false;
+        const errEl = document.getElementById('addStockQtyError');
+        const previewEl = document.getElementById('addStockPreview');
+        const warnEl = document.getElementById('addStockLargeWarning');
+        const btn = document.getElementById('addStockBtn');
+        
+        if (raw === '') {
+            errEl.style.display = 'none';
+            previewEl.textContent = 'New Stock After Adding: —';
+            warnEl.style.display = 'none';
+        } else if (isNaN(num) || num <= 0 || num > 100000) {
+            errEl.style.display = 'block';
+            previewEl.textContent = 'New Stock After Adding: —';
+            warnEl.style.display = 'none';
+        } else {
+            valid = true;
+            errEl.style.display = 'none';
+            const newTotal = currentStock + num;
+            const disp = isPcs ? Math.round(newTotal) : newTotal.toFixed(2);
+            previewEl.textContent = 'New Stock After Adding: ' + disp;
+            warnEl.style.display = (num > currentStock * 2) ? 'block' : 'none';
+        }
+        if (btn) btn.disabled = !valid;
+    }
+
+    function closeAddStockConfirmModal() {
+        document.getElementById('addStockConfirmModal').style.display = 'none';
+    }
+
+    let addStockPendingSubmit = false;
 
     function closeAddStockModal() {
         document.getElementById('addStockModal').style.display = 'none';
     }
 
-    async function saveAddStock(e) {
-        e.preventDefault();
-        const btn = document.getElementById('addStockBtn');
+    function openDeductStockModal(item) {
+        document.getElementById('deductStockItemName').textContent = item.name;
+        document.getElementById('deductStockItemId').value = item.id;
+        document.getElementById('deductStockUom').value = item.unit_of_measure || 'pcs';
+        document.getElementById('deductStockQty').value = '';
+        document.getElementById('deductStockNotes').value = '';
+        document.getElementById('deductStockModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('deductStockQty')?.focus(), 150);
+    }
+
+    function closeDeductStockModal() {
+        document.getElementById('deductStockModal').style.display = 'none';
+    }
+
+    async function saveDeductStock(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        
+        // Clear previous errors
+        document.querySelectorAll('.field-error').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+        
+        const btn = document.getElementById('deductStockBtn');
         btn.disabled = true; btn.textContent = 'Saving...';
+        const fd = new FormData();
+        fd.set('action', 'record_transaction');
+        fd.set('item_id', document.getElementById('deductStockItemId').value);
+        fd.set('transaction_type', 'adjustment_down');
+        fd.set('quantity', document.getElementById('deductStockQty').value);
+        fd.set('notes', document.getElementById('deductStockNotes').value || 'Manual deduction');
+        try {
+            const res = await fetch(ADMIN_API_BASE + 'inventory_transactions_api.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.success) {
+                closeDeductStockModal();
+                await fetchUpdatedTable();
+                if (selectedItemForStockCard) openStockCard(selectedItemForStockCard.id);
+            } else { 
+                if (data.errors) {
+                    for (let key in data.errors) {
+                        let idMap = { 'quantity': 'deductStockQty' };
+                        const targetId = idMap[key] || key;
+                        const errEl = document.getElementById('err-' + targetId);
+                        if (errEl) {
+                            errEl.textContent = data.errors[key];
+                            errEl.style.display = 'block';
+                        }
+                    }
+                } else {
+                    alert('Failed: ' + (data.message || data.error || 'Unknown error')); 
+                }
+            }
+        } catch (err) { alert('Network error.'); }
+        finally { btn.disabled = false; btn.textContent = 'Deduct Stock'; }
+    }
+
+    async function saveAddStock(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (addStockPendingSubmit) return;
+        const qtyInput = document.getElementById('addStockQty');
+        const currentStock = parseFloat(document.getElementById('addStockCurrentStock').value || 0);
+        const qty = parseFloat(qtyInput?.value || 0);
+        const uom = document.getElementById('addStockUom').value || 'pcs';
+        const isPcs = (uom || '').toLowerCase() === 'pcs';
+        
+        if (isNaN(qty) || qty <= 0 || qty > 100000) return;
+        
+        const isLarge = qty > currentStock * 2;
+        if (isLarge) {
+            document.getElementById('addStockConfirmQty').textContent = isPcs ? Math.round(qty) : qty.toFixed(2);
+            document.getElementById('addStockConfirmTotal').textContent = isPcs ? Math.round(currentStock + qty) : (currentStock + qty).toFixed(2);
+            document.getElementById('addStockConfirmModal').style.display = 'flex';
+            addStockPendingSubmit = true;
+            document.getElementById('addStockConfirmBtn').onclick = async () => {
+                closeAddStockConfirmModal();
+                addStockPendingSubmit = false;
+                await doSaveAddStock();
+            };
+            return;
+        }
+        await doSaveAddStock();
+    }
+
+    async function doSaveAddStock() {
+        // Clear previous errors
+        document.querySelectorAll('.field-error').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
+        const btn = document.getElementById('addStockBtn');
+        btn.disabled = true; btn.textContent = 'Adding...';
         const itemId = document.getElementById('addStockItemId').value;
         const isRoll = document.getElementById('addStockIsRoll').value == 1;
         const uom = document.getElementById('addStockUom').value;
@@ -1138,18 +1755,40 @@ if (isset($_GET['ajax'])) {
         fd.set('notes', notes || 'Manual stock entry');
         if (isRoll) {
             fd.set('roll_code', rollCode);
-            fd.set('width_ft', document.getElementById('addStockWidth').value);
+            let w = document.getElementById('addStockWidth').value;
+            fd.set('width_ft', w || '1'); // Ensure it's never empty for rolls
         }
 
         try {
-            const res = await fetch('inventory_transactions_api.php', { method: 'POST', body: fd });
-            const data = await res.json();
+            const res = await fetch(ADMIN_API_BASE + 'inventory_transactions_api.php', { method: 'POST', body: fd });
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch (_) {
+                console.error('API returned non-JSON:', text.substring(0, 500));
+                alert('Server returned an invalid response. See browser console for details.');
+                return;
+            }
             if (data.success) {
                 closeAddStockModal();
                 fetchUpdatedTable();
-            } else { alert('Operation Failed: ' + data.error); }
-        } catch(err) { alert('Network communication error. Please try again.'); }
-        finally { btn.disabled = false; btn.textContent = 'Add Stock'; }
+            } else { 
+                if (data.errors) {
+                    for (let key in data.errors) {
+                        const errEl = document.getElementById('err-' + key) || document.getElementById('addStockQtyError');
+                        if (errEl) {
+                            errEl.textContent = data.errors[key];
+                            errEl.style.display = 'block';
+                        }
+                    }
+                } else {
+                    alert('Operation Failed: ' + (data.error || data.message || 'Unknown error')); 
+                }
+            }
+        } catch(err) {
+            console.error('Add stock error:', err);
+            alert('Network communication error. Please try again.');
+        }
+        finally { btn.disabled = false; btn.textContent = 'Add Stock'; updateAddStockUI(); }
     }
 
     function editItem(item) {
@@ -1158,20 +1797,60 @@ if (isset($_GET['ajax'])) {
 
     async function saveItem(e) {
         e.preventDefault();
-        const btn = document.getElementById('saveBtn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
+        
+        // Clear previous errors
+        document.querySelectorAll('.field-error').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
 
+        updateEditModalUI();
+        if (document.getElementById('saveBtn').disabled) return;
+        
+        const btn = document.getElementById('saveBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span>Saving...';
+
+        const uomEl = document.getElementById('itemUnit');
+        const trackEl = document.getElementById('itemTrackByRoll');
+        const uomWasDisabled = uomEl.disabled;
+        const trackWasDisabled = trackEl.disabled;
+
+        uomEl.disabled = false;
+        trackEl.disabled = false;
         const formData = new FormData(document.getElementById('itemForm'));
+        uomEl.disabled = uomWasDisabled;
+        trackEl.disabled = trackWasDisabled;
         try {
-            const res = await fetch('inventory_items_api.php', { method: 'POST', body: formData });
+            const res = await fetch(ADMIN_API_BASE + 'inventory_items_api.php', { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
                 closeModal();
                 fetchUpdatedTable();
-            } else { alert('Error: ' + data.error); }
-        } catch (err) { alert('Request failed.'); } 
-        finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
+            } else { 
+                if (data.errors) {
+                    for (let key in data.errors) {
+                        // Map API field names to UI element IDs if different
+                        let idMap = { 'name': 'itemName', 'category_id': 'itemCategory', 'unit': 'itemUnit', 'unit_cost': 'itemUnitCost', 'min_stock_level': 'itemMinStock', 'roll_length_ft': 'itemRollLength' };
+                        const targetId = idMap[key] || key;
+                        const errEl = document.getElementById('err-' + targetId);
+                        const inputEl = document.getElementById(targetId);
+                        if (errEl) {
+                            errEl.textContent = data.errors[key];
+                            errEl.style.display = 'block';
+                        }
+                        if (inputEl) inputEl.classList.add('input-error');
+                    }
+                } else {
+                    alert('Error: ' + data.error); 
+                }
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        } catch (err) { 
+            alert('Request failed.'); 
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        } 
     }
 
     function escapeHtml(unsafe) {

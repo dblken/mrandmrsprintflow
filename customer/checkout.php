@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         // 1. Create Order
         $notes = $_POST['notes'] ?? null;
         $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
-                      VALUES (?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
+                      VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?)";
         
         $payment_method = $_POST['payment_method'] ?? 'pay_later';
         

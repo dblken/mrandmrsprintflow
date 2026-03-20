@@ -56,6 +56,10 @@ if (!empty($status_filter)) {
     $sql .= " AND jo.status = ?";
     $params[] = $status_filter;
     $types .= 's';
+    // COMPLETED status only when payment is PAID (prevent showing inconsistent records)
+    if ($status_filter === 'COMPLETED') {
+        $sql .= " AND jo.payment_status = 'PAID'";
+    }
 }
 
 if (!empty($payment_filter)) {
@@ -97,7 +101,7 @@ $jobs = db_query($sql, $types ?: null, $params ?: null) ?: [];
 if (isset($_GET['ajax'])) {
     ob_start();
     ?>
-    <table class="w-full text-sm">
+    <table class="w-full text-sm customs-table">
         <thead>
             <tr style="border-bottom: 1px solid #e5e7eb;">
                 <th class="text-left py-3" style="width:1%;">ID</th>
@@ -115,7 +119,7 @@ if (isset($_GET['ajax'])) {
                 <tr><td colspan="8" class="py-12 text-center text-gray-400">No customizations found</td></tr>
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
-                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6;">
+                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>)">
                         <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
                         <td class="py-3">
                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
@@ -154,12 +158,13 @@ if (isset($_GET['ajax'])) {
                                 $sc = match($jo['status']) {
                                     'PENDING'       => 'background:#fef9c3;color:#92400e;',
                                     'APPROVED'      => 'background:#dbeafe;color:#1e40af;',
-                                    'TO_PAY'        => 'background:#fef3c7;color:#b45309;',
+                                    'TO_PAY'        => 'background:#fce7f3;color:#9d174d;',
+                                    'VERIFY_PAY'    => 'background:#e0e7ff;color:#4338ca;',
                                     'IN_PRODUCTION' => 'background:#d1fae5;color:#065f46;',
                                     'TO_RECEIVE'    => 'background:#ede9fe;color:#5b21b6;',
                                     'COMPLETED'     => 'background:#dcfce7;color:#166534;',
                                     'CANCELLED'     => 'background:#fee2e2;color:#991b1b;',
-                                    default         => 'background:#fef9c3;color:#854d0e;'
+                                    default         => 'background:#f3f4f6;color:#374151;'
                                 };
                             ?>
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>">
@@ -178,13 +183,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = [];
-    if ($search) $pagination_params['search'] = $search;
-    if ($status_filter) $pagination_params['status'] = $status_filter;
-    if ($payment_filter) $pagination_params['payment'] = $payment_filter;
-    if ($date_from) $pagination_params['date_from'] = $date_from;
-    if ($date_to) $pagination_params['date_to'] = $date_to;
-    if ($sort_by !== 'newest') $pagination_params['sort'] = $sort_by;
+    $pagination_params = array_filter(['search'=>$search, 'status'=>$status_filter, 'payment'=>$payment_filter, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params);
     $pagination_html = ob_get_clean();
 
@@ -193,7 +192,7 @@ if (isset($_GET['ajax'])) {
         'table'      => $table_html,
         'pagination' => $pagination_html,
         'count'      => number_format($total_filtered),
-        'badge'      => count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]))
+        'badge'      => count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }))
     ]);
     exit;
 }
@@ -239,7 +238,7 @@ function custom_payment_badge($status) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
     <style>
@@ -432,6 +431,9 @@ function custom_payment_badge($status) {
             cursor: pointer;
         }
         .filter-btn-reset:hover { background: #f9fafb; }
+        /* Table hover + clickable rows (inventory-style) */
+        .customs-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .customs-table tbody tr:hover td { background: #f9fafb; }
         .filter-badge {
             display: inline-flex;
             align-items: center;
@@ -554,7 +556,7 @@ function custom_payment_badge($status) {
                                 Filter
                                 <span id="filterBadgeContainer">
                                     <?php
-                                    $active_filters_count = count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to]));
+                                    $active_filters_count = count(array_filter([$status_filter, $payment_filter, $search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }));
                                     if ($active_filters_count > 0): ?>
                                     <span class="filter-badge"><?php echo $active_filters_count; ?></span>
                                     <?php endif; ?>
@@ -635,7 +637,7 @@ function custom_payment_badge($status) {
                 </div>
 
                 <div class="overflow-x-auto" id="customsTableContainer">
-                    <table class="w-full text-sm">
+                    <table class="w-full text-sm customs-table">
                         <thead>
                             <tr style="border-bottom: 1px solid #e5e7eb;">
                                 <th class="text-left py-3" style="width:1%;">ID</th>
@@ -664,7 +666,7 @@ function custom_payment_badge($status) {
                                         $order_count = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$jo['customer_id']])[0]['c'] ?? 0;
                                     }
                                 ?>
-                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6;">
+                                    <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>)">
                                         <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
                                         <td class="py-3">
                                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
@@ -733,9 +735,7 @@ function custom_payment_badge($status) {
                 <div id="customizationsPagination">
                     <?php
                     if (!empty($jobs)) {
-                        $pagination_params = [];
-                        if ($search) $pagination_params['search'] = $search;
-                        if ($status_filter) $pagination_params['status'] = $status_filter;
+                        $pagination_params = array_filter(['search'=>$search, 'status'=>$status_filter, 'payment'=>$payment_filter, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                         echo render_pagination($page, $total_pages, $pagination_params);
                     }
                     ?>

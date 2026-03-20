@@ -57,6 +57,8 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
         case 'Design':
         case 'Customization':
             return $base . '/admin/orders_management.php';
+        case 'Profile':
+            return $base . '/admin/user_staff_management.php';
         default:
             return $base . '/';
     }

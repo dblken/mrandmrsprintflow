@@ -236,6 +236,11 @@ class JobOrderService {
             }
 
             if ($newStatus === 'COMPLETED') {
+                // Only PAID orders can be marked COMPLETED
+                $payment = strtoupper((string)($order['payment_status'] ?? ''));
+                if ($payment !== 'PAID') {
+                    throw new Exception('Cannot mark as Completed: payment must be Paid. Current payment status: ' . ($order['payment_status'] ?? 'Unpaid'));
+                }
                 self::processDeductions($orderId);
                 if ($order['customer_id']) {
                     self::updateCustomerStatus($order['customer_id']);

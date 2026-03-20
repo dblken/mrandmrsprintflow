@@ -37,8 +37,8 @@ if (isset($_SESSION['user_id'])) {
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
-        <button id="sidebarCollapseBtn" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button id="global-sidebar-toggle" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="sidebar-toggle-icon">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
             </svg>
         </button>
@@ -202,32 +202,33 @@ if (isset($_SESSION['user_id'])) {
 </div>
 
 <script>
-// Sidebar collapse toggle
+// Sidebar collapse toggle (matches staff sidebar behavior)
 function toggleSidebar() {
     const sidebar = document.getElementById('adminSidebar');
     const isCollapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+    localStorage.setItem('sidebarCollapsed', isCollapsed);
     
-    // Update button icon
-    const btn = document.getElementById('sidebarCollapseBtn');
-    if (isCollapsed) {
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
-        btn.title = 'Expand sidebar';
-    } else {
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>';
-        btn.title = 'Collapse sidebar';
+    // Update button icon (chevron flips: left = expanded, right = collapsed)
+    const iconEl = document.getElementById('sidebar-toggle-icon');
+    const path = iconEl ? (iconEl.tagName === 'path' ? iconEl : iconEl.querySelector('path')) : null;
+    const btn = document.getElementById('global-sidebar-toggle');
+    if (path && btn) {
+        path.setAttribute('d', isCollapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7');
+        btn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
     }
 }
 
-// Restore sidebar state on page load
+// Restore sidebar state on page load (matches staff)
 document.addEventListener('DOMContentLoaded', function() {
     const sidebar = document.getElementById('adminSidebar');
-    const collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+    const toggleBtn = document.getElementById('global-sidebar-toggle');
+    const toggleIcon = document.getElementById('sidebar-toggle-icon');
+    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     if (collapsed) {
         sidebar.classList.add('collapsed');
-        const btn = document.getElementById('sidebarCollapseBtn');
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
-        btn.title = 'Expand sidebar';
+        const path = toggleIcon ? (toggleIcon.tagName === 'path' ? toggleIcon : toggleIcon.querySelector('path')) : null;
+        if (path) path.setAttribute('d', 'M9 5l7 7-7 7');
+        if (toggleBtn) toggleBtn.title = 'Expand sidebar';
     }
 });
 
@@ -308,4 +309,5 @@ $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Adm
 ?>
 <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
 <script src="/printflow/public/assets/js/notifications.js" defer></script>
+<script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>
 

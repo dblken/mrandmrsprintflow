@@ -175,8 +175,8 @@ function _ft_detect_social(string $url): array {
     ?>
     <?php endif; ?>
 
-    <!-- Alpine.js for dropdowns -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js for dropdowns (self-hosted to avoid tracking prevention) -->
+    <script defer src="<?php echo $base_url ?? '/printflow'; ?>/public/assets/js/alpine.min.js"></script>
 
     <!-- Scroll to Top (all non-admin pages) -->
     <?php if (!is_admin() && !is_staff()): ?>
@@ -656,6 +656,7 @@ function _ft_detect_social(string $url): array {
     ?>
     <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
     <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js" defer></script>
+    <script src="<?php echo $base_url; ?>/public/assets/js/inactivity_logout.js" defer></script>
     <?php endif; ?>
 </body>
 </html>

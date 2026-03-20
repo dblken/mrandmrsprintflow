@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             // 1. Create order
             $notes = $_POST['notes'] ?? ($item['customization']['notes'] ?? null);
             $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes)
-                          VALUES (?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
+                          VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?)";
             $order_id  = db_execute($order_sql, 'iddsss', [$customer_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
 
             if ($order_id) {

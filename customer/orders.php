@@ -20,7 +20,7 @@ if (isset($_GET['mark_read'])) {
 $total_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ?", 'i', [$customer_id]);
 $total_orders = $total_orders_result[0]['count'] ?? 0;
 
-$pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Pending', 'Pending Approval', 'Pending Review', 'For Revision')", 'i', [$customer_id]);
+$pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Pending', 'Pending Approval', 'For Revision')", 'i', [$customer_id]);
 $pending_orders = $pending_orders_result[0]['count'] ?? 0;
 
 $processing_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Processing', 'In Production', 'Printing')", 'i', [$customer_id]);
@@ -34,7 +34,7 @@ $active_tab = $_GET['tab'] ?? 'all';
 
 // Tab mappings to exact statuses
 $tab_status_map = [
-    'pending' => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
+    'pending' => ['Pending', 'Pending Approval', 'For Revision'],
     'topay' => ['To Pay'],
     'production' => ['In Production', 'Processing', 'Printing'], // include legacy for safety
     'pickup' => ['Ready for Pickup'],
@@ -648,7 +648,7 @@ let imExpanded = false;
 function imBadge(val) {
     const m = {
         'Completed':'im-badge-green','Pending':'im-badge-yellow',
-        'Pending Review':'im-badge-yellow','Processing':'im-badge-blue',
+        'Processing':'im-badge-blue',
         'In Production':'im-badge-blue','Printing':'im-badge-blue',
         'Ready for Pickup':'im-badge-purple','Cancelled':'im-badge-red',
         'For Revision':'im-badge-blue','Paid':'im-badge-green',

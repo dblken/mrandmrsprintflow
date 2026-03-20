@@ -12,14 +12,14 @@ class RollService {
     /**
      * Create a new roll record.
      */
-    public static function createRoll($itemId, $totalLength, $rollCode = null, $supplier = null) {
+    public static function createRoll($itemId, $totalLength, $rollCode = null, $supplier = null, $widthFt = 0) {
         global $conn;
         
-        $sql = "INSERT INTO inv_rolls (item_id, roll_code, total_length_ft, remaining_length_ft, status, supplier, received_at) 
-                VALUES (?, ?, ?, ?, 'OPEN', ?, NOW())";
+        $sql = "INSERT INTO inv_rolls (item_id, roll_code, width_ft, total_length_ft, remaining_length_ft, status, supplier, received_at) 
+                VALUES (?, ?, ?, ?, ?, 'OPEN', ?, NOW())";
         
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("isdds", $itemId, $rollCode, $totalLength, $totalLength, $supplier);
+        $stmt->bind_param("isddds", $itemId, $rollCode, $widthFt, $totalLength, $totalLength, $supplier);
         
         if ($stmt->execute()) {
             $id = $stmt->insert_id;

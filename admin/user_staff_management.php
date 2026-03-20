@@ -16,9 +16,13 @@ $success = '';
 
 // Ensure columns exist (safe migration)
 try {
-    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100) NULL AFTER first_name");
-    db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE NULL AFTER last_name");
-} catch (Throwable $e) { /* already exists or unsupported – ignore */ }
+    $uc = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
+    if (!in_array('middle_name', $uc)) db_execute("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) NULL AFTER first_name");
+    if (!in_array('birthday', $uc)) db_execute("ALTER TABLE users ADD COLUMN birthday DATE NULL AFTER last_name");
+    if (!in_array('profile_completion_token', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_token VARCHAR(64) NULL");
+    if (!in_array('profile_completion_expires', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_expires DATETIME NULL");
+    if (!in_array('id_validation_image', $uc)) db_execute("ALTER TABLE users ADD COLUMN id_validation_image VARCHAR(255) NULL");
+} catch (Throwable $e) { /* ignore */ }
 
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -40,19 +44,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
     $branch_id = !empty($_POST['branch_id']) ? (int)$_POST['branch_id'] : null;
     if ($role === 'Admin') $branch_id = null; // Admins have global access
 
-    $valid_roles = ['Admin', 'Manager', 'Staff'];
+    $valid_roles = ['Manager', 'Staff']; // Admin creation removed
     if (!in_array($role, $valid_roles)) $role = 'Staff';
 
+    // Name validation: letters only, single space between words (block 2+ consecutive spaces)
     if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
         $error = 'All required fields must be filled in';
+    } elseif (preg_match('/\s{2,}/', trim($first_name)) || preg_match('/\s{2,}/', trim($last_name))) {
+        $error = 'Names cannot have more than one space in a row.';
+    } elseif (!preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", trim($first_name)) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", trim($last_name))) {
+        $error = 'Names must contain only letters.';
+    } elseif ($middle_name !== '' && preg_match('/\s{2,}/', trim($middle_name))) {
+        $error = 'Middle name cannot have more than one space in a row.';
+    } elseif ($middle_name !== '' && !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", trim($middle_name))) {
+        $error = 'Middle name must contain only letters.';
+    } elseif (strlen(trim($first_name)) < 2 || strlen(trim($first_name)) > 50 || strlen(trim($last_name)) < 2 || strlen(trim($last_name)) > 50) {
+        $error = 'Names must be between 2 and 50 characters.';
+    } elseif ($middle_name !== '' && (strlen(trim($middle_name)) < 2 || strlen(trim($middle_name)) > 50)) {
+        $error = 'Middle name must be between 2 and 50 characters.';
+    } elseif (!preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', trim($email))) {
+        $error = 'Invalid email address.';
     } elseif (!empty($birthday)) {
         $bday_date = new DateTime($birthday);
         $today = new DateTime();
         $age = $today->diff($bday_date)->y;
         if ($bday_date > $today) {
             $error = 'Birthday cannot be a future date';
-        } elseif ($age < 13) {
-            $error = 'User must be at least 13 years old';
+        } elseif ($age < 18) {
+            $error = 'User must be at least 18 years old';
         }
     }
 
@@ -61,23 +80,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
     } elseif ($role !== 'Admin' && empty($branch_id)) {
         $error = 'Please assign a branch for this role';
     } else {
-        // Check if email exists
-        $existing = db_query("SELECT user_id FROM users WHERE email = ?", 's', [$email]);
+        // Check if email exists in users or customers
+        $existing_user = db_query("SELECT user_id FROM users WHERE email = ?", 's', [$email]);
+        $existing_customer = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
 
-        if (!empty($existing)) {
+        if (!empty($existing_user) || !empty($existing_customer)) {
             $error = 'Email already exists';
         } else {
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
             $bday_val = !empty($birthday) ? $birthday : null;
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
 
             db_execute(
-                "INSERT INTO users (first_name, middle_name, last_name, birthday, email, password_hash, role, status, branch_id, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Activated', ?, NOW(), NOW())",
-                'sssssssi',
-                [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $role, $branch_id]
+                "INSERT INTO users (first_name, middle_name, last_name, birthday, email, password_hash, profile_completion_token, profile_completion_expires, role, status, branch_id, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, NOW(), NOW())",
+                'sssssssssi',
+                [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $token, $expires, $role, $branch_id]
             );
 
-            $success = $role . ' account created successfully!';
+            $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $complete_link = rtrim($base_url, '/') . '/printflow/public/complete_profile.php?token=' . $token;
+
+            require_once __DIR__ . '/../includes/profile_completion_mailer.php';
+            $mail_res = send_profile_completion_email($email, $first_name, $complete_link);
+
+            if ($mail_res['success']) {
+                $success = $role . ' account created! An email with a profile completion link has been sent to ' . htmlspecialchars($email);
+            } else {
+                $success = $role . ' account created! However, the email could not be sent: ' . ($mail_res['message'] ?? 'Unknown error') . '. Share this link manually: ' . $complete_link;
+            }
         }
     }
 }
@@ -148,7 +180,7 @@ $stat_active   = db_query("SELECT COUNT(*) as c FROM users WHERE status = 'Activ
 
 // Sort helpers
 $build_sort_url = function(string $col) use ($sort, $dir, $search, $role_filter, $status_filter): string {
-    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$search,'role'=>$role_filter,'status'=>$status_filter]);
+    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$search,'role'=>$role_filter,'status'=>$status_filter], function($v) { return $v !== null && $v !== ''; });
     return '?'.http_build_query($p);
 };
 $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'):'';
@@ -157,7 +189,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
 $manager_created = $_SESSION['cm_success'] ?? '';
 unset($_SESSION['cm_success']);
 
-$max_birthday = date('Y-m-d', strtotime('-13 years'));
+$max_birthday = date('Y-m-d', strtotime('-18 years'));
 
 $page_title = 'User & Staff Management - Admin';
 
@@ -165,7 +197,7 @@ $page_title = 'User & Staff Management - Admin';
 if (isset($_GET['ajax'])) {
     ob_start();
     ?>
-    <table class="w-full text-sm">
+    <table class="w-full text-sm users-table">
         <thead><tr class="border-b-2">
             <th class="text-left py-3">ID</th>
             <th class="text-left py-3">Name</th>
@@ -177,7 +209,7 @@ if (isset($_GET['ajax'])) {
         </tr></thead>
         <tbody>
         <?php foreach ($users as $user): ?>
-            <tr class="border-b hover:bg-gray-50">
+            <tr class="border-b" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">
                 <td class="py-3"><?php echo $user['user_id']; ?></td>
                 <td class="py-3 font-medium"><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
                 <td class="py-3"><?php echo htmlspecialchars($user['email']); ?></td>
@@ -188,8 +220,9 @@ if (isset($_GET['ajax'])) {
                 <td class="py-3"><?php
                     $sc = match($user['status']) { 'Activated' => 'background:#dcfce7;color:#166534;', 'Deactivated' => 'background:#fee2e2;color:#991b1b;', default => 'background:#fef9c3;color:#854d0e;' };
                     ?><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>"><?php echo $user['status']; ?></span></td>
-                <td class="py-3 text-right">
-                    <button class="btn-action" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View / Edit</button>
+                <td class="py-3 text-right" onclick="event.stopPropagation();">
+                    <button type="button" class="btn-action blue" style="margin-right:4px;" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View</button>
+                    <button type="button" class="btn-action teal" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -201,10 +234,10 @@ if (isset($_GET['ajax'])) {
     <?php
     $table_html = ob_get_clean();
     ob_start();
-    $pp = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$_GET['date_from']??'','date_to'=>$_GET['date_to']??'']);
+    $pp = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$_GET['date_from']??'','date_to'=>$_GET['date_to']??''], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pp);
     $pagination_html = ob_get_clean();
-    echo json_encode(['success'=>true,'table'=>$table_html,'pagination'=>$pagination_html,'count'=>number_format($total_users),'badge'=>count(array_filter([$search,$role_filter,$status_filter,$_GET['date_from']??'',$_GET['date_to']??'']))]);
+    echo json_encode(['success'=>true,'table'=>$table_html,'pagination'=>$pagination_html,'count'=>number_format($total_users),'badge'=>count(array_filter([$search,$role_filter,$status_filter,$_GET['date_from']??'',$_GET['date_to']??''], function($v) { return $v !== null && $v !== ''; }))]);
     exit;
 }
 ?>
@@ -215,7 +248,7 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }
@@ -233,9 +266,12 @@ if (isset($_GET['ajax'])) {
         .kpi-value { font-size:26px; font-weight:800; color:#1f2937; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
 
-        /* Action Button */
-        .btn-action { display:inline-flex; align-items:center; gap:5px; padding:5px 14px; border:1.5px solid #6366f1; color:#6366f1; background:transparent; border-radius:20px; font-size:12px; font-weight:600; transition:all 0.18s; cursor:pointer; }
-        .btn-action:hover { background:#6366f1; color:white; }
+        /* Action Buttons (match branches page) */
+        .btn-action { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:70px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; transition:all 0.2s; cursor:pointer; text-decoration:none; white-space:nowrap; }
+        .btn-action.blue { color:#3b82f6; border-color:#3b82f6; }
+        .btn-action.blue:hover { background:#3b82f6; color:white; }
+        .btn-action.teal { color:#0d9488; border-color:#0d9488; }
+        .btn-action.teal:hover { background:#0d9488; color:white; }
 
         /* ===== MINIMALISTIC VIEW MODAL ===== */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9900; align-items:center; justify-content:center; padding:16px; }
@@ -256,10 +292,18 @@ if (isset($_GET['ajax'])) {
         .mf-group input:disabled { background:#f3f4f6; color:#9ca3af; cursor:not-allowed; }
         .mf-group textarea { resize:none; }
         .mf-divider { border:none; border-top:1px solid #f3f4f6; margin:16px 0; }
-        .mf-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px; border-top:1px solid #f3f4f6; }
-        .mf-btn-cancel { padding:9px 18px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; }
-        .mf-btn-save { padding:9px 22px; border:none; border-radius:8px; background:#4f46e5; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+        .mf-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px; border-top:1px solid #f3f4f6; flex-wrap:wrap; }
+        .mf-btn-cancel { padding:7px 14px; min-width:70px; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:12px; font-weight:500; color:#374151; cursor:pointer; transition:all 0.2s; }
+        .mf-btn-cancel:hover { background:#f9fafb; }
+        .mf-btn-save { padding:7px 14px; min-width:70px; border:none; border-radius:8px; background:#4f46e5; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
         .mf-btn-save:disabled { opacity:.5; cursor:not-allowed; }
+        /* Modal action buttons – outline style (match table actions) */
+        .mf-btn-outline { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:70px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; transition:all 0.2s; cursor:pointer; }
+        .mf-btn-outline.blue { color:#3b82f6; border-color:#3b82f6; }
+        .mf-btn-outline.blue:hover { background:#3b82f6; color:white; }
+        .mf-btn-outline.teal { color:#0d9488; border-color:#0d9488; }
+        .mf-btn-outline.teal:hover { background:#0d9488; color:white; }
+        .mf-btn-outline:disabled { opacity:.5; cursor:not-allowed; }
         .mf-alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
         .mf-alert.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
         .mf-alert.err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
@@ -303,6 +347,10 @@ if (isset($_GET['ajax'])) {
         .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
         .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
         .toolbar-btn svg { flex-shrink: 0; }
+
+        /* Table hover + clickable rows (inventory-style) */
+        .users-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .users-table tbody tr:hover td { background: #f9fafb; }
 
         .toolbar-btn-primary {
             display: inline-flex;
@@ -487,15 +535,17 @@ if (isset($_GET['ajax'])) {
         #user-modal-box .form-group label { display:block; font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
         #user-modal-box .form-group input, #user-modal-box .form-group select { width:100%; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; color:#1f2937; background:#fafafa; outline:none; box-sizing:border-box; transition:border-color .15s; }
         #user-modal-box .form-group input:focus, #user-modal-box .form-group select:focus { border-color:#4f46e5; background:#fff; }
+        #user-modal-box .form-group.is-invalid input, #user-modal-box .form-group.is-invalid select { border-color:#ef4444; background:#fff9f9; }
         #user-modal-box .form-hint { font-size:11px; color:#9ca3af; margin-top:4px; }
         #user-modal-box .modal-actions { display:flex; gap:10px; padding:16px 24px; border-top:1px solid #f3f4f6; }
         #user-modal-box .modal-btn { flex:1; padding:10px 16px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
         #user-modal-box .modal-btn-cancel { background:#f3f4f6; color:#4b5563; border:1px solid #e5e7eb; }
-        #user-modal-box .modal-btn-submit { background:#4f46e5; color:#fff; }
+        #user-modal-box .modal-btn-submit { background:#0d9488; color:#fff; }
+        #user-modal-box .modal-btn-submit:hover { background:#0f766e; }
         @media(max-width:520px) { #user-modal-box .form-row { grid-template-columns:1fr; } }
     </style>
 </head>
-<body x-data="userManagement()">
+<body x-data="userManagement()" x-init="loadProvinces()">
 
 <div class="dashboard-container">
     <!-- Sidebar -->
@@ -591,7 +641,7 @@ if (isset($_GET['ajax'])) {
                                 Filter
                                 <span id="filterBadgeContainer">
                                     <?php
-                                    $active_filters = array_filter([$role_filter, $status_filter, $search, $date_from, $date_to]);
+                                    $active_filters = array_filter([$role_filter, $status_filter, $search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; });
                                     if (count($active_filters) > 0): ?>
                                     <span class="filter-badge"><?php echo count($active_filters); ?></span>
                                     <?php endif; ?>
@@ -669,7 +719,7 @@ if (isset($_GET['ajax'])) {
 
                 <div id="usersTableContainer">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="w-full text-sm users-table">
                         <thead>
                             <tr class="border-b-2">
                                 <th class="text-left py-3">ID</th>
@@ -683,7 +733,7 @@ if (isset($_GET['ajax'])) {
                         </thead>
                         <tbody>
                             <?php foreach ($users as $user): ?>
-                                <tr class="border-b hover:bg-gray-50">
+                                <tr class="border-b" @click="viewUser(<?php echo $user['user_id']; ?>)" style="cursor:pointer;">
                                     <td class="py-3"><?php echo $user['user_id']; ?></td>
                                     <td class="py-3 font-medium">
                                         <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
@@ -720,8 +770,9 @@ if (isset($_GET['ajax'])) {
                                             <?php echo $user['status']; ?>
                                         </span>
                                     </td>
-                                    <td class="py-3 text-right">
-                                        <button @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action">View / Edit</button>
+                                    <td class="py-3 text-right" @click.stop>
+                                        <button type="button" @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action blue" style="margin-right:4px;">View</button>
+                                        <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal">Edit</button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -730,7 +781,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="usersPagination">
                     <?php
-                    $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$date_from,'date_to'=>$date_to]);
+                    $pagination_params = array_filter(['search'=>$search,'role'=>$role_filter,'status'=>$status_filter,'sort'=>$sort,'dir'=>$dir,'date_from'=>$date_from,'date_to'=>$date_to], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params);
                     ?>
                 </div>
@@ -747,36 +798,60 @@ if (isset($_GET['ajax'])) {
             <h3 class="modal-title" id="user-modal-title">Create New User / Staff</h3>
             <button type="button" class="modal-close-x" id="btn-close-user-modal-x" aria-label="Close">✕</button>
         </div>
-        <form method="POST" action="">
+        <form method="POST" action="" id="user-create-form" onsubmit="return validateUserCreateForm(event)">
             <div class="modal-body">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="create_staff" value="1">
                 
                 <div class="form-row-3">
-                <div class="form-group">
+                <div class="form-group" id="um-group-first_name">
                     <label>First Name <span style="color:#ef4444">*</span></label>
-                    <input type="text" name="first_name" required placeholder="e.g. Juan">
+                    <input type="text" name="first_name" id="um-first_name" required placeholder="e.g. Juan" autocomplete="given-name">
+                    <div id="um-error-first_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="um-group-middle_name">
                     <label>Middle Name</label>
-                    <input type="text" name="middle_name" placeholder="e.g. Santos">
+                    <input type="text" name="middle_name" id="um-middle_name" placeholder="e.g. Santos" autocomplete="additional-name">
+                    <div id="um-error-middle_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+                <div class="form-group" id="um-group-last_name">
+                    <label>Last Name <span style="color:#ef4444">*</span></label>
+                    <input type="text" name="last_name" id="um-last_name" required placeholder="e.g. Dela Cruz" autocomplete="family-name">
+                    <div id="um-error-last_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" id="um-group-email">
+                    <label>Email Address <span style="color:#ef4444">*</span></label>
+                    <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com" autocomplete="email">
+                    <div id="um-error-email" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
                 </div>
                 <div class="form-group">
-                    <label>Last Name <span style="color:#ef4444">*</span></label>
-                    <input type="text" name="last_name" required placeholder="e.g. Dela Cruz">
+                    <label>Birthday <span style="color:#ef4444">*</span></label>
+                    <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
+                    <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Email Address <span style="color:#ef4444">*</span></label>
-                <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com">
-            </div>
-
-            <div class="form-group">
-                <label>Birthday <span style="color:#ef4444">*</span></label>
-                <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
-                <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
-                <p class="form-hint">Used to generate the default password.</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Role <span style="color:#ef4444">*</span></label>
+                    <select name="role" id="user-role-select" required>
+                        <option value="Staff">Staff</option>
+                        <option value="Manager">Manager</option>
+                    </select>
+                </div>
+                <div class="form-group" id="branch-select-group">
+                    <label>Branch Assignment <span style="color:#ef4444">*</span></label>
+                    <select name="branch_id" id="user-branch-select">
+                        <option value="">-- Select Branch --</option>
+                        <?php foreach ($branches as $branch): ?>
+                            <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="form-hint">Staff members only see data for their assigned branch.</p>
+                </div>
             </div>
 
             <div class="form-group">
@@ -790,26 +865,6 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <p class="form-hint">Format: <em>email</em> + <em>MMDDYYYY</em> &mdash; e.g. <code>juan@store.com01151990</code></p>
             </div>
-
-            <div class="form-group">
-                <label>Role <span style="color:#ef4444">*</span></label>
-                <select name="role" id="user-role-select" required>
-                    <option value="Staff">Staff</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Admin">Admin</option>
-                </select>
-            </div>
-
-                <div class="form-group" id="branch-select-group">
-                    <label>Branch Assignment <span style="color:#ef4444">*</span></label>
-                    <select name="branch_id" id="user-branch-select">
-                        <option value="">-- Select Branch --</option>
-                        <?php foreach ($branches as $branch): ?>
-                            <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <p class="form-hint">Staff members only see data for their assigned branch.</p>
-                </div>
             </div>
 
             <div class="modal-actions">
@@ -857,6 +912,76 @@ if (isset($_GET['ajax'])) {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
     });
+
+    // Create form validation (profile name + register/branch email)
+    function formatNameInput(el) {
+        var v = el.value;
+        v = v.replace(/\d/g, '');  // block numbers
+        v = v.replace(/\s{2,}/g, ' ');  // collapse 2+ consecutive spaces to 1
+        v = v.split(' ').map(function(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; }).filter(Boolean).join(' ');
+        el.value = v;
+    }
+    function validateUserCreateField(id) {
+        var input = document.getElementById('um-' + id);
+        var group = document.getElementById('um-group-' + id);
+        var errEl = document.getElementById('um-error-' + id);
+        if (!input || !group || !errEl) return true;
+        var val = (input.value || '').trim();
+        var err = '';
+        if (id === 'first_name' || id === 'last_name') {
+            if (!val) err = id === 'first_name' ? 'First name is required.' : 'Last name is required.';
+            else if (/\s{2,}/.test(val)) err = 'Names cannot have more than one space in a row.';
+            else if (/[0-9]/.test(val)) err = 'Names must not contain numbers.';
+            else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Names must contain only letters.';
+            else if (val.length < 2 || val.length > 50) err = 'Names must be between 2 and 50 characters.';
+        } else if (id === 'middle_name') {
+            if (val && /\s{2,}/.test(val)) err = 'Middle name cannot have more than one space in a row.';
+            else if (val && /[0-9]/.test(val)) err = 'Middle name must not contain numbers.';
+            else if (val && !/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Middle name must contain only letters.';
+            else if (val && (val.length < 2 || val.length > 50)) err = 'Middle name must be between 2 and 50 characters.';
+        } else if (id === 'email') {
+            if (!val) err = 'Email is required.';
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) err = 'Please enter a valid email address.';
+        }
+        if (err) {
+            group.classList.add('is-invalid');
+            errEl.textContent = err;
+            errEl.style.display = 'block';
+            return false;
+        }
+        group.classList.remove('is-invalid');
+        errEl.textContent = '';
+        errEl.style.display = 'none';
+        return true;
+    }
+    function validateUserCreateForm(e) {
+        var ok = validateUserCreateField('first_name') && validateUserCreateField('last_name') && validateUserCreateField('middle_name') && validateUserCreateField('email');
+        if (!ok) e.preventDefault();
+        return ok;
+    }
+    ['first_name', 'last_name', 'middle_name'].forEach(function(id) {
+        var el = document.getElementById('um-' + id);
+        if (el) {
+            el.addEventListener('blur', function() { validateUserCreateField(id); });
+            el.addEventListener('input', function() {
+                formatNameInput(this);
+                validateUserCreateField(id);
+            });
+            el.addEventListener('keypress', function(e) {
+                if (/\d/.test(e.key)) e.preventDefault();
+                if (e.key === ' ' && (this.value || '').endsWith(' ')) e.preventDefault();
+            });
+        }
+    });
+    var emailEl = document.getElementById('um-email');
+    if (emailEl) {
+        emailEl.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
+        emailEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\s/g, '');
+            validateUserCreateField('email');
+        });
+        emailEl.addEventListener('blur', function() { validateUserCreateField('email'); });
+    }
 
     // Auto-open modal if there was a validation error
     <?php if ($error): ?>
@@ -915,8 +1040,8 @@ if (isset($_GET['ajax'])) {
                 errDiv.style.display = 'block';
                 submitBtn.disabled = true;
                 this.classList.add('is-invalid');
-            } else if (age < 13) {
-                errDiv.textContent = "Must be at least 13 years old.";
+            } else if (age < 18) {
+                errDiv.textContent = "Must be at least 18 years old.";
                 errDiv.style.display = 'block';
                 submitBtn.disabled = true;
                 this.classList.add('is-invalid');
@@ -930,68 +1055,122 @@ if (isset($_GET['ajax'])) {
 })();
 </script>
 
-<!-- User Profile View/Edit Modal (Minimalistic) -->
-<div x-show="viewModal.isOpen" x-cloak class="modal-overlay is-open" @click.self="viewModal.isOpen = false">
+<!-- View User Modal (Read-only) -->
+<div x-show="viewModal.isOpen" x-cloak class="modal-overlay" :class="{'is-open': viewModal.isOpen}" @click.self="viewModal.isOpen = false">
     <div class="modal-box" @click.stop>
-        <!-- Header -->
         <div class="modal-hdr">
             <h2>User Details</h2>
             <button @click="viewModal.isOpen = false">&times;</button>
         </div>
-
-        <!-- Loading -->
-        <div x-show="viewModal.loading" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">
-            Loading...
-        </div>
-
-        <template x-if="viewModal.user">
+        <div x-show="viewModal.loading" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Loading...</div>
+        <template x-if="viewModal.user && !viewModal.loading">
             <div class="modal-bdy">
-                <!-- Alerts -->
-                <div x-show="viewModal.error" class="mf-alert err" x-text="viewModal.error"></div>
-                <div x-show="viewModal.success" class="mf-alert ok" x-text="viewModal.success"></div>
+                <div class="mf-row-3">
+                    <div class="mf-group"><label>First Name</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.first_name || '—'"></div></div>
+                    <div class="mf-group"><label>Middle Name</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.middle_name || '—'"></div></div>
+                    <div class="mf-group"><label>Last Name</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.last_name || '—'"></div></div>
+                </div>
+                <div class="mf-row">
+                    <div class="mf-group"><label>Email Address</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.email || '—'"></div></div>
+                    <div class="mf-group"><label>Contact Number</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.contact_number || '—'"></div></div>
+                </div>
+                <div class="mf-row">
+                    <div class="mf-group"><label>Date of Birth</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.dob ? new Date(viewModal.user.dob).toLocaleDateString('en-PH') : '—'"></div></div>
+                    <div class="mf-group"><label>Gender</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.gender || '—'"></div></div>
+                </div>
+                <div class="mf-row">
+                    <div class="mf-group mf-full"><label>Address</label><div style="padding:9px 0; color:#111827; white-space:pre-wrap;" x-text="viewModal.user.address || '—'"></div></div>
+                </div>
+                <hr class="mf-divider">
+                <div class="mf-row">
+                    <div class="mf-group"><label>Role</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.role || '—'"></div></div>
+                    <div class="mf-group"><label>Branch</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.role === 'Admin' ? 'All Branches' : (viewModal.user.branch_name || 'Unassigned')"></div></div>
+                </div>
+                <div class="mf-row">
+                    <div class="mf-group"><label>Status</label><div style="padding:9px 0;"><span :style="viewModal.user.status === 'Activated' ? 'background:#dcfce7;color:#166534;' : (viewModal.user.status === 'Deactivated' ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef9c3;color:#854d0e;')" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;" x-text="viewModal.user.status || '—'"></span></div></div>
+                    <div class="mf-group"><label>Member Since</label><div style="padding:9px 0; color:#111827;" x-text="viewModal.user.created_at ? new Date(viewModal.user.created_at).toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}) : '—'"></div></div>
+                </div>
+                <div class="mf-row">
+                    <div class="mf-group mf-full">
+                        <label>ID Validation Reference</label>
+                        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px; margin-bottom:8px;">
+                            <p style="font-size:11px; color:#6b7280; margin:0 0 8px 0;">Use this as reference when reviewing uploaded IDs:</p>
+                            <img src="/printflow/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%; height:auto; border-radius:6px;">
+                        </div>
+                        <template x-if="viewModal.user.id_validation_image">
+                        <div>
+                            <label>Uploaded ID</label>
+                            <div style="margin-top:6px;">
+                                <a :href="'/printflow/uploads/ids/' + viewModal.user.id_validation_image" target="_blank" rel="noopener" style="color:#0d9488; font-weight:600; font-size:13px;">View ID Image</a>
+                            </div>
+                        </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="mf-footer" style="flex-wrap:wrap; gap:8px;">
+                    <button type="button" @click="viewModal.isOpen = false" class="mf-btn-outline blue">Close</button>
+                    <template x-if="viewModal.user.status === 'Pending'">
+                        <button type="button" @click="showActivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Activate Account</button>
+                    </template>
+                    <template x-if="viewModal.user.status === 'Pending'">
+                        <button type="button" @click="openResendModal(viewModal.user.user_id)" class="mf-btn-outline teal">Resend Link</button>
+                    </template>
+                    <template x-if="viewModal.user.status === 'Activated'">
+                        <button type="button" @click="showDeactivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Deactivate Account</button>
+                    </template>
+                    <button type="button" @click="viewModal.isOpen = false; editUser(viewModal.user.user_id)" class="mf-btn-outline teal">Edit</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
 
+<!-- Edit User Modal -->
+<div x-show="editModal.isOpen" x-cloak class="modal-overlay" :class="{'is-open': editModal.isOpen}" @click.self="editModal.isOpen = false">
+    <div class="modal-box" @click.stop>
+        <div class="modal-hdr">
+            <h2>Edit User</h2>
+            <button @click="editModal.isOpen = false">&times;</button>
+        </div>
+        <div x-show="editModal.loading" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Loading...</div>
+        <template x-if="editModal.user && !editModal.loading">
+            <div class="modal-bdy">
+                <div x-show="editModal.error" class="mf-alert err" x-text="editModal.error"></div>
+                <div x-show="editModal.success" class="mf-alert ok" x-text="editModal.success"></div>
                 <form @submit.prevent="saveUserChanges">
-                    <!-- Row 1: First, Middle, Last Name -->
                     <div class="mf-row-3">
-                        <div class="mf-group" :class="{'is-invalid': errors.first_name, 'is-valid': viewModal.user.first_name && !errors.first_name}">
+                        <div class="mf-group" :class="{'is-invalid': errors.first_name, 'is-valid': editModal.user.first_name && !errors.first_name}">
                             <label>First Name *</label>
-                            <input type="text" x-model="viewModal.user.first_name" @input="validateField('first_name')" required>
+                            <input type="text" x-model="editModal.user.first_name" @input="validateField('first_name')" @keypress="if (/\d/.test($event.key) || ($event.key===' ' && (editModal.user.first_name||'').endsWith(' '))) $event.preventDefault()" required>
                             <div class="error-message" x-text="errors.first_name"></div>
                         </div>
-                        <div class="mf-group" :class="{'is-valid': viewModal.user.middle_name}">
+                        <div class="mf-group" :class="{'is-invalid': errors.middle_name, 'is-valid': editModal.user.middle_name && !errors.middle_name}">
                             <label>Middle Name</label>
-                            <input type="text" x-model="viewModal.user.middle_name">
+                            <input type="text" x-model="editModal.user.middle_name" @input="validateField('middle_name')" @keypress="if (/\d/.test($event.key) || ($event.key===' ' && (editModal.user.middle_name||'').endsWith(' '))) $event.preventDefault()">
+                            <div class="error-message" x-text="errors.middle_name"></div>
                         </div>
-                        <div class="mf-group" :class="{'is-invalid': errors.last_name, 'is-valid': viewModal.user.last_name && !errors.last_name}">
+                        <div class="mf-group" :class="{'is-invalid': errors.last_name, 'is-valid': editModal.user.last_name && !errors.last_name}">
                             <label>Last Name *</label>
-                            <input type="text" x-model="viewModal.user.last_name" @input="validateField('last_name')" required>
+                            <input type="text" x-model="editModal.user.last_name" @input="validateField('last_name')" @keypress="if (/\d/.test($event.key) || ($event.key===' ' && (editModal.user.last_name||'').endsWith(' '))) $event.preventDefault()" required>
                             <div class="error-message" x-text="errors.last_name"></div>
                         </div>
                     </div>
-
-                    <!-- Row 2: Email (read-only) + Contact -->
                     <div class="mf-row">
-                        <div class="mf-group">
-                            <label>Email Address</label>
-                            <input type="email" :value="viewModal.user.email" disabled>
-                        </div>
-                        <div class="mf-group" :class="{'is-invalid': errors.contact_number, 'is-valid': viewModal.user.contact_number && !errors.contact_number}">
+                        <div class="mf-group"><label>Email Address</label><input type="email" :value="editModal.user.email" disabled></div>
+                        <div class="mf-group" :class="{'is-invalid': errors.contact_number, 'is-valid': editModal.user.contact_number && !errors.contact_number}">
                             <label>Contact Number *</label>
-                            <input type="text" x-model="viewModal.user.contact_number" @input="validateField('contact_number')" placeholder="e.g. 09171234567" required>
+                            <input type="text" x-model="editModal.user.contact_number" @input="validateField('contact_number')" placeholder="e.g. 09171234567" required>
                             <div class="error-message" x-text="errors.contact_number"></div>
                         </div>
                     </div>
-
-                    <!-- Row 3: DOB + Gender -->
                     <div class="mf-row">
-                        <div class="mf-group" :class="{'is-invalid': errors.dob, 'is-valid': viewModal.user.dob && !errors.dob}">
+                        <div class="mf-group" :class="{'is-invalid': errors.dob, 'is-valid': editModal.user.dob && !errors.dob}">
                             <label>Date of Birth *</label>
-                            <input type="date" x-model="viewModal.user.dob" @change="validateField('dob')" required max="<?php echo $max_birthday; ?>">
+                            <input type="date" x-model="editModal.user.dob" @change="validateField('dob')" required max="<?php echo $max_birthday; ?>">
                             <div class="error-message" x-text="errors.dob"></div>
                         </div>
-                        <div class="mf-group">
-                            <label>Gender</label>
-                            <select x-model="viewModal.user.gender">
+                        <div class="mf-group"><label>Gender</label>
+                            <select x-model="editModal.user.gender">
                                 <option value="">-- Select --</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
@@ -999,67 +1178,158 @@ if (isset($_GET['ajax'])) {
                             </select>
                         </div>
                     </div>
-
-                    <!-- Row 4: Address (full width) -->
                     <div class="mf-row">
-                        <div class="mf-group mf-full" :class="{'is-invalid': errors.address, 'is-valid': viewModal.user.address && !errors.address}">
-                            <label>Address *</label>
-                            <textarea x-model="viewModal.user.address" @input="validateField('address')" rows="2" placeholder="Street, City, Province" required></textarea>
+                        <div class="mf-group">
+                            <label>Province *</label>
+                            <select :value="editModal.user.address_province" @change="editModal.user.address_province = $event.target.value; loadCities()" :disabled="!addressProvinces.length">
+                                <option value="">Select province</option>
+                                <template x-for="p in addressProvinces" :key="p.code">
+                                    <option :value="p.name" x-text="p.name" :selected="p.name === editModal.user.address_province"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="mf-group">
+                            <label>City / Municipality *</label>
+                            <select :value="editModal.user.address_city" @change="editModal.user.address_city = $event.target.value; loadBarangays()" :disabled="!editModal.user.address_province || loadingCities">
+                                <option value="" x-text="loadingCities ? 'Loading...' : 'Select city/municipality'"></option>
+                                <template x-for="c in addressCities" :key="c.code">
+                                    <option :value="c.name" x-text="c.name" :selected="c.name === editModal.user.address_city"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mf-row">
+                        <div class="mf-group">
+                            <label>Barangay *</label>
+                            <select :value="editModal.user.address_barangay" @change="editModal.user.address_barangay = $event.target.value; buildAddress()" :disabled="!editModal.user.address_city || loadingBarangays">
+                                <option value="" x-text="loadingBarangays ? 'Loading...' : 'Select barangay'"></option>
+                                <template x-for="b in addressBarangays" :key="b.code">
+                                    <option :value="b.name" x-text="b.name" :selected="b.name === editModal.user.address_barangay"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="mf-group">
+                            <label>Street / House No. (Optional)</label>
+                            <input type="text" x-model="editModal.user.address_line" @input="buildAddress()" maxlength="120" placeholder="e.g. 123 Rizal St.">
+                        </div>
+                    </div>
+                    <div class="mf-row">
+                        <div class="mf-group mf-full" :class="{'is-invalid': errors.address, 'is-valid': editModal.user.address && !errors.address}">
+                            <label>Address Preview</label>
+                            <textarea x-model="editModal.user.address" rows="2" readonly placeholder="Select province, city, and barangay"></textarea>
                             <div class="error-message" x-text="errors.address"></div>
                         </div>
                     </div>
-
                     <hr class="mf-divider">
-
-                    <p style="font-size: 11px; color: #6b7280; font-style: italic; margin-bottom: 12px;">* Please fill out all required fields marked with an asterisk.</p>
-
-                    <!-- Row 5: Role + Branch -->
                     <div class="mf-row">
                         <div class="mf-group">
                             <label>Role *</label>
-                            <select x-model="viewModal.user.role" required>
+                            <select x-model="editModal.user.role" required>
                                 <option value="Staff">Staff</option>
+                                <option value="Manager">Manager</option>
                                 <option value="Admin">Admin</option>
                             </select>
                         </div>
-                        <div class="mf-group" x-show="viewModal.user.role === 'Staff'">
+                        <div class="mf-group" x-show="editModal.user.role === 'Staff' || editModal.user.role === 'Manager'">
                             <label>Branch Assignment</label>
-                            <select x-model="viewModal.user.branch_id">
+                            <select x-model="editModal.user.branch_id">
                                 <option value="">-- No Branch --</option>
                                 <?php foreach ($branches as $branch): ?>
                                     <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="mf-group" x-show="viewModal.user.role === 'Admin'">
-                            <label>Branch</label>
-                            <input type="text" value="All Branches" disabled>
-                        </div>
+                        <div class="mf-group" x-show="editModal.user.role === 'Admin'"><label>Branch</label><input type="text" value="All Branches" disabled></div>
                     </div>
-
-                    <!-- Row 6: Account Status (dropdown) + Member Since -->
                     <div class="mf-row">
                         <div class="mf-group">
                             <label>Account Status</label>
-                            <select x-model="viewModal.user.status">
+                            <select x-model="editModal.user.status">
                                 <option value="Activated">Activated</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Deactivated">Deactivated</option>
                             </select>
                         </div>
-                        <div class="mf-group">
-                            <label>Member Since</label>
-                            <input type="text" :value="viewModal.user ? new Date(viewModal.user.created_at).toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}) : ''" disabled>
-                        </div>
+                        <div class="mf-group"><label>Member Since</label><input type="text" :value="editModal.user.created_at ? new Date(editModal.user.created_at).toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}) : ''" disabled></div>
                     </div>
-
                     <div class="mf-footer">
-                        <button type="button" @click="viewModal.isOpen = false" class="mf-btn-cancel">Cancel</button>
-                        <button type="submit" class="mf-btn-save" :disabled="viewModal.saving || !isFormValid" x-text="viewModal.saving ? 'Saving...' : 'Save Changes'"></button>
+                        <button type="button" @click="editModal.isOpen = false" class="mf-btn-outline blue">Cancel</button>
+                        <button type="submit" class="mf-btn-outline teal" :disabled="editModal.saving || !isEditFormValid" x-text="editModal.saving ? 'Saving...' : 'Save Changes'"></button>
                     </div>
                 </form>
             </div>
         </template>
+    </div>
+</div>
+
+<!-- Activate Account Confirmation Modal -->
+<div x-show="activateConfirm.isOpen" x-cloak class="modal-overlay" :class="{'is-open': activateConfirm.isOpen}" @click.self="activateConfirm.isOpen = false">
+    <div class="modal-box" style="max-width:400px;" @click.stop>
+        <div class="modal-hdr">
+            <h2>Activate Account</h2>
+            <button @click="activateConfirm.isOpen = false">&times;</button>
+        </div>
+        <div class="modal-bdy">
+            <p style="margin:0 0 20px 0; color:#374151;">Are you sure you want to activate this account? The staff will be notified via email and can log in.</p>
+            <div class="mf-footer" style="border:none; padding:0;">
+                <button type="button" @click="activateConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
+                <button type="button" @click="confirmActivateUser()" class="mf-btn-outline teal">Activate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deactivate Account Confirmation Modal -->
+<div x-show="deactivateConfirm.isOpen" x-cloak class="modal-overlay" :class="{'is-open': deactivateConfirm.isOpen}" @click.self="deactivateConfirm.isOpen = false">
+    <div class="modal-box" style="max-width:400px;" @click.stop>
+        <div class="modal-hdr">
+            <h2>Deactivate Account</h2>
+            <button @click="deactivateConfirm.isOpen = false">&times;</button>
+        </div>
+        <div class="modal-bdy">
+            <p style="margin:0 0 20px 0; color:#374151;">Are you sure you want to deactivate this account? The user will no longer be able to log in.</p>
+            <div class="mf-footer" style="border:none; padding:0;">
+                <button type="button" @click="deactivateConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
+                <button type="button" @click="confirmDeactivateUser()" class="mf-btn-outline teal">Deactivate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resend Completion Link Modal (with admin notes) -->
+<div x-show="resendModal.isOpen" x-cloak class="modal-overlay" :class="{'is-open': resendModal.isOpen}" @click.self="resendModal.isOpen = false">
+    <div class="modal-box" style="max-width:420px;" @click.stop>
+        <div class="modal-hdr">
+            <h2>Send Completion Link Again</h2>
+            <button @click="resendModal.isOpen = false">&times;</button>
+        </div>
+        <div class="modal-bdy">
+            <p style="margin:0 0 16px 0; font-size:13px; color:#6b7280;">Select what needs to be fixed so the staff is aware:</p>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                    <input type="checkbox" x-model="resendModal.notes.name"> Name
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                    <input type="checkbox" x-model="resendModal.notes.address"> Address
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                    <input type="checkbox" x-model="resendModal.notes.idImage"> ID Image
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                    <input type="checkbox" x-model="resendModal.notes.contact"> Contact Number
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                    <input type="checkbox" x-model="resendModal.notes.other"> Other
+                </label>
+                <div x-show="resendModal.notes.other" style="margin-left:24px;">
+                    <input type="text" x-model="resendModal.notes.otherText" placeholder="Specify..." style="width:100%; padding:8px 12px; border:1px solid #e5e7eb; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+            <div class="mf-footer" style="border:none; padding:0;">
+                <button type="button" @click="resendModal.isOpen = false" class="mf-btn-outline blue" :disabled="resendModal.sending">Cancel</button>
+                <button type="button" @click="sendResendLink()" class="mf-btn-outline teal" :disabled="resendModal.sending" x-text="resendModal.sending ? 'Sending...' : 'Send Link'"></button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1190,25 +1460,52 @@ function userManagement() {
     return {
         viewModal: {
             isOpen: false,
+            loading: false,
+            user: null
+        },
+        activateConfirm: {
+            isOpen: false,
+            userId: null
+        },
+        deactivateConfirm: {
+            isOpen: false,
+            userId: null
+        },
+        resendModal: {
+            isOpen: false,
+            userId: null,
+            sending: false,
+            notes: { name: false, address: false, idImage: false, contact: false, other: false, otherText: '' }
+        },
+        editModal: {
+            isOpen: false,
+            loading: false,
+            saving: false,
             error: '',
             success: '',
             user: null
         },
         errors: {
             first_name: '',
+            middle_name: '',
             last_name: '',
             contact_number: '',
             address: '',
             dob: ''
         },
+        addressProvinces: [],
+        addressCities: [],
+        addressBarangays: [],
+        loadingCities: false,
+        loadingBarangays: false,
 
-        get isFormValid() {
-            if (!this.viewModal.user) return false;
-            return this.viewModal.user.first_name && 
-                   this.viewModal.user.last_name && 
-                   this.viewModal.user.contact_number && 
-                   this.viewModal.user.address && 
-                   this.viewModal.user.dob &&
+        get isEditFormValid() {
+            if (!this.editModal.user) return false;
+            return this.editModal.user.first_name && 
+                   this.editModal.user.last_name && 
+                   this.editModal.user.contact_number && 
+                   this.editModal.user.address && 
+                   this.editModal.user.dob &&
                    !this.errors.first_name && 
                    !this.errors.last_name && 
                    !this.errors.contact_number && 
@@ -1216,28 +1513,36 @@ function userManagement() {
                    !this.errors.dob;
         },
 
+        formatName(name) {
+            if (!name) return '';
+            return name.replace(/\d/g, '').replace(/\s{2,}/g, ' ')
+                .split(' ').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '').filter(Boolean).join(' ');
+        },
+
         validateField(id) {
-            if (!this.viewModal.user) return;
-            let val = this.viewModal.user[id] || '';
+            const user = this.editModal.user;
+            if (!user) return;
+            let val = user[id] || '';
             
-            // Auto formatting for names
-            if (id === 'first_name' || id === 'last_name') {
-                if (val.startsWith(' ')) val = val.trimStart();
-                if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
-                this.viewModal.user[id] = val;
+            if (id === 'first_name' || id === 'last_name' || id === 'middle_name') {
+                user[id] = this.formatName(val);
+                val = user[id];
             }
-
-            if (val.startsWith(' ')) {
-                this.viewModal.user[id] = val.trimStart();
-                val = this.viewModal.user[id];
-            }
-
             const trimVal = val.trim();
 
             if (id === 'first_name' || id === 'last_name') {
                 if (!trimVal) this.errors[id] = "Required.";
-                else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(trimVal)) this.errors[id] = "Letters only.";
-                else if (trimVal.length < 2 || trimVal.length > 50) this.errors[id] = "2-50 chars.";
+                else if (/\s{2,}/.test(trimVal)) this.errors[id] = "Names cannot have more than one space in a row.";
+                else if (/[0-9]/.test(trimVal)) this.errors[id] = "Names must not contain numbers.";
+                else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(trimVal)) this.errors[id] = "Names must contain only letters.";
+                else if (trimVal.length < 2 || trimVal.length > 50) this.errors[id] = "Names must be between 2 and 50 characters.";
+                else this.errors[id] = '';
+            }
+            else if (id === 'middle_name') {
+                if (trimVal && /\s{2,}/.test(trimVal)) this.errors[id] = "Middle name cannot have more than one space in a row.";
+                else if (trimVal && /[0-9]/.test(trimVal)) this.errors[id] = "Middle name must not contain numbers.";
+                else if (trimVal && !/^[A-Za-z]+( [A-Za-z]+)*$/.test(trimVal)) this.errors[id] = "Middle name must contain only letters.";
+                else if (trimVal && (trimVal.length < 2 || trimVal.length > 50)) this.errors[id] = "Middle name must be between 2 and 50 characters.";
                 else this.errors[id] = '';
             }
             else if (id === 'contact_number') {
@@ -1248,10 +1553,11 @@ function userManagement() {
                 else this.errors[id] = '';
             }
             else if (id === 'address') {
-                if (!trimVal) this.errors[id] = "Required.";
-                else if (trimVal.length < 5) this.errors[id] = "Min 5 chars.";
-                else if (trimVal.length > 150) this.errors[id] = "Max 150 chars.";
-                else this.errors[id] = '';
+                const addr = user.address || '';
+                if (!addr.trim()) this.errors.address = "Required.";
+                else if (addr.length < 5) this.errors.address = "Min 5 chars.";
+                else if (addr.length > 200) this.errors.address = "Max 200 chars.";
+                else this.errors.address = '';
             }
             else if (id === 'dob') {
                 if (!val) {
@@ -1265,53 +1571,249 @@ function userManagement() {
                 if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
                 
                 if (bday > today) this.errors.dob = "Cannot be future.";
-                else if (age < 13) this.errors.dob = "Min 13 years old.";
+                else if (age < 18) this.errors.dob = "Min 18 years old.";
                 else this.errors.dob = '';
             }
+        },
+
+        async loadProvinces() {
+            try {
+                const r = await fetch('/printflow/admin/api_address.php?address_action=provinces');
+                const d = await r.json();
+                if (d.success && d.data) this.addressProvinces = d.data;
+                return d.data || [];
+            } catch (e) { console.error('Address load failed:', e); return []; }
+        },
+        async loadCities() {
+            const pName = this.editModal.user?.address_province || '';
+            const p = this.addressProvinces.find(x => x.name.toLowerCase() === pName.toLowerCase());
+            const code = p?.code || '';
+            if (!code) { this.addressCities = []; this.addressBarangays = []; return; }
+            this.loadingCities = true;
+            try {
+                const r = await fetch('/printflow/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(code));
+                const d = await r.json();
+                if (d.success && d.data) this.addressCities = d.data;
+                this.addressBarangays = [];
+                this.buildAddress();
+            } catch (e) { console.error('Cities load failed:', e); }
+            finally { this.loadingCities = false; }
+        },
+        async loadBarangays() {
+            const cName = this.editModal.user?.address_city || '';
+            const c = this.addressCities.find(x => x.name.toLowerCase() === cName.toLowerCase());
+            const code = c?.code || '';
+            if (!code) { this.addressBarangays = []; this.buildAddress(); return; }
+            this.loadingBarangays = true;
+            try {
+                const r = await fetch('/printflow/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(code));
+                const d = await r.json();
+                if (d.success && d.data) this.addressBarangays = d.data;
+                this.buildAddress();
+            } catch (e) { console.error('Barangays load failed:', e); }
+            finally { this.loadingBarangays = false; }
+        },
+        buildAddress() {
+            const u = this.editModal.user;
+            if (!u) return;
+            const p = [(u.address_line || '').trim(), u.address_barangay ? 'Brgy. ' + u.address_barangay : '', u.address_city || '', u.address_province || ''].filter(Boolean);
+            u.address = p.length ? p.join(', ') + ', Philippines' : '';
+            this.validateField('address');
+        },
+        parseAddressFromString(addr) {
+            const parts = (addr || '').split(',').map(p => p.trim()).filter(Boolean);
+            if (parts.length >= 4 && parts[parts.length - 1].toLowerCase() === 'philippines') {
+                const province = parts[parts.length - 2] || '';
+                const city = parts[parts.length - 3] || '';
+                const barangayRaw = parts[parts.length - 4] || '';
+                const barangay = barangayRaw.replace(/^Brgy\.?\s*/i, '').trim();
+                const addressLine = parts.slice(0, -4).join(', ').trim();
+                return { address_province: province, address_city: city, address_barangay: barangay, address_line: addressLine };
+            }
+            return { address_province: '', address_city: '', address_barangay: '', address_line: addr || '' };
         },
         
         async viewUser(userId) {
             this.viewModal.isOpen = true;
             this.viewModal.loading = true;
-            this.viewModal.error = '';
-            this.viewModal.success = '';
             this.viewModal.user = null;
+            this.editModal.isOpen = false;
 
             try {
                 const res = await fetch('/printflow/admin/api_user_details.php?id=' + userId);
                 const data = await res.json();
                 if (data.success) {
                     this.viewModal.user = data.user;
-                } else {
-                    this.viewModal.error = data.error || 'Failed to load user.';
                 }
             } catch (e) {
-                this.viewModal.error = 'Network error.';
+                console.error(e);
             } finally {
                 this.viewModal.loading = false;
             }
         },
 
+        async editUser(userId) {
+            this.editModal.isOpen = true;
+            this.editModal.loading = true;
+            this.editModal.error = '';
+            this.editModal.success = '';
+            this.editModal.user = null;
+            this.viewModal.isOpen = false;
+            this.errors = { first_name: '', middle_name: '', last_name: '', contact_number: '', address: '', dob: '' };
+
+            try {
+                if (!this.addressProvinces.length) await this.loadProvinces();
+                const res = await fetch('/printflow/admin/api_user_details.php?id=' + userId);
+                const data = await res.json();
+                if (data.success) {
+                    const u = data.user;
+                    const parsed = this.parseAddressFromString(u.address || '');
+                    u.address_province = parsed.address_province;
+                    u.address_city = parsed.address_city;
+                    u.address_barangay = parsed.address_barangay;
+                    u.address_line = parsed.address_line;
+                    this.editModal.user = u;
+                    if (parsed.address_province) await this.loadCities();
+                    if (parsed.address_city) await this.loadBarangays();
+                    this.buildAddress();
+                } else {
+                    this.editModal.error = data.error || 'Failed to load user.';
+                }
+            } catch (e) {
+                this.editModal.error = 'Network error.';
+            } finally {
+                this.editModal.loading = false;
+            }
+        },
+
+        showActivateConfirm(userId) {
+            this.activateConfirm.userId = userId;
+            this.activateConfirm.isOpen = true;
+        },
+        showDeactivateConfirm(userId) {
+            this.deactivateConfirm.userId = userId;
+            this.deactivateConfirm.isOpen = true;
+        },
+        async confirmActivateUser() {
+            const userId = this.activateConfirm.userId;
+            if (!userId) return;
+            this.activateConfirm.isOpen = false;
+            try {
+                const res = await fetch('/printflow/admin/api_update_user_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'activate_account',
+                        user_id: userId,
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.viewModal.isOpen = false;
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to activate.');
+                }
+            } catch (e) {
+                alert('Network error.');
+            }
+        },
+        async confirmDeactivateUser() {
+            const userId = this.deactivateConfirm.userId;
+            if (!userId) return;
+            this.deactivateConfirm.isOpen = false;
+            try {
+                const res = await fetch('/printflow/admin/api_update_user_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'toggle_status',
+                        user_id: userId,
+                        current_status: 'Activated',
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.viewModal.isOpen = false;
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to deactivate.');
+                }
+            } catch (e) {
+                alert('Network error.');
+            }
+        },
+        openResendModal(userId) {
+            this.resendModal.userId = userId;
+            this.resendModal.notes = { name: false, address: false, idImage: false, contact: false, other: false, otherText: '' };
+            this.resendModal.isOpen = true;
+        },
+        async sendResendLink() {
+            const userId = this.resendModal.userId;
+            if (!userId) return;
+            this.resendModal.sending = true;
+            const n = this.resendModal.notes;
+            const admin_notes = [];
+            if (n.name) admin_notes.push('Name');
+            if (n.address) admin_notes.push('Address');
+            if (n.idImage) admin_notes.push('ID Image');
+            if (n.contact) admin_notes.push('Contact Number');
+            if (n.other && n.otherText.trim()) admin_notes.push('Other: ' + n.otherText.trim());
+            else if (n.other) admin_notes.push('Other');
+            try {
+                const res = await fetch('/printflow/admin/api_update_user_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'resend_completion_link',
+                        user_id: userId,
+                        admin_notes: admin_notes,
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    this.resendModal.isOpen = false;
+                    this.resendModal.sending = false;
+                    this.viewModal.isOpen = false;
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to send.');
+                }
+            } catch (e) {
+                alert('Network error.');
+            } finally {
+                this.resendModal.sending = false;
+            }
+        },
         async saveUserChanges() {
-            if (!this.viewModal.user) return;
-            this.viewModal.saving = true;
-            this.viewModal.error = '';
-            this.viewModal.success = '';
+            if (!this.editModal.user) return;
+            this.buildAddress();
+            if (!this.editModal.user.address || this.editModal.user.address.length < 5) {
+                this.errors.address = 'Please complete the address (province, city, barangay).';
+                return;
+            }
+            this.editModal.saving = true;
+            this.editModal.error = '';
+            this.editModal.success = '';
 
             try {
                 const payload = {
                     action: 'update_info',
-                    user_id: this.viewModal.user.user_id,
-                    first_name: this.viewModal.user.first_name,
-                    middle_name: this.viewModal.user.middle_name || '',
-                    last_name: this.viewModal.user.last_name,
-                    contact_number: this.viewModal.user.contact_number || '',
-                    address: this.viewModal.user.address || '',
-                    gender: this.viewModal.user.gender || '',
-                    dob: this.viewModal.user.dob || '',
-                    role: this.viewModal.user.role,
-                    branch_id: this.viewModal.user.branch_id || '',
-                    status: this.viewModal.user.status,
+                    user_id: this.editModal.user.user_id,
+                    first_name: this.editModal.user.first_name,
+                    middle_name: this.editModal.user.middle_name || '',
+                    last_name: this.editModal.user.last_name,
+                    contact_number: this.editModal.user.contact_number || '',
+                    address: this.editModal.user.address || '',
+                    gender: this.editModal.user.gender || '',
+                    dob: this.editModal.user.dob || '',
+                    role: this.editModal.user.role,
+                    branch_id: this.editModal.user.branch_id || '',
+                    status: this.editModal.user.status,
                     csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
                 };
 
@@ -1323,49 +1825,15 @@ function userManagement() {
                 const data = await res.json();
                 
                 if (data.success) {
-                    this.viewModal.success = data.message;
+                    this.editModal.success = data.message;
                     setTimeout(() => location.reload(), 1000);
                 } else {
-                    this.viewModal.error = data.error || 'Update failed.';
+                    this.editModal.error = data.error || 'Update failed.';
                 }
             } catch (e) {
-                this.viewModal.error = 'Network error.';
+                this.editModal.error = 'Network error.';
             } finally {
-                this.viewModal.saving = false;
-            }
-        },
-
-        async toggleStatus() {
-            if (!this.viewModal.user) return;
-            if (!confirm(`Are you sure you want to ${this.viewModal.user.status === 'Activated' ? 'deactivate' : 'activate'} this user?`)) return;
-            
-            this.viewModal.error = '';
-            this.viewModal.success = '';
-            
-            try {
-                const payload = {
-                    action: 'toggle_status',
-                    user_id: this.viewModal.user.user_id,
-                    current_status: this.viewModal.user.status,
-                    csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
-                };
-
-                const res = await fetch('/printflow/admin/api_update_user_status.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    this.viewModal.user.status = data.new_status;
-                    this.viewModal.success = data.message;
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    this.viewModal.error = data.error || 'Status toggle failed.';
-                }
-            } catch (e) {
-                this.viewModal.error = 'Network error.';
+                this.editModal.saving = false;
             }
         }
     };
@@ -1373,14 +1841,12 @@ function userManagement() {
 
 // Global expose to bridge AJAX table clicks to userManagement Alpine component
 document.addEventListener('alpine:init', () => {
-    window._viewUser = (id) => {
+    const getData = () => {
         const el = document.querySelector('[x-data="userManagement()"]');
-        if (el && el.__x && el.__x.$data) {
-            el.__x.$data.viewUser(id);
-        } else if (el && el._x_dataStack) {
-             el._x_dataStack[0].viewUser(id);
-        }
+        return (el && el.__x && el.__x.$data) ? el.__x.$data : (el && el._x_dataStack ? el._x_dataStack[0] : null);
     };
+    window._viewUser = (id) => { const d = getData(); if (d) d.viewUser(id); };
+    window._editUser = (id) => { const d = getData(); if (d) d.editUser(id); };
 });
 </script>
 </body>

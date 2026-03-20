@@ -14,7 +14,7 @@
  */
 
 if (!defined('SESSION_LIFETIME')) {
-    define('SESSION_LIFETIME', 1800); // 30-minute inactivity timeout (seconds)
+    define('SESSION_LIFETIME', 3600); // 1-hour inactivity timeout (seconds)
 }
 
 if (!defined('SESSION_HMAC_SECRET')) {
@@ -52,7 +52,7 @@ class SessionManager
             'domain'   => '',
             'secure'   => self::isHttps(),         // HTTPS-only in production
             'httponly' => true,                    // Inaccessible to JavaScript
-            'samesite' => 'Strict',                // Cookie-level CSRF protection
+            'samesite' => 'Lax',                   // Allow cookies on top-level nav (e.g. after login redirect)
         ]);
 
         // Prefer longer, harder-to-guess session IDs

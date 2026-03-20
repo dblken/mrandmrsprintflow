@@ -13,7 +13,7 @@ $availableServices = ServiceAvailabilityChecker::getAvailableServices();
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php'; 
 ?>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script defer src="/printflow/public/assets/js/alpine.min.js"></script>
 
 <div class="py-8" x-data="orderSystem()" x-init="initCustomer()">
     <div class="container mx-auto px-4" style="max-width:1200px;">

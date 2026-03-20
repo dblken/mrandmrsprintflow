@@ -161,3 +161,4 @@ $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Sta
 ?>
 <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
 <script src="/printflow/public/assets/js/notifications.js" defer></script>
+<script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>

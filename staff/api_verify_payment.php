@@ -50,7 +50,7 @@ if ($action === 'Approve') {
         log_activity($staff_id, 'Payment Approved', "Approved payment for Order #{$order_id}");
     }
 } else {
-    // Rejected - move back to To Pay or Pending Review
+    // Rejected - move back to To Pay or Pending
     $new_status = 'To Pay';
     
     // Clear proof so they can re-upload

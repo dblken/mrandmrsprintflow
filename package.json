@@ -4,7 +4,8 @@
     "description": "Printing Shop PWA",
     "scripts": {
         "build": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css",
-        "watch": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css --watch"
+        "watch": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css --watch",
+        "build:phone": "cd phone-verify-app && npm run build"
     },
     "devDependencies": {
         "tailwindcss": "^3.4.15"

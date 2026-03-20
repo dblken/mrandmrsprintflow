@@ -47,6 +47,12 @@ define('TWILIO_PHONE_NUMBER', '+1234567890'); // Your Twilio phone number
 define('SMS_ENABLED', false); // Set to true when SMS is configured
 
 // ==========================================
+// PHONE VERIFICATION (APILayer NumVerify)
+// ==========================================
+// For Philippine mobile validation. Get key: https://apilayer.com/marketplace/number_verification-api
+define('APILAYER_NUMBER_VERIFICATION_API_KEY', getenv('APILAYER_NUMBER_KEY') ?: 'tYQvyTsrmK5ZJ90eVGL1EMFz1y3YKG1U');
+
+// ==========================================
 // ENVIRONMENT & DEBUGGING
 // ==========================================
 
