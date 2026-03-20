@@ -130,7 +130,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>

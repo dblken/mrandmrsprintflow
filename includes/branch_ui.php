@@ -28,87 +28,50 @@ function render_branch_css(): void { ?>
     align-items: center;
 }
 .branch-selector-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
-    background: #f9fafb;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 9px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-    cursor: pointer;
-    transition: all .18s;
-    white-space: nowrap;
-    min-width: 160px;
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+    border: 1px solid #e5e7eb; background: #fff; border-radius: 8px;
+    font-size: 13px; font-weight: 500; color: #374151; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; min-width: 160px;
     justify-content: space-between;
 }
-.branch-selector-btn:hover {
-    border-color: #6366f1;
-    background: #eef2ff;
-    color: #4338ca;
-}
-.branch-selector-btn svg { flex-shrink: 0; }
+.branch-selector-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+.branch-selector-btn.open { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+
 .branch-dot {
-    width: 8px; height: 8px;
+    width: 6px; height: 6px;
     border-radius: 50%;
-    background: #6366f1;
+    background: #0d9488;
     flex-shrink: 0;
 }
-.branch-selector-btn.all-branches .branch-dot { background: #6366f1; }
 
 .branch-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 200px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
-    z-index: 9999;
-    padding: 6px;
+    position: absolute; top: calc(100% + 6px); right: 0;
+    min-width: 220px; background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    z-index: 9999; padding: 6px 0; overflow: hidden;
     display: none;
 }
 .branch-dropdown.open { display: block; }
 
 .branch-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: 7px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #374151;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background .12s;
+    display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+    font-size: 13px; color: #374151; cursor: pointer;
+    transition: background 0.1s; text-decoration: none;
 }
-.branch-dropdown-item:hover { background: #f3f4f6; }
+.branch-dropdown-item:hover { background: #f9fafb; }
 .branch-dropdown-item.active {
-    background: #eef2ff;
-    color: #4338ca;
-    font-weight: 700;
+    color: #0d9488; font-weight: 600; background: #f0fdfa;
 }
+.branch-dropdown-item .check { margin-left: auto; color: #0d9488; }
 .branch-dropdown-item .item-dot {
-    width: 9px; height: 9px;
+    width: 7px; height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
 }
-.branch-dropdown-divider {
-    height: 1px;
-    background: #f3f4f6;
-    margin: 4px 0;
-}
+.branch-dropdown-divider { height: 1px; background: #f3f4f6; margin: 6px 0; }
 .branch-dropdown-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: #9ca3af;
-    padding: 4px 12px 2px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: #9ca3af; padding: 6px 16px 2px;
 }
 
 /* ── Branch context banner ───────────────────────── */
@@ -182,18 +145,16 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
     $sep = (strpos($base_url, '?') !== false) ? '&' : '?';
 
     // Dot colour
-    $dot_color = ($selected === 'all') ? '#6366f1' : '#10b981';
-    $btn_class = ($selected === 'all') ? 'all-branches' : 'specific-branch';
-
+    $dot_color = '#0d9488'; // Fixed teal
     ?>
     <div class="branch-selector-wrap" id="branchSelectorWrap">
-        <button class="branch-selector-btn <?php echo $btn_class; ?>"
+        <button class="branch-selector-btn"
                 id="branchSelectorBtn"
                 type="button"
                 onclick="toggleBranchDropdown(event)"
                 title="Switch branch">
             <span style="display:flex;align-items:center;gap:8px;">
-                <span class="branch-dot" style="background:<?php echo $dot_color; ?>;"></span>
+                <span class="branch-dot"></span>
                 <span id="branchSelectorLabel"><?php echo $name; ?></span>
             </span>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,8 +167,11 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
             <div class="branch-dropdown-label">View Mode</div>
             <a class="branch-dropdown-item <?php echo $selected === 'all' ? 'active' : ''; ?>"
                href="<?php echo $base_url . $sep; ?>branch_id=all">
-                <span class="item-dot" style="background:#6366f1;"></span>
+                <span class="item-dot" style="background:#0d9488;"></span>
                 All Branches
+                <?php if ($selected === 'all'): ?>
+                    <svg class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <?php endif; ?>
             </a>
             <div class="branch-dropdown-divider"></div>
             <div class="branch-dropdown-label">Specific Branch</div>
@@ -217,19 +181,17 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
                 $bid = (int)$b['id'];
                 $bname = htmlspecialchars($b['branch_name']);
                 $is_active = ($selected === $bid);
-                // If non-admin and not allowed, skip
                 if ($is_admin === false && !in_array($bid, array_map('intval', $allowed), true)) continue;
-                // Cycle through badge colours
-                $colours = [
-                    '#6366f1','#10b981','#f59e0b','#7c3aed','#ef4444',
-                    '#3b82f6','#14b8a6','#f97316','#ec4899','#84cc16',
-                ];
+                $colours = ['#6366f1','#10b981','#f59e0b','#7c3aed','#ef4444','#3b82f6','#14b8a6','#f97316','#ec4899','#84cc16'];
                 $dot = $colours[$idx % count($colours)];
             ?>
             <a class="branch-dropdown-item <?php echo $is_active ? 'active' : ''; ?>"
                href="<?php echo $base_url . $sep; ?>branch_id=<?php echo $bid; ?>">
                 <span class="item-dot" style="background:<?php echo $dot; ?>;"></span>
                 <?php echo $bname; ?>
+                <?php if ($is_active): ?>
+                    <svg class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <?php endif; ?>
             </a>
             <?php endforeach; ?>
         </div>
@@ -239,13 +201,20 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
     function toggleBranchDropdown(e) {
         e.stopPropagation();
         var dd = document.getElementById('branchDropdown');
+        var btn = document.getElementById('branchSelectorBtn');
+        var isOpen = dd.classList.contains('open');
+        
+        // Close others if they exist (unlikely in header, but for safety)
         dd.classList.toggle('open');
+        btn.classList.toggle('open');
     }
     document.addEventListener('click', function(e) {
         var wrap = document.getElementById('branchSelectorWrap');
         if (wrap && !wrap.contains(e.target)) {
             var dd = document.getElementById('branchDropdown');
+            var btn = document.getElementById('branchSelectorBtn');
             if (dd) dd.classList.remove('open');
+            if (btn) btn.classList.remove('open');
         }
     });
     </script>

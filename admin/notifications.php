@@ -83,195 +83,130 @@ $page_title = 'Notifications - Admin';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-        .notif-tabs {
+        /* ── Tab Bar ───────────────────────────────── */
+        .notif-tab-bar {
             display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #e5e7eb;
+            gap: 0;
+            border-bottom: 1px solid #e5e7eb;
             overflow-x: auto;
-            padding-bottom: 0;
+            margin-bottom: 0;
         }
+        .notif-tab-bar::-webkit-scrollbar { display: none; }
         .notif-tab {
-            padding: 0.75rem 1.25rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 500;
             color: #6b7280;
             background: none;
             border: none;
-            border-bottom: 3px solid transparent;
+            border-bottom: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
             white-space: nowrap;
             text-decoration: none;
-            margin-bottom: -2px;
+            margin-bottom: -1px;
         }
-        .notif-tab:hover {
-            color: #111827;
-            border-bottom-color: #d1d5db;
+        .notif-tab:hover { color: #111827; border-bottom-color: #9ca3af; }
+        .notif-tab.active { color: #111827; font-weight: 600; border-bottom-color: #111827; }
+        .notif-tab .tab-count {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 20px; height: 20px; padding: 0 6px;
+            background: #f3f4f6; color: #6b7280;
+            border-radius: 20px; font-size: 11px; font-weight: 700;
         }
-        .notif-tab.active {
-            color: #6366f1;
-            border-bottom-color: #6366f1;
-        }
-        .notif-card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 1.25rem;
-            margin-bottom: 0.75rem;
-            transition: all 0.2s;
+        .notif-tab.active .tab-count { background: #111827; color: #fff; }
+        .notif-tab.has-unread .tab-count { background: #ef4444; color: #fff; }
+
+        /* ── Search ───────────────────────────────── */
+        .notif-search-wrap {
             position: relative;
-            border-left: 4px solid transparent;
         }
-        .notif-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            transform: translateY(-1px);
+        .notif-search-wrap svg {
+            position: absolute; left: 12px; top: 50%;
+            transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af;
         }
-        .notif-card.unread {
-            background: #f0f9ff;
-            border-left-color: #53C5E0;
+        .notif-search-wrap input {
+            width: 100%; height: 38px;
+            padding: 0 12px 0 36px;
+            border: 1px solid #e5e7eb; border-radius: 10px;
+            font-size: 13px; outline: none; transition: all 0.2s;
+            background: #fff; color: #374151;
         }
-        .notif-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+        .notif-search-wrap input:focus { border-color: #374151; box-shadow: 0 0 0 3px rgba(17,24,39,0.06); }
+
+        /* ── Notification Row ──────────────────────── */
+        .notif-item {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-size: 1.25rem;
-        }
-        .notif-badge.order { background: #dbeafe; color: #1e40af; }
-        .notif-badge.stock { background: #fed7aa; color: #c2410c; }
-        .notif-badge.system { background: #e5e7eb; color: #374151; }
-        .notif-badge.message { background: #e9d5ff; color: #7e22ce; }
-        .notif-card-link { text-decoration: none; display: block; color: inherit; }
-        .notif-header {
-            display: flex;
-            align-items: start;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-        .notif-content {
-            flex: 1;
-        }
-        .notif-title {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 0.25rem;
-        }
-        .notif-message {
-            font-size: 0.875rem;
-            color: #6b7280;
-            line-height: 1.5;
-        }
-        .notif-meta {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 0.75rem;
-            font-size: 0.8125rem;
-            color: #9ca3af;
-        }
-        .notif-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.25rem 0.625rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .notif-badge.order { background: #dbeafe; color: #1e40af; }
-        .notif-badge.stock { background: #fed7aa; color: #c2410c; }
-        .notif-badge.system { background: #e5e7eb; color: #374151; }
-        .notif-badge.message { background: #e9d5ff; color: #7e22ce; }
-        .notif-badge.new { background: #3b82f6; color: white; }
-        .notif-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-        }
-        .notif-btn {
-            padding: 0.375rem 0.75rem;
-            font-size: 0.8125rem;
-            font-weight: 600;
-            border-radius: 6px;
-            border: none;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 0;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.1s;
             cursor: pointer;
-            transition: all 0.2s;
         }
-        .notif-btn-read {
-            background: #f3f4f6;
-            color: #374151;
+        .notif-item:last-child { border-bottom: none; }
+        .notif-item:hover { background: #fafafa; margin: 0 -20px; padding: 16px 20px; border-radius: 8px; }
+        .notif-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #3b82f6; flex-shrink: 0; margin-top: 6px;
         }
-        .notif-btn-read:hover {
-            background: #e5e7eb;
+        .notif-dot.read { background: transparent; border: 2px solid #e5e7eb; }
+        .notif-icon-wrap {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .notif-btn-delete {
-            background: #fef2f2;
-            color: #dc2626;
+        .notif-icon-wrap.order { background: #dbeafe; color: #1e40af; }
+        .notif-icon-wrap.stock { background: #fef3c7; color: #b45309; }
+        .notif-icon-wrap.system { background: #f3f4f6; color: #374151; }
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-msg {
+            font-size: 13px; font-weight: 500; color: #111827;
+            line-height: 1.5; margin-bottom: 4px;
         }
-        .notif-btn-delete:hover {
-            background: #fee2e2;
+        .notif-item.read .notif-msg { color: #6b7280; font-weight: 400; }
+        .notif-time {
+            font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 6px;
         }
-        .search-box {
-            position: relative;
-            margin-bottom: 1.5rem;
+        .type-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
         }
-        .search-box input {
-            width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.75rem;
-            border: 1.5px solid #e5e7eb;
-            border-radius: 10px;
-            font-size: 0.9375rem;
-            outline: none;
-            transition: all 0.2s;
+        .type-pill.order { background: #dbeafe; color: #1e40af; }
+        .type-pill.stock { background: #fef3c7; color: #b45309; }
+        .type-pill.system { background: #f3f4f6; color: #374151; }
+        .notif-actions-wrap {
+            display: flex; gap: 6px; flex-shrink: 0; align-items: flex-start; padding-top: 2px;
         }
-        .search-box input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        .notif-action-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+            border: 1px solid #e5e7eb; background: #fff; color: #374151; cursor: pointer; transition: all 0.15s;
         }
-        .search-box svg {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 18px;
-            height: 18px;
-            color: #9ca3af;
+        .notif-action-btn:hover { background: #f3f4f6; }
+        .notif-action-btn.danger { color: #dc2626; border-color: #fecaca; background: #fff5f5; }
+        .notif-action-btn.danger:hover { background: #fee2e2; }
+
+        /* ── Group Label ──────────────────────────── */
+        .notif-group-label {
+            font-size: 11px; font-weight: 700; color: #9ca3af;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            padding: 16px 0 8px;
         }
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
+
+        /* ── Empty State ──────────────────────────── */
+        .empty-notif {
+            text-align: center; padding: 60px 20px;
         }
-        .empty-state-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
-            background: #f3f4f6;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
+        .empty-notif-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: #f3f4f6; margin: 0 auto 16px;
+            display: flex; align-items: center; justify-content: center;
         }
-        .empty-state-title {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 0.5rem;
-        }
-        .empty-state-text {
-            font-size: 0.9375rem;
-            color: #6b7280;
-        }
-        .header-actions {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
+        .empty-notif-title { font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 6px; }
+        .empty-notif-text { font-size: 13px; color: #9ca3af; }
     </style>
 </head>
 <body>
@@ -282,145 +217,133 @@ $page_title = 'Notifications - Admin';
 
     <!-- Main Content -->
     <div class="main-content">
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <header>
             <div>
-                <h1 class="page-title" style="margin-bottom: 0.25rem;">Notifications</h1>
-                <p style="color: #6b7280; font-size: 0.9375rem;">
-                    <?php echo $unread_count; ?> unread notification<?php echo $unread_count !== 1 ? 's' : ''; ?>
-                </p>
+                <h1 class="page-title" style="margin-bottom:4px;">Notifications</h1>
+                <p style="font-size:14px;color:#6b7280;"><?php echo $unread_count; ?> unread notification<?php echo $unread_count !== 1 ? 's' : ''; ?></p>
             </div>
-            <div class="header-actions">
-                <button onclick="refreshNotifications()" class="btn-secondary" style="padding: 0.625rem 1rem;">
-                    <svg style="width: 16px; height: 16px; display: inline-block; margin-right: 0.375rem; vertical-align: middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="refreshNotifications()" class="btn-secondary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                     Refresh
                 </button>
                 <?php if ($unread_count > 0): ?>
-                <a href="?action=mark_all_read" class="btn-primary" style="padding: 0.625rem 1rem;">
-                    Mark All as Read
+                <a href="?action=mark_all_read" class="btn-primary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Mark All Read
                 </a>
                 <?php endif; ?>
             </div>
         </header>
 
         <main>
-            <!-- Search -->
-            <div class="search-box">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                <input type="text" id="search-input" placeholder="Search notifications..." value="<?php echo htmlspecialchars($search); ?>">
-            </div>
+            <div class="card" style="padding:0;overflow:hidden;">
+                <!-- Top Bar: Search + Tabs -->
+                <div style="padding:20px 20px 0;">
+                    <!-- Search -->
+                    <div class="notif-search-wrap" style="margin-bottom:16px;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="text" id="search-input" placeholder="Search notifications..." value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
 
-            <!-- Filter Tabs -->
-            <div class="notif-tabs">
-                <a href="?filter=all" class="notif-tab <?php echo $filter === 'all' ? 'active' : ''; ?>">
-                    All (<?php echo count($notifications); ?>)
-                </a>
-                <a href="?filter=unread" class="notif-tab <?php echo $filter === 'unread' ? 'active' : ''; ?>">
-                    Unread (<?php echo $unread_count; ?>)
-                </a>
-                <a href="?filter=Order" class="notif-tab <?php echo $filter === 'Order' ? 'active' : ''; ?>">
-                    Orders
-                </a>
-                <a href="?filter=Stock" class="notif-tab <?php echo $filter === 'Stock' ? 'active' : ''; ?>">
-                    Inventory
-                </a>
-                <a href="?filter=System" class="notif-tab <?php echo $filter === 'System' ? 'active' : ''; ?>">
-                    System
-                </a>
-            </div>
-
-            <!-- Notifications List -->
-            <?php if (empty($notifications)): ?>
-                <div class="card">
-                    <div class="empty-state">
-                        <h2 class="empty-state-title">No notifications</h2>
-                        <p class="empty-state-text">
-                            <?php if ($filter === 'unread'): ?>
-                                You're all caught up! No unread notifications.
-                            <?php elseif (!empty($search)): ?>
-                                No notifications found matching "<?php echo htmlspecialchars($search); ?>"
-                            <?php else: ?>
-                                You don't have any notifications yet.
-                            <?php endif; ?>
-                        </p>
+                    <!-- Tab Bar -->
+                    <div class="notif-tab-bar">
+                        <a href="?filter=all<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'all' ? 'active' : ''; ?>">
+                            All <span class="tab-count"><?php echo count($notifications); ?></span>
+                        </a>
+                        <a href="?filter=unread<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'unread' ? 'active' : ''; ?> <?php echo $unread_count > 0 ? 'has-unread' : ''; ?>">
+                            Unread <span class="tab-count"><?php echo $unread_count; ?></span>
+                        </a>
+                        <a href="?filter=Order<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'Order' ? 'active' : ''; ?>">
+                            Orders
+                        </a>
+                        <a href="?filter=Stock<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'Stock' ? 'active' : ''; ?>">
+                            Inventory
+                        </a>
+                        <a href="?filter=System<?php echo $search ? '&search='.urlencode($search) : ''; ?>" class="notif-tab <?php echo $filter === 'System' ? 'active' : ''; ?>">
+                            System
+                        </a>
                     </div>
                 </div>
-            <?php else: ?>
-                <div id="notifications-container">
-                    <?php 
-                    $grouped_notifications = [
-                        'New' => [],
-                        'Earlier' => []
-                    ];
-                    foreach ($notifications as $n) {
-                        if ($n['is_read'] == 0) {
-                            $grouped_notifications['New'][] = $n;
-                        } else {
-                            $grouped_notifications['Earlier'][] = $n;
-                        }
-                    }
-                    $grouped_notifications = array_filter($grouped_notifications);
-                    
-                    foreach ($grouped_notifications as $group => $notifs): ?>
-                        <div style="margin-top: 1.5rem; margin-bottom: 0.75rem;">
-                            <h3 style="font-size: 0.8125rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;"><?php echo htmlspecialchars($group); ?></h3>
-                                           <?php foreach ($notifs as $notif): 
-                        $type = strtolower($notif['type']);
-                        $is_unread = !$notif['is_read'];
-                        
-                        // Determine Target URL
-                        $target_url = '#';
-                        if ($type === 'order' && !empty($notif['data_id'])) {
-                            $target_url = "order_details.php?id=" . $notif['data_id'];
-                        } elseif ($type === 'system' && strpos(strtolower($notif['message']), 'chatbot inquiry') !== false) {
-                            $target_url = "faq_chatbot_management.php?tab=inquiries";
-                        }
-                    ?>
-                    <div class="notif-card <?php echo $is_unread ? 'unread' : ''; ?>" data-id="<?php echo $notif['notification_id']; ?>">
-                        <div class="notif-header">
-                            <div class="notif-content">
-                                <a href="<?php echo $target_url; ?>" class="notif-card-link" onclick="handleNotifClick(event, <?php echo $notif['notification_id']; ?>, '<?php echo $target_url; ?>', <?php echo $is_unread ? 'true' : 'false'; ?>)">
-                                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                                        <div style="flex: 1;">
-                                            <div class="notif-title"><?php echo htmlspecialchars($notif['message']); ?></div>
-                                        </div>
-                                        <?php if ($is_unread): ?>
-                                            <span class="notif-badge new">NEW</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    
-                                    <div class="notif-meta">
-                                        <span>
-                                            <svg style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 0.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            <?php echo time_ago($notif['created_at']); ?>
-                                        </span>
-                                        <span class="notif-badge <?php echo $type; ?>">
-                                            <?php echo ucfirst($type); ?>
-                                        </span>
-                                    </div>
-                                </a>
 
-                                <div class="notif-actions">
+                <!-- Notification List -->
+                <div style="padding:0 20px 20px;" id="notifications-container">
+                    <?php if (empty($notifications)): ?>
+                        <div class="empty-notif">
+                            <div class="empty-notif-icon">
+                                <svg width="28" height="28" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                </svg>
+                            </div>
+                            <div class="empty-notif-title">No notifications</div>
+                            <p class="empty-notif-text">
+                                <?php if ($filter === 'unread'): ?>You're all caught up! No unread notifications.
+                                <?php elseif (!empty($search)): ?>No results for "<?php echo htmlspecialchars($search); ?>"
+                                <?php else: ?>You don't have any notifications yet.<?php endif; ?>
+                            </p>
+                        </div>
+                    <?php else: ?>
+                        <?php 
+                        $grouped = ['New' => [], 'Earlier' => []];
+                        foreach ($notifications as $n) {
+                            $grouped[$n['is_read'] == 0 ? 'New' : 'Earlier'][] = $n;
+                        }
+                        $grouped = array_filter($grouped);
+
+                        foreach ($grouped as $group => $notifs): ?>
+                            <div class="notif-group-label"><?php echo $group; ?></div>
+                            <?php foreach ($notifs as $notif):
+                                $type     = strtolower($notif['type']);
+                                $is_unread = !$notif['is_read'];
+                                $target_url = '#';
+                                if ($type === 'order' && !empty($notif['data_id'])) {
+                                    $target_url = "order_details.php?id=" . $notif['data_id'];
+                                } elseif ($type === 'system' && strpos(strtolower($notif['message']), 'chatbot inquiry') !== false) {
+                                    $target_url = "faq_chatbot_management.php?tab=inquiries";
+                                }
+                                $iconSvg = match($type) {
+                                    'order'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>',
+                                    'stock'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
+                                    default  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                                };
+                            ?>
+                            <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>" data-id="<?php echo $notif['notification_id']; ?>">
+                                <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
+                                <div class="notif-icon-wrap <?php echo $type; ?>"><?php echo $iconSvg; ?></div>
+                                <div class="notif-body">
+                                    <a href="<?php echo $target_url; ?>" class="notif-msg" style="text-decoration:none;display:block;" onclick="handleNotifClick(event, <?php echo $notif['notification_id']; ?>, '<?php echo $target_url; ?>', <?php echo $is_unread ? 'true' : 'false'; ?>)">
+                                        <?php echo htmlspecialchars($notif['message']); ?>
+                                    </a>
+                                    <div class="notif-time">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <?php echo time_ago($notif['created_at']); ?>
+                                        <span class="type-pill <?php echo $type; ?>"><?php echo ucfirst($type); ?></span>
+                                    </div>
+                                </div>
+                                <div class="notif-actions-wrap">
                                     <?php if ($is_unread): ?>
-                                    <button onclick="markAsRead(<?php echo $notif['notification_id']; ?>)" class="notif-btn notif-btn-read">
-                                        Mark as Read
+                                    <button onclick="markAsRead(<?php echo $notif['notification_id']; ?>)" class="notif-action-btn">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        Read
                                     </button>
                                     <?php endif; ?>
-                                    <button onclick="deleteNotification(<?php echo $notif['notification_id']; ?>)" class="notif-btn notif-btn-delete">
+                                    <button onclick="deleteNotification(<?php echo $notif['notification_id']; ?>)" class="notif-action-btn danger">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                         Delete
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <?php endforeach; endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-            <?php endif; ?>
+            </div>
         </main>
     </div>
 </div>
@@ -440,10 +363,9 @@ function stopAutoRefresh() {
 }
 
 function checkForNewNotifications() {
-    // For now, simpler implementation: check unread count via small API or just reload
-    // We'll use a hidden refresh that reloads if count changes or just reload
     const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    if (!document.querySelector('.search-box input').value && (currentFilter === 'all' || currentFilter === 'unread')) {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput && !searchInput.value && (currentFilter === 'all' || currentFilter === 'unread')) {
         refreshPage();
     }
 }
@@ -478,15 +400,15 @@ function markAsRead(notifId, redirectUrl = null) {
                     window.location.href = redirectUrl;
                     return;
                 }
-                const card = document.querySelector(`[data-id="${notifId}"]`);
-                if (card) {
-                    card.classList.remove('unread');
-                    const badge = card.querySelector('.notif-badge.new');
-                    if (badge) badge.remove();
-                    const readBtn = card.querySelector('.notif-btn-read');
+                const item = document.querySelector(`[data-id="${notifId}"]`);
+                if (item) {
+                    item.classList.add('read');
+                    const dot = item.querySelector('.notif-dot');
+                    if (dot) dot.classList.add('read');
+                    // Remove the "Read" action button
+                    const readBtn = item.querySelector('.notif-action-btn:not(.danger)');
                     if (readBtn) readBtn.remove();
                 }
-                // Update unread count
                 setTimeout(() => window.location.reload(), 500);
             }
         })
@@ -494,25 +416,24 @@ function markAsRead(notifId, redirectUrl = null) {
 }
 
 function deleteNotification(notifId) {
-    if (!confirm('Are you sure you want to delete this notification?')) return;
+    if (!confirm('Delete this notification?')) return;
     
     fetch(`?action=delete&id=${notifId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const card = document.querySelector(`[data-id="${notifId}"]`);
-                if (card) {
-                    card.style.transition = 'all 0.3s ease-out';
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateX(-20px)';
+                const item = document.querySelector(`[data-id="${notifId}"]`);
+                if (item) {
+                    item.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(16px)';
                     setTimeout(() => {
-                        card.remove();
-                        // Check if no notifications left
+                        item.remove();
                         const container = document.getElementById('notifications-container');
-                        if (container && container.children.length === 0) {
+                        if (container && container.querySelectorAll('.notif-item').length === 0) {
                             window.location.reload();
                         }
-                    }, 300);
+                    }, 250);
                 }
             }
         })

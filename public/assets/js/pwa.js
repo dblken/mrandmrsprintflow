@@ -10,7 +10,7 @@ if ('serviceWorker' in navigator) {
             updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
         })
             .then((registration) => {
-                console.log('[PWA] Service Worker registered:', registration.scope);
+                // Service Worker registered (no console log to avoid noise)
 
                 // If a new SW is waiting, activate it right away
                 if (registration.waiting) {
@@ -19,7 +19,6 @@ if ('serviceWorker' in navigator) {
 
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
-                    console.log('[PWA] New Service Worker found — activating');
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             showUpdateNotification();
@@ -45,12 +44,10 @@ let deferredPrompt;
 const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-// Capture the install prompt when the browser fires it
+// Capture the install prompt when the browser fires it (prevents default banner; show via Install button)
 window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('[PWA] Install prompt captured');
     e.preventDefault();
     deferredPrompt = e;
-    // Button is already visible — nothing extra needed
 });
 
 function hideInstallButton() {
@@ -71,10 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btn.addEventListener('click', async () => {
         if (deferredPrompt) {
-            // Chrome / Edge — trigger native install dialog
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log('[PWA] Install outcome:', outcome);
             deferredPrompt = null;
             if (outcome === 'accepted') hideInstallButton();
         } else if (_isIOS) {
@@ -89,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Hide button once app is installed
 window.addEventListener('appinstalled', () => {
-    console.log('[PWA] App installed successfully');
     deferredPrompt = null;
     hideInstallButton();
 });
@@ -165,12 +159,10 @@ async function sendSubscriptionToServer(subscription) {
 
 // Offline detection
 window.addEventListener('online', () => {
-    console.log('[PWA] Back online');
     hideOfflineNotification();
 });
 
 window.addEventListener('offline', () => {
-    console.log('[PWA] Gone offline');
     showOfflineNotification();
 });
 

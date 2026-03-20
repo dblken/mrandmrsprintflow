@@ -10,10 +10,23 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
 
+header('Content-Type: application/json');
+
 if (isset($_GET['customer_id'])) {
     $cust_id = (int)$_GET['customer_id'];
-    $orders = db_query("SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? ORDER BY order_date DESC", "i", [$cust_id]) ?: [];
-    echo json_encode(['success' => true, 'data' => $orders]);
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $per_page = 10;
+    $offset = ($page - 1) * $per_page;
+
+    $total = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$cust_id])[0]['c'] ?? 0;
+    $orders = db_query("SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? ORDER BY order_date DESC LIMIT ? OFFSET ?", "iii", [$cust_id, $per_page, $offset]) ?: [];
+    $total_pages = max(1, (int)ceil($total / $per_page));
+
+    echo json_encode([
+        'success' => true,
+        'data' => $orders,
+        'pagination' => ['current_page' => $page, 'total_pages' => $total_pages, 'total_items' => $total, 'per_page' => $per_page]
+    ]);
     exit;
 }
 

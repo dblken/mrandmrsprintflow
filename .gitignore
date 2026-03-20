@@ -90,6 +90,12 @@ TROUBLESHOOTING*.md
 config.local.php
 
 # ===========================================
+# VAPID Keys (contain private key — never commit)
+# ===========================================
+includes/vapid_config.php
+public/setup_vapid.php
+
+# ===========================================
 # Docker (if not using)
 # ===========================================
 Dockerfile/
@@ -107,6 +113,7 @@ Desktop.ini
 # Project Specific
 # ===========================================
 /printflow/
+
 STRUCTURE.txt
 SAMPLE_DATA.txt
 HOW_TO_ACCESS.md

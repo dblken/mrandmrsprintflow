@@ -21,7 +21,7 @@ if (isset($_GET['mark_read'])) {
 $total_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ?", 'i', [$customer_id]);
 $total_orders = $total_orders_result[0]['count'] ?? 0;
 
-$pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Pending', 'Pending Approval', 'Pending Review', 'For Revision')", 'i', [$customer_id]);
+$pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Pending', 'Pending Approval', 'For Revision')", 'i', [$customer_id]);
 $pending_orders = $pending_orders_result[0]['count'] ?? 0;
 
 $processing_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Processing', 'In Production', 'Printing')", 'i', [$customer_id]);
@@ -38,6 +38,7 @@ if (in_array($active_tab, ['torate', 'totalorders'], true)) {
 
 // Tab mappings to exact statuses
 $tab_status_map = [
+<<<<<<< HEAD
     'pending'    => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
     'approved'   => ['Approved'],
     'toverify'   => ['To Verify', 'Downpayment Submitted', 'Pending Verification'],
@@ -48,6 +49,13 @@ $tab_status_map = [
     'completed'  => ['Completed', 'To Rate', 'Rated'],
     'cancelled'  => ['Cancelled'],
     'totalorders' => ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'],
+=======
+    'pending' => ['Pending', 'Pending Approval', 'For Revision'],
+    'topay' => ['To Pay'],
+    'production' => ['In Production', 'Processing', 'Printing'], // include legacy for safety
+    'pickup' => ['Ready for Pickup'],
+    'completed' => ['Completed']
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 ];
 
 // Statuses where price is hidden from customer
@@ -733,7 +741,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function imBadge(val) {
     const m = {
         'Completed':'im-badge-green','Pending':'im-badge-yellow',
-        'Pending Review':'im-badge-yellow','Processing':'im-badge-blue',
+        'Processing':'im-badge-blue',
         'In Production':'im-badge-blue','Printing':'im-badge-blue',
         'To Rate':'im-badge-purple','Rated':'im-badge-green',
         'Ready for Pickup':'im-badge-purple','Cancelled':'im-badge-red',

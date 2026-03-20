@@ -3,11 +3,13 @@
  * Inventory Transactions API
  * Handles recording and fetching stock movements
  */
+ob_start(); // Prevent accidental output from corrupting JSON
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Admin', 'Manager']);
+ob_end_clean();
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -43,6 +45,8 @@ try {
             $params = [];
             $types = '';
             
+            $search     = sanitize($_GET['search'] ?? '');
+            
             if ($item_id) {
                 $sql .= " AND t.item_id = ?";
                 $params[] = $item_id;
@@ -57,6 +61,12 @@ try {
                 }
                 $params[] = $type;
                 $types .= 's';
+            }
+            if ($search) {
+                $st = '%' . $search . '%';
+                $sql .= " AND (i.name LIKE ? OR t.notes LIKE ? OR CAST(t.ref_id AS CHAR) LIKE ?)";
+                $params[] = $st; $params[] = $st; $params[] = $st;
+                $types .= 'sss';
             }
             if ($start_date && $end_date) {
                 $sql .= " AND t.transaction_date BETWEEN ? AND ?";
@@ -73,18 +83,33 @@ try {
             break;
 
         case 'record_transaction':
+            // Extract POST data (form sends: item_id, transaction_type, transaction_date, quantity, reference_type, reference_id, notes)
             $item_id = (int)($_POST['item_id'] ?? 0);
             $type = sanitize($_POST['transaction_type'] ?? '');
             $quantity = (float)($_POST['quantity'] ?? 0);
-            $date = sanitize($_POST['transaction_date'] ?? date('Y-m-d'));
-            $ref_type = sanitize($_POST['reference_type'] ?? '') ?: null;
-            $ref_id = (int)($_POST['reference_id'] ?? 0) ?: null;
+            $ref_type = sanitize($_POST['reference_type'] ?? '');
+            $ref_id_raw = trim($_POST['reference_id'] ?? '');
             $notes = sanitize($_POST['notes'] ?? '');
-            
-            if (!$item_id || empty($type) || $quantity == 0) {
-                throw new Exception("Item, valid Type, and non-zero Quantity are required.");
+            $transaction_date = sanitize($_POST['transaction_date'] ?? '') ?: date('Y-m-d');
+            $ref_id = (is_numeric($ref_id_raw) && $ref_id_raw !== '') ? (int)$ref_id_raw : null;
+            if ($ref_id === null && $ref_id_raw !== '') {
+                $notes = trim($notes . ($notes ? ' | ' : '') . 'Ref: ' . $ref_id_raw);
             }
-            
+
+            $errors = [];
+            if (!$item_id) $errors['item_id'] = "Item is required.";
+            if (empty($type)) $errors['transaction_type'] = "Transaction type is required.";
+            if ($quantity <= 0) $errors['quantity'] = "Quantity must be greater than zero.";
+
+            if (!empty($errors)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => implode(' ', $errors), 'errors' => $errors]);
+                exit;
+            }
+
+            // Use Ref Category for ref_type when provided, else derive from transaction_type
+            $refType = $ref_type ?: $type;
+
             // Mapping old types to direction
             $inTypes = ['opening_balance', 'purchase', 'return', 'transfer_in', 'adjustment_up'];
             $direction = in_array($type, $inTypes) ? 'IN' : 'OUT';
@@ -97,9 +122,9 @@ try {
                         'width_ft'  => (float)($_POST['width_ft'] ?? 0)
                     ];
                 }
-                
+
                 // For IN transactions, use receiveStock to handle roll tracking logic
-                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $type, $ref_id, $notes);
+                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $refType, $ref_id, $notes, $transaction_date);
                 $transactionId = 0; 
                 $fifoResult = null;
             } else {
@@ -108,7 +133,7 @@ try {
                     $item_id,
                     $quantity,
                     $_POST['uom'] ?? null,
-                    $type ?: 'ADJUSTMENT',
+                    $refType ?: 'ADJUSTMENT',
                     $ref_id,
                     $notes
                 );
@@ -185,8 +210,16 @@ try {
             
             echo json_encode(['success' => true, 'data' => $history]);
             break;
+
+        default:
+            echo json_encode(['success' => false, 'error' => 'Unknown action: ' . ($action ?: '(empty)')]);
+            break;
     }
 } catch (Throwable $e) {
-    http_response_code(400);
+    ob_clean();
+    if (headers_sent() === false) {
+        http_response_code(400);
+        header('Content-Type: application/json');
+    }
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

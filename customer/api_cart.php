@@ -51,9 +51,13 @@ if (!verify_csrf_token($input['csrf_token'] ?? '')) {
 
 $action = $input['action'] ?? '';
 
-// Initialize cart
+// Initialize cart and load from DB if empty (persist across logout/login)
 if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
+}
+$customer_id = get_customer_id();
+if ($customer_id && empty($_SESSION['cart'])) {
+    load_customer_cart_into_session($customer_id);
 }
 
 /**
@@ -137,6 +141,7 @@ if ($action === 'add') {
             'price'        => $price,
         ];
     }
+    if ($customer_id) sync_cart_to_db($customer_id);
 
     echo json_encode([
         'success'    => true,
@@ -163,6 +168,7 @@ if ($action === 'update') {
     } else {
         $_SESSION['cart'][$key]['quantity'] = $quantity;
     }
+    if ($customer_id) sync_cart_to_db($customer_id);
 
     echo json_encode([
         'success'    => true,
@@ -177,6 +183,7 @@ if ($action === 'update') {
 if ($action === 'remove') {
     $key = $input['cart_key'] ?? '';
     unset($_SESSION['cart'][$key]);
+    if ($customer_id) sync_cart_to_db($customer_id);
     echo json_encode([
         'success'    => true,
         'cart_count' => cart_count(),
@@ -200,6 +207,7 @@ if ($action === 'get_count') {
 // -----------------------------------------------------------------------
 if ($action === 'clear') {
     $_SESSION['cart'] = [];
+    if ($customer_id) sync_cart_to_db($customer_id);
     echo json_encode(['success' => true, 'cart_count' => 0]);
     exit;
 }

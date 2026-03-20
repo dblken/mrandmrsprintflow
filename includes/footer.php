@@ -177,8 +177,8 @@ function _ft_detect_social(string $url): array {
     
     <?php require_once __DIR__ . '/success_modal.php'; ?>
 
-    <!-- Alpine.js for dropdowns -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js for dropdowns (self-hosted to avoid tracking prevention) -->
+    <script defer src="<?php echo $base_url ?? '/printflow'; ?>/public/assets/js/alpine.min.js"></script>
 
     <!-- Scroll to Top (all non-admin pages) -->
     <?php if (!is_admin() && !is_staff()): ?>
@@ -335,6 +335,7 @@ function _ft_detect_social(string $url): array {
         var scrollTop = document.getElementById('lp-scroll-top');
         var loaded = false;
         var isOpen = false;
+        var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
 
         // Initialize scroll button visibility
         function updateScrollVisibility() {
@@ -508,9 +509,28 @@ function _ft_detect_social(string $url): array {
             }, 1000);
         }
 
+        // Show login-required prompt in chat
+        function showLoginPrompt() {
+            var bm = document.createElement('div');
+            bm.className = 'cb-msg-bot';
+            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+            bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 14px 16px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 90%; font-size: 14px; line-height: 1.6; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">'
+                + 'Please login to ask a custom question.<br>You can still use the suggested questions below.'
+                + '<br><br><a href="#" data-auth-open="login" style="display:inline-block;padding:8px 18px;background:#111827;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background=\'#374151\'" onmouseout="this.style.background=\'#111827\'">Login</a>'
+                + '</div>';
+            msgs.appendChild(bm);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
         // Send button and input Enter key
         sendBtn.addEventListener('click', function() {
             if (input.value.trim()) {
+                if (!isLoggedIn) {
+                    showLoginPrompt();
+                    input.value = '';
+                    return;
+                }
+
                 var q = input.value.trim();
                 input.value = '';
 
@@ -566,6 +586,11 @@ function _ft_detect_social(string $url): array {
 
         input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && input.value.trim()) {
+                if (!isLoggedIn) {
+                    showLoginPrompt();
+                    input.value = '';
+                    return;
+                }
                 sendBtn.click();
             }
         });
@@ -617,5 +642,23 @@ function _ft_detect_social(string $url): array {
 
     <!-- PWA -->
     <script src="<?php echo $base_url; ?>/public/assets/js/pwa.js"></script>
+
+    <?php
+    // Only load push/notification script for authenticated users
+    if (!isset($auth_loaded)) {
+        $auth_loaded = true;
+        $auth_file = __DIR__ . '/auth.php';
+        if (file_exists($auth_file) && !function_exists('is_logged_in')) {
+            require_once $auth_file;
+        }
+    }
+    if (function_exists('is_logged_in') && is_logged_in()):
+        $_pf_uid   = function_exists('get_user_id')   ? (int)(get_user_id() ?? 0)    : 0;
+        $_pf_utype = function_exists('get_user_type') ? (get_user_type() ?? 'Customer') : 'Customer';
+    ?>
+    <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
+    <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js" defer></script>
+    <script src="<?php echo $base_url; ?>/public/assets/js/inactivity_logout.js" defer></script>
+    <?php endif; ?>
 </body>
 </html>

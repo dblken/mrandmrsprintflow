@@ -74,8 +74,8 @@ if ($action === 'toggle_status') {
     }
     
     // Address
-    if (empty($address) || strlen($address) < 5 || strlen($address) > 150) {
-        $errors[] = 'Invalid address (5-150 chars)';
+    if (empty($address) || strlen($address) < 5 || strlen($address) > 200) {
+        $errors[] = 'Invalid address (5-200 chars)';
     }
 
     // Birthday
@@ -86,8 +86,8 @@ if ($action === 'toggle_status') {
             $age = $today->diff($bday_date)->y;
             if ($bday_date > $today) {
                 $errors[] = 'Birthday cannot be a future date';
-            } elseif ($age < 13) {
-                $errors[] = 'User must be at least 13 years old';
+            } elseif ($age < 18) {
+                $errors[] = 'User must be at least 18 years old';
             }
         } catch (Exception $e) {
             $errors[] = 'Invalid birthday format';
@@ -113,6 +113,46 @@ if ($action === 'toggle_status') {
         echo json_encode(['success' => true, 'message' => "User info updated successfully."]);
     } else {
         echo json_encode(['success' => false, 'error' => "Failed to update user information."]);
+    }
+} elseif ($action === 'activate_account') {
+    $u = db_query("SELECT user_id, first_name, email FROM users WHERE user_id = ?", 'i', [$user_id]);
+    $ok = db_execute("UPDATE users SET status = 'Activated', profile_completion_token = NULL, profile_completion_expires = NULL WHERE user_id = ?", 'i', [$user_id]);
+    if ($ok) {
+        if (!empty($u)) {
+            require_once __DIR__ . '/../includes/profile_completion_mailer.php';
+            send_account_activated_email($u[0]['email'], $u[0]['first_name']);
+        }
+        echo json_encode(['success' => true, 'message' => 'Account activated successfully. Staff has been notified via email.']);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Failed to activate account.']);
+    }
+} elseif ($action === 'resend_completion_link') {
+    $u = db_query("SELECT user_id, first_name, email FROM users WHERE user_id = ?", 'i', [$user_id]);
+    if (empty($u)) {
+        echo json_encode(['success' => false, 'error' => 'User not found.']);
+        exit;
+    }
+    $u = $u[0];
+    $token = bin2hex(random_bytes(32));
+    $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
+    db_execute("UPDATE users SET profile_completion_token = ?, profile_completion_expires = ?, status = 'Pending' WHERE user_id = ?", 'ssi', [$token, $expires, $user_id]);
+
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $complete_link = $protocol . '://' . $host . '/printflow/public/complete_profile.php?token=' . $token;
+
+    $admin_notes = [];
+    if (!empty($data['admin_notes']) && is_array($data['admin_notes'])) {
+        $admin_notes = array_values(array_filter(array_map('trim', $data['admin_notes'])));
+    }
+
+    require_once __DIR__ . '/../includes/profile_completion_mailer.php';
+    $mail_res = send_profile_completion_resend_email($u['email'], $u['first_name'], $complete_link, $admin_notes);
+
+    if ($mail_res['success']) {
+        echo json_encode(['success' => true, 'message' => 'Profile completion link sent to ' . $u['email']]);
+    } else {
+        echo json_encode(['success' => true, 'message' => 'Link generated. Email failed: ' . ($mail_res['message'] ?? '') . '. Share manually: ' . $complete_link]);
     }
 } else {
     echo json_encode(['success' => false, 'error' => 'Invalid action']);

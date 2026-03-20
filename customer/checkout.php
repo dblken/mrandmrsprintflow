@@ -10,10 +10,7 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 
-$all_cart_items = $_SESSION['cart'] ?? [];
-$cart_items = array_filter($all_cart_items, function($item) {
-    return ($item['selected'] ?? true);
-});
+$cart_items = $_SESSION['cart'] ?? [];
 
 if (empty($cart_items)) {
     redirect('cart.php');
@@ -69,8 +66,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         }
 
         $notes = $_POST['notes'] ?? null;
+<<<<<<< HEAD
         $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
                       VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
+=======
+        $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
+                      VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?)";
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
         
         $payment_method = $_POST['payment_method'] ?? 'pay_later';
         
@@ -140,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             
             // 4. Auto-create Job Orders for Production Workflow
             foreach ($cart_items as $pid => $item) {
+<<<<<<< HEAD
                 // Determine service type accurately for ENUM matching
                 $service_type = 'Tarpaulin Printing'; // Default
                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
@@ -152,6 +155,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 elseif (strpos($cat_lower, 'sintraboard') !== false && (strpos($cat_lower, 'standee') !== false || strpos($cat_lower, 'stand') !== false)) $service_type = 'Sintraboard Standees';
                 elseif (strpos($cat_lower, 'sintraboard') !== false) $service_type = 'Stickers on Sintraboard';
                 elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals/Stickers (Print/Cut)';
+=======
+                // Determine service type from item category or name
+                $service_type = $item['category'] ?? 'General';
+                $cat_lower = strtolower($service_type . ' ' . ($item['name'] ?? ''));
+                if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin';
+                elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized Signage';
+                elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) $service_type = 'Sintraboard & Standees';
+                elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-Shirt Printing';
+                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals & Stickers';
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
                 elseif (strpos($cat_lower, 'souvenir') !== false) $service_type = 'Souvenirs';
                 elseif (strpos($cat_lower, 'layout') !== false) $service_type = 'Layouts';
                 
@@ -169,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 $job_qty   = (int)($item['quantity'] ?? 1);
                 $oi_id     = $inserted_order_item_ids[$pid] ?? null;
                 
+<<<<<<< HEAD
                 // Use JobOrderService for robust creation
                 try {
                     JobOrderService::createOrder([
@@ -192,6 +206,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 } catch (Exception $e) {
                     error_log("Failed to create job order for item in Order #$order_id: " . $e->getMessage());
                 }
+=======
+                db_execute(
+                    "INSERT INTO job_orders (job_title, service_type, customer_id, order_item_id, width_ft, height_ft, quantity, status, customer_type, estimated_total, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())",
+                    'ssiididids',
+                    [$job_title, $service_type, $customer_id, $oi_id, $width_ft, $height_ft, $job_qty, $cust_type, $item['price'] * $job_qty]
+                );
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             }
             
             unset($_SESSION['cart']);
@@ -371,4 +393,3 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-

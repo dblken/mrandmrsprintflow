@@ -22,7 +22,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
     <meta charset="UTF-8">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/printflow/public/assets/js/alpine.min.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* Standardized classes used from admin_style.php */

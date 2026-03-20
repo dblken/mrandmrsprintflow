@@ -14,6 +14,22 @@ $error = '';
 $success = '';
 
 $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+$is_pending = ($user['status'] ?? '') === 'Pending';
+$needs_id = $is_pending && empty($user['id_validation_image'] ?? '');
+
+// Parse address for province/city/barangay
+$addressProvince = $addressCity = $addressBarangay = $addressLine = '';
+if (!empty($user['address'])) {
+    $parts = array_values(array_filter(array_map('trim', explode(',', $user['address'])), static fn($p) => $p !== ''));
+    if (count($parts) >= 4 && strcasecmp(end($parts), 'Philippines') === 0) {
+        $addressProvince = $parts[count($parts) - 2] ?? '';
+        $addressCity = $parts[count($parts) - 3] ?? '';
+        $addressBarangay = preg_replace('/^Brgy\.?\s*/i', '', (string)($parts[count($parts) - 4] ?? ''));
+        $addressLine = implode(', ', array_slice($parts, 0, -4));
+    } else {
+        $addressLine = $user['address'];
+    }
+}
 
 function is_valid_name_value($value) {
     return (bool)preg_match('/^[a-zA-Z\s\.\'-]{2,60}$/', $value);
@@ -32,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $first_name = sanitize($_POST['first_name'] ?? '');
         $middle_name = sanitize($_POST['middle_name'] ?? '');
         $last_name = sanitize($_POST['last_name'] ?? '');
+<<<<<<< HEAD
         $contact_number = sanitize($_POST['contact_number'] ?? '');
         
         if (empty($first_name) || empty($last_name)) {
@@ -58,6 +75,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                 $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
             } else {
                 $error = 'Failed to update profile';
+=======
+        $contact_number = preg_replace('/[^0-9]/', '', trim($_POST['contact_number'] ?? ''));
+        $address_province = trim($_POST['address_province'] ?? '');
+        $address_city = trim($_POST['address_city'] ?? '');
+        $address_barangay = trim($_POST['address_barangay'] ?? '');
+        $address_line = trim($_POST['address_line'] ?? '');
+        $gender = trim($_POST['gender'] ?? '');
+
+        $addressParts = [];
+        if ($address_line !== '') $addressParts[] = $address_line;
+        if ($address_barangay !== '') $addressParts[] = 'Brgy. ' . $address_barangay;
+        if ($address_city !== '') $addressParts[] = $address_city;
+        if ($address_province !== '') $addressParts[] = $address_province;
+        $addressParts[] = 'Philippines';
+        $address = implode(', ', $addressParts);
+
+        if (empty($first_name) || empty($last_name)) {
+            $error = 'First name and last name are required';
+        } elseif (empty($contact_number) || !preg_match('/^09\d{9}$/', $contact_number)) {
+            $error = 'Valid contact number required (09XXXXXXXXX).';
+        } elseif (strlen($address) < 10) {
+            $error = 'Please complete the address (province, city, barangay).';
+        } elseif ($needs_id && (empty($_FILES['id_image']['tmp_name']) || $_FILES['id_image']['error'] !== UPLOAD_ERR_OK)) {
+            $error = 'Please upload a clear, valid ID image.';
+        } else {
+            $id_filename = $user['id_validation_image'] ?? null;
+            if (!empty($_FILES['id_image']['tmp_name']) && $_FILES['id_image']['error'] === UPLOAD_ERR_OK) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($_FILES['id_image']['tmp_name']);
+                $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                if (!in_array($mime, $allowed)) {
+                    $error = 'ID image must be JPG, PNG, GIF, or WEBP.';
+                } elseif ($_FILES['id_image']['size'] > 5 * 1024 * 1024) {
+                    $error = 'ID image must be under 5MB.';
+                } else {
+                    $ext = pathinfo($_FILES['id_image']['name'], PATHINFO_EXTENSION) ?: 'jpg';
+                    $id_filename = 'id_user_' . $user_id . '_' . time() . '.' . $ext;
+                    $upload_dir = __DIR__ . '/../uploads/ids/';
+                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                    if (!move_uploaded_file($_FILES['id_image']['tmp_name'], $upload_dir . $id_filename)) {
+                        $error = 'Failed to save ID image. Please try again.';
+                        $id_filename = null;
+                    }
+                }
+            }
+            if (!$error) {
+                $id_to_save = $id_filename ?? $user['id_validation_image'] ?? null;
+                $result = db_execute(
+                    "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?, gender=?, id_validation_image=?, updated_at=NOW() WHERE user_id=?",
+                    'sssssssi',
+                    [$first_name, $middle_name, $last_name, $contact_number, $address, $gender, $id_to_save, $user_id]
+                );
+                if ($result) {
+                    $success = 'Profile updated successfully!';
+                    $_SESSION['user_name'] = $first_name . ' ' . $last_name;
+                    $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+                    $needs_id = false;
+                    if ($is_pending && $id_filename) {
+                        $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
+                        $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
+                        $admins = db_query("SELECT user_id FROM users WHERE role = 'Admin' AND status = 'Activated'");
+                        foreach ($admins as $a) {
+                            create_notification((int)$a['user_id'], 'User', $msg, 'System', true, false, $user_id);
+                        }
+                    }
+                } else {
+                    $error = 'Failed to update profile';
+                }
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             }
         }
     }
@@ -162,7 +248,7 @@ $page_title = 'My Profile - Staff';
                 <div class="card">
                     <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Profile Information</h2>
                     
-                    <form method="POST" action="">
+                    <form method="POST" action="" enctype="multipart/form-data" id="profileForm">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="update_profile" value="1">
                         
@@ -192,6 +278,7 @@ $page_title = 'My Profile - Staff';
                         </div>
 
                         <div style="margin-bottom:16px;">
+<<<<<<< HEAD
                             <label>Contact Number</label>
                             <input type="tel" name="contact_number" id="contact_number" class="input-field" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
                             <div id="contact_number_hint" class="field-hint"></div>
@@ -242,7 +329,66 @@ $page_title = 'My Profile - Staff';
                         <div style="margin-bottom:20px;">
                             <label>Street Address / House No. / Lot / Block</label>
                             <input type="text" id="addr_street" name="street_address" class="input-field" placeholder="e.g. 123 Sampaguita St., Brgy. Poblacion" value="<?php echo htmlspecialchars($user['street_address'] ?? ''); ?>">
+=======
+                            <label>Contact Number *</label>
+                            <input type="tel" name="contact_number" id="profile_contact" class="input-field" placeholder="e.g. 09171234567" maxlength="11" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
                         </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>Province *</label>
+                            <select name="address_province" id="profile_province" class="input-field" required>
+                                <option value="">Select province</option>
+                            </select>
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>City / Municipality *</label>
+                            <select name="address_city" id="profile_city" class="input-field" required disabled>
+                                <option value="">Select city/municipality</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Barangay *</label>
+                            <select name="address_barangay" id="profile_barangay" class="input-field" required disabled>
+                                <option value="">Select barangay</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Street / House No. (Optional)</label>
+                            <input type="text" name="address_line" id="profile_address_line" class="input-field" maxlength="120" placeholder="e.g. 123 Rizal St." value="<?php echo htmlspecialchars($addressLine); ?>">
+                        </div>
+                        <input type="hidden" name="address" id="profile_address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
+
+                        <div style="margin-bottom:16px;">
+                            <label>Gender</label>
+                            <select name="gender" class="input-field">
+                                <option value="">-- Select --</option>
+                                <option value="Male" <?php echo ($user['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
+                                <option value="Female" <?php echo ($user['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
+                                <option value="Other" <?php echo ($user['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                            </select>
+                        </div>
+
+                        <?php if ($needs_id): ?>
+                        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-bottom:16px;">
+                            <h3 style="font-size:13px; font-weight:600; color:#374151; margin:0 0 8px 0;">ID Photo Reference</h3>
+                            <img src="/printflow/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%; height:auto; border-radius:6px; margin-bottom:12px;">
+                            <label>Upload Valid ID *</label>
+                            <label style="display:block; border:2px dashed #e5e7eb; border-radius:8px; padding:24px; text-align:center; cursor:pointer;">
+                                <input type="file" name="id_image" accept="image/*" required>
+                                <span id="profile_id_label">Click to select ID image (JPG, PNG, max 5MB)</span>
+                            </label>
+                        </div>
+                        <?php elseif (!empty($user['id_validation_image'])): ?>
+                        <div style="margin-bottom:16px;">
+                            <label>Uploaded ID</label>
+                            <div><a href="/printflow/uploads/ids/<?php echo htmlspecialchars($user['id_validation_image']); ?>" target="_blank" rel="noopener" style="color:#0d9488; font-weight:600;">View ID Image</a></div>
+                            <label style="display:block; margin-top:8px; border:2px dashed #e5e7eb; border-radius:8px; padding:16px; text-align:center; cursor:pointer;">
+                                <input type="file" name="id_image" accept="image/*">
+                                <span id="profile_id_label">Replace ID image (optional)</span>
+                            </label>
+                        </div>
+                        <?php endif; ?>
 
                         <button type="submit" class="btn-primary">Update Profile</button>
                     </form>
@@ -284,6 +430,7 @@ $page_title = 'My Profile - Staff';
 </div>
 
 <script>
+<<<<<<< HEAD
 function setHint(id, message) {
     const el = document.getElementById(id + '_hint');
     if (!el) return;
@@ -472,5 +619,103 @@ document.getElementById('new_password')?.addEventListener('input', validatePassw
 })();
 </script>
 
+=======
+(function() {
+    const addrApi = '/printflow/public/api_address_public.php';
+    const prov = document.getElementById('profile_province');
+    const city = document.getElementById('profile_city');
+    const brgy = document.getElementById('profile_barangay');
+    const line = document.getElementById('profile_address_line');
+    const addrHidden = document.getElementById('profile_address');
+    if (!prov) return;
+
+    function buildAddress() {
+        const p = [line?.value?.trim(), brgy?.value ? 'Brgy. ' + brgy.value : '', city?.value, prov?.value].filter(Boolean);
+        if (addrHidden) addrHidden.value = p.length ? p.join(', ') + ', Philippines' : '';
+    }
+
+    const selProv = '<?php echo addslashes($addressProvince); ?>';
+    const selCity = '<?php echo addslashes($addressCity); ?>';
+    const selBrgy = '<?php echo addslashes($addressBarangay); ?>';
+
+    async function loadProvinces() {
+        const r = await fetch(addrApi + '?address_action=provinces');
+        const d = await r.json();
+        if (d.success && d.data) {
+            prov.innerHTML = '<option value="">Select province</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
+            if (selProv) {
+                prov.value = selProv;
+                const opt = prov.options[prov.selectedIndex];
+                await loadCities(opt ? opt.getAttribute('data-code') || '' : '');
+            }
+        }
+    }
+    async function loadCities(provinceCode) {
+        if (!provinceCode) { city.innerHTML = '<option value="">Select city/municipality</option>'; city.disabled = true; brgy.innerHTML = '<option value="">Select barangay</option>'; brgy.disabled = true; buildAddress(); return; }
+        const r = await fetch(addrApi + '?address_action=cities&province_code=' + encodeURIComponent(provinceCode));
+        const d = await r.json();
+        if (d.success && d.data) {
+            city.innerHTML = '<option value="">Select city/municipality</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
+            city.disabled = false;
+            brgy.innerHTML = '<option value="">Select barangay</option>';
+            brgy.disabled = true;
+            if (selCity) {
+                city.value = selCity;
+                const cOpt = city.options[city.selectedIndex];
+                await loadBarangays(cOpt ? cOpt.getAttribute('data-code') || '' : '');
+            }
+        }
+        buildAddress();
+    }
+    async function loadBarangays(cityCode) {
+        if (!cityCode) { brgy.innerHTML = '<option value="">Select barangay</option>'; brgy.disabled = true; buildAddress(); return; }
+        const r = await fetch(addrApi + '?address_action=barangays&city_code=' + encodeURIComponent(cityCode));
+        const d = await r.json();
+        if (d.success && d.data) {
+            brgy.innerHTML = '<option value="">Select barangay</option>' + d.data.map(x => '<option value="' + x.name + '">' + x.name + '</option>').join('');
+            brgy.disabled = false;
+            if (selBrgy) brgy.value = selBrgy;
+        }
+        buildAddress();
+    }
+
+    loadProvinces();
+    prov.addEventListener('change', function() {
+        const opt = prov.options[prov.selectedIndex];
+        loadCities(opt?.value ? opt.getAttribute('data-code') : '');
+    });
+    city.addEventListener('change', function() {
+        const opt = city.options[city.selectedIndex];
+        loadBarangays(opt?.value ? opt.getAttribute('data-code') : '');
+    });
+    brgy.addEventListener('change', buildAddress);
+    if (line) line.addEventListener('input', buildAddress);
+
+    const contactInput = document.getElementById('profile_contact');
+    if (contactInput) {
+        contactInput.addEventListener('input', function() {
+            let v = this.value.replace(/\D/g, '');
+            if (v.length > 0 && !v.startsWith('09')) v = '09' + v.replace(/^0+/, '');
+            this.value = v.slice(0, 11);
+        });
+    }
+
+    const idInput = document.querySelector('input[name="id_image"]');
+    if (idInput) {
+        idInput.addEventListener('change', function() {
+            const lbl = document.getElementById('profile_id_label');
+            if (lbl) lbl.textContent = this.files[0] ? this.files[0].name : 'Click to select ID image (JPG, PNG, max 5MB)';
+        });
+    }
+
+    const form = document.getElementById('profileForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            buildAddress();
+        });
+    }
+})();
+</script>
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 </body>
 </html>

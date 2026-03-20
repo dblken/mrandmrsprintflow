@@ -18,7 +18,7 @@ $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number
         ORDER BY so.created_at DESC";
 $params = [];
 $types = '';
-if ($filter && in_array($filter, ['Pending Review', 'Approved', 'Processing', 'Completed', 'Rejected'])) {
+if ($filter && in_array($filter, ['Pending', 'Approved', 'Processing', 'Completed', 'Rejected'])) {
     $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number 
             FROM service_orders so 
             LEFT JOIN customers c ON so.customer_id = c.customer_id 
@@ -49,7 +49,7 @@ $page_title = 'Service Orders - Staff';
             <h1 class="page-title">Service Orders</h1>
             <div class="flex gap-2">
                 <a href="service_orders.php" class="btn-secondary">All</a>
-                <a href="service_orders.php?status=Pending%20Review" class="btn-secondary">Pending Review</a>
+                <a href="service_orders.php?status=Pending" class="btn-secondary">Pending</a>
                 <a href="service_orders.php?status=Processing" class="btn-secondary">Processing</a>
                 <a href="service_orders.php?status=Completed" class="btn-secondary">Completed</a>
             </div>

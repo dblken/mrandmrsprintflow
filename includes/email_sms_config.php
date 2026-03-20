@@ -13,19 +13,16 @@
 // Email service type: 'smtp', 'mail', or 'sendmail'
 define('EMAIL_SERVICE', 'smtp'); // For local development, use 'mail'. For production, use 'smtp'
 
-// Check for separate SMTP config file (user provided)
-$smtp_custom = file_exists(__DIR__ . '/smtp_config.php') ? require __DIR__ . '/smtp_config.php' : [];
-
-// SMTP Settings
-define('SMTP_HOST', $smtp_custom['smtp_host'] ?? 'smtp.gmail.com');
-define('SMTP_PORT', $smtp_custom['smtp_port'] ?? 587);
-define('SMTP_ENCRYPTION', $smtp_custom['smtp_secure'] ?? $smtp_custom['smtp_encryption'] ?? 'tls');
-define('SMTP_USERNAME', $smtp_custom['smtp_user'] ?? $smtp_custom['smtp_username'] ?? 'your-email@gmail.com');
-define('SMTP_PASSWORD', $smtp_custom['smtp_pass'] ?? $smtp_custom['smtp_password'] ?? 'your-app-password');
+// SMTP Settings (for production)
+define('SMTP_HOST', 'smtp.gmail.com');          // Gmail: smtp.gmail.com, Outlook: smtp-mail.outlook.com
+define('SMTP_PORT', 587);                        // 587 for TLS, 465 for SSL
+define('SMTP_ENCRYPTION', 'tls');               // 'tls' or 'ssl'
+define('SMTP_USERNAME', 'your-email@gmail.com'); // Your email address
+define('SMTP_PASSWORD', 'your-app-password');    // Gmail: Use App Password, not account password
 
 // Sender Information
-define('EMAIL_FROM_ADDRESS', $smtp_custom['from_email'] ?? 'noreply@printflow.com');
-define('EMAIL_FROM_NAME', $smtp_custom['from_name'] ?? 'PrintFlow');
+define('EMAIL_FROM_ADDRESS', 'noreply@printflow.com');
+define('EMAIL_FROM_NAME', 'PrintFlow');
 
 // Email Settings
 define('EMAIL_ENABLED', true); // Set to false to disable email sending (for testing)
@@ -48,6 +45,12 @@ define('TWILIO_PHONE_NUMBER', '+1234567890'); // Your Twilio phone number
 
 // SMS Settings
 define('SMS_ENABLED', false); // Set to true when SMS is configured
+
+// ==========================================
+// PHONE VERIFICATION (APILayer NumVerify)
+// ==========================================
+// For Philippine mobile validation. Get key: https://apilayer.com/marketplace/number_verification-api
+define('APILAYER_NUMBER_VERIFICATION_API_KEY', getenv('APILAYER_NUMBER_KEY') ?: 'tYQvyTsrmK5ZJ90eVGL1EMFz1y3YKG1U');
 
 // ==========================================
 // ENVIRONMENT & DEBUGGING

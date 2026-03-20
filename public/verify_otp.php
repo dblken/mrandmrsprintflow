@@ -27,15 +27,25 @@ if (empty($result)) {
 }
 
 $record = $result[0];
+$stored_otp = isset($record['otp_code']) ? (string)$record['otp_code'] : '';
+$expiry_ts = !empty($record['otp_expiry']) ? strtotime($record['otp_expiry']) : 0;
+$now_ts = time();
 
-// 3. Check if OTP matches & 4. Not expired
-if ($record['otp_code'] === $otp && strtotime($record['otp_expiry']) > time()) {
-    // 5. If valid
+// Expired first
+if ($expiry_ts <= $now_ts) {
+    redirect('verify_email.php?error=' . urlencode('Verification code expired. Please request a new code.'));
+}
+
+// Wrong code
+if ($stored_otp !== (string)$otp) {
+    redirect('verify_email.php?error=' . urlencode('Incorrect OTP. Please try again.'));
+}
+
+// 5. If valid
+if ($stored_otp === (string)$otp) {
     $update_sql = "UPDATE $table SET email_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE email = ?";
     db_execute($update_sql, 's', [$email]);
 
     $_SESSION['otp_success'] = "Email verified successfully. You can now log in.";
     redirect('/printflow/?auth_modal=login&success=' . urlencode('Email verified. Please log in.'));
-} else {
-    redirect('verify_email.php?error=Invalid or expired code');
 }

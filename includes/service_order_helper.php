@@ -103,7 +103,11 @@ function service_order_create($service_name, $customer_id, $branch_id, $fields, 
     $total_price = isset($fields['total_price']) ? (float)$fields['total_price'] : 0;
     unset($fields['total_price']);
 
+<<<<<<< HEAD
     $stmt = $conn->prepare("INSERT INTO service_orders (service_name, customer_id, branch_id, status, total_price) VALUES (?, ?, ?, 'Pending Review', ?)");
+=======
+    $stmt = $conn->prepare("INSERT INTO service_orders (service_name, customer_id, status, total_price) VALUES (?, ?, 'Pending', ?)");
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
     if (!$stmt) {
         return ['success' => false, 'order_id' => 0, 'error' => 'Database error creating order.'];
     }
@@ -173,8 +177,12 @@ function service_order_ensure_tables() {
         id           INT AUTO_INCREMENT PRIMARY KEY,
         service_name VARCHAR(100) NOT NULL,
         customer_id  INT NOT NULL,
+<<<<<<< HEAD
         branch_id    INT DEFAULT NULL,
         status       VARCHAR(50) NOT NULL DEFAULT 'Pending Review',
+=======
+        status       VARCHAR(50) NOT NULL DEFAULT 'Pending',
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
         total_price  DECIMAL(12,2) DEFAULT 0.00,
         created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

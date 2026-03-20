@@ -176,7 +176,22 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
             send_email($user[0]['email'], "PrintFlow Notification", $message);
         }
     }
-    
+
+    // ── Web Push dispatch ────────────────────────────────────────────────────
+    if ($result) {
+        $push_helper = __DIR__ . '/push_helper.php';
+        if (file_exists($push_helper)) {
+            require_once $push_helper;
+            if (function_exists('push_notify_user') && function_exists('push_url_for_type')) {
+                push_notify_user((int)$user_id, $user_type, [
+                    'body' => $message,
+                    'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
+                    'url'  => push_url_for_type($type, $data_id, $user_type),
+                ]);
+            }
+        }
+    }
+
     return $result;
 }
 
@@ -227,6 +242,66 @@ function get_customer_id() {
         return $_SESSION['user_id'] ?? null;
     }
     return null;
+}
+
+/**
+ * Load customer cart from database into session.
+ * Call after customer login or when session cart is empty.
+ * @param int $customer_id
+ * @return void
+ */
+function load_customer_cart_into_session($customer_id) {
+    if (!$customer_id) return;
+    $rows = db_query("SELECT product_id, variant_id, quantity FROM customer_cart WHERE customer_id = ?", 'i', [$customer_id]);
+    if (empty($rows)) return;
+    $_SESSION['cart'] = [];
+    foreach ($rows as $r) {
+        $pid = (int)$r['product_id'];
+        $vid = isset($r['variant_id']) && $r['variant_id'] !== '' && $r['variant_id'] !== null ? (int)$r['variant_id'] : null;
+        $qty = max(0, (int)$r['quantity']);
+        if ($qty <= 0 || $pid <= 0) continue;
+        $product = db_query("SELECT name, price, category FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
+        if (empty($product)) continue;
+        $product = $product[0];
+        $price = (float)$product['price'];
+        $variant_name = '';
+        if ($vid) {
+            $v = db_query("SELECT variant_name, price FROM product_variants WHERE variant_id = ? AND product_id = ? AND status = 'Active'", 'ii', [$vid, $pid]);
+            if (!empty($v)) {
+                $variant_name = $v[0]['variant_name'] ?? '';
+                $price = (float)$v[0]['price'];
+            }
+        }
+        $key = $pid . '_' . ($vid ?? '0');
+        $_SESSION['cart'][$key] = [
+            'product_id' => $pid,
+            'variant_id' => $vid,
+            'name' => $product['name'],
+            'category' => $product['category'] ?? '',
+            'variant_name' => $variant_name,
+            'quantity' => $qty,
+            'price' => $price,
+        ];
+    }
+}
+
+/**
+ * Sync session cart to customer_cart table.
+ * @param int $customer_id
+ * @return void
+ */
+function sync_cart_to_db($customer_id) {
+    if (!$customer_id) return;
+    db_execute("DELETE FROM customer_cart WHERE customer_id = ?", 'i', [$customer_id]);
+    if (empty($_SESSION['cart'])) return;
+    foreach ($_SESSION['cart'] as $key => $item) {
+        $qty = (int)($item['quantity'] ?? 0);
+        if ($qty <= 0) continue;
+        $pid = (int)($item['product_id'] ?? 0);
+        $vid = isset($item['variant_id']) && $item['variant_id'] !== null ? (int)$item['variant_id'] : 0;
+        if ($pid <= 0) continue;
+        db_execute("INSERT INTO customer_cart (customer_id, product_id, variant_id, quantity, updated_at) VALUES (?, ?, ?, ?, NOW())", 'iiii', [$customer_id, $pid, $vid, $qty]);
+    }
 }
 
 /**
@@ -584,11 +659,15 @@ function status_badge($status, $type = 'order') {
     $colors = [
         'order' => [
             'Pending' => 'bg-yellow-100 text-yellow-800',
+<<<<<<< HEAD
             'Approved' => 'bg-blue-100 text-blue-800',
             'To Pay' => 'bg-indigo-100 text-indigo-800',
             'To Verify' => 'bg-orange-100 text-orange-800',
             'Downpayment Submitted' => 'bg-purple-100 text-purple-800',
             'Pending Verification' => 'bg-orange-100 text-orange-800',
+=======
+            'Pending Review' => 'bg-yellow-100 text-yellow-800',
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             'Processing' => 'bg-blue-100 text-blue-800',
             'For Revision' => 'bg-pink-100 text-pink-800',
             'Ready for Pickup' => 'bg-teal-100 text-teal-800',
@@ -612,8 +691,10 @@ function status_badge($status, $type = 'order') {
     ];
     
     $color = $colors[$type][$status] ?? 'bg-gray-100 text-gray-800';
+    // Display "Pending" instead of "Pending Review" for consistency
+    $display = ($status === 'Pending Review') ? 'Pending' : $status;
     
-    return "<span class='px-2 py-1 text-xs font-semibold rounded-full {$color}'>" . htmlspecialchars($status) . "</span>";
+    return "<span class='px-2 py-1 text-xs font-semibold rounded-full {$color}'>" . htmlspecialchars($display) . "</span>";
 }
 
 /**
@@ -623,6 +704,16 @@ function status_badge($status, $type = 'order') {
  */
 function sanitize($input) {
     return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Normalize branch name for Add/Edit: trim, strip trailing "Branch", title-case
+ * System auto-appends " Branch" — user should not type it.
+ */
+function normalize_branch_name($name) {
+    $name = trim($name);
+    $name = preg_replace('/\s+Branch\s*$/i', '', $name);
+    return ucwords(strtolower($name));
 }
 
 /**
@@ -693,6 +784,20 @@ function is_low_stock($product_id, $threshold = 10) {
 }
 
 /**
+ * Compute stock status from quantity and low_stock_level (not stored in DB)
+ * @param int $stock_quantity
+ * @param int $low_stock_level
+ * @return string "Out of Stock"|"Low Stock"|"In Stock"
+ */
+function get_stock_status($stock_quantity, $low_stock_level = 10) {
+    $qty = (int) $stock_quantity;
+    $low = (int) ($low_stock_level ?? 10);
+    if ($qty <= 0) return 'Out of Stock';
+    if ($qty <= $low) return 'Low Stock';
+    return 'In Stock';
+}
+
+/**
  * Get app setting
  * @param string $key
  * @param mixed $default
@@ -732,6 +837,7 @@ function set_setting($key, $value) {
  * @return string HTML string
  */
 function render_pagination($current_page, $total_pages, $extra_params = []) {
+<<<<<<< HEAD
     // Backward compatibility:
     // some legacy calls used render_pagination('orders.php', $total_pages, $params)
     if (is_string($current_page)) {
@@ -739,43 +845,81 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
     }
     $total_pages = (int)$total_pages;
     $current_page = (int)$current_page;
+=======
+    $current_page = (int)$current_page;
+    $total_pages   = (int)$total_pages;
+>>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 
     if ($total_pages <= 1) return '';
     
     $params = $extra_params;
+
+    // Build page range: always show current ±2 pages, plus first and last
+    $window = 2;
+    $pages = [];
+
+    // Always include first page
+    $pages[] = 1;
+
+    // Pages around current
+    $range_start = max(2, $current_page - $window);
+    $range_end   = min($total_pages - 1, $current_page + $window);
+    for ($i = $range_start; $i <= $range_end; $i++) {
+        $pages[] = $i;
+    }
+
+    // Always include last page
+    if ($total_pages > 1) {
+        $pages[] = $total_pages;
+    }
+
+    $pages = array_unique($pages);
+    sort($pages);
+
+    // Shared button styles
+    $base_btn  = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;text-decoration:none;font-size:13px;font-weight:500;transition:all 0.2s;';
+    $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #0d9488;background:#0d9488;color:white;text-decoration:none;font-size:13px;font-weight:600;';
+    $hover = ' onmouseover="this.style.background=\'#f5f7fa\'" onmouseout="this.style.background=\'white\'"';
+    $ellipsis = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;">···</span>';
+
     $html = '<div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
-    
+
     // Previous button
     if ($current_page > 1) {
         $params['page'] = $current_page - 1;
         $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>';
     }
-    
-    // Page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
-        $params['page'] = $i;
-        $url = '?' . http_build_query($params);
-        $is_active = ($i === $current_page);
-        $bg = $is_active ? 'background:#1f2937;color:white;border-color:#1f2937;' : 'background:white;color:#374151;border:1px solid #e5e7eb;';
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:' . ($is_active ? '600' : '500') . ';transition:all 0.2s;' . $bg . '"';
-        if (!$is_active) {
-            $html .= ' onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'"';
+
+    $prev_page = null;
+    foreach ($pages as $p) {
+        // Insert ellipsis if there's a gap
+        if ($prev_page !== null && $p - $prev_page > 1) {
+            $html .= $ellipsis;
         }
-        $html .= '>' . $i . '</a>';
+
+        $params['page'] = $p;
+        $url = '?' . http_build_query($params);
+        if ($p === $current_page) {
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $active_btn . '">' . $p . '</a>';
+        } else {
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>' . $p . '</a>';
+        }
+
+        $prev_page = $p;
     }
-    
+
     // Next button
     if ($current_page < $total_pages) {
         $params['page'] = $current_page + 1;
         $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;color:#374151;text-decoration:none;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'white\'">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </a>';
     }
-    
+
     $html .= '</div>';
     return $html;
 }

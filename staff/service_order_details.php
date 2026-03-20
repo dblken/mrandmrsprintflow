@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $order['status'] = 'Rejected';
     } elseif (isset($_POST['update_status'])) {
         $new_status = $_POST['status'];
-        if (in_array($new_status, ['Pending Review', 'Approved', 'Processing', 'Completed', 'Rejected'])) {
+        if (in_array($new_status, ['Pending', 'Approved', 'Processing', 'Completed', 'Rejected'])) {
             db_execute("UPDATE service_orders SET status = ? WHERE id = ?", 'si', [$new_status, $order_id]);
             $success = "Status updated to {$new_status}.";
             $order['status'] = $new_status;
@@ -94,7 +94,7 @@ $page_title = 'Service Order #' . $order_id;
                     <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value"><?php echo format_datetime($order['created_at']); ?></span></div>
                     <div class="detail-row"><span class="detail-label">Total</span><span class="detail-value"><?php echo format_currency($order['total_price']); ?></span></div>
 
-                    <?php if ($order['status'] === 'Pending Review'): ?>
+                    <?php if ($order['status'] === 'Pending'): ?>
                     <div class="mt-4 pt-4 border-t flex gap-2">
                         <form method="POST" class="inline">
                             <?php echo csrf_field(); ?>
@@ -114,7 +114,7 @@ $page_title = 'Service Order #' . $order_id;
                             <label class="block text-sm font-medium mb-2">Update Status</label>
                             <div class="flex gap-2">
                                 <select name="status" class="input-field flex-1">
-                                    <option value="Pending Review" <?php echo $order['status'] === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
+                                    <option value="Pending" <?php echo $order['status'] === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                                     <option value="Approved" <?php echo $order['status'] === 'Approved' ? 'selected' : ''; ?>>Approved</option>
                                     <option value="Processing" <?php echo $order['status'] === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                                     <option value="Completed" <?php echo $order['status'] === 'Completed' ? 'selected' : ''; ?>>Completed</option>

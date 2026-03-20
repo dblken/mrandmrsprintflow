@@ -6,13 +6,31 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/otp_mailer.php';
 
 header('Content-Type: application/json');
 
-function json_out(bool $success, string $message): never {
-    echo json_encode(['success' => $success, 'message' => $message]);
+function json_out(bool $success, string $message, array $extra = []): never {
+    echo json_encode(array_merge(['success' => $success, 'message' => $message], $extra));
     exit;
+}
+
+function human_duration(int $seconds): string {
+    $seconds = max(0, $seconds);
+    $hours = intdiv($seconds, 3600);
+    $minutes = intdiv($seconds % 3600, 60);
+    $remaining = $seconds % 60;
+
+    $parts = [];
+    if ($hours > 0) {
+        $parts[] = $hours . ' ' . ($hours === 1 ? 'hour' : 'hours');
+    }
+    if ($minutes > 0) {
+        $parts[] = $minutes . ' ' . ($minutes === 1 ? 'minute' : 'minutes');
+    }
+    if ($hours === 0 && $remaining > 0) {
+        $parts[] = $remaining . ' ' . ($remaining === 1 ? 'second' : 'seconds');
+    }
+    return empty($parts) ? '0 seconds' : implode(' ', $parts);
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -29,15 +47,25 @@ if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $smtp_cfg = require __DIR__ . '/../includes/smtp_config.php';
-// Base cooldown is 5 minutes (300 seconds)
-$base_cooldown = 300; 
 
-// Track attempts to multiply the cooldown (1st resend = 5m, 2nd = 10m, etc.)
-if (!isset($_SESSION['otp_resend_attempts'])) {
-    $_SESSION['otp_resend_attempts'] = 1;
+/**
+ * Progressive cooldown for resend attempts:
+ * initial + first resend: 1m, second: 5m, third: 20m, fourth+: 1h
+ */
+function otp_resend_cooldown_seconds(int $attempts): int {
+    if ($attempts <= 0) return 60;    // initial wait
+    if ($attempts === 1) return 300;  // after 1st resend
+    if ($attempts === 2) return 900;  // after 2nd resend
+    if ($attempts === 3) return 1800; // after 3rd resend
+    return 3600;
 }
 
-$cooldown = $base_cooldown * $_SESSION['otp_resend_attempts'];
+// Number of successful resend attempts in current session
+if (!isset($_SESSION['otp_resend_attempts'])) {
+    $_SESSION['otp_resend_attempts'] = 0;
+}
+
+$cooldown = otp_resend_cooldown_seconds((int) $_SESSION['otp_resend_attempts']);
 
 $type  = $_SESSION['otp_user_type'] ?? 'Customer';
 $table = ($type === 'User') ? 'users' : 'customers';
@@ -59,7 +87,11 @@ if (!empty($customer['otp_last_sent'])) {
     $seconds_since = time() - strtotime($customer['otp_last_sent']);
     if ($seconds_since < $cooldown) {
         $wait = $cooldown - $seconds_since;
-        json_out(false, "Please wait {$wait} seconds before requesting another code.");
+        json_out(
+            false,
+            'Please wait ' . human_duration($wait) . ' before requesting another code.',
+            ['remaining_seconds' => $wait]
+        );
     }
 }
 
@@ -68,19 +100,26 @@ $otp_code   = (string) rand(100000, 999999);
 $otp_expiry = date('Y-m-d H:i:s', time() + (($smtp_cfg['otp_expiry_minutes'] ?? 5) * 60));
 $now        = date('Y-m-d H:i:s');
 
-// Increment attempts for the NEXT resend
-$_SESSION['otp_resend_attempts']++;
+// Increment attempts for the NEXT resend window
+$_SESSION['otp_resend_attempts'] = (int) $_SESSION['otp_resend_attempts'] + 1;
+$next_cooldown = otp_resend_cooldown_seconds((int) $_SESSION['otp_resend_attempts']);
 
 db_execute(
     "UPDATE $table SET otp_code = ?, otp_expiry = ?, otp_last_sent = ? WHERE email = ?",
     'ssss', [$otp_code, $otp_expiry, $now, $email]
 );
 
-// Send email
-require_once __DIR__ . '/../includes/mail_helper.php';
-if (send_otp_email($email, $otp_code)) {
-    echo json_encode(['success' => true, 'message' => 'A new verification code has been sent to your email.', 'new_cooldown' => $base_cooldown * $_SESSION['otp_resend_attempts']]);
+// Send email (use same mailer path as registration)
+require_once __DIR__ . '/../includes/otp_mailer.php';
+$mail_result = send_otp_email($email, $otp_code);
+if (is_array($mail_result) && !empty($mail_result['success'])) {
+    echo json_encode([
+        'success' => true,
+        'message' => 'A new verification code has been sent to your email.',
+        'new_cooldown' => $next_cooldown
+    ]);
     exit;
 } else {
-    json_out(false, 'Failed to send email. Please try again later.');
+    $mail_message = is_array($mail_result) ? ($mail_result['message'] ?? '') : '';
+    json_out(false, $mail_message ?: 'Failed to send email. Please try again later.');
 }

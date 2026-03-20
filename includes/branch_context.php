@@ -224,8 +224,8 @@ function get_branch_badge_html(?int $branch_id, string $branch_name = ''): strin
     $bg      = htmlspecialchars($colors['bg']);
     $fg      = htmlspecialchars($colors['text']);
 
-    return "<span class=\"branch-badge\" style=\"background:{$bg};color:{$fg};padding:2px 8px;border-radius:20px;"
-         . "font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap;\">{$display}</span>";
+    return "<span class=\"branch-badge\" style=\"background:{$bg};color:{$fg};padding:3px 10px;border-radius:9999px;"
+         . "font-size:11px;font-weight:600;white-space:nowrap;\">{$display}</span>";
 }
 
 /** ─────────────────────────────────────────────────────
@@ -234,16 +234,5 @@ function get_branch_badge_html(?int $branch_id, string $branch_name = ''): strin
  *  Prints the "Viewing: ___" header banner.
  * ──────────────────────────────────────────────────── */
 function render_branch_context_banner(string $branchName): void {
-    $safe = htmlspecialchars($branchName);
-    echo <<<HTML
-<div class="branch-context-banner">
-    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-    </svg>
-    Viewing: <strong>{$safe}</strong>
-</div>
-HTML;
+    // Hidden per user request to clean up UI
 }

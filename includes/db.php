@@ -8,7 +8,7 @@
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');           // Change to your MySQL username
 define('DB_PASS', '122704');               // Change to your MySQL password
-define('DB_NAME', 'printflow_1');      // Database name
+define('DB_NAME', 'printflow_2');      // Database name
 
 // Create connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);

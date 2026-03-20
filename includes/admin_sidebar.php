@@ -37,8 +37,8 @@ if (isset($_SESSION['user_id'])) {
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
-        <button id="sidebarCollapseBtn" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button id="global-sidebar-toggle" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="sidebar-toggle-icon">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
             </svg>
         </button>
@@ -127,7 +127,7 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <span id="sidebar-notif-badge" class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
+                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
             </a>
             <a href="settings" class="nav-item <?php echo $current_page === 'settings.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,32 +202,33 @@ if (isset($_SESSION['user_id'])) {
 </div>
 
 <script>
-// Sidebar collapse toggle
+// Sidebar collapse toggle (matches staff sidebar behavior)
 function toggleSidebar() {
     const sidebar = document.getElementById('adminSidebar');
     const isCollapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+    localStorage.setItem('sidebarCollapsed', isCollapsed);
     
-    // Update button icon
-    const btn = document.getElementById('sidebarCollapseBtn');
-    if (isCollapsed) {
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
-        btn.title = 'Expand sidebar';
-    } else {
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>';
-        btn.title = 'Collapse sidebar';
+    // Update button icon (chevron flips: left = expanded, right = collapsed)
+    const iconEl = document.getElementById('sidebar-toggle-icon');
+    const path = iconEl ? (iconEl.tagName === 'path' ? iconEl : iconEl.querySelector('path')) : null;
+    const btn = document.getElementById('global-sidebar-toggle');
+    if (path && btn) {
+        path.setAttribute('d', isCollapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7');
+        btn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
     }
 }
 
-// Restore sidebar state on page load
+// Restore sidebar state on page load (matches staff)
 document.addEventListener('DOMContentLoaded', function() {
     const sidebar = document.getElementById('adminSidebar');
-    const collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+    const toggleBtn = document.getElementById('global-sidebar-toggle');
+    const toggleIcon = document.getElementById('sidebar-toggle-icon');
+    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     if (collapsed) {
         sidebar.classList.add('collapsed');
-        const btn = document.getElementById('sidebarCollapseBtn');
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
-        btn.title = 'Expand sidebar';
+        const path = toggleIcon ? (toggleIcon.tagName === 'path' ? toggleIcon : toggleIcon.querySelector('path')) : null;
+        if (path) path.setAttribute('d', 'M9 5l7 7-7 7');
+        if (toggleBtn) toggleBtn.title = 'Expand sidebar';
     }
 });
 
@@ -299,22 +300,14 @@ document.addEventListener('click', function(event) {
         });
     });
 
-    // Notification Polling
-    function updateSidebarNotifCount() {
-        fetch('/printflow/public/api/notification_count.php')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const badge = document.getElementById('sidebar-notif-badge');
-                    if (badge) {
-                        badge.innerText = data.count > 99 ? '99+' : data.count;
-                        badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
-                    }
-                }
-            })
-            .catch(err => console.error('Sidebar notif error:', err));
-    }
-    // Poll every 10 seconds
-    setInterval(updateSidebarNotifCount, 10000);
+    // Notification badge updates are handled by notifications.js (loaded below)
 </script>
+
+<?php
+$_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
+$_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Admin';
+?>
+<script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
+<script src="/printflow/public/assets/js/notifications.js" defer></script>
+<script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>
 

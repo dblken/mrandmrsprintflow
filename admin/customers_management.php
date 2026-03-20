@@ -11,58 +11,148 @@ require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
 
-// Get all customers
-$search   = trim($_GET['search'] ?? '');
-$sort     = $_GET['sort'] ?? 'created_at';
-$dir      = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
-$page     = max(1, (int)($_GET['page'] ?? 1));
+// Get filter parameters
+$search  = $_GET['search']  ?? '';
+$date_from = $_GET['date_from'] ?? '';
+$date_to   = $_GET['date_to']   ?? '';
+$sort_by = $_GET['sort']    ?? 'newest';
+$page    = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
-$sort_cols = ['customer_id','name','email','phone','created_at'];
-$sort = in_array($sort, $sort_cols) ? $sort : 'created_at';
-$sort_col_sql = match($sort) {
-    'name'        => "CONCAT(first_name,' ',last_name)",
-    'email'       => 'email',
-    'phone'       => 'contact_number',
-    'customer_id' => 'customer_id',
-    default       => 'created_at',
-};
-
+// Build query
 $sql = "SELECT * FROM customers WHERE 1=1";
 $params = [];
 $types = '';
 
 if (!empty($search)) {
-    $sql .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
     $search_term = '%' . $search . '%';
+    $sql .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
     $params[] = $search_term;
     $params[] = $search_term;
     $params[] = $search_term;
     $types .= 'sss';
 }
 
-// Count total (must happen before ORDER BY and LIMIT)
-$count_sql = "SELECT COUNT(*) as total FROM customers WHERE 1=1";
-if (!empty($search)) {
-    $count_sql .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
+if (!empty($date_from)) {
+    $sql .= " AND DATE(created_at) >= ?";
+    $params[] = $date_from;
+    $types .= 's';
 }
-$total_filtered = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
+
+if (!empty($date_to)) {
+    $sql .= " AND DATE(created_at) <= ?";
+    $params[] = $date_to;
+    $types .= 's';
+}
+
+// Count total results
+$count_sql = "SELECT COUNT(*) as total FROM ({$sql}) as count_wrap";
+$total_filtered = db_query($count_sql, $types, $params)[0]['total'];
 $total_pages = max(1, ceil($total_filtered / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
-$sql .= " ORDER BY $sort_col_sql $dir LIMIT $per_page OFFSET $offset";
-$customers = db_query($sql, $types ?: null, $params ?: null) ?: [];
-
-// Get statistics
-$total_customers = db_query("SELECT COUNT(*) as count FROM customers")[0]['count'];
-
-// Sort helpers
-$build_sort_url = function(string $col) use ($sort, $dir): string {
-    $p = array_filter(['sort'=>$col,'dir'=>($sort===$col&&$dir==='ASC')?'DESC':'ASC','search'=>$_GET['search']??'']);
-    return '?'.http_build_query($p);
+$sort_clause = match($sort_by) {
+    'oldest' => " ORDER BY created_at ASC",
+    'az'     => " ORDER BY first_name ASC, last_name ASC",
+    'za'     => " ORDER BY first_name DESC, last_name DESC",
+    default  => " ORDER BY created_at DESC"
 };
-$sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'):'';
+
+$sql .= $sort_clause . " LIMIT $per_page OFFSET $offset";
+$customers = db_query($sql, $types, $params);
+
+// ── AJAX Response ──────────────────────────────────
+if (isset($_GET['ajax'])) {
+    ob_start();
+    ?>
+    <table class="orders-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Contact</th>
+                <th>Registered</th>
+                <th style="text-align:right;" class="no-print">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="customersTableBody">
+            <?php if (empty($customers)): ?>
+                <tr id="emptyCustomersRow">
+                    <td colspan="6" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No customers found</td>
+                </tr>
+            <?php else: ?>
+                <tr id="emptyCustomersRow" style="display:none;">
+                    <td colspan="6" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No customers found</td>
+                </tr>
+                <?php foreach ($customers as $customer): ?>
+                    <tr class="customer-row" onclick="openModal(<?php echo $customer['customer_id']; ?>)">
+                        <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
+                        <td style="font-weight:500;color:#1f2937;" class="name-cell">
+                            <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
+                        </td>
+                        <td class="email-cell"><?php echo htmlspecialchars($customer['email']); ?></td>
+                        <td><?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?></td>
+                        <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
+                        <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
+                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
+                                Profile
+                            </button>
+                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
+                                Transactions
+                            </button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    $table_html = ob_get_clean();
+
+    ob_start();
+    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+    echo render_pagination($page, $total_pages, $pagination_params); 
+    $pagination_html = ob_get_clean();
+
+    echo json_encode([
+        'success'    => true,
+        'table'      => $table_html,
+        'pagination' => $pagination_html,
+        'count'      => number_format($total_filtered),
+        'badge'      => count(array_filter([$search, $date_from, $date_to]))
+    ]);
+    exit;
+}
+
+// ── KPI Queries ──────────────────────────────────────
+
+// 1. Total Customers
+$total_customers = db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0;
+
+// 2. New This Month
+$new_this_month = db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0;
+
+// 3. Active (Last 30 Days)
+$active_30_days = db_query("
+    SELECT COUNT(DISTINCT customer_id) as count FROM (
+        SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        UNION
+        SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
+    ) active_customers
+")[0]['count'] ?? 0;
+
+// 4. Average Spent per Customer
+$total_revenue_stats = db_query("
+    SELECT COALESCE(SUM(amount), 0) as total FROM (
+        SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
+        UNION ALL
+        SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
+    ) rev
+")[0]['total'] ?? 0;
+
+$avg_spent = $total_customers > 0 ? ($total_revenue_stats / $total_customers) : 0;
 
 $page_title = 'Customers Management - Admin';
 ?>
@@ -73,9 +163,22 @@ $page_title = 'Customers Management - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
+        /* KPI Row - matches dashboard page */
+        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+        @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+        .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
+        .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .kpi-card.violet::before { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+        .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
+        .kpi-value { font-size:26px; font-weight:500; color:#1f2937; font-variant-numeric:tabular-nums; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+
         /* Action Button Style */
         .btn-action {
             display: inline-flex;
@@ -98,18 +201,188 @@ $page_title = 'Customers Management - Admin';
         .btn-action.red { color: #ef4444; border-color: #ef4444; }
         .btn-action.red:hover { background: #ef4444; color: white; }
 
-        /* Modal Styles */
-        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
-        .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:500px; max-height:85vh; overflow-y:auto; margin:16px; position:relative; }
+        /* Toolbar Buttons */
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+            height: 38px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toolbar-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .toolbar-btn.active { background: #f0fdfa; border-color: #0d9488; color: #0d9488; }
+        
+        /* Sort Dropdown */
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            padding: 6px 0;
+            overflow: hidden;
+        }
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .sort-option:hover { background: #f9fafb; }
+        .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
+        .sort-option .check { margin-left: auto; color: #0d9488; }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Filter Panel */
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 300px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .filter-panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .filter-section:last-of-type { border-bottom: none; }
+        .filter-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .filter-reset-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .filter-reset-link:hover { text-decoration: underline; }
+        .filter-panel-footer {
+            padding: 14px 18px;
+            background: #f9fafb;
+            border-top: 1px solid #f3f4f6;
+        }
+        .reset-all-btn {
+            width: 100%;
+            height: 36px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .reset-all-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+        /* Filter Badge */
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #0d9488;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 50%;
+            margin-left: 4px;
+        }
+
+        .filter-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 10px;
+            color: #1f2937;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+        .filter-input:focus { outline: none; border-color: #0d9488; }
+        .filter-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .filter-date-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .filter-search-wrap { position: relative; }
+        .filter-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            font-size: 13px;
+            padding: 0 12px;
+            color: #1f2937;
+            box-sizing: border-box;
+        }
+        .filter-search-input:focus { outline: none; border-color: #0d9488; }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            padding: 14px 18px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .filter-btn-reset {
+            flex: 1;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        .filter-btn-reset:hover { background: #f9fafb; }
+
+        /* Orders-style table */
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .orders-table th { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .orders-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; }
+        .orders-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .orders-table tbody tr:hover { background: #f9fafb; }
+        .orders-table tbody tr:last-child td { border-bottom: none; }
+
         [x-cloak] { display: none !important; }
-
-        /* Search Box */
-        .search-box { position:relative; }
-        .search-box input { padding-left:36px; width:220px; height:38px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#fff; transition: border-color 0.2s; }
-        .search-box input:focus { border-color:#3b82f6; outline:none; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
-        .search-box .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#9ca3af; pointer-events:none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Clickable Row */
         .customer-row { cursor: pointer; transition: all 0.2s; }
@@ -130,7 +403,6 @@ $page_title = 'Customers Management - Admin';
         @media (max-width: 768px) {
             .mobile-header { display: flex; position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #fff; z-index: 60; padding: 0 20px; align-items: center; justify-content: space-between; border-bottom: 1px solid #e5e7eb; }
             .mobile-menu-btn { font-size: 24px; background: none; border: none; cursor: pointer; color: #1f2937; }
-            .search-box input { width: 100%; }
         }
 
         /* Print Styles */
@@ -149,6 +421,10 @@ $page_title = 'Customers Management - Admin';
             .print-header p { font-size: 12px; color: #6b7280; }
         }
         .print-header { display: none; }
+
+        /* Modal Styles */
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
+        .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
     </style>
 </head>
 <body x-data="customerModal()">
@@ -165,7 +441,7 @@ $page_title = 'Customers Management - Admin';
     </div>
 
     <!-- Sidebar -->
-    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -192,62 +468,161 @@ $page_title = 'Customers Management - Admin';
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 no-print"><?php echo $error_msg; ?></div>
             <?php endif; ?>
 
+            <!-- KPI Summary Row -->
+            <div class="kpi-row">
+                <div class="kpi-card indigo">
+                    <div class="kpi-label">Total Customers</div>
+                    <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
+                    <div class="kpi-sub">Registered accounts</div>
+                </div>
+                <div class="kpi-card emerald">
+                    <div class="kpi-label">New This Month</div>
+                    <div class="kpi-value"><?php echo number_format($new_this_month); ?></div>
+                    <div class="kpi-sub">Recent registrations</div>
+                </div>
+                <div class="kpi-card amber">
+                    <div class="kpi-label">Active Customers</div>
+                    <div class="kpi-value"><?php echo number_format($active_30_days); ?></div>
+                    <div class="kpi-sub">Ordered in last 30 days</div>
+                </div>
+                <div class="kpi-card violet">
+                    <div class="kpi-label">Avg. Value</div>
+                    <div class="kpi-value">₱<?php echo number_format((float)$avg_spent, 2); ?></div>
+                    <div class="kpi-sub">Avg spent per customer</div>
+                </div>
+            </div>
+
             <!-- Customers Table -->
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-                    <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Customers List <span style="font-size:13px; font-weight:400; color:#9ca3af;">(<?php echo $total_filtered; ?>)</span></h3>
-                    <form method="GET" id="filterForm" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" class="no-print">
-                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
-                        <input type="hidden" name="dir" value="<?php echo htmlspecialchars($dir); ?>">
-                        <div class="search-box">
-                            <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <input type="text" name="search" id="searchInput" placeholder="Search name or email..." value="<?php echo htmlspecialchars($search); ?>" onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                    <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Customers List</h3>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <!-- Sort Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
+                                </svg>
+                                Sort by
+                            </button>
+                            <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                <?php
+                                $sorts = [
+                                    'newest' => 'Newest to Oldest',
+                                    'oldest' => 'Oldest to Newest',
+                                    'az'     => 'A → Z',
+                                    'za'     => 'Z → A',
+                                ];
+                                foreach ($sorts as $key => $label): ?>
+                                <div class="sort-option" 
+                                     :class="{ 'selected': activeSort === '<?php echo $key; ?>' }"
+                                     onclick="applySortFilter('<?php echo $key; ?>')">
+                                    <?php echo htmlspecialchars($label); ?>
+                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
-                        <button type="submit" class="btn-secondary" style="height:38px;padding:0 14px;font-size:13px;">Search</button>
-                    </form>
+
+                        <!-- Filter Button -->
+                        <div style="position:relative;">
+                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                                Filter
+                                <span id="filterBadgeContainer">
+                                    <?php
+                                    $active_filters_count = count(array_filter([$search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }));
+                                    if ($active_filters_count > 0): ?>
+                                    <span class="filter-badge"><?php echo $active_filters_count; ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </button>
+
+                            <!-- Filter Panel -->
+                            <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false" id="filterPanel">
+                                <div class="filter-panel-header">Filter</div>
+
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div>
+                                            <div class="filter-date-label">From:</div>
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from ?? ''); ?>">
+                                        </div>
+                                        <div>
+                                            <div class="filter-date-label">To:</div>
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to ?? ''); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Keyword Search -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Keyword search</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                    </div>
+                                    <div class="filter-search-wrap">
+                                        <input type="text" id="fp_search" class="filter-search-input" placeholder="Search..." value="<?php echo htmlspecialchars($search ?? ''); ?>">
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="filter-actions">
+                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                <div class="overflow-x-auto" id="customersTableContainer">
+                    <table class="orders-table">
                         <thead>
-                            <tr class="border-b-2">
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('customer_id'); ?>" style="text-decoration:none;color:inherit;">ID<?php echo $sort_icon('customer_id'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('name'); ?>" style="text-decoration:none;color:inherit;">Name<?php echo $sort_icon('name'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('email'); ?>" style="text-decoration:none;color:inherit;">Email<?php echo $sort_icon('email'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('phone'); ?>" style="text-decoration:none;color:inherit;">Contact<?php echo $sort_icon('phone'); ?></a></th>
-                                <th class="text-left py-3"><a href="<?php echo $build_sort_url('created_at'); ?>" style="text-decoration:none;color:inherit;">Registered<?php echo $sort_icon('created_at'); ?></a></th>
-                                <th class="text-right py-3 no-print">Actions</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Contact</th>
+                                <th>Registered</th>
+                                <th style="text-align:right;" class="no-print">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="customersTableBody">
                             <?php foreach ($customers as $customer): ?>
-                                <tr class="border-b hover:bg-gray-50 customer-row" @click="openModal(<?php echo $customer['customer_id']; ?>)">
-                                    <td class="py-3"><?php echo $customer['customer_id']; ?></td>
-                                    <td class="py-3 font-medium name-cell">
+                                <tr class="customer-row" onclick="openModal(<?php echo $customer['customer_id']; ?>)">
+                                    <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
+                                    <td style="font-weight:500;color:#1f2937;" class="name-cell">
                                         <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                                     </td>
-                                    <td class="py-3 email-cell"><?php echo htmlspecialchars($customer['email']); ?></td>
-                                    <td class="py-3"><?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?></td>
-                                    <td class="py-3"><?php echo format_date($customer['created_at']); ?></td>
-                                    <td class="py-3 text-right space-x-1 no-print actions" @click.stop>
-                                        <button @click="openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
+                                    <td class="email-cell"><?php echo htmlspecialchars($customer['email']); ?></td>
+                                    <td><?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?></td>
+                                    <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
+                                    <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
+                                        <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">
                                             Profile
                                         </button>
-                                        <button @click="openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
+                                        <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">
                                             Transactions
                                         </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                             <tr id="emptyCustomersRow" style="display: none;">
-                                <td colspan="6" class="py-8 text-center text-gray-500">No customers found</td>
+                                <td colspan="6" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No customers found</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <div id="customersPagination">
-                    <?php
-                    $pagination_params = array_filter(['search'=>$search,'sort'=>$sort,'dir'=>$dir]);
-                    echo render_pagination($page, $total_pages, $pagination_params);
+                    <?php 
+                    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+                    echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
             </div>
@@ -383,9 +758,13 @@ $page_title = 'Customers Management - Admin';
                             </template>
                             <!-- Orders Pagination -->
                             <div x-show="ordersPagination && ordersPagination.total_pages > 1" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <button x-show="ordersPagination.current_page > 1" @click="loadTransTabData('orders', ordersPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
-                                <span style="font-size:12px;color:#6b7280;" x-text="`Page ${ordersPagination.current_page} of ${ordersPagination.total_pages}`"></span>
-                                <button x-show="ordersPagination.current_page < ordersPagination.total_pages" @click="loadTransTabData('orders', ordersPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                <template x-if="ordersPagination">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <button x-show="ordersPagination.current_page > 1" @click="loadTransTabData('orders', ordersPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
+                                        <span style="font-size:12px;color:#6b7280;" x-text="'Page ' + ordersPagination.current_page + ' of ' + ordersPagination.total_pages"></span>
+                                        <button x-show="ordersPagination.current_page < ordersPagination.total_pages" @click="loadTransTabData('orders', ordersPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 
@@ -408,9 +787,13 @@ $page_title = 'Customers Management - Admin';
                             </template>
                             <!-- Customizations Pagination -->
                             <div x-show="customizationsPagination && customizationsPagination.total_pages > 1" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <button x-show="customizationsPagination.current_page > 1" @click="loadTransTabData('customizations', customizationsPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
-                                <span style="font-size:12px;color:#6b7280;" x-text="`Page ${customizationsPagination.current_page} of ${customizationsPagination.total_pages}`"></span>
-                                <button x-show="customizationsPagination.current_page < customizationsPagination.total_pages" @click="loadTransTabData('customizations', customizationsPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                <template x-if="customizationsPagination">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <button x-show="customizationsPagination.current_page > 1" @click="loadTransTabData('customizations', customizationsPagination.current_page - 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Previous</button>
+                                        <span style="font-size:12px;color:#6b7280;" x-text="'Page ' + customizationsPagination.current_page + ' of ' + customizationsPagination.total_pages"></span>
+                                        <button x-show="customizationsPagination.current_page < customizationsPagination.total_pages" @click="loadTransTabData('customizations', customizationsPagination.current_page + 1)" style="padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:12px;">Next</button>
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -426,8 +809,129 @@ $page_title = 'Customers Management - Admin';
 </div>
 
 <script>
-    // Search is now server-side via form submission.
+    // ── Filter + Sort helpers (matches orders_management.php exactly) ──
+    let searchDebounceTimer;
 
+    function buildFilterURL(overrides = {}, isAjax = false) {
+        const params = new URLSearchParams(window.location.search);
+
+        const fields = {
+            search:    () => document.getElementById('fp_search')?.value   || '',
+            date_from: () => document.getElementById('fp_date_from')?.value || '',
+            date_to:   () => document.getElementById('fp_date_to')?.value   || '',
+        };
+
+        for (const [key, getter] of Object.entries(fields)) {
+            const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+            if (val) params.set(key, val);
+            else params.delete(key);
+        }
+
+        if (overrides.sort !== undefined) {
+            if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+            else params.delete('sort');
+        }
+
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
+
+        params.delete('page');
+        return window.location.pathname + '?' + params.toString();
+    }
+
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.success) {
+                const tableContainer = document.getElementById('customersTableContainer');
+                const paginationContainer = document.getElementById('customersPagination');
+                const filterBadgeContainer = document.getElementById('filterBadgeContainer');
+
+                if (tableContainer) tableContainer.innerHTML = data.table;
+                if (paginationContainer) paginationContainer.innerHTML = data.pagination;
+
+                if (filterBadgeContainer) {
+                    if (data.badge > 0) {
+                        filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
+                    } else {
+                        filterBadgeContainer.innerHTML = '';
+                    }
+                }
+
+                // Update Alpine state for filter button background highlight
+                const root = document.body;
+                if (root && root._x_dataStack) {
+                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
+                }
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+            }
+        } catch (e) {
+            console.error('Error updating table:', e);
+        }
+    }
+
+    function applyFilters(resetAll = false) {
+        if (resetAll) {
+            window.location.href = window.location.pathname;
+        } else {
+            fetchUpdatedTable();
+        }
+    }
+
+    function applySortFilter(sortKey) {
+        // Update Alpine state
+        const root = document.body;
+        if (root && root._x_dataStack) {
+            const data = root._x_dataStack[0];
+            data.activeSort = sortKey;
+            data.sortOpen = false;
+        }
+        fetchUpdatedTable({ sort: sortKey });
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const el = document.getElementById('fp_' + f);
+            if (el) el.value = '';
+        });
+        fetchUpdatedTable();
+    }
+
+    // Real-time listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = ['fp_date_from', 'fp_date_to'];
+        inputs.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
+        });
+
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    fetchUpdatedTable();
+                }, 500);
+            });
+        }
+    });
+
+    // ── Alpine.js filterPanel state (merged into customerModal via x-data) ──
+    // NOTE: filterPanel state is inlined into the customerModal() return object below.
+    // These globals are used to sync sort state.
+    let _activeSortKey = '<?php echo $sort_by; ?>';
+    let _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
+
+    // Global bridge for onclick in table rows/buttons (incl. AJAX-loaded table)
+    // Uses custom events so Alpine reliably receives the call
+    window.openModal = function(id) {
+        window.dispatchEvent(new CustomEvent('open-customer-modal', { detail: { id } }));
+    };
+    window.openTransactionModal = function(id) {
+        window.dispatchEvent(new CustomEvent('open-transaction-modal', { detail: { id } }));
+    };
 
     // Customer Modal (Alpine.js component)
     function customerModal() {
@@ -437,6 +941,12 @@ $page_title = 'Customers Management - Admin';
             errorMsg: '',
             customer: null,
 
+            // Sort/Filter panel state (inlined from filterPanel())
+            sortOpen: false,
+            filterOpen: false,
+            activeSort: '<?php echo $sort_by; ?>',
+            hasActiveFilters: <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>,
+
             // Transaction Modal State
             showTransactionModal: false,
             transLoading: false,
@@ -445,8 +955,14 @@ $page_title = 'Customers Management - Admin';
             tabLoading: false,
             orders: [],
             customizations: [],
-            ordersPagination: null,
-            customizationsPagination: null,
+            ordersPagination: { current_page: 1, total_pages: 1 },
+            customizationsPagination: { current_page: 1, total_pages: 1 },
+
+            init() {
+                const self = this;
+                window.addEventListener('open-customer-modal', e => { self.openModal(e.detail.id); });
+                window.addEventListener('open-transaction-modal', e => { self.openTransactionModal(e.detail.id); });
+            },
 
             openModal(id) {
                 this.showModal = true;
@@ -454,8 +970,15 @@ $page_title = 'Customers Management - Admin';
                 this.errorMsg = '';
                 this.customer = null;
 
-                fetch('api_customer_details.php?id=' + id)
-                    .then(r => r.json())
+                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                    .then(async r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            const text = await r.text();
+                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
+                        }
+                        return r.json();
+                    })
                     .then(data => {
                         this.loading = false;
                         if(data.success) { 
@@ -466,7 +989,7 @@ $page_title = 'Customers Management - Admin';
                     })
                     .catch(e => { 
                         this.loading = false; 
-                        this.errorMsg = 'Failed to load customer details.'; 
+                        this.errorMsg = (e.message || 'Failed to load customer details.').replace(/\(HTML\/login redirect\)/, ' — please refresh and log in again.');
                         console.error('Fetch error:', e);
                     });
             },
@@ -480,8 +1003,15 @@ $page_title = 'Customers Management - Admin';
                 this.customizations = [];
 
                 // Load basic info first for the header
-                fetch('api_customer_details.php?id=' + id)
-                    .then(r => r.json())
+                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                    .then(async r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            const text = await r.text();
+                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
+                        }
+                        return r.json();
+                    })
                     .then(data => {
                         this.transLoading = false;
                         if(data.success) {
@@ -503,15 +1033,15 @@ $page_title = 'Customers Management - Admin';
                 
                 try {
                     if (tab === 'orders') {
-                        const res = await fetch(`api_customer_details.php?customer_id=${this.customer.customer_id}&page=${page}`);
+                        const res = await fetch(`api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                         const data = await res.json();
                         this.orders = data.data || [];
-                        this.ordersPagination = data.pagination || null;
+                        this.ordersPagination = data.pagination || { current_page: 1, total_pages: 1 };
                     } else if (tab === 'customizations') {
-                        const res = await fetch(`job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`);
+                        const res = await fetch(`job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                         const data = await res.json();
                         this.customizations = data.data || [];
-                        this.customizationsPagination = data.pagination || null;
+                        this.customizationsPagination = data.pagination || { current_page: 1, total_pages: 1 };
                     }
                 } catch (e) {
                     console.error(`Error loading ${tab}:`, e);
@@ -521,20 +1051,33 @@ $page_title = 'Customers Management - Admin';
             },
 
             getStatusBadge(status) {
-                const statusMap = {
-                    'Pending': 'background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'Processing': 'background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'Ready for Pickup': 'background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'Completed': 'background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'Cancelled': 'background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    // Job order statuses
-                    'PENDING': 'background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'APPROVED': 'background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'IN_PRODUCTION': 'background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:12px;font-weight:600;',
-                    'COMPLETED': 'background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:12px;font-weight:600;',
+                const pc = {
+                    'Pending': 'background:#fef9c3;color:#854d0e;',
+                    'Paid': 'background:#dcfce7;color:#166534;',
+                    'Failed': 'background:#fee2e2;color:#991b1b;',
+                    'UNPAID': 'background:#fee2e2;color:#991b1b;',
+                    'PARTIAL': 'background:#fef3c7;color:#b45309;',
+                    'PAID': 'background:#dcfce7;color:#166534;',
                 };
-                const style = statusMap[status] || 'background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:12px;font-weight:600;';
-                return `<span style="${style}">${status}</span>`;
+                const sc = {
+                    'Pending': 'background:#fef3c7;color:#92400e;',
+                    'Pending Review': 'background:#fef3c7;color:#92400e;',
+                    'To Pay': 'background:#fce7f3;color:#9d174d;',
+                    'Processing': 'background:#dbeafe;color:#1e40af;',
+                    'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
+                    'Completed': 'background:#dcfce7;color:#166534;',
+                    'Cancelled': 'background:#fecaca;color:#b91c1c;',
+                    'PENDING': 'background:#fef3c7;color:#92400e;',
+                    'APPROVED': 'background:#dbeafe;color:#1e40af;',
+                    'TO_PAY': 'background:#fce7f3;color:#9d174d;',
+                    'IN_PRODUCTION': 'background:#d1fae5;color:#065f46;',
+                    'TO_RECEIVE': 'background:#ede9fe;color:#5b21b6;',
+                    'COMPLETED': 'background:#dcfce7;color:#166534;',
+                    'CANCELLED': 'background:#fecaca;color:#b91c1c;',
+                };
+                const style = pc[status] || sc[status] || 'background:#f3f4f6;color:#6b7280;';
+                const displayStatus = (status === 'Pending Review') ? 'Pending' : (status || 'N/A');
+                return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;${style}">${displayStatus}</span>`;
             }
         };
     }

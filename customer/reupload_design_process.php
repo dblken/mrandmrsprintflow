@@ -64,9 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $success = db_execute($sql, 'bssi', [$file_data, $mime_type, $file_name, $order_item_id]);
 
     if ($success) {
-        // Set design status to Revision Submitted and order status back to Pending Review
+        // Set design status to Revision Submitted and order status back to Pending
         db_execute(
-            "UPDATE orders SET design_status = 'Revision Submitted', status = 'Pending Review' WHERE order_id = ?",
+            "UPDATE orders SET design_status = 'Revision Submitted', status = 'Pending' WHERE order_id = ?",
             'i', [$order_id]
         );
 
