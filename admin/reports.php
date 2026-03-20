@@ -27,6 +27,15 @@ $chart_sort = $_GET['chart_sort'] ?? 'value_desc';
 $valid_sorts = ['value_desc','value_asc','month_asc','month_desc'];
 if (!in_array($chart_sort, $valid_sorts)) $chart_sort = 'value_desc';
 
+// ── Sales trend metric (revenue|orders) ───────────────────────────────────────
+$trend_metric = $_GET['trend_metric'] ?? 'revenue';
+if (!in_array($trend_metric, ['revenue','orders'])) $trend_metric = 'revenue';
+
+// ── Recent transactions payment filter ───────────────────────────────────────
+$txn_payment_filter = $_GET['txn_pay'] ?? 'all';
+$txn_pay_valid = ['all','paid','unpaid','pending'];
+if (!in_array($txn_payment_filter, $txn_pay_valid)) $txn_payment_filter = 'all';
+
 // ── Forecast helpers ──────────────────────────────────────────────────────────
 
 /** Simple trend-based 3-month forecast from a historical array. */
@@ -218,9 +227,16 @@ if (!$branch_empty) {
             $hist[] = $v;
             $fc_total_history += $v;
         }
+        $fore = pf_forecast3($hist);
+        $lastHist = $hist[5] ?? 0;
+        $lastFore = $fore[2] ?? 0;
+        $demand = 'moderate';
+        if ($lastFore > $lastHist * 1.15) $demand = 'high';
+        elseif ($lastFore < $lastHist * 0.85 && $lastHist > 0) $demand = 'declining';
         $fc_series_data[$prod] = [
             'hist' => $hist,
-            'fore' => pf_forecast3($hist),
+            'fore' => $fore,
+            'demand' => $demand,
         ];
     }
 }
@@ -232,7 +248,7 @@ if (!$branch_empty && $total_orders > 0) {
     try {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
         $top_products = db_query(
-            "SELECT p.name AS product_name,
+            "SELECT p.product_id, p.name AS product_name,
                     SUM(oi.quantity) as qty_sold,
                     SUM(oi.quantity * oi.unit_price) as revenue
              FROM order_items oi
@@ -386,11 +402,15 @@ $txn_page = max(1,(int)($_GET['txn_page'] ?? 1));
 $txn_per  = 10;
 $txn_count = $txn_pages = 0;
 $recent_orders = [];
+$txn_pay_sql = '';
+if ($txn_payment_filter === 'paid')     $txn_pay_sql = " AND o.payment_status = 'Paid'";
+elseif ($txn_payment_filter === 'unpaid') $txn_pay_sql = " AND (o.payment_status IS NULL OR (o.payment_status != 'Paid' AND o.payment_status != 'Pending'))";
+elseif ($txn_payment_filter === 'pending') $txn_pay_sql = " AND o.payment_status = 'Pending'";
 if (!$branch_empty) {
     try {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
         $txn_count = (int)(db_query(
-            "SELECT COUNT(*) as cnt FROM orders o WHERE o.order_date BETWEEN ? AND ?$b",
+            "SELECT COUNT(*) as cnt FROM orders o WHERE o.order_date BETWEEN ? AND ?$b$txn_pay_sql",
             'ss'.$bt, array_merge([$from,$toEnd],$bp)
         )[0]['cnt'] ?? 0);
         $txn_pages  = max(1, ceil($txn_count / $txn_per));
@@ -401,7 +421,7 @@ if (!$branch_empty) {
             "SELECT o.order_id, CONCAT(c.first_name,' ',c.last_name) as customer_name,
                     o.order_date, o.total_amount, o.payment_status, o.status
              FROM orders o LEFT JOIN customers c ON o.customer_id=c.customer_id
-             WHERE o.order_date BETWEEN ? AND ?$b2
+             WHERE o.order_date BETWEEN ? AND ?$b2$txn_pay_sql
              ORDER BY o.order_date DESC LIMIT $txn_per OFFSET $txn_offset",
             'ss'.$bt2, array_merge([$from,$toEnd],$bp2)
         ) ?: [];
@@ -453,6 +473,30 @@ foreach ($active_events as $ev) {
 }
 
 $page_title = 'Reports & Analytics — Admin';
+$last_updated = date('M j, Y g:i A');
+
+// ── Period empty (branch has orders but none in date range) ─────────────────
+$period_empty = (!$branch_empty && $total_orders === 0);
+
+// ── Top products: prev month qty for trend % ───────────────────────────────
+$top_products_prev = [];
+if (!$branch_empty && !empty($top_products)) {
+    try {
+        [$b,$bt,$bp] = branch_where_parts('o', $branchId);
+        $prevMonthStart = date('Y-m-01', strtotime($from . ' -1 month'));
+        $prevMonthEnd   = date('Y-m-t', strtotime($from . ' -1 month')) . ' 23:59:59';
+        $prevRows = db_query(
+            "SELECT p.product_id, SUM(oi.quantity) as qty
+             FROM order_items oi JOIN products p ON oi.product_id=p.product_id
+             JOIN orders o ON oi.order_id=o.order_id
+             WHERE o.order_date BETWEEN ? AND ?$b
+             GROUP BY p.product_id",
+            'ss'.$bt, array_merge([$prevMonthStart,$prevMonthEnd],$bp)
+        ) ?: [];
+        foreach ($prevRows as $r) $top_products_prev[(int)$r['product_id']] = (int)$r['qty'];
+    } catch(Exception $e){}
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -467,35 +511,37 @@ $page_title = 'Reports & Analytics — Admin';
 <?php render_branch_css(); ?>
 <style>
 /* ── Layout ─────────────────────────── */
-.ana-wrap { display:flex; flex-direction:column; gap:22px; }
+.ana-wrap { display:flex; flex-direction:column; gap:24px; }
 .ana-grid  { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
 .ana-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
 @media(max-width:960px){ .ana-grid,.ana-grid3{ grid-template-columns:1fr; } }
 
-/* ── Card ───────────────────────────── */
-.ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; }
-.ana-hd   { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; }
-.ana-hd h3{ margin:0; font-size:13.5px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:7px; white-space:nowrap; }
-.ana-hd h3 svg{ width:15px; height:15px; color:#6366f1; flex-shrink:0; }
-.ana-bd   { padding:16px 20px 20px; }
+/* ── Card (SaaS-style) ───────────────── */
+.ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:box-shadow .2s; }
+.ana-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+.ana-hd   { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; }
+.ana-hd h3{ margin:0; font-size:14px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.ana-hd h3 svg{ width:16px; height:16px; color:#6366f1; flex-shrink:0; }
+.ana-bd   { padding:20px; }
 .ana-bd-0 { padding:0; }
 
-/* ── KPI ────────────────────────────── */
-.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+/* ── KPI (modern SaaS) ───────────────── */
+.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
 @media(max-width:900px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
-.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; transition:box-shadow .2s; }
-.kpi-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.07); }
-.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; }
+.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; }
+.kpi-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.08); }
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
 .kpi-ind::before  { background:linear-gradient(90deg,#6366f1,#818cf8); }
 .kpi-em::before   { background:linear-gradient(90deg,#059669,#34d399); }
 .kpi-amb::before  { background:linear-gradient(90deg,#f59e0b,#fcd34d); }
 .kpi-vio::before  { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
-.kpi-lbl  { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:8px; }
-.kpi-val  { font-size:24px; font-weight:800; color:#1f2937; line-height:1.1; margin-bottom:5px; }
-.kpi-sub  { font-size:12px; color:#6b7280; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.kpi-lbl  { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#6b7280; margin-bottom:6px; }
+.kpi-val  { font-size:26px; font-weight:800; color:#111827; line-height:1.15; margin-bottom:6px; letter-spacing:-.02em; }
+.kpi-sub  { font-size:12px; color:#6b7280; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.4; }
+.kpi-updated { font-size:10px; color:#9ca3af; margin-top:10px; }
 .t-up     { color:#059669; font-weight:700; }
-.t-dn     { color:#ef4444; font-weight:700; }
-.t-fl     { color:#6b7280; }
+.t-dn     { color:#dc2626; font-weight:700; }
+.t-fl     { color:#6b7280; font-weight:500; }
 
 /* ── Toolbar (Filter / Sort / Print) ─── */
 .toolbar-btn {
@@ -554,7 +600,9 @@ $page_title = 'Reports & Analytics — Admin';
 .rpt-tbl { width:100%; border-collapse:collapse; }
 .rpt-tbl th { padding:8px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; background:#f9fafb; text-align:left; border-bottom:2px solid #e5e7eb; }
 .rpt-tbl td { padding:9px 14px; font-size:13px; border-bottom:1px solid #f3f4f6; color:#374151; }
-.rpt-tbl tr:hover td{ background:#fafafa; }
+.rpt-tbl tr:hover td{ background:#f8fafc; }
+.rpt-tbl-clickable tbody tr{ transition:background .15s; }
+.rpt-tbl-clickable tbody tr:hover{ background:#f1f5f9 !important; }
 .num      { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
 
 /* ── Badges ─────────────────────────── */
@@ -654,6 +702,8 @@ $page_title = 'Reports & Analytics — Admin';
                             <form method="GET" id="reportsFilterForm">
                                 <?php if ($branchId !== 'all'): ?><input type="hidden" name="branch_id" value="<?php echo (int)$branchId; ?>"><?php endif; ?>
                                 <input type="hidden" name="chart_sort" value="<?php echo htmlspecialchars($chart_sort); ?>">
+                                <input type="hidden" name="trend_metric" value="<?php echo htmlspecialchars($trend_metric); ?>">
+                                <input type="hidden" name="txn_pay" value="<?php echo htmlspecialchars($txn_payment_filter); ?>">
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Date range</span>
@@ -672,6 +722,8 @@ $page_title = 'Reports & Analytics — Admin';
                                     <div style="margin-top:10px;">
                                         <div class="filter-date-label">Quick presets</div>
                                         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_7')">Last 7 days</button>
+                                            <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_30')">Last 30 days</button>
                                             <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('this_month')">This month</button>
                                             <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_3')">Last 3 months</button>
                                             <button type="button" class="toolbar-btn" style="height:30px;font-size:11px;padding:0 10px;" @click="setPreset('last_6')">Last 6 months</button>
@@ -684,6 +736,19 @@ $page_title = 'Reports & Analytics — Admin';
                                     <button type="submit" class="filter-btn-apply">Apply</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                    <!-- Export -->
+                    <div style="position:relative;" x-data="{exportOpen:false}">
+                        <button class="toolbar-btn" @click="exportOpen=!exportOpen" style="height:38px;">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export
+                        </button>
+                        <div class="sort-dropdown" x-show="exportOpen" x-cloak @click.outside="exportOpen=false" style="min-width:160px;">
+                            <a href="/printflow/admin/reports_export.php?report=sales&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Sales</a>
+                            <a href="/printflow/admin/reports_export.php?report=orders&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Orders</a>
+                            <a href="/printflow/admin/reports_export.php?report=customers&from=<?php echo urlencode($from); ?>&to=<?php echo urlencode($to); ?>" class="sort-option" style="text-decoration:none;">CSV – Customers</a>
+                            <a href="javascript:window.print()" class="sort-option" style="text-decoration:none;">PDF – Print</a>
                         </div>
                     </div>
                     <!-- Print -->
@@ -728,7 +793,7 @@ $page_title = 'Reports & Analytics — Admin';
             <!-- ══ KPI ROW ═══════════════════════════════════════════════════ -->
             <div class="kpi-row">
                 <!-- Total Orders -->
-                <div class="kpi-card kpi-em">
+                <div class="kpi-card kpi-em" title="Count of all orders in the selected date range. Compare to previous period of equal length.">
                     <div class="kpi-lbl">Total Orders</div>
                     <div class="kpi-val"><?php echo number_format($total_orders); ?></div>
                     <div class="kpi-sub">
@@ -739,9 +804,10 @@ $page_title = 'Reports & Analytics — Admin';
                         <?php endif; ?>
                         vs prev period
                     </div>
+                    <div class="kpi-updated">Last updated: <?php echo $last_updated; ?></div>
                 </div>
                 <!-- Revenue -->
-                <div class="kpi-card kpi-ind">
+                <div class="kpi-card kpi-ind" title="Sum of total_amount for orders with payment_status = Paid. Excludes unpaid/pending orders.">
                     <div class="kpi-lbl">Total Revenue</div>
                     <div class="kpi-val">₱<?php echo number_format($revenue, 0); ?></div>
                     <div class="kpi-sub">
@@ -750,11 +816,11 @@ $page_title = 'Reports & Analytics — Admin';
                             <?php elseif ($revenue_delta < 0): ?><span class="t-dn">↓ <?php echo abs($revenue_delta); ?>%</span>
                             <?php else: ?><span class="t-fl">—</span><?php endif; ?>
                         <?php endif; ?>
-                        <?php echo $paid_orders; ?> paid
+                        vs last period · <?php echo $paid_orders; ?> paid
                     </div>
                 </div>
                 <!-- Top Product -->
-                <div class="kpi-card kpi-amb">
+                <div class="kpi-card kpi-amb" title="Product with highest quantity sold in the selected period.">
                     <div class="kpi-lbl">Top Selling Service</div>
                     <div class="kpi-val" style="font-size:15px;margin-top:4px;line-height:1.3;">
                         <?php echo $top_kpi_product ? htmlspecialchars(mb_substr($top_kpi_product['name'],0,22)) : '—'; ?>
@@ -762,7 +828,7 @@ $page_title = 'Reports & Analytics — Admin';
                     <div class="kpi-sub"><?php echo $top_kpi_product ? number_format((int)$top_kpi_product['qty']).' units' : 'No data yet'; ?></div>
                 </div>
                 <!-- Top Location -->
-                <div class="kpi-card kpi-vio">
+                <div class="kpi-card kpi-vio" title="City with the most orders based on customer address.">
                     <div class="kpi-lbl">Top Customer Location</div>
                     <div class="kpi-val" style="font-size:15px;margin-top:4px;line-height:1.3;">
                         <?php echo $top_kpi_location ? htmlspecialchars(mb_substr(trim($top_kpi_location['city']),0,20)) : '—'; ?>
@@ -778,12 +844,15 @@ $page_title = 'Reports & Analytics — Admin';
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         12-Month Sales Trend
                     </h3>
-                    <span style="font-size:11.5px;color:#6366f1;font-weight:600;">
-                        <?php echo $next_month_label; ?> forecast included
-                    </span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:11px;color:#6b7280;">Show:</span>
+                        <a href="?<?php echo http_build_query(array_merge($_GET,['trend_metric'=>'revenue'])); ?>" class="toolbar-btn <?php echo $trend_metric==='revenue'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Revenue</a>
+                        <a href="?<?php echo http_build_query(array_merge($_GET,['trend_metric'=>'orders'])); ?>" class="toolbar-btn <?php echo $trend_metric==='orders'?'active':''; ?>" style="height:32px;font-size:12px;padding:0 12px;">Orders</a>
+                        <span style="font-size:11px;color:#9ca3af;">· <?php echo $next_month_label; ?> forecast</span>
+                    </div>
                 </div>
                 <div class="ana-bd">
-                    <div class="ch-box" style="height:290px;"><div id="ch-trend"></div></div>
+                    <div class="ch-box" style="height:300px;"><div id="ch-trend"></div></div>
                 </div>
             </div>
 
@@ -794,7 +863,9 @@ $page_title = 'Reports & Analytics — Admin';
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         Product Demand Forecast — Next 3 Months
                     </h3>
-                    <span style="font-size:11px;color:#6b7280;">Based on 6-month moving average · solid = actual · dashed = forecast</span>
+                    <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:#6b7280;">
+                        <span title="Solid lines = actual historical data. Dashed lines = predicted demand based on 6-month trend.">— Solid = Actual · - - Dashed = Forecast</span>
+                    </div>
                 </div>
                 <div class="ana-bd">
                     <?php if (!$can_forecast): ?>
@@ -804,7 +875,7 @@ $page_title = 'Reports & Analytics — Admin';
                         <div style="font-size:12px;">Predictions will appear once at least <strong>20 orders</strong> are recorded in the last 6 months.</div>
                     </div>
                     <?php else: ?>
-                    <div style="display:grid;grid-template-columns:1fr 260px;gap:20px;align-items:start;">
+                    <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:start;">
                         <div class="ch-box" style="height:290px;"><div id="ch-forecast"></div></div>
                         <div>
                             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-bottom:12px;">Top Predicted Demand</div>
@@ -813,16 +884,22 @@ $page_title = 'Reports & Analytics — Admin';
                             $fc_max = 1;
                             foreach ($fc_series_data as $pd) $fc_max = max($fc_max, max($pd['fore']));
                             $fc_i = 0;
+                            $demand_badges = ['high'=>'🔥 High Demand','moderate'=>'⚠️ Moderate','declining'=>'⬇️ Declining'];
                             foreach ($fc_series_data as $prod => $pd):
                                 $pct = $fc_max > 0 ? round(max($pd['fore']) / $fc_max * 100) : 0;
-                                $col = $fc_colors[$fc_i % count($fc_colors)]; $fc_i++;
+                                $col = $fc_colors[$fc_i % count($fc_colors)];
+                                $badge = $demand_badges[$pd['demand'] ?? 'moderate'] ?? '⚠️ Moderate';
+                                $fc_i++;
                             ?>
-                            <div style="margin-bottom:10px;">
-                                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                                    <span style="font-size:11.5px;font-weight:600;color:#374151;"><?php echo htmlspecialchars(mb_substr($prod,0,22)); ?></span>
-                                    <span style="font-size:11px;color:#6b7280;">~<?php echo number_format(max($pd['fore'])); ?></span>
+                            <div style="margin-bottom:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">
+                                    <span style="font-size:12px;font-weight:600;color:#374151;"><?php echo htmlspecialchars(mb_substr($prod,0,18)); ?></span>
+                                    <span style="font-size:10px;color:#6b7280;white-space:nowrap;" title="Demand trend: <?php echo $pd['demand']; ?>"><?php echo $badge; ?></span>
                                 </div>
-                                <div class="fc-prod-bar"><div class="fc-prod-fill" style="width:<?php echo $pct; ?>%;background:<?php echo $col; ?>;"></div></div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div class="fc-prod-bar" style="flex:1;"><div class="fc-prod-fill" style="width:<?php echo $pct; ?>%;background:<?php echo $col; ?>;"></div></div>
+                                    <span style="font-size:11px;color:#6b7280;min-width:32px;">~<?php echo number_format(max($pd['fore'])); ?></span>
+                                </div>
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -879,6 +956,9 @@ $page_title = 'Reports & Analytics — Admin';
                 <div class="ana-card">
                     <div class="ana-hd">
                         <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Customer Locations</h3>
+                        <?php if (!empty($customer_locations)): ?>
+                        <span style="font-size:11px;font-weight:600;color:#059669;background:#d1fae5;padding:4px 10px;border-radius:20px;">🏆 Top: <?php echo htmlspecialchars(trim($customer_locations[0]['city'])); ?></span>
+                        <?php endif; ?>
                     </div>
                     <div class="ana-bd">
                         <?php if (!empty($customer_locations)): ?>
@@ -956,9 +1036,12 @@ $page_title = 'Reports & Analytics — Admin';
 
             <!-- ══ AI INSIGHTS + FORECAST PANEL ════════════════════════════ -->
             <div class="ins-panel">
-                <div class="ins-title">
-                    <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    Business Insights &amp; <?php echo $next_month_label; ?> Forecast
+                <div class="ins-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                    <span style="display:flex;align-items:center;gap:8px;">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Business Insights &amp; <?php echo $next_month_label; ?> Forecast
+                    </span>
+                    <a href="#ch-forecast" class="toolbar-btn" style="height:36px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;">View Detailed Forecast</a>
                 </div>
 
                 <?php if (!empty($active_events)): ?>
@@ -972,7 +1055,7 @@ $page_title = 'Reports & Analytics — Admin';
 
                 <div class="fc-row">
                     <div class="fc-chip">
-                        <div class="fc-lbl">Predicted Revenue</div>
+                        <div class="fc-lbl">📈 Predicted Revenue</div>
                         <div class="fc-val">₱<?php echo number_format($forecast_revenue,0); ?></div>
                         <div class="fc-sub"><?php echo $next_month_label; ?></div>
                     </div>
@@ -989,14 +1072,14 @@ $page_title = 'Reports & Analytics — Admin';
                     </div>
                     <?php endif; ?>
                     <div class="fc-chip">
-                        <div class="fc-lbl">Avg Order Value</div>
+                        <div class="fc-lbl">💰 Avg Order Value</div>
                         <div class="fc-val">₱<?php echo number_format($avg_val,0); ?></div>
                         <div class="fc-sub">This period</div>
                     </div>
                 </div>
 
                 <?php if (!empty($insights)): ?>
-                <ul class="ins-list" style="margin-top:18px;">
+                <ul class="ins-list" style="margin-top:18px;line-height:1.7;">
                     <?php foreach ($insights as $ins): ?>
                     <li><?php echo $ins; ?></li>
                     <?php endforeach; ?>
@@ -1037,19 +1120,32 @@ $page_title = 'Reports & Analytics — Admin';
             <div class="ana-card">
                 <div class="ana-hd">
                     <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Recent Transactions</h3>
-                    <span style="font-size:12px;color:#6b7280;"><?php echo number_format($txn_count); ?> orders</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <?php
+                        $txn_base = array_merge($_GET, ['txn_page'=>1]);
+                        $tabs = [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['pending','Pending']];
+                        foreach ($tabs as [$k,$l]):
+                            $txn_base['txn_pay'] = $k;
+                            $url = '?'.http_build_query($txn_base);
+                            $act = $txn_payment_filter === $k ? 'active' : '';
+                        ?>
+                        <a href="<?php echo htmlspecialchars($url); ?>" class="toolbar-btn <?php echo $act; ?>" style="height:32px;font-size:12px;padding:0 12px;"><?php echo $l; ?></a>
+                        <?php endforeach; ?>
+                        <span style="font-size:12px;color:#6b7280;margin-left:8px;"><?php echo number_format($txn_count); ?> orders</span>
+                    </div>
                 </div>
                 <div class="ana-bd ana-bd-0">
                     <?php if (!empty($recent_orders)): ?>
                     <div style="overflow-x:auto;">
-                        <table class="rpt-tbl">
+                        <table class="rpt-tbl rpt-tbl-clickable">
                             <thead><tr><th>Order #</th><th>Customer</th><th>Date</th><th class="num">Amount</th><th>Payment</th><th>Status</th></tr></thead>
                             <tbody>
                             <?php foreach ($recent_orders as $ro):
                                 $pb = match($ro['payment_status']) { 'Paid'=>'b-green','Pending'=>'b-yellow', default=>'b-red' };
                                 $sb = match($ro['status']) { 'Completed'=>'b-green','Processing'=>'b-blue','Pending'=>'b-yellow','Ready for Pickup'=>'b-cyan','Cancelled'=>'b-red','Design Approved'=>'b-purple', default=>'b-gray' };
+                                $orderUrl = '/printflow/admin/orders_management.php?order_id='.(int)$ro['order_id'];
                             ?>
-                            <tr>
+                            <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
                                 <td style="font-weight:700;color:#6366f1;">#<?php echo $ro['order_id']; ?></td>
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
                                 <td style="color:#6b7280;white-space:nowrap;"><?php echo date('M d, Y',strtotime($ro['order_date'])); ?></td>
@@ -1061,7 +1157,7 @@ $page_title = 'Reports & Analytics — Admin';
                             </tbody>
                         </table>
                     </div>
-                    <?php echo render_pagination($txn_page, $txn_pages, ['from'=>$from,'to'=>$to,'txn_page'=>$txn_page]); ?>
+                    <?php echo render_pagination($txn_page, $txn_pages, array_filter(['from'=>$from,'to'=>$to,'txn_pay'=>$txn_payment_filter,'branch_id'=>$branchId !== 'all' ? $branchId : null,'chart_sort'=>$chart_sort,'trend_metric'=>$trend_metric]), 'txn_page'); ?>
                     <?php else: ?>
                     <div class="ch-empty">No transactions for this period</div>
                     <?php endif; ?>
@@ -1103,7 +1199,15 @@ function reportsFilterPanel() {
         setPreset(preset) {
             const today = new Date();
             let from, to;
-            if (preset === 'this_month') {
+            if (preset === 'last_7') {
+                to = new Date(today);
+                from = new Date(today);
+                from.setDate(from.getDate() - 7);
+            } else if (preset === 'last_30') {
+                to = new Date(today);
+                from = new Date(today);
+                from.setDate(from.getDate() - 30);
+            } else if (preset === 'this_month') {
                 from = new Date(today.getFullYear(), today.getMonth(), 1);
                 to = new Date(today);
             } else if (preset === 'last_3') {
@@ -1139,28 +1243,31 @@ const PF_OPT = { toolbar:{show:false}, animations:{speed:500,animateGradually:{e
     const revs     = <?php echo json_encode(array_merge($trend12_revenues, [$forecast_revenue])); ?>;
     const ords     = <?php echo json_encode(array_merge($trend12_orders, [$forecast_orders])); ?>;
     const fcast    = <?php echo json_encode($next_month_label); ?>;
+    const curMon   = labels[labels.length - 2] || <?php echo json_encode(date('M Y')); ?>;
+    const metric  = <?php echo json_encode($trend_metric); ?>;
+    const data    = metric === 'revenue' ? revs : ords;
+    const series  = metric === 'revenue'
+        ? [{name:'Revenue (₱)', data:revs, type:'area'}]
+        : [{name:'Orders', data:ords, type:'area'}];
+    const yFmt    = metric === 'revenue' ? (v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:0})) : (v=>Math.round(v)+(metric==='orders'?' orders':''));
 
     new ApexCharts(document.getElementById('ch-trend'), {
-        chart: {...PF_OPT, type:'area', height:290},
-        series:[
-            {name:'Revenue (₱)', data:revs, type:'area'},
-            {name:'Orders',      data:ords, type:'line'}
-        ],
-        xaxis:{categories:labels, labels:{rotate:-30, style:{fontSize:'10px'}}},
-        yaxis:[
-            {labels:{formatter:v=>'₱'+Number(v).toLocaleString()}},
-            {opposite:true, labels:{formatter:v=>Math.round(v)}}
-        ],
-        colors:['#6366f1','#10b981'],
-        fill:{type:['gradient','transparent'], gradient:{shadeIntensity:.5,opacityFrom:.3,opacityTo:.03}},
-        stroke:{curve:'smooth', width:[2.5,2], dashArray:[0,4]},
-        markers:{size:3, hover:{size:5}},
-        tooltip:{shared:true, intersect:false,
-            y:[{formatter:v=>'₱'+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:0})},{formatter:v=>(v||0)+' orders'}]},
-        annotations:{xaxis:[{x:fcast, borderColor:'#6366f1', strokeDashArray:4,
-            label:{text:'Forecast',style:{color:'#fff',background:'#6366f1',fontSize:'10px'}}}]},
-        legend:{position:'top',horizontalAlign:'right',fontSize:'12px'},
-        grid:{borderColor:'#f3f4f6',strokeDashArray:4}
+        chart: {...PF_OPT, type:'area', height:300},
+        series: series,
+        xaxis:{categories:labels, labels:{rotate:-30, style:{fontSize:'11px'}}},
+        yaxis:{labels:{formatter:v=>metric==='revenue'?'₱'+Number(v).toLocaleString():Math.round(v)}},
+        colors:['#6366f1'],
+        fill:{type:'gradient', gradient:{shadeIntensity:.6, opacityFrom:.35, opacityTo:.06}},
+        stroke:{curve:'smooth', width:3},
+        markers:{size:0, hover:{size:5}},
+        dataLabels:{enabled:false},
+        tooltip:{shared:true, intersect:false, y:{formatter:yFmt}},
+        annotations:{xaxis:[
+            {x:curMon, borderColor:'#94a3b8', strokeDashArray:4, label:{text:'Current Month',style:{color:'#64748b',background:'#f1f5f9',fontSize:'10px'}}},
+            {x:fcast, borderColor:'#6366f1', strokeDashArray:4, label:{text:'Forecast',style:{color:'#fff',background:'#6366f1',fontSize:'10px'}}}
+        ]},
+        legend:{show:false},
+        grid:{borderColor:'#f1f5f9', strokeDashArray:2, xaxis:{lines:{show:true}}, yaxis:{lines:{show:true}}}
     }).render();
 })();
 
@@ -1221,17 +1328,36 @@ const PF_OPT = { toolbar:{show:false}, animations:{speed:500,animateGradually:{e
 // ── 3. Best Selling Products (H-Bar) ───────────────────────────────────────
 <?php if (!empty($top_products)): ?>
 (function(){
-    const names = <?php echo json_encode(array_map(fn($p)=>mb_substr($p['product_name'],0,30), $top_products)); ?>;
+    const names = <?php
+        $names = [];
+        $i = 1;
+        foreach ($top_products as $p) {
+            $trend = '';
+            if (!empty($top_products_prev) && isset($p['product_id'])) {
+                $prev = $top_products_prev[(int)$p['product_id']] ?? 0;
+                $curr = (int)$p['qty_sold'];
+                if ($prev > 0) {
+                    $chg = round((($curr - $prev) / $prev) * 100);
+                    $trend = $chg != 0 ? ($chg > 0 ? "+{$chg}%" : "{$chg}%") : '';
+                }
+            }
+            $label = '#'.$i.' '.mb_substr($p['product_name'],0,20);
+            if ($trend) $label .= ' · '.$trend;
+            $names[] = $label;
+            $i++;
+        }
+        echo json_encode($names);
+    ?>;
     const qtys  = <?php echo json_encode(array_map(fn($p)=>(int)$p['qty_sold'], $top_products)); ?>;
     new ApexCharts(document.getElementById('ch-products'), {
         chart:{...PF_OPT, type:'bar', height:280},
-        plotOptions:{bar:{horizontal:true, borderRadius:5, distributed:true}},
+        plotOptions:{bar:{horizontal:true, borderRadius:6, barHeight:'70%', distributed:true}},
         series:[{name:'Units Sold', data:qtys}],
-        xaxis:{categories:names, labels:{style:{fontSize:'10px'}}},
+        xaxis:{categories:names, labels:{style:{fontSize:'11px'}}},
         colors:PF_PAL, legend:{show:false},
         dataLabels:{enabled:true, offsetX:4, style:{fontSize:'10px',colors:['#374151']}},
         tooltip:{y:{formatter:v=>v+' units'}},
-        grid:{borderColor:'#f3f4f6', xaxis:{lines:{show:true}}}
+        grid:{borderColor:'#f1f5f9', strokeDashArray:2, xaxis:{lines:{show:true}}}
     }).render();
 })();
 <?php endif; ?>
@@ -1239,16 +1365,25 @@ const PF_OPT = { toolbar:{show:false}, animations:{speed:500,animateGradually:{e
 // ── 4. Revenue Donut ───────────────────────────────────────────────────────
 <?php if (!empty($rev_donut)): ?>
 (function(){
-    const labels = <?php echo json_encode(array_map(fn($p)=>$p['product_name'], $rev_donut)); ?>;
     const vals   = <?php echo json_encode(array_map(fn($p)=>round((float)$p['revenue'],2), $rev_donut)); ?>;
     const total  = vals.reduce((a,b)=>a+b,0);
+    const labels = <?php
+        $tot = array_sum(array_map(fn($x)=>round((float)$x['revenue'],2), $rev_donut));
+        echo json_encode(array_map(function($p) use ($tot) {
+            $pct = $tot > 0 ? round(((float)$p['revenue']/$tot)*100, 1) : 0;
+            return $p['product_name'].' – ₱'.number_format((float)$p['revenue'],0).' ('.$pct.'%)';
+        }, $rev_donut));
+    ?>;
+    const revGrowth = <?php echo $revenue_delta !== null ? (float)$revenue_delta : 'null'; ?>;
+    const centerLabel = revGrowth !== null
+        ? '₱'+total.toLocaleString(undefined,{minimumFractionDigits:0}) + '\n' + (revGrowth>=0?'+':'') + revGrowth + '%'
+        : '₱'+total.toLocaleString(undefined,{minimumFractionDigits:0});
     new ApexCharts(document.getElementById('ch-donut'), {
         chart:{...PF_OPT, type:'donut', height:280},
         series:vals, labels:labels, colors:PF_PAL,
-        plotOptions:{pie:{donut:{size:'62%', labels:{show:true, total:{show:true, label:'Total',
-            formatter:()=>'₱'+total.toLocaleString(undefined,{minimumFractionDigits:0})}}}}},
-        tooltip:{y:{formatter:v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2})}},
-        legend:{position:'bottom', fontSize:'11px', itemMargin:{vertical:3}},
+        plotOptions:{pie:{donut:{size:'65%', labels:{show:true, total:{show:true, label:'Total Revenue', formatter:()=>centerLabel}}}}},
+        tooltip:{y:{formatter:v=>'₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2})+' ('+((v/total)*100).toFixed(1)+'%)'}},
+        legend:{position:'bottom', fontSize:'11px', itemMargin:{vertical:4}},
         dataLabels:{enabled:true, formatter:v=>v.toFixed(1)+'%', style:{fontSize:'10px'}}
     }).render();
 })();
