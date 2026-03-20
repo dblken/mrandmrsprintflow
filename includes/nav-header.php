@@ -97,10 +97,7 @@ require_once __DIR__ . '/shop_config.php';
                             Products
                         <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                     </a>
-<a href="<?php echo $url_faq; ?>" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            FAQ
-                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                    </a>
+
                 <?php endif; ?>
             </div>
 
@@ -109,7 +106,7 @@ require_once __DIR__ . '/shop_config.php';
                 <?php if ($is_logged_in): ?>
                     <!-- Cart icon (customer only) -->
                     <?php if (is_customer()): ?>
-                    <a href="<?php echo $base_url; ?>/customer/cart.php" title="My Cart" class="nav-link relative text-white hover:text-[#53C5E0] transition-colors duration-200" style="color:white;">
+                    <a href="<?php echo $base_url; ?>/customer/cart.php" title="My Cart" class="nav-link w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 text-white hover:text-[#53C5E0]" style="color:white;">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
@@ -210,27 +207,27 @@ require_once __DIR__ . '/shop_config.php';
     <!-- Backdrop -->
     <div style="position:absolute;inset:0;background:rgba(0,0,0,0.75);"></div>
     <!-- Card -->
-    <div style="position:relative;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;padding:2.5rem 2rem 2rem;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.15);text-align:center;">
+    <div style="position:relative;background:#0a2530;border:1.5px solid #53C5E0;border-radius:20px;padding:2.5rem 2rem 2rem;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(83,197,224,0.2);text-align:center;">
         <!-- Icon -->
-        <div style="width:64px;height:64px;background:rgba(239,68,68,0.08);border:1.5px solid rgba(239,68,68,0.2);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;transform:rotate(-5deg);">
-            <svg style="width:30px;height:30px;color:#ef4444;" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+        <div style="width:64px;height:64px;background:rgba(83,197,224,0.1);border:1.5px solid rgba(83,197,224,0.3);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;transform:rotate(-5deg);">
+            <svg style="width:30px;height:30px;color:#53C5E0;" fill="none" stroke="#53C5E0" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
         </div>
-        <h3 style="font-size:1.25rem;font-weight:800;color:#0f172a;margin:0 0 0.75rem;letter-spacing:-0.02em;">Sign Out</h3>
-        <p style="font-size:0.95rem;color:#64748b;margin:0 0 2rem;line-height:1.6;">Are you sure you want to sign out of your account?</p>
+        <h3 style="font-size:1.25rem;font-weight:800;color:#f8fafc;margin:0 0 0.75rem;letter-spacing:-0.02em;">Sign Out</h3>
+        <p style="font-size:0.95rem;color:#cbd5e1;margin:0 0 2rem;line-height:1.6;">Are you sure you want to sign out of your account?</p>
         <!-- Buttons -->
         <div style="display:flex;gap:1rem;">
             <button onclick="document.getElementById('logout-confirm-modal').style.display='none'" type="button"
-                    style="flex:1;padding:0.75rem 1rem;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-size:0.875rem;font-weight:700;cursor:pointer;transition:all 0.2s;"
-                    onmouseover="this.style.background='#f1f5f9';this.style.color='#1e293b'"
-                    onmouseout="this.style.background='#f8fafc';this.style.color='#64748b'">
+                    style="flex:1;padding:0.75rem 1rem;border:1px solid #1e293b;border-radius:12px;background:#1e293b;color:#cbd5e1;font-size:0.875rem;font-weight:700;cursor:pointer;transition:all 0.2s;"
+                    onmouseover="this.style.background='#334155';this.style.borderColor='#53C5E0';this.style.color='#f8fafc'"
+                    onmouseout="this.style.background='#1e293b';this.style.borderColor='#1e293b';this.style.color='#cbd5e1'">
                 Cancel
             </button>
             <a href="<?php echo $url_logout; ?>"
-               style="flex:1;padding:0.75rem 1rem;border-radius:12px;background:#ef4444;color:#fff;font-size:0.875rem;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 8px 15px -3px rgba(239,68,68,0.3);"
-               onmouseover="this.style.background='#dc2626';this.style.transform='translateY(-1px)'"
-               onmouseout="this.style.background='#ef4444';this.style.transform='translateY(0)'">
+               style="flex:1;padding:0.75rem 1rem;border-radius:12px;background:#EF4444;color:#fff;font-size:0.875rem;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 8px 15px -3px rgba(239,68,68,0.3);"
+               onmouseover="this.style.background='#DC2626';this.style.transform='translateY(-1px)';this.style.boxShadow='0 10px 20px -2px rgba(239,68,68,0.4)'"
+               onmouseout="this.style.background='#EF4444';this.style.transform='translateY(0)';this.style.boxShadow='0 8px 15px -3px rgba(239,68,68,0.3)'">
                 Sign Out
             </a>
         </div>

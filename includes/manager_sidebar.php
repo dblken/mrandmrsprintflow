@@ -216,17 +216,33 @@ document.addEventListener('click', function(event) {
 });
 
 // Sidebar scroll persistence
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     var nav = document.querySelector('.sidebar-nav');
     if (!nav) return;
+
+    // Restore scroll position after layout
     var saved = sessionStorage.getItem('sidebarScroll');
-    if (saved !== null) nav.scrollTop = parseInt(saved, 10);
+    if (saved !== null) {
+        requestAnimationFrame(function() {
+            nav.scrollTop = parseInt(saved, 10);
+        });
+    } else {
+        // If no saved position, scroll the active item into view
+        var activeItem = nav.querySelector('.nav-item.active');
+        if (activeItem) {
+            requestAnimationFrame(function() {
+                activeItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+            });
+        }
+    }
+
+    // Save scroll position before navigating
     nav.querySelectorAll('a.nav-item').forEach(function(link) {
         link.addEventListener('click', function() {
             sessionStorage.setItem('sidebarScroll', nav.scrollTop);
             if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('adminSidebar');
-                const overlay = document.getElementById('sidebarOverlay');
+                var sidebar = document.getElementById('adminSidebar');
+                var overlay = document.getElementById('sidebarOverlay');
                 if (sidebar && sidebar.classList.contains('active')) {
                     sidebar.classList.remove('active');
                     if (overlay) overlay.classList.remove('active');
@@ -235,7 +251,7 @@ document.addEventListener('click', function(event) {
             }
         });
     });
-})();
+});
 
     // Notification Polling
     function updateSidebarNotifCount() {

@@ -20,10 +20,10 @@ class JobOrderService {
         
         $conn->begin_transaction();
         try {
-            // 1. Insert Job Order
+            // 1. Insert Job Order (with explicit PENDING status)
             $requiredPayment = self::calculateRequiredPayment($orderData['customer_id'], $orderData['estimated_total']);
-            $sql = "INSERT INTO job_orders (order_id, customer_id, job_title, service_type, width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece, estimated_total, required_payment, notes, due_date, priority, artwork_path, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO job_orders (order_id, customer_id, job_title, service_type, width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece, estimated_total, required_payment, notes, due_date, priority, artwork_path, status, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)";
             
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("iisssddiddddssssi", 

@@ -179,6 +179,8 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     .reg-step-line.done { background: #22c55e; }
     .auth-password-wrap { position: relative; }
     .auth-password-wrap .input-field { padding-right: 3rem; }
+    .auth-password-wrap .input-field::-ms-reveal,
+    .auth-password-wrap .input-field::-ms-clear { display: none; }
     .auth-password-toggle {
         position: absolute;
         right: 0.75rem;

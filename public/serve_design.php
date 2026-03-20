@@ -8,6 +8,10 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
 
+// Base directory: two levels up from /public/ gets us to /htdocs/
+// design_file paths are stored as /printflow/uploads/... so this is correct
+$htdocs_root = realpath(__DIR__ . '/../../');
+
 // Role-based access (Customers can only see their own, Staff can see all)
 if (!is_logged_in()) {
     http_response_code(403);
@@ -46,8 +50,8 @@ if ($type === 'order_item') {
 
     if ($field === 'reference') {
         $path = $item['reference_image_file'];
-        if ($path && file_exists(__DIR__ . '/..' . $path)) {
-            $full_path = __DIR__ . '/..' . $path;
+        if ($path && file_exists($htdocs_root . $path)) {
+            $full_path = $htdocs_root . $path;
             $mime = mime_content_type($full_path);
             header("Content-Type: $mime");
             readfile($full_path);
@@ -62,8 +66,8 @@ if ($type === 'order_item') {
             exit;
         }
         // Then try File
-        if ($item['design_file'] && file_exists(__DIR__ . '/..' . $item['design_file'])) {
-            $full_path = __DIR__ . '/..' . $item['design_file'];
+        if ($item['design_file'] && file_exists($htdocs_root . $item['design_file'])) {
+            $full_path = $htdocs_root . $item['design_file'];
             $mime = mime_content_type($full_path);
             header("Content-Type: $mime");
             readfile($full_path);

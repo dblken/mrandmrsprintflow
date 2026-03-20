@@ -21,30 +21,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
     } else {
-        $today = date('Y-m-d');
-        if (!isset($_SESSION['profile_update_date']) || $_SESSION['profile_update_date'] !== $today) {
-            $_SESSION['profile_update_count'] = 0;
-            $_SESSION['profile_update_date'] = $today;
+        $first_name = sanitize($_POST['first_name'] ?? '');
+        $middle_name = sanitize($_POST['middle_name'] ?? '');
+        $last_name = sanitize($_POST['last_name'] ?? '');
+        $contact_number = sanitize($_POST['contact_number'] ?? '');
+        $dob = sanitize($_POST['dob'] ?? '');
+        $gender = sanitize($_POST['gender'] ?? '');
+        
+        if (empty($first_name) || empty($last_name)) {
+            $error = 'First name and last name are required';
+        } elseif (!empty($dob)) {
+            try {
+                $bday_date = new DateTime($dob);
+                $today = new DateTime();
+                $age = $today->diff($bday_date)->y;
+                if ($bday_date > $today) {
+                    $error = 'Birthday cannot be a future date';
+                } elseif ($age < 13) {
+                    $error = 'You must be at least 13 years old';
+                }
+            } catch (Exception $e) {
+                $error = 'Invalid birthday format';
+            }
         }
-
-        if (($_SESSION['profile_update_count'] ?? 0) >= 3) {
-            $error = 'You have reached the maximum of 3 profile updates per day.';
-        } else {
-            $first_name = $_POST['first_name'] ?? '';
-            $middle_name = $_POST['middle_name'] ?? '';
-            $last_name = $_POST['last_name'] ?? '';
-            $contact_number = trim($_POST['contact_number'] ?? '');
-            $dob = trim($_POST['dob'] ?? '');
-            $gender = trim($_POST['gender'] ?? '');
-
-            // Normalization: trim and collapse multiple spaces to single
-            $normalizeName = function($str) {
-                return trim(preg_replace('/\s+/', ' ', $str));
-            };
+        
+        if (!$error) {
+            $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
+                'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
             
-            $first_name = $normalizeName($first_name);
-            $middle_name = $normalizeName($middle_name);
-            $last_name = $normalizeName($last_name);
+            $first_name = ucwords(strtolower(trim($first_name)));
+            $middle_name = ucwords(strtolower(trim($middle_name)));
+            $last_name = ucwords(strtolower(trim($last_name)));
             
             // Philippine Name Regex: letters and single space only, max 3 words
             $nameRegex = '/^[A-Za-z]+( [A-Za-z]+){0,2}$/';
@@ -157,6 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     }
 }
 
+$max_birthday = date('Y-m-d', strtotime('-13 years'));
+
 $page_title = 'My Profile - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
@@ -189,7 +198,7 @@ require_once __DIR__ . '/../includes/header.php';
                     
                     <div class="grid grid-cols-3 gap-8 mb-12">
                         <div class="mb-2">
-                            <label for="first_name" class="block text-sm font-bold text-gray-800 mb-3">First Name *</label>
+                            <label for="first_name" class="block text-sm font-bold text-gray-800 mb-3">First Name <span class="required-asterisk">*</span></label>
                             <input type="text" id="first_name" name="first_name" class="input-field py-3 validate-advanced-name" placeholder="First Name" required value="<?php echo htmlspecialchars($customer['first_name']); ?>" maxlength="50">
                             <div class="live-indicator mt-1 flex items-center gap-1 text-[11px] font-medium" data-for="first_name"></div>
                         </div>
@@ -201,7 +210,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="mb-2">
-                            <label for="last_name" class="block text-sm font-bold text-gray-800 mb-3">Last Name *</label>
+                            <label for="last_name" class="block text-sm font-bold text-gray-800 mb-3">Last Name <span class="required-asterisk">*</span></label>
                             <input type="text" id="last_name" name="last_name" class="input-field py-3 validate-advanced-name" placeholder="Last Name" required value="<?php echo htmlspecialchars($customer['last_name']); ?>" maxlength="50">
                             <div class="live-indicator mt-1 flex items-center gap-1 text-[11px] font-medium" data-for="last_name"></div>
                         </div>
@@ -215,14 +224,14 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="mb-2">
-                            <label for="contact_number" class="block text-sm font-bold text-gray-800 mb-3">Contact Number *</label>
+                            <label for="contact_number" class="block text-sm font-bold text-gray-800 mb-3">Contact Number <span class="required-asterisk">*</span></label>
                             <input type="tel" id="contact_number" name="contact_number" class="input-field py-3 validate-advanced-contact" placeholder="+639XXXXXXXXX" value="<?php echo htmlspecialchars($customer['contact_number'] ?? ''); ?>" maxlength="13" required>
                             <div class="live-indicator mt-1 flex items-center gap-1 text-[11px] font-medium" data-for="contact_number"></div>
                         </div>
 
                         <div class="mb-2">
                             <label for="dob" class="block text-sm font-bold text-gray-800 mb-3">Date of Birth</label>
-                            <input type="date" id="dob" name="dob" class="input-field py-3 validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" required>
+                            <input type="date" id="dob" name="dob" class="input-field py-3 validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" max="<?php echo $max_birthday; ?>">
                             <div class="live-indicator mt-1 flex items-center gap-1 text-[11px] font-medium" data-for="dob"></div>
                         </div>
                         
@@ -337,12 +346,12 @@ require_once __DIR__ . '/../includes/header.php';
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div>
-                            <label for="current_password" class="block text-sm font-bold text-gray-800 mb-3">Current Password *</label>
+                            <label for="current_password" class="block text-sm font-bold text-gray-800 mb-3">Current Password <span class="required-asterisk">*</span></label>
                             <input type="password" id="current_password" name="current_password" class="input-field py-3" placeholder="••••••••" required>
                         </div>
 
                         <div>
-                            <label for="new_password" class="block text-sm font-bold text-gray-800 mb-3">New Password *</label>
+                            <label for="new_password" class="block text-sm font-bold text-gray-800 mb-3">New Password <span class="required-asterisk">*</span></label>
                             <input type="password" id="new_password" name="new_password" class="input-field py-3" placeholder="••••••••" required minlength="8">
                             <p class="text-[11px] text-gray-500 mt-1 pl-1">Minimum 8 characters</p>
                             <ul class="pw-checklist mt-2 hidden grid-cols-2 gap-1 text-[10px]" id="pw-checklist" style="display:none;">
@@ -355,14 +364,14 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div>
-                            <label for="confirm_password" class="block text-sm font-bold text-gray-800 mb-3">Confirm Password *</label>
+                            <label for="confirm_password" class="block text-sm font-bold text-gray-800 mb-3">Confirm Password <span class="required-asterisk">*</span></label>
                             <input type="password" id="confirm_password" name="confirm_password" class="input-field py-3" placeholder="••••••••" required minlength="8">
                             <p class="text-[11px] font-bold mt-2" id="pw-match-indicator"></p>
                         </div>
                     </div>
 
                     <div class="flex justify-end">
-                        <button type="submit" class="btn-dark">Change Password</button>
+                        <button type="submit" class="btn-dark" style="width:auto; padding:0.6rem 1.6rem; font-size:0.9rem;">Change Password</button>
                     </div>
                 </form>
             </div>
@@ -421,6 +430,10 @@ require_once __DIR__ . '/../includes/header.php';
     .custom-grid-4 {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
+}
+.required-asterisk {
+    color: #dc2626;
+    font-weight: 800;
 }
 </style>
 
@@ -638,14 +651,13 @@ require_once __DIR__ . '/../includes/header.php';
         if (!el) return;
         
         if (isValid) {
-            const successMsg = message || 'Valid format';
-            el.innerHTML = '<span class="text-green-500">✔ ' + successMsg + '</span>';
-            el.classList.remove('text-red-500');
-            el.classList.add('text-green-500');
-            document.getElementById(fieldId).classList.remove('border-red-500', 'ring-red-500');
-            document.getElementById(fieldId).classList.add('border-green-500', 'ring-green-500');
+            el.innerHTML = '';
+            el.dataset.valid = '1';
+            el.classList.remove('text-red-500', 'text-green-500');
+            document.getElementById(fieldId).classList.remove('border-red-500', 'ring-red-500', 'border-green-500', 'ring-green-500');
         } else {
             el.innerHTML = '<span class="text-red-500">✖ ' + message + '</span>';
+            el.dataset.valid = '0';
             el.classList.remove('text-green-500');
             el.classList.add('text-red-500');
             document.getElementById(fieldId).classList.remove('border-green-500', 'ring-green-500');
@@ -661,7 +673,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         inputs.forEach(input => {
             const el = indicators[input.id];
-            if (!el || !el.textContent.includes('Valid')) {
+            if (!el || el.dataset.valid !== '1') {
                 if (input.required || (input.value.trim().length > 0)) {
                     // For non-required fields like middle_name or contact_number, only mark as invalid if they have value but failed validation
                     if ((input.id === 'middle_name' || input.id === 'contact_number') && input.value.trim().length === 0) {
@@ -697,7 +709,10 @@ require_once __DIR__ . '/../includes/header.php';
                     updateIndicator(this.id, false, 'Required field');
                 } else {
                     const el = indicators[this.id];
-                    if (el) el.innerHTML = '';
+                    if (el) {
+                        el.innerHTML = '';
+                        el.dataset.valid = '1';
+                    }
                     this.classList.remove('border-green-500', 'ring-green-500', 'border-red-500', 'ring-red-500');
                     checkFormValidity();
                 }
@@ -753,7 +768,7 @@ require_once __DIR__ . '/../includes/header.php';
             if (!regexContact.test(trimmed)) {
                 updateIndicator(this.id, false, 'Must follow format +639XXXXXXXXX');
             } else {
-                updateIndicator(this.id, true, 'Valid Philippine mobile number');
+                updateIndicator(this.id, true);
             }
         });
 

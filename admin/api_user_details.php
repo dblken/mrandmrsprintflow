@@ -16,7 +16,7 @@ if (!$user_id) {
 }
 
 $user = db_query("
-    SELECT u.user_id, u.first_name, u.middle_name, u.last_name, u.dob, u.gender,
+    SELECT u.user_id, u.first_name, u.middle_name, u.last_name, u.birthday as dob, u.gender,
            u.email, u.contact_number, u.address, u.role, u.profile_picture,
            u.status, u.branch_id, b.branch_name, u.created_at
     FROM users u 

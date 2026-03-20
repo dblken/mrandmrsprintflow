@@ -26,7 +26,7 @@
         border-radius: 20px;
         width: 100%;
         max-width: 450px;
-        padding: 2.5rem;
+        padding: 2.1rem 2.2rem;
         text-align: center;
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         transform: scale(0.9);
@@ -34,18 +34,6 @@
     }
     .pf-modal-overlay.active .pf-modal-card {
         transform: scale(1);
-    }
-    .pf-modal-icon {
-        width: 80px;
-        height: 80px;
-        background: #f0fdf4;
-        color: #22c55e;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.5rem;
-        margin: 0 auto 1.5rem auto;
     }
     .pf-modal-title {
         font-size: 1.5rem;
@@ -75,25 +63,25 @@
         cursor: pointer;
     }
     .pf-modal-btn-primary {
-        background: #4f46e5;
+        background: #0a2530;
         color: white;
     }
     .pf-modal-btn-primary:hover {
-        background: #4338ca;
+        background: #0d3038;
         transform: translateY(-2px);
     }
     .pf-modal-btn-secondary {
-        background: #f3f4f6;
-        color: #374151;
+        background: #f8fafc;
+        color: #334155;
+        border: 1px solid #e2e8f0;
     }
     .pf-modal-btn-secondary:hover {
-        background: #e5e7eb;
+        background: #f1f5f9;
     }
 </style>
 
 <div id="pfSuccessModal" class="pf-modal-overlay">
     <div class="pf-modal-card">
-        <div class="pf-modal-icon">✅</div>
         <h2 id="pfModalTitle" class="pf-modal-title">Success!</h2>
         <p id="pfModalMessage" class="pf-modal-message">Your action was completed successfully.</p>
         
@@ -118,6 +106,20 @@ function showSuccessModal(title, message, primaryUrl, secondaryUrl, primaryText 
     primaryBtn.textContent = primaryText;
     secondaryBtn.href = secondaryUrl;
     secondaryBtn.textContent = secondaryText;
+
+    // Handle Close behavior if URL is '#'
+    primaryBtn.onclick = (e) => {
+        if (primaryUrl === '#') {
+            e.preventDefault();
+            hideSuccessModal();
+        }
+    };
+    secondaryBtn.onclick = (e) => {
+        if (secondaryUrl === '#') {
+            e.preventDefault();
+            hideSuccessModal();
+        }
+    };
 
     modal.classList.add('active');
 }

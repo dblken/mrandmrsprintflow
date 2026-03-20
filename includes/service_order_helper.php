@@ -13,7 +13,7 @@ if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
 // Allowed MIME types for design uploads (JPG, PNG, PDF, AI)
 define('SERVICE_ORDER_ALLOWED_MIME', ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/postscript', 'application/x-adobe-ai', 'image/vnd.adobe.photoshop']);
 define('SERVICE_ORDER_ALLOWED_EXT', ['jpg', 'jpeg', 'png', 'pdf', 'ai', 'psd']);
-define('SERVICE_ORDER_MAX_SIZE', 10 * 1024 * 1024); // 10MB
+define('SERVICE_ORDER_MAX_SIZE', 5 * 1024 * 1024); // 5MB limit requested by user
 
 /**
  * Validate uploaded design file

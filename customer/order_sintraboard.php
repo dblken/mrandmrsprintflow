@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cut_type = trim($_POST['cut_type'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
     $sintra_type = trim($_POST['sintra_type'] ?? '');
+    $quantity = (int)($_POST['quantity'] ?? 1);
 
     if (empty($width) || empty($height) || empty($thickness) || empty($stand_type) || empty($cut_type) || empty($sintra_type)) {
         $error = 'Please fill in all required fields.';
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'name'           => $product_name,
                     'category'       => 'Sintraboard & Standees',
                     'price'          => $sintra_price,
-                    'quantity'       => 1,
+                    'quantity'       => $quantity,
                     'image'          => '📦',
                     'customization'  => [
                         'Sintra_Type' => $sintra_type,
@@ -178,7 +179,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         </h2>
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Final Design * (JPG, PNG, PDF, AI)</label>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">📎 Upload Your File (Design, Image, or PDF) – Max 5MB</label>
                                 <input type="file" name="design_file" accept=".jpg,.jpeg,.png,.pdf,.ai" class="input-field w-full p-2" required>
                                 <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Max file size: 10MB</p>
                             </div>
@@ -235,16 +236,22 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         </div>
                     </div>
 
+                    <!-- 5. Quantity -->
+                    <div class="card shadow-sm border border-gray-100 p-6 rounded-xl bg-white">
+                        <h2 class="text-lg font-bold mb-4 flex items-center gap-2 uppercase tracking-wider border-b pb-2">
+                            <span class="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">5</span>
+                            Quantity
+                        </h2>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Quantity *</label>
+                            <input type="number" name="quantity" min="1" class="input-field w-full" required value="<?php echo (int)($_POST['quantity'] ?? ($_GET['qty'] ?? 1)); ?>">
+                        </div>
+                    </div>
+
                     <div style="display:flex; gap:1rem; margin-top:2rem;">
-                        <button type="submit" name="add_to_cart" value="1" 
-                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                            + Add to Cart
-                        </button>
-                        <button type="submit" name="buy_now" value="1" 
-                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                                onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                            Review Your Order
+                        <!-- Buy Now Button (Solid) -->
+                        <button type="submit" name="buy_now" value="1" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                            Buy Now
                         </button>
                     </div>
                 </form>

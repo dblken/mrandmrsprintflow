@@ -9,12 +9,23 @@ require_once __DIR__ . '/../includes/functions.php';
 require_role(['Admin', 'Staff']);
 $page_title = 'Customizations - PrintFlow';
 
-// Get statistics for KPIs
-$total_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
-$pending_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'PENDING'")[0]['count'];
+// Get statistics for KPIs (include both job_orders and regular orders pending review)
+$total_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
+$total_orders_pending = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
+$total_jobs = $total_jobs_jobs + $total_orders_pending;
+
+$pending_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'PENDING'")[0]['count'];
+$pending_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
+$pending_jobs = $pending_jobs_jobs + $pending_orders;
+
 $approval_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'APPROVED'")[0]['count'];
-$in_production = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'IN_PRODUCTION'")[0]['count'];
-$completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'COMPLETED'")[0]['count'];
+$in_production_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'IN_PRODUCTION'")[0]['count'];
+$in_production_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing')")[0]['count'];
+$in_production = $in_production_jobs + $in_production_orders;
+
+$completed_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'COMPLETED'")[0]['count'];
+$completed_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'")[0]['count'];
+$completed_jobs = $completed_jobs_jobs + $completed_orders;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -221,7 +232,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                                 <tr @click="viewDetails(jo.id)" class="group transition-all hover:bg-gray-50/50 relative cursor-pointer">
                                     <td class="pl-6 pr-4 py-4 relative">
                                         <div class="row-indicator"></div>
-                                        <span class="table-text-main" x-text="'#JO-' + jo.id.toString().padStart(5, '0')"></span>
+                                        <span class="table-text-main" x-text="(jo.order_type === 'ORDER' ? '#ORD-' : '#JO-') + jo.id.toString().padStart(5, '0')"></span>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="flex items-center gap-3">
@@ -778,9 +789,20 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
             },
 
             async loadOrders() {
-                const res = await (await fetch('../admin/job_orders_api.php?action=list_orders')).json();
-                if(res.success) {
-                    this.orders = res.data;
+                try {
+                    // Fetch custom/specialty job orders
+                    const joRes = await (await fetch('../admin/job_orders_api.php?action=list_orders')).json();
+                    const jobOrders = joRes.success ? joRes.data : [];
+                    
+                    // Fetch regular product orders with pending status
+                    const ordersRes = await (await fetch('../admin/job_orders_api.php?action=list_pending_orders')).json();
+                    const regularOrders = ordersRes.success ? ordersRes.data : [];
+                    
+                    // Combine both arrays
+                    this.orders = [...jobOrders, ...regularOrders];
+                } catch(err) {
+                    console.error('Error loading orders:', err);
+                    this.orders = [];
                 }
             },
 
@@ -803,8 +825,8 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                     const matchSearch = !this.search || 
                         (jo.job_title && jo.job_title.toLowerCase().includes(searchLower)) ||
                         (jo.service_type && jo.service_type.toLowerCase().includes(searchLower)) ||
-                        ((jo.first_name + ' ' + (jo.last_name || '')).toLowerCase().includes(searchLower)) ||
-                        (jo.id.toString().includes(searchLower));
+                        (((jo.first_name || '') + ' ' + (jo.last_name || '')).toLowerCase().includes(searchLower)) ||
+                        (jo.id && jo.id.toString().includes(searchLower));
                     return matchStatus && matchSearch;
                 });
             },
@@ -820,20 +842,35 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
                 this.currentJo = {};
-                const res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${id}`)).json();
-                this.loadingDetails = false;
-                if(res.success) {
-                    this.currentJo = res.data;
+                
+                // Find the order from local data to check its type
+                const order = this.orders.find(o => o.id === id);
+                const orderType = order?.order_type || 'JOB';
+                
+                let res;
+                if (orderType === 'ORDER') {
+                    // For regular orders, display limited details (no materials/inks for now)
+                    this.loadingDetails = false;
+                    this.currentJo = order;
                     this.jobPriceInput = this.currentJo.estimated_total || 0;
-                    this.resetMaterialForm();
-                    this.resetInkForm();
-                    // Auto-load available rolls for relevant materials
-                    for(const m of this.currentJo.materials) {
-                        if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
-                    }
+                    // Regular orders don't have materials, so skip loading
                 } else {
-                    this.showDetailsModal = false;
-                    alert(res.error || 'Could not load job details.');
+                    // For job orders, fetch full details from API
+                    res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${id}`)).json();
+                    this.loadingDetails = false;
+                    if(res.success) {
+                        this.currentJo = res.data;
+                        this.jobPriceInput = this.currentJo.estimated_total || 0;
+                        this.resetMaterialForm();
+                        this.resetInkForm();
+                        // Auto-load available rolls for relevant materials
+                        for(const m of this.currentJo.materials || []) {
+                            if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
+                        }
+                    } else {
+                        this.showDetailsModal = false;
+                        alert(res.error || 'Could not load job details.');
+                    }
                 }
             },
 

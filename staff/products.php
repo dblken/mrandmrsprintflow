@@ -95,14 +95,14 @@ $page_title = 'Products & Inventory - Staff';
         <main>
             <!-- Filters -->
             <div class="card">
-                <form method="GET" style="display:grid; grid-template-columns:1fr 1fr auto; gap:16px; align-items:flex-end;">
+                <form method="GET" id="productFilterForm" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:flex-end;">
                     <div>
                         <label>Search</label>
-                        <input type="text" name="search" class="input-field" placeholder="Name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
+                        <input type="text" id="productSearchInput" name="search" class="input-field" placeholder="Name or SKU..." value="<?php echo htmlspecialchars($search); ?>">
                     </div>
                     <div>
                         <label>Category</label>
-                        <select name="category" class="input-field">
+                        <select name="category" id="productCategorySelect" class="input-field">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
@@ -111,7 +111,6 @@ $page_title = 'Products & Inventory - Staff';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <button type="submit" class="btn-primary">Apply Filters</button>
                 </form>
             </div>
 
@@ -123,18 +122,22 @@ $page_title = 'Products & Inventory - Staff';
                             <tr>
                                 <th>SKU</th>
                                 <th>Name</th>
-                                <th>Category</th>
+                                 <th>Category</th>
+                                <th>Type</th>
                                 <th>Price</th>
                                 <th>Stock</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="productsTableBody">
                             <?php foreach ($products as $product): ?>
-                                <tr>
+                                <tr data-name="<?php echo htmlspecialchars(strtolower($product['name'])); ?>"
+                                    data-sku="<?php echo htmlspecialchars(strtolower($product['sku'])); ?>"
+                                    data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>">
                                     <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
                                     <td style="font-weight:500;"><?php echo htmlspecialchars($product['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($product['category']); ?></td>
+                                     <td><?php echo htmlspecialchars($product['category']); ?></td>
+                                    <td><span class="badge <?php echo $product['product_type'] === 'fixed' ? 'badge-blue' : 'badge-purple'; ?>"><?php echo ucfirst($product['product_type']); ?></span></td>
                                     <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
                                     <td>
                                         <?php if ($product['stock_quantity'] < 10): ?>
@@ -157,6 +160,35 @@ $page_title = 'Products & Inventory - Staff';
         </main>
     </div>
 </div>
+
+<script>
+const productSearch = document.getElementById('productSearchInput');
+const productCategory = document.getElementById('productCategorySelect');
+const productsTableBody = document.getElementById('productsTableBody');
+const productRows = productsTableBody ? Array.from(productsTableBody.querySelectorAll('tr')) : [];
+
+function filterProductsLocally() {
+    const q = (productSearch?.value || '').trim().toLowerCase();
+    const cat = (productCategory?.value || '').trim().toLowerCase();
+
+    productRows.forEach((row) => {
+        const name = row.getAttribute('data-name') || '';
+        const sku = row.getAttribute('data-sku') || '';
+        const category = row.getAttribute('data-category') || '';
+        const matchesText = q === '' || name.includes(q) || sku.includes(q);
+        const matchesCategory = cat === '' || category === cat;
+        row.style.display = (matchesText && matchesCategory) ? '' : 'none';
+    });
+}
+
+if (productSearch) {
+    productSearch.addEventListener('input', filterProductsLocally);
+}
+if (productCategory) {
+    productCategory.addEventListener('change', filterProductsLocally);
+}
+filterProductsLocally();
+</script>
 
 </body>
 </html>

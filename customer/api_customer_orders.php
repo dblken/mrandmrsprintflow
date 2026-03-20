@@ -13,12 +13,12 @@ header('Content-Type: application/json');
 $customer_id = get_user_id();
 
 // Statuses where price must NOT be shown to customer
-$HIDDEN_PRICE_STATUSES = ['PENDING', 'APPROVED'];
+$HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
 
 try {
     $orders = db_query(
         "SELECT o.order_id, o.status, o.total_amount, o.order_date, o.updated_at,
-                (SELECT COALESCE(p.name, 'Custom Order')
+                (SELECT COALESCE(p.name, 'Order Item')
                  FROM order_items oi
                  LEFT JOIN products p ON oi.product_id = p.product_id
                  WHERE oi.order_id = o.order_id
@@ -39,10 +39,11 @@ try {
     foreach ($orders as $o) {
         // Derive display name for custom orders
         $display_name = $o['display_name'] ?? 'Order';
-        if ($display_name === 'Custom Order' && !empty($o['first_item_customization'])) {
+        if (in_array(strtolower(trim((string)$display_name)), ['custom order', 'customer order', 'service order', 'order item']) && !empty($o['first_item_customization'])) {
             $cj = json_decode($o['first_item_customization'], true);
             if (!empty($cj['service_type'])) $display_name = $cj['service_type'];
         }
+        $display_name = normalize_service_name($display_name, 'Order');
 
         // Price visibility control
         $show_price = !in_array($o['status'], $HIDDEN_PRICE_STATUSES);

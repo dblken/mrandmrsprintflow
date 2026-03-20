@@ -43,15 +43,17 @@ foreach ($items as $item) {
     $items_out[] = [
         'order_item_id' => (int)$item['order_item_id'],
         'product_name'  => (function() use ($item, $custom_data) {
-            if (!empty($item['product_name'])) return $item['product_name'];
+            if (!empty($item['product_name']) && !in_array(strtolower(trim($item['product_name'])), ['custom order', 'customer order', 'service order', 'order item'])) {
+                return normalize_service_name($item['product_name'], 'Order Item');
+            }
             if (!empty($custom_data['service_type'])) {
-                $name = $custom_data['service_type'];
+                $name = normalize_service_name($custom_data['service_type'], 'Order Item');
                 if (!empty($custom_data['product_type'])) {
                     $name .= " (" . $custom_data['product_type'] . ")";
                 }
                 return $name;
             }
-            return 'Custom Order';
+            return 'Order Item';
         })(),
         'category'      => $item['category'] ?? '',
         'quantity'      => (int)$item['quantity'],
@@ -95,6 +97,21 @@ if (!$can_cancel && !in_array($order['status'], ['Cancelled', 'Completed'])) {
     }
 }
 
+// Rating details
+$rating_data = null;
+if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)) {
+    $rating_res = db_query("SELECT * FROM ratings WHERE order_id = ?", 'i', [$order_id]);
+    if (!empty($rating_res)) {
+        $r = $rating_res[0];
+        $rating_data = [
+            'rating' => (int)$r['rating'],
+            'comment' => $r['comment'] ?? '',
+            'image_url' => !empty($r['image']) ? $r['image'] : null,
+            'created_at' => format_datetime($r['created_at'])
+        ];
+    }
+}
+
 echo json_encode([
     'order_id'         => $order['order_id'],
     'order_date'       => format_datetime($order['order_date']),
@@ -111,6 +128,7 @@ echo json_encode([
     'items'            => $items_out,
     'can_cancel'       => $can_cancel,
     'cancel_restriction_msg' => $restriction_msg,
+    'rating_data'      => $rating_data,
     'csrf_token'       => generate_csrf_token()
 ]);
 

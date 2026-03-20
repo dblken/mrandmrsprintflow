@@ -207,8 +207,16 @@ require_once __DIR__ . '/../includes/header.php';
                                             $prod_id = (int)($item['product_id'] ?? 0);
                                             $product_img = "";
                                             
-                                            // 1. Try explicit product ID
+                                            // 1. Try to fetch product_image from database
                                             if ($prod_id > 0) {
+                                                $prod_data = db_query("SELECT product_image FROM products WHERE product_id = ?", 'i', [$prod_id]);
+                                                if (!empty($prod_data) && !empty($prod_data[0]['product_image'])) {
+                                                    $product_img = $prod_data[0]['product_image'];
+                                                }
+                                            }
+                                            
+                                            // 2. Try explicit product ID (file-based fallback)
+                                            if (empty($product_img) && $prod_id > 0) {
                                                 $img_base = "../public/images/products/product_" . $prod_id;
                                                 if (file_exists($img_base . ".jpg")) {
                                                     $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
@@ -217,7 +225,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 }
                                             }
                                             
-                                            // 2. Fallback based on category/service_type for Service Orders
+                                            // 3. Fallback based on category/service_type for Service Orders
                                             if (empty($product_img)) {
                                                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
                                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
@@ -300,7 +308,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <div style="font-size:0.875rem; color:#6b7280; margin-bottom:0.25rem;">Subtotal <?php echo $has_custom ? '(Priced Items only)' : ''; ?></div>
                             <div style="font-size:1.5rem; font-weight:700; color:#1f2937; margin-bottom:1rem;" id="cart-total"><?php echo format_currency($total); ?></div>
                             <?php if ($has_custom): ?>
-                                <div style="font-size:0.75rem; color:#6b7280; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">+ Custom items (TBD by staff)</div>
+                                <div style="font-size:0.75rem; color:#6b7280; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">+ Custom items (Price will be confirmed by the shop)</div>
                             <?php endif; ?>
                             <?php if ($is_restricted): ?>
                                 <button type="button" class="btn-primary" style="padding:0.75rem 2rem; opacity:0.5; cursor:not-allowed;" disabled>Proceed to Checkout</button>

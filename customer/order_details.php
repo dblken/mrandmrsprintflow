@@ -35,18 +35,64 @@ if (empty($order_result)) {
 $order = $order_result[0];
 
 // Get order items
+$has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
+$has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+$product_image_select = "'' AS product_image";
+if ($has_product_image && $has_photo_path) {
+    $product_image_select = "COALESCE(p.photo_path, p.product_image) AS product_image";
+} elseif ($has_product_image) {
+    $product_image_select = "p.product_image AS product_image";
+} elseif ($has_photo_path) {
+    $product_image_select = "p.photo_path AS product_image";
+}
+
 $items = db_query("
-    SELECT oi.*, p.name as product_name, p.category
+    SELECT oi.*, p.name as product_name, p.category, {$product_image_select}
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.product_id
     WHERE oi.order_id = ?
 ", 'i', [$order_id]);
 
-// Determine if price should be shown
-// Strict Rule: Hide if status is Pending Review or Approved
-$show_price = !in_array($order['status'], ['Pending Review', 'Approved']);
+// Determine if price/payment should be shown.
+// Hide while order is still in pending/design-review stages.
+$price_pending_statuses = ['Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Approved'];
+$show_price = !in_array($order['status'], $price_pending_statuses, true);
 
-$page_title = "Order #{$order_id} - PrintFlow";
+// Derive a more descriptive title based on items
+$display_title = "Order #{$order_id}";
+if (!empty($items)) {
+    // Collect unique item names
+    $names = [];
+    foreach ($items as $item) {
+        $custom = json_decode($item['customization_data'] ?? '{}', true);
+        
+        // Prioritize service_type from customization, then product_name, then fallback
+        $itemName = $custom['service_type'] ?? ($item['product_name'] ?? '');
+        
+        // Clean up generic names
+        if (empty($itemName) || $itemName === 'Customer Order' || $itemName === 'Custom Order' || $itemName === 'Custom Item' || $itemName === 'Order Item') {
+            $itemName = get_service_name_from_customization($custom, 'Order #' . $order_id);
+        }
+        $itemName = normalize_service_name($itemName, 'Order #' . $order_id);
+
+        if (!in_array($itemName, $names)) {
+            $names[] = $itemName;
+        }
+    }
+    
+    if (count($names) === 1) {
+        $display_title = $names[0];
+    } else {
+        $display_title = implode(", ", $names);
+    }
+    
+    // Truncate if too long
+    if (strlen($display_title) > 60) {
+        $display_title = substr($display_title, 0, 57) . '...';
+    }
+}
+
+$page_title = htmlspecialchars($display_title) . " - PrintFlow";
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -54,19 +100,27 @@ require_once __DIR__ . '/../includes/header.php';
 <?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
 <div class="min-h-screen py-8">
-    <div class="container mx-auto px-4 order-container">
-        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:2rem; flex-wrap: wrap;">
-            <a href="orders.php" style="color:#6b7280; text-decoration:none; font-size:0.85rem; font-weight:700;">← Back to My Orders</a>
-            <h1 class="ct-page-title" style="margin:0; flex:1; text-align:center; font-size: 1.5rem;">Order Detail #<?php echo $order_id; ?></h1>
+    <div class="container mx-auto px-4" style="max-width: 1080px;">
+        <!-- Header with back button -->
+        <div style="display:flex; align-items:center; margin-bottom: 2rem; gap: 1rem;">
+            <a href="orders.php" class="btn-secondary" style="padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Back
+            </a>
+            <h1 class="ct-page-title" style="margin:0; flex:1; text-align:center; font-size: 1.5rem;"><?php echo htmlspecialchars($display_title); ?></h1>
+
             <div style="text-align:right;">
                 <?php echo status_badge($order['status'], 'order'); ?>
             </div>
         </div>
 
         <style>
-            .order-container { max-width: 650px; margin: 0 auto; }
+            .order-container { max-width: 960px; margin: 0 auto; }
             .compact-card { padding: 1.25rem !important; }
             .section-header { font-size:0.95rem; font-weight:700; margin-bottom:1rem; color:#111827; display:flex; align-items:center; gap:8px; }
+            .order-summary-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; font-size:0.9rem; color:#4b5563; font-weight:600; }
+            .order-summary-row .label { white-space:nowrap; }
+            .order-summary-row .value { text-align:right; }
         </style>
 
         <div style="display:flex; flex-direction:column; gap:1.25rem;">
@@ -90,7 +144,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <p style="color: #b91c1c; font-size: 0.8rem; line-height: 1.5; margin-bottom:0.75rem;">
                             The shop has requested a revision for this order. Please review the reason below and update your order details.
                         </p>
-                        <div style="background:white; border:1px solid #fca5a5; padding:10px; border-radius:8px; font-size:0.85rem; color:#991b1b; font-weight: 600;">
+                        <div style="background:white; border:1px solid #fca5a5; padding:10px; border-radius:8px; font-size:0.85rem; color:#991b1b; font-weight:600; line-height:1.55; white-space:normal; overflow-wrap:anywhere; word-break:break-word; max-width:100%;">
                             <strong>Reason:</strong> <?php echo nl2br(htmlspecialchars($order['revision_reason'] ?? 'Not specified')); ?>
                         </div>
                     </div>
@@ -170,12 +224,8 @@ require_once __DIR__ . '/../includes/header.php';
                 $payment_methods = file_exists($payment_cfg_path) ? json_decode(file_get_contents($payment_cfg_path), true) : [];
                 if (!is_array($payment_methods)) $payment_methods = [];
                 $enabled_methods = array_filter($payment_methods, function($m) { return !empty($m['enabled']); });
-
-                if (empty($enabled_methods)): 
                 ?>
-                    <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; color: #b91c1c; font-size: 0.9rem;">
-                        No online payment methods are currently configured by the shop. Please contact support.
-                    </div>
+
                 <form id="paymentForm" enctype="multipart/form-data">
                     <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
                     <?php echo csrf_field(); ?>
@@ -202,43 +252,40 @@ require_once __DIR__ . '/../includes/header.php';
                                 </div>
                             </label>
 
-                            <label class="payment-policy-option" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
-                                <input type="radio" name="payment_choice" value="pickup" onclick="updatePaymentUI('pickup')" style="width: 18px; height: 18px;">
-                                <div>
-                                    <div style="font-weight: 800; font-size: 0.95rem; color: #111827;">Upon Pick Up</div>
-                                    <div style="font-size: 0.8rem; color: #6b7280;">Pay the full amount when you collect your order.</div>
-                                </div>
-                            </label>
                         </div>
                     </div>
 
                     <div id="paymentDetailsSection">
                         <label style="display:block; font-size:0.875rem; font-weight:800; color: #111827; margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.04em;">Step 2: Transfer & Upload Proof</label>
-                    
-                    <!-- Payment Methods Tabs/Selector -->
-                    <div style="display: flex; gap: 8px; margin-bottom: 1rem; overflow-x: auto; padding-bottom: 4px;">
-                        <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
-                            <button type="button" onclick="selectPaymentMethod(<?php echo $index; ?>)" id="btn-pm-<?php echo $index; ?>" class="pm-tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: 2px solid <?php echo $first ? '#4F46E5' : '#e5e7eb'; ?>; background: <?php echo $first ? '#e0e7ff' : '#f9fafb'; ?>; color: <?php echo $first ? '#4F46E5' : '#4b5563'; ?>; font-weight: 700; font-family: inherit; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
-                                <?php echo htmlspecialchars($pm['provider']); ?>
-                            </button>
-                        <?php $first = false; endforeach; ?>
-                    </div>
-
-                    <!-- Payment Provider Details -->
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: center; min-height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
-                            <div id="pm-details-<?php echo $index; ?>" style="display: <?php echo $first ? 'block' : 'none'; ?>; width: 100%;">
-                                <?php if (!empty($pm['file'])): ?>
-                                    <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" style="width: 120px; height: 120px; object-fit: contain; border-radius: 12px; border: 2px solid #e2e8f0; margin: 0 auto 10px auto; display: block; background: white;" alt="QR Code">
-                                <?php endif; ?>
-                                <div style="font-size: 1.1rem; font-weight: 800; color: #1e293b; margin-bottom: 4px;"><?php echo htmlspecialchars($pm['provider']); ?></div>
-                                <?php if (!empty($pm['label'])): ?>
-                                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;"><?php echo htmlspecialchars($pm['label']); ?></div>
-                                <?php endif; ?>
+                        <?php if (empty($enabled_methods)): ?>
+                            <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; color: #b91c1c; font-size: 0.9rem;">
+                                No online payment methods are currently configured by the shop. Please contact support.
                             </div>
-                        <?php $first = false; endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                        <?php else: ?>
+                            <!-- Payment Methods Tabs/Selector -->
+                            <div style="display: flex; gap: 8px; margin-bottom: 1rem; overflow-x: auto; padding-bottom: 4px;">
+                                <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
+                                    <button type="button" onclick="selectPaymentMethod(<?php echo $index; ?>)" id="btn-pm-<?php echo $index; ?>" class="pm-tab-btn" style="flex: 1; padding: 10px; border-radius: 10px; border: 2px solid <?php echo $first ? '#4F46E5' : '#e5e7eb'; ?>; background: <?php echo $first ? '#e0e7ff' : '#f9fafb'; ?>; color: <?php echo $first ? '#4F46E5' : '#4b5563'; ?>; font-weight: 700; font-family: inherit; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
+                                        <?php echo htmlspecialchars($pm['provider']); ?>
+                                    </button>
+                                <?php $first = false; endforeach; ?>
+                            </div>
+
+                            <!-- Payment Provider Details -->
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: center; min-height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
+                                    <div id="pm-details-<?php echo $index; ?>" style="display: <?php echo $first ? 'block' : 'none'; ?>; width: 100%;">
+                                        <?php if (!empty($pm['file'])): ?>
+                                            <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" style="width: 120px; height: 120px; object-fit: contain; border-radius: 12px; border: 2px solid #e2e8f0; margin: 0 auto 10px auto; display: block; background: white;" alt="QR Code">
+                                        <?php endif; ?>
+                                        <div style="font-size: 1.1rem; font-weight: 800; color: #1e293b; margin-bottom: 4px;"><?php echo htmlspecialchars($pm['provider']); ?></div>
+                                        <?php if (!empty($pm['label'])): ?>
+                                            <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;"><?php echo htmlspecialchars($pm['label']); ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php $first = false; endforeach; ?>
+                            </div>
+                        <?php endif; ?>
 
 
                     
@@ -267,18 +314,11 @@ require_once __DIR__ . '/../includes/header.php';
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div id="pickupNotice" style="display:none; background:#f9fafb; border:2px dashed #e5e7eb; border-radius:12px; padding:1.5rem; text-align:center; margin-bottom:1.5rem;">
-                            <span style="font-size: 2rem; display:block; margin-bottom:10px;">📦</span>
-                            <div style="font-weight:800; color:#111827; margin-bottom:4px;">Pay Upon Pick Up</div>
-                            <p style="font-size:0.85rem; color:#6b7280; line-height:1.5; margin:0;">
-                                You have chosen to pay upon collection. Your order will move directly to production. Please prepare the full amount of <strong><?php echo format_currency($order['total_amount']); ?></strong> for when you pick up your items.
-                            </p>
-                        </div>
-                    
                     <div style="display:flex; justify-content:flex-end; gap:12px;">
                         <button type="button" onclick="closePaymentModal()" class="btn-secondary" style="border-radius: 10px; font-weight: 500; font-family: inherit; font-size: 0.9375rem;">Cancel</button>
-                        <button type="submit" id="submitPaymentBtn" class="btn-primary" style="background:#4F46E5; color:white; border-radius: 10px; padding: 10px 24px; font-weight: 800; font-family: inherit; font-size: 0.9375rem; text-transform:uppercase; letter-spacing:0.02em;">Submit & Confirm</button>
+                        <button type="submit" id="submitPaymentBtn" class="btn-primary" <?php echo empty($enabled_methods) ? 'disabled' : ''; ?> style="background:#4F46E5; color:white; border-radius: 10px; padding: 10px 24px; font-weight: 800; font-family: inherit; font-size: 0.9375rem; text-transform:uppercase; letter-spacing:0.02em; <?php echo empty($enabled_methods) ? 'opacity:0.6; cursor:not-allowed;' : ''; ?>">Submit & Confirm</button>
                     </div>
                 </form>
             </div>
@@ -358,7 +398,6 @@ require_once __DIR__ . '/../includes/header.php';
 
                 const detailsSection = document.getElementById('paymentDetailsSection');
                 const proofSection = document.getElementById('proofUploadSection');
-                const pickupNotice = document.getElementById('pickupNotice');
                 const amountInput = document.getElementById('paymentAmountInput');
                 const minText = document.getElementById('minPaymentText');
                 const proofInput = document.getElementById('proofInput');
@@ -366,28 +405,19 @@ require_once __DIR__ . '/../includes/header.php';
                 const total = <?php echo (float)$order['total_amount']; ?>;
                 const half = total * 0.5;
 
-                if (choice === 'pickup') {
-                    detailsSection.style.display = 'none';
-                    proofSection.style.display = 'none';
-                    pickupNotice.style.display = 'block';
-                    proofInput.required = false;
-                    amountInput.required = false;
-                } else {
-                    detailsSection.style.display = 'block';
-                    proofSection.style.display = 'block';
-                    pickupNotice.style.display = 'none';
-                    proofInput.required = true;
-                    amountInput.required = true;
+                detailsSection.style.display = 'block';
+                proofSection.style.display = 'block';
+                proofInput.required = true;
+                amountInput.required = true;
 
-                    if (choice === 'full') {
-                        amountInput.value = total.toFixed(2);
-                        amountInput.min = total.toFixed(2);
-                        minText.textContent = 'Total: PHP ' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
-                    } else if (choice === 'half') {
-                        amountInput.value = half.toFixed(2);
-                        amountInput.min = half.toFixed(2);
-                        minText.textContent = 'Min. 50%: PHP ' + half.toLocaleString(undefined, {minimumFractionDigits: 2});
-                    }
+                if (choice === 'half') {
+                    amountInput.value = half.toFixed(2);
+                    amountInput.min = half.toFixed(2);
+                    minText.textContent = 'Min. 50%: PHP ' + half.toLocaleString(undefined, {minimumFractionDigits: 2});
+                } else {
+                    amountInput.value = total.toFixed(2);
+                    amountInput.min = total.toFixed(2);
+                    minText.textContent = 'Total: PHP ' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
                 }
             }
 
@@ -471,7 +501,7 @@ require_once __DIR__ . '/../includes/header.php';
                     .then(data => {
                         if (data.success) {
                             showSuccessModal(
-                                '✅ Payment Submitted',
+                                'Payment Submitted',
                                 data.message,
                                 'order_details.php?id=<?php echo $order_id; ?>',
                                 'orders.php',
@@ -501,7 +531,7 @@ require_once __DIR__ . '/../includes/header.php';
                     unset($_SESSION['success']);
                 ?>
                 showSuccessModal(
-                    '✅ Action Completed',
+                    'Action Completed',
                     '<?php echo addslashes($msg); ?>',
                     'orders.php',
                     'services.php',
@@ -525,30 +555,32 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div style="border-top:1px solid #f3f4f6; padding-top:1rem; margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#6b7280; font-weight:600;">
-                        <span>Order Status</span>
-                        <span><?php echo status_badge($order['status'], 'order'); ?></span>
+                    <div class="order-summary-row">
+                        <span class="label">Order Status:</span>
+                        <span class="value"><?php echo status_badge($order['status'], 'order'); ?></span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#6b7280; font-weight:600;">
-                        <span>Payment Status</span>
-                        <span><?php echo status_badge($order['payment_status'], 'payment'); ?></span>
-                    </div>
+                    <?php if ($show_price): ?>
+                        <div class="order-summary-row">
+                            <span class="label">Payment Status:</span>
+                            <span class="value"><?php echo status_badge($order['payment_status'], 'payment'); ?></span>
+                        </div>
+                    <?php endif; ?>
                     
                     <div style="border-top:1px solid #e5e7eb; padding-top:1rem; margin-top:0.5rem; display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:700; color:#111827; font-size:0.95rem;">Grand Total</span>
                         <?php if ($show_price): ?>
                             <span style="font-size:1.5rem; font-weight:800; color:#4F46E5;"><?php echo format_currency($order['total_amount']); ?></span>
                         <?php else: ?>
-                            <span style="font-size:0.85rem; font-weight:700; color:#6b7280; font-style:italic;">Price TBD by staff</span>
+                            <span style="font-size:0.85rem; font-weight:700; color:#6b7280; font-style:italic;">Price will be confirmed by the shop</span>
                         <?php endif; ?>
                     </div>
 
                     <div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.75rem;">
-                        <?php if ($order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled', 'Pending Review', 'Approved'])): ?>
+                        <?php if ($show_price && $order['payment_status'] === 'Unpaid' && !in_array($order['status'], ['Downpayment Submitted', 'Cancelled'], true)): ?>
                             <button type="button" onclick="openPaymentModal()" class="btn-primary" style="width:100%; padding:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">
                                 Pay now
                             </button>
-                        <?php elseif (in_array($order['status'], ['Pending Review', 'Approved'])): ?>
+                        <?php elseif (!$show_price): ?>
                             <div style="background:#f0f9ff; border:1px solid #bae6fd; border-left:4px solid #0ea5e9; border-radius:10px; padding:12px 14px; display:flex; gap:10px; align-items:center;">
                                 <span style="font-size:1.1rem;">⏳</span>
                                 <div style="font-size:0.75rem; color:#0369a1; font-weight:600; line-height:1.4;">Order is under review. Pricing and payment options will be available soon.</div>
@@ -576,13 +608,13 @@ require_once __DIR__ . '/../includes/header.php';
                     <span>👤</span> Contact Information
                 </h2>
                 <?php 
-                $cust_res = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$order['customer_id']]);
+                $cust_res = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$order['customer_id']]);
                 $customer_info = $cust_res[0] ?? [];
                 ?>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
                     <div>
                         <div style="font-size:0.65rem; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Full Name</div>
-                        <div style="font-weight:700; color:#111827; font-size:0.9rem;"><?php echo htmlspecialchars(($customer_info['first_name'] ?? '') . ' ' . ($customer_info['last_name'] ?? '')); ?></div>
+                        <div style="font-weight:700; color:#111827; font-size:0.9rem;"><?php echo htmlspecialchars(trim(($customer_info['first_name'] ?? '') . ' ' . ($customer_info['middle_name'] ?? '') . ' ' . ($customer_info['last_name'] ?? ''))); ?></div>
                     </div>
                     <div>
                         <div style="font-size:0.65rem; color:#6b7280; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Phone Number</div>

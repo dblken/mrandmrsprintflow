@@ -58,9 +58,14 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-        .stat-value { font-size: 32px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
-        .stat-sub { font-size: 12px; color: #9ca3af; }
+        .stats-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; margin-bottom:24px; }
+        @media (max-width:1100px) { .stats-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+        @media (max-width:680px) { .stats-grid { grid-template-columns:1fr; } }
+        .stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px; position:relative; overflow:hidden; }
+        .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, #1d4ed8, #06b6d4); }
+        .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+        .stat-value { font-size: 30px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+        .stat-sub { font-size: 12px; color: #6b7280; }
     </style>
 </head>
 <body>
@@ -88,22 +93,22 @@ $page_title = 'Staff Dashboard - PrintFlow';
             <!-- Stats Cards -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-label">⏳ Pending Orders</div>
+                    <div class="stat-label">Pending Orders</div>
                     <div class="stat-value"><?php echo $pending_orders; ?></div>
                     <div class="stat-sub">Awaiting processing</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">🔄 Processing</div>
+                    <div class="stat-label">In Production</div>
                     <div class="stat-value"><?php echo $processing_orders; ?></div>
                     <div class="stat-sub">Currently in progress</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">✅ Ready for Pickup</div>
+                    <div class="stat-label">Ready for Pickup</div>
                     <div class="stat-value"><?php echo $ready_orders; ?></div>
                     <div class="stat-sub">Ready for customers</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">📦 Completed Today</div>
+                    <div class="stat-label">Completed Today</div>
                     <div class="stat-value"><?php echo $today_completed; ?></div>
                     <div class="stat-sub">Orders finished today</div>
                 </div>
@@ -113,7 +118,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
             <?php if (!empty($low_stock)): ?>
             <div class="card" style="border-left:4px solid #f59e0b;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                    <h2 style="display:flex; align-items:center; gap:8px;">⚠️ Low Stock Alerts</h2>
+                    <h2 style="display:flex; align-items:center; gap:8px;">Low Stock Alerts</h2>
                     <a href="products" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
                 </div>
                 <div class="overflow-x-auto">

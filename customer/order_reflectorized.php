@@ -198,15 +198,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             <button type="button" onclick="nextStep(2)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
                         </div>
                         <div id="step1-final" class="hidden flex flex-1 justify-end gap-4">
-                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                                + Add to Cart
-                            </button>
-                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                                Review Your Order
+                            <!-- Buy Now Button (Solid) -->
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                Buy Now
                             </button>
                         </div>
                     </div>
@@ -281,15 +275,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             <button type="button" onclick="nextStep(3)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
                         </div>
                         <div id="step2-final" class="hidden flex flex-1 justify-end gap-4">
-                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                                + Add to Cart
-                            </button>
-                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                                Review Your Order
+                            <!-- Buy Now Button (Solid) -->
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                Buy Now
                             </button>
                         </div>
                     </div>
@@ -422,8 +410,10 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                             <button type="button" onclick="nextStep(5)" class="btn-black px-8 py-3 uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">Continue <span class="text-xl">→</span></button>
                         </div>
                         <div id="step4-final" class="hidden flex flex-1 justify-end gap-4">
-                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" class="px-8 py-3 bg-white text-black font-black border-2 border-black uppercase tracking-widest rounded-xl shadow-xl hover:bg-black hover:text-white transition-all text-sm flex-1 text-center">+ Add to Cart</button>
-                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" class="px-8 py-3 bg-black text-white font-black uppercase tracking-widest rounded-xl shadow-2xl hover:bg-gray-800 transition-all text-sm flex-1 text-center">Review Your Order</button>
+                            <!-- Buy Now Button (Solid) -->
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                Buy Now
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -473,7 +463,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start" id="quantityNumberingSection">
                             <div>
                                 <label class="block text-xs font-black uppercase text-gray-500 mb-4 tracking-widest">Quantity Required *</label>
-                                <input type="number" name="quantity" id="quantity" min="1" value="1" class="w-full px-8 py-6 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-black font-black text-4xl text-center" required>
+                                <input type="number" name="quantity" id="quantity" min="1" value="<?php echo (int)($_GET['qty'] ?? 1); ?>" class="w-full px-8 py-6 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-black font-black text-4xl text-center" required>
                             </div>
                             <div class="p-6 bg-gray-50 rounded-3xl space-y-4">
                                 <label class="flex items-center justify-between cursor-pointer group">
@@ -523,15 +513,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <div class="mt-12 flex justify-between gap-4">
                         <button type="button" onclick="prevStep(4)" class="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl border-2 border-gray-100 hover:bg-gray-50 transition-all text-sm">Back</button>
                         <div class="flex gap-4 flex-1 justify-end">
-                            <button type="button" onclick="submitReflectorizedOrder('add_to_cart')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                                + Add to Cart
-                            </button>
-                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" 
-                                    style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                                    onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                                Review Your Order
+                            <!-- Buy Now Button (Solid) -->
+                            <button type="button" onclick="submitReflectorizedOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                Buy Now
                             </button>
                         </div>
                     </div>

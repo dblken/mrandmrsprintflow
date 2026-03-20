@@ -12,9 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $branch_id = trim($_POST['branch_id'] ?? '1');
     $layout_type = trim($_POST['layout_type'] ?? '');
     $rush = trim($_POST['rush'] ?? '');
+    $needed_date = trim($_POST['needed_date'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    if (empty($layout_type)) {
-        $error = 'Please select type of layout.';
+    if (empty($layout_type) || empty($needed_date)) {
+        $error = 'Please select type of layout and provide needed date.';
     } else {
         $tmp_dir = __DIR__ . '/../uploads/temp';
         if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
@@ -55,7 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'image'          => '🎨',
             'customization'  => [
                 'Layout_Type' => $layout_type,
-                'Rush_Order'  => $rush ?: 'No'
+                'Rush_Order'  => $rush ?: 'No',
+                'needed_date' => $needed_date
             ],
             'design_notes'   => $description,
             'design_tmp_path'=> $tmp_path,
@@ -107,28 +109,24 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     </select>
                 </div>
                 <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Needed Date *</label>
+                    <input type="date" name="needed_date" class="input-field w-full" required min="<?php echo date('Y-m-d'); ?>" value="<?php echo htmlspecialchars($_POST['needed_date'] ?? ''); ?>">
+                    <p style="font-size:0.72rem; color:#6b7280; margin-top:4px;">Date when you need the order ready</p>
+                </div>
+                <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <textarea name="description" rows="4" class="input-field w-full" placeholder="Describe your layout needs..."><?php echo htmlspecialchars($_POST['description'] ?? ''); ?></textarea>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Reference Upload (optional)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">📎 Upload Your File (Design, Image, or PDF) – Max 5MB</label>
                     <input type="file" name="reference_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field w-full">
                 </div>
-                <div style="display:flex; gap:1rem; margin-top:2rem;">
-                    <button type="submit" name="add_to_cart" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                        + Add to Cart
-                    </button>
-                    <button type="submit" name="buy_now" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                        Review Your Order
-                    </button>
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.75rem; margin-top:2rem; flex-wrap:wrap;">
+                    <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height:48px; min-width:140px; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; background:#f8fafc; color:#0f172a; font-weight:700; font-size:0.9rem; border-radius:10px; border:1px solid #cbd5e1; text-decoration:none;">Back to Services</a>
+                    <button type="submit" name="buy_now" value="1" style="height:48px; min-width:140px; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; background:#0a2530; color:#ffffff; font-weight:800; font-size:0.9rem; border-radius:10px; border:none; cursor:pointer;">Buy Now</button>
                 </div>
             </form>
         </div>
-        <p class="mt-4 text-sm text-gray-500 text-center"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>
     </div>
 </div>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

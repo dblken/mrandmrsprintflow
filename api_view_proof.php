@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Protected Payment Proof Viewer
  * Serves files from outside direct web access
@@ -12,18 +12,50 @@ if (empty($_SESSION['user_id'])) {
     die('Unauthorized');
 }
 
-$file = $_GET['file'] ?? '';
-// Basic traversal protection
-$file = basename($file);
+$file = rawurldecode((string)($_GET['file'] ?? ''));
+$normalized_file = str_replace('\\', '/', $file);
+$basename = basename($normalized_file);
 
-if (empty($file)) {
+if (empty($basename)) {
     http_response_code(400);
     die('Bad Request');
 }
 
-// Ensure the file exists
-$filepath = __DIR__ . '/uploads/secure_payments/' . $file;
-if (!file_exists($filepath)) {
+// Resolve candidate locations safely.
+$candidates = [
+    __DIR__ . '/uploads/secure_payments/' . $basename,
+    __DIR__ . '/uploads/payments/' . $basename,
+];
+
+if (strpos($normalized_file, '/printflow/') === 0) {
+    $candidates[] = __DIR__ . substr($normalized_file, strlen('/printflow'));
+}
+if (strpos($normalized_file, 'uploads/') === 0) {
+    $candidates[] = __DIR__ . '/' . $normalized_file;
+}
+$uploads_pos = stripos($normalized_file, '/uploads/');
+if ($uploads_pos !== false) {
+    $candidates[] = __DIR__ . substr($normalized_file, $uploads_pos);
+}
+
+$filepath = '';
+$uploads_root = realpath(__DIR__ . '/uploads');
+foreach ($candidates as $candidate) {
+    if (!is_string($candidate) || $candidate === '' || !file_exists($candidate)) {
+        continue;
+    }
+    $real = realpath($candidate);
+    if ($real === false || $uploads_root === false) {
+        continue;
+    }
+    if (strpos($real, $uploads_root) !== 0) {
+        continue;
+    }
+    $filepath = $real;
+    break;
+}
+
+if ($filepath === '') {
     http_response_code(404);
     die('File not found');
 }
@@ -36,7 +68,14 @@ $is_staff = isset($_SESSION['user_type']) && in_array($_SESSION['user_type'], ['
 $is_owner = false;
 if (!$is_staff && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Customer') {
     $customer_id = $_SESSION['user_id'];
-    $check = db_query("SELECT id FROM job_orders WHERE customer_id = ? AND payment_proof_path = ? LIMIT 1", 'is', [$customer_id, $file]);
+    $check = db_query(
+        "SELECT id FROM job_orders 
+         WHERE customer_id = ? 
+           AND (payment_proof_path = ? OR payment_proof_path LIKE CONCAT('%', ?, '%'))
+         LIMIT 1",
+        'iss',
+        [$customer_id, $basename, $basename]
+    );
     if (!empty($check)) {
         $is_owner = true;
     }

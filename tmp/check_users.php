@@ -1,5 +1,4 @@
 <?php
-require 'includes/db.php';
-$res = db_query('SELECT user_id, email, user_type FROM users WHERE user_type IN ("Admin", "Staff") LIMIT 5');
+require_once __DIR__ . '/../includes/db.php';
+$res = db_query("SELECT first_name, last_name, role FROM users");
 print_r($res);
-?>

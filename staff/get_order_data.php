@@ -7,9 +7,43 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role('Staff');
-
 header('Content-Type: application/json');
+
+// Allow Staff, Admin and Manager to access order data
+if (!is_logged_in() || !in_array(get_user_type(), ['Staff', 'Admin', 'Manager'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
+$action = $_GET['action'] ?? 'get_order';
+
+if ($action === 'list_orders') {
+    $status = $_GET['status'] ?? '';
+    $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            (SELECT GROUP_CONCAT(COALESCE(p.name, 'Custom Product') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names
+            FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
+    $params = [];
+    $types = '';
+    
+    if (!empty($status)) {
+        $sql .= " AND o.status = ?";
+        $params[] = $status;
+        $types .= 's';
+    }
+    
+    $sql .= " ORDER BY o.order_date DESC LIMIT 50";
+    $orders = db_query($sql, $types, $params);
+    
+    // Format for JS consumption
+    foreach ($orders as &$o) {
+        $o['order_date_fmt'] = format_date($o['order_date']);
+        $o['total_amount_fmt'] = format_currency($o['total_amount']);
+    }
+    
+    echo json_encode(['success' => true, 'orders' => $orders]);
+    exit;
+}
 
 $order_id = (int)($_GET['id'] ?? 0);
 if (!$order_id) {
@@ -42,13 +76,8 @@ $items = db_query("
     WHERE oi.order_id = ?
 ", 'i', [$order_id]);
 
-// Get other orders from same customer
-$customer_orders = db_query("
-    SELECT order_id, order_date, total_amount, status
-    FROM orders
-    WHERE customer_id = ? AND order_id != ?
-    ORDER BY order_date DESC LIMIT 5
-", 'ii', [$order['cust_id'], $order_id]);
+    // Removed other orders from same customer as requested
+    $customer_orders = [];
 
 // Build items array
 $items_out = [];
@@ -61,14 +90,11 @@ foreach ($items as $item) {
         'order_item_id' => $item['order_item_id'],
         'product_name'  => (function() use ($item, $custom_data) {
             if (!empty($item['product_name'])) return $item['product_name'];
-            if (!empty($custom_data['service_type'])) {
-                $name = $custom_data['service_type'];
-                if (!empty($custom_data['product_type'])) {
-                    $name .= " (" . $custom_data['product_type'] . ")";
-                }
-                return $name;
+            $name = get_service_name_from_customization($custom_data, 'Custom Order');
+            if (!empty($custom_data['product_type']) && $custom_data['product_type'] !== $name) {
+                $name .= " (" . $custom_data['product_type'] . ")";
             }
-            return 'Custom Order';
+            return $name;
         })(),
         'sku'           => $item['sku'] ?? '',
         'category'      => $item['category'] ?? '',
@@ -100,6 +126,7 @@ foreach ($customer_orders as $co) {
 }
 
 // Get revision history
+$revisions_out = [];
 $revisions_raw = db_query("
     SELECT r.revision_id, r.order_item_id, r.revision_reason, r.created_at, 
            u.first_name as staff_first, u.last_name as staff_last,
@@ -112,7 +139,6 @@ $revisions_raw = db_query("
     ORDER BY r.created_at DESC
 ", 'i', [$order_id]);
 
-$revisions_out = [];
 foreach ($revisions_raw as $rev) {
     $revisions_out[] = [
         'revision_id'     => $rev['revision_id'],
@@ -121,7 +147,7 @@ foreach ($revisions_raw as $rev) {
         'revision_reason' => $rev['revision_reason'],
         'staff_name'      => trim(($rev['staff_first'] ?? '') . ' ' . ($rev['staff_last'] ?? '')),
         'created_at'      => format_datetime($rev['created_at']),
-        'design_url'      => '/printflow/public/serve_design.php?type=revision_item&id=' . (int)$rev['revision_id']
+        'design_url'      => '/printflow/staff/get_design_image.php?id=' . (int)$rev['order_item_id'] // REVISIONS point to order_item_id? Or should revisions have their own BLOB?
     ];
 }
 
@@ -142,6 +168,14 @@ echo json_encode([
     'design_status'       => $order['design_status'] ?? 'Pending',
     'reviewed_by'         => $order['reviewed_by'] ?? null,
     'reviewed_at'         => !empty($order['reviewed_at']) ? format_datetime($order['reviewed_at']) : '',
+    'cust_name'           => trim(($order['cust_first'] ?? '') . ' ' . ($order['cust_last'] ?? '')),
+    'cust_initial'        => strtoupper(substr($order['cust_first'] ?? 'C', 0, 1)),
+    'cust_email'          => $order['cust_email'] ?? '',
+    'cust_phone'          => $order['cust_phone'] ?? '',
+    'payment_proof'       => !empty($order['payment_proof']) ? '/printflow' . $order['payment_proof'] : null,
+    'payment_submitted_at'=> !empty($order['payment_submitted_at']) ? format_datetime($order['payment_submitted_at']) : '',
+    'revision_count'      => (int)($order['revision_count'] ?? 0),
+    'revision_reason'     => $order['revision_reason'] ?? '',
     'items'               => $items_out,
     'customer_orders'     => $cust_orders_out,
     'revisions'           => $revisions_out,

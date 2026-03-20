@@ -62,7 +62,65 @@ try {
             echo json_encode($response);
             break;
 
-        case 'list_machines':
+        case 'list_pending_orders':
+            // Fetch regular product orders with pending status for staff customization dashboard
+            $sql = "SELECT 
+                        o.order_id as id,
+                        o.order_id,
+                        o.customer_id,
+                        c.first_name,
+                        c.last_name,
+                        c.customer_type,
+                        c.transaction_count,
+                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
+                        CONCAT(c.street, ', ', c.barangay, ', ', c.municipality) as customer_contact,
+                        'ORDER' as order_type,
+                        'Standard Order' as service_type,
+                        GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') as job_title,
+                        '1' as width_ft,
+                        '1' as height_ft,
+                        SUM(oi.quantity) as quantity,
+                        CASE 
+                            WHEN o.status = 'Pending' THEN 'PENDING'
+                            WHEN o.status = 'Pending Review' THEN 'PENDING'
+                            WHEN o.status = 'Pending Approval' THEN 'PENDING'
+                            WHEN o.status = 'For Revision' THEN 'PENDING'
+                            WHEN o.status = 'Processing' THEN 'IN_PRODUCTION'
+                            WHEN o.status = 'In Production' THEN 'IN_PRODUCTION'
+                            WHEN o.status = 'Printing' THEN 'IN_PRODUCTION'
+                            WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
+                            WHEN o.status = 'Completed' THEN 'COMPLETED'
+                            WHEN o.status = 'Cancelled' THEN 'CANCELLED'
+                            ELSE o.status
+                        END as status,
+                        'PAID' as payment_proof_status,
+                        'NO' as payment_status,
+                        '' as materials,
+                        o.order_date as created_at,
+                        o.order_date,
+                        NULL as due_date,
+                        NULL as priority,
+                        o.total_amount as estimated_total
+                    FROM orders o
+                    LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                    LEFT JOIN products p ON oi.product_id = p.product_id
+                    LEFT JOIN customers c ON o.customer_id = c.customer_id
+                    WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Processing', 'In Production', 'Printing', 'Ready for Pickup')
+                    GROUP BY o.order_id
+                    ORDER BY o.order_date DESC
+                    LIMIT 50";
+            
+            $pending_orders = db_query($sql) ?: [];
+            
+            // Format to match job_orders structure
+            foreach ($pending_orders as &$order) {
+                $order['readiness'] = 'READY'; // Regular orders don't have material tracking
+                $order['estimated_cost'] = 0;
+            }
+            
+            echo json_encode(['success' => true, 'data' => $pending_orders]);
+            break;
+
             $machines = db_query("SELECT * FROM machines WHERE status = 'ACTIVE'") ?: [];
             echo json_encode(['success' => true, 'data' => $machines]);
             break;

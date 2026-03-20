@@ -464,7 +464,7 @@ $page_title = "Order #{$order_id} - Staff";
             unset($_SESSION['success']);
         ?>
         showSuccessModal(
-            '✅ Action Successful',
+            'Action Successful',
             '<?php echo addslashes($msg); ?>',
             '#',
             'orders.php',

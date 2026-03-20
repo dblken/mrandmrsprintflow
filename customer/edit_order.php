@@ -102,16 +102,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resubmit_order'])) {
     }
 
     if ($all_success) {
-        // Update Order Status
-        $update_sql = "UPDATE orders SET status = 'Pending Approval', design_status = 'Revision Submitted', revision_count = revision_count + 1, updated_at = NOW() WHERE order_id = ?";
+        // Update Order Status.
+        // Keep backward compatibility: some databases do not have revision_count yet.
+        $hasRevisionCount = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'revision_count'"));
+        if ($hasRevisionCount) {
+            $update_sql = "UPDATE orders
+                           SET status = 'Pending Approval',
+                               design_status = 'Revision Submitted',
+                               revision_count = COALESCE(revision_count, 0) + 1,
+                               updated_at = NOW()
+                           WHERE order_id = ?";
+        } else {
+            $update_sql = "UPDATE orders
+                           SET status = 'Pending Approval',
+                               design_status = 'Revision Submitted',
+                               updated_at = NOW()
+                           WHERE order_id = ?";
+        }
         db_execute($update_sql, 'i', [$order_id]);
 
         log_activity($customer_id, 'Order Resubmitted', "Customer resubmitted Order #$order_id after revision.");
         
+        // Notify Staff with full revision context
+        $customer_row = db_query(
+            "SELECT first_name, last_name FROM customers WHERE customer_id = ? LIMIT 1",
+            'i',
+            [$customer_id]
+        );
+        $customer_name = 'Customer';
+        if (!empty($customer_row)) {
+            $customer_name = trim(($customer_row[0]['first_name'] ?? '') . ' ' . ($customer_row[0]['last_name'] ?? ''));
+            if ($customer_name === '') {
+                $customer_name = 'Customer';
+            }
+        }
+
+        $service_name = 'Custom Order';
+        if (!empty($items)) {
+            $first_custom = json_decode($items[0]['customization_data'] ?? '{}', true) ?: [];
+            $derived_service = $first_custom['service_type'] ?? ($items[0]['product_name'] ?? '');
+            $service_name = normalize_service_name($derived_service, 'Custom Order');
+        }
+        $submitted_at = date('Y-m-d H:i:s');
+        $staff_message = "Customer has resubmitted a revised design for Order #{$order_id}. "
+            . "Customer: {$customer_name}. Service: {$service_name}. Submitted: {$submitted_at}.";
+
         // Notify Staff
         $staff_users = db_query("SELECT user_id FROM users WHERE role = 'Staff' AND status = 'Activated'");
         foreach ($staff_users as $staff) {
-            create_notification($staff['user_id'], 'Staff', "Order #{$order_id} has been resubmitted for approval!", 'Order', false, false, $order_id);
+            create_notification($staff['user_id'], 'Staff', $staff_message, 'Order', false, false, $order_id);
         }
 
         $_SESSION['success'] = "Order #{$order_id} has been resubmitted successfully. Please wait for staff approval.";
@@ -253,10 +292,10 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             <?php endforeach; ?>
 
-            <div class="card" style="padding:2rem; text-align:center; background:#4f46e5; border:none;">
-                <h3 style="color:white; font-size:1.1rem; font-weight:700; margin-bottom:1rem;">Ready to resubmit?</h3>
-                <p style="color:rgba(255,255,255,0.8); font-size:0.9rem; margin-bottom:1.5rem;">Your order will be sent back to the shop for approval. You won't be able to edit it once resubmitted.</p>
-                <button type="submit" name="resubmit_order" class="btn-primary" style="background:white; color:#4f46e5; border:none; padding:1rem 2.5rem; font-weight:800; border-radius:12px; font-size:1rem; cursor:pointer; width:100%; max-width:300px;">
+            <div class="card" style="padding:2rem; text-align:center; background:#f8fafc; border:1px solid #e2e8f0;">
+                <h3 style="color:#0f172a; font-size:1.1rem; font-weight:700; margin-bottom:1rem;">Ready to resubmit?</h3>
+                <p style="color:#475569; font-size:0.9rem; margin-bottom:1.5rem;">Your order will be sent back to the shop for approval. You won't be able to edit it once resubmitted.</p>
+                <button type="submit" name="resubmit_order" class="btn-primary" style="background:#0a2530; color:#ffffff; border:none; padding:1rem 2.5rem; font-weight:800; border-radius:12px; font-size:1rem; cursor:pointer; width:100%; max-width:300px;" onmouseover="this.style.background='#0d3038'" onmouseout="this.style.background='#0a2530'">
                     RESUBMIT ORDER
                 </button>
             </div>

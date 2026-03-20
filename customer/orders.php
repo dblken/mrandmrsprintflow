@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
+ensure_ratings_table_exists();
 
 $customer_id = get_user_id();
 // Mark notification as read if parameter present
@@ -29,32 +30,84 @@ $processing_orders = $processing_orders_result[0]['count'] ?? 0;
 $ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Ready for Pickup'", 'i', [$customer_id]);
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
-// TikTok style tabs
+// TikTok style tabs (redirect removed tabs to completed)
 $active_tab = $_GET['tab'] ?? 'all';
+if (in_array($active_tab, ['torate', 'totalorders'], true)) {
+    $active_tab = 'completed';
+}
 
 // Tab mappings to exact statuses
 $tab_status_map = [
     'pending'    => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
     'approved'   => ['Approved'],
-    'toverify'   => ['To Verify'],
+    'toverify'   => ['To Verify', 'Downpayment Submitted', 'Pending Verification'],
     'topay'      => ['To Pay'],
     'production' => ['In Production', 'Processing', 'Printing'],
     'pickup'     => ['Ready for Pickup'],
-    'completed'  => ['Completed'],
+    'torate'     => ['To Rate', 'Rated', 'Completed'],
+    'completed'  => ['Completed', 'To Rate', 'Rated'],
     'cancelled'  => ['Cancelled'],
+    'totalorders' => ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'],
 ];
 
 // Statuses where price is hidden from customer
 $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
 
+$has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
+$has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+$first_product_image_expr = "''";
+if ($has_product_image && $has_photo_path) {
+    $first_product_image_expr = "COALESCE(p.photo_path, p.product_image)";
+} elseif ($has_product_image) {
+    $first_product_image_expr = "p.product_image";
+} elseif ($has_photo_path) {
+    $first_product_image_expr = "p.photo_path";
+}
+
+// Per-tab order counts for status indicators.
+$status_counts_raw = db_query("
+    SELECT status, COUNT(*) AS total
+    FROM orders
+    WHERE customer_id = ?
+    GROUP BY status
+", 'i', [$customer_id]);
+
+$status_counts = [];
+foreach ($status_counts_raw as $row) {
+    $status_counts[$row['status']] = (int)$row['total'];
+}
+
+$tab_counts = [
+    'all' => (int)$total_orders,
+    'pending' => 0,
+    'approved' => 0,
+    'toverify' => 0,
+    'topay' => 0,
+    'production' => 0,
+    'pickup' => 0,
+    'torate' => 0,
+    'completed' => 0,
+    'cancelled' => 0,
+    'totalorders' => 0
+];
+
+foreach ($tab_status_map as $tab_key => $statuses) {
+    foreach ($statuses as $status_name) {
+        $tab_counts[$tab_key] += $status_counts[$status_name] ?? 0;
+    }
+}
+
 // Build query
 $sql = "SELECT o.*, 
-        (SELECT GROUP_CONCAT(COALESCE(p.name, 'Custom Order') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names,
-        (SELECT COALESCE(p.name, 'Custom Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_name,
+        (SELECT GROUP_CONCAT(COALESCE(p.name, 'Service Order') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names,
+        (SELECT COALESCE(p.name, 'Service Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_name,
         (SELECT p.product_id FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_id,
+        (SELECT {$first_product_image_expr} FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_image,
         (SELECT oi.customization_data FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_customization,
         (SELECT oi.order_item_id FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_id,
-        (SELECT IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_has_design
+        (SELECT IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_has_design,
+        (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.order_id) as total_quantity,
+        (SELECT r.rating FROM ratings r WHERE r.order_id = o.order_id LIMIT 1) as rating_value
         FROM orders o WHERE o.customer_id = ?";
 $count_sql = "SELECT COUNT(*) as total FROM orders o WHERE o.customer_id = ?";
 $params = [$customer_id];
@@ -106,24 +159,88 @@ require_once __DIR__ . '/../includes/header.php';
     position: sticky; top: 72px; z-index: 40;
     background: #fff; border-bottom: 5px solid #f3f4f6;
     margin: -2rem -1rem 1.5rem -1rem; padding: 0 1rem;
-    overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+    overflow: visible;
 }
-.tt-tabs-wrapper::-webkit-scrollbar { display: none; }
 .tt-tabs {
-    display: flex; gap: 1.5rem; padding: 0.5rem 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    padding: 0.5rem 0 0.35rem 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.tt-tabs::-webkit-scrollbar {
+    display: none;
 }
 .tt-tab {
-    padding: 0.75rem 0.25rem; font-size: 0.9375rem; color: #64748b; font-weight: 500;
+    padding: 0.5rem 0; font-size: 0.78rem; color: #64748b; font-weight: 600;
     border-bottom: 2px solid transparent; text-decoration: none; position: relative;
-    transition: color 0.2s;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .tt-tab:hover { color: #1e293b; }
 .tt-tab.active {
-    color: #111827; font-weight: 700;
+    color: #0a2530; font-weight: 700;
 }
 .tt-tab.active::after {
     content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
-    height: 2px; background: #000; border-radius: 2px 2px 0 0;
+    height: 3px; background: #0a2530; border-radius: 3px 3px 0 0;
+}
+.tt-tab-count {
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.62rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.tt-tab.active .tt-tab-count {
+    background: #0a2530;
+    color: #fff;
+}
+
+/* Scroll Buttons for Tabs */
+.tt-tabs-container-outer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+.tt-scroll-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.tt-scroll-btn:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+.tt-scroll-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 /* TikTok Style Empty State */
@@ -148,39 +265,28 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="min-h-screen py-4 md:py-8 bg-gray-50 md:bg-transparent">
     <div class="container mx-auto" style="max-width:1100px;">
-
-        <!-- Stats Cards (Transferred from Dashboard) -->
-        <div class="ct-stats" style="margin-bottom: 2rem; margin-top: 1rem;">
-            <div class="ct-stat-card yellow">
-                <p class="ct-stat-label">Pending</p>
-                <p class="ct-stat-value"><?php echo $pending_orders; ?></p>
-            </div>
-            <div class="ct-stat-card blue">
-                <p class="ct-stat-label">Processing</p>
-                <p class="ct-stat-value"><?php echo $processing_orders; ?></p>
-            </div>
-            <div class="ct-stat-card green">
-                <p class="ct-stat-label">Ready for Pickup</p>
-                <p class="ct-stat-value"><?php echo $ready_orders; ?></p>
-            </div>
-            <div class="ct-stat-card gray">
-                <p class="ct-stat-label">Total Orders</p>
-                <p class="ct-stat-value"><?php echo $total_orders; ?></p>
-            </div>
-        </div>
-
         <!-- TikTok Tabs -->
         <div class="tt-tabs-wrapper">
-            <div class="tt-tabs">
-                <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All</a>
-                <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending</a>
-                <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved</a>
-                <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To Pay</a>
-                <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify</a>
-                <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">In Production</a>
-                <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready for Pickup</a>
-                <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed</a>
-                <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled</a>
+            <div class="tt-tabs-container-outer">
+                <button type="button" class="tt-scroll-btn" onclick="scrollTabs('left')" title="Scroll Left">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+
+                <div class="tt-tabs" id="ttTabsScrollContainer" style="scroll-behavior: smooth;">
+                    <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All <span class="tt-tab-count"><?php echo $tab_counts['all']; ?></span></a>
+                    <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending <span class="tt-tab-count"><?php echo $tab_counts['pending']; ?></span></a>
+                    <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved <span class="tt-tab-count"><?php echo $tab_counts['approved']; ?></span></a>
+                    <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To Pay <span class="tt-tab-count"><?php echo $tab_counts['topay']; ?></span></a>
+                    <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify <span class="tt-tab-count"><?php echo $tab_counts['toverify']; ?></span></a>
+                    <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">In Production <span class="tt-tab-count"><?php echo $tab_counts['production']; ?></span></a>
+                    <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready for Pickup <span class="tt-tab-count"><?php echo $tab_counts['pickup']; ?></span></a>
+                    <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
+                    <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
+                </div>
+
+                <button type="button" class="tt-scroll-btn" onclick="scrollTabs('right')" title="Scroll Right">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </button>
             </div>
         </div>
 
@@ -213,24 +319,30 @@ require_once __DIR__ . '/../includes/header.php';
                             // Determine item display name and base category first
                             $display_name = !empty($order['first_product_name']) ? $order['first_product_name'] : 'Order Items';
                             $service_category = '';
-                            if ($display_name === 'Custom Order' && !empty($order['first_item_customization'])) {
+                            if (($display_name === 'Custom Order' || $display_name === 'Customer Order' || $display_name === 'Service Order') && !empty($order['first_item_customization'])) {
                                 $c_json = json_decode($order['first_item_customization'], true);
                                 if (!empty($c_json['service_type'])) {
-                                    $display_name = $c_json['service_type'];
+                                    $display_name = normalize_service_name($c_json['service_type'], 'Order Item');
                                     $service_category = $c_json['service_type'];
                                     if (!empty($c_json['product_type'])) {
                                         $display_name .= " (" . $c_json['product_type'] . ")";
                                     }
                                 }
                             }
+                            $display_name = normalize_service_name($display_name, 'Order Item');
 
                             // Determine image or design
                             $show_design = !empty($order['first_item_has_design']) && !empty($order['first_item_id']);
                             $prod_id = (int)($order['first_product_id'] ?? 0);
                             $product_img = "";
                             
-                            // Check explicit product ID image
-                            if (!$show_design && $prod_id > 0) {
+                            // 1. Try image path from joined product row.
+                            if (!$show_design && !empty($order['first_product_image'])) {
+                                $product_img = $order['first_product_image'];
+                            }
+                            
+                            // 2. Check explicit product ID image (file-based fallback)
+                            if (!$show_design && empty($product_img) && $prod_id > 0) {
                                 $img_base = "../public/images/products/product_" . $prod_id;
                                 if (file_exists($img_base . ".jpg")) {
                                     $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
@@ -239,7 +351,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 }
                             }
 
-                            // Fallback based on category/service_type for Service Orders without specific product
+                            // 3. Fallback based on category/service_type for Service Orders without specific product
                             if (!$show_design && empty($product_img)) {
                                 $cat_lower = strtolower($service_category ?: $display_name);
                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
@@ -294,9 +406,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 }
                                 ?>
                             </div>
-                            <!-- Order ID -->
+                            <!-- Quantity -->
                             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                                <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Order #<?php echo $order['order_id']; ?></span>
+                                <span style="font-size:0.8rem; color:#64748b; font-weight:600;"><?php echo max(1, (int)($order['total_quantity'] ?? 0)); ?>x</span>
                                 <?php 
                                 $unread = get_unread_chat_count($order['order_id'], 'Customer');
                                 if ($unread > 0): 
@@ -311,45 +423,41 @@ require_once __DIR__ . '/../includes/header.php';
                         <!-- Price + Status -->
                         <div style="text-align:right; flex-shrink:0;">
                             <?php if (in_array($order['status'], $HIDDEN_PRICE_STATUSES)): ?>
-                                <p class="ct-order-amount order-price" style="font-size:0.78rem; font-weight:600; color:#9ca3af; margin:0; font-style:italic;">Price TBD by staff</p>
+                                <p class="ct-order-amount order-price" style="font-size:0.78rem; font-weight:600; color:#9ca3af; margin:0; font-style:italic;">Price will be confirmed by the shop</p>
                             <?php else: ?>
-                                <p class="ct-order-amount order-price" style="font-size:1.15rem; font-weight:800; color:#4f46e5; margin:0;"><?php echo format_currency($order['total_amount']); ?></p>
+                                <p class="ct-order-amount order-price" style="font-size:1.15rem; font-weight:800; color:#111827; margin:0;"><?php echo format_currency($order['total_amount']); ?></p>
                             <?php endif; ?>
                             <div style="margin-top:4px;" class="order-status-badge"><?php echo status_badge($order['status'], 'order'); ?></div>
                         </div>
                     </div>
 
-                    <!-- Card Bottom: See More + Message Shop -->
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
-                        <button class="ct-toggle-btn" onclick="toggleOrderDetails(<?php echo $order['order_id']; ?>)" style="margin-top:0;">
-                            <span>See More</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        <button type="button" onclick="openOrderChat(<?php echo $order['order_id']; ?>, 'PrintFlow Support')" style="background:#4F46E5; color:white; border:none; padding:8px 16px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-                            💬 Message Shop
-                        </button>
-                    </div>
-
-                    <!-- Expandable Details -->
-                    <div class="ct-order-meta hidden" id="order-meta-<?php echo $order['order_id']; ?>">
-                        <div>
-                            <p class="ct-order-meta-label">Payment Status</p>
-                            <p class="ct-order-meta-value"><?php echo status_badge($order['payment_status'], 'payment'); ?></p>
-                        </div>
-                        <div>
-                            <p class="ct-order-meta-label">Estimated Completion</p>
-                            <p class="ct-order-meta-value"><?php echo ($order['estimated_completion'] ?? null) ? format_date($order['estimated_completion']) : 'TBD'; ?></p>
-                        </div>
-                        <div style="display:flex; align-items:center;">
+                    <!-- Card Bottom: Message + Details -->
+                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:12px; gap:10px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto;">
+                            <button type="button" onclick="openOrderChat(<?php echo $order['order_id']; ?>, 'PrintFlow Support')" style="background:#0a2530; color:#fff; border:1px solid #0a2530; padding:8px 14px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; font-size:13px; cursor:pointer; line-height:1; transition: all 0.2s;">
+                                Message Shop
+                            </button>
+                            <?php if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)): ?>
+                                <?php $rating_value = (int)($order['rating_value'] ?? 0); ?>
+                                <?php if ($rating_value > 0): ?>
+                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; gap:6px; border:1px solid #fde68a; background:#fffbeb; color:#b45309; font-size:12px; font-weight:800; border-radius:999px; padding:6px 10px; text-decoration:none; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.borderColor='#f59e0b';" onmouseout="this.style.background='#fffbeb';this.style.borderColor='#fde68a';" title="View your review">
+                                        Rated <?php echo str_repeat('★', $rating_value) . str_repeat('☆', max(0, 5 - $rating_value)); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; justify-content:center; border-radius:8px; padding:8px 12px; background:#f59e0b; color:#fff; font-size:12px; font-weight:800; text-decoration:none; letter-spacing:0.02em;">
+                                        Rate Order
+                                    </a>
+                                <?php endif; ?>
+                            <?php endif; ?>
                             <button
                                 onclick="openItemsModal(<?php echo $order['order_id']; ?>)"
                                 class="ct-view-link"
-                                style="background:none;border:none;cursor:pointer;padding:0;font-family:inherit;"
-                            >View Details →</button>
+                                style="background:#f0f7f9;border:1px solid #0a2530;cursor:pointer;padding:8px 14px;font-family:inherit;border-radius:8px;line-height:1;color:#0a2530;font-weight:700;transition: all 0.2s;"
+                            >View Details</button>
                         </div>
                     </div>
+
+
                 </div>
             <?php endforeach; ?>
 
@@ -362,21 +470,14 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-// Toggle individual order details
-function toggleOrderDetails(orderId) {
-    const meta = document.getElementById('order-meta-' + orderId);
-    const btn = document.querySelector(`#order-card-${orderId} .ct-toggle-btn`);
-    const span = btn.querySelector('span');
-    const svg = btn.querySelector('svg');
-    
-    if (meta.classList.contains('hidden')) {
-        meta.classList.remove('hidden');
-        span.textContent = 'See Less';
-        svg.style.transform = 'rotate(180deg)';
+function scrollTabs(direction) {
+    const container = document.getElementById('ttTabsScrollContainer');
+    if (!container) return;
+    const scrollAmount = 200;
+    if (direction === 'left') {
+        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     } else {
-        meta.classList.add('hidden');
-        span.textContent = 'See More';
-        svg.style.transform = 'rotate(0deg)';
+        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
 }
 
@@ -387,7 +488,7 @@ window.addEventListener('DOMContentLoaded', () => {
         unset($_SESSION['success']);
     ?>
     showSuccessModal(
-        '✅ Action Completed',
+        'Action Completed',
         '<?php echo addslashes($msg); ?>',
         '#', // primary doesn't matter much here, maybe just refresh
         'services.php',
@@ -489,26 +590,7 @@ window.addEventListener('DOMContentLoaded', () => {
 .im-table tbody tr:last-child td { border-bottom:none; }
 .im-total-row { border-top:2px solid #e2e8f0 !important; font-weight:800; }
 
-/* Expand section */
-.im-expand-btn {
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    width:100%; margin-top:16px; padding:10px;
-    background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
-    font-size:13px; font-weight:700; color:#6366f1;
-    cursor:pointer; transition:background 0.15s, border-color 0.15s;
-}
-.im-expand-btn:hover { background:#eef2ff; border-color:#c7d2fe; }
-.im-expand-icon { transition:transform 0.3s ease; font-size:11px; }
-.im-expand-btn.active .im-expand-icon { transform:rotate(180deg); }
-
-/* Full details section – slide open */
-.im-full-details {
-    overflow:hidden;
-    max-height:0;
-    transition:max-height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
-    opacity:0;
-}
-.im-full-details.open { max-height:2000px; opacity:1; }
+/* Full details section (always visible) */
 .im-full-details-inner { padding-top:20px; border-top:1px solid #f1f5f9; margin-top:18px; }
 
 /* Info grid */
@@ -535,7 +617,7 @@ window.addEventListener('DOMContentLoaded', () => {
 /* Custom chips */
 .im-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
 .im-chip { 
-    background:#e0e7ff; color:#4338ca; border-radius:99px; padding:2px 9px; 
+    background:#f0f7f9; color:#0a2530; border: 1px solid #0a2530; border-radius:99px; padding:1px 8px; 
     font-size:11px; font-weight:600; 
     overflow-wrap: anywhere; word-break: break-word; white-space: normal;
 }
@@ -553,7 +635,7 @@ window.addEventListener('DOMContentLoaded', () => {
 .im-loader { text-align:center; padding:48px 0; }
 .im-spinner {
     width:36px; height:36px; border-radius:50%;
-    border:3px solid #e2e8f0; border-top-color:#6366f1;
+    border:3px solid #e2e8f0; border-top-color:#0a2530;
     animation:im-spin 0.7s linear infinite; margin:0 auto 10px;
 }
 @keyframes im-spin { to { transform:rotate(360deg); } }
@@ -648,13 +730,12 @@ window.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
-let imExpanded = false;
-
 function imBadge(val) {
     const m = {
         'Completed':'im-badge-green','Pending':'im-badge-yellow',
         'Pending Review':'im-badge-yellow','Processing':'im-badge-blue',
         'In Production':'im-badge-blue','Printing':'im-badge-blue',
+        'To Rate':'im-badge-purple','Rated':'im-badge-green',
         'Ready for Pickup':'im-badge-purple','Cancelled':'im-badge-red',
         'For Revision':'im-badge-blue','Paid':'im-badge-green',
         'Unpaid':'im-badge-gray','Partial':'im-badge-yellow',
@@ -663,9 +744,7 @@ function imBadge(val) {
 }
 
 function openItemsModal(orderId) {
-    imExpanded = false;
     const modal = document.getElementById('itemsModal');
-    modal.classList.remove('expanded');
     document.getElementById('imTitle').textContent = `Order #${orderId}`;
     document.getElementById('imSubtitle').textContent = '';
     document.getElementById('imBody').innerHTML =
@@ -800,16 +879,7 @@ function openItemsModal(orderId) {
                     <td style="padding:12px 10px;color:#4f46e5;font-size:15px;" class="im-total-row">${escIM(data.total_amount)}</td>
                 </tr></tfoot>
             </table>
-
-            <!-- Expand button -->
-            <button class="im-expand-btn" id="imExpandBtn" onclick="toggleFullDetails()">
-                <span>View Full Order Details</span>
-                <span class="im-expand-icon">▼</span>
-            </button>
-
-            <!-- Full details panel (hidden) -->
-            <div class="im-full-details" id="imFullDetails">
-                <div class="im-full-details-inner">
+            <div class="im-full-details-inner">
                     ${notesHTML}
                     <div class="im-info-grid">
                         <div class="im-info-card">
@@ -861,6 +931,32 @@ function openItemsModal(orderId) {
 
                     ${revisionHTML}
 
+                    <!-- Customer Rating Section -->
+                    ${data.rating_data ? `
+                        <div style="margin-top:20px; padding:15px; border-radius:12px; background:linear-gradient(135deg, #fffbeb, #fff7ed); border:1px solid #fde68a; box-shadow:0 2px 8px rgba(251,191,36,0.05);">
+                            <div style="font-size:11px; font-weight:800; color:#92400e; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                                <span>⭐ Customer Rating</span>
+                                <span style="font-weight:600; opacity:0.8;">${escIM(data.rating_data.created_at)}</span>
+                            </div>
+                            <div style="color:#b45309; font-size:18px; line-height:1; margin-bottom:8px;">
+                                ${'★'.repeat(data.rating_data.rating)}${'☆'.repeat(5 - data.rating_data.rating)}
+                            </div>
+                            ${data.rating_data.comment ? `
+                                <div style="font-size:13.5px; color:#92400e; font-weight:500; line-height:1.5; margin-bottom:12px; background:rgba(255,255,255,0.5); padding:10px; border-radius:8px; border:1px solid rgba(251,191,36,0.2);">
+                                    "${escIM(data.rating_data.comment)}"
+                                </div>
+                            ` : ''}
+                            ${data.rating_data.image_url ? `
+                                <div style="margin-top:10px;">
+                                    <div style="font-size:9px; color:#92400e; font-weight:700; margin-bottom:4px; text-transform:uppercase;">Photo Shared:</div>
+                                    <a href="${escIM(data.rating_data.image_url)}" target="_blank" style="display:inline-block; border-radius:10px; overflow:hidden; border:2px solid #fff; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                                        <img src="${escIM(data.rating_data.image_url)}" style="max-width:120px; display:block; cursor:zoom-in;" alt="Rating Image">
+                                    </a>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+
                     <div id="imCancelSection" style="margin-top:20px; padding-top:20px; border-top:1px solid #f1f5f9;">
                         ${data.can_cancel 
                             ? `<button class="im-cancel-trigger-btn" onclick="openCancelModal(${data.order_id}, '${data.csrf_token}')" 
@@ -874,7 +970,6 @@ function openItemsModal(orderId) {
                                 : '')
                         }
                     </div>
-                </div>
             </div>`;
     })
     .catch(() => {
@@ -972,25 +1067,10 @@ function submitOrderCancellation() {
     });
 }
 
-function toggleFullDetails() {
-    imExpanded = !imExpanded;
-    const modal = document.getElementById('itemsModal');
-    const panel = document.getElementById('imFullDetails');
-    const btn   = document.getElementById('imExpandBtn');
-
-    panel.classList.toggle('open', imExpanded);
-    btn.classList.toggle('active', imExpanded);
-    modal.classList.toggle('expanded', imExpanded);
-
-    const spanText = btn.querySelector('span');
-    spanText.textContent = imExpanded ? 'Hide Order Details' : 'View Full Order Details';
-}
-
 function closeItemsModal() {
     const modal = document.getElementById('itemsModal');
-    modal.classList.remove('open','expanded');
+    modal.classList.remove('open');
     document.body.style.overflow = '';
-    imExpanded = false;
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeItemsModal(); });
@@ -1054,12 +1134,21 @@ function escIM(str) {
     const statusLabels = {
         'Pending':          'Pending',
         'Pending Approval': 'Pending Approval',
+        'Pending Review':   'Pending Review',
+        'For Revision':     'For Revision',
         'Approved':         'Approved',
         'To Pay':           'To Pay',
         'To Verify':        'To Verify',
+        'Downpayment Submitted': 'To Verify',
+        'Pending Verification': 'To Verify',
         'In Production':    'In Production',
+        'Processing':       'In Production',
+        'Printing':         'In Production',
         'Ready for Pickup': 'Ready for Pickup',
+        'To Receive':       'Ready for Pickup',
         'Completed':        'Completed',
+        'To Rate':          'To Rate',
+        'Rated':            'Rated',
         'Cancelled':        'Cancelled',
     };
 
@@ -1075,10 +1164,15 @@ function escIM(str) {
         'Approved':         'approved',
         'To Pay':           'topay',
         'To Verify':        'toverify',
+        'Downpayment Submitted': 'toverify',
+        'Pending Verification': 'toverify',
         'In Production':    'production',
         'Processing':       'production',
         'Printing':         'production',
         'Ready for Pickup': 'pickup',
+        'To Receive':       'pickup',
+        'To Rate':          'torate',
+        'Rated':            'torate',
         'Completed':        'completed',
         'Cancelled':        'cancelled',
     };
@@ -1131,10 +1225,10 @@ function escIM(str) {
                             priceEl.style.color = '#9ca3af';
                             priceEl.style.fontWeight = '600';
                             priceEl.style.fontStyle = 'italic';
-                            priceEl.textContent = 'Price TBD by staff';
+                            priceEl.textContent = 'Price will be confirmed by the shop';
                         } else if (order.total_amount !== null) {
                             priceEl.style.fontSize = '1.15rem';
-                            priceEl.style.color = '#4f46e5';
+                            priceEl.style.color = '#111827';
                             priceEl.style.fontWeight = '800';
                             priceEl.style.fontStyle = 'normal';
                             priceEl.textContent = '₱' + parseFloat(order.total_amount).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -1143,7 +1237,10 @@ function escIM(str) {
 
                     // If on a filtered tab and this order no longer belongs here, fade it out
                     if (activeTab !== 'all') {
-                        const belongsToTab = statusToTab[order.status] === activeTab;
+                        const historyStatuses = ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'];
+                        const belongsToTab = activeTab === 'totalorders'
+                            ? historyStatuses.includes(order.status)
+                            : statusToTab[order.status] === activeTab;
                         if (!belongsToTab) {
                             card.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, margin 0.5s ease';
                             card.style.opacity = '0';

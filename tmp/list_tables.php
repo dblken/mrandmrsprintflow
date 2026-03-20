@@ -1,5 +1,6 @@
 <?php
-require 'includes/db.php';
+require_once __DIR__ . '/../includes/db.php';
 $res = db_query("SHOW TABLES");
-print_r($res);
-?>
+foreach($res as $r) {
+    echo array_values($r)[0] . "\n";
+}

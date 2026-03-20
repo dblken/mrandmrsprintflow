@@ -21,14 +21,6 @@ if (!defined('SESSION_HMAC_SECRET')) {
     define('SESSION_HMAC_SECRET', 'PrintFlow-Session-HMAC-Secret-Change-In-Production-2024');
 }
 
-// "Remember Me" durations (days)
-if (!defined('REMEMBER_ME_CUSTOMER_DAYS')) {
-    define('REMEMBER_ME_CUSTOMER_DAYS', 30);
-}
-if (!defined('REMEMBER_ME_STAFF_DAYS')) {
-    define('REMEMBER_ME_STAFF_DAYS', 7);
-}
-
 class SessionManager
 {
     /** True when this request destroyed a session due to inactivity timeout. */
@@ -105,43 +97,6 @@ class SessionManager
         $_SESSION['_fingerprint']   = self::buildFingerprint();
         $_SESSION['_last_activity'] = time();
         $_SESSION['_created_at']    = time();
-    }
-
-    /**
-     * Extend the session cookie lifetime for "Remember Me".
-     * Call AFTER regenerate() on successful login when the user checks "Remember Me".
-     *
-     * @param int $days Number of days to persist the session cookie.
-     */
-    public static function applyRememberMe(int $days): void
-    {
-        if ($days <= 0) {
-            return;
-        }
-
-        $lifetime = $days * 86400; // days → seconds
-
-        // Update the PHP session garbage-collection max lifetime so the server
-        // doesn't prune the session file before the cookie expires.
-        ini_set('session.gc_maxlifetime', (string) max((int) ini_get('session.gc_maxlifetime'), $lifetime));
-
-        // Re-issue the session cookie with the new persistent lifetime.
-        $p = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            session_id(),
-            [
-                'expires'  => time() + $lifetime,
-                'path'     => $p['path'],
-                'domain'   => $p['domain'],
-                'secure'   => $p['secure'],
-                'httponly'  => $p['httponly'],
-                'samesite' => $p['samesite'] ?? 'Strict',
-            ]
-        );
-
-        // Store a flag so we know this session is "remembered"
-        $_SESSION['_remember_me'] = true;
     }
 
     /**

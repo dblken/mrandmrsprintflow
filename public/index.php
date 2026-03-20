@@ -50,9 +50,6 @@ $featured_products = db_query(
         <a href="#lp-services" class="lp-scroll-hint" id="lp-scroll-hint" aria-label="Scroll to content">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
         </a>
-        <a href="#main-content" class="lp-scroll-top lp-scroll-top-hidden" id="lp-scroll-top" aria-label="Scroll to top">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
-        </a>
     </div>
 </section>
 

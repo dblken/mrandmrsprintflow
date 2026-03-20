@@ -8,21 +8,18 @@
 <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
 
 <!-- Chat Modal Overlay -->
-<div id="chatModal" style="display: none; position: fixed; inset: 0; align-items: center; justify-content: center; z-index: 9999999; padding: 1.5rem; transition: opacity 0.2s ease;">
-    <!-- Backdrop (Soft dark tint, NO BLUR) -->
-    <div onclick="closeOrderChat()" style="position: absolute; inset: 0; background-color: rgba(0, 0, 0, 0.45);"></div>
-    
+<div id="chatModal" style="display: none; position: fixed; right: 16px; bottom: 16px; z-index: 9999999; transition: opacity 0.2s ease;">
     <!-- Modal Container -->
-    <div id="chatModalContent" class="chat-container" style="position: relative; background-color: #ffffff; border-radius: 1.5rem; width: 500px; max-width: 100%; height: 650px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); transform: translateY(20px); transition: all 0.3s ease;">
-        <div class="chat-header" style="padding: 1.25rem 1.5rem; background: #ffffff; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;">
+    <div id="chatModalContent" class="chat-container" style="position: relative; background-color: #ffffff; border-radius: 1rem; width: 380px; max-width: calc(100vw - 24px); height: 560px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 45px rgba(2, 6, 23, 0.3); transform: translateY(16px); transition: all 0.25s ease;">
+        <div class="chat-header" style="padding: 1rem 1rem; background: linear-gradient(135deg, #0f4d5e, #0a2530); border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h3 id="chatOrderTitle" style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #111827; letter-spacing: -0.01em;">Order #—</h3>
+                <h3 id="chatOrderTitle" style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">PrintFlow Support</h3>
                 <div class="status-indicator">
                     <span id="partnerStatusDot" class="dot dot-offline"></span>
-                    <span id="partnerStatusText">Offline</span>
+                    <span id="partnerStatusText" style="color:#dbeafe;">Offline</span>
                 </div>
             </div>
-            <button onclick="closeOrderChat()" class="chat-btn" style="color: #6b7280; padding: 0.5rem; border-radius: 9999px;">
+            <button onclick="closeOrderChat()" class="chat-btn" style="color: #dbeafe; padding: 0.4rem; border-radius: 9999px;">
                 <svg style="width: 1.5rem; height: 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
@@ -39,14 +36,14 @@
             <!-- Previews injected here -->
         </div>
 
-        <div class="chat-input-area" style="padding: 1.25rem 1.5rem; background: #ffffff !important; display: flex; align-items: center; gap: 0.75rem; border-top: 1px solid #f3f4f6;">
+        <div class="chat-input-area" style="padding: 0.75rem; background: #ffffff !important; display: flex; align-items: center; gap: 0.5rem; border-top: 1px solid #f3f4f6;">
             <label class="chat-btn" style="padding: 0.5rem; margin: 0; border-radius: 9999px; cursor: pointer; color: #64748b;">
                 <input type="file" id="chatImageInput" accept="image/*" multiple style="display:none;">
                 <svg style="width: 1.5rem; height: 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
             </label>
-            <input type="text" id="chatTextInput" class="chat-input" placeholder="Type a message..." autocomplete="off" style="flex: 1; background: #ffffff !important; border: 1.5px solid #e2e8f0; border-radius: 9999px; padding: 0.75rem 1.25rem; color: #0f172a !important; font-size: 0.9375rem; outline: none;">
-            <button id="chatSendBtn" class="chat-btn" title="Send (Enter)" style="color: #0084ff !important; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer;">
-                <svg style="width: 1.5rem; height: 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            <input type="text" id="chatTextInput" class="chat-input" placeholder="Type a message..." autocomplete="off" style="flex: 1; background: #ffffff !important; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0.75rem 1rem; color: #0f172a !important; font-size: 0.9375rem; outline: none;">
+            <button id="chatSendBtn" class="chat-btn" title="Send (Enter)" style="color: #ffffff !important; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #53c5e0, #3aa8ca); border: none; border-radius: 10px; cursor: pointer;">
+                <svg style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
             </button>
         </div>
     </div>
@@ -70,20 +67,19 @@ function openOrderChat(orderId, headerTitle) {
     currentChatOrderId = orderId;
     lastMessageId = 0;
     selectedChatImages = [];
-    document.getElementById('chatOrderTitle').innerText = headerTitle;
+    document.getElementById('chatOrderTitle').innerText = `PrintFlow Support • #${orderId}`;
     document.getElementById('chatMessages').innerHTML = '';
     renderImagePreviews();
     const modal = document.getElementById('chatModal');
     const content = document.getElementById('chatModalContent');
     
-    modal.style.display = 'flex';
+    modal.style.display = 'block';
     void modal.offsetWidth; // Trigger reflow
     
     modal.style.opacity = '1';
     modal.style.pointerEvents = 'auto';
     content.style.transform = 'translateY(0)';
     
-    document.body.style.overflow = 'hidden';
     document.getElementById('chatTextInput').focus();
     
 
@@ -102,10 +98,7 @@ function closeOrderChat() {
     modal.style.pointerEvents = 'none';
     content.style.transform = 'translateY(20px)';
     
-    setTimeout(() => {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }, 300);
+    setTimeout(() => { modal.style.display = 'none'; }, 250);
     
     clearInterval(chatPollingInterval);
     currentChatOrderId = null;
@@ -115,7 +108,7 @@ async function fetchMessages() {
     if (!currentChatOrderId) return;
     
     try {
-        const response = await fetch(`/printflow/api/chat/fetch_messages.php?order_id=${currentChatOrderId}&last_id=${lastMessageId}`);
+        const response = await fetch(`/printflow/public/api/chat/fetch_messages.php?order_id=${currentChatOrderId}&last_id=${lastMessageId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -215,7 +208,7 @@ async function sendMessage() {
     renderImagePreviews();
     
     try {
-        const response = await fetch('/printflow/api/chat/send_message.php', {
+        const response = await fetch('/printflow/public/api/chat/send_message.php', {
             method: 'POST',
             body: formData
         });
@@ -238,14 +231,14 @@ function handleTyping() {
     formData.append('order_id', currentChatOrderId);
     formData.append('is_typing', 1);
     
-    fetch('/printflow/api/chat/status.php', { method: 'POST', body: formData });
+    fetch('/printflow/public/api/chat/status.php', { method: 'POST', body: formData });
     
     if (typingTimeout) clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
         const stopData = new FormData();
         stopData.append('order_id', currentChatOrderId);
         stopData.append('is_typing', 0);
-        fetch('/printflow/api/chat/status.php', { method: 'POST', body: stopData });
+        fetch('/printflow/public/api/chat/status.php', { method: 'POST', body: stopData });
     }, 3000);
 }
 

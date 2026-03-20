@@ -15,6 +15,54 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
+/**
+ * Handle product photo upload
+ * @param array $file The $_FILES array element
+ * @param int|null $product_id For updating existing photo
+ * @return string|null Path to uploaded file or null
+ */
+function handle_product_photo_upload($file, $product_id = null) {
+    if (!isset($file) || $file['error'] === UPLOAD_ERR_NO_FILE) {
+        return null; // No file uploaded
+    }
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception('File upload error: ' . $file['error']);
+    }
+    
+    // Check file size (5MB max)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        throw new Exception('File size must be less than 5MB');
+    }
+    
+    // Check MIME type
+    $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    if (!in_array($mime_type, $allowed_types)) {
+        throw new Exception('Invalid file type. Only JPG, PNG, and GIF are allowed');
+    }
+    
+    // Create uploads directory if it doesn't exist
+    $upload_dir = __DIR__ . '/../uploads/products';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $filename = 'product_' . time() . '_' . uniqid() . '.' . $ext;
+    $target_path = $upload_dir . '/' . $filename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $target_path)) {
+        throw new Exception('Failed to upload file to server');
+    }
+    
+    return '/printflow/uploads/products/' . $filename;
+}
+
 // Handle product creation/update/delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     if (isset($_POST['create_product'])) {
@@ -24,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+        $product_type = in_array($_POST['product_type'] ?? '', ['fixed','custom']) ? $_POST['product_type'] : 'custom';
         $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
 
         if (!$name) {
@@ -42,17 +91,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             }
 
             if (!$error) {
-                $result = db_execute(
-                    "INSERT INTO products (name, sku, category, description, price, stock_quantity, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                    'ssssdis',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $status]
-                );
+                try {
+                    // Handle photo upload
+                    $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
+                    
+                    $result = db_execute(
+                        "INSERT INTO products (name, sku, category, product_type, description, price, stock_quantity, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        'sssssdiis',
+                        [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $photo_path]
+                    );
 
-                if ($result) {
-                    $success = "Product '$name' created successfully!";
-                } else {
-                    global $conn;
-                    $error = "Failed to create product. DB error: " . $conn->error;
+                    if ($result) {
+                        $success = "Product '$name' created successfully!";
+                    } else {
+                        global $conn;
+                        $error = "Failed to create product. DB error: " . $conn->error;
+                    }
+                } catch (Exception $e) {
+                    $error = "Upload error: " . $e->getMessage();
                 }
             }
         }
@@ -64,21 +120,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+        $product_type = in_array($_POST['product_type'] ?? '', ['fixed','custom']) ? $_POST['product_type'] : 'custom';
         $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
 
         $sku_val = $sku !== '' ? $sku : null;
 
-        $result = db_execute(
-            "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
-            'ssssdisi',
-            [$name, $sku_val, $category, $description, $price, $stock_quantity, $status, $product_id]
-        );
+        try {
+            // Handle photo upload (only if a new file is provided)
+            $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
+            
+            if ($photo_path) {
+                // Update with new photo
+                $result = db_execute(
+                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
+                    'sssssdissi',
+                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $photo_path, $product_id]
+                );
+            } else {
+                // Update without changing photo
+                $result = db_execute(
+                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
+                    'sssssdisi',
+                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $product_id]
+                );
+            }
 
-        if ($result) {
-            $success = "Product '$name' updated successfully!";
-        } else {
-            global $conn;
-            $error = "Failed to update product. DB error: " . $conn->error;
+            if ($result) {
+                $success = "Product '$name' updated successfully!";
+            } else {
+                global $conn;
+                $error = "Failed to update product. DB error: " . $conn->error;
+            }
+        } catch (Exception $e) {
+            $error = "Upload error: " . $e->getMessage();
         }
     } elseif (isset($_POST['delete_product'])) {
         $product_id = (int)$_POST['product_id'];
@@ -403,7 +477,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                                     </td>
                                 </tr>
                                 <?php foreach ($products as $product): ?>
-                                    <tr class="border-b hover:bg-gray-50">
+                                    <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="openViewModal(<?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)">
                                         <td class="py-3"><?php echo $product['product_id']; ?></td>
                                         <td class="py-3 font-mono text-xs"><?php echo htmlspecialchars($product['sku'] ?? '—'); ?></td>
                                         <td class="py-3 font-medium"><?php echo htmlspecialchars($product['name']); ?></td>
@@ -428,9 +502,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                                                 <?php echo $product['status']; ?>
                                             </span>
                                         </td>
-                                        <td class="py-3 text-right" style="white-space:nowrap;">
-                                            <a href="/printflow/admin/product_variants.php?product_id=<?php echo $product['product_id']; ?>"
-                                               class="btn-action teal">Manage Variants</a>
+                                        <td class="py-3 text-right" style="white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                                             <form method="POST" class="inline" onsubmit="return confirm('<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?> this product?');">
@@ -470,7 +542,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
             </button>
         </div>
         <div class="modal-body">
-            <form method="POST" id="product-form">
+            <form method="POST" id="product-form" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" id="modal-mode-input" name="create_product" value="1">
                 <input type="hidden" id="modal-product-id" name="product_id" value="">
@@ -482,7 +554,7 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                     </div>
                     <div class="form-group">
                         <label for="modal-sku">SKU</label>
-                        <input type="text" id="modal-sku" name="sku" placeholder="e.g. TARP001 (optional)">
+                        <input type="text" id="modal-sku" name="sku" placeholder="e.g. TARP001 (optional)" readonly style="background-color:#f3f4f6; cursor:not-allowed;">
                     </div>
                 </div>
 
@@ -512,18 +584,38 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
                     <textarea id="modal-description" name="description" rows="3" placeholder="Optional description..."></textarea>
                 </div>
 
+                <div class="form-group">
+                    <label for="modal-photo">Product Photo</label>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div id="photo-preview" style="width:100%; max-width:300px; height:200px; border:2px dashed #d1d5db; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <img id="photo-preview-img" src="" alt="Product photo" style="width:100%; height:100%; object-fit:cover; display:none;">
+                            <span id="photo-preview-text" style="color:#9ca3af; font-size:14px;">No photo uploaded</span>
+                        </div>
+                        <input type="file" id="modal-photo" name="photo" accept="image/jpeg,image/jpg,image/png,image/gif" style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;">
+                        <small style="color:#6b7280;">Supported formats: JPG, PNG, GIF (Max 5MB)</small>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="modal-stock">Stock Quantity <span style="color:red">*</span></label>
                         <input type="number" id="modal-stock" name="stock_quantity" min="0" required value="0">
                     </div>
                     <div class="form-group">
-                        <label for="modal-status">Status</label>
-                        <select id="modal-status" name="status">
-                            <option value="Activated">Activated</option>
-                            <option value="Deactivated">Deactivated</option>
+                        <label for="modal-product-type">Product Type <span style="color:red">*</span></label>
+                        <select id="modal-product-type" name="product_type" required>
+                            <option value="custom">Service (Customizable)</option>
+                            <option value="fixed">Fixed Product</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-status">Status</label>
+                    <select id="modal-status" name="status">
+                        <option value="Activated">Activated</option>
+                        <option value="Deactivated">Deactivated</option>
+                    </select>
                 </div>
 
                 <div class="modal-footer">
@@ -535,12 +627,78 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
     </div>
 </div>
 
+<!-- View Product Modal -->
+<div id="view-product-modal-overlay" onclick="handleViewOverlayClick(event)">
+    <div id="view-product-modal">
+        <div class="modal-header">
+            <h3 id="view-modal-title" style="font-size:18px; font-weight:700; margin:0;">Product Details</h3>
+            <button id="close-view-modal-btn" onclick="closeViewModal()">
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Product Name</label>
+                    <div id="view-product-name" style="font-size:20px; font-weight:700; color:#1f2937; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">SKU</label>
+                    <div id="view-product-sku" style="font-size:14px; font-weight:500; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Category</label>
+                    <div id="view-product-category" style="font-size:14px; font-weight:600; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Price</label>
+                    <div id="view-product-price" style="font-size:18px; font-weight:700; color:#1f2937; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Stock Quantity</label>
+                    <div id="view-product-stock" style="font-size:16px; font-weight:600; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">-</div>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Status</label>
+                    <div id="view-product-status" style="padding:8px 12px; border-radius:20px; font-size:12px; font-weight:600; text-align:center;">-</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Product Photo</label>
+                <div id="view-product-photo" style="width:100%; max-width:400px; height:250px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                    <img id="view-product-photo-img" src="" alt="Product photo" style="width:100%; height:100%; object-fit:cover; display:none;">
+                    <span id="view-product-photo-text" style="color:#9ca3af; font-size:14px;">No photo available</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Description</label>
+                <div id="view-product-description" style="font-size:14px; color:#374151; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; min-height:60px;">-</div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeViewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function openProductModal(mode, product) {
     var overlay = document.getElementById('product-modal-overlay');
     var title   = document.getElementById('modal-title');
     var modeInput = document.getElementById('modal-mode-input');
     var submitBtn = document.getElementById('modal-submit-btn');
+    var categorySelect = document.getElementById('modal-category');
 
     // Clear form
     document.getElementById('product-form').reset();
@@ -557,14 +715,41 @@ function openProductModal(mode, product) {
         document.getElementById('modal-price').value       = product.price || '';
         document.getElementById('modal-description').value = product.description || '';
         document.getElementById('modal-stock').value       = product.stock_quantity || 0;
+        document.getElementById('modal-product-type').value = product.product_type || 'custom';
         document.getElementById('modal-status').value      = product.status || 'Activated';
+        
+        // Load existing photo preview if available
+        var photoImg = document.getElementById('photo-preview-img');
+        var photoText = document.getElementById('photo-preview-text');
+        if (product.photo_path && product.photo_path.trim() !== '') {
+            photoImg.src = product.photo_path;
+            photoImg.style.display = 'block';
+            photoText.style.display = 'none';
+        } else {
+            photoImg.style.display = 'none';
+            photoText.style.display = 'block';
+        }
+        
+        // Remove auto-generate listener for edit mode
+        categorySelect.removeEventListener('change', autoGenerateSKU);
     } else {
         title.textContent = 'Add New Product';
         modeInput.name = 'create_product';
         submitBtn.textContent = 'Create Product';
         document.getElementById('modal-product-id').value = '';
         document.getElementById('modal-stock').value = '0';
+        document.getElementById('modal-product-type').value = 'custom';
         document.getElementById('modal-status').value = 'Activated';
+        
+        // Clear photo preview for new product
+        var photoImg = document.getElementById('photo-preview-img');
+        var photoText = document.getElementById('photo-preview-text');
+        photoImg.style.display = 'none';
+        photoText.style.display = 'block';
+        document.getElementById('modal-photo').value = '';
+        
+        // Add auto-generate listener for create mode
+        categorySelect.addEventListener('change', autoGenerateSKU);
     }
 
     overlay.classList.add('active');
@@ -575,7 +760,95 @@ function openProductModal(mode, product) {
 function closeProductModal() {
     document.getElementById('product-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
+    // Remove listener when closing modal
+    document.getElementById('modal-category').removeEventListener('change', autoGenerateSKU);
 }
+
+/**
+ * Auto-generate SKU based on selected category
+ */
+function autoGenerateSKU(event) {
+    var category = event.target.value;
+    
+    if (!category) {
+        document.getElementById('modal-sku').value = '';
+        return;
+    }
+
+    // Show loading state
+    var skuInput = document.getElementById('modal-sku');
+    skuInput.placeholder = 'Generating...';
+    skuInput.style.opacity = '0.6';
+
+    // Call API to generate SKU
+    fetch('/printflow/admin/api_generate_product_sku.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'category=' + encodeURIComponent(category)
+    })
+    .then(response => response.json())
+    .then(data => {
+        skuInput.style.opacity = '1';
+        skuInput.placeholder = 'e.g. TARP001 (auto-generated)';
+        
+        if (data.success) {
+            skuInput.value = data.sku;
+        } else {
+            console.error('SKU generation failed:', data.error);
+            skuInput.value = '';
+            skuInput.placeholder = 'Failed to generate SKU';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        skuInput.style.opacity = '1';
+        skuInput.placeholder = 'Error generating SKU';
+        skuInput.value = '';
+    });
+}
+
+/**
+ * Handle product photo file selection and preview
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    var photoInput = document.getElementById('modal-photo');
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                // Check file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size must be less than 5MB');
+                    this.value = '';
+                    return;
+                }
+                
+                // Check file type
+                var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Please select a valid image file (JPG, PNG, or GIF)');
+                    this.value = '';
+                    return;
+                }
+                
+                // Show preview
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    var previewImg = document.getElementById('photo-preview-img');
+                    var previewText = document.getElementById('photo-preview-text');
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                    previewText.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+
+
 
 function handleOverlayClick(event) {
     if (event.target === document.getElementById('product-modal-overlay')) {
@@ -584,8 +857,76 @@ function handleOverlayClick(event) {
 }
 
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeProductModal();
+    if (e.key === 'Escape') {
+        closeProductModal();
+        closeViewModal();
+    }
 });
+
+// View Modal Functions
+function openViewModal(product) {
+    var overlay = document.getElementById('view-product-modal-overlay');
+    var name = document.getElementById('view-product-name');
+    var sku = document.getElementById('view-product-sku');
+    var category = document.getElementById('view-product-category');
+    var price = document.getElementById('view-product-price');
+    var stock = document.getElementById('view-product-stock');
+    var status = document.getElementById('view-product-status');
+    var description = document.getElementById('view-product-description');
+
+    // Set product data
+    name.textContent = product.name || '-';
+    sku.textContent = product.sku || '—';
+    category.textContent = product.category || '—';
+    price.textContent = formatCurrency(product.price || 0);
+    stock.textContent = product.stock_quantity || '0';
+    
+    // Set status with styling
+    status.textContent = product.status || 'Activated';
+    if (product.status === 'Activated') {
+        status.style.background = '#dcfce7';
+        status.style.color = '#166534';
+    } else if (product.status === 'Deactivated') {
+        status.style.background = '#fee2e2';
+        status.style.color = '#991b1b';
+    } else {
+        status.style.background = '#fef9c3';
+        status.style.color = '#854d0e';
+    }
+    
+    // Set product photo
+    var photoImg = document.getElementById('view-product-photo-img');
+    var photoText = document.getElementById('view-product-photo-text');
+    if (product.photo_path && product.photo_path.trim() !== '') {
+        photoImg.src = product.photo_path;
+        photoImg.style.display = 'block';
+        photoText.style.display = 'none';
+    } else {
+        photoImg.style.display = 'none';
+        photoText.style.display = 'block';
+    }
+    
+    description.textContent = product.description || 'No description provided.';
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeViewModal() {
+    document.getElementById('view-product-modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function handleViewOverlayClick(event) {
+    if (event.target === document.getElementById('view-product-modal-overlay')) {
+        closeViewModal();
+    }
+}
+
+// Helper function to format currency (similar to PHP format_currency)
+function formatCurrency(amount) {
+    return '₱' + (amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // Search and filtering now handled server-side.
 

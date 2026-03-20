@@ -255,8 +255,8 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <div class="space-y-6">
                         <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-gray-50">
                             <label class="block cursor-pointer">
-                                <span class="block text-2xl mb-2">📤</span>
-                                <span class="block text-xs font-bold text-black uppercase mb-1">Upload Design (Required)</span>
+                                <span class="block text-2xl mb-2">�</span>
+                                <span class="block text-xs font-bold text-black uppercase mb-1">Upload Your File (Design, Image, or PDF) – Max 5MB</span>
                                 <input type="file" name="design_file" id="design_file" accept=".jpg,.jpeg,.png,.pdf" class="hidden" onchange="updateFileName(this)" required>
                                 <span id="fileNameDisplay" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full hidden"></span>
                                 <span class="btn-primary inline-block py-1.5 px-4 rounded-lg cursor-pointer mt-2 text-xs">Browse Files</span>
@@ -303,7 +303,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Quantity *</label>
-                            <input type="number" name="quantity" id="quantity" min="1" value="1" class="input-field w-full font-bold" required oninput="calculatePrice()">
+                            <input type="number" name="quantity" id="quantity" min="1" value="<?php echo (int)($_GET['qty'] ?? 1); ?>" class="input-field w-full font-bold" required oninput="calculatePrice()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Additional Notes</label>
@@ -314,15 +314,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
                 <!-- Submit Button Group -->
                 <div style="display:flex; gap:1rem; margin-top:2rem;">
-                    <button type="submit" name="add_to_cart" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                        + Add to Cart
-                    </button>
-                    <button type="submit" name="buy_now" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                        Review Your Order
+                    <!-- Buy Now Button (Solid) -->
+                    <button type="submit" name="buy_now" value="1" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                        Buy Now
                     </button>
                 </div>
             </div>

@@ -99,34 +99,99 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dimensions (ft) *</label>
+                    <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Select a preset or enter custom dimensions <strong>(Width × Height)</strong></p>
+                    
+                    <!-- Preset Dimensions -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
+                        <button type="button" class="dimension-btn" data-width="3" data-height="4" onclick="selectDimension(3, 4, event)" style="padding: 0.65rem; border: 2px solid #d1d5db; background: #ffffff; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; color: #374151;">3×4</button>
+                        <button type="button" class="dimension-btn" data-width="4" data-height="6" onclick="selectDimension(4, 6, event)" style="padding: 0.65rem; border: 2px solid #d1d5db; background: #ffffff; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; color: #374151;">4×6</button>
+                        <button type="button" class="dimension-btn" data-width="5" data-height="8" onclick="selectDimension(5, 8, event)" style="padding: 0.65rem; border: 2px solid #d1d5db; background: #ffffff; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; color: #374151;">5×8</button>
+                        <button type="button" class="dimension-btn" data-width="6" data-height="8" onclick="selectDimension(6, 8, event)" style="padding: 0.65rem; border: 2px solid #d1d5db; background: #ffffff; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85rem; color: #374151;">6×8</button>
+                    </div>
+
+                    <!-- Custom Dimensions -->
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem; align-items: flex-end;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Width</label>
+                            <input type="number" id="width_input" name="width" step="0.1" min="0.1" class="input-field" placeholder="3" required>
+                        </div>
+                        <div style="text-align: center; color: #9ca3af; font-weight: 600; margin-bottom: 0.65rem;">×</div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Height (max 6)</label>
+                            <input type="number" id="height_input" name="height" step="0.1" min="0.1" max="6" class="input-field" placeholder="4" required onchange="validateHeight()">
+                        </div>
+                    </div>
+                </div>
+
+                <style>
+                    .dimension-btn { color: #374151; }
+                    .dimension-btn:hover { border-color: #0a2530; background: #f3f4f6; transform: translateY(-2px); }
+                    .dimension-btn.active { border-color: #0a2530; background: #0a2530; color: #ffffff; }
+                </style>
+                
+                <!-- Finish Type, With Eyelets, and Quantity in Same Row -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Width (ft) *</label>
-                        <input type="number" name="width" step="0.01" min="0.1" class="input-field" required value="<?php echo htmlspecialchars($_POST['width'] ?? ''); ?>">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Finish Type</label>
+                        <select name="finish" class="input-field">
+                            <option value="Matte">Matte</option>
+                            <option value="Glossy">Glossy</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Height (ft) *</label>
-                        <input type="number" name="height" step="0.01" min="0.1" class="input-field" required value="<?php echo htmlspecialchars($_POST['height'] ?? ''); ?>">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">With Eyelets?</label>
+                        <select name="with_eyelets" class="input-field">
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem;">Quantity *</label>
+                        <div style="display: flex; align-items: center; height: 42px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; overflow: hidden;">
+                            <button type="button" onclick="decreaseQty()" style="flex: 0 0 42px; height: 42px; border: none; background: #f3f4f6; color: #374151; font-weight: 800; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">−</button>
+                            <input type="number" id="quantity-input" name="quantity" min="1" value="<?php echo (int)($_POST['quantity'] ?? ($_GET['qty'] ?? 1)); ?>" style="flex: 1; border: none; text-align: center; font-weight: 700; font-size: 1rem; outline: none; background: transparent;" onchange="validateQuantity()">
+                            <button type="button" onclick="increaseQty()" style="flex: 0 0 42px; height: 42px; border: none; background: #f3f4f6; color: #374151; font-weight: 800; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">+</button>
+                        </div>
                     </div>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Finish Type</label>
-                    <select name="finish" class="input-field">
-                        <option value="Matte">Matte</option>
-                        <option value="Glossy">Glossy</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">With Eyelets?</label>
-                    <select name="with_eyelets" class="input-field">
-                        <option value="No">No</option>
-                        <option value="Yes">Yes</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                    <input type="number" name="quantity" min="1" class="input-field" required value="<?php echo (int)($_POST['quantity'] ?? 1); ?>">
-                </div>
+
+                <script>
+                function selectDimension(w, h, event) {
+                    event.preventDefault();
+                    document.querySelectorAll('.dimension-btn').forEach(btn => btn.classList.remove('active'));
+                    event.target.closest('button').classList.add('active');
+                    document.getElementById('width_input').value = w;
+                    document.getElementById('height_input').value = h;
+                }
+                
+                function validateHeight() {
+                    const heightInput = document.getElementById('height_input');
+                    if (parseFloat(heightInput.value) > 6) heightInput.value = 6;
+                }
+
+                function increaseQty() {
+                    const input = document.getElementById('quantity-input');
+                    const val = parseInt(input.value) || 1;
+                    input.value = val + 1;
+                }
+
+                function decreaseQty() {
+                    const input = document.getElementById('quantity-input');
+                    const val = parseInt(input.value) || 1;
+                    if (val > 1) {
+                        input.value = val - 1;
+                    }
+                }
+
+                function validateQuantity() {
+                    const input = document.getElementById('quantity-input');
+                    let val = parseInt(input.value) || 1;
+                    if (val < 1) val = 1;
+                    input.value = val;
+                }
+                </script>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Upload Design * (JPG, PNG, PDF - max 5MB)</label>
                     <input type="file" name="design_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field" required>
@@ -135,16 +200,10 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea name="notes" rows="3" class="input-field"><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                 </div>
-                <div style="display:flex; gap:1rem; margin-top:2rem;">
-                    <button type="submit" name="add_to_cart" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                        + Add to Cart
-                    </button>
-                    <button type="submit" name="buy_now" value="1" 
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                        Review Your Order
+                <div style="display: flex; justify-content: flex-end; margin-top: 2rem;">
+                    <!-- Buy Now Button (Small & Clean) -->
+                    <button type="submit" name="buy_now" value="1" style="padding: 0.65rem 1.75rem; background: #0a2530; color: #ffffff; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;" onmouseover="this.style.background='#0d3038'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#0a2530'; this.style.transform='translateY(0)'">
+                        Buy Now
                     </button>
                 </div>
             </form>

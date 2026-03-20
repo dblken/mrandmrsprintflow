@@ -236,7 +236,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     </div>
                                     <div>
-                                        <h3 class="text-sm font-bold text-amber-800 mb-1">Price to be determined by staff</h3>
+                                        <h3 class="text-sm font-bold text-amber-800 mb-1">Price will be confirmed by the shop</h3>
                                         <p class="text-xs text-amber-700 leading-relaxed">
                                             The final price and payment options will be available once the staff reviews and approves your order specifications. You will be notified when it is ready.
                                         </p>

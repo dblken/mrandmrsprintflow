@@ -21,12 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $fields = $_POST;
 $branch_id = trim($fields['branch_id'] ?? '1');
 $souvenir_type = trim($fields['souvenir_type'] ?? '');
+$needed_date = trim($fields['needed_date'] ?? '');
 $quantity = (int)($fields['quantity'] ?? 1);
 $custom_print = trim($fields['custom_print'] ?? 'No');
 $notes = trim($fields['notes'] ?? '');
 
-if (empty($souvenir_type) || $quantity < 1) {
-    echo json_encode(['success' => false, 'message' => 'Please fill in Type and Quantity.']);
+if (empty($souvenir_type) || empty($needed_date) || $quantity < 1) {
+    echo json_encode(['success' => false, 'message' => 'Please fill in Type, Needed Date, and Quantity.']);
     exit;
 }
 
@@ -75,6 +76,7 @@ $cart_item = [
     'customization' => [
         'service_type' => 'Souvenirs',
         'souvenir_type' => $souvenir_type,
+        'needed_date' => $needed_date,
         'custom_print' => $custom_print,
         'notes' => $notes
     ],

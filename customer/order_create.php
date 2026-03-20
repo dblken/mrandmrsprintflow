@@ -300,15 +300,25 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Product Image Area -->
             <div style="background:#f3f4f6; border-radius:12px; display:flex; align-items:center; justify-content:center; min-height:400px; overflow:hidden;">
                 <?php 
-                $img_link = "/printflow/public/images/products/product_" . $product['product_id'];
-                $img_path = __DIR__ . "/../public/images/products/product_" . $product['product_id'];
                 $display_img = "";
-                if (!empty($product['product_image']) && file_exists(__DIR__ . "/../" . $product['product_image'])) {
-                     $display_img = "/printflow/" . ltrim($product['product_image'], '/');
-                } elseif (file_exists($img_path . ".jpg")) {
-                    $display_img = $img_link . ".jpg";
-                } elseif (file_exists($img_path . ".png")) {
-                    $display_img = $img_link . ".png";
+                
+                // 1. Try photo_path first (new method)
+                if (!empty($product['photo_path'])) {
+                    $display_img = $product['photo_path'];
+                }
+                // 2. Try product_image column
+                elseif (!empty($product['product_image']) && file_exists(__DIR__ . "/../" . $product['product_image'])) {
+                    $display_img = "/printflow/" . ltrim($product['product_image'], '/');
+                }
+                // 3. Try default image path based on product_id
+                else {
+                    $img_link = "/printflow/public/images/products/product_" . $product['product_id'];
+                    $img_path = __DIR__ . "/../public/images/products/product_" . $product['product_id'];
+                    if (file_exists($img_path . ".jpg")) {
+                        $display_img = $img_link . ".jpg";
+                    } elseif (file_exists($img_path . ".png")) {
+                        $display_img = $img_link . ".png";
+                    }
                 }
                 
                 if ($display_img): ?>
@@ -718,9 +728,9 @@ require_once __DIR__ . '/../includes/header.php';
                                                 </div>
 
                                                 <div style="background:#f9fafb; border:2px dashed #d1d5db; border-radius:0; padding:1.25rem;">
-                                                    <label style="display:block; font-size:0.875rem; font-weight:800; margin-bottom:0.5rem; color:black; text-transform:uppercase;">Upload Design * <span style="font-weight:500; font-size:0.75rem; color:#6b7280; text-transform:none;">(JPG, PNG, PDF)</span></label>
+                                                    <label style="display:block; font-size:0.875rem; font-weight:800; margin-bottom:0.5rem; color:black; text-transform:uppercase;">📎 Upload Your File (Design, Image, or PDF) – Max 5MB</label>
                                                     <input type="file" name="tarp_design_upload" id="tarp_design_upload_field" class="input-field" accept=".jpg,.jpeg,.png,.pdf" style="width:100%; background:white; padding:0.5rem; border-radius:0; border:1px solid #d1d5db;" :required="productCategory === 'Tarpaulin'">
-                                                    <p style="font-size:0.7rem; color:#6b7280; margin-top:6px;">📎 Max file size: 10MB</p>
+                                                    <p style="font-size:0.7rem; color:#6b7280; margin-top:6px;">Max file size: 10MB</p>
                                                 </div>
 
                                                 <div style="background:#f9fafb; padding:1.25rem; border-radius:0; border:1px solid #e5e7eb;">
@@ -897,21 +907,23 @@ require_once __DIR__ . '/../includes/header.php';
                                         <button type="button" 
                                                 x-show="step !== 1" 
                                                 @click="if(step > 1) step = step - 1" 
-                                                style="flex:1; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:white; border:2px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                                onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
+                                                style="flex:1; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:white; border:2px solid #0a2530; color:#0a2530; cursor:pointer; transition:all 0.2s;"
+                                                onmouseover="this.style.background='#0a2530'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#0a2530';">
                                             Back
                                         </button>
                                         
                                         <button type="button" 
                                                 x-show="step !== 4" 
                                                 @click="validateStepForward()" 
-                                                style="flex:2; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:black; border:2px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                                                onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
+                                                style="flex:2; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:#0a2530; border:2px solid #0a2530; color:white; cursor:pointer; transition:all 0.2s;"
+                                                onmouseover="this.style.background='white'; this.style.color='#0a2530';" onmouseout="this.style.background='#0a2530'; this.style.color='white';">
                                             Next Step
                                         </button>
-                                        <div x-show="step === 4" style="flex:2; display:flex; gap:0.5rem; width:100%;">
-                                            <button type="submit" name="add_to_cart" value="1" @click="checkFinalValidation($event)" style="flex:1; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:white; border:2px solid black; color:black; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">+ Add to Cart</button>
-                                            <button type="submit" name="buy_now" value="1" @click="checkFinalValidation($event)" style="flex:1; padding:0.875rem; border-radius:0; font-weight:800; font-size:0.85rem; text-transform:uppercase; background:black; border:2px solid black; color:white; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">Review Your Order</button>
+                                        <div x-show="step === 4" style="flex:2; display:flex; gap:0.75rem; width:100%;">
+                                            <!-- Buy Now Button (Solid) -->
+                                            <button type="submit" name="buy_now" value="1" @click="checkFinalValidation($event)" style="flex: 1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                                Buy Now
+                                            </button>
                                         </div>
                                     </div>
                                 </form>
@@ -945,7 +957,7 @@ require_once __DIR__ . '/../includes/header.php';
             productCategory: '<?php echo addslashes($product['category'] ?? ''); ?>',
             shirtSource: 'Shop',
             printSize: '',
-            orderQty: 1,
+            orderQty: <?php echo (int)($_GET['qty'] ?? 1); ?>,
 
             // Tarpaulin specific
             tarpSizeOption: 'Preset',

@@ -14,7 +14,7 @@ $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Build query - include variant count to know if we can add directly
-$sql = "SELECT p.*, (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count FROM products p WHERE p.status = 'Activated'";
+$sql = "SELECT p.*, (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count FROM products p WHERE p.status = 'Activated' AND p.product_type = 'fixed'";
 $params = [];
 $types = '';
 
@@ -38,7 +38,7 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 // Count total items for pagination
-$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated'";
+$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated' AND product_type = 'fixed'";
 $count_params = [];
 $count_types = '';
 
@@ -94,12 +94,18 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="ct-product-grid">
                 <?php foreach ($products as $product): 
-                    $img_path = "../public/images/products/product_" . $product['product_id'];
+                    // Try to use photo_path from database first (new method)
                     $display_img = "";
-                    if (file_exists($img_path . ".jpg")) {
-                        $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".jpg";
-                    } elseif (file_exists($img_path . ".png")) {
-                        $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".png";
+                    if (!empty($product['product_image'])) {
+                        $display_img = $product['product_image'];
+                    } else {
+                        // Fall back to old method of checking public/images/products directory
+                        $img_path = "../public/images/products/product_" . $product['product_id'];
+                        if (file_exists($img_path . ".jpg")) {
+                            $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".jpg";
+                        } elseif (file_exists($img_path . ".png")) {
+                            $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".png";
+                        }
                     }
                     if (!$display_img) $display_img = "/printflow/public/assets/images/placeholder.png";
 

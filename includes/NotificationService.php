@@ -40,7 +40,7 @@ class NotificationService {
 
         $result = db_execute(
             "INSERT INTO notifications (customer_id, type, message, data_id, is_read, created_at)
-             VALUES (?, 'Status', ?, ?, 0, NOW())",
+             VALUES (?, 'Job Order', ?, ?, 0, NOW())",
             'isi',
             [$customerId, $message, $jobOrderId]
         );

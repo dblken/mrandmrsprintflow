@@ -69,6 +69,8 @@ $page_title = 'Reset Your Password - PrintFlow';
         outline: none; background: rgba(255,255,255,.05); color: #e0f2fe;
         box-sizing: border-box;
     }
+    .form-input::-ms-reveal,
+    .form-input::-ms-clear { display: none; }
     .form-input:focus {
         border-color: #32a1c4; background: rgba(255,255,255,.08);
         box-shadow: 0 0 0 4px rgba(83,197,224,0.15);

@@ -81,8 +81,8 @@ try {
         $qty = (int)$item['qty'];
         $price = (float)$item['price'];
 
-        $name = $item['name'] ?? $product[0]['product_name'];
-        $notes = ($name !== $product[0]['product_name']) ? $name : null;
+        $name = $item['name'] ?? $product[0]['name'];
+        $notes = ($name !== $product[0]['name']) ? $name : null;
 
         // If customization data exists from the dynamic POS modal
         if (!empty($item['customization'])) {

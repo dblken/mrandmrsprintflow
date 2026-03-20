@@ -51,7 +51,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                 <!-- Quantity -->
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Quantity *</label>
-                    <input type="number" name="quantity" min="1" class="input-field w-full" required value="1">
+                    <input type="number" name="quantity" min="1" class="input-field w-full" required value="<?php echo (int)($_GET['qty'] ?? 1); ?>">
                 </div>
 
                 <!-- Custom Print -->
@@ -72,7 +72,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                 <!-- Design Upload – always visible -->
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">
-                        Upload Design
+                        📎 Upload Your File (Design, Image, or PDF) – Max 5MB
                         <span id="upload-hint" class="font-normal normal-case text-xs ml-1 text-gray-400">(Optional)</span>
                     </label>
                     <div id="upload-drop-zone"
@@ -80,7 +80,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                          style="cursor:pointer;"
                          onclick="document.getElementById('design_file').click()">
                         <div class="pointer-events-none">
-                            <span class="block text-3xl mb-2">📤</span>
+                            <span class="block text-3xl mb-2">📎</span>
                             <span class="block text-xs font-bold text-black uppercase mb-1">Click or Drag &amp; Drop Your Design</span>
                             <span class="block text-xs text-gray-400 mb-3">JPG, PNG, PDF – Max 5MB</span>
                             <input type="file" name="design_file" id="design_file"
@@ -105,15 +105,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
                 <!-- Buttons -->
                 <div style="display:flex; gap:1rem; margin-top:1rem;">
-                    <button type="button" onclick="submitSouvenirOrder('add_to_cart')"
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                        + Add to Cart
-                    </button>
-                    <button type="button" onclick="submitSouvenirOrder('buy_now')"
-                            style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid black; color:white; cursor:pointer; transition:all 0.2s;"
-                            onmouseover="this.style.background='white'; this.style.color='black';" onmouseout="this.style.background='black'; this.style.color='white';">
-                        Review Your Order
+                    <!-- Buy Now Button (Solid) -->
+                    <button type="button" onclick="submitSouvenirOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                        Buy Now
                     </button>
                 </div>
             </form>

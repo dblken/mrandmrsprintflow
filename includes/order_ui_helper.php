@@ -13,14 +13,16 @@
  */
 function render_order_item_neubrutalism($item, $is_cart_item = false, $show_price = true) {
     // 1. Data Normalization
-    $name = $item['name'] ?? ($item['product_name'] ?? 'Custom Order');
+    $custom = $is_cart_item ? ($item['customization'] ?? []) : json_decode($item['customization_data'] ?? '{}', true);
+    $name = $item['name'] ?? ($item['product_name'] ?? null);
+    if (empty($name) || in_array(strtolower(trim((string)$name)), ['custom order', 'customer order', 'service order', 'order item'])) {
+        $name = get_service_name_from_customization($custom, $name ?: 'Custom Order');
+    }
+    $name = normalize_service_name($name, 'Order Item');
     $category = $item['category'] ?? 'General';
     $unit_price = $is_cart_item ? $item['price'] : $item['unit_price'];
     $quantity = $item['quantity'];
     $subtotal = $unit_price * $quantity;
-    
-    // Customization data
-    $custom = $is_cart_item ? ($item['customization'] ?? []) : json_decode($item['customization_data'] ?? '{}', true);
     
     // Design previews
     $design_url = null;
@@ -36,7 +38,26 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
             if ($binary) $ref_url = 'data:' . $item['reference_mime'] . ';base64,' . base64_encode($binary);
         }
     } else {
-        $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+        // First try to serve as a design image (either BLOB or File from order_items)
+        $has_design = !empty($item['design_image']) || !empty($item['design_file']);
+        
+        if ($has_design) {
+            $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+        } else if (!empty($item['product_image'])) {
+            // Fallback 1: Product catalog image (from Joined products table)
+            $design_url = $item['product_image'];
+        } else {
+            // Fallback 2: Category based icons/placeholders
+            $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+            if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false || strpos($cat_lower, 'sticker') !== false) {
+                $design_url = "/printflow/public/images/products/signage.jpg";
+            } else if (strpos($cat_lower, 'tarpaulin') !== false) {
+                $design_url = "/printflow/public/images/products/product_21.jpg"; // Use a known tarp product
+            } else if (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'tshirt') !== false || strpos($cat_lower, 'souvenir') !== false) {
+                $design_url = "/printflow/public/images/products/product_22.jpg"; // Use a known mug/tshirt product
+            }
+        }
+
         if (!empty($item['reference_image_file'])) {
             $ref_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
@@ -46,6 +67,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     $field_map = [
         'size' => 'Size',
         'color' => 'Color',
+        'shirt_color' => 'Color',
         'print_placement' => 'Placement',
         'design_type' => 'Design Type',
         'template' => 'Template',
@@ -55,6 +77,15 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
         'with_eyelets' => 'Eyelets',
         'shape' => 'Shape',
         'waterproof' => 'Waterproof',
+        'Sintra_Type' => 'Sintraboard Type',
+        'laminate_option' => 'Lamination Option',
+        'lamination' => 'Lamination',
+        'tshirt_provider' => 'T-Shirt Provider',
+        'Stand_Type' => 'Stand Type',
+        'Cut_Type' => 'Cut Type',
+        'Thickness' => 'Thickness',
+        'Lamination' => 'Lamination Type',
+        'needed_date' => 'Needed Date',
     ];
     $skip = ['design_upload', 'reference_upload', 'notes', 'Branch_ID', 'service_type', 'product_type', 'unit'];
     
@@ -78,19 +109,16 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                 
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
                     <?php if ($show_price): ?>
-                    <div style="min-width: 60px;">
-                        <div style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Price</div>
-                        <div style="font-weight: 900; font-size: 1.1rem;"><?php echo format_currency($unit_price); ?></div>
+                    <div style="min-width: 120px;">
+                        <div style="font-size: 0.95rem; font-weight: 800;">Price: <?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
-                    <div style="min-width: 40px;">
-                        <div style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Qty</div>
-                        <div style="font-weight: 900; font-size: 1.1rem;"><?php echo $quantity; ?></div>
+                    <div style="min-width: 80px;">
+                        <div style="font-size: 0.95rem; font-weight: 800;">Qty: <?php echo $quantity; ?></div>
                     </div>
                     <?php if ($show_price): ?>
-                    <div style="min-width: 80px;">
-                        <div style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Subtotal</div>
-                        <div style="font-weight: 900; font-size: 1.1rem;"><?php echo format_currency($subtotal); ?></div>
+                    <div style="min-width: 150px;">
+                        <div style="font-size: 0.95rem; font-weight: 800;">Subtotal: <?php echo format_currency($subtotal); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -111,10 +139,11 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : $cv);
                 ?>
                     <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff;">
                         <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.9rem; font-weight: 800; color: #000;"><?php echo htmlspecialchars($cv); ?></div>
+                        <div style="font-size: 0.9rem; font-weight: 800; color: #000;"><?php echo htmlspecialchars($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 
@@ -155,13 +184,17 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
  * @param bool $is_cart_item Whether this is from the session cart
  */
 function render_order_item_clean($item, $is_cart_item = false, $show_price = true) {
-    $name = $item['name'] ?? ($item['product_name'] ?? 'Custom Order');
+    $name = $item['name'] ?? ($item['product_name'] ?? 'Order Item');
     $category = $item['category'] ?? 'General';
     $unit_price = $is_cart_item ? $item['price'] : $item['unit_price'];
     $quantity = $item['quantity'];
     $subtotal = $unit_price * $quantity;
     
     $custom = $is_cart_item ? ($item['customization'] ?? []) : json_decode($item['customization_data'] ?? '{}', true);
+    if (empty($name) || in_array(strtolower(trim((string)$name)), ['custom order', 'customer order', 'service order', 'order item'])) {
+        $name = get_service_name_from_customization($custom, 'Order Item');
+    }
+    $name = normalize_service_name($name, 'Order Item');
     
     $design_url = null;
     $ref_url = null;
@@ -176,7 +209,26 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
             if ($binary) $ref_url = 'data:' . $item['reference_mime'] . ';base64,' . base64_encode($binary);
         }
     } else {
-        $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+        // First try to serve as a design image (either BLOB or File from order_items)
+        $has_design = !empty($item['design_image']) || !empty($item['design_file']);
+        
+        if ($has_design) {
+            $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+        } else if (!empty($item['product_image'])) {
+            // Fallback 1: Product catalog image (from Joined products table)
+            $design_url = $item['product_image'];
+        } else {
+            // Fallback 2: Category based icons/placeholders
+            $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+            if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false || strpos($cat_lower, 'sticker') !== false) {
+                $design_url = "/printflow/public/images/products/signage.jpg";
+            } else if (strpos($cat_lower, 'tarpaulin') !== false) {
+                $design_url = "/printflow/public/images/products/product_21.jpg"; // Use a known tarp product
+            } else if (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'tshirt') !== false || strpos($cat_lower, 'souvenir') !== false) {
+                $design_url = "/printflow/public/images/products/product_22.jpg"; // Use a known mug/tshirt product
+            }
+        }
+
         if (!empty($item['reference_image_file'])) {
             $ref_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
@@ -185,6 +237,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $field_map = [
         'size' => 'Size',
         'color' => 'Color',
+        'shirt_color' => 'Color',
         'print_placement' => 'Placement',
         'design_type' => 'Design Type',
         'template' => 'Template',
@@ -194,6 +247,15 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         'with_eyelets' => 'Eyelets',
         'shape' => 'Shape',
         'waterproof' => 'Waterproof',
+        'Sintra_Type' => 'Sintraboard Type',
+        'laminate_option' => 'Lamination Option',
+        'lamination' => 'Lamination',
+        'tshirt_provider' => 'T-Shirt Provider',
+        'Stand_Type' => 'Stand Type',
+        'Cut_Type' => 'Cut Type',
+        'Thickness' => 'Thickness',
+        'Lamination' => 'Lamination Type',
+        'needed_date' => 'Needed Date',
     ];
     $skip = ['design_upload', 'reference_upload', 'notes', 'Branch_ID', 'service_type', 'product_type', 'unit'];
     ?>
@@ -216,19 +278,16 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                 
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
                     <?php if ($show_price): ?>
-                    <div style="min-width: 70px;">
-                        <div style="font-size: 0.75rem; color: #9ca3af; font-weight: 500;">Unit Price</div>
-                        <div style="font-weight: 700; color: #111827;"><?php echo format_currency($unit_price); ?></div>
+                    <div style="min-width: 140px;">
+                        <div style="font-size: 0.9rem; color: #111827; font-weight: 700;">Unit Price: <?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
-                    <div style="min-width: 50px;">
-                        <div style="font-size: 0.75rem; color: #9ca3af; font-weight: 500;">Quantity</div>
-                        <div style="font-weight: 700; color: #111827;"><?php echo $quantity; ?></div>
+                    <div style="min-width: 90px;">
+                        <div style="font-size: 0.9rem; color: #111827; font-weight: 700;">Quantity: <?php echo $quantity; ?></div>
                     </div>
                     <?php if ($show_price): ?>
-                    <div style="min-width: 80px;">
-                        <div style="font-size: 0.75rem; color: #9ca3af; font-weight: 500;">Item Total</div>
-                        <div style="font-weight: 700; color: #4F46E5;"><?php echo format_currency($subtotal); ?></div>
+                    <div style="min-width: 150px;">
+                        <div style="font-size: 0.9rem; color: #4F46E5; font-weight: 700;">Item Total: <?php echo format_currency($subtotal); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -249,10 +308,11 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : $cv);
                 ?>
                     <div style="background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: 8px;">
                         <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.85rem; font-weight: 600; color: #111827;"><?php echo htmlspecialchars($cv); ?></div>
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #111827;"><?php echo htmlspecialchars($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 

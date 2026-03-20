@@ -209,8 +209,8 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
                     <div id="designUploadSection" class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50 hover:bg-white transition-colors">
                         <label class="block cursor-pointer">
-                            <span class="block text-4xl mb-4">📤</span>
-                            <span class="block text-sm font-bold text-black uppercase mb-1">Upload Design</span>
+                            <span class="block text-4xl mb-4">�</span>
+                            <span class="block text-sm font-bold text-black uppercase mb-1">Upload Your File (Design, Image, or PDF) – Max 5MB</span>
                             <span class="block text-xs text-gray-500 mb-4">PNG, JPEG, AI, PDF (Max: 10MB)</span>
                             <input type="file" name="design_file" id="design_file" accept=".png,.jpg,.jpeg,.ai,.pdf" class="hidden" onchange="updateFileName(this)">
                             <span id="fileNameDisplay" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full hidden"></span>
@@ -243,7 +243,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Number of stickers required *</label>
-                        <input type="number" name="quantity" id="quantity" min="1" value="1" class="input-field w-full text-lg font-bold" required oninput="calculatePrice()">
+                        <input type="number" name="quantity" id="quantity" min="1" value="<?php echo (int)($_GET['qty'] ?? 1); ?>" class="input-field w-full text-lg font-bold" required oninput="calculatePrice()">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Any bulk discount requests? (Optional)</label>
@@ -298,15 +298,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                         <p class="text-3xl font-black text-white" id="priceDisplay">₱0.00</p>
                     </div>
                     <div class="flex gap-4 w-full md:w-auto">
-                        <button type="submit" name="add_to_cart" value="1" 
-                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:white; border:2.5px solid black; color:black; cursor:pointer; transition:all 0.2s;"
-                                onmouseover="this.style.background='black'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='black';">
-                            + Add to Cart
-                        </button>
-                        <button type="submit" name="buy_now" value="1" 
-                                style="flex:1; padding:1rem; border-radius:8px; font-weight:800; font-size:0.9rem; text-transform:uppercase; background:black; border:2.5px solid white; color:white; cursor:pointer; transition:all 0.2s;"
-                                onmouseover="this.style.background='white'; this.style.color='black'; this.style.borderColor='black';" onmouseout="this.style.background='black'; this.style.color='white'; this.style.borderColor='white';">
-                            Review Your Order
+                        <!-- Buy Now Button (Solid) -->
+                        <button type="submit" name="buy_now" value="1" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; min-width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                            Buy Now
                         </button>
                     </div>
                 </div>

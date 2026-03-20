@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 
@@ -80,7 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             // 2. Insert Order Items (design stored as LONGBLOB, never on disk)
             $inserted_order_item_ids = [];
             foreach ($cart_items as $pid => $item) {
-                $custom_data    = isset($item['customization']) ? json_encode($item['customization']) : null;
+                // Determine service_type for better display in history/notifications
+                $custom = $item['customization'] ?? [];
+                if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
+                    $custom['service_type'] = $item['name'];
+                }
+                
+                $custom_data    = json_encode($custom);
                 $design_binary  = null;
                 $design_mime    = $item['design_mime']   ?? null;
                 $design_name    = $item['design_name']   ?? null;
@@ -133,41 +140,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             
             // 4. Auto-create Job Orders for Production Workflow
             foreach ($cart_items as $pid => $item) {
-                // Determine service type from item category or name
-                $service_type = $item['category'] ?? 'General';
-                $cat_lower = strtolower($service_type . ' ' . ($item['name'] ?? ''));
+                // Determine service type accurately for ENUM matching
+                $service_type = 'Tarpaulin Printing'; // Default
+                $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
+                
                 if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin Printing';
-                elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized Signage';
-                elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) $service_type = 'Sintraboard Standees';
                 elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-shirt Printing';
-                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals/Stickers';
+                elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized (Subdivision Stickers/Signages)';
+                elseif (strpos($cat_lower, 'transparent') !== false) $service_type = 'Transparent Stickers';
+                elseif (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'wall') !== false || strpos($cat_lower, 'frosted') !== false) $service_type = 'Glass Stickers / Wall / Frosted Stickers';
+                elseif (strpos($cat_lower, 'sintraboard') !== false && (strpos($cat_lower, 'standee') !== false || strpos($cat_lower, 'stand') !== false)) $service_type = 'Sintraboard Standees';
+                elseif (strpos($cat_lower, 'sintraboard') !== false) $service_type = 'Stickers on Sintraboard';
+                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals/Stickers (Print/Cut)';
                 elseif (strpos($cat_lower, 'souvenir') !== false) $service_type = 'Souvenirs';
+                elseif (strpos($cat_lower, 'layout') !== false) $service_type = 'Layouts';
                 
                 // Parse dimensions from customization data
                 $custom = $item['customization'] ?? [];
-                $dimensions = $custom['dimensions'] ?? '';
+                $dimensions = $custom['dimensions'] ?? $custom['Size'] ?? '';
                 $width_ft = 0; $height_ft = 0;
-                if ($dimensions && strpos($dimensions, 'x') !== false) {
-                    $parts = array_map('trim', explode('x', strtolower($dimensions)));
-                    $width_ft  = (float)($parts[0] ?? 0);
-                    $height_ft = (float)($parts[1] ?? 0);
-                } elseif ($dimensions && strpos($dimensions, '×') !== false) {
-                    $parts = array_map('trim', explode('×', $dimensions));
-                    $width_ft  = (float)($parts[0] ?? 0);
-                    $height_ft = (float)($parts[1] ?? 0);
+                if ($dimensions && (strpos($dimensions, 'x') !== false || strpos($dimensions, '×') !== false)) {
+                    $d_parts = preg_split('/[x×]/', strtolower($dimensions));
+                    $width_ft  = (float)(trim($d_parts[0] ?? 0));
+                    $height_ft = (float)(trim($d_parts[1] ?? 0));
                 }
                 
                 $job_title = $item['name'] ?? $service_type;
                 $job_qty   = (int)($item['quantity'] ?? 1);
-                $cust_type = ($customer_type === 'regular') ? 'REGULAR' : 'NEW';
                 $oi_id     = $inserted_order_item_ids[$pid] ?? null;
                 
-                db_execute(
-                    "INSERT INTO job_orders (job_title, service_type, customer_id, order_item_id, width_ft, height_ft, quantity, status, customer_type, estimated_total, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())",
-                    'ssiiddisd',
-                    [$job_title, $service_type, $customer_id, $oi_id, $width_ft, $height_ft, $job_qty, $cust_type, $item['price'] * $job_qty]
-                );
+                // Use JobOrderService for robust creation
+                try {
+                    JobOrderService::createOrder([
+                        'order_id'        => $order_id,
+                        'customer_id'     => $customer_id,
+                        'job_title'       => $job_title,
+                        'service_type'    => $service_type,
+                        'width_ft'        => $width_ft,
+                        'height_ft'       => $height_ft,
+                        'quantity'        => $job_qty,
+                        'total_sqft'      => $width_ft * $height_ft * $job_qty,
+                        'price_per_sqft'  => null,
+                        'price_per_piece' => null,
+                        'estimated_total' => $item['price'] * $job_qty,
+                        'notes'           => $notes,
+                        'due_date'        => null, // Set by staff
+                        'priority'        => 'NORMAL',
+                        'artwork_path'    => null, 
+                        'created_by'      => null  // System created
+                    ]);
+                } catch (Exception $e) {
+                    error_log("Failed to create job order for item in Order #$order_id: " . $e->getMessage());
+                }
             }
             
             unset($_SESSION['cart']);
@@ -252,7 +276,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="margin-top:0.5rem; background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border:1px solid #bae6fd; border-left:4px solid #0ea5e9; border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
                             <span style="font-size:1.25rem; flex-shrink:0;">ℹ️</span>
                             <div>
-                                <div style="font-size:0.82rem; font-weight:700; color:#0c4a6e; margin-bottom:3px;">Pricing will be determined by staff</div>
+                                <div style="font-size:0.82rem; font-weight:700; color:#0c4a6e; margin-bottom:3px;">Price will be confirmed by the shop</div>
                                 <div style="font-size:0.75rem; color:#0369a1; line-height:1.5;">Your order will be reviewed and priced by our team. Payment options will be available once your order reaches the <strong>To Pay</strong> stage.</div>
                             </div>
                         </div>
@@ -309,37 +333,23 @@ require_once __DIR__ . '/../includes/header.php';
                         <span>💳</span> Payment Policy
                     </h2>
                     
-                    <?php if ($customer_type === 'new'): ?>
-                        <div style="background:#fff1f2; border:1px solid #fecaca; border-radius:10px; padding:12px; font-size:0.8rem; color:#b91c1c;">
-                            ⚠️ <strong>New Customer:</strong> Full payment (<?php echo format_currency($total); ?>) required upfront.
-                        </div>
-                    <?php else: ?>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
-                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="payment_choice" value="full" style="width: 16px; height: 16px;">
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: #1f2937;">Full (100%)</span>
-                                </div>
-                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total); ?></span>
-                            </label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
+                        <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="radio" name="payment_choice" value="full" style="width: 16px; height: 16px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #1f2937;">Full (100%)</span>
+                            </div>
+                            <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total); ?></span>
+                        </label>
 
-                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 2px solid #4F46E5; background: #f5f3ff; border-radius: 10px; cursor: pointer;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="payment_choice" value="half" checked style="width: 16px; height: 16px;">
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: #4F46E5;">Half (50%)</span>
-                                </div>
-                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total * 0.5); ?></span>
-                            </label>
-
-                            <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="payment_choice" value="pickup" style="width: 16px; height: 16px;">
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: #1f2937;">Upon Pick Up</span>
-                                </div>
-                                <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay upon pickup</span>
-                            </label>
-                        </div>
-                    <?php endif; ?>
+                        <label style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 2px solid #4F46E5; background: #f5f3ff; border-radius: 10px; cursor: pointer;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="radio" name="payment_choice" value="half" checked style="width: 16px; height: 16px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #4F46E5;">Half (50%)</span>
+                            </div>
+                            <span style="font-size: 0.7rem; color: #6b7280; padding-left:24px;">Pay <?php echo format_currency($total * 0.5); ?></span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- 5. Order Notes -->

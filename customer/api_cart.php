@@ -83,9 +83,9 @@ if ($action === 'add') {
         exit;
     }
 
-    // Validate product is active
+    // Validate product is active and a fixed product
     $product = db_query(
-        "SELECT product_id, name, price, category FROM products WHERE product_id = ? AND status = 'Activated'",
+        "SELECT product_id, name, price, category FROM products WHERE product_id = ? AND status = 'Activated' AND product_type = 'fixed'",
         'i', [$product_id]
     );
     if (empty($product)) {

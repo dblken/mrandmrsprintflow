@@ -30,6 +30,9 @@ $fields = [];
 $fields['service_type'] = $raw_fields['service_type'] ?? 'Reflectorized Signage';
 $fields['product_type'] = $type;
 $fields['branch_id'] = trim($raw_fields['branch_id'] ?? '1');
+$fields['needed_date'] = trim($raw_fields['needed_date'] ?? '');
+
+$fields['laminate_option'] = trim($raw_fields['laminate_option'] ?? 'Without Laminate');
 
 if ($isTempPlate) {
     foreach(['temp_plate_material', 'temp_plate_number', 'temp_plate_text', 'mv_file_number', 'dealer_name'] as $f) {
@@ -59,7 +62,7 @@ if ($isTempPlate) {
 }
 
 // Basic Validation
-if (empty($fields['product_type']) || (empty($fields['dimensions']) && !$isTempPlate) || $fields['quantity'] < 1) {
+if (empty($fields['product_type']) || empty($fields['needed_date']) || (empty($fields['dimensions']) && !$isTempPlate) || $fields['quantity'] < 1) {
     echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
     exit;
 }

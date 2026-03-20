@@ -36,11 +36,18 @@ if ($messages_raw) {
             $is_self = ($msg['sender'] === 'Staff');
         }
 
+        $image_path = (string)($msg['image_path'] ?? '');
+        if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
+            if (strpos($image_path, '/printflow/') !== 0) {
+                $image_path = '/printflow/' . ltrim($image_path, '/');
+            }
+        }
+
         $messages[] = [
             'id' => $msg['message_id'],
             'message' => $msg['message'],
             'message_type' => $msg['message_type'] ?? 'text',
-            'image_path' => $msg['image_path'],
+            'image_path' => $image_path,
             'created_at' => date('h:i A', strtotime($msg['created_at'])),
             'is_self' => $is_self,
             'is_seen' => (bool)$msg['read_receipt']
@@ -54,9 +61,9 @@ db_execute("UPDATE order_messages SET read_receipt = 1 WHERE order_id = ? AND se
 
 // 2.5 Clear lingering notifications for this chat
 if ($user_type === 'Customer') {
-    db_execute("UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND type = 'Message' AND data_id = ? AND is_read = 0", 'is', [$user_id, $order_id]);
+    db_execute("UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND type = 'Message' AND data_id = ? AND is_read = 0", 'ii', [$user_id, $order_id]);
 } else {
-    db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = 'Message' AND data_id = ? AND is_read = 0", 'is', [$user_id, $order_id]);
+    db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = 'Message' AND data_id = ? AND is_read = 0", 'ii', [$user_id, $order_id]);
 }
 
 // 3. Fetch partner status

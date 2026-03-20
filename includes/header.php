@@ -28,7 +28,7 @@ $asset_base = '/printflow/public';
 $ver = time();
 $url_index    = $base_url . '/';
 $url_products = $base_url . '/products/';
-$url_faq      = $base_url . '/faq/';
+
 $url_login    = $base_url . '/?auth_modal=login';
 $url_register = $base_url . '/?auth_modal=register';
 $url_logout   = $base_url . '/logout/';

@@ -67,7 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             $order_id  = db_execute($order_sql, 'iiddsss', [$customer_id, $branch_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
 
             if ($order_id) {
-                $custom_data   = isset($item['customization']) ? json_encode($item['customization']) : null;
+                $custom = $item['customization'] ?? [];
+                if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
+                    $custom['service_type'] = $item['name'];
+                }
+                $custom_data   = json_encode($custom);
                 $design_binary = null;
                 $design_mime   = $item['design_mime']   ?? null;
                 $design_name   = $item['design_name']   ?? null;
@@ -218,7 +222,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div style="margin-top:1rem; background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border:1px solid #bae6fd; border-left:4px solid #0ea5e9; border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
                         <span style="font-size:1.25rem; flex-shrink:0;">ℹ️</span>
                         <div>
-                            <div style="font-size:0.82rem; font-weight:700; color:#0c4a6e; margin-bottom:3px;">Pricing will be determined by staff</div>
+                            <div style="font-size:0.82rem; font-weight:700; color:#0c4a6e; margin-bottom:3px;">Price will be confirmed by the shop</div>
                             <div style="font-size:0.75rem; color:#0369a1; line-height:1.5;">Your order will be reviewed and priced by our team. Payment options will be available once your order reaches the <strong>To Pay</strong> stage.</div>
                         </div>
                     </div>
@@ -251,7 +255,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <span>💳</span> Payment Policy
                     </h2>
                     <p style="font-size:0.82rem; color:#78350f; line-height:1.6; margin:0;">
-                        Payment options (Full, 50% Downpayment, or Upon Pick Up) will become available once staff reviews your order and sets the price.
+                        Payment options (100% Full Payment or 50% Downpayment) will become available once staff reviews your order and sets the price.
                         You will receive a notification when your order is ready for payment.
                     </p>
                 </div>
@@ -265,14 +269,14 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <!-- 5. Final Actions -->
-                <div style="margin-top:0.5rem; text-align:center;">
-                    <button type="submit" name="confirm_order" class="btn-primary" style="width:100%; padding:14px; font-weight:700; font-size:1.1rem; border-radius:12px; box-shadow:0 4px 6px -1px rgba(79, 70, 229, 0.2);">Confirm & Place Order</button>
+                <div style="margin-top:0.5rem; display:flex; flex-direction:column; gap:10px;">
+                    <button type="submit" name="confirm_order" class="btn-primary" style="width:100%; padding:12px; font-weight:800; font-size:0.92rem; border-radius:10px; background:#0a2530; text-transform:uppercase; letter-spacing:0.03em;">Buy Now</button>
                     
                     <a href="?item=<?php echo urlencode($item_key); ?>&cancel=1" 
                        onclick="return confirm('Cancel this order?');"
-                       style="display:inline-block; margin-top:1.25rem; font-size:0.875rem; color:#6b7280; text-decoration:none; font-weight:600; padding:8px 16px; transition:all 0.2s;"
-                       onmouseover="this.style.color='#ef4444'" 
-                       onmouseout="this.style.color='#6b7280'">
+                       style="display:inline-flex; align-items:center; justify-content:center; width:100%; border:1px solid #e2e8f0; border-radius:10px; font-size:0.85rem; color:#64748b; text-decoration:none; font-weight:700; padding:11px 14px; transition:all 0.2s;"
+                       onmouseover="this.style.color='#ef4444'; this.style.borderColor='#fecaca'; this.style.background='#fef2f2';" 
+                       onmouseout="this.style.color='#64748b'; this.style.borderColor='#e2e8f0'; this.style.background='transparent';">
                         ✕ Cancel Order
                     </a>
                 </div>

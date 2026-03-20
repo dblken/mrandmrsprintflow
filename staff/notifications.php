@@ -16,6 +16,9 @@ $staff_id = get_user_id();
 if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
     db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $staff_id]);
+    if (!empty($_GET['next'])) {
+        redirect((string)$_GET['next']);
+    }
     redirect('/printflow/staff/notifications.php');
 }
 
@@ -25,11 +28,44 @@ if (isset($_GET['mark_all_read'])) {
     redirect('/printflow/staff/notifications.php');
 }
 
-// Get notifications with customer names for chat header
+// Choose available product image column for compatibility across DB versions.
+$has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+$has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
+$product_image_column = 'NULL';
+if ($has_photo_path && $has_product_image) {
+    $product_image_column = "COALESCE(p.photo_path, p.product_image)";
+} elseif ($has_photo_path) {
+    $product_image_column = "p.photo_path";
+} elseif ($has_product_image) {
+    $product_image_column = "p.product_image";
+}
+
+// Get notifications with customer names + service/image context
 $notifications = db_query("
-    SELECT n.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name 
+    SELECT 
+        n.*,
+        CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+        -- Priority 1: Job Order details if it's a job order
+        CASE WHEN n.type = 'Job Order' THEN jo.job_title ELSE 
+            (SELECT p.name FROM order_items oi 
+             LEFT JOIN products p ON oi.product_id = p.product_id 
+             WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1)
+        END as service_name,
+        CASE WHEN n.type = 'Job Order' THEN jo.service_type ELSE NULL END as jo_service_category,
+        CASE WHEN n.type = 'Job Order' THEN jo.artwork_path ELSE 
+            (SELECT {$product_image_column} FROM products p
+             INNER JOIN order_items oi ON oi.product_id = p.product_id
+             WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1)
+        END as product_image,
+        (SELECT oi.customization_data FROM order_items oi 
+         WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_customization,
+        (SELECT oi.order_item_id FROM order_items oi 
+         WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_id,
+        (SELECT oi.design_image FROM order_items oi 
+         WHERE oi.order_id = n.data_id AND oi.design_image IS NOT NULL ORDER BY oi.order_item_id ASC LIMIT 1) as design_image
     FROM notifications n 
     LEFT JOIN customers c ON n.customer_id = c.customer_id 
+    LEFT JOIN job_orders jo ON n.data_id = jo.id AND n.type = 'Job Order'
     WHERE n.user_id = ? 
     ORDER BY n.created_at DESC 
     LIMIT 100", 'i', [$staff_id]);
@@ -46,31 +82,17 @@ $page_title = 'Notifications - Staff';
     <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-        .notif-item { padding: 16px 20px; border-radius: 10px; border: 1px solid #f3f4f6; margin-bottom: 10px; transition: all 0.15s; border-left: 4px solid transparent; }
-        .notif-item:hover { border-color: #e5e7eb; }
-        .notif-unread { background: #f0f9ff; border-color: #bfdbfe; border-left-color: #53C5E0; }
-        .notif-badge { display:inline-block; background:#3b82f6; color:#fff; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; margin-bottom:6px; }
-        .chat-unread-pill { display:inline-flex; align-items:center; gap:4px; background:#ef4444; color:white; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; animation:pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
-
-        /* Filter Tabs */
-        .filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:16px; border-bottom: 1px solid #f3f4f6; }
-        .filter-tab {
-            display:inline-flex; align-items:center; gap:5px;
-            padding: 6px 14px; border-radius: 99px;
-            font-size: 12px; font-weight: 600;
-            cursor: pointer; border: 1.5px solid #e5e7eb;
-            background: white; color: #6b7280;
-            transition: all 0.18s; white-space: nowrap;
+        .notif-wrapper { background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.05); padding:24px; margin-bottom:2rem; }
+        .notif-item {
+            display:flex; align-items:center; gap:14px; padding:16px 18px;
+            border-radius:10px; border:1px solid #f1f5f9; margin-bottom:10px;
+            transition:all 0.18s; text-decoration:none; color:inherit; border-left:4px solid transparent;
         }
-        .filter-tab:hover { border-color: #6366f1; color: #6366f1; background: #f0f0ff; }
-        .filter-tab.active { background: #6366f1; color: white; border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,0.25); }
-        .filter-tab .tab-count {
-            background: rgba(255,255,255,0.25); color: inherit;
-            font-size: 10px; font-weight: 700;
-            padding: 1px 6px; border-radius: 99px; min-width: 18px; text-align:center;
-        }
-        .filter-tab:not(.active) .tab-count { background: #f3f4f6; color: #9ca3af; }
+        .notif-item:hover { background:#f8fafc; border-color:#e2e8f0; }
+        .notif-item.unread { background:#f3f4f6; border-left-color:#cbd5e1; }
+        .notif-avatar { width:46px; height:46px; border-radius:50%; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
+        .notif-avatar img { width:100%; height:100%; object-fit:cover; }
+        .notif-dot { width:8px; height:8px; border-radius:999px; background:#ef4444; margin-left:auto; flex-shrink:0; }
     </style>
 </head>
 <body>
@@ -89,10 +111,10 @@ $page_title = 'Notifications - Staff';
             ?>
                 <a href="?mark_all_read=1" 
                    class="btn-primary" 
-                   style="background: #3b82f6; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);"
-                   onmouseover="this.style.background='#2563eb'"
-                   onmouseout="this.style.background='#3b82f6'">
-                    <span>✅</span> MARK ALL READ
+                   style="background: #0a2530; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(10, 37, 48, 0.2);"
+                   onmouseover="this.style.background='#0d3038'"
+                   onmouseout="this.style.background='#0a2530'">
+                    MARK ALL READ
                 </a>
             <?php endif; ?>
         </header>
@@ -129,62 +151,113 @@ $page_title = 'Notifications - Staff';
                 <?php foreach ($notifs as $notif):
                 // Get unread chat count for this order (staff = receiver 'User')
                 $chat_unread = 0;
-                if (!empty($notif['data_id']) && $notif['type'] === 'Order') {
+                $is_rating_notif = (
+                    (string)$notif['type'] === 'Rating' ||
+                    stripos((string)$notif['message'], 'rating') !== false ||
+                    stripos((string)$notif['message'], 'review') !== false
+                );
+
+                if (!empty($notif['data_id']) && $notif['type'] === 'Order' && !$is_rating_notif) {
                     $chat_unread = get_unread_chat_count($notif['data_id'], 'User');
                 }
                 
                 // Determine redirection URL
                 $redirect_url = "#";
-                if (!empty($notif['data_id']) && $notif['type'] === 'Order') {
-                    $redirect_url = "/printflow/staff/orders.php?order_id=" . $notif['data_id'];
+                if ($is_rating_notif) {
+                    $redirect_url = "/printflow/staff/reviews.php";
+                } elseif (!empty($notif['data_id']) && $notif['type'] === 'Order') {
+                    $redirect_url = "/printflow/staff/customizations.php?order_id=" . $notif['data_id'];
                 }
             ?>
-                <a href="<?php echo $redirect_url; ?>" class="notif-item <?php echo $notif['is_read'] ? '' : 'notif-unread'; ?>" style="display: block; color: inherit; text-decoration: none;">
-                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 15px;">
-                        <div style="flex: 1;">
-                            <!-- Badge row -->
-                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
-                                <?php if (!$notif['is_read']): ?>
-                                    <span class="notif-badge">NEW</span>
-                                <?php endif; ?>
-                                <?php if ($chat_unread > 0): ?>
-                                    <span class="chat-unread-pill">
-                                        💬 <?php echo $chat_unread; ?> new message<?php echo $chat_unread > 1 ? 's' : ''; ?>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                            <p style="font-weight:600; font-size:15px; color:#111827; line-height: 1.4;"><?php echo htmlspecialchars($notif['message']); ?></p>
-                            <p style="font-size:12px; color:#6b7280; margin-top:6px; display: flex; align-items: center; gap: 4px;">
-                                <span style="font-size: 14px;">🕒</span> <?php echo format_datetime($notif['created_at']); ?>
-                            </p>
+                <?php
+                    $item_href = $notif['is_read']
+                        ? $redirect_url
+                        : ('/printflow/staff/notifications.php?mark_read=' . (int)$notif['notification_id'] . '&next=' . urlencode($redirect_url));
+                ?>
+                <a href="<?php echo $item_href; ?>" class="notif-item <?php echo $notif['is_read'] ? '' : 'unread'; ?>">
+                <div class="notif-avatar">
+                    <?php 
+                        $final_image_url = "";
+                        $raw_service_name = trim((string)($notif['service_name'] ?? ''));
+                        
+                        // Handle "Order Update" generic title
+                        if (in_array(strtolower($raw_service_name), ['', 'custom order', 'customer order', 'service order', 'order item', 'order update'])) {
+                            if (!empty($notif['first_item_customization'])) {
+                                $name_data = json_decode($notif['first_item_customization'], true);
+                                if (!empty($name_data['service_type'])) {
+                                    $raw_service_name = $name_data['service_type'];
+                                }
+                            } elseif (!empty($notif['jo_service_category'])) {
+                                $raw_service_name = $notif['jo_service_category'];
+                            }
+                        }
+                        
+                        $display_name = normalize_service_name($raw_service_name, 'Order Update');
+
+                        // 1. Try Design Image (BLOB serving script)
+                        if (!empty($notif['design_image'])) {
+                            // Using the new get_design_image.php script
+                            $final_image_url = "/printflow/staff/get_design_image.php?id=" . $notif['first_item_id'];
+                        }
+                        // 2. Try Product/Service Image or Job artwork_path
+                        elseif (!empty($notif['product_image'])) {
+                            $final_image_url = $notif['product_image'];
+                            // If it's a relative path to uploads, ensure full path
+                            if (strpos($final_image_url, 'uploads/') === 0) {
+                                $final_image_url = '/printflow/' . $final_image_url;
+                            }
+                        }
+                        // 3. Fallbacks
+                        else {
+                            $cust_data = json_decode($notif['first_item_customization'] ?? '{}', true);
+                            $cat_lower = strtolower($notif['jo_service_category'] ?? $cust_data['service_type'] ?? $display_name);
                             
-                            <?php if (!empty($notif['data_id']) && $notif['type'] === 'Order'): ?>
-                                <div style="margin-top: 12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                                    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; border-radius: 8px; text-decoration: none; background: #6366f1; color: white; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                                        <span>📂</span> Open Order
-                                    </div>
-                                    <button
-                                        onclick="event.preventDefault(); event.stopPropagation(); openOrderChat(<?php echo (int)$notif['data_id']; ?>, '<?php echo addslashes($notif['customer_name'] ?? 'Customer'); ?>')"
-                                        style="display:inline-flex; align-items:center; gap:5px; background:<?php echo $chat_unread > 0 ? '#ef4444' : '#4f46e5'; ?>; color:white; font-size:12px; font-weight:700; padding:6px 14px; border-radius:8px; border:none; cursor:pointer; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:opacity 0.2s;"
-                                        onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                                        💬 <?php echo $chat_unread > 0 ? 'Reply (' . $chat_unread . ')' : 'Message Customer'; ?>
-                                    </button>
-                                </div>
-                            <?php endif; ?>
+                            if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
+                                $final_image_url = "/printflow/public/images/products/signage.jpg";
+                            } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
+                                $final_image_url = "/printflow/public/images/products/product_41.jpg";
+                            } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
+                                $final_image_url = "/printflow/public/images/services/Sintraboard Standees.jpg";
+                            } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
+                                $final_image_url = "/printflow/public/images/products/product_31.jpg";
+                            } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
+                                if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
+                                    $final_image_url = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
+                                } else {
+                                    $final_image_url = "/printflow/public/images/products/product_21.jpg";
+                                }
+                            } else {
+                                $final_image_url = "/printflow/public/assets/images/icon-192.png";
+                            }
+                        }
+                    ?>
+                    <img src="<?php echo htmlspecialchars($final_image_url); ?>" alt="Service" onerror="this.src='/printflow/public/assets/images/icon-192.png';">
+                </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; line-height:1.45; color:#334155;">
+                            <strong style="color:#0f172a;"><?php echo htmlspecialchars($display_name); ?></strong>
+                            - <?php echo htmlspecialchars($notif['message']); ?>
                         </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                            <?php if (!$notif['is_read']): ?>
-                                <div onclick="event.preventDefault(); event.stopPropagation(); window.location.href='?mark_read=<?php echo $notif['notification_id']; ?>';" 
-                                   style="font-size:11px; color:#3b82f6; font-weight:700; text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 6px; background: white; transition: all 0.2s; cursor: pointer;"
-                                   onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe'"
-                                   onmouseout="this.style.background='white'; this.style.borderColor='#dbeafe'">
-                                    Mark Read
-                                </div>
-                            <?php else: ?>
-                                <span style="font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase;">Read</span>
-                            <?php endif; ?>
-                        </div>
+                        <div style="margin-top:4px; font-size:12px; color:#94a3b8;"><?php echo format_datetime($notif['created_at']); ?></div>
+                        <?php if ($chat_unread > 0): ?>
+                            <div style="margin-top:6px; font-size:11px; color:#b91c1c; font-weight:700;">
+                                <?php echo $chat_unread; ?> unread chat message<?php echo $chat_unread > 1 ? 's' : ''; ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($notif['data_id']) && $notif['type'] === 'Order' && !$is_rating_notif): ?>
+                            <div style="margin-top:10px;">
+                                <button
+                                    onclick="event.preventDefault(); event.stopPropagation(); openOrderChat(<?php echo (int)$notif['data_id']; ?>, '<?php echo addslashes($notif['customer_name'] ?? 'Customer'); ?>')"
+                                    style="border:none; background:#0a2530; color:#fff; border-radius:7px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;"
+                                >
+                                    Message Customer
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
+                    <?php if (!$notif['is_read']): ?>
+                        <span class="notif-dot"></span>
+                    <?php endif; ?>
                 </a>
             <?php endforeach; endforeach; ?>
 

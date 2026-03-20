@@ -325,19 +325,23 @@ $page_title = 'Orders - Staff';
 
             <!-- Filter -->
             <div class="card">
-                <form method="GET" style="display:flex; gap:16px; align-items:flex-end;">
+                <form method="GET" id="statusFilterForm" style="display:flex; gap:16px; align-items:flex-end;">
                     <div style="flex:1;">
                         <label>Filter by Status</label>
-                        <select name="status" class="input-field">
+                        <select name="status" id="statusFilterSelect" class="input-field">
                             <option value="">All Statuses</option>
                             <option value="Pending Review" <?php echo $status_filter === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
-                            <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                            <option value="Approved" <?php echo $status_filter === 'Approved' ? 'selected' : ''; ?>>Approved</option>
+                            <option value="To Pay" <?php echo $status_filter === 'To Pay' ? 'selected' : ''; ?>>To Pay</option>
+                            <option value="Downpayment Submitted" <?php echo $status_filter === 'Downpayment Submitted' ? 'selected' : ''; ?>>Downpayment Submitted</option>
+                            <option value="Pending Verification" <?php echo $status_filter === 'Pending Verification' ? 'selected' : ''; ?>>Pending Verification</option>
+                            <option value="For Revision" <?php echo $status_filter === 'For Revision' ? 'selected' : ''; ?>>For Revision</option>
                             <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                             <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
                             <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                            <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn-primary">Apply Filter</button>
                 </form>
             </div>
 
@@ -374,13 +378,12 @@ $page_title = 'Orders - Staff';
                                             <div style="font-size: 12px; color: #94a3b8; margin-top: 4px; font-weight: 500;">
                                                 <?php 
                                                     $display_items = $order['item_names'];
-                                                    if ($display_items === 'Custom Product' && !empty($order['first_item_customization'])) {
-                                                        $c_json = json_decode($order['first_item_customization'], true);
-                                                        if (!empty($c_json['service_type'])) {
-                                                            $display_items = $c_json['service_type'];
-                                                            if (!empty($c_json['product_type'])) {
-                                                                $display_items .= " (" . $c_json['product_type'] . ")";
-                                                            }
+                                                    if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
+                                                        $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
+                                                        
+                                                        $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
+                                                        if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
+                                                            $display_items .= " (" . $c_json['product_type'] . ")";
                                                         }
                                                     }
                                                     echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); 
@@ -395,7 +398,7 @@ $page_title = 'Orders - Staff';
                                     <td style="padding: 16px 12px; vertical-align: middle; text-align: right;">
                                         <div style="display: flex; justify-content: flex-end; gap: 4px;">
                                             <button
-                                                onclick="openOrderModal(<?php echo $order['order_id']; ?>)"
+                                                onclick="openStaffOrderManage(<?php echo $order['order_id']; ?>)"
                                                 style="background: #ecfdf5; border: none; color: #059669; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s;"
                                                 onmouseover="this.style.background='#d1fae5'; this.style.transform='translateY(-1px)'"
                                                 onmouseout="this.style.background='#ecfdf5'; this.style.transform='translateY(0)'"
@@ -517,6 +520,12 @@ $page_title = 'Orders - Staff';
 </div>
 
 <script>
+function openStaffOrderManage(orderId) {
+    window.location.href = `/printflow/staff/customizations.php?order_id=${orderId}`;
+}
+</script>
+
+<script>
 let currentOrderId = null;
 
 // ── Status badge helper ──────────────────────────────────
@@ -525,19 +534,19 @@ function statusBadge(val) {
         'Completed':        'badge-green',
         'Pending':          'badge-yellow',
         'Pending Review':   'badge-yellow',
-        'Pending Approval': 'badge-yellow',
+        'Approved':         'badge-green',
+        'To Pay':           'badge-blue',
+        'Downpayment Submitted': 'badge-yellow',
+        'Pending Verification': 'badge-yellow',
         'Processing':       'badge-blue',
         'In Production':    'badge-blue',
         'Printing':         'badge-blue',
+        'For Revision':     'badge-red',
         'Ready for Pickup': 'badge-purple',
         'Cancelled':        'badge-red',
-        'For Revision':     'badge-blue',
         'Paid':             'badge-green',
         'Unpaid':           'badge-gray',
         'Partial':          'badge-yellow',
-        'To Pay':           'badge-orange',
-        'Downpayment Submitted': 'badge-yellow',
-        'Paid – In Process': 'badge-green',
     };
     const cls = map[val] || 'badge-gray';
     return `<span class="badge ${cls}">${val}</span>`;
@@ -560,11 +569,39 @@ function openOrderModal(orderId) {
     fetch(`/printflow/staff/get_order_data.php?id=${orderId}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(r => r.json())
-    .then(data => renderOrderModal(data))
-    .catch(() => {
+    .then(r => {
+        const contentType = r.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            // Non-JSON response — show raw text for debugging
+            return r.text().then(txt => {
+                console.error('Non-JSON response from API:', txt);
+                document.getElementById('omBody').innerHTML =
+                    `<div class="om-alert om-alert-error">Server returned unexpected response (HTTP ${r.status}). Check console for details.</div>`;
+                return null;
+            });
+        }
+        return r.json();
+    })
+    .then(data => {
+        if (!data) return; // handled above
+        if (data.error) {
+            document.getElementById('omBody').innerHTML =
+                `<div class="om-alert om-alert-error">Error: ${data.error}</div>`;
+            return;
+        }
+        console.log("Order Data:", data);
+        try {
+            renderOrderModal(data);
+        } catch (err) {
+            console.error("Render Error:", err);
+            document.getElementById('omBody').innerHTML =
+                `<div class="om-alert om-alert-error">Rendering Error: ${err.message}</div>`;
+        }
+    })
+    .catch(err => {
+        console.error("Fetch Error:", err);
         document.getElementById('omBody').innerHTML =
-            `<div class="om-alert om-alert-error">Failed to load order. Please try again.</div>`;
+            `<div class="om-alert om-alert-error">Network Error: ${err.message}</div>`;
     });
 }
 
@@ -657,21 +694,7 @@ function renderOrderModal(d) {
     // Status options
 
 
-    // Other customer orders
-    let custOrdersHTML = '';
-    if (d.customer_orders && d.customer_orders.length) {
-        custOrdersHTML = `<div class="om-cust-orders">
-            <div class="om-card-title" style="margin-top:14px;">Other Orders</div>
-            ${d.customer_orders.map(co => `
-                <div class="om-co-row">
-                    <span>
-                        <button onclick="openOrderModal(${co.order_id})" style="background:none;border:none;color:#10b981;font-weight:600;cursor:pointer;font-size:12.5px;">#${co.order_id}</button>
-                        <span style="color:#6b7280;margin-left:4px;">${co.order_date}</span>
-                    </span>
-                    <span>${co.total_amount} ${statusBadge(co.status)}</span>
-                </div>`).join('')}
-        </div>`;
-    }
+
 
     // Items
     let itemsHTML = '';
@@ -933,7 +956,7 @@ function renderOrderModal(d) {
                     <span class="om-label">Contact Number</span>
                     <span class="om-value">${esc(d.cust_phone)}</span>
                 </div>
-                ${custOrdersHTML}
+
             </div>
         </div>
 
@@ -1173,8 +1196,27 @@ function esc(str) {
         .replace(/"/g,'&quot;');
 }
 
+function formatCurrency(val) {
+    return '₱' + parseFloat(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
 // Auto-open modal if order_id is in URL
 window.addEventListener('DOMContentLoaded', () => {
+    const statusSelect = document.getElementById('statusFilterSelect');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', () => {
+            const params = new URLSearchParams(window.location.search);
+            const next = statusSelect.value.trim();
+            if (next) {
+                params.set('status', next);
+            } else {
+                params.delete('status');
+            }
+            params.delete('page');
+            window.location.href = `${window.location.pathname}?${params.toString()}`;
+        });
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('order_id');
     if (orderId) {

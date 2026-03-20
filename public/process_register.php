@@ -16,15 +16,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     unset($_SESSION['otp_success']);
 
     // 1. Validate form inputs
-    $first_name = sanitize($_POST['first_name'] ?? '');
-    $last_name  = sanitize($_POST['last_name'] ?? '');
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name  = trim($_POST['last_name'] ?? '');
     $email      = sanitize($_POST['email'] ?? '');
     $password   = $_POST['password'] ?? '';
-    $role       = $_POST['role'] ?? 'Staff'; // Default to Staff
+    $role       = $_POST['role'] ?? 'Staff';
 
     if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
         redirect('register.php?error=All fields are required');
     }
+
+    // Name validation
+    if (!preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $first_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $last_name)) {
+        redirect('register.php?error=' . urlencode('Names must contain only letters.'));
+    }
+    if (strlen($first_name) < 2 || strlen($first_name) > 50 || strlen($last_name) < 2 || strlen($last_name) > 50) {
+        redirect('register.php?error=' . urlencode('Names must be between 2 and 50 characters.'));
+    }
+
+    // Auto-capitalize
+    $first_name = ucfirst($first_name);
+    $last_name = ucfirst($last_name);
 
     // 2. Validate email
     if (strlen($email) > 254 || strpos($email, ' ') !== false || !filter_var($email, FILTER_VALIDATE_EMAIL)) {

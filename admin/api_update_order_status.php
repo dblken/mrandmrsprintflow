@@ -31,8 +31,9 @@ if (!verify_csrf_token($input['csrf_token'] ?? '')) {
 
 $order_id   = (int)($input['order_id'] ?? 0);
 $new_status = $input['status'] ?? '';
+ensure_order_status_values(['To Rate', 'Rated']);
 
-$allowed = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled'];
+$allowed = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled', 'To Rate', 'Rated'];
 if (!$order_id || !in_array($new_status, $allowed)) {
     echo json_encode(['success' => false, 'error' => 'Invalid order or status']);
     exit;
@@ -102,7 +103,8 @@ db_execute(
 // Notify customer
 $customer_id = (int)$order['customer_id'];
 if ($customer_id) {
-    create_notification($customer_id, 'Customer', "Your order #{$order_id} status: {$new_status}", 'Order', false, false, $order_id);
+    $notif = get_order_status_notification_payload($order_id, $new_status);
+    create_notification($customer_id, 'Customer', $notif['message'], $notif['type'], false, false, $order_id);
 }
 
 $admin_id = get_user_id();

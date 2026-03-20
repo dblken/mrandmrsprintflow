@@ -51,26 +51,69 @@ if ($action === 'toggle_status') {
     $contact_number = sanitize($data['contact_number'] ?? '');
     $address        = sanitize($data['address'] ?? '');
     $gender         = sanitize($data['gender'] ?? '');
-    $dob            = sanitize($data['dob'] ?? '');
+    $birthday       = sanitize($data['dob'] ?? ''); // Maps from modal's 'dob' model
     $role           = sanitize($data['role'] ?? '');
     $branch_id      = !empty($data['branch_id']) ? (int)$data['branch_id'] : null;
     
     if ($role === 'Admin') $branch_id = null;
     
-    if (empty($first_name) || empty($last_name)) {
-        echo json_encode(['success' => false, 'error' => 'Name fields cannot be empty']); 
+    // Server-side validation
+    $errors = [];
+    
+    // Names
+    if (empty($first_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $first_name) || strlen($first_name) < 2 || strlen($first_name) > 50) {
+        $errors[] = 'Invalid first name (2-50 letters only)';
+    }
+    if (empty($last_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $last_name) || strlen($last_name) < 2 || strlen($last_name) > 50) {
+        $errors[] = 'Invalid last name (2-50 letters only)';
+    }
+    
+    // Contact Number
+    if (empty($contact_number) || !preg_match("/^09\d{9}$/", $contact_number)) {
+        $errors[] = 'Invalid contact number (09XXXXXXXXX)';
+    }
+    
+    // Address
+    if (empty($address) || strlen($address) < 5 || strlen($address) > 150) {
+        $errors[] = 'Invalid address (5-150 chars)';
+    }
+
+    // Birthday
+    if (!empty($birthday)) {
+        try {
+            $bday_date = new DateTime($birthday);
+            $today = new DateTime();
+            $age = $today->diff($bday_date)->y;
+            if ($bday_date > $today) {
+                $errors[] = 'Birthday cannot be a future date';
+            } elseif ($age < 13) {
+                $errors[] = 'User must be at least 13 years old';
+            }
+        } catch (Exception $e) {
+            $errors[] = 'Invalid birthday format';
+        }
+    } else {
+        $errors[] = 'Birthday is required';
+    }
+    
+    if (!empty($errors)) {
+        echo json_encode(['success' => false, 'error' => implode(', ', $errors)]); 
         exit;
     }
 
     $status         = in_array($data['status'] ?? '', ['Activated','Pending','Deactivated']) ? $data['status'] : 'Pending';
 
     $ok = db_execute(
-        "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?, gender=?, dob=?, role=?, branch_id=?, status=? WHERE user_id=?",
-        'ssssssssssii',
-        [$first_name, $middle_name ?: '', $last_name, $contact_number ?: '', $address ?: '', $gender ?: '', $dob ?: null, $role, $branch_id, $status, $user_id]
+        "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?, gender=?, birthday=?, role=?, branch_id=?, status=? WHERE user_id=?",
+        "ssssssssisi",
+        [$first_name, $middle_name ?: '', $last_name, $contact_number ?: '', $address ?: '', $gender ?: '', $birthday ?: null, $role, $branch_id, $status, $user_id]
     );
     
-    echo json_encode(['success' => true, 'message' => "User info updated successfully."]);
+    if ($ok) {
+        echo json_encode(['success' => true, 'message' => "User info updated successfully."]);
+    } else {
+        echo json_encode(['success' => false, 'error' => "Failed to update user information."]);
+    }
 } else {
     echo json_encode(['success' => false, 'error' => 'Invalid action']);
 }

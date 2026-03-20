@@ -25,8 +25,46 @@ if (isset($_GET['mark_all_read'])) {
     redirect('/printflow/customer/notifications.php');
 }
 
-// Get all notifications
-$notifications = db_query("SELECT * FROM notifications WHERE customer_id = ? ORDER BY created_at DESC LIMIT 100", 'i', [$customer_id]);
+// Choose available product image column for compatibility across DB versions.
+$has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+$has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
+$product_image_column = 'NULL';
+if ($has_photo_path && $has_product_image) {
+    $product_image_column = "COALESCE(p.photo_path, p.product_image)";
+} elseif ($has_photo_path) {
+    $product_image_column = "p.photo_path";
+} elseif ($has_product_image) {
+    $product_image_column = "p.product_image";
+}
+
+// Get all notifications with order and product details
+$notifications = db_query("
+    SELECT 
+        n.*,
+        o.order_id,
+        CASE WHEN n.type = 'Job Order' THEN jo.job_title ELSE 
+            (SELECT p.name FROM order_items oi 
+             LEFT JOIN products p ON oi.product_id = p.product_id 
+             WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1)
+        END as service_name,
+        CASE WHEN n.type = 'Job Order' THEN jo.service_type ELSE NULL END as jo_service_category,
+        CASE WHEN n.type = 'Job Order' THEN jo.artwork_path ELSE 
+            (SELECT {$product_image_column} FROM products p 
+             INNER JOIN order_items oi ON oi.product_id = p.product_id 
+             WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1)
+        END as product_image,
+        (SELECT oi.customization_data FROM order_items oi 
+         WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_customization,
+        (SELECT oi.order_item_id FROM order_items oi 
+         WHERE oi.order_id = n.data_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_id,
+        (SELECT oi.design_image FROM order_items oi 
+         WHERE oi.order_id = n.data_id AND oi.design_image IS NOT NULL ORDER BY oi.order_item_id ASC LIMIT 1) as design_image
+    FROM notifications n
+    LEFT JOIN orders o ON n.data_id = o.order_id AND n.type IN ('Order', 'Status', 'Message', 'Rating')
+    LEFT JOIN job_orders jo ON n.data_id = jo.id AND n.type = 'Job Order'
+    WHERE n.customer_id = ? 
+    ORDER BY n.created_at DESC LIMIT 100
+", 'i', [$customer_id]);
 
 // Categorize by read status for display
 $grouped_notifications = [
@@ -112,8 +150,8 @@ require_once __DIR__ . '/../includes/header.php';
         border-bottom: none;
     }
     .notif-item.unread {
-        background: #f0f9ff;
-        border-left-color: #53C5E0;
+        background: #f3f4f6;
+        border-left-color: #cbd5e1;
     }
     .notif-item.unread::after {
         content: '';
@@ -123,7 +161,7 @@ require_once __DIR__ . '/../includes/header.php';
         transform: translateY(-50%);
         width: 8px;
         height: 8px;
-        background: #f43f5e;
+        background: #ef4444;
         border-radius: 50%;
     }
     .notif-avatar {
@@ -145,12 +183,16 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .notif-content {
         flex: 1;
+        min-width: 0;
     }
     .notif-text {
         font-size: 0.875rem;
         line-height: 1.5;
         color: #64748b;
         margin-bottom: 4px;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
     }
     .notif-text b {
         color: #1e293b;
@@ -231,40 +273,102 @@ require_once __DIR__ . '/../includes/header.php';
                             if ($is_chat) $icon = "💬";
                             if ($is_order) $icon = "📦";
 
+                            // Extract service name from customization data if available
+                            $raw_service_name = trim((string)($notif['service_name'] ?? ''));
+                            
+                            if (in_array(strtolower($raw_service_name), ['', 'custom order', 'customer order', 'service order', 'order item', 'order update'])) {
+                                if (!empty($notif['first_item_customization'])) {
+                                    $name_data = json_decode($notif['first_item_customization'], true);
+                                    if (!empty($name_data['service_type'])) {
+                                        $raw_service_name = $name_data['service_type'];
+                                    }
+                                } elseif (!empty($notif['jo_service_category'])) {
+                                    $raw_service_name = $notif['jo_service_category'];
+                                }
+                            }
+                            
+                            $display_name = normalize_service_name($raw_service_name, 'Order Update');
+
+                            // Determine image or design
+                            $final_image_url = "";
+                            
+                            // 1. Try Design Image (From staff work)
+                            if (!empty($notif['design_image'])) {
+                                $final_image_url = "/printflow/staff/get_design_image.php?id=" . $notif['first_item_id'];
+                            }
+                            // 2. Try Product Image from DB
+                            elseif (!empty($notif['product_image'])) {
+                                $final_image_url = $notif['product_image'];
+                                if (strpos($final_image_url, 'uploads/') === 0) {
+                                    $final_image_url = '/printflow/' . $final_image_url;
+                                }
+                            }
+                            // 3. Category/Type based fallbacks (Sample images)
+                            else {
+                                $cust_data = json_decode($notif['first_item_customization'] ?? '{}', true);
+                                $cat_lower = strtolower($notif['jo_service_category'] ?? $cust_data['service_type'] ?? $display_name);
+                                
+                                if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
+                                    $final_image_url = "/printflow/public/images/products/signage.jpg";
+                                } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
+                                    $final_image_url = "/printflow/public/images/products/product_41.jpg";
+                                } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
+                                    $final_image_url = "/printflow/public/images/services/Sintraboard Standees.jpg";
+                                } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
+                                    $final_image_url = "/printflow/public/images/products/product_31.jpg";
+                                } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
+                                    if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
+                                        $final_image_url = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
+                                    } else {
+                                        $final_image_url = "/printflow/public/images/products/product_21.jpg";
+                                    }
+                                } else {
+                                    // Extreme fallback: Store logo
+                                    $final_image_url = "/printflow/public/assets/images/icon-192.png";
+                                }
+                            }
+
                             // Determine redirection link
                             $link = "/printflow/customer/notifications.php?mark_read=" . $notif['notification_id'];
+                            $is_rating_notif = (
+                                (string)$notif['type'] === 'Rating' ||
+                                stripos((string)$notif['message'], 'rate your experience') !== false ||
+                                stripos((string)$notif['message'], 'rate your order') !== false
+                            );
                             if (!empty($notif['data_id'])) {
-                                if ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
+                                if ($is_rating_notif) {
+                                    $link = "/printflow/customer/rate_order.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                                } elseif ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
                                     $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 } elseif ($notif['type'] === 'Message') {
                                     $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&chat=open&mark_read=" . $notif['notification_id'];
-                                } else {
-                                    // Fallback if data_id exists but type is unknown
-                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 }
                             }
                         ?>
                             <a href="<?php echo $link; ?>" class="notif-item <?php echo $notif['is_read'] ? '' : 'unread'; ?>">
                                 
                                 <div class="notif-avatar">
-                                    <span style="opacity: 1;"><?php echo $icon; ?></span>
+                                    <img src="<?php echo htmlspecialchars($final_image_url); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" class="notif-image" onerror="this.src='/printflow/public/assets/images/icon-192.png';">
                                 </div>
 
                                 <div class="notif-content">
-                                    <div class="notif-text">
+                                    <div class="notif-text" style="<?php echo $notif['is_read'] ? '' : 'font-weight: 600; color: #1e293b;'; ?>">
+                                        <strong><?php echo htmlspecialchars($display_name); ?></strong> – 
                                         <?php 
-                                            // Make "Update" or Status bold-ish
                                             $msg = htmlspecialchars($notif['message']);
                                             $msg = preg_replace('/(Order #\d+)/', '<b>$1</b>', $msg);
                                             echo $msg;
                                         ?>
+                                        <?php if ($notif['is_read'] == 0): ?>
+                                            <span style="color: #ef4444; font-weight: 800; font-size: 0.6rem; margin-left: 0.25rem;">●</span>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="notif-time"><?php echo time_elapsed_string($notif['created_at']); ?></div>
                                 </div>
 
                                 <?php if (!empty($notif['data_id'])): ?>
                                     <div class="notif-actions">
-                                        <span class="notif-btn notif-btn-secondary">View Details</span>
+                                        <span class="notif-btn notif-btn-secondary"><?php echo $is_rating_notif ? 'Rate Now' : 'View'; ?></span>
                                     </div>
                                 <?php endif; ?>
                             </a>

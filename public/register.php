@@ -89,6 +89,31 @@ $page_title = "User Registration - PrintFlow";
         .alert-success { background: #d1fae5; color: #065f46; }
         .footer { text-align: center; margin-top: 1rem; font-size: 0.875rem; }
         .footer a { color: #32a1c4; text-decoration: none; }
+
+        /* Validation Styles */
+        .form-group.is-invalid input {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2;
+        }
+        .form-group.is-valid input {
+            border-color: #10b981 !important;
+            background-color: #f0fdf4;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 11px;
+            margin-top: 4px;
+            display: none;
+            font-weight: 500;
+        }
+        .form-group.is-invalid .error-message {
+            display: block;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
     </style>
 </head>
 <body>
@@ -97,22 +122,30 @@ $page_title = "User Registration - PrintFlow";
         <?php if ($error): ?><div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
         
-        <form action="process_register.php" method="POST">
-            <div class="form-group">
-                <label>First Name</label>
-                <input type="text" name="first_name" required>
+        <form action="process_register.php" method="POST" id="registerForm" onsubmit="return validateRegisterForm(event)">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="reg_type" value="staff">
+            
+            <div class="form-group" id="group_first_name">
+                <label>First Name *</label>
+                <input type="text" name="first_name" id="first_name" required autocomplete="given-name">
+                <div class="error-message" id="error_first_name">First name is required.</div>
             </div>
-            <div class="form-group">
-                <label>Last Name</label>
-                <input type="text" name="last_name" required>
+            <div class="form-group" id="group_last_name">
+                <label>Last Name *</label>
+                <input type="text" name="last_name" id="last_name" required autocomplete="family-name">
+                <div class="error-message" id="error_last_name">Last name is required.</div>
             </div>
-            <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" name="email" required>
+            <div class="form-group" id="group_email">
+                <label>Email Address *</label>
+                <input type="email" name="email" id="email" required autocomplete="email">
+                <div class="error-message" id="error_email">Valid email is required.</div>
             </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" required minlength="8">
+            <div class="form-group" id="group_password">
+                <label>Password *</label>
+                <input type="password" name="password" id="password" required autocomplete="new-password">
+                <p id="password_requirements" style="font-size:11px;color:#9ca3af;margin-top:4px;">Min. 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 symbol</p>
+                <div class="error-message" id="error_password">Invalid password format.</div>
             </div>
             <div class="form-group">
                 <label>Role</label>
@@ -122,11 +155,103 @@ $page_title = "User Registration - PrintFlow";
                     <option value="Admin">Admin</option>
                 </select>
             </div>
-            <button type="submit">Register</button>
+            <button type="submit" id="btn_register">Register</button>
         </form>
         <div class="footer">
             Already have an account? <a href="/printflow/">Sign in</a>
         </div>
     </div>
+    <script>
+    const validators = {
+        first_name: (val) => {
+            if (!val) return "First name is required.";
+            if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) return "First name must contain only letters.";
+            if (val.length < 2 || val.length > 50) return "First name must be between 2 and 50 characters.";
+            return null;
+        },
+        last_name: (val) => {
+            if (!val) return "Last name is required.";
+            if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) return "Last name must contain only letters.";
+            if (val.length < 2 || val.length > 50) return "Last name must be between 2 and 50 characters.";
+            return null;
+        },
+        email: (val) => {
+            if (!val) return "Email is required.";
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return "Invalid email address.";
+            return null;
+        },
+        password: (val) => {
+            if (!val) return "Password is required.";
+            if (val.length < 8) return "Password must be at least 8 characters.";
+            if (!/[A-Z]/.test(val)) return "Password must have an uppercase letter.";
+            if (!/[a-z]/.test(val)) return "Password must have a lowercase letter.";
+            if (!/[0-9]/.test(val)) return "Password must have a number.";
+            if (!/[!@#$%^&*(),.?":{}|<>]/.test(val)) return "Password must have a special character.";
+            return null;
+        }
+    };
+
+    function validateField(id, validator) {
+        const input = document.getElementById(id);
+        if (!input) return true;
+        const group = document.getElementById('group_' + id);
+        const error = document.getElementById('error_' + id);
+        let val = input.value;
+
+        // Auto-formatting for names
+        if (id === 'first_name' || id === 'last_name') {
+            if (val.startsWith(' ')) val = val.trimStart();
+            if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
+            input.value = val;
+        }
+
+        // Block leading spaces for all
+        if (val.startsWith(' ')) {
+            input.value = val.trimStart();
+            val = input.value;
+        }
+
+        const errorMessage = validator(val.trim());
+        if (errorMessage) {
+            group.classList.add('is-invalid');
+            group.classList.remove('is-valid');
+            error.textContent = errorMessage;
+            return false;
+        } else {
+            group.classList.remove('is-invalid');
+            group.classList.add('is-valid');
+            return true;
+        }
+    }
+
+    function checkForm() {
+        const fValid = validateField('first_name', validators.first_name);
+        const lValid = validateField('last_name', validators.last_name);
+        const eValid = validateField('email', validators.email);
+        const pValid = validateField('password', validators.password);
+        document.getElementById('btn_register').disabled = !(fValid && lValid && eValid && pValid);
+    }
+
+    // Listeners
+    ['first_name', 'last_name', 'email', 'password'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', checkForm);
+            el.addEventListener('blur', checkForm);
+        }
+    });
+
+    function validateRegisterForm(e) {
+        checkForm();
+        if (document.getElementById('btn_register').disabled) {
+            e.preventDefault();
+            return false;
+        }
+        return true;
+    }
+
+    // Initial check
+    checkForm();
+    </script>
 </body>
 </html>

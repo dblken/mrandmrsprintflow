@@ -188,14 +188,33 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
  * @return bool|int
  */
 function log_activity($user_id, $action, $details = '') {
-    // Simple version - only log if table exists and has correct structure
-    // Silently fail if logging doesn't work to prevent breaking the app
+    // activity_logs.user_id has FK to users.user_id only.
+    // Customer IDs are from customers.customer_id and can violate FK.
+    // Logging must never break request flow.
     try {
+        $resolved_user_id = 0;
+
+        if (is_numeric($user_id)) {
+            $candidate = (int)$user_id;
+            if ($candidate > 0) {
+                $exists = db_query("SELECT user_id FROM users WHERE user_id = ? LIMIT 1", 'i', [$candidate]);
+                if (!empty($exists)) {
+                    $resolved_user_id = $candidate;
+                }
+            }
+        }
+
+        // If the provided ID is not a valid staff/admin user, skip insert safely.
+        if ($resolved_user_id <= 0) {
+            return true;
+        }
+
         $sql = "INSERT INTO activity_logs (user_id, action, details, created_at) VALUES (?, ?, ?, NOW())";
-        return db_execute($sql, 'iss', [$user_id, $action, $details]);
-    } catch (Exception $e) {
+        $result = db_execute($sql, 'iss', [$resolved_user_id, (string)$action, (string)$details]);
+        return $result !== false;
+    } catch (Throwable $e) {
         error_log("Activity log failed: " . $e->getMessage());
-        return true; // Don't break the app if logging fails
+        return true; // Never block main feature when activity log fails
     }
 }
 
@@ -344,6 +363,128 @@ function upload_file($file, $allowed_extensions = [], $destination = 'uploads', 
 }
 
 /**
+ * Ensure ratings table exists.
+ * One rating entry per order.
+ * @return void
+ */
+function ensure_ratings_table_exists() {
+    static $ensured = false;
+    if ($ensured) return;
+
+    db_execute("
+        CREATE TABLE IF NOT EXISTS ratings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            order_id INT NOT NULL,
+            customer_id INT NOT NULL,
+            service_type VARCHAR(150) DEFAULT NULL,
+            rating TINYINT NOT NULL,
+            comment TEXT DEFAULT NULL,
+            image VARCHAR(255) DEFAULT NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_rating_order (order_id),
+            KEY idx_rating_customer (customer_id),
+            KEY idx_rating_value (rating),
+            CONSTRAINT fk_ratings_order FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+            CONSTRAINT fk_ratings_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
+            CONSTRAINT chk_ratings_value CHECK (rating BETWEEN 1 AND 5)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    $ensured = true;
+}
+
+/**
+ * Ensure `orders.status` enum contains required values.
+ * Safe no-op if column is not enum or values already exist.
+ * @param array $values
+ * @return bool
+ */
+function ensure_order_status_values(array $values) {
+    static $already_checked = [];
+    $missing = array_values(array_filter(array_map('strval', $values), fn($v) => $v !== ''));
+    if (empty($missing)) return true;
+    sort($missing);
+    $cache_key = implode('|', $missing);
+    if (isset($already_checked[$cache_key])) return $already_checked[$cache_key];
+
+    try {
+        $col = db_query("SHOW COLUMNS FROM orders LIKE 'status'");
+        if (empty($col[0]['Type'])) {
+            return $already_checked[$cache_key] = false;
+        }
+        $type = (string)$col[0]['Type'];
+        if (stripos($type, 'enum(') !== 0) {
+            return $already_checked[$cache_key] = false;
+        }
+
+        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $type, $m);
+        $current = array_map(static function ($v) {
+            return str_replace("\\'", "'", (string)$v);
+        }, $m[1] ?? []);
+        $all = $current;
+        foreach ($missing as $v) {
+            if (!in_array($v, $all, true)) $all[] = $v;
+        }
+        if (count($all) === count($current)) {
+            return $already_checked[$cache_key] = true;
+        }
+
+        $escaped = array_map(static function ($v) {
+            return "'" . str_replace("'", "\\'", (string)$v) . "'";
+        }, $all);
+        $default = in_array('Pending', $all, true) ? 'Pending' : $all[0];
+        $sql = "ALTER TABLE orders MODIFY COLUMN status ENUM(" . implode(',', $escaped) . ") DEFAULT '" . str_replace("'", "\\'", $default) . "'";
+        db_execute($sql);
+
+        return $already_checked[$cache_key] = true;
+    } catch (Throwable $e) {
+        error_log('ensure_order_status_values failed: ' . $e->getMessage());
+        return $already_checked[$cache_key] = false;
+    }
+}
+
+/**
+ * Friendly customer-facing status notification message.
+ * @param int $order_id
+ * @param string $status
+ * @return array{type:string,message:string}
+ */
+function get_order_status_notification_payload($order_id, $status) {
+    $order_id = (int)$order_id;
+    $status = (string)$status;
+    // Keep notification type enum-compatible across deployments.
+    $type = 'Order';
+    $base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
+
+    $map = [
+        'Pending' => "Your order has been received and is pending confirmation.",
+        'Pending Review' => "Your order has been received and is pending confirmation.",
+        'Pending Approval' => "Your order has been received and is pending confirmation.",
+        'For Revision' => "Your order needs revision. Please review the request details.",
+        'Approved' => "Your order has been approved and will proceed to payment.",
+        'To Pay' => "Your order is now ready for payment.",
+        'To Verify' => "Your payment is currently being verified.",
+        'Downpayment Submitted' => "Your payment is currently being verified.",
+        'Pending Verification' => "Your payment is currently being verified.",
+        'Processing' => "Your order is now being processed.",
+        'In Production' => "Your order is now being processed.",
+        'Printing' => "Your order is now being processed.",
+        'Ready for Pickup' => "Your order is ready for pickup.",
+        'Completed' => "Your order has been completed. You may now rate your experience.",
+        'To Rate' => "Your order has been completed. You may now rate your experience.",
+        'Rated' => "Thank you for rating your completed order.",
+        'Cancelled' => "Your order has been cancelled."
+    ];
+
+    $message = $map[$status] ?? "Your order #{$order_id} status has been updated to: {$status}";
+    if ($status === 'Completed' || $status === 'To Rate') {
+        $message .= " Rate here: " . $base_url . "/customer/rate_order.php?order_id={$order_id}";
+    }
+
+    return ['type' => $type, 'message' => $message];
+}
+
+/**
  * Format currency
  * @param float $amount
  * @param string $currency
@@ -410,18 +551,58 @@ function time_ago($datetime) {
  * @return string
  */
 function status_badge($status, $type = 'order') {
+    // Map job order statuses to display-friendly format
+    $job_order_status_map = [
+        'PENDING' => 'Pending',
+        'APPROVED' => 'Approved',
+        'TO_PAY' => 'To Pay',
+        'VERIFY_PAY' => 'To Verify',
+        'IN_PRODUCTION' => 'Processing',
+        'TO_RECEIVE' => 'Ready for Pickup',
+        'COMPLETED' => 'Completed',
+        'CANCELLED' => 'Cancelled'
+    ];
+    
+    // Map job order payment statuses
+    $job_order_payment_status_map = [
+        'UNPAID' => 'Unpaid',
+        'PENDING_VERIFICATION' => 'Pending Verification',
+        'PARTIAL' => 'Partially Paid',
+        'PAID' => 'Paid'
+    ];
+    
+    // Convert job order status if needed
+    if (isset($job_order_status_map[$status])) {
+        $status = $job_order_status_map[$status];
+    }
+    
+    // Convert job order payment status if needed
+    if ($type === 'payment' && isset($job_order_payment_status_map[$status])) {
+        $status = $job_order_payment_status_map[$status];
+    }
+    
     $colors = [
         'order' => [
             'Pending' => 'bg-yellow-100 text-yellow-800',
+            'Approved' => 'bg-blue-100 text-blue-800',
+            'To Pay' => 'bg-indigo-100 text-indigo-800',
+            'To Verify' => 'bg-orange-100 text-orange-800',
+            'Downpayment Submitted' => 'bg-purple-100 text-purple-800',
+            'Pending Verification' => 'bg-orange-100 text-orange-800',
             'Processing' => 'bg-blue-100 text-blue-800',
-            'Ready for Pickup' => 'bg-green-100 text-green-800',
+            'For Revision' => 'bg-pink-100 text-pink-800',
+            'Ready for Pickup' => 'bg-teal-100 text-teal-800',
             'Completed' => 'bg-green-100 text-green-800',
+            'To Rate' => 'bg-purple-100 text-purple-800',
+            'Rated' => 'bg-emerald-100 text-emerald-800',
             'Cancelled' => 'bg-red-100 text-red-800'
         ],
         'payment' => [
             'Unpaid' => 'bg-red-100 text-red-800',
+            'Partially Paid' => 'bg-yellow-100 text-yellow-800',
             'Paid' => 'bg-green-100 text-green-800',
-            'Refunded' => 'bg-gray-100 text-gray-800'
+            'Refunded' => 'bg-gray-100 text-gray-800',
+            'Pending Verification' => 'bg-orange-100 text-orange-800'
         ],
         'design' => [
             'Pending' => 'bg-yellow-100 text-yellow-800',
@@ -551,6 +732,14 @@ function set_setting($key, $value) {
  * @return string HTML string
  */
 function render_pagination($current_page, $total_pages, $extra_params = []) {
+    // Backward compatibility:
+    // some legacy calls used render_pagination('orders.php', $total_pages, $params)
+    if (is_string($current_page)) {
+        $current_page = max(1, (int)($_GET['page'] ?? 1));
+    }
+    $total_pages = (int)$total_pages;
+    $current_page = (int)$current_page;
+
     if ($total_pages <= 1) return '';
     
     $params = $extra_params;
@@ -607,4 +796,81 @@ function can_customer_cancel_order($order) {
     // Customers can cancel unless production has started or payment is being verified
     $allowed_statuses = ['Pending', 'To Pay', 'For Revision', 'Pending Verification'];
     return in_array($status, $allowed_statuses);
+}
+
+/**
+ * Get base URL for the application
+ * @return string
+ */
+function get_base_url() {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    $path = dirname($_SERVER['SCRIPT_NAME']);
+    $path = rtrim($path, '/');
+    return $protocol . '://' . $host . $path;
+}
+
+/**
+ * Detects the service name based on customization keys if not explicitly provided.
+ */
+function normalize_service_name($name, $fallback = 'Custom Order') {
+    $clean = trim((string)$name);
+    if ($clean === '') return $fallback;
+
+    $normalized = strtolower(preg_replace('/\s+/', ' ', $clean));
+    $map = [
+        'custom order' => $fallback,
+        'customer order' => $fallback,
+        'order item' => $fallback,
+        'service order' => $fallback,
+        'tshirt' => 'T-Shirt Printing',
+        't-shirt' => 'T-Shirt Printing',
+        't shirts' => 'T-Shirt Printing',
+        't-shirts' => 'T-Shirt Printing',
+        'tarpaulin' => 'Tarpaulin',
+        'decal' => 'Decals',
+        'decals' => 'Decals',
+        'sticker' => 'Stickers',
+        'stickers' => 'Stickers',
+        'glass/wall' => 'Glass/Wall Stickers',
+        'glass stickers' => 'Glass/Wall Stickers',
+        'transparent' => 'Transparent Stickers',
+        'reflectorized' => 'Reflectorized',
+        'sintraboard' => 'Sintraboard',
+        'standees' => 'Standees',
+        'standee' => 'Standees',
+        'souvenir' => 'Souvenirs',
+        'souvenirs' => 'Souvenirs'
+    ];
+
+    if (isset($map[$normalized])) {
+        return $map[$normalized];
+    }
+
+    return ucwords($clean);
+}
+
+function get_service_name_from_customization($custom, $fallback = 'Custom Order') {
+    if (!$custom) return $fallback;
+    $custom = is_string($custom) ? json_decode($custom, true) : $custom;
+    
+    if (!empty($custom['service_type'])) {
+        return normalize_service_name($custom['service_type'], $fallback);
+    }
+    
+    // Heuristics based on common customization fields
+    if (isset($custom['print_placement']) || isset($custom['tshirt_color']) || isset($custom['tshirt_size'])) {
+        return normalize_service_name('T-Shirt Printing', $fallback);
+    }
+    if (isset($custom['width']) && isset($custom['height']) && (isset($custom['finish']) || isset($custom['with_eyelets']))) {
+        return normalize_service_name('Tarpaulin', $fallback);
+    }
+    if (isset($custom['shape']) && isset($custom['size']) && (isset($custom['waterproof']) || isset($custom['sticker_type']) || isset($custom['laminate_option']))) {
+        return normalize_service_name('Stickers', $fallback);
+    }
+    if (isset($custom['sintraboard_thickness']) || isset($custom['is_standee'])) {
+        return normalize_service_name('Sintraboard', $fallback);
+    }
+    
+    return normalize_service_name($fallback, $fallback);
 }
