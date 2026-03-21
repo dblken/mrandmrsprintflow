@@ -108,11 +108,11 @@ body { font-family: Arial, 'Segoe UI', sans-serif; font-size: 13px; color: #222;
 .section-title { font-size: 14px; font-weight: 700; color: #222; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.5px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
 th { background: #f9fafb; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #555; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.center { text-align: center; }
-td.left { text-align: left; }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.center, td.center { text-align: center; }
+th.left, td.left { text-align: left; }
 tr.total-row td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #333; padding: 12px 14px; }
 tr.avg-row td { font-weight: 600; color: #555; background: #fafafa; }
 tr.zebra:nth-child(even) { background: #f9fafb; }
@@ -121,8 +121,9 @@ tr.zebra:nth-child(even) { background: #f9fafb; }
     body { padding: 16px 24px; font-size: 11px; }
     .no-print { display: none !important; }
     .report-header { break-after: avoid; }
-    .section { break-inside: avoid; margin-bottom: 20px; }
-    table { break-inside: avoid; font-size: 10px; }
+    .section { margin-bottom: 20px; }
+    table { font-size: 10px; }
+    table thead { display: table-header-group; }
     th, td { padding: 6px 10px; }
     @page { margin: 1.5cm; size: A4; }
 }

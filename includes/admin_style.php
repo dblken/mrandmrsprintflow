@@ -109,7 +109,7 @@
         padding: 24px; 
         border: 1px solid var(--border-color);
         box-shadow: 0 2px 4px rgba(0,0,0,0.02); 
-        transition: all 0.2s; 
+        transition: border-color 0.2s ease, box-shadow 0.2s ease; 
         margin-bottom: 24px;
     }
     
@@ -602,9 +602,257 @@
         background: linear-gradient(90deg, #00232b, #53C5E0);
         pointer-events: none;
     }
+
+    /*
+     * KPI figures — one canonical rule in this file (included on every admin/staff shell page).
+     * Turbo Drive can leave previous pages’ <style> blocks in <head>; !important keeps weight
+     * stable on first paint and across navigations.
+     */
+    .kpi-value {
+        font-size: 26px;
+        font-weight: 800 !important;
+        color: #1f2937;
+        font-variant-numeric: tabular-nums;
+    }
+    .stats-grid .stat-value,
+    .stat-card > .stat-value {
+        font-size: 32px;
+        font-weight: 800 !important;
+        color: #1f2937;
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 4px;
+    }
+    .report-summary .summary-box .value {
+        font-size: 24px;
+        font-weight: 800 !important;
+        color: #1f2937;
+        font-variant-numeric: tabular-nums;
+    }
+    .inv-summary-card .value {
+        font-weight: 800 !important;
+        font-variant-numeric: tabular-nums;
+    }
+
     .stat-label {
         color: #00232b;
         font-weight: 600;
+    }
+
+    /* ── PrintFlow form guard: save overlay, unsaved modal, toast (portal lives in sidebar, turbo-permanent) ── */
+    .pf-fg-portal {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10030;
+    }
+    .pf-fg-save-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 19, 28, 0.45);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.28s ease, visibility 0.28s ease;
+        pointer-events: none;
+    }
+    .pf-fg-save-overlay--visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+    .pf-fg-spinner {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        border: 2px solid rgba(83, 197, 224, 0.25);
+        border-top-color: #53C5E0;
+        border-radius: 50%;
+        animation: pf-fg-spin 0.65s linear infinite;
+        vertical-align: -0.12em;
+        margin-right: 8px;
+    }
+    @keyframes pf-fg-spin {
+        to { transform: rotate(360deg); }
+    }
+    .pf-fg-save-highlight {
+        box-shadow: 0 0 0 2px rgba(83, 197, 224, 0.9) !important;
+        transition: box-shadow 0.2s ease;
+    }
+    .pf-fg-dirty-hint {
+        font-size: 12px;
+        font-weight: 600;
+        color: #b45309;
+        margin-right: auto;
+    }
+    .pf-fg-nav-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+    .pf-fg-nav-modal--open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+    .pf-fg-nav-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 19, 28, 0.5);
+    }
+    .pf-fg-nav-modal__panel {
+        position: relative;
+        width: 100%;
+        max-width: 460px;
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 24px 56px rgba(0, 35, 43, 0.22);
+        padding: 22px 24px 20px;
+        transform: scale(0.96) translateY(6px);
+        opacity: 0;
+        transition: transform 0.28s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.22s ease;
+    }
+    .pf-fg-nav-modal--open .pf-fg-nav-modal__panel {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+    .pf-fg-nav-modal__title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #00232b;
+        margin: 0 0 8px;
+        letter-spacing: -0.02em;
+    }
+    .pf-fg-nav-modal__msg {
+        font-size: 14px;
+        color: #4b5563;
+        margin: 0 0 12px;
+        line-height: 1.45;
+    }
+    .pf-fg-nav-modal__sub {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #00232b;
+        margin: 0 0 8px;
+    }
+    .pf-fg-nav-modal__list {
+        list-style: none;
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        background: linear-gradient(135deg, rgba(83, 197, 224, 0.12), rgba(0, 35, 43, 0.06));
+        border: 1px solid rgba(83, 197, 224, 0.5);
+        border-radius: 10px;
+        border-left: 4px solid #53C5E0;
+    }
+    .pf-fg-nav-modal__list li {
+        font-size: 14px;
+        font-weight: 600;
+        color: #00232b;
+        padding: 6px 0 6px 22px;
+        position: relative;
+        line-height: 1.35;
+    }
+    .pf-fg-nav-modal__list li + li {
+        border-top: 1px solid rgba(0, 35, 43, 0.08);
+    }
+    .pf-fg-nav-modal__list li::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 0.65em;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #53C5E0;
+        box-shadow: 0 0 0 2px rgba(0, 35, 43, 0.15);
+    }
+    .pf-fg-nav-modal__err {
+        font-size: 13px;
+        color: #b91c1c;
+        margin: 0 0 14px;
+        padding: 10px 12px;
+        background: #fef2f2;
+        border-radius: 8px;
+        border: 1px solid #fecaca;
+    }
+    .pf-fg-nav-modal__actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    .pf-fg-btn {
+        height: 40px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+    .pf-fg-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+    .pf-fg-btn--accent {
+        background: #53C5E0;
+        color: #00232b;
+        border: 2px solid #00232b;
+        box-shadow: 0 2px 10px rgba(83, 197, 224, 0.4);
+    }
+    .pf-fg-btn--accent:hover:not(:disabled) {
+        background: #6dceea;
+        box-shadow: 0 4px 14px rgba(83, 197, 224, 0.45);
+    }
+    .pf-fg-btn--discard {
+        background: #00232b;
+        color: #53C5E0;
+        border: 2px solid #00232b;
+    }
+    .pf-fg-btn--discard:hover:not(:disabled) {
+        background: #003a47;
+        color: #6dceea;
+    }
+    .pf-fg-btn--neutral {
+        background: #fff;
+        color: #00232b;
+        border: 2px solid #53C5E0;
+    }
+    .pf-fg-btn--neutral:hover:not(:disabled) {
+        background: rgba(83, 197, 224, 0.12);
+    }
+    .pf-fg-toast {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        z-index: 10060;
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #00232b, #0a3d4d);
+        color: #e8f4f8;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 35, 43, 0.35);
+        border: 1px solid rgba(83, 197, 224, 0.35);
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.28s ease, transform 0.28s ease;
+        pointer-events: none;
+        max-width: min(360px, calc(100vw - 40px));
+    }
+    .pf-fg-toast--visible {
+        opacity: 1;
+        transform: translateY(0);
     }
 </style>
 <?php
@@ -612,6 +860,7 @@ if (empty($GLOBALS['PRINTFLOW_DISABLE_TURBO'])):
     require __DIR__ . '/turbo_admin_drive.php';
 endif;
 ?>
+<script src="/printflow/public/assets/js/printflow_form_guard.js" defer></script>
 <?php if (!empty($GLOBALS['PRINTFLOW_DISABLE_TURBO'])): ?>
 <script>
 (function () {

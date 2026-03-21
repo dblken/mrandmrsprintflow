@@ -174,6 +174,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<div id="pf-fg-portal" class="pf-fg-portal" aria-hidden="true"></div>
+
 <?php
 $_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
 $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Staff';
