@@ -81,13 +81,15 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
         'laminate_option' => 'Lamination Option',
         'lamination' => 'Lamination',
         'tshirt_provider' => 'T-Shirt Provider',
+        'shirt_source' => 'Shirt Source',
         'Stand_Type' => 'Stand Type',
         'Cut_Type' => 'Cut Type',
         'Thickness' => 'Thickness',
         'Lamination' => 'Lamination Type',
         'needed_date' => 'Needed Date',
+        'installation_fee' => 'Installation Fee',
     ];
-    $skip = ['design_upload', 'reference_upload', 'notes', 'Branch_ID', 'service_type', 'product_type', 'unit'];
+    $skip = ['design_upload', 'reference_upload', 'notes', 'additional_notes', 'Branch_ID', 'service_type', 'product_type', 'unit', 'install_province', 'install_city', 'install_barangay', 'install_street'];
     
     ?>
     <div style="border: 2px solid #000; background: #fff; margin-bottom: 2rem; overflow: hidden; box-shadow: 8px 8px 0px rgba(0,0,0,1);">
@@ -139,7 +141,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
-                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : $cv);
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
                 ?>
                     <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff;">
                         <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
@@ -152,14 +154,14 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                 <?php endif; ?>
             </div>
 
-            <!-- Notes -->
+            <!-- Notes (full width, wraps, no cropping) -->
             <?php 
-            $notes = $custom['notes'] ?? ($custom['design_description'] ?? ($custom['tshirt_design_description'] ?? ($custom['tarp_design_description'] ?? ($custom['design_notes'] ?? null))));
+            $notes = $custom['notes'] ?? $custom['additional_notes'] ?? ($custom['design_description'] ?? ($custom['tshirt_design_description'] ?? ($custom['tarp_design_description'] ?? ($custom['design_notes'] ?? null))));
             if ($notes):
             ?>
-                <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border: 1px solid #000; border-radius: 8px;">
+                <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border: 1px solid #000; border-radius: 8px; min-width: 0;">
                     <div style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #92400e; margin-bottom: 4px;">📝 Notes</div>
-                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; max-height: 120px; overflow-y: auto; overflow-x: hidden; word-break: break-word;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
                 </div>
             <?php endif; ?>
         </div>
@@ -251,13 +253,15 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         'laminate_option' => 'Lamination Option',
         'lamination' => 'Lamination',
         'tshirt_provider' => 'T-Shirt Provider',
+        'shirt_source' => 'Shirt Source',
         'Stand_Type' => 'Stand Type',
         'Cut_Type' => 'Cut Type',
         'Thickness' => 'Thickness',
         'Lamination' => 'Lamination Type',
         'needed_date' => 'Needed Date',
+        'installation_fee' => 'Installation Fee',
     ];
-    $skip = ['design_upload', 'reference_upload', 'notes', 'Branch_ID', 'service_type', 'product_type', 'unit'];
+    $skip = ['design_upload', 'reference_upload', 'notes', 'additional_notes', 'Branch_ID', 'service_type', 'product_type', 'unit', 'install_province', 'install_city', 'install_barangay', 'install_street'];
     ?>
     <div class="card" style="padding: 0; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 1.25rem;">
         <!-- Core Info -->
@@ -308,7 +312,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
-                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : $cv);
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
                 ?>
                     <div style="background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: 8px;">
                         <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
@@ -321,16 +325,14 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                 <?php endif; ?>
             </div>
 
-            <!-- Notes -->
+            <!-- Notes (full width, wraps, no cropping) -->
             <?php 
-            $notes = $custom['notes'] ?? ($custom['design_description'] ?? ($custom['tshirt_design_description'] ?? ($custom['tarp_design_description'] ?? ($custom['design_notes'] ?? null))));
+            $notes = $custom['notes'] ?? $custom['additional_notes'] ?? ($custom['design_description'] ?? ($custom['tshirt_design_description'] ?? ($custom['tarp_design_description'] ?? ($custom['design_notes'] ?? null))));
             if ($notes):
             ?>
-                <div style="margin-top: 1.25rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px;">
-                    <div style="font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                        <span>📝</span> Design Description / Notes
-                    </div>
-                    <div style="font-size: 0.9rem; color: #92400e; line-height: 1.5; font-weight: 500; max-height: 120px; overflow-y: auto; overflow-x: hidden; word-break: break-word;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
+                <div style="margin-top: 1.25rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; min-width: 0;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">📝 Notes</div>
+                    <div style="font-size: 0.9rem; color: #92400e; line-height: 1.5; font-weight: 500; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
                 </div>
             <?php endif; ?>
         </div>

@@ -38,7 +38,6 @@ if (in_array($active_tab, ['torate', 'totalorders'], true)) {
 
 // Tab mappings to exact statuses
 $tab_status_map = [
-<<<<<<< HEAD
     'pending'    => ['Pending', 'Pending Approval', 'Pending Review', 'For Revision'],
     'approved'   => ['Approved'],
     'toverify'   => ['To Verify', 'Downpayment Submitted', 'Pending Verification'],
@@ -49,13 +48,6 @@ $tab_status_map = [
     'completed'  => ['Completed', 'To Rate', 'Rated'],
     'cancelled'  => ['Cancelled'],
     'totalorders' => ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'],
-=======
-    'pending' => ['Pending', 'Pending Approval', 'For Revision'],
-    'topay' => ['To Pay'],
-    'production' => ['In Production', 'Processing', 'Printing'], // include legacy for safety
-    'pickup' => ['Ready for Pickup'],
-    'completed' => ['Completed']
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 ];
 
 // Statuses where price is hidden from customer
@@ -324,77 +316,52 @@ require_once __DIR__ . '/../includes/header.php';
                         <!-- Product Image -->
                         <div style="flex-shrink:0;">
                             <?php 
-                            // Determine item display name and base category first
-                            $display_name = !empty($order['first_product_name']) ? $order['first_product_name'] : 'Order Items';
-                            $service_category = '';
-                            if (($display_name === 'Custom Order' || $display_name === 'Customer Order' || $display_name === 'Service Order') && !empty($order['first_item_customization'])) {
-                                $c_json = json_decode($order['first_item_customization'], true);
-                                if (!empty($c_json['service_type'])) {
-                                    $display_name = normalize_service_name($c_json['service_type'], 'Order Item');
-                                    $service_category = $c_json['service_type'];
-                                    if (!empty($c_json['product_type'])) {
-                                        $display_name .= " (" . $c_json['product_type'] . ")";
-                                    }
+                            // Prefer actual service name from customization over product name (e.g. Transparent Sticker not "Sticker Pack")
+                            $c_json = !empty($order['first_item_customization']) ? json_decode($order['first_item_customization'], true) : [];
+                            $service_category = $c_json['service_type'] ?? '';
+                            $display_name = $service_category ?: ($order['first_product_name'] ?? 'Order Items');
+                            if (empty($display_name) || in_array(strtolower(trim($display_name)), ['custom order', 'customer order', 'service order', 'order item'])) {
+                                $display_name = get_service_name_from_customization($c_json, $order['first_product_name'] ?? 'Order Item');
+                            } else {
+                                $display_name = normalize_service_name($display_name, 'Order Item');
+                                if (!empty($c_json['product_type'])) {
+                                    $display_name .= " (" . $c_json['product_type'] . ")";
                                 }
                             }
-                            $display_name = normalize_service_name($display_name, 'Order Item');
+                            $service_category = $service_category ?: $display_name;
 
-                            // Determine image or design
+                            // Determine image or design (80x80, object-fit: cover, border-radius: 8px)
                             $show_design = !empty($order['first_item_has_design']) && !empty($order['first_item_id']);
-                            $prod_id = (int)($order['first_product_id'] ?? 0);
-                            $product_img = "";
-                            
-                            // 1. Try image path from joined product row.
-                            if (!$show_design && !empty($order['first_product_image'])) {
-                                $product_img = $order['first_product_image'];
-                            }
-                            
-                            // 2. Check explicit product ID image (file-based fallback)
-                            if (!$show_design && empty($product_img) && $prod_id > 0) {
-                                $img_base = "../public/images/products/product_" . $prod_id;
-                                if (file_exists($img_base . ".jpg")) {
-                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
-                                } elseif (file_exists($img_base . ".png")) {
-                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".png";
-                                }
-                            }
+                            $img_style = 'width:80px; height:80px; object-fit:cover; border-radius:8px;';
+                            $img_wrapper = 'width:80px; height:80px; border-radius:8px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc;';
+                            $fallback_img = '/printflow/public/assets/images/placeholder.jpg';
 
-                            // 3. Fallback based on category/service_type for Service Orders without specific product
-                            if (!$show_design && empty($product_img)) {
-                                $cat_lower = strtolower($service_category ?: $display_name);
-                                if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
-                                    $product_img = "/printflow/public/images/products/signage.jpg";
-                                } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
-                                    $product_img = "/printflow/public/images/products/product_41.jpg";
-                                } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
-                                    $product_img = "/printflow/public/images/services/Sintraboard Standees.jpg";
-                                } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
-                                    $product_img = "/printflow/public/images/products/product_31.jpg";
-                                } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
-                                    if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
-                                        $product_img = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
-                                    } else {
-                                        $product_img = "/printflow/public/images/products/product_21.jpg";
+                            if ($show_design) {
+                                $order_img_src = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+                            } else {
+                                $product_img = "";
+                                $pn = trim($order['first_product_name'] ?? '');
+                                if ($pn && strtolower($display_name) === strtolower($pn)) {
+                                    if (!empty($order['first_product_image'])) {
+                                        $product_img = $order['first_product_image'];
                                     }
-                                } elseif (strpos($cat_lower, 'souvenir') !== false) {
-                                    // Default image for souvenirs (or general fallback)
-                                    $product_img = "/printflow/public/assets/images/icon-192.png";
+                                    if (empty($product_img) && ($prod_id = (int)($order['first_product_id'] ?? 0)) > 0) {
+                                        $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
+                                        if (file_exists($img_base . ".jpg")) $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
+                                        elseif (file_exists($img_base . ".png")) $product_img = "/printflow/public/images/products/product_" . $prod_id . ".png";
+                                    }
                                 }
+                                $order_img_src = !empty($product_img) ? $product_img : get_service_image_url($service_category ?: $display_name);
                             }
                             ?>
 
                             <?php if ($show_design): ?>
-                                <a href="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" target="_blank" style="display:block; width:72px; height:72px; border-radius:12px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                                    <img src="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Product Image" onerror="this.src='/printflow/public/assets/images/placeholder.png';">
+                                <a href="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" target="_blank" style="display:block; <?php echo $img_wrapper; ?>">
+                                    <img src="<?php echo htmlspecialchars($order_img_src); ?>" style="<?php echo $img_style; ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo $fallback_img; ?>';">
                                 </a>
-                            <?php elseif (!empty($product_img)): ?>
-                                <div style="width:72px; height:72px; border-radius:12px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc; display:flex; align-items:center; justify-content:center;">
-                                    <img src="<?php echo $product_img; ?>" style="max-width:100%; max-height:100%; object-fit:contain;" alt="Product Image">
-                                </div>
                             <?php else: ?>
-                                <!-- Universal Absolute Fallback (Printflow Purple Logo) if all else fails -->
-                                <div style="width:72px; height:72px; border-radius:12px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc; display:flex; align-items:center; justify-content:center;">
-                                    <img src="/printflow/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Printflow Logo">
+                                <div style="<?php echo $img_wrapper; ?> display:flex; align-items:center; justify-content:center;">
+                                    <img src="<?php echo htmlspecialchars($order_img_src); ?>" style="<?php echo $img_style; ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo $fallback_img; ?>';">
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -442,9 +409,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <!-- Card Bottom: Message + Details -->
                     <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:12px; gap:10px; flex-wrap:wrap;">
                         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto;">
-                            <button type="button" onclick="openOrderChat(<?php echo $order['order_id']; ?>, 'PrintFlow Support')" style="background:#0a2530; color:#fff; border:1px solid #0a2530; padding:8px 14px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; font-size:13px; cursor:pointer; line-height:1; transition: all 0.2s;">
+                            <a href="<?php echo BASE_URL; ?>/customer/chat.php?order_id=<?php echo $order['order_id']; ?>" style="background:#0a2530; color:#fff; border:1px solid #0a2530; padding:8px 14px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; font-size:13px; text-decoration:none; line-height:1; transition: all 0.2s;">
                                 Message Shop
-                            </button>
+                            </a>
                             <?php if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)): ?>
                                 <?php $rating_value = (int)($order['rating_value'] ?? 0); ?>
                                 <?php if ($rating_value > 0): ?>
@@ -1276,7 +1243,6 @@ function escIM(str) {
 })();
 </script>
 
-<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 
 

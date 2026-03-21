@@ -165,9 +165,11 @@ require_once __DIR__ . '/../includes/header.php';
         border-radius: 50%;
     }
     .notif-avatar {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
+        width: 80px;
+        height: 80px;
+        min-width: 80px;
+        border-radius: 8px;
+        overflow: hidden;
         background: #e2e8f0;
         display: flex;
         align-items: center;
@@ -273,60 +275,27 @@ require_once __DIR__ . '/../includes/header.php';
                             if ($is_chat) $icon = "💬";
                             if ($is_order) $icon = "📦";
 
-                            // Extract service name from customization data if available
-                            $raw_service_name = trim((string)($notif['service_name'] ?? ''));
-                            
-                            if (in_array(strtolower($raw_service_name), ['', 'custom order', 'customer order', 'service order', 'order item', 'order update'])) {
-                                if (!empty($notif['first_item_customization'])) {
-                                    $name_data = json_decode($notif['first_item_customization'], true);
-                                    if (!empty($name_data['service_type'])) {
-                                        $raw_service_name = $name_data['service_type'];
-                                    }
-                                } elseif (!empty($notif['jo_service_category'])) {
-                                    $raw_service_name = $notif['jo_service_category'];
-                                }
+                            // Prefer actual service name from customization over product name (e.g. Transparent Sticker not "Sticker Pack")
+                            $name_data = !empty($notif['first_item_customization']) ? json_decode($notif['first_item_customization'], true) : [];
+                            $raw_service_name = trim((string)($name_data['service_type'] ?? $notif['jo_service_category'] ?? $notif['service_name'] ?? ''));
+                            if (empty($raw_service_name) || in_array(strtolower($raw_service_name), ['custom order', 'customer order', 'service order', 'order item', 'order update'])) {
+                                $raw_service_name = get_service_name_from_customization($name_data, $notif['service_name'] ?? 'Order Update');
                             }
-                            
                             $display_name = normalize_service_name($raw_service_name, 'Order Update');
 
-                            // Determine image or design
+                            // Determine image: design first, then service image from correct service name
                             $final_image_url = "";
-                            
-                            // 1. Try Design Image (From staff work)
                             if (!empty($notif['design_image'])) {
                                 $final_image_url = "/printflow/staff/get_design_image.php?id=" . $notif['first_item_id'];
-                            }
-                            // 2. Try Product Image from DB
-                            elseif (!empty($notif['product_image'])) {
+                            } elseif (!empty($notif['product_image']) && strtolower(trim($display_name)) === strtolower(trim($notif['service_name'] ?? ''))) {
                                 $final_image_url = $notif['product_image'];
                                 if (strpos($final_image_url, 'uploads/') === 0) {
                                     $final_image_url = '/printflow/' . $final_image_url;
                                 }
+                            } else {
+                                $final_image_url = get_service_image_url($raw_service_name ?: $display_name);
                             }
-                            // 3. Category/Type based fallbacks (Sample images)
-                            else {
-                                $cust_data = json_decode($notif['first_item_customization'] ?? '{}', true);
-                                $cat_lower = strtolower($notif['jo_service_category'] ?? $cust_data['service_type'] ?? $display_name);
-                                
-                                if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
-                                    $final_image_url = "/printflow/public/images/products/signage.jpg";
-                                } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
-                                    $final_image_url = "/printflow/public/images/products/product_41.jpg";
-                                } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
-                                    $final_image_url = "/printflow/public/images/services/Sintraboard Standees.jpg";
-                                } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
-                                    $final_image_url = "/printflow/public/images/products/product_31.jpg";
-                                } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
-                                    if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
-                                        $final_image_url = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
-                                    } else {
-                                        $final_image_url = "/printflow/public/images/products/product_21.jpg";
-                                    }
-                                } else {
-                                    // Extreme fallback: Store logo
-                                    $final_image_url = "/printflow/public/assets/images/icon-192.png";
-                                }
-                            }
+                            $fallback_img = '/printflow/public/assets/images/placeholder.jpg';
 
                             // Determine redirection link
                             $link = "/printflow/customer/notifications.php?mark_read=" . $notif['notification_id'];
@@ -348,7 +317,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <a href="<?php echo $link; ?>" class="notif-item <?php echo $notif['is_read'] ? '' : 'unread'; ?>">
                                 
                                 <div class="notif-avatar">
-                                    <img src="<?php echo htmlspecialchars($final_image_url); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" class="notif-image" onerror="this.src='/printflow/public/assets/images/icon-192.png';">
+                                    <img src="<?php echo htmlspecialchars($final_image_url); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" class="notif-image" onerror="this.src='<?php echo $fallback_img; ?>';">
                                 </div>
 
                                 <div class="notif-content">
@@ -407,6 +376,5 @@ function time_elapsed_string($datetime, $full = false) {
 }
 ?>
 
-<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 

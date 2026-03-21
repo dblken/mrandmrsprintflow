@@ -244,14 +244,13 @@ $page_title = 'Notifications - Staff';
                                 <?php echo $chat_unread; ?> unread chat message<?php echo $chat_unread > 1 ? 's' : ''; ?>
                             </div>
                         <?php endif; ?>
-                        <?php if (!empty($notif['data_id']) && $notif['type'] === 'Order' && !$is_rating_notif): ?>
+                        <?php if (!empty($notif['data_id']) && in_array($notif['type'], ['Order', 'Message', 'Design']) && !$is_rating_notif): ?>
                             <div style="margin-top:10px;">
-                                <button
-                                    onclick="event.preventDefault(); event.stopPropagation(); openOrderChat(<?php echo (int)$notif['data_id']; ?>, '<?php echo addslashes($notif['customer_name'] ?? 'Customer'); ?>')"
-                                    style="border:none; background:#0a2530; color:#fff; border-radius:7px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;"
+                                <a href="<?php echo BASE_URL; ?>/staff/chats.php?order_id=<?php echo (int)$notif['data_id']; ?>"
+                                    style="display:inline-block; border:none; background:#0a2530; color:#fff; border-radius:7px; padding:6px 12px; font-size:12px; font-weight:700; text-decoration:none;"
                                 >
-                                    Message Customer
-                                </button>
+                                    Open Chat
+                                </a>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -268,7 +267,6 @@ $page_title = 'Notifications - Staff';
     </div>
 </div>
 
-<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
 </body>
 </html>

@@ -62,6 +62,10 @@ require_once __DIR__ . '/shop_config.php';
                             Products
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
+                        <a href="<?php echo $base_url; ?>/staff/chats.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
+                            Chats
+                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                        </a>
                     <?php elseif (is_customer()): ?>
                         <a href="<?php echo $base_url; ?>/customer/services.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Services
@@ -71,12 +75,12 @@ require_once __DIR__ . '/shop_config.php';
                             Products
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
-                        <a href="<?php echo $base_url; ?>/customer/custom_orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            Custom Orders
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
                         <a href="<?php echo $base_url; ?>/customer/orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             My Orders
+                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
+                        </a>
+                        <a href="<?php echo $base_url; ?>/customer/messages.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
+                            Messages
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php endif; ?>

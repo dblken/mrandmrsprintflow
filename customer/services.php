@@ -277,70 +277,49 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
             <svg style="width: 1.5rem; height: 1.5rem; color: #1f2937;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
 
-        <!-- Scrollable Body Section -->
-        <div id="service-modal-scroll-body" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column;">
+        <!-- Scrollable Body Section (content only - no buttons) -->
+        <div id="service-modal-scroll-body" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; min-height: 0;">
             <!-- Image Section (Fixed Aspect Ratio) -->
-            <div style="width: 100%; height: 420px; position: relative; background: #f3f4f6; flex-shrink: 0;">
+            <div style="width: 100%; height: 280px; position: relative; background: #f3f4f6; flex-shrink: 0;">
                 <img id="modal-img" src="" alt="" style="width: 100%; height: 100%; object-fit: cover;">
                 <div style="position: absolute; top: 1.25rem; left: 1.25rem; z-index: 10;">
                     <span id="modal-category" style="padding: 0.35rem 0.85rem; background: #ffffff; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; border-radius: 0.5rem; color: #4F46E5; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.05em;">Category</span>
                 </div>
             </div>
 
-            <!-- Info Section (Same as Card Body) -->
-            <div style="padding: 2.25rem; display: flex; flex-direction: column; background: #ffffff;">
-                <h2 id="modal-name" style="font-size: 1.75rem; font-weight: 800; color: #111827; margin: 0 0 0.85rem 0; line-height: 1.2;">Service Name</h2>
+            <!-- Info Section -->
+            <div style="padding: 1.5rem 2rem; display: flex; flex-direction: column; background: #ffffff;">
+                <h2 id="modal-name" style="font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.75rem 0; line-height: 1.2;">Service Name</h2>
                 
-                <div id="modal-price-container" style="margin-bottom: 1.25rem; display: none;">
-                    <p id="modal-price" style="font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0;"></p>
+                <div id="modal-price-container" style="margin-bottom: 1rem; display: none;">
+                    <p id="modal-price" style="font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0;"></p>
                     <div id="modal-stock" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600;"></div>
                 </div>
 
-                <p style="color: #4b5563; margin-bottom: 2rem; line-height: 1.7; font-size: 0.95rem;">
+                <p style="color: #4b5563; margin: 0; line-height: 1.6; font-size: 0.9rem;">
                     Choose this service to start your customization. You will be able to select specific materials, sizes, and upload your layout on the next page to complete your order.
                 </p>
+            </div>
+        </div>
 
-                <!-- Action Buttons Section -->
-                <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <!-- Quantity Selector & Action Buttons -->
-                    <div id="modal-cart-section" style="display: none;">
-                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em;">Quantity</label>
-                        
-                        <!-- Controls Row -->
-                        <div class="modal-action-row">
-                            <!-- Quantity Controls -->
-                            <div class="modal-qty-block">
-                                <button type="button" onclick="decreaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
-                                    −
-                                </button>
-                                <span id="modal-quantity-display" style="width: 50px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; color: #111827;">1</span>
-                                <button type="button" onclick="increaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
-                                    +
-                                </button>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="modal-action-buttons">
-                                <!-- Add to Cart Button -->
-                                <button type="button" onclick="addServiceToCart()" class="modal-action-btn" style="background: #111827; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15);">
-                                    <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="9" cy="21" r="1"></circle>
-                                        <circle cx="20" cy="21" r="1"></circle>
-                                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                                    </svg>
-                                    Add to Cart
-                                </button>
-
-                                <!-- Buy Now Button -->
-                                <button type="button" onclick="buyNowService()" class="modal-action-btn" style="background: #0a2530; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(10, 37, 48, 0.15);">
-                                    <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9 19c-5 1.5-5-2.5-7-4m14 6v-3.87a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 17.25 8.75h-7.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A3.375 3.375 0 0 0 4.125 2.75h-1.5A3.375 3.375 0 0 0 -0.75 6.125v7.5A3.375 3.375 0 0 0 2.625 17h15.75A3.375 3.375 0 0 0 21.75 13.625Z"></path>
-                                    </svg>
-                                    Buy Now
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Fixed Footer - Always Visible (Buy Now & Add to Cart) -->
+        <div id="modal-cart-section" style="display: none; flex-shrink: 0; padding: 1.25rem 2rem; background: #ffffff; border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05);">
+            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em;">Quantity</label>
+            <div class="modal-action-row">
+                <div class="modal-qty-block">
+                    <button type="button" onclick="decreaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">−</button>
+                    <span id="modal-quantity-display" style="width: 50px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; color: #111827;">1</span>
+                    <button type="button" onclick="increaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <div class="modal-action-buttons">
+                    <button type="button" onclick="addServiceToCart()" class="modal-action-btn" style="background: #111827; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15);">
+                        <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                        Add to Cart
+                    </button>
+                    <button type="button" onclick="buyNowService()" class="modal-action-btn" style="background: #0a2530; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(10, 37, 48, 0.15);">
+                        <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-4m14 6v-3.87a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 17.25 8.75h-7.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A3.375 3.375 0 0 0 4.125 2.75h-1.5A3.375 3.375 0 0 0 -0.75 6.125v7.5A3.375 3.375 0 0 0 2.625 17h15.75A3.375 3.375 0 0 0 21.75 13.625Z"></path></svg>
+                        Buy Now
+                    </button>
                 </div>
             </div>
         </div>
@@ -376,7 +355,7 @@ function openServiceModal(name, category, img, link, is_service, price, stock) {
     const cartSection = document.getElementById('modal-cart-section');
     
     // Show quantity and cart for all items (services and products)
-    cartSection.style.display = 'flex';
+    cartSection.style.display = 'block';
     document.getElementById('modal-quantity-display').textContent = '1';
     
     // Show price and stock only for products

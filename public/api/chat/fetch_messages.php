@@ -25,15 +25,14 @@ $messages_raw = db_query($sql, 'ii', [$order_id, $last_id]);
 $messages = [];
 if ($messages_raw) {
     foreach ($messages_raw as $msg) {
-        // Map "Staff", "Admin", "Manager" roles to table's "Staff" enum if necessary
-        $is_staff_msg = ($msg['sender'] === 'Staff');
+        $is_system = ($msg['sender'] === 'System');
         $is_self = false;
-        
-        if ($user_type === 'Customer') {
-            $is_self = ($msg['sender'] === 'Customer');
-        } else {
-            // Staff/Admin/Manager are all "Staff" in order_messages
-            $is_self = ($msg['sender'] === 'Staff');
+        if (!$is_system) {
+            if ($user_type === 'Customer') {
+                $is_self = ($msg['sender'] === 'Customer');
+            } else {
+                $is_self = ($msg['sender'] === 'Staff');
+            }
         }
 
         $image_path = (string)($msg['image_path'] ?? '');
@@ -50,12 +49,13 @@ if ($messages_raw) {
             'image_path' => $image_path,
             'created_at' => date('h:i A', strtotime($msg['created_at'])),
             'is_self' => $is_self,
-            'is_seen' => (bool)$msg['read_receipt']
+            'is_seen' => (bool)$msg['read_receipt'],
+            'is_system' => $is_system
         ];
     }
 }
 
-// 2. Mark messages as seen if we are fetching them
+// 2. Mark messages as seen (exclude System - they're auto-read)
 $target_sender = ($user_type === 'Customer') ? 'Staff' : 'Customer';
 db_execute("UPDATE order_messages SET read_receipt = 1 WHERE order_id = ? AND sender = ? AND read_receipt = 0", 'is', [$order_id, $target_sender]);
 

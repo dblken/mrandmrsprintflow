@@ -2,6 +2,7 @@
 /**
  * Glass & Wall Sticker Printing - Service Order Form
  * PrintFlow - Service-Based Ordering
+ * Simplified flow: Dimensions/Coverage, Surface Type, Installation, File Upload, Quantity, Needed Date
  */
 
 require_once __DIR__ . '/../includes/auth.php';
@@ -12,36 +13,40 @@ require_role('Customer');
 $customer_id = get_user_id();
 
 $error = '';
-$success = '';
+$addr_api = (defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/api_address_public.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Collect all fields
-    $fields = [
-        'branch_id' => trim($_POST['branch_id'] ?? '1'),
-        'surface_type' => trim($_POST['surface_type'] ?? ''),
-        'sticker_type' => trim($_POST['sticker_type'] ?? ''),
-        'width' => trim($_POST['width'] ?? ''),
-        'height' => trim($_POST['height'] ?? ''),
-        'unit' => trim($_POST['unit'] ?? 'Inches'),
-        'coverage_type' => trim($_POST['coverage_type'] ?? 'Custom Size'),
-        'total_glass_width' => trim($_POST['total_glass_width'] ?? ''),
-        'total_glass_height' => trim($_POST['total_glass_height'] ?? ''),
-        'panel_count' => trim($_POST['panel_count'] ?? ''),
-        'design_service' => trim($_POST['design_service'] ?? ''),
-        'design_concept' => trim($_POST['design_concept'] ?? ''),
-        'installation_option' => trim($_POST['installation_option'] ?? ''),
-        'installation_address' => trim($_POST['installation_address'] ?? ''),
-        'floor_level' => trim($_POST['floor_level'] ?? ''),
-        'location_type' => trim($_POST['location_type'] ?? ''),
-        'print_coverage' => trim($_POST['print_coverage'] ?? ''),
-        'quantity' => (int)($_POST['quantity'] ?? 1),
-        'notes' => trim($_POST['notes'] ?? ''),
-        'total_price' => trim($_POST['hidden_total_price'] ?? '0'),
-    ];
+    $branch_id = (int)($_POST['branch_id'] ?? 1);
+    $width = trim($_POST['width'] ?? '');
+    $height = trim($_POST['height'] ?? '');
+    $unit = trim($_POST['unit'] ?? 'ft');
+    $surface_type = trim($_POST['surface_type'] ?? '');
+    $surface_other = trim($_POST['surface_type_other'] ?? '');
+    $lamination = trim($_POST['lamination'] ?? '');
+    $installation = trim($_POST['installation'] ?? '');
+    $quantity = (int)($_POST['quantity'] ?? 1);
+    $needed_date = trim($_POST['needed_date'] ?? '');
+    $notes = trim($_POST['notes'] ?? '');
 
-    // Basic Validation
-    if (empty($fields['surface_type']) || empty($fields['sticker_type']) || $fields['quantity'] < 1) {
-        $error = 'Please fill in all required fields.';
+    $province = trim($_POST['install_province'] ?? '');
+    $city = trim($_POST['install_city'] ?? '');
+    $barangay = trim($_POST['install_barangay'] ?? '');
+    $street = trim($_POST['install_street'] ?? '');
+
+    $surface_display = ($surface_type === 'Others' && $surface_other) ? $surface_other : $surface_type;
+
+    if (empty($width) || empty($height) || $quantity < 1) {
+        $error = 'Please fill in Dimensions and Quantity.';
+    } elseif (empty($surface_type)) {
+        $error = 'Please select Surface Type.';
+    } elseif ($surface_type === 'Others' && empty($surface_other)) {
+        $error = 'Please specify your surface type when Others is selected.';
+    } elseif (empty($lamination)) {
+        $error = 'Please select Lamination.';
+    } elseif (empty($needed_date)) {
+        $error = 'Please select when you need the order.';
+    } elseif ($installation === 'With Installation' && (empty($province) || empty($city) || empty($barangay) || empty($street))) {
+        $error = 'Please complete the installation address (Province, City/Municipality, Barangay, Street/Purok).';
     } elseif (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK) {
         $error = 'Please upload your design.';
     } else {
@@ -49,61 +54,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$valid['ok']) {
             $error = $valid['error'];
         } else {
-            // Standard Product Integration (Glass Stickers ID: 11)
-            $product_id = 11;
-            $product_name = 'Glass & Wall Sticker Printing';
-            $price_per_unit = (float)$fields['total_price'] / $fields['quantity'];
+            $item_key = 'glass_' . time() . '_' . rand(100, 999);
+            $original_name = $_FILES['design_file']['name'];
+            $mime = $valid['mime'];
+            $ext = pathinfo($original_name, PATHINFO_EXTENSION);
+            $new_name = uniqid('tmp_') . '.' . $ext;
+            $tmp_dest = __DIR__ . '/../uploads/temp/' . $new_name;
 
-            // Process file for session
-            $tmp_dir = __DIR__ . '/../uploads/temp';
-            if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
-            
-            $db_data = file_get_contents($_FILES['design_file']['tmp_name']);
-            $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
-            $tmp_filename = uniqid('glass_') . '.' . $ext;
-            $tmp_path = $tmp_dir . '/' . $tmp_filename;
-            file_put_contents($tmp_path, $db_data);
-            
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mime  = finfo_file($finfo, $_FILES['design_file']['tmp_name']);
-            finfo_close($finfo);
+            if (move_uploaded_file($_FILES['design_file']['tmp_name'], $tmp_dest)) {
+                $w = (float)$width;
+                $h = (float)$height;
+                $area = $w * $h;
+                if ($unit === 'in') $area = $area / 144;
+                $unit_price = 45.00;
+                $base_price = $area * $unit_price * $quantity;
 
-            if (!isset($_SESSION['cart'])) {
-                $_SESSION['cart'] = [];
-            }
-
-            $item_key = $product_id . '_' . time();
-
-            // Structure customization fields for the filter
-            $customization = [];
-            foreach ($fields as $k => $v) {
-                if ($k !== 'total_price' && $k !== 'quantity' && $k !== 'branch_id') {
-                    $customization[$k] = $v;
+                $installation_fee = 0;
+                if ($installation === 'With Installation') {
+                    $installation_fee = 500 + ($area * 15);
                 }
-            }
 
-            $_SESSION['cart'][$item_key] = [
-                'product_id'     => $product_id,
-                'branch_id'      => $fields['branch_id'],
-                'name'           => $product_name,
-                'category'       => 'Glass & Wall Sticker Printing',
-                'price'          => $price_per_unit,
-                'quantity'       => $fields['quantity'],
-                'image'          => '🪟',
-                'customization'  => $customization,
-                'design_notes'   => $fields['notes'],
-                'design_tmp_path'=> $tmp_path,
-                'design_mime'    => $mime,
-                'design_name'    => $_FILES['design_file']['name'],
-                'reference_tmp_path' => null,
-                'reference_mime'     => null,
-                'reference_name'     => null
-            ];
+                $_SESSION['cart'][$item_key] = [
+                    'type' => 'Service',
+                    'product_id' => 11,
+                    'name' => 'Glass & Wall Sticker Printing',
+                    'price' => $base_price + $installation_fee,
+                    'quantity' => $quantity,
+                    'category' => 'Glass & Wall Sticker Printing',
+                    'branch_id' => $branch_id,
+                    'design_tmp_path' => $tmp_dest,
+                    'design_name' => $original_name,
+                    'design_mime' => $mime,
+                    'customization' => [
+                        'width' => $width,
+                        'height' => $height,
+                        'unit' => $unit,
+                        'surface_type' => $surface_display,
+                        'lamination' => $lamination,
+                        'installation' => $installation,
+                        'installation_fee' => $installation_fee,
+                        'install_province' => $province,
+                        'install_city' => $city,
+                        'install_barangay' => $barangay,
+                        'install_street' => $street,
+                        'needed_date' => $needed_date,
+                        'notes' => $notes
+                    ]
+                ];
 
-            if (isset($_POST['buy_now'])) {
-                redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
+                if (isset($_POST['buy_now'])) {
+                    redirect("order_review.php?item=" . urlencode($item_key));
+                } else {
+                    redirect("cart.php");
+                }
             } else {
-                redirect(BASE_URL . '/customer/cart.php');
+                $error = 'Failed to process uploaded file.';
             }
         }
     }
@@ -117,378 +122,349 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 ?>
 
 <div class="min-h-screen py-8">
-    <div class="container mx-auto px-4" style="max-width: 800px;">
-        <div class="flex items-center justify-between mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">Glass & Wall Sticker Printing</h1>
-            <a href="services.php" class="text-sm font-bold text-black border-b-2 border-black">← Back to Services</a>
+    <div class="container mx-auto px-4 glass-order-container">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Glass & Wall Sticker Printing</h1>
+        <?php if ($error): ?><div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
+
+        <div class="card glass-form-card">
+            <form action="" method="POST" enctype="multipart/form-data" id="glassForm">
+                <?php echo csrf_field(); ?>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+                    <select name="branch_id" class="input-field" required>
+                        <?php foreach ($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- 1. Dimensions / Coverage (Feet only) -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Dimensions / Coverage *</label>
+                    <p class="dim-feet-note">(Values are in feet)</p>
+                    <div class="option-grid option-grid-dim">
+                        <button type="button" class="opt-btn" data-width="2" data-height="3" onclick="selectDimension(2, 3, event)">2×3</button>
+                        <button type="button" class="opt-btn" data-width="4" data-height="6" onclick="selectDimension(4, 6, event)">4×6</button>
+                        <button type="button" class="opt-btn" data-width="6" data-height="8" onclick="selectDimension(6, 8, event)">6×8</button>
+                        <button type="button" class="opt-btn" id="dim-others-btn" onclick="selectDimensionOthers(event)">Others</button>
+                    </div>
+                    <input type="hidden" name="width" id="width_hidden">
+                    <input type="hidden" name="height" id="height_hidden">
+                    <input type="hidden" name="unit" value="ft">
+                    <div id="dim-others-inputs" class="dim-others-row" style="display: none; margin-top: 1rem;">
+                        <div>
+                            <label class="dim-label">Custom Width (ft)</label>
+                            <input type="text" inputmode="numeric" id="custom_width" class="input-field" placeholder="e.g. 10">
+                        </div>
+                        <div class="dim-sep">×</div>
+                        <div>
+                            <label class="dim-label">Custom Height (ft)</label>
+                            <input type="text" inputmode="numeric" id="custom_height" class="input-field" placeholder="e.g. 12">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Surface Type (3×2 grid) -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Surface Type *</label>
+                    <div class="option-grid option-grid-3x2">
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Glass (Window/Door/Storefront)"> <span>Glass</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Wall (Painted/Concrete)"> <span>Wall</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Frosted Glass"> <span>Frosted Glass</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Mirror"> <span>Mirror</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Acrylic/Panel"> <span>Acrylic/Panel</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="surface_type" value="Others"> <span>Others</span></label>
+                    </div>
+                    <div id="surface-other-wrap" style="display: none; margin-top: 0.75rem;">
+                        <input type="text" name="surface_type_other" id="surface_type_other" class="input-field" placeholder="Specify surface type..." maxlength="100">
+                    </div>
+                </div>
+
+                <!-- 3. Lamination + Installation (One Row) -->
+                <div class="glass-one-row mb-4">
+                    <div class="glass-one-row-item">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lamination *</label>
+                        <div class="opt-btn-group opt-btn-inline">
+                            <label class="opt-btn-wrap"><input type="radio" name="lamination" value="With Laminate"> <span>With Laminate</span></label>
+                            <label class="opt-btn-wrap"><input type="radio" name="lamination" value="Without Laminate"> <span>Without Laminate</span></label>
+                        </div>
+                    </div>
+                    <div class="glass-one-row-item">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Installation</label>
+                        <div class="opt-btn-group opt-btn-inline">
+                            <label class="opt-btn-wrap"><input type="radio" name="installation" value="With Installation"> <span>With Installation</span></label>
+                            <label class="opt-btn-wrap"><input type="radio" name="installation" value="Without Installation"> <span>Without Installation</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="install-address-section" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 0.875rem; color: #92400e;">
+                        <strong>Installation fee varies based on distance.</strong> A base fee is applied; the final amount may be adjusted after location confirmation by our team.
+                    </div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Installation Address *</label>
+                    <div class="space-y-3">
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; display: block; margin-bottom: 0.25rem;">Province</label>
+                            <select name="install_province" id="install_province" class="input-field" disabled>
+                                <option value="">— Select Province —</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; display: block; margin-bottom: 0.25rem;">City / Municipality</label>
+                            <select name="install_city" id="install_city" class="input-field" disabled>
+                                <option value="">— Select City / Municipality —</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; display: block; margin-bottom: 0.25rem;">Barangay</label>
+                            <select name="install_barangay" id="install_barangay" class="input-field" disabled>
+                                <option value="">— Select Barangay —</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #6b7280; font-weight: 600; display: block; margin-bottom: 0.25rem;">Street / Purok</label>
+                            <input type="text" name="install_street" id="install_street" class="input-field" placeholder="Street name, Purok, etc." disabled>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quantity + Needed Date + Upload Design (One Row) -->
+                <div class="glass-qty-date-upload-row mb-4">
+                    <div class="glass-qdu-item">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                        <div class="qty-control">
+                            <button type="button" onclick="decreaseQty()" class="qty-btn">−</button>
+                            <input type="number" id="quantity-input" name="quantity" min="1" value="<?php echo (int)($_POST['quantity'] ?? ($_GET['qty'] ?? 1)); ?>">
+                            <button type="button" onclick="increaseQty()" class="qty-btn">+</button>
+                        </div>
+                    </div>
+                    <div class="glass-qdu-item">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Needed Date * <span class="text-gray-500 font-normal">(dd/mm/yyyy)</span></label>
+                        <input type="date" name="needed_date" id="needed_date" class="input-field input-same-height" value="<?php echo htmlspecialchars($_POST['needed_date'] ?? ''); ?>" required min="<?php echo date('Y-m-d'); ?>">
+                    </div>
+                    <div class="glass-qdu-item">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Design * (JPG, PNG, PDF - max 5MB)</label>
+                        <input type="file" name="design_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field" required>
+                    </div>
+                </div>
+
+                <div class="mb-4 tarp-notes-wrap">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea name="notes" rows="3" class="input-field tarp-notes"><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
+                </div>
+
+                <!-- Buttons -->
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none;">Back to Services</a>
+                    <button type="submit" name="buy_now" value="1" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 0.02em;">Buy Now</button>
+                </div>
+            </form>
         </div>
-
-        <?php if ($error): ?>
-        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-
-        <form method="POST" enctype="multipart/form-data" id="orderForm" class="space-y-6">
-            <?php echo csrf_field(); ?>
-            <input type="hidden" name="hidden_total_price" id="hidden_total_price" value="0">
-
-            <!-- Left Side: Customization Forms -->
-            <div class="space-y-6">
-                <!-- SECTION 1 – Surface & Material -->
-                <div class="card p-6">
-                    <div class="flex items-center gap-2 mb-6">
-                        <span class="text-2xl">🪟</span>
-                        <h2 class="text-xl font-bold uppercase tracking-wider">Surface & Material</h2>
-                    </div>
-                    
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-3 uppercase">Branch *</label>
-                            <select name="branch_id" class="input-field w-full" required>
-                                <?php foreach($branches as $b): ?>
-                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-3 uppercase">Surface Type (Required)</label>
-                            <div class="grid grid-cols-1 gap-2">
-                                <?php foreach(['Glass (Window / Door / Storefront)', 'Wall (Painted / Concrete)', 'Frosted Glass (Privacy type)', 'Mirror', 'Acrylic / Panel'] as $surface): ?>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                                    <input type="radio" name="surface_type" value="<?php echo $surface; ?>" class="w-4 h-4 text-black" required <?php echo (($_POST['surface_type'] ?? '') === $surface) ? 'checked' : ''; ?>>
-                                    <span class="ml-3 text-sm font-medium"><?php echo $surface; ?></span>
-                                </label>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Sticker Type / Material (Required)</label>
-                            <select name="sticker_type" id="sticker_type" class="input-field w-full" required onchange="calculatePrice()">
-                                <option value="" disabled selected>Select Material</option>
-                                <option value="Clear Sticker (Transparent)">Clear Sticker (Transparent)</option>
-                                <option value="Frosted Sticker (Privacy Film)">Frosted Sticker (Privacy Film)</option>
-                                <option value="Opaque Vinyl">Opaque Vinyl</option>
-                                <option value="One-Way Vision">One-Way Vision</option>
-                                <option value="Removable Vinyl">Removable Vinyl</option>
-                                <option value="Permanent Vinyl">Permanent Vinyl</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION 2 – Size Specifications -->
-                <div class="card p-6">
-                    <div class="flex items-center gap-2 mb-6">
-                        <span class="text-2xl">📏</span>
-                        <h2 class="text-xl font-bold uppercase tracking-wider">Size Specifications</h2>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="flex gap-4">
-                            <label class="flex-1 flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" id="labelOptionA">
-                                <input type="radio" name="coverage_type" value="Custom Size" class="w-4 h-4 text-black" checked onchange="toggleSizeOptions()">
-                                <span class="ml-3 font-bold uppercase text-sm">Option A – Custom Size</span>
-                            </label>
-                            <label class="flex-1 flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" id="labelOptionB">
-                                <input type="radio" name="coverage_type" value="Coverage Type" class="w-4 h-4 text-black" onchange="toggleSizeOptions()">
-                                <span class="ml-3 font-bold uppercase text-sm">Option B – Coverage Type</span>
-                            </label>
-                        </div>
-
-                        <!-- Option A Fields -->
-                        <div id="sectionOptionA" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Width *</label>
-                                <input type="number" name="width" id="width" step="0.1" min="0.1" class="input-field w-full" oninput="calculatePrice()">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Height *</label>
-                                <input type="number" name="height" id="height" step="0.1" min="0.1" class="input-field w-full" oninput="calculatePrice()">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Unit *</label>
-                                <select name="unit" id="unit" class="input-field w-full" onchange="calculatePrice()">
-                                    <option value="Inches">Inches</option>
-                                    <option value="Feet">Feet</option>
-                                    <option value="Centimeters">Centimeters</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Option B Fields -->
-                        <div id="sectionOptionB" class="hidden space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <?php foreach(['Full Glass Coverage', 'Half Glass', 'Custom Area'] as $coverage): ?>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                                    <input type="radio" name="coverage_detail" value="<?php echo $coverage; ?>" class="w-4 h-4 text-black" onchange="toggleCoverageDetails()">
-                                    <span class="ml-3 text-sm font-medium"><?php echo $coverage; ?></span>
-                                </label>
-                                <?php endforeach; ?>
-                            </div>
-
-                            <div id="fullGlassFields" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Total Glass Width</label>
-                                    <input type="number" name="total_glass_width" id="total_glass_width" class="input-field w-full" oninput="calculatePrice()">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Total Glass Height</label>
-                                    <input type="number" name="total_glass_height" id="total_glass_height" class="input-field w-full" oninput="calculatePrice()">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Panel Count</label>
-                                    <input type="number" name="panel_count" id="panel_count" min="1" class="input-field w-full" value="1" oninput="calculatePrice()">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION 3 – Design & Installation -->
-                <div class="card p-6">
-                    <div class="flex items-center gap-2 mb-6">
-                        <span class="text-2xl">🎨</span>
-                        <h2 class="text-xl font-bold uppercase tracking-wider">Design & Installation</h2>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-gray-50">
-                            <label class="block cursor-pointer">
-                                <span class="block text-2xl mb-2">�</span>
-                                <span class="block text-xs font-bold text-black uppercase mb-1">Upload Your File (Design, Image, or PDF) – Max 5MB</span>
-                                <input type="file" name="design_file" id="design_file" accept=".jpg,.jpeg,.png,.pdf" class="hidden" onchange="updateFileName(this)" required>
-                                <span id="fileNameDisplay" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full hidden"></span>
-                                <span class="btn-primary inline-block py-1.5 px-4 rounded-lg cursor-pointer mt-2 text-xs">Browse Files</span>
-                            </label>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Print Coverage *</label>
-                            <select name="print_coverage" class="input-field w-full" required onchange="calculatePrice()">
-                                <option value="" disabled selected>Select Print Coverage</option>
-                                <option value="Full Color Print">Full Color Print</option>
-                                <option value="Cut Only (Vinyl Letters Only)">Cut Only (Vinyl Letters Only)</option>
-                                <option value="Frosted with Cut Logo">Frosted with Cut Logo</option>
-                                <option value="Logo + Text Only">Logo + Text Only</option>
-                            </select>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                                <input type="radio" name="installation_option" value="Pickup Only (Client installs)" class="w-4 h-4 text-black" checked onchange="toggleInstallationFields(); calculatePrice();">
-                                <span class="ml-3 text-xs font-bold uppercase">Pickup Only</span>
-                            </label>
-                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                                <input type="radio" name="installation_option" value="With Installation Service" class="w-4 h-4 text-black" onchange="toggleInstallationFields(); calculatePrice();">
-                                <span class="ml-3 text-xs font-bold uppercase">Installation</span>
-                            </label>
-                        </div>
-
-                        <div id="installationFields" class="hidden p-4 bg-gray-50 rounded-lg space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Installation Address *</label>
-                                <textarea name="installation_address" rows="2" class="input-field w-full text-sm" placeholder="Full address for installation..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION 4 – Quantity & Notes -->
-                <div class="card p-6">
-                    <div class="flex items-center gap-2 mb-6">
-                        <span class="text-2xl">📝</span>
-                        <h2 class="text-xl font-bold uppercase tracking-wider">Order Details</h2>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Quantity *</label>
-                            <input type="number" name="quantity" id="quantity" min="1" value="<?php echo (int)($_GET['qty'] ?? 1); ?>" class="input-field w-full font-bold" required oninput="calculatePrice()">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Additional Notes</label>
-                            <textarea name="notes" rows="3" class="input-field w-full text-sm" placeholder="Any special instructions..."></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Submit Button Group -->
-                <div style="display:flex; gap:1rem; margin-top:2rem;">
-                    <!-- Buy Now Button (Solid) -->
-                    <button type="submit" name="buy_now" value="1" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
-                        Buy Now
-                    </button>
-                </div>
-            </div>
-        </form>
     </div>
 </div>
 
-<script>
-function toggleSizeOptions() {
-    const coverage = document.querySelector('input[name="coverage_type"]:checked').value;
-    const sectionA = document.getElementById('sectionOptionA');
-    const sectionB = document.getElementById('sectionOptionB');
-    
-    if (coverage === 'Custom Size') {
-        sectionA.classList.remove('hidden');
-        sectionB.classList.add('hidden');
-    } else {
-        sectionA.classList.add('hidden');
-        sectionB.classList.remove('hidden');
-    }
-    calculatePrice();
-}
-
-function toggleCoverageDetails() {
-    const detail = document.querySelector('input[name="coverage_detail"]:checked')?.value;
-    const fullGlassFields = document.getElementById('fullGlassFields');
-    
-    if (detail === 'Full Glass Coverage') {
-        fullGlassFields.classList.remove('hidden');
-    } else {
-        fullGlassFields.classList.add('hidden');
-    }
-    calculatePrice();
-}
-
-function toggleDesignService() {
-    const service = document.querySelector('input[name="design_service"]:checked').value;
-    const conceptSection = document.getElementById('designConceptSection');
-    
-    if (service === 'I need layout/design service') {
-        conceptSection.classList.remove('hidden');
-    } else {
-        conceptSection.classList.add('hidden');
-    }
-}
-
-function toggleInstallationFields() {
-    const option = document.querySelector('input[name="installation_option"]:checked').value;
-    const fields = document.getElementById('installationFields');
-    
-    if (option === 'With Installation Service') {
-        fields.classList.remove('hidden');
-    } else {
-        fields.classList.add('hidden');
-    }
-}
-
-function updateFileName(input) {
-    const fileName = input.files[0] ? input.files[0].name : '';
-    const display = document.getElementById('fileNameDisplay');
-    if (fileName) {
-        display.textContent = '📄 ' + fileName;
-        display.classList.remove('hidden');
-    } else {
-        display.classList.add('hidden');
-    }
-}
-
-function calculatePrice() {
-    const stickerType = document.getElementById('sticker_type').value;
-    const coverageType = document.querySelector('input[name="coverage_type"]:checked').value;
-    const quantity = parseInt(document.getElementById('quantity').value) || 1;
-    const installOption = document.querySelector('input[name="installation_option"]:checked').value;
-
-    let sqft = 0;
-    
-    if (coverageType === 'Custom Size') {
-        const w = parseFloat(document.getElementById('width').value) || 0;
-        const h = parseFloat(document.getElementById('height').value) || 0;
-        const unit = document.getElementById('unit').value;
-        
-        if (unit === 'Inches') sqft = (w * h) / 144;
-        else if (unit === 'Feet') sqft = w * h;
-        else if (unit === 'Centimeters') sqft = (w * h) / 929.03;
-    } else {
-        const detail = document.querySelector('input[name="coverage_detail"]:checked')?.value;
-        if (detail === 'Full Glass Coverage') {
-            const w = parseFloat(document.getElementById('total_glass_width').value) || 0;
-            const h = parseFloat(document.getElementById('total_glass_height').value) || 0;
-            const panels = parseInt(document.getElementById('panel_count').value) || 1;
-            sqft = w * h * panels; // Assuming coverage width/height is given in feet by default for coverage type
-        }
-    }
-
-    // BASE RATES per SqFt (Estimated)
-    let rate = 45; // Default Opaque Vinyl
-    if (stickerType.includes('Frosted')) rate = 65;
-    if (stickerType.includes('Clear')) rate = 55;
-    if (stickerType.includes('One-Way')) rate = 85;
-    if (stickerType.includes('Permanent')) rate = 60;
-    
-    let subtotal = sqft * rate * quantity;
-    
-    // Installation Fee (Estimated base + sqft surcharge)
-    if (installOption === 'With Installation Service') {
-        subtotal += 500; // Base visit fee
-        subtotal += (sqft * 15); // Labor per sqft
-    }
-
-    const total = subtotal > 0 ? subtotal : 0;
-    
-    // Update Sidebar/Display
-    const priceDisplay = document.getElementById('priceDisplay');
-    if (priceDisplay) priceDisplay.textContent = '₱' + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    
-    const hiddenTotal = document.getElementById('hidden_total_price');
-    if (hiddenTotal) hiddenTotal.value = total.toFixed(2);
-
-    // Update Sidebar Detail Fields
-    const summaryBaseRate = document.getElementById('summaryBaseRate');
-    if (summaryBaseRate) summaryBaseRate.textContent = '₱' + rate.toFixed(2);
-
-    const summarySqft = document.getElementById('summarySqft');
-    if (summarySqft) summarySqft.textContent = sqft.toFixed(2) + ' sqft';
-
-    const summaryInstallRow = document.getElementById('summaryInstallRow');
-    const summaryInstallFee = document.getElementById('summaryInstallFee');
-    if (summaryInstallRow && summaryInstallFee) {
-        if (installOption === 'With Installation Service') {
-            summaryInstallRow.style.display = 'flex';
-            summaryInstallFee.textContent = '₱' + (500 + (sqft * 15)).toFixed(2);
-        } else {
-            summaryInstallRow.style.display = 'none';
-        }
-    }
-}
-
-// Initial calculation
-calculatePrice();
-</script>
-
 <style>
-.card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 1.25rem;
-    transition: all 0.3s ease;
+.glass-order-container { max-width: 860px; }
+.glass-form-card { overflow: hidden; }
+.dim-feet-note { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.75rem; }
+.dim-label { font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
+.dim-sep { color: #9ca3af; font-weight: 600; margin-bottom: 0.5rem; align-self: center; }
+.dim-others-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; }
+.option-grid { display: grid; gap: 0.5rem; }
+.option-grid-dim { grid-template-columns: repeat(4, 1fr); }
+.option-grid-3x2 { grid-template-columns: repeat(3, 1fr); }
+.glass-one-row { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end; }
+.glass-one-row-item { flex: 1 1 auto; min-width: 160px; }
+.opt-btn-inline { display: flex; gap: 0.5rem; flex-wrap: nowrap; }
+.opt-btn, .opt-btn-wrap { padding: 0.5rem 1rem; min-width: 80px; text-align: center; justify-content: center; border: 2px solid #d1d5db; background: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: #374151; transition: all 0.25s ease; white-space: nowrap; }
+.opt-btn:hover, .opt-btn-wrap:hover { border-color: #0a2530; background: #f9fafb; }
+.opt-btn.active, .opt-btn-wrap:has(input:checked) { border-color: #0a2530; box-shadow: 0 0 0 2px rgba(10,37,48,0.2); background: rgba(10,37,48,0.03); }
+.opt-btn-wrap { display: inline-flex; align-items: center; }
+.opt-btn-wrap input { margin-right: 0.4rem; }
+.opt-btn-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.qty-control { display: flex; align-items: center; height: 42px; border: 2px solid #d1d5db; border-radius: 8px; background: #fff; overflow: hidden; transition: border-color 0.2s ease; width: fit-content; }
+.qty-control:focus-within { border-color: #0a2530; box-shadow: 0 0 0 2px rgba(10,37,48,0.2); }
+.qty-btn { flex: 0 0 42px; height: 42px; border: none; background: #f3f4f6; color: #374151; font-weight: 800; font-size: 1.2rem; cursor: pointer; transition: background 0.2s; }
+.qty-btn:hover { background: #e5e7eb; }
+.qty-control input { flex: 1; min-width: 50px; max-width: 80px; border: none; text-align: center; font-weight: 700; font-size: 1rem; outline: none; background: transparent; }
+.tarp-notes-wrap { max-width: 100%; overflow: hidden; }
+.tarp-notes { width: 100%; max-width: 100%; box-sizing: border-box; }
+.glass-qty-date-upload-row { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: flex-end; }
+.glass-qdu-item { flex: 1 1 auto; min-width: 140px; }
+.input-same-height { height: 42px; padding: 0 0.75rem; box-sizing: border-box; }
+@media (max-width: 768px) {
+    .option-grid-dim { grid-template-columns: repeat(2, 1fr); }
+    .option-grid-3x2 { grid-template-columns: repeat(2, 1fr); }
+    .glass-one-row { flex-direction: column; align-items: stretch; }
+    .glass-one-row-item { min-width: 0; }
+    .glass-qty-date-upload-row { flex-direction: column; align-items: stretch; }
+    .glass-qdu-item { min-width: 0; }
+    .opt-btn-inline { flex-wrap: wrap; }
 }
-.input-field {
-    border: 1px solid #d1d5db;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-}
-.input-field:focus {
-    border-color: black;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
-}
-.btn-primary {
-    background: black;
-    color: white;
-    font-weight: 700;
-}
-.order-modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.45); /* Soft dark overlay without blur */
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
+@media (max-width: 640px) {
+    .glass-qdu-item { width: 100%; }
 }
 </style>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<script>
+const ADDR_API = '<?php echo $addr_api; ?>';
+let dimensionMode = 'preset';
 
+function syncDimensionToHidden() {
+    const wh = document.getElementById('width_hidden');
+    const hh = document.getElementById('height_hidden');
+    wh.value = dimensionMode === 'preset' ? (document.querySelector('.opt-btn.active')?.dataset?.width || '') : document.getElementById('custom_width').value;
+    hh.value = dimensionMode === 'preset' ? (document.querySelector('.opt-btn.active')?.dataset?.height || '') : document.getElementById('custom_height').value;
+}
+
+function selectDimension(w, h, e) {
+    e.preventDefault();
+    dimensionMode = 'preset';
+    document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+    e.target.closest('.opt-btn').classList.add('active');
+    document.getElementById('dim-others-inputs').style.display = 'none';
+    document.getElementById('custom_width').value = '';
+    document.getElementById('custom_height').value = '';
+    syncDimensionToHidden();
+}
+
+function selectDimensionOthers(e) {
+    e.preventDefault();
+    dimensionMode = 'others';
+    document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('dim-others-btn').classList.add('active');
+    document.getElementById('dim-others-inputs').style.display = '';
+    syncDimensionToHidden();
+}
+
+document.querySelectorAll('input[name="surface_type"]').forEach(r => {
+    r.addEventListener('change', function() {
+        document.getElementById('surface-other-wrap').style.display = this.value === 'Others' ? 'block' : 'none';
+    });
+});
+
+document.querySelectorAll('input[name="installation"]').forEach(r => {
+    r.addEventListener('change', function() { toggleInstallAddress(this.value === 'With Installation'); });
+});
+
+function toggleInstallAddress(show) {
+    const sec = document.getElementById('install-address-section');
+    const prov = document.getElementById('install_province');
+    const city = document.getElementById('install_city');
+    const brgy = document.getElementById('install_barangay');
+    const street = document.getElementById('install_street');
+    sec.style.display = show ? 'block' : 'none';
+    [prov, city, brgy, street].forEach(el => { el.disabled = !show; el.required = show; });
+    if (!show) { prov.value = ''; city.innerHTML = '<option value="">— Select City / Municipality —</option>'; city.disabled = true; brgy.innerHTML = '<option value="">— Select Barangay —</option>'; brgy.disabled = true; street.value = ''; }
+}
+
+async function loadProvinces() {
+    const sel = document.getElementById('install_province');
+    try {
+        const r = await fetch(ADDR_API + '?address_action=provinces');
+        const d = await r.json();
+        if (d.success && d.data) {
+            sel.innerHTML = '<option value="">— Select Province —</option>' + d.data.map(p => '<option value="' + (p.code || p.name) + '">' + p.name + '</option>').join('');
+            sel.disabled = false;
+        }
+    } catch (e) { console.error(e); }
+}
+
+document.getElementById('install_province').addEventListener('change', async function() {
+    const code = this.value;
+    const city = document.getElementById('install_city');
+    const brgy = document.getElementById('install_barangay');
+    city.innerHTML = '<option value="">— Select City / Municipality —</option>';
+    brgy.innerHTML = '<option value="">— Select Barangay —</option>';
+    city.disabled = true;
+    brgy.disabled = true;
+    if (!code) return;
+    try {
+        const r = await fetch(ADDR_API + '?address_action=cities&province_code=' + encodeURIComponent(code));
+        const d = await r.json();
+        if (d.success && d.data) {
+            city.innerHTML = '<option value="">— Select City / Municipality —</option>' + d.data.map(c => '<option value="' + (c.code || c.name) + '">' + c.name + '</option>').join('');
+            city.disabled = false;
+        }
+    } catch (e) { console.error(e); }
+});
+
+document.getElementById('install_city').addEventListener('change', async function() {
+    const code = this.value;
+    const brgy = document.getElementById('install_barangay');
+    brgy.innerHTML = '<option value="">— Select Barangay —</option>';
+    brgy.disabled = true;
+    if (!code) return;
+    try {
+        const r = await fetch(ADDR_API + '?address_action=barangays&city_code=' + encodeURIComponent(code));
+        const d = await r.json();
+        if (d.success && d.data) {
+            brgy.innerHTML = '<option value="">— Select Barangay —</option>' + d.data.map(b => '<option value="' + (b.code || b.name) + '">' + b.name + '</option>').join('');
+            brgy.disabled = false;
+        }
+    } catch (e) { console.error(e); }
+});
+
+document.getElementById('glassForm').addEventListener('submit', function(e) {
+    syncDimensionToHidden();
+    const hasDim = document.querySelector('.opt-btn.active');
+    if (!hasDim) {
+        e.preventDefault();
+        alert('Please select a dimension preset or Others.');
+        return false;
+    }
+    if (dimensionMode === 'others') {
+        const cw = document.getElementById('custom_width').value.trim();
+        const ch = document.getElementById('custom_height').value.trim();
+        if (!cw || !ch) {
+            e.preventDefault();
+            alert('Please enter Custom Width and Custom Height when Others is selected.');
+            return false;
+        }
+    }
+    const surf = document.querySelector('input[name="surface_type"]:checked');
+    if (!surf) {
+        e.preventDefault();
+        alert('Please select Surface Type.');
+        return false;
+    }
+    if (surf.value === 'Others' && !document.getElementById('surface_type_other').value.trim()) {
+        e.preventDefault();
+        alert('Please specify your surface type when Others is selected.');
+        return false;
+    }
+    if (!document.querySelector('input[name="lamination"]:checked')) {
+        e.preventDefault();
+        alert('Please select Lamination.');
+        return false;
+    }
+});
+
+['custom_width', 'custom_height'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9.]/g, '').slice(0, 6);
+        syncDimensionToHidden();
+    });
+});
+
+function increaseQty() {
+    const i = document.getElementById('quantity-input');
+    i.value = Math.min(999, (parseInt(i.value) || 1) + 1);
+}
+function decreaseQty() {
+    const i = document.getElementById('quantity-input');
+    const v = parseInt(i.value) || 1;
+    if (v > 1) i.value = v - 1;
+}
+
+document.querySelectorAll('#install-address-section select, #install-address-section input').forEach(el => {
+    if (el.name && el.name.startsWith('install_')) el.required = false;
+});
+toggleInstallAddress(false);
+loadProvinces();
+</script>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

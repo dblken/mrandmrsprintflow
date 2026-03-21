@@ -27,7 +27,7 @@ require_once __DIR__ . '/../includes/header.php';
         <h1 class="text-2xl font-bold text-gray-900 mb-2">Order Submitted Successfully</h1>
         <p class="text-gray-600 mb-6">Your service order #<?php echo $order_id; ?> has been received and is pending review.</p>
         <a href="<?php echo BASE_URL; ?>/customer/service_orders.php" class="btn-primary inline-block">View My Service Orders</a>
-        <p class="mt-4"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>
+        <p class="mt-4"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">Back to Services</a></p>
     </div>
 </div>
 

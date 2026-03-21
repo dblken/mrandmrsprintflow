@@ -121,9 +121,9 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     <label class="block text-sm font-medium text-gray-700 mb-1">📎 Upload Your File (Design, Image, or PDF) – Max 5MB</label>
                     <input type="file" name="reference_file" accept=".jpg,.jpeg,.png,.pdf" class="input-field w-full">
                 </div>
-                <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.75rem; margin-top:2rem; flex-wrap:wrap;">
-                    <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height:48px; min-width:140px; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; background:#f8fafc; color:#0f172a; font-weight:700; font-size:0.9rem; border-radius:10px; border:1px solid #cbd5e1; text-decoration:none;">Back to Services</a>
-                    <button type="submit" name="buy_now" value="1" style="height:48px; min-width:140px; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; background:#0a2530; color:#ffffff; font-weight:800; font-size:0.9rem; border-radius:10px; border:none; cursor:pointer;">Buy Now</button>
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none; transition: all 0.2s;">Back to Services</a>
+                    <button type="submit" name="buy_now" value="1" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">Buy Now</button>
                 </div>
             </form>
         </div>

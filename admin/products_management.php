@@ -72,16 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
-<<<<<<< HEAD
         $product_type = in_array($_POST['product_type'] ?? '', ['fixed','custom']) ? $_POST['product_type'] : 'custom';
-        $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
-=======
         $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
         if ($low_stock_level < 1) $low_stock_level = 10;
-        // Ensure status is exactly one of the DB enum values
         $statusRaw = trim((string)($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 
         // Server-side validation
         if (strlen($name) < 2) {
@@ -121,15 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
                     
                     $result = db_execute(
-<<<<<<< HEAD
-                        "INSERT INTO products (name, sku, category, product_type, description, price, stock_quantity, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                        'sssssdiis',
-                        [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $photo_path]
-=======
-                        "INSERT INTO products (name, sku, category, description, price, stock_quantity, low_stock_level, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                        'ssssdiiss',
-                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path]
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+                        "INSERT INTO products (name, sku, category, product_type, description, price, stock_quantity, low_stock_level, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        'sssssdiiss',
+                        [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path]
                     );
 
                     if ($result) {
@@ -151,15 +140,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $description = sanitize($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
-<<<<<<< HEAD
         $product_type = in_array($_POST['product_type'] ?? '', ['fixed','custom']) ? $_POST['product_type'] : 'custom';
-        $status = in_array($_POST['status'] ?? '', ['Activated','Deactivated']) ? $_POST['status'] : 'Activated';
-=======
         $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
-        // Ensure status matches DB enum exactly
         $statusRaw = trim((string)($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 
         $sku_val = $sku !== '' ? trim($sku) : null;
 
@@ -199,28 +183,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             if ($photo_path) {
                 // Update with new photo
                 $result = db_execute(
-<<<<<<< HEAD
-                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
-                    'sssssdissi',
-                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $photo_path, $product_id]
-=======
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdiissi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path, $product_id]
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
+                    'sssssdiissi',
+                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path, $product_id]
                 );
             } else {
                 // Update without changing photo
                 $result = db_execute(
-<<<<<<< HEAD
-                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
-                    'sssssdisi',
-                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $status, $product_id]
-=======
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdiisi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $product_id]
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+                    "UPDATE products SET name = ?, sku = ?, category = ?, product_type = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
+                    'sssssdiisi',
+                    [$name, $sku_val, $category, $product_type, $description, $price, $stock_quantity, $low_stock_level, $status, $product_id]
                 );
             }
 

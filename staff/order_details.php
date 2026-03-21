@@ -116,13 +116,12 @@ $page_title = "Order #{$order_id} - Staff";
                     <a href="orders" class="back-link">← Back to Orders</a>
                     <h1 class="page-title" style="margin-top:4px;">Order #<?php echo $order_id; ?></h1>
                 </div>
-                <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, '<?php echo addslashes(($order['cust_first'] ?? '') . ' ' . ($order['cust_last'] ?? '')); ?>')" class="btn-primary" style="background:#4F46E5; color:white; border:none; padding:10px 20px; border-radius:10px; font-weight:700; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 6px -1px rgba(79,70,229,0.2);">
+                <a href="<?php echo BASE_URL; ?>/staff/chats.php?order_id=<?php echo $order_id; ?>" class="btn-primary" style="background:#4F46E5; color:white; border:none; padding:10px 20px; border-radius:10px; font-weight:700; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 6px -1px rgba(79,70,229,0.2); text-decoration:none;">
                     💬 Message Customer
-                </button>
+                </a>
             </div>
         </header>
 
-        <?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
         <main>
             <?php if ($success): ?>

@@ -48,17 +48,11 @@ if (!$updated) {
     exit;
 }
 
-// Notify the customer
+// Notify the customer + system message in chat
+$msg = "Your design has been approved.";
 if ($customer_id) {
-    create_notification(
-        $customer_id,
-        'Customer',
-        "Your design for Order #{$order_id} has been approved! Production is starting.",
-        'Design',
-        false,
-        false,
-        $order_id
-    );
+    create_notification($customer_id, 'Customer', $msg, 'Design', false, false, $order_id);
+    add_order_system_message($order_id, $msg);
 }
 
 echo json_encode(['success' => true, 'message' => 'Design successfully approved.']);

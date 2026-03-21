@@ -40,6 +40,10 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
     switch ($type) {
         case 'Order':
         case 'New Order':
+            // Redirect to chat when order-related (data_id = order_id)
+            if ($data_id && $user_type === 'Customer') {
+                return $base . '/customer/chat.php?order_id=' . $data_id;
+            }
             return $user_type === 'Customer'
                 ? $base . '/customer/orders.php'
                 : $base . '/admin/orders_management.php';
@@ -56,6 +60,9 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
             return $base . '/admin/inv_items_management.php';
         case 'Design':
         case 'Customization':
+            if ($data_id && $user_type === 'Customer') {
+                return $base . '/customer/chat.php?order_id=' . $data_id;
+            }
             return $base . '/admin/orders_management.php';
         case 'Profile':
             return $base . '/admin/user_staff_management.php';

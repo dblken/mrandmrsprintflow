@@ -53,8 +53,8 @@ if ($isTempPlate) {
     
     $fields['quantity'] = $raw_fields['quantity_signage'] ?? ($raw_fields['quantity'] ?? 1);
 } else {
-    // Custom / Other
-    foreach(['dimensions', 'unit', 'material_type', 'subdivision_name', 'year_valid', 'serial_number', 'plate_number_alt', 'homeowner_name', 'block_lot', 'reflective_color', 'starting_number', 'other_instructions'] as $f) {
+    // Custom Reflectorized Sign
+    foreach(['dimensions', 'unit', 'material_type', 'layout', 'laminate_option', 'subdivision_name', 'year_valid', 'serial_number', 'plate_number_alt', 'homeowner_name', 'block_lot', 'reflective_color', 'starting_number', 'other_instructions'] as $f) {
         if(isset($raw_fields[$f]) && trim($raw_fields[$f]) !== '') $fields[$f] = trim($raw_fields[$f]);
     }
     if (isset($raw_fields['with_numbering'])) $fields['with_numbering'] = 'Yes';

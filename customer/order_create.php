@@ -919,9 +919,9 @@ require_once __DIR__ . '/../includes/header.php';
                                                 onmouseover="this.style.background='white'; this.style.color='#0a2530';" onmouseout="this.style.background='#0a2530'; this.style.color='white';">
                                             Next Step
                                         </button>
-                                        <div x-show="step === 4" style="flex:2; display:flex; gap:0.75rem; width:100%;">
-                                            <!-- Buy Now Button (Solid) -->
-                                            <button type="submit" name="buy_now" value="1" @click="checkFinalValidation($event)" style="flex: 1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
+                                        <div x-show="step === 4" style="flex:2; display:flex; gap:0.75rem; width:100%; justify-content:flex-end; align-items:center;">
+                                            <a href="<?php echo isset($base_url) ? $base_url : '/printflow'; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none; transition: all 0.2s;">Back to Services</a>
+                                            <button type="submit" name="buy_now" value="1" @click="checkFinalValidation($event)" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">
                                                 Buy Now
                                             </button>
                                         </div>

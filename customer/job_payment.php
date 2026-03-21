@@ -261,7 +261,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; // End of gating check ?>
 
             <div class="mt-4 text-center">
-                <a href="services.php" class="text-indigo-600 hover:text-indigo-700 font-medium">? Back to Services</a>
+                <a href="services.php" class="text-indigo-600 hover:text-indigo-700 font-medium">Back to Services</a>
             </div>
             
         <?php endif; ?>

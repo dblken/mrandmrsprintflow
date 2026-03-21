@@ -88,8 +88,10 @@
         if (t.includes('order'))       return base + '/customer/orders.php';
         if (t.includes('job'))         return base + '/customer/new_job_order.php';
         if (t.includes('chat') || t.includes('message'))
-            return dataId ? base + '/customer/order_chat.php?order_id=' + dataId : base + '/customer/orders.php';
-        if (t.includes('design') || t.includes('custom')) return base + '/customer/orders.php';
+            return dataId ? base + '/customer/chat.php?order_id=' + dataId : base + '/customer/messages.php';
+        if ((t.includes('design') || t.includes('custom') || t.includes('order')) && dataId)
+            return base + '/customer/chat.php?order_id=' + dataId;
+        if (t.includes('order')) return base + '/customer/orders.php';
         return base + '/';
     }
 

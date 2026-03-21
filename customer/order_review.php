@@ -56,21 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             // The review page does not collect payment choice from the customer.
             // Staff will set the price and move to 'To Pay' status when ready.
             $downpayment_amount = 0;
-            $payment_type = 'tbd'; // Staff will finalize this
+            $payment_type = 'full_payment'; // Staff will update when finalizing payment
             $payment_status = 'Unpaid';
 
-            // 1. Create order
-            $notes = $_POST['notes'] ?? ($item['customization']['notes'] ?? null);
-<<<<<<< HEAD
+            // 1. Create order (notes from cart customization - no separate field on review page)
+            $notes = $item['customization']['notes'] ?? $item['customization']['additional_notes'] ?? null;
             $branch_id = $item['branch_id'] ?? null;
             $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes)
                           VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
             $order_id  = db_execute($order_sql, 'iiddsss', [$customer_id, $branch_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
-=======
-            $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes)
-                          VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?)";
-            $order_id  = db_execute($order_sql, 'iddsss', [$customer_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 
             if ($order_id) {
                 $custom = $item['customization'] ?? [];
@@ -108,7 +102,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     }
                 }
 
-                $product_id = !empty($item['product_id']) ? $item['product_id'] : NULL;
+                // Resolve product_id for service orders (no product_id in cart)
+                $product_id = !empty($item['product_id']) ? (int)$item['product_id'] : null;
+                if ($product_id === null) {
+                    $service_type = $custom['service_type'] ?? $item['name'] ?? '';
+                    $service_product_map = [
+                        'Tarpaulin Printing' => 4,   // TARPAULIN001
+                        'T-Shirt Printing' => 1,     // TSHIRT001
+                        'Glass & Wall Sticker Printing' => 3,
+                        'Transparent Sticker Printing' => 3,
+                        'Decals / Stickers' => 3,
+                        'Sintraboard Standees' => 3,
+                        'Layout Design Service' => 3,
+                    ];
+                    $product_id = $service_product_map[$service_type] ?? 3; // fallback to Sticker Pack
+                }
 
                 if ($design_binary) {
                     $stmt = $conn->prepare(
@@ -154,8 +162,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                 }
                 unset($_SESSION['cart'][$item_key]);
 
-                // Notifications
-                create_notification($customer_id, 'Customer', "Order #{$order_id} placed successfully!", 'Order', true, false, $order_id);
+                // Notifications + system message in chat
+                $welcomeMsg = "Your order #{$order_id} has been placed successfully! Our team will review it shortly.";
+                create_notification($customer_id, 'Customer', $welcomeMsg, 'Order', true, false, $order_id);
+                add_order_system_message($order_id, $welcomeMsg);
                 $staff_users = db_query("SELECT user_id FROM users WHERE role='Staff' AND status='Activated'");
                 foreach ($staff_users as $staff) {
                     create_notification($staff['user_id'], 'Staff', "New Order #{$order_id} from {$customer['first_name']}!", 'Order', false, false, $order_id);
@@ -266,15 +276,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </p>
                 </div>
 
-                <!-- 4. Order Notes -->
-                <div class="card compact-card">
-                    <h2 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; border-bottom:1px solid #f3f4f6; padding-bottom:0.5rem; display:flex; align-items:center; gap:8px;">
-                        <span>📝</span> Order Notes
-                    </h2>
-                    <textarea name="notes" class="input-field" style="width:100%; min-height:80px; resize:vertical; font-size:0.85rem; padding:10px;" placeholder="Add special instructions..."><?php echo htmlspecialchars($item['customization']['notes'] ?? ''); ?></textarea>
-                </div>
-
-                <!-- 5. Final Actions -->
+                <!-- 4. Final Actions -->
                 <div style="margin-top:0.5rem; display:flex; flex-direction:column; gap:10px;">
                     <button type="submit" name="confirm_order" class="btn-primary" style="width:100%; padding:12px; font-weight:800; font-size:0.92rem; border-radius:10px; background:#0a2530; text-transform:uppercase; letter-spacing:0.03em;">Buy Now</button>
                     

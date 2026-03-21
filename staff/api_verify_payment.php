@@ -45,8 +45,9 @@ if ($action === 'Approve') {
     $success = db_execute($sql, 'ssi', [$new_status, $payment_status, $order_id]);
     
     if ($success) {
-        $msg = "✅ Your downpayment for Order #{$order_id} has been approved. Your order is now in process!";
+        $msg = "Your payment has been verified. Your order is now in process!";
         create_notification($order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        add_order_system_message($order_id, $msg);
         log_activity($staff_id, 'Payment Approved', "Approved payment for Order #{$order_id}");
     }
 } else {
@@ -58,8 +59,9 @@ if ($action === 'Approve') {
     $success = db_execute($sql, 'si', [$new_status, $order_id]);
     
     if ($success) {
-        $msg = "❌ Your payment proof for Order #{$order_id} was rejected. Please upload a valid proof of payment.";
+        $msg = "Your payment proof was rejected. Please upload a valid proof of payment.";
         create_notification($order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        add_order_system_message($order_id, $msg);
         log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}");
         
         // Delete the file if it exists to save space (optional, but cleaner)

@@ -560,6 +560,24 @@ function get_order_status_notification_payload($order_id, $status) {
 }
 
 /**
+ * Add a system message to an order's chat thread.
+ * Call this when order status changes, payment verified, etc.
+ *
+ * @param int    $order_id
+ * @param string $message
+ * @return bool
+ */
+function add_order_system_message($order_id, $message) {
+    $order_id = (int)$order_id;
+    $message = trim($message);
+    if (!$order_id || $message === '') return false;
+
+    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt)
+            VALUES (?, 'System', 0, ?, 'text', 1)";
+    return (bool) db_execute($sql, 'is', [$order_id, $message]);
+}
+
+/**
  * Format currency
  * @param float $amount
  * @param string $currency
@@ -659,15 +677,12 @@ function status_badge($status, $type = 'order') {
     $colors = [
         'order' => [
             'Pending' => 'bg-yellow-100 text-yellow-800',
-<<<<<<< HEAD
+            'Pending Review' => 'bg-yellow-100 text-yellow-800',
             'Approved' => 'bg-blue-100 text-blue-800',
             'To Pay' => 'bg-indigo-100 text-indigo-800',
             'To Verify' => 'bg-orange-100 text-orange-800',
             'Downpayment Submitted' => 'bg-purple-100 text-purple-800',
             'Pending Verification' => 'bg-orange-100 text-orange-800',
-=======
-            'Pending Review' => 'bg-yellow-100 text-yellow-800',
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             'Processing' => 'bg-blue-100 text-blue-800',
             'For Revision' => 'bg-pink-100 text-pink-800',
             'Ready for Pickup' => 'bg-teal-100 text-teal-800',
@@ -837,7 +852,6 @@ function set_setting($key, $value) {
  * @return string HTML string
  */
 function render_pagination($current_page, $total_pages, $extra_params = []) {
-<<<<<<< HEAD
     // Backward compatibility:
     // some legacy calls used render_pagination('orders.php', $total_pages, $params)
     if (is_string($current_page)) {
@@ -845,10 +859,6 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
     }
     $total_pages = (int)$total_pages;
     $current_page = (int)$current_page;
-=======
-    $current_page = (int)$current_page;
-    $total_pages   = (int)$total_pages;
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 
     if ($total_pages <= 1) return '';
     
@@ -978,7 +988,9 @@ function normalize_service_name($name, $fallback = 'Custom Order') {
         'stickers' => 'Stickers',
         'glass/wall' => 'Glass/Wall Stickers',
         'glass stickers' => 'Glass/Wall Stickers',
-        'transparent' => 'Transparent Stickers',
+        'transparent' => 'Transparent',
+        'transparent sticker' => 'Transparent',
+        'transparent sticker printing' => 'Transparent',
         'reflectorized' => 'Reflectorized',
         'sintraboard' => 'Sintraboard',
         'standees' => 'Standees',
@@ -1009,6 +1021,12 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     if (isset($custom['width']) && isset($custom['height']) && (isset($custom['finish']) || isset($custom['with_eyelets']))) {
         return normalize_service_name('Tarpaulin', $fallback);
     }
+    if (isset($custom['surface_application']) && isset($custom['dimensions']) && isset($custom['layout'])) {
+        return normalize_service_name('Transparent Sticker Printing', $fallback);
+    }
+    if (isset($custom['surface_type']) && (isset($custom['laminate_option']) || isset($custom['lamination']))) {
+        return normalize_service_name('Glass & Wall Sticker Printing', $fallback);
+    }
     if (isset($custom['shape']) && isset($custom['size']) && (isset($custom['waterproof']) || isset($custom['sticker_type']) || isset($custom['laminate_option']))) {
         return normalize_service_name('Stickers', $fallback);
     }
@@ -1017,4 +1035,48 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     }
     
     return normalize_service_name($fallback, $fallback);
+}
+
+/**
+ * Service image mapping - SAME as Services page ($core_services).
+ * Source of truth: /customer/services.php
+ */
+function get_services_image_map() {
+    $base = '/printflow/public';
+    return [
+        'tarpaulin'   => $base . '/images/products/product_42.jpg',
+        't-shirt'     => $base . '/images/products/product_31.jpg',
+        'shirt'       => $base . '/images/products/product_31.jpg',
+        'stickers'    => $base . '/images/products/product_21.jpg',
+        'sticker'     => $base . '/images/products/product_21.jpg',
+        'decal'       => $base . '/images/products/product_21.jpg',
+        'glass'       => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'frosted'     => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'wall'        => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'transparent' => $base . '/images/products/product_26.jpg',
+        'reflectorized' => $base . '/images/products/signage.jpg',
+        'signage'     => $base . '/images/products/signage.jpg',
+        'sintraboard' => $base . '/images/products/standeeflat.jpg',
+        'standee'     => $base . '/images/services/Sintraboard Standees.jpg',
+        'souvenir'    => $base . '/assets/images/placeholder.jpg',
+    ];
+}
+
+/**
+ * Get service image URL for Orders/Notifications - exact same images as Services page.
+ * @param string $service_type_or_name e.g. "T-Shirt Printing", "Tarpaulin", "Custom T-Shirt"
+ * @return string URL path to image (same file as Services page)
+ */
+function get_service_image_url($service_type_or_name) {
+    $cat = strtolower(trim(preg_replace('/\s+/', ' ', (string)$service_type_or_name)));
+    if ($cat === '') return '/printflow/public/assets/images/placeholder.jpg';
+
+    $map = get_services_image_map();
+    foreach ($map as $keyword => $img) {
+        if (strpos($cat, $keyword) !== false) {
+            return $img;
+        }
+    }
+
+    return '/printflow/public/assets/images/placeholder.jpg';
 }

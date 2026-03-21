@@ -134,21 +134,21 @@ async function fetchMessages() {
 
 function appendMessage(msg) {
     const container = document.createElement('div');
-    container.className = 'chat-bubble-container ' + (msg.is_self ? 'self' : 'other');
+    const isSystem = msg.is_system || false;
+    container.className = 'chat-bubble-container ' + (isSystem ? 'system' : (msg.is_self ? 'self' : 'other'));
     
-    // Inline styles to guarantee visibility and match "Messenger-like" redesign
     const isSelf = msg.is_self;
-    const bubbleBg = isSelf ? '#0084ff' : '#f1f5f9';
-    const textColor = isSelf ? '#ffffff' : '#1e293b';
-    const alignSelf = isSelf ? 'flex-end' : 'flex-start';
-    const borderRadius = isSelf ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem';
+    const bubbleBg = isSystem ? '#e0f2fe' : (isSelf ? '#0084ff' : '#f1f5f9');
+    const textColor = isSystem ? '#0c4a6e' : (isSelf ? '#ffffff' : '#1e293b');
+    const alignSelf = isSystem ? 'center' : (isSelf ? 'flex-end' : 'flex-start');
+    const borderRadius = isSystem ? '0.75rem' : (isSelf ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem');
     
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.maxWidth = '85%';
+    container.style.maxWidth = isSystem ? '90%' : '85%';
     container.style.alignSelf = alignSelf;
     container.style.marginBottom = '1rem';
-    container.style.alignItems = isSelf ? 'flex-end' : 'flex-start';
+    container.style.alignItems = isSystem ? 'center' : (isSelf ? 'flex-end' : 'flex-start');
 
     let contentHtml = '';
     if (msg.message_type === 'image' || msg.image_path) {
@@ -156,14 +156,14 @@ function appendMessage(msg) {
     }
     
     if (msg.message) {
-        contentHtml += `<div class="chat-bubble" style="padding: 0.75rem 1rem; border-radius: ${borderRadius}; background: ${bubbleBg}; color: ${textColor}; font-size: 0.9375rem; line-height: 1.5; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        contentHtml += `<div class="chat-bubble" style="padding: 0.75rem 1rem; border-radius: ${borderRadius}; background: ${bubbleBg}; color: ${textColor}; font-size: ${isSystem ? '0.8125rem' : '0.9375rem'}; line-height: 1.5; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-style: ${isSystem ? 'italic' : 'normal'};">
             ${escapeHtml(msg.message)}
         </div>`;
     }
     
     contentHtml += `<div class="chat-time" style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.35rem;">${msg.created_at}</div>`;
     
-    if (msg.is_self && msg.is_seen) {
+    if (!isSystem && msg.is_self && msg.is_seen) {
         contentHtml += `<div class="chat-seen" style="font-size: 0.65rem; color: #6b7280; font-weight: 700; margin-top: 0.1rem;">Seen</div>`;
     }
     

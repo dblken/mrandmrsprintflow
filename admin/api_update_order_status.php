@@ -100,11 +100,12 @@ db_execute(
     'si', [$new_status, $order_id]
 );
 
-// Notify customer
+// Notify customer + add system message to chat
 $customer_id = (int)$order['customer_id'];
 if ($customer_id) {
     $notif = get_order_status_notification_payload($order_id, $new_status);
     create_notification($customer_id, 'Customer', $notif['message'], $notif['type'], false, false, $order_id);
+    add_order_system_message($order_id, $notif['message']);
 }
 
 $admin_id = get_user_id();

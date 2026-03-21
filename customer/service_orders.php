@@ -50,7 +50,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </table>
             </div>
         </div>
-        <p class="mt-4"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">← Back to Services</a></p>
+        <p class="mt-4"><a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-indigo-600 hover:underline">Back to Services</a></p>
     </div>
 </div>
 

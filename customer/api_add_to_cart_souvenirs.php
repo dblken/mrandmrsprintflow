@@ -22,6 +22,7 @@ $fields = $_POST;
 $branch_id = trim($fields['branch_id'] ?? '1');
 $souvenir_type = trim($fields['souvenir_type'] ?? '');
 $needed_date = trim($fields['needed_date'] ?? '');
+$lamination = trim($fields['lamination'] ?? 'Without Lamination');
 $quantity = (int)($fields['quantity'] ?? 1);
 $custom_print = trim($fields['custom_print'] ?? 'No');
 $notes = trim($fields['notes'] ?? '');
@@ -77,6 +78,7 @@ $cart_item = [
         'service_type' => 'Souvenirs',
         'souvenir_type' => $souvenir_type,
         'needed_date' => $needed_date,
+        'lamination' => $lamination,
         'custom_print' => $custom_print,
         'notes' => $notes
     ],
@@ -87,7 +89,6 @@ $cart_item = [
     'height' => '',
     'thickness' => '',
     'stand_type' => '',
-    'lamination' => '',
     'cut_type' => '',
     'design_notes' => $notes
 ];

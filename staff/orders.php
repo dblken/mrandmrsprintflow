@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                     
                     // Pass order_id as data_id for shortcut linking
                     create_notification($customer_id, 'Customer', $msg, 'Order', false, false, $order_id);
+                    add_order_system_message($order_id, $msg);
                 }
             } else {
                 // Status is already the same, consider it a "soft" success
@@ -308,7 +309,6 @@ $page_title = 'Orders - Staff';
 </head>
 <body>
 
-<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
 <div class="dashboard-container">
     <!-- Sidebar -->
@@ -413,14 +413,13 @@ $page_title = 'Orders - Staff';
                                             >
                                                 Manage
                                             </button>
-                                            <button
-                                                onclick="openOrderChat(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['customer_name']); ?>')"
-                                                style="background: #f5f3ff; border: none; color: #7c3aed; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s;"
+                                            <a href="<?php echo BASE_URL; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
+                                                style="display:inline-block; background: #f5f3ff; border: none; color: #7c3aed; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 8px; transition: all 0.2s; text-decoration:none;"
                                                 onmouseover="this.style.background='#ede9fe'; this.style.transform='translateY(-1px)'"
                                                 onmouseout="this.style.background='#f5f3ff'; this.style.transform='translateY(0)'"
                                             >
                                                 Message
-                                            </button>
+                                            </a>
                                         </div>
                                     </td>
                                 </tr>

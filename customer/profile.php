@@ -13,6 +13,24 @@ $customer_id = get_user_id();
 $error = '';
 $success = '';
 
+// Ensure address columns exist (one-time migration - add only missing columns)
+$existing_cols = [];
+foreach (db_query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'customers'") ?: [] as $r) {
+    $existing_cols[$r['COLUMN_NAME']] = true;
+}
+$add_cols = [
+    ['region', 100, 'contact_number'],
+    ['province', 100, 'region'],
+    ['city', 100, 'province'],
+    ['barangay', 100, 'city'],
+    ['street_address', 255, 'barangay']
+];
+foreach ($add_cols as list($col, $len, $after)) {
+    if (empty($existing_cols[$col])) {
+        db_execute("ALTER TABLE customers ADD COLUMN `$col` varchar($len) DEFAULT NULL AFTER `$after`");
+    }
+}
+
 // Get customer data
 $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
 
@@ -46,8 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         }
         
         if (!$error) {
+            $dob_val = trim($dob) !== '' ? $dob : null;
+            $gender_val = in_array(trim($gender), ['Male', 'Female', 'Other'], true) ? $gender : null;
             $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
-                'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
+                'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob_val, $gender_val, $customer_id]);
             
             $first_name = ucwords(strtolower(trim($first_name)));
             $middle_name = ucwords(strtolower(trim($middle_name)));
@@ -80,13 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     $contact_number = sanitize($contact_number);
                     $dob = sanitize($dob);
                     $gender = sanitize($gender);
+                    $gender_val = in_array(trim($gender), ['Male', 'Female', 'Other'], true) ? $gender : null;
                     
                     $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
-                        'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender, $customer_id]);
+                        'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender_val, $customer_id]);
                     
                     if ($result) {
                         $success = 'Profile updated successfully!';
-                        $_SESSION['profile_update_count']++;
+                        $_SESSION['profile_update_count'] = ($_SESSION['profile_update_count'] ?? 0) + 1;
                         $_SESSION['user_name'] = $first_name . ' ' . $last_name;
                         // Refresh customer data
                         $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
@@ -435,6 +456,14 @@ require_once __DIR__ . '/../includes/header.php';
     color: #dc2626;
     font-weight: 800;
 }
+/* Live validation indicators */
+.live-indicator { font-size: 0.75rem; min-height: 1.25rem; transition: color 0.2s, opacity 0.2s; }
+.live-indicator.valid { color: #16a34a; }
+.live-indicator.error { color: #dc2626; font-weight: 600; }
+.live-indicator .ind-icon { display: inline-block; margin-right: 0.25rem; font-weight: bold; }
+.live-indicator .hint { color: #6b7280; font-weight: 400; }
+.input-field.input-valid { border-color: #16a34a; box-shadow: 0 0 0 1px rgba(22,163,74,0.3); }
+.input-field.input-error { border-color: #dc2626; box-shadow: 0 0 0 1px rgba(220,38,38,0.3); }
 </style>
 
 <script>
@@ -646,24 +675,44 @@ require_once __DIR__ . '/../includes/header.php';
         email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     };
 
+    const HINTS = {
+        first_name: 'Letters only, max 3 words',
+        middle_name: 'Letters only, max 3 words (optional)',
+        last_name: 'Letters only, max 3 words',
+        contact_number: 'Format: +639XXXXXXXXX',
+        dob: 'You must be at least 13 years old'
+    };
+
     function updateIndicator(fieldId, isValid, message) {
         const el = indicators[fieldId];
-        if (!el) return;
+        const input = document.getElementById(fieldId);
+        if (!el || !input) return;
+        
+        el.classList.remove('valid', 'error');
+        input.classList.remove('input-valid', 'input-error');
         
         if (isValid) {
             el.innerHTML = '';
             el.dataset.valid = '1';
-            el.classList.remove('text-red-500', 'text-green-500');
-            document.getElementById(fieldId).classList.remove('border-red-500', 'ring-red-500', 'border-green-500', 'ring-green-500');
         } else {
-            el.innerHTML = '<span class="text-red-500">✖ ' + message + '</span>';
+            el.innerHTML = '<span class="ind-icon">!</span> ' + message;
             el.dataset.valid = '0';
-            el.classList.remove('text-green-500');
-            el.classList.add('text-red-500');
-            document.getElementById(fieldId).classList.remove('border-green-500', 'ring-green-500');
-            document.getElementById(fieldId).classList.add('border-red-500', 'ring-red-500');
+            el.classList.add('error');
+            input.classList.add('input-error');
         }
         checkFormValidity();
+    }
+
+    function showHint(fieldId) {
+        const el = indicators[fieldId];
+        if (!el || el.dataset.valid === '1' || el.dataset.valid === '0') return;
+        const hint = HINTS[fieldId];
+        if (hint) el.innerHTML = '<span class="hint">' + hint + '</span>';
+    }
+
+    function clearHint(fieldId) {
+        const el = indicators[fieldId];
+        if (el && !el.dataset.valid) el.innerHTML = '';
     }
 
     function checkFormValidity() {
@@ -694,6 +743,10 @@ require_once __DIR__ . '/../includes/header.php';
         return val.replace(/\s+/g, ' ');
     }
 
+    function toTitleCase(str) {
+        return str.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+
     // Name Validation
     document.querySelectorAll('.validate-advanced-name').forEach(input => {
         input.addEventListener('input', function() {
@@ -701,29 +754,32 @@ require_once __DIR__ . '/../includes/header.php';
             let val = this.value.replace(/[^A-Za-z ]/g, '');
             // Prevent multiple consecutive spaces
             val = val.replace(/ +(?= )/g, '');
+            // Auto capitalize first letter of each word
+            val = toTitleCase(val);
             this.value = val;
 
             const trimmed = val.trim();
             if (trimmed.length === 0) {
                 if (this.required) {
-                    updateIndicator(this.id, false, 'Required field');
+                    updateIndicator(this.id, false, 'This field is required');
                 } else {
-                    const el = indicators[this.id];
-                    if (el) {
-                        el.innerHTML = '';
-                        el.dataset.valid = '1';
+                    const ind = indicators[this.id];
+                    if (ind) {
+                        ind.innerHTML = '<span class="hint">' + (HINTS[this.id] || '') + '</span>';
+                        ind.dataset.valid = '1';
                     }
-                    this.classList.remove('border-green-500', 'ring-green-500', 'border-red-500', 'ring-red-500');
+                    this.classList.remove('input-valid', 'input-error');
                     checkFormValidity();
                 }
                 return;
             }
 
             if (!REGEX.name.test(trimmed)) {
-                let msg = 'Invalid format';
-                const words = trimmed.split(' ').length;
+                let msg = 'Use letters only, max 3 words (e.g. Juan Carlos)';
+                const words = trimmed.split(/\s+/).filter(Boolean).length;
                 if (words > 3) msg = 'Maximum 3 words allowed';
-                else if (/[^A-Za-z ]/.test(trimmed)) msg = 'Letters only';
+                else if (/[0-9]/.test(trimmed)) msg = 'Numbers not allowed';
+                else if (/[^A-Za-z\s]/.test(trimmed)) msg = 'Letters and spaces only';
                 updateIndicator(this.id, false, msg);
             } else {
                 updateIndicator(this.id, true);
@@ -733,6 +789,16 @@ require_once __DIR__ . '/../includes/header.php';
         input.addEventListener('blur', function() {
             this.value = normalizeSpaces(this.value).trim();
             this.dispatchEvent(new Event('input'));
+        });
+        input.addEventListener('focus', function() {
+            if (this.value.trim() === '' && indicators[this.id]) {
+                const hint = HINTS[this.id] || (this.required ? 'This field is required' : '');
+                if (hint) {
+                    indicators[this.id].innerHTML = '<span class="hint">' + hint + '</span>';
+                    indicators[this.id].dataset.valid = '';
+                    this.classList.remove('input-valid', 'input-error');
+                }
+            }
         });
     });
 
@@ -761,22 +827,23 @@ require_once __DIR__ . '/../includes/header.php';
 
             const trimmed = val.trim();
             if (trimmed.length === 0) {
-                updateIndicator(this.id, false, 'Required field');
+                updateIndicator(this.id, false, 'This field is required');
                 return;
             }
 
             if (!regexContact.test(trimmed)) {
-                updateIndicator(this.id, false, 'Must follow format +639XXXXXXXXX');
+                updateIndicator(this.id, false, 'Use format +639XXXXXXXXX (11 digits after +63)');
             } else {
                 updateIndicator(this.id, true);
             }
         });
 
-        // Ensure +63 is there on focus if empty
         input.addEventListener('focus', function() {
             if (this.value === '') {
                 this.value = '+639';
                 this.dispatchEvent(new Event('input'));
+            } else if (!regexContact.test(this.value.trim()) && indicators[this.id]) {
+                indicators[this.id].innerHTML = '<span class="hint">' + HINTS.contact_number + '</span>';
             }
         });
 
@@ -796,9 +863,15 @@ require_once __DIR__ . '/../includes/header.php';
     // DOB Validation
     const dobInput = document.querySelector('.validate-advanced-dob');
     if (dobInput) {
+        dobInput.addEventListener('focus', function() {
+            if (!this.value && indicators[this.id]) {
+                indicators[this.id].innerHTML = '<span class="hint">' + HINTS.dob + '</span>';
+                indicators[this.id].dataset.valid = '';
+            }
+        });
         dobInput.addEventListener('input', function() {
             if (!this.value) {
-                updateIndicator(this.id, false, 'Required field');
+                updateIndicator(this.id, false, 'Select your date of birth');
                 return;
             }
             const dob = new Date(this.value);
@@ -808,18 +881,22 @@ require_once __DIR__ . '/../includes/header.php';
             if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
 
             if (dob > today) {
-                updateIndicator(this.id, false, 'Cannot be a future date');
+                updateIndicator(this.id, false, 'Date cannot be in the future');
             } else if (age < 13) {
-                updateIndicator(this.id, false, 'Must be at least 13 years old');
+                updateIndicator(this.id, false, 'You must be at least 13 years old');
             } else {
                 updateIndicator(this.id, true);
             }
         });
     }
 
-    // Initial check on load
+    // Initial check on load - validate filled fields, show hints for empty
     document.querySelectorAll('.validate-advanced-name, .validate-advanced-dob, .validate-advanced-contact').forEach(input => {
-        if (input.value) input.dispatchEvent(new Event('input'));
+        if (input.value.trim()) {
+            input.dispatchEvent(new Event('input'));
+        } else if (indicators[input.id] && HINTS[input.id]) {
+            indicators[input.id].innerHTML = '<span class="hint">' + HINTS[input.id] + '</span>';
+        }
     });
 
     if (fProfile) {

@@ -18,7 +18,6 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
     <div class="container mx-auto px-4" style="max-width: 640px;">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold text-gray-900">Souvenirs</h1>
-            <a href="<?php echo BASE_URL; ?>/customer/services.php" class="text-sm font-bold text-black border-b-2 border-black">← Back to Services</a>
         </div>
         <div class="card p-6">
             <form id="souvenirForm" method="POST" enctype="multipart/form-data" class="space-y-5">
@@ -26,7 +25,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
                 <!-- Branch -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Branch *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
                     <select name="branch_id" class="input-field w-full" required>
                         <?php foreach($branches as $b): ?>
                             <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['branch_name']); ?></option>
@@ -36,7 +35,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
                 <!-- Souvenir Type -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Type *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
                     <select name="souvenir_type" class="input-field w-full" required>
                         <option value="Mug">Mug</option>
                         <option value="Keychain">Keychain</option>
@@ -48,32 +47,48 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     </select>
                 </div>
 
-                <!-- Quantity -->
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Quantity *</label>
-                    <input type="number" name="quantity" min="1" class="input-field w-full" required value="<?php echo (int)($_GET['qty'] ?? 1); ?>">
-                </div>
-
                 <!-- Custom Print -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Custom Print?</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input type="radio" name="custom_print" value="No" class="w-4 h-4 text-black" checked onchange="toggleDesignUpload()">
-                            <span class="ml-3 text-sm font-bold">No</span>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Custom Print?</label>
+                    <div class="opt-btn-group">
+                        <label class="opt-btn-wrap">
+                            <input type="radio" name="custom_print" value="No" checked onchange="toggleDesignUpload(); souvenirUpdateOpt(this)">
+                            <span>No</span>
                         </label>
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input type="radio" name="custom_print" value="Yes" class="w-4 h-4 text-black" onchange="toggleDesignUpload()">
-                            <span class="ml-3 text-sm font-bold">Yes – I have a design</span>
+                        <label class="opt-btn-wrap">
+                            <input type="radio" name="custom_print" value="Yes" onchange="toggleDesignUpload(); souvenirUpdateOpt(this)">
+                            <span>Yes – I have a design</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- Design Upload – always visible -->
+                <!-- Lamination -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lamination</label>
+                    <div class="opt-btn-group">
+                        <label class="opt-btn-wrap">
+                            <input type="radio" name="lamination" value="With Lamination" onchange="souvenirUpdateOpt(this)">
+                            <span>With Lamination</span>
+                        </label>
+                        <label class="opt-btn-wrap">
+                            <input type="radio" name="lamination" value="Without Lamination" checked onchange="souvenirUpdateOpt(this)">
+                            <span>Without Lamination</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Needed Date -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Needed Date *</label>
+                    <input type="date" name="needed_date" id="needed_date" class="input-field" required min="<?php echo date('Y-m-d'); ?>">
+                    <p class="souvenir-hint">When you need the order ready.</p>
+                </div>
+
+                <!-- Design Upload -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         📎 Upload Your File (Design, Image, or PDF) – Max 5MB
-                        <span id="upload-hint" class="font-normal normal-case text-xs ml-1 text-gray-400">(Optional)</span>
+                        <span id="upload-hint" class="font-normal normal-case text-sm ml-1 text-gray-400">(Optional)</span>
                     </label>
                     <div id="upload-drop-zone"
                          class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-gray-50 hover:bg-white transition-colors"
@@ -96,19 +111,23 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     </div>
                 </div>
 
+                <!-- Quantity -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                    <input type="number" name="quantity" min="1" class="input-field w-full" required value="<?php echo max(1, (int)($_GET['qty'] ?? 1)); ?>">
+                </div>
+
                 <!-- Notes -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Notes / Special Instructions</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes / Special Instructions</label>
                     <textarea name="notes" rows="3" class="input-field w-full"
                               placeholder="e.g., preferred colors, text to print, placement..."></textarea>
                 </div>
 
                 <!-- Buttons -->
-                <div style="display:flex; gap:1rem; margin-top:1rem;">
-                    <!-- Buy Now Button (Solid) -->
-                    <button type="button" onclick="submitSouvenirOrder('buy_now')" style="flex:1; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a2530; color: #ffffff; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.02em; box-shadow: 4px 4px 0px rgba(10, 37, 48, 0.1);">
-                        Buy Now
-                    </button>
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none; transition: all 0.2s;">Back to Services</a>
+                    <button type="button" onclick="submitSouvenirOrder('buy_now')" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">Buy Now</button>
                 </div>
             </form>
         </div>
@@ -116,6 +135,14 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 </div>
 
 <script>
+function souvenirUpdateOpt(input) {
+    const name = input.name;
+    document.querySelectorAll('input[name="' + name + '"]').forEach(function(r) {
+        const wrap = r.closest('.opt-btn-wrap');
+        if (wrap) { wrap.classList.remove('active'); if (r.checked) wrap.classList.add('active'); }
+    });
+}
+
 function toggleDesignUpload() {
     const isYes = document.querySelector('input[name="custom_print"]:checked').value === 'Yes';
     const hint = document.getElementById('upload-hint');
@@ -156,6 +183,12 @@ function submitSouvenirOrder(action) {
     const event = new Event('submit', { cancelable: true });
     form.dispatchEvent(event);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.opt-btn-wrap').forEach(function(w) {
+        if (w.querySelector('input:checked')) w.classList.add('active');
+    });
+});
 
 document.getElementById('souvenirForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -215,24 +248,30 @@ dropZone.addEventListener('drop', (e) => {
 
 <style>
 .input-field {
-    border: 1px solid #d1d5db;
-    border-radius: 0.75rem;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
     padding: 0.65rem 1rem;
     font-size: 0.9rem;
     width: 100%;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
     background: white;
 }
 .input-field:focus {
-    border-color: black;
+    border-color: #0a2530;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+    box-shadow: 0 0 0 2px rgba(10,37,48,0.2);
 }
 .card {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 1.25rem;
 }
+.souvenir-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; }
+.opt-btn-wrap { padding: 0.55rem 1rem; border: 2px solid #d1d5db; background: #fff; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.875rem; color: #374151; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 0.4rem; }
+.opt-btn-wrap:hover { border-color: #0a2530; background: #f9fafb; }
+.opt-btn-wrap:has(input:checked), .opt-btn-wrap.active { border-color: #0a2530; box-shadow: 0 0 0 2px rgba(10,37,48,0.2); background: #fff; }
+.opt-btn-wrap input { margin: 0; position: absolute; opacity: 0; pointer-events: none; }
+.opt-btn-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 </style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

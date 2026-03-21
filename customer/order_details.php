@@ -97,7 +97,6 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
-<?php include __DIR__ . '/../includes/order_chat.php'; ?>
 
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width: 1080px;">
@@ -128,9 +127,9 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- 1. Order Status & Date Alert -->
             <div style="padding:1rem; background:#000; color:#fff; border-radius:12px; font-weight:700; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;">
                 <span>Placed on: <?php echo format_datetime($order['order_date']); ?></span>
-                <button type="button" onclick="openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support')" style="background:#fff; color:#000; border:none; padding:5px 12px; border-radius:6px; font-weight:800; cursor:pointer; font-size:0.75rem;">
+                <a href="<?php echo BASE_URL; ?>/customer/chat.php?order_id=<?php echo $order_id; ?>" style="background:#fff; color:#000; border:none; padding:5px 12px; border-radius:6px; font-weight:800; font-size:0.75rem; text-decoration:none; display:inline-block;">
                     💬 Chat Support
-                </button>
+                </a>
             </div>
 
 
@@ -646,16 +645,9 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 window.addEventListener('DOMContentLoaded', () => {
-    // Check for chat=open parameter to auto-trigger modal
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('chat') === 'open') {
-        const unreadChatCount = <?php echo get_unread_chat_count($order_id, 'Customer'); ?>;
-        // Only auto-open if there are actually unread messages, to prevent pop-on-refresh
-        if (unreadChatCount > 0) {
-            setTimeout(() => {
-                openOrderChat(<?php echo $order_id; ?>, 'PrintFlow Support');
-            }, 500); // Small delay to ensure everything is ready
-        }
+        window.location.href = '<?php echo BASE_URL; ?>/customer/chat.php?order_id=<?php echo $order_id; ?>';
     }
 });
 </script>
