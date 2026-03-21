@@ -650,15 +650,17 @@ function set_setting($key, $value) {
  * @param int $current_page Current page number
  * @param int $total_pages Total number of pages
  * @param array $extra_params Extra query parameters to preserve (e.g. search, filters)
+ * @param string $page_param Query param name for page number (default: 'page')
  * @return string HTML string
  */
-function render_pagination($current_page, $total_pages, $extra_params = []) {
+function render_pagination($current_page, $total_pages, $extra_params = [], $page_param = 'page') {
     $current_page = (int)$current_page;
     $total_pages   = (int)$total_pages;
 
     if ($total_pages <= 1) return '';
     
     $params = $extra_params;
+    unset($params[$page_param]);
 
     // Build page range: always show current ±2 pages, plus first and last
     $window = 2;
@@ -692,7 +694,7 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
 
     // Previous button
     if ($current_page > 1) {
-        $params['page'] = $current_page - 1;
+        $params[$page_param] = $current_page - 1;
         $url = '?' . http_build_query($params);
         $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -719,7 +721,7 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
 
     // Next button
     if ($current_page < $total_pages) {
-        $params['page'] = $current_page + 1;
+        $params[$page_param] = $current_page + 1;
         $url = '?' . http_build_query($params);
         $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

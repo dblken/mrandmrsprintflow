@@ -34,7 +34,6 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-value { font-size:26px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
 
         /* Action Button Style — matches customers_management.php */

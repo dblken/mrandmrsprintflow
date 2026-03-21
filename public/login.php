@@ -107,6 +107,7 @@ $base_url = get_base_url();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
+    <?php include __DIR__ . '/../includes/favicon_links.php'; ?>
     <!-- Updated: <?php echo date('Y-m-d H:i:s'); ?> -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -59,7 +59,6 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-        .stat-value { font-size: 32px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
         .stat-sub { font-size: 12px; color: #9ca3af; }
     </style>
 </head>

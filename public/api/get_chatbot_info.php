@@ -1,6 +1,6 @@
 <?php
 /**
- * Chatbot Info API - Returns business info for chatbot widget
+ * Support chat widget — business info API
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -41,7 +41,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Error loading chatbot info'
+        'message' => 'Error loading support chat info'
     ]);
 }
 ?>

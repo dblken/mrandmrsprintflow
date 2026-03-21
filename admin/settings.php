@@ -733,6 +733,9 @@ document.getElementById('btnCrop')?.addEventListener('click', function() {
             currentPreviewImg.src = dataUrl;
             currentPreviewImg.style.display = 'block';
         }
+        if (currentHiddenInput) {
+            currentHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         closeCropper();
     }
 });

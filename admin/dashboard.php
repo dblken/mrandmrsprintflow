@@ -79,11 +79,12 @@ try {
 } catch (Exception $e) { $order_status = []; }
 
 $statusColors = [
-    'Pending' => '#f59e0b',
-    'Processing' => '#3b82f6',
-    'Ready for Pickup' => '#06b6d4',
-    'Completed' => '#10b981',
-    'Cancelled' => '#ef4444'
+    'Pending' => '#F39C12',
+    'Processing' => '#3498DB',
+    'Ready for Pickup' => '#53C5E0',
+    'Completed' => '#2ECC71',
+    'Cancelled' => '#E74C3C',
+    'Design Approved' => '#6C5CE7',
 ];
 
 // ── Sales by Product Category ─────────────────────────
@@ -203,12 +204,11 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
         .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
-        .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .kpi-card.indigo::before { background:linear-gradient(90deg,#00232b,#53C5E0); }
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-value { font-size:26px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
 
         /* Dashboard Grid */
@@ -216,7 +216,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
         .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; }
         .dash-card-title { font-size:15px; font-weight:700; color:#1f2937; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
-        .dash-card-title svg { width:18px; height:18px; color:#6366f1; }
+        .dash-card-title svg { width:18px; height:18px; color:#53C5E0; }
 
         /* Full width card */
         .dash-full { grid-column: 1 / -1; }
@@ -228,10 +228,10 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .mini-table tr:hover { background:#f9fafb; }
 
         /* Chart containers */
-        .chart-wrap { position:relative; height:250px; }
+        .chart-wrap { position:relative; height:250px; transform:translateZ(0); }
         .chart-loading { position:absolute; inset:0; background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; z-index:2; border-radius:8px; }
         .chart-loading.hidden { display:none; }
-        .chart-loading-spinner { width:28px; height:28px; border:3px solid #e5e7eb; border-top-color:#6366f1; border-radius:50%; animation:chart-spin .7s linear infinite; }
+        .chart-loading-spinner { width:28px; height:28px; border:3px solid #e5e7eb; border-top-color:#53C5E0; border-radius:50%; animation:chart-spin .7s linear infinite; }
         @keyframes chart-spin { to { transform:rotate(360deg); } }
         .chart-nodata { position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:#9ca3af; font-size:13px; z-index:1; }
         .chart-nodata.visible { display:flex; }
@@ -244,8 +244,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .chart-filter-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
         .chart-filter-group { display:flex; gap:8px; align-items:center; flex-shrink:0; }
         .period-tab { padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid #e5e7eb; background:#f9fafb; color:#6b7280; cursor:pointer; transition:all .15s; }
-        .period-tab:hover { border-color:#6366f1; color:#6366f1; }
-        .period-tab.active { background:#6366f1; border-color:#6366f1; color:#fff; }
+        .period-tab:hover { border-color:#53C5E0; color:#00232b; }
+        .period-tab.active { background:#00232b; border-color:#00232b; color:#fff; }
 
         /* Status badge */
         .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
@@ -308,7 +308,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 <div class="dash-card">
                     <div class="dash-card-title chart-header-row">
                         <span class="chart-title-nowrap">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#6366f1;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#53C5E0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                             Sales Revenue
                         </span>
                         <div class="chart-filters">
@@ -335,7 +335,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         </div>
                     </div>
                     <div class="chart-wrap" id="dash-sales-chart-wrap">
-                        <div class="chart-loading hidden" id="dash-sales-loading">
+                        <div class="chart-loading" id="dash-sales-loading">
                             <div class="chart-loading-spinner"></div>
                         </div>
                         <div class="chart-nodata" id="dash-sales-nodata">
@@ -389,8 +389,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             Top Performers
                         </span>
                         <div style="display: flex; gap: 4px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
-                            <button @click="tab = 'products'" :style="tab === 'products' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#6366f1;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Products</button>
-                            <button @click="tab = 'customers'" :style="tab === 'customers' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#6366f1;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Customers</button>
+                            <button @click="tab = 'products'" :style="tab === 'products' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Products</button>
+                            <button @click="tab = 'customers'" :style="tab === 'customers' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Customers</button>
                         </div>
                     </div>
 
@@ -464,7 +464,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                                 };
                             ?>
                             <tr>
-                                <td style="font-weight:700; color:#6366f1;"><?php echo $ro['order_id']; ?></td>
+                                <td style="font-weight:700; color:#00232b;"><?php echo $ro['order_id']; ?></td>
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name'] ?? 'N/A'); ?></td>
                                 <td><span class="badge <?php echo $sBadge; ?>"><?php echo $ro['status']; ?></span></td>
                                 <td style="text-align:right; font-weight:700;">₱<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
@@ -524,165 +524,317 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 </div>
 
 <script>
-// Branch context passed from PHP
-const DASH_BRANCH_ID = <?php echo $branchId !== 'all' ? (int)$branchId : 'null'; ?>;
-// ─── Sales Revenue Chart (Dynamic Period) ───────────────
-const salesCtx = document.getElementById('salesChart').getContext('2d');
-const salesChart = new Chart(salesCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [
-        {
-            label: 'Revenue (₱)',
-            data: [],
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,.08)',
-            borderWidth: 2.5,
-            fill: true,
-            tension: 0.35,
-            pointBackgroundColor: '#6366f1',
-            pointRadius: 3,
-            pointHoverRadius: 5,
-            yAxisID: 'y'
-        },
-        {
-            label: 'Orders',
-            data: [],
-            borderColor: '#10b981',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [5,3],
-            tension: 0.35,
-            pointRadius: 2,
-            pointHoverRadius: 4,
-            yAxisID: 'y1'
+(function () {
+    var dashCtrl = null;
+    var salesFirstFetch = true;
+    window.printflowTeardownDashboardCharts = function () {
+        if (window.__pfDashRevealIOs && window.__pfDashRevealIOs.length) {
+            window.__pfDashRevealIOs.forEach(function (io) {
+                try { io.disconnect(); } catch (e) {}
+            });
+            window.__pfDashRevealIOs = [];
         }
-    ]},
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-        scales: {
-            y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => '₱' + v.toLocaleString() }, grid: { color: '#f3f4f6' } },
-            y1: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
-            x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+        if (window.__pfDashChartIO) {
+            try { window.__pfDashChartIO.disconnect(); } catch (e) {}
+            window.__pfDashChartIO = null;
         }
-    }
-});
-
-async function loadSalesChart(period) {
-    const loadingEl = document.getElementById('dash-sales-loading');
-    const noDataEl = document.getElementById('dash-sales-nodata');
-    const yearEl = document.getElementById('dash-chart-year');
-    const monthEl = document.getElementById('dash-chart-month');
-    if (loadingEl) loadingEl.classList.remove('hidden');
-    if (noDataEl) noDataEl.classList.remove('visible');
-    const year = yearEl ? yearEl.value : new Date().getFullYear();
-    const month = monthEl ? monthEl.value : new Date().getMonth() + 1;
-    let url = 'api_revenue_chart.php?period=' + period + '&year=' + year;
-    if (period === 'monthly') url += '&month=' + month;
-    if (DASH_BRANCH_ID) url += '&branch_id=' + DASH_BRANCH_ID;
-    try {
-        const resp = await fetch(url, { credentials: 'same-origin' });
-        const text = await resp.text();
-        let data;
-        try { data = JSON.parse(text); } catch(e) {
-            console.error('Chart API returned non-JSON:', text.substring(0, 200));
-            if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
+        if (window.__pfDashMainRO) {
+            try { window.__pfDashMainRO.disconnect(); } catch (e) {}
+            window.__pfDashMainRO = null;
+        }
+        if (window.__pfDashScrollKick) {
+            try { window.removeEventListener('resize', window.__pfDashScrollKick); } catch (e) {}
+            window.__pfDashScrollKick = null;
+        }
+        if (window.__pfDashScrollSettledHandler) {
+            var mc0 = document.querySelector('.main-content');
+            if (mc0) {
+                try { mc0.removeEventListener('scroll', window.__pfDashScrollSettledHandler); } catch (e) {}
+            }
+            window.__pfDashScrollSettledHandler = null;
+        }
+        if (window.__pfDashScrollSettleTimer) {
+            try { clearTimeout(window.__pfDashScrollSettleTimer); } catch (e) {}
+            window.__pfDashScrollSettleTimer = null;
+        }
+        if (window.__pfDashLayoutTimer) {
+            try { clearTimeout(window.__pfDashLayoutTimer); } catch (e) {}
+            window.__pfDashLayoutTimer = null;
+        }
+        if (dashCtrl) {
+            try { dashCtrl.abort(); } catch (e) {}
+            dashCtrl = null;
+        }
+        salesFirstFetch = true;
+        if (window.__pfDashSalesChart) {
+            try { window.__pfDashSalesChart.destroy(); } catch (e) {}
+            window.__pfDashSalesChart = null;
+        }
+        if (window.__pfDashStatusChart) {
+            try { window.__pfDashStatusChart.destroy(); } catch (e) {}
+            window.__pfDashStatusChart = null;
+        }
+        if (window.__pfDashCategoryChart) {
+            try { window.__pfDashCategoryChart.destroy(); } catch (e) {}
+            window.__pfDashCategoryChart = null;
+        }
+    };
+    window.printflowInitDashboardCharts = function () {
+        if (!document.getElementById('salesChart')) return;
+        if (typeof Chart === 'undefined') {
+            setTimeout(function () {
+                if (typeof window.printflowInitDashboardCharts === 'function') window.printflowInitDashboardCharts();
+            }, 40);
             return;
         }
-        if (data.error) console.warn('Chart API error:', data.error, data.message || '');
-        const labels  = data.labels  || [];
-        const revenue = data.revenue || [];
-        const orders  = data.orders  || [];
-        salesChart.data.labels           = labels;
-        salesChart.data.datasets[0].data = revenue;
-        salesChart.data.datasets[1].data = orders;
-        salesChart.update();
-        if (noDataEl) noDataEl.classList.toggle('visible', labels.length === 0);
-    } catch(e) {
-        console.error('loadSalesChart error:', e);
-        if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
-    } finally {
-        if (loadingEl) loadingEl.classList.add('hidden');
-    }
-}
+        window.printflowTeardownDashboardCharts();
+        window.__pfDashRevealIOs = [];
+        dashCtrl = new AbortController();
+        var sig = { signal: dashCtrl.signal };
+        var DASH_BRANCH_ID = <?php echo $branchId !== 'all' ? (int)$branchId : 'null'; ?>;
 
-function updateChartYearMonthVisibility(period) {
-    const wrap = document.getElementById('dash-year-month');
-    const monthEl = document.getElementById('dash-chart-month');
-    if (!wrap) return;
-    wrap.style.display = ['monthly','6months','yearly'].includes(period) ? 'flex' : 'none';
-    if (monthEl) monthEl.style.display = period === 'monthly' ? 'inline-block' : 'none';
-}
+        var dashAnimLong = 1750;
+        var dashAnimShort = 680;
+        var doughnutAnim = { animateRotate: true, animateScale: true, duration: 1500 };
 
-function getChartPeriod() {
-    const sel = document.getElementById('dash-chart-period');
-    return sel ? sel.value : 'monthly';
-}
-
-document.getElementById('dash-chart-period')?.addEventListener('change', () => {
-    const period = getChartPeriod();
-    updateChartYearMonthVisibility(period);
-    loadSalesChart(period);
-});
-document.getElementById('dash-chart-year')?.addEventListener('change', () => loadSalesChart(getChartPeriod()));
-document.getElementById('dash-chart-month')?.addEventListener('change', () => loadSalesChart(getChartPeriod()));
-
-updateChartYearMonthVisibility('monthly');
-loadSalesChart('monthly');
-
-// ─── Order Status Doughnut ──────────────────────────────
-<?php if (!empty($order_status)): ?>
-const statusCtx = document.getElementById('statusChart').getContext('2d');
-new Chart(statusCtx, {
-    type: 'doughnut',
-    data: {
-        labels: <?php echo json_encode(array_map(fn($d) => $d['status'], $order_status)); ?>,
-        datasets: [{
-            data: <?php echo json_encode(array_map(fn($d) => (int)$d['cnt'], $order_status)); ?>,
-            backgroundColor: <?php echo json_encode(array_map(fn($d) => $statusColors[$d['status']] ?? '#6b7280', $order_status)); ?>,
-            borderWidth: 2,
-            borderColor: '#fff',
-            hoverOffset: 6
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '60%',
-        plugins: {
-            legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } }
+        function bindWhenVisible(target, onFirst) {
+            if (!target || typeof onFirst !== 'function') return;
+            if (typeof IntersectionObserver === 'undefined') {
+                requestAnimationFrame(onFirst);
+                return;
+            }
+            var root = document.querySelector('.main-content');
+            var fired = false;
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (en) {
+                    if (!en.isIntersecting || fired) return;
+                    fired = true;
+                    try { io.disconnect(); } catch (e) {}
+                    onFirst();
+                });
+            }, { root: root || null, threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+            io.observe(target);
+            window.__pfDashRevealIOs.push(io);
         }
-    }
-});
-<?php endif; ?>
 
-// ─── Category Doughnut Chart ────────────────────────────
-<?php if (!empty($category_sales)): ?>
-const catColors = ['#6366f1','#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
-const catCtx = document.getElementById('categoryChart').getContext('2d');
-new Chart(catCtx, {
-    type: 'doughnut',
-    data: {
-        labels: <?php echo json_encode(array_map(fn($c) => $c['category'] ?? 'Uncategorized', $category_sales)); ?>,
-        datasets: [{
-            data: <?php echo json_encode(array_map(fn($c) => (float)$c['total'], $category_sales)); ?>,
-            backgroundColor: catColors.slice(0, <?php echo count($category_sales); ?>),
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '70%',
-        plugins: {
-            legend: { display: false }
+        async function loadSalesChart(period) {
+            if (!window.__pfDashSalesChart) return;
+            var loadingEl = document.getElementById('dash-sales-loading');
+            var noDataEl = document.getElementById('dash-sales-nodata');
+            var yearEl = document.getElementById('dash-chart-year');
+            var monthEl = document.getElementById('dash-chart-month');
+            if (loadingEl) loadingEl.classList.remove('hidden');
+            if (noDataEl) noDataEl.classList.remove('visible');
+            var year = yearEl ? yearEl.value : new Date().getFullYear();
+            var month = monthEl ? monthEl.value : new Date().getMonth() + 1;
+            var url = 'api_revenue_chart.php?period=' + encodeURIComponent(period) + '&year=' + encodeURIComponent(year);
+            if (period === 'monthly') url += '&month=' + encodeURIComponent(month);
+            if (DASH_BRANCH_ID) url += '&branch_id=' + DASH_BRANCH_ID;
+            try {
+                var resp = await fetch(url, { credentials: 'same-origin', signal: dashCtrl.signal });
+                var text = await resp.text();
+                var data;
+                try { data = JSON.parse(text); } catch (e) {
+                    console.error('Chart API returned non-JSON:', text.substring(0, 200));
+                    if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
+                    return;
+                }
+                if (data.error) console.warn('Chart API error:', data.error, data.message || '');
+                var labels = data.labels || [];
+                var revenue = data.revenue || [];
+                var orders = data.orders || [];
+                if (!window.__pfDashSalesChart) return;
+                window.__pfDashSalesChart.data.labels = labels;
+                window.__pfDashSalesChart.data.datasets[0].data = revenue;
+                window.__pfDashSalesChart.data.datasets[1].data = orders;
+                var dur = salesFirstFetch ? dashAnimLong : dashAnimShort;
+                salesFirstFetch = false;
+                if (window.__pfDashSalesChart.options && window.__pfDashSalesChart.options.animation) {
+                    window.__pfDashSalesChart.options.animation.duration = dur;
+                }
+                window.__pfDashSalesChart.update();
+                requestAnimationFrame(function () {
+                    try {
+                        if (window.__pfDashSalesChart && typeof window.__pfDashSalesChart.resize === 'function') {
+                            window.__pfDashSalesChart.resize();
+                        }
+                    } catch (e2) {}
+                });
+                if (noDataEl) noDataEl.classList.toggle('visible', labels.length === 0);
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                console.error('loadSalesChart error:', e);
+                if (noDataEl) { noDataEl.querySelector('span').textContent = 'Failed to load chart data'; noDataEl.classList.add('visible'); }
+            } finally {
+                if (loadingEl) loadingEl.classList.add('hidden');
+            }
         }
-    }
-});
-<?php endif; ?>
+
+        function updateChartYearMonthVisibility(period) {
+            var wrap = document.getElementById('dash-year-month');
+            var monthEl = document.getElementById('dash-chart-month');
+            if (!wrap) return;
+            wrap.style.display = ['monthly', '6months', 'yearly'].includes(period) ? 'flex' : 'none';
+            if (monthEl) monthEl.style.display = period === 'monthly' ? 'inline-block' : 'none';
+        }
+
+        function getChartPeriod() {
+            var sel = document.getElementById('dash-chart-period');
+            return sel ? sel.value : 'monthly';
+        }
+
+        document.getElementById('dash-chart-period')?.addEventListener('change', function () {
+            var period = getChartPeriod();
+            updateChartYearMonthVisibility(period);
+            if (window.__pfDashSalesChart) loadSalesChart(period);
+        }, sig);
+        document.getElementById('dash-chart-year')?.addEventListener('change', function () {
+            if (window.__pfDashSalesChart) loadSalesChart(getChartPeriod());
+        }, sig);
+        document.getElementById('dash-chart-month')?.addEventListener('change', function () {
+            if (window.__pfDashSalesChart) loadSalesChart(getChartPeriod());
+        }, sig);
+
+        updateChartYearMonthVisibility('monthly');
+
+        bindWhenVisible(document.getElementById('dash-sales-chart-wrap'), function () {
+            salesFirstFetch = true;
+            window.__pfDashSalesChart = new Chart(document.getElementById('salesChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    {
+                        label: 'Revenue (₱)',
+                        data: [],
+                        borderColor: '#00232b',
+                        backgroundColor: 'rgba(0,35,43,.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#00232b',
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Orders',
+                        data: [],
+                        borderColor: '#53C5E0',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                        tension: 0.35,
+                        pointBackgroundColor: '#3A86A8',
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        yAxisID: 'y1'
+                    }
+                ]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: dashAnimLong, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: { animation: { duration: 180 }, padding: 10, cornerRadius: 8, displayColors: true }
+                    },
+                    scales: {
+                        y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: function (v) { return '₱' + v.toLocaleString(); } }, grid: { color: '#f3f4f6' } },
+                        y1: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
+                        x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+                    }
+                }
+            });
+            loadSalesChart(getChartPeriod());
+        });
+
+        <?php if (!empty($order_status)): ?>
+        (function () {
+            var w = document.getElementById('statusChart') && document.getElementById('statusChart').closest('.chart-wrap');
+            bindWhenVisible(w, function () {
+                window.__pfDashStatusChart = new Chart(document.getElementById('statusChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: <?php echo json_encode(array_map(fn($d) => $d['status'], $order_status)); ?>,
+                        datasets: [{
+                            data: <?php echo json_encode(array_map(fn($d) => (int)$d['cnt'], $order_status)); ?>,
+                            backgroundColor: <?php echo json_encode(array_map(fn($d) => $statusColors[$d['status']] ?? '#6B7C85', $order_status)); ?>,
+                            borderWidth: 2,
+                            borderColor: '#fff',
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '60%',
+                        animation: doughnutAnim,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } },
+                            tooltip: { animation: { duration: 160 }, cornerRadius: 8 }
+                        }
+                    }
+                });
+            });
+        })();
+        <?php endif; ?>
+
+        <?php if (!empty($category_sales)): ?>
+        (function () {
+            var cv = document.getElementById('categoryChart');
+            var w = cv ? cv.parentElement : null;
+            var catColors = ['#00232b', '#53C5E0', '#0F4C5C', '#3498DB', '#6C5CE7', '#3A86A8', '#F39C12', '#2ECC71'];
+            bindWhenVisible(w, function () {
+                window.__pfDashCategoryChart = new Chart(document.getElementById('categoryChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: <?php echo json_encode(array_map(fn($c) => $c['category'] ?? 'Uncategorized', $category_sales)); ?>,
+                        datasets: [{
+                            data: <?php echo json_encode(array_map(fn($c) => (float)$c['total'], $category_sales)); ?>,
+                            backgroundColor: catColors.slice(0, <?php echo count($category_sales); ?>),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        animation: doughnutAnim,
+                        plugins: { legend: { display: false }, tooltip: { animation: { duration: 160 }, cornerRadius: 8 } }
+                    }
+                });
+            });
+        })();
+        <?php endif; ?>
+
+        (function attachDashboardChartLayout() {
+            var mainEl = document.querySelector('.main-content');
+            function runDashResize() {
+                ['__pfDashSalesChart', '__pfDashStatusChart', '__pfDashCategoryChart'].forEach(function (k) {
+                    var c = window[k];
+                    if (c && typeof c.resize === 'function') {
+                        try { c.resize(); } catch (e) {}
+                    }
+                });
+            }
+            function debouncedDashResize() {
+                if (window.__pfDashLayoutTimer) clearTimeout(window.__pfDashLayoutTimer);
+                window.__pfDashLayoutTimer = setTimeout(function () {
+                    window.__pfDashLayoutTimer = null;
+                    runDashResize();
+                }, 240);
+            }
+            window.__pfDashScrollKick = debouncedDashResize;
+            window.addEventListener('resize', debouncedDashResize);
+            if (mainEl && typeof ResizeObserver !== 'undefined') {
+                window.__pfDashMainRO = new ResizeObserver(function () {
+                    debouncedDashResize();
+                });
+                window.__pfDashMainRO.observe(mainEl);
+            }
+        })();
+    };
+})();
 </script>
-
 </body>
 </html>

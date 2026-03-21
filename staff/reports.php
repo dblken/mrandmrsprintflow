@@ -85,7 +85,6 @@ $page_title = 'Reports - Staff';
         @media (max-width: 540px) { .report-summary { grid-template-columns: 1fr; } }
         .summary-box { background: #f9fafb; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #f3f4f6; }
         .summary-box .label { font-size: 12px; color: #9ca3af; margin-bottom: 6px; }
-        .summary-box .value { font-size: 24px; font-weight: 700; color: #1f2937; }
         .summary-box.warn .value { color: #f59e0b; }
         .summary-box.danger .value { color: #ef4444; }
         .summary-box.success .value { color: #10b981; }

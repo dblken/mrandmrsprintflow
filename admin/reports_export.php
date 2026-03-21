@@ -2,34 +2,61 @@
 /**
  * Reports CSV Export Endpoint
  * PrintFlow - Admin Reports
- * Generates CSV downloads for each report type with print-ready layout
+ * Professional CSV exports with branch filtering and proper formatting
  */
+
+// Prevent PHP errors from corrupting CSV output
+error_reporting(0);
+ini_set('display_errors', 0);
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 
-$report = $_GET['report'] ?? '';
-$from   = $_GET['from'] ?? date('Y-m-01');
-$to     = $_GET['to'] ?? date('Y-m-d');
+$report   = $_GET['report'] ?? '';
+$from     = $_GET['from'] ?? date('Y-m-01');
+$to       = $_GET['to'] ?? date('Y-m-d');
+$branchId = isset($_GET['branch_id']) ? ($_GET['branch_id'] === 'all' ? 'all' : (int)$_GET['branch_id']) : 'all';
 
-// Sanitize dates
 $from = date('Y-m-d', strtotime($from));
 $to   = date('Y-m-d', strtotime($to));
+$toEnd = $to . ' 23:59:59';
 
+[$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
+$branchName = 'All Branches';
+if ($branchId !== 'all') {
+    $branches = get_all_branches();
+    foreach ($branches as $b) {
+        if ((int)$b['id'] === (int)$branchId) { $branchName = $b['branch_name']; break; }
+    }
+}
+
+// UTF-8 BOM for Excel compatibility
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="printflow_' . $report . '_' . date('Ymd') . '.csv"');
+header('Content-Disposition: attachment; filename="PrintFlow_' . preg_replace('/[^a-z0-9]/i', '_', $report) . '_' . date('Y-m-d') . '.csv"');
+header('Cache-Control: no-cache, must-revalidate');
+header('Pragma: no-cache');
 
 $output = fopen('php://output', 'w');
+fwrite($output, "\xEF\xBB\xBF"); // UTF-8 BOM
 
-// ── Report header for print layout ────────────────────────
-function writeReportHeader($output, $title, $from, $to) {
-    fputcsv($output, ['PRINTFLOW PRINTING SHOP']);
-    fputcsv($output, [$title]);
-    fputcsv($output, ['Period: ' . date('M d, Y', strtotime($from)) . ' to ' . date('M d, Y', strtotime($to))]);
-    fputcsv($output, ['Generated: ' . date('M d, Y h:i A')]);
-    fputcsv($output, []); // blank line
+// Safe CSV value - trim and ensure no control chars
+function csvVal($v) {
+    if ($v === null || $v === '') return '';
+    $v = trim((string)$v);
+    $v = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $v);
+    return $v;
+}
+
+function writeReportHeader($output, $reportType, $from, $to, $branchName = 'All Branches') {
+    fputcsv($output, ['PrintFlow Sales & Analytics Report']);
+    fputcsv($output, ['Report Type', $reportType]);
+    fputcsv($output, ['Branch', csvVal($branchName)]);
+    fputcsv($output, ['Date Range', date('F j, Y', strtotime($from)) . ' – ' . date('F j, Y', strtotime($to))]);
+    fputcsv($output, ['Generated On', date('F j, Y, g:i A', strtotime('now'))]);
+    fputcsv($output, []);
 }
 
 switch ($report) {
@@ -38,102 +65,122 @@ switch ($report) {
     // SALES REPORT
     // ═══════════════════════════════════════════════════════
     case 'sales':
-        writeReportHeader($output, 'SALES REPORT', $from, $to);
+        writeReportHeader($output, 'Sales Report', $from, $to, $branchName);
 
-        // Summary
         $summary = db_query(
-            "SELECT 
-                COUNT(*) as total_orders,
-                SUM(CASE WHEN payment_status = 'Paid' THEN total_amount ELSE 0 END) as total_revenue,
-                SUM(CASE WHEN payment_status = 'Paid' THEN 1 ELSE 0 END) as paid_orders,
-                AVG(CASE WHEN payment_status = 'Paid' THEN total_amount ELSE NULL END) as avg_order_value
-             FROM orders 
-             WHERE order_date BETWEEN ? AND ?",
-            'ss', [$from, $to . ' 23:59:59']
+            "SELECT COUNT(*) as total_orders,
+                    SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as total_revenue,
+                    SUM(CASE WHEN o.payment_status='Paid' THEN 1 ELSE 0 END) as paid_orders,
+                    AVG(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE NULL END) as avg_order_value
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?$bSql",
+            'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)
         );
         $s = $summary[0] ?? [];
+        $totalRev = (float)($s['total_revenue'] ?? 0);
+        $totalOrd = (int)($s['total_orders'] ?? 0);
+        $avgVal = (float)($s['avg_order_value'] ?? 0);
 
         fputcsv($output, ['SUMMARY']);
-        fputcsv($output, ['Total Orders', $s['total_orders'] ?? 0]);
-        fputcsv($output, ['Total Revenue', number_format((float)($s['total_revenue'] ?? 0), 2)]);
-        fputcsv($output, ['Paid Orders', $s['paid_orders'] ?? 0]);
-        fputcsv($output, ['Average Order Value', number_format((float)($s['avg_order_value'] ?? 0), 2)]);
+        fputcsv($output, ['Total Orders', $totalOrd]);
+        fputcsv($output, ['Total Revenue', number_format($totalRev, 2, '.', '')]);
+        fputcsv($output, ['Average Order Value', number_format($avgVal, 2, '.', '')]);
         fputcsv($output, []);
 
-        // Detail
-        fputcsv($output, ['ORDER DETAILS']);
-        fputcsv($output, ['Order #', 'Customer', 'Email', 'Order Date', 'Total Amount', 'Payment Status', 'Order Status']);
+        fputcsv($output, ['Order ID', 'Customer Name', 'Email', 'Order Date', 'Total Amount', 'Payment Status', 'Order Status']);
 
         $orders = db_query(
-            "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email,
+            "SELECT o.order_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as customer_name, COALESCE(c.email,'') as email,
                     o.order_date, o.total_amount, o.payment_status, o.status
              FROM orders o
              LEFT JOIN customers c ON o.customer_id = c.customer_id
-             WHERE o.order_date BETWEEN ? AND ?
+             WHERE o.order_date BETWEEN ? AND ?$bSql
              ORDER BY o.order_date DESC",
-            'ss', [$from, $to . ' 23:59:59']
+            'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)
         );
 
         if ($orders) {
             foreach ($orders as $row) {
                 fputcsv($output, [
-                    '#' . $row['order_id'],
-                    $row['customer_name'],
-                    $row['email'],
-                    date('M d, Y', strtotime($row['order_date'])),
-                    number_format((float)$row['total_amount'], 2),
-                    $row['payment_status'],
-                    $row['status']
+                    (int)$row['order_id'],
+                    csvVal($row['customer_name']),
+                    csvVal($row['email']),
+                    date('Y-m-d', strtotime($row['order_date'])),
+                    number_format((float)$row['total_amount'], 2, '.', ''),
+                    csvVal($row['payment_status']),
+                    csvVal($row['status'])
                 ]);
             }
         }
 
-        fputcsv($output, []);
-        fputcsv($output, ['', '', '', 'TOTAL:', number_format((float)($s['total_revenue'] ?? 0), 2)]);
+        fputcsv($output, ['TOTAL', '', '', '', number_format($totalRev, 2, '.', ''), '', '']);
         break;
 
     // ═══════════════════════════════════════════════════════
     // ORDERS STATUS REPORT
     // ═══════════════════════════════════════════════════════
     case 'orders':
-        writeReportHeader($output, 'ORDERS STATUS REPORT', $from, $to);
+        writeReportHeader($output, 'Orders Status Report', $from, $to, $branchName);
 
-        $status_counts = db_query(
-            "SELECT status, COUNT(*) as cnt, SUM(total_amount) as total
-             FROM orders
-             WHERE order_date BETWEEN ? AND ?
-             GROUP BY status ORDER BY cnt DESC",
-            'ss', [$from, $to . ' 23:59:59']
+        $summary = db_query(
+            "SELECT COUNT(*) as total_orders, SUM(o.total_amount) as total_revenue,
+                    AVG(o.total_amount) as avg_order_value
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?$bSql",
+            'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)
         );
+        $sum = $summary[0] ?? [];
+        $grandTotalOrd = (int)($sum['total_orders'] ?? 0);
+        $grandTotalRev = (float)($sum['total_revenue'] ?? 0);
+        $avgOrderVal = (float)($sum['avg_order_value'] ?? 0);
 
-        fputcsv($output, ['STATUS BREAKDOWN']);
-        fputcsv($output, ['Status', 'Count', 'Total Amount']);
-        if ($status_counts) {
-            foreach ($status_counts as $sc) {
-                fputcsv($output, [$sc['status'], $sc['cnt'], number_format((float)$sc['total'], 2)]);
-            }
-        }
+        fputcsv($output, ['SUMMARY']);
+        fputcsv($output, ['Total Orders', $grandTotalOrd]);
+        fputcsv($output, ['Total Revenue', number_format($grandTotalRev, 2, '.', '')]);
+        fputcsv($output, ['Average Order Value', number_format($avgOrderVal, 2, '.', '')]);
         fputcsv($output, []);
 
-        // Daily order breakdown
-        fputcsv($output, ['DAILY ORDER SUMMARY']);
-        fputcsv($output, ['Date', 'Orders', 'Revenue']);
+        fputcsv($output, ['Status', 'Total Orders', 'Total Amount']);
+
+        $status_counts = db_query(
+            "SELECT o.status, COUNT(*) as cnt, SUM(o.total_amount) as total
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?$bSql
+             GROUP BY o.status ORDER BY cnt DESC",
+            'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)
+        );
+
+        if ($status_counts) {
+            foreach ($status_counts as $sc) {
+                fputcsv($output, [csvVal($sc['status']), (int)$sc['cnt'], number_format((float)$sc['total'], 2, '.', '')]);
+            }
+        }
+        fputcsv($output, ['TOTAL', $grandTotalOrd, number_format($grandTotalRev, 2, '.', '')]);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Date', 'Number of Orders', 'Revenue']);
 
         $daily = db_query(
-            "SELECT DATE(order_date) as day, COUNT(*) as cnt, SUM(total_amount) as total
-             FROM orders
-             WHERE order_date BETWEEN ? AND ?
-             GROUP BY DATE(order_date) ORDER BY day DESC",
-            'ss', [$from, $to . ' 23:59:59']
+            "SELECT DATE(o.order_date) as day, COUNT(*) as cnt, SUM(o.total_amount) as total
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?$bSql
+             GROUP BY DATE(o.order_date) ORDER BY day DESC",
+            'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)
         );
 
         if ($daily) {
+            $dayCount = count($daily);
+            $dayTotalOrd = 0;
+            $dayTotalRev = 0;
             foreach ($daily as $d) {
+                $cnt = (int)$d['cnt'];
+                $tot = (float)$d['total'];
+                $dayTotalOrd += $cnt;
+                $dayTotalRev += $tot;
                 fputcsv($output, [
-                    date('M d, Y', strtotime($d['day'])),
-                    $d['cnt'],
-                    number_format((float)$d['total'], 2)
+                    date('M j, Y', strtotime($d['day'])),
+                    $cnt,
+                    number_format($tot, 2, '.', '')
                 ]);
+            }
+            if ($dayCount > 0) {
+                fputcsv($output, ['DAILY AVERAGE', number_format($dayTotalOrd / $dayCount, 1, '.', ''), number_format($dayTotalRev / $dayCount, 2, '.', '')]);
             }
         }
         break;
@@ -142,39 +189,52 @@ switch ($report) {
     // CUSTOMERS REPORT
     // ═══════════════════════════════════════════════════════
     case 'customers':
-        writeReportHeader($output, 'CUSTOMERS REPORT', $from, $to);
+        writeReportHeader($output, 'Customers Report', $from, $to, $branchName);
 
         $cust_summary = db_query("SELECT COUNT(*) as total, SUM(CASE WHEN status='Activated' THEN 1 ELSE 0 END) as active FROM customers");
         $cs = $cust_summary[0] ?? [];
 
         fputcsv($output, ['SUMMARY']);
-        fputcsv($output, ['Total Customers', $cs['total'] ?? 0]);
-        fputcsv($output, ['Active Customers', $cs['active'] ?? 0]);
+        fputcsv($output, ['Total Customers', (int)($cs['total'] ?? 0)]);
+        fputcsv($output, ['Active Customers', (int)($cs['active'] ?? 0)]);
         fputcsv($output, []);
 
-        fputcsv($output, ['CUSTOMER LIST']);
-        fputcsv($output, ['ID', 'Name', 'Email', 'Phone', 'Status', 'Registered Date', 'Total Orders', 'Total Spent']);
+        fputcsv($output, ['Customer ID', 'Name', 'Email', 'Contact Number', 'Status', 'Registered Date', 'Total Orders', 'Total Spent']);
 
-        $customers = db_query(
-            "SELECT c.customer_id, CONCAT(c.first_name, ' ', c.last_name) as name, c.email, c.phone, c.status, c.created_at,
-                    COUNT(o.order_id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_spent
-             FROM customers c
-             LEFT JOIN orders o ON c.customer_id = o.customer_id
-             GROUP BY c.customer_id
-             ORDER BY total_spent DESC"
-        );
+        if ($branchId !== 'all') {
+            $customers = db_query(
+                "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
+                        COALESCE(c.email,'') as email, COALESCE(c.contact_number,'') as contact_number, c.status, c.created_at,
+                        COUNT(o.order_id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_spent
+                 FROM customers c
+                 INNER JOIN orders o ON c.customer_id = o.customer_id AND o.branch_id = ?
+                 GROUP BY c.customer_id
+                 ORDER BY total_spent DESC",
+                'i', [$branchId]
+            ) ?: [];
+        } else {
+            $customers = db_query(
+                "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
+                        COALESCE(c.email,'') as email, COALESCE(c.contact_number,'') as contact_number, c.status, c.created_at,
+                        COUNT(o.order_id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_spent
+                 FROM customers c
+                 LEFT JOIN orders o ON c.customer_id = o.customer_id
+                 GROUP BY c.customer_id
+                 ORDER BY total_spent DESC"
+            ) ?: [];
+        }
 
         if ($customers) {
             foreach ($customers as $c) {
                 fputcsv($output, [
-                    '#' . $c['customer_id'],
-                    $c['name'],
-                    $c['email'],
-                    $c['phone'] ?? 'N/A',
-                    $c['status'],
-                    date('M d, Y', strtotime($c['created_at'])),
-                    $c['order_count'],
-                    number_format((float)$c['total_spent'], 2)
+                    (int)$c['customer_id'],
+                    csvVal($c['name']),
+                    csvVal($c['email']),
+                    csvVal($c['contact_number'] ?? ''),
+                    csvVal($c['status']),
+                    date('Y-m-d', strtotime($c['created_at'])),
+                    (int)$c['order_count'],
+                    number_format((float)$c['total_spent'], 2, '.', '')
                 ]);
             }
         }
@@ -184,7 +244,7 @@ switch ($report) {
     // INVENTORY REPORT
     // ═══════════════════════════════════════════════════════
     case 'inventory':
-        writeReportHeader($output, 'INVENTORY & STOCK REPORT', $from, $to);
+        writeReportHeader($output, 'INVENTORY & STOCK REPORT', $from, $to, $branchName);
 
         fputcsv($output, ['MATERIAL STOCK LEVELS']);
         fputcsv($output, ['Category', 'Material', 'Unit', 'Opening Stock', 'Current Stock', 'Stock Used', 'Status']);

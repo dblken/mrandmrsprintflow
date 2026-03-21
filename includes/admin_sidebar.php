@@ -20,6 +20,8 @@ if (isset($_SESSION['user_id'])) {
     $unread_notif_count = 0;
 }
 ?>
+<div id="printflow-persistent-sidebar" data-turbo-permanent>
+<?php include __DIR__ . '/sidebar_layout_boot.php'; ?>
 
 <!-- Mobile Sidebar Overlay -->
 <div id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
@@ -80,6 +82,12 @@ if (isset($_SESSION['user_id'])) {
                 </svg>
                 Products
             </a>
+            <a href="/printflow/admin/services.php" class="nav-item <?php echo in_array($current_page, ['services.php', 'services_management.php'], true) ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                Services
+            </a>
             <a href="/printflow/admin/inv_items_management.php" class="nav-item <?php echo in_array($current_page, ['inv_items_management.php', 'inventory_management.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
@@ -120,7 +128,7 @@ if (isset($_SESSION['user_id'])) {
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                Chatbot
+                Support chat
             </a>
             <a href="notifications" class="nav-item <?php echo $current_page === 'notifications.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,7 +170,7 @@ if (isset($_SESSION['user_id'])) {
     </nav>
     
     <div class="sidebar-footer">
-        <a href="profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; width:100%;">
+        <a href="profile" class="user-profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; width:100%;">
             <div class="user-avatar" style="flex-shrink:0; overflow:hidden;">
                 <?php if ($sidebar_profile_pic): ?>
                     <img src="<?php echo $sidebar_profile_pic; ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
@@ -196,17 +204,22 @@ if (isset($_SESSION['user_id'])) {
         <p style="font-size:14px; color:#6b7280; margin:0 0 24px;">Are you sure you want to log out of your admin account?</p>
         <div style="display:flex; gap:10px;">
             <button onclick="document.getElementById('logoutModal').style.display='none'" style="flex:1; padding:10px; border:1px solid #e5e7eb; background:white; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">Cancel</button>
-            <a href="/printflow/logout/" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
+            <a href="/printflow/logout/" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
         </div>
     </div>
 </div>
+
+<div id="pf-fg-portal" class="pf-fg-portal" aria-hidden="true"></div>
 
 <script>
 // Sidebar collapse toggle (matches staff sidebar behavior)
 function toggleSidebar() {
     const sidebar = document.getElementById('adminSidebar');
+    if (!sidebar || sidebar.dataset.pfToggleLock === '1') return;
+    sidebar.dataset.pfToggleLock = '1';
     const isCollapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('sidebarCollapsed', isCollapsed);
+    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+    window.setTimeout(function () { sidebar.dataset.pfToggleLock = '0'; }, 320);
     
     // Update button icon (chevron flips: left = expanded, right = collapsed)
     const iconEl = document.getElementById('sidebar-toggle-icon');
@@ -223,13 +236,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebar = document.getElementById('adminSidebar');
     const toggleBtn = document.getElementById('global-sidebar-toggle');
     const toggleIcon = document.getElementById('sidebar-toggle-icon');
-    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true' || localStorage.getItem('sidebarCollapsed') === '1';
     if (collapsed) {
         sidebar.classList.add('collapsed');
         const path = toggleIcon ? (toggleIcon.tagName === 'path' ? toggleIcon : toggleIcon.querySelector('path')) : null;
         if (path) path.setAttribute('d', 'M9 5l7 7-7 7');
         if (toggleBtn) toggleBtn.title = 'Expand sidebar';
+    } else {
+        sidebar.classList.remove('collapsed');
     }
+    document.body.classList.remove('sidebar-collapsed');
+    document.documentElement.classList.remove('sidebar-preload-collapsed');
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            document.documentElement.classList.add('sidebar-transitions-enabled');
+        });
+    });
 });
 
 // Mobile burger menu toggle
@@ -260,23 +282,23 @@ document.addEventListener('click', function(event) {
     }
 });
 
-    // Sidebar scroll persistence
+    // Sidebar scroll persistence (no auto-scroll when collapsed — avoids jump on every navigation)
     document.addEventListener('DOMContentLoaded', function() {
         var nav = document.querySelector('.sidebar-nav');
-        if (!nav) return;
+        var sidebar = document.getElementById('adminSidebar');
+        if (!nav || !sidebar) return;
+        var isCollapsed = sidebar.classList.contains('collapsed');
 
-        // Restore scroll position after layout
         var saved = sessionStorage.getItem('sidebarScroll');
         if (saved !== null) {
             requestAnimationFrame(function() {
                 nav.scrollTop = parseInt(saved, 10);
             });
-        } else {
-            // If no saved position, scroll the active item into view
+        } else if (!isCollapsed) {
             var activeItem = nav.querySelector('.nav-item.active');
             if (activeItem) {
                 requestAnimationFrame(function() {
-                    activeItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+                    activeItem.scrollIntoView({ block: 'nearest', behavior: 'instant' });
                 });
             }
         }
@@ -310,4 +332,5 @@ $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Adm
 <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
 <script src="/printflow/public/assets/js/notifications.js" defer></script>
 <script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>
+</div>
 

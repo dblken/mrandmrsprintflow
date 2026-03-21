@@ -448,7 +448,8 @@ body.customer-theme .ct-stat-label {
 
 body.customer-theme .ct-stat-value {
     font-size: 1.75rem;
-    font-weight: 800;
+    font-weight: 800 !important;
+    font-variant-numeric: tabular-nums;
     color: var(--ct-text);
     line-height: 1;
 }

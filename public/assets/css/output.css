@@ -1,5 +1,7 @@
 /* NOTE: This is a minimal Tailwind CSS output. For full Tailwind features, install Node.js and run: npm install && npm run build */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 /* Base reset - stop default link styling so Tailwind can control it */
 a {
     color: inherit;
@@ -27,9 +29,6 @@ body {
     color: #111827;
     background-color: #f9fafb;
 }
-
-/* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* Utility Classes - Add more as needed after running npm run build */
 .container {
