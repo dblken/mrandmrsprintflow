@@ -30,46 +30,64 @@ if (!empty($items)) {
 
 $page_title = "Chat - Order #{$order_id}";
 $use_customer_css = true;
+$is_chat_page = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
-<div class="min-h-screen flex flex-col" style="max-height: 100vh;">
+<style>
+body.chat-page main#main-content { padding: 0 !important; min-height: 0 !important; }
+#chat-page-wrap { display: flex; flex-direction: column; min-height: calc(100vh - 64px); max-height: calc(100vh - 64px); background: #f1f5f9; }
+#chat-page-wrap .chat-top-bar { background: #0a2530; color: #fff; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-shrink: 0; }
+#chat-page-wrap .chat-top-bar a { color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; }
+#chat-page-wrap .chat-top-bar a:hover { color: #fff; }
+#chat-page-wrap .chat-top-bar .chat-center { flex: 1; min-width: 0; text-align: center; }
+#chat-page-wrap .chat-top-bar h1 { margin: 0; font-size: 1.125rem; font-weight: 700; color: #fff; }
+#chat-page-wrap .chat-top-bar .chat-meta { font-size: 0.875rem; color: rgba(255,255,255,0.8); margin-top: 2px; }
+#chat-page-wrap .chat-top-bar .chat-status { display: inline-block; margin-top: 4px; padding: 2px 8px; font-size: 0.75rem; border-radius: 9999px; background: rgba(255,255,255,0.2); color: #fff; }
+#chatMessages { flex: 1; min-height: 200px; overflow-y: auto; padding: 1rem; background: #f1f5f9; display: flex; flex-direction: column; gap: 0.75rem; }
+#chat-input-row { padding: 0.75rem 1rem; background: #fff; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+#chatTextInput { flex: 1; padding: 0.75rem 1rem; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1rem; outline: none; background: #fff; color: #111; }
+#chatTextInput:focus { border-color: #0a2530; }
+#chatSendBtn { padding: 0.75rem 1rem; background: #0a2530; color: #fff; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#chatSendBtn:hover { opacity: 0.9; }
+</style>
+<div id="chat-page-wrap">
     <!-- Top bar -->
-    <div class="bg-[#0a2530] text-white px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0">
-        <a href="<?php echo BASE_URL; ?>/customer/messages.php" class="text-white/90 hover:text-white flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    <div class="chat-top-bar">
+        <a href="<?php echo BASE_URL; ?>/customer/messages.php">
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             Back
         </a>
-        <div class="flex-1 min-w-0 text-center">
-            <h1 class="font-bold text-lg truncate">Order #<?php echo $order_id; ?></h1>
-            <p class="text-sm text-white/80 truncate"><?php echo htmlspecialchars($service_name); ?></p>
-            <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-white/20"><?php echo htmlspecialchars($order['status']); ?></span>
+        <div class="chat-center">
+            <h1>Order #<?php echo $order_id; ?></h1>
+            <p class="chat-meta"><?php echo htmlspecialchars($service_name); ?></p>
+            <span class="chat-status"><?php echo htmlspecialchars($order['status']); ?></span>
         </div>
-        <a href="<?php echo BASE_URL; ?>/customer/order_details.php?id=<?php echo $order_id; ?>" class="text-white/90 hover:text-white text-sm font-medium">Order Details</a>
+        <a href="<?php echo BASE_URL; ?>/customer/order_details.php?id=<?php echo $order_id; ?>">Order Details</a>
     </div>
 
     <!-- Chat area -->
-    <div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 1rem; background: #f8fafc; display: flex; flex-direction: column; gap: 0.75rem;">
-        <!-- Messages load here -->
+    <div id="chatMessages">
+        <p style="color:#64748b;font-size:0.9rem;margin:0;padding:0.5rem 0;">No messages yet. Say hello!</p>
     </div>
 
     <!-- Image preview area -->
     <div id="chatImagePreviewArea" style="display: none; padding: 0.5rem 1rem; background: #fff; border-top: 1px solid #e5e7eb; gap: 0.5rem; flex-wrap: wrap;"></div>
 
     <!-- Input area -->
-    <div class="p-3 bg-white border-t border-gray-200 flex items-center gap-2 flex-shrink-0">
-        <label class="cursor-pointer p-2 rounded-lg hover:bg-gray-100">
+    <div id="chat-input-row">
+        <label style="cursor:pointer;padding:8px;border-radius:8px;display:flex;">
             <input type="file" id="chatImageInput" accept="image/*" multiple style="display:none">
-            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg style="width:24px;height:24px;color:#64748b;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </label>
-        <input type="text" id="chatTextInput" placeholder="Type a message..." class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#0a2530]" autocomplete="off">
-        <button type="button" id="chatSendBtn" class="p-3 bg-[#0a2530] text-white rounded-xl hover:opacity-90 transition">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <input type="text" id="chatTextInput" placeholder="Type a message..." autocomplete="off">
+        <button type="button" id="chatSendBtn">
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
         </button>
     </div>
 </div>
 
 <!-- Lightbox -->
-<div id="chatLightbox" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+<div id="chatLightbox" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;align-items:center;justify-content:center;padding:1rem;cursor:pointer;">
     <img id="chatLightboxImg" src="" alt="Enlarged" style="max-width:100%;max-height:90vh;border-radius:8px;">
 </div>
 
@@ -83,15 +101,18 @@ async function fetchMessages() {
         const r = await fetch('/printflow/public/api/chat/fetch_messages.php?order_id=' + ORDER_ID + '&last_id=' + lastMessageId);
         const data = await r.json();
         if (data.success && data.messages && data.messages.length > 0) {
+            const box = document.getElementById('chatMessages');
             data.messages.forEach(m => appendMessage(m));
             lastMessageId = data.messages[data.messages.length - 1].id;
-            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+            box.scrollTop = box.scrollHeight;
         }
     } catch (e) { console.error(e); }
 }
 
 function appendMessage(msg) {
     const box = document.getElementById('chatMessages');
+    const placeholder = box.querySelector('p');
+    if (placeholder) placeholder.remove();
     const div = document.createElement('div');
     const isSystem = msg.is_system || false;
     const isSelf = msg.is_self;
