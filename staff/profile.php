@@ -48,34 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $first_name = sanitize($_POST['first_name'] ?? '');
         $middle_name = sanitize($_POST['middle_name'] ?? '');
         $last_name = sanitize($_POST['last_name'] ?? '');
-<<<<<<< HEAD
-        $contact_number = sanitize($_POST['contact_number'] ?? '');
-        
-        if (empty($first_name) || empty($last_name)) {
-            $error = 'First name and last name are required';
-        } elseif (!is_valid_name_value($first_name) || !is_valid_name_value($last_name)) {
-            $error = 'Names must be 2-60 characters and contain letters only';
-        } elseif (!empty($middle_name) && !is_valid_name_value($middle_name)) {
-            $error = 'Middle name format is invalid';
-        } elseif (!is_valid_contact_value($contact_number)) {
-            $error = 'Contact number must be a valid Philippine mobile number';
-        } else {
-            $region        = sanitize($_POST['region']         ?? '');
-            $province      = sanitize($_POST['province']       ?? '');
-            $city          = sanitize($_POST['city']           ?? '');
-            $barangay      = sanitize($_POST['barangay']       ?? '');
-            $street_address = sanitize($_POST['street_address'] ?? '');
-
-            $result = db_execute("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, region = ?, province = ?, city = ?, barangay = ?, street_address = ? WHERE user_id = ?",
-                'sssssssssi', [$first_name, $middle_name, $last_name, $contact_number, $region, $province, $city, $barangay, $street_address, $user_id]);
-            
-            if ($result) {
-                $success = 'Profile updated successfully!';
-                $_SESSION['user_name'] = $first_name . ' ' . $last_name;
-                $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
-            } else {
-                $error = 'Failed to update profile';
-=======
         $contact_number = preg_replace('/[^0-9]/', '', trim($_POST['contact_number'] ?? ''));
         $address_province = trim($_POST['address_province'] ?? '');
         $address_city = trim($_POST['address_city'] ?? '');
@@ -143,7 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                 } else {
                     $error = 'Failed to update profile';
                 }
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             }
         }
     }
@@ -278,58 +249,6 @@ $page_title = 'My Profile - Staff';
                         </div>
 
                         <div style="margin-bottom:16px;">
-<<<<<<< HEAD
-                            <label>Contact Number</label>
-                            <input type="tel" name="contact_number" id="contact_number" class="input-field" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
-                            <div id="contact_number_hint" class="field-hint"></div>
-                        </div>
-
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
-                            <div>
-                                <label>Region</label>
-                                <div class="addr-select-wrap">
-                                    <select id="addr_region" name="region" class="input-field addr-select" data-level="region">
-                                        <option value="">— Select Region —</option>
-                                    </select>
-                                    <span class="addr-spinner" id="spin_region"></span>
-                                </div>
-                            </div>
-                            <div>
-                                <label>Province</label>
-                                <div class="addr-select-wrap">
-                                    <select id="addr_province" name="province" class="input-field addr-select" data-level="province" disabled>
-                                        <option value="">— Select Province —</option>
-                                    </select>
-                                    <span class="addr-spinner" id="spin_province"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
-                            <div>
-                                <label>City / Municipality</label>
-                                <div class="addr-select-wrap">
-                                    <select id="addr_city" name="city" class="input-field addr-select" data-level="city" disabled>
-                                        <option value="">— Select City / Municipality —</option>
-                                    </select>
-                                    <span class="addr-spinner" id="spin_city"></span>
-                                </div>
-                            </div>
-                            <div>
-                                <label>Barangay</label>
-                                <div class="addr-select-wrap">
-                                    <select id="addr_barangay" name="barangay" class="input-field addr-select" data-level="barangay" disabled>
-                                        <option value="">— Select Barangay —</option>
-                                    </select>
-                                    <span class="addr-spinner" id="spin_barangay"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom:20px;">
-                            <label>Street Address / House No. / Lot / Block</label>
-                            <input type="text" id="addr_street" name="street_address" class="input-field" placeholder="e.g. 123 Sampaguita St., Brgy. Poblacion" value="<?php echo htmlspecialchars($user['street_address'] ?? ''); ?>">
-=======
                             <label>Contact Number *</label>
                             <input type="tel" name="contact_number" id="profile_contact" class="input-field" placeholder="e.g. 09171234567" maxlength="11" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
                         </div>
@@ -339,7 +258,6 @@ $page_title = 'My Profile - Staff';
                             <select name="address_province" id="profile_province" class="input-field" required>
                                 <option value="">Select province</option>
                             </select>
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
                         </div>
                         <div style="margin-bottom:16px;">
                             <label>City / Municipality *</label>
@@ -430,196 +348,6 @@ $page_title = 'My Profile - Staff';
 </div>
 
 <script>
-<<<<<<< HEAD
-function setHint(id, message) {
-    const el = document.getElementById(id + '_hint');
-    if (!el) return;
-    el.textContent = message || '';
-    el.classList.toggle('error', !!message);
-}
-
-function validateName(id) {
-    const el = document.getElementById(id);
-    if (!el) return true;
-    const v = el.value.trim();
-    const ok = /^[a-zA-Z\s.'-]{2,60}$/.test(v);
-    setHint(id, ok || v === '' ? '' : 'Use 2-60 letters only');
-    return ok || v === '';
-}
-
-function validatePhone() {
-    const el = document.getElementById('contact_number');
-    if (!el) return true;
-    const v = el.value.replace(/\s+/g, '');
-    const ok = v === '' || /^(\+63|0)?9\d{9}$/.test(v);
-    setHint('contact_number', ok ? '' : 'Invalid Philippine mobile number');
-    return ok;
-}
-
-function validatePasswordStrength() {
-    const el = document.getElementById('new_password');
-    if (!el) return true;
-    const v = el.value;
-    const ok = v.length >= 8 && /[A-Z]/.test(v) && /[a-z]/.test(v) && /\d/.test(v);
-    setHint('new_password', ok || v === '' ? '' : 'Must include upper/lowercase and a number');
-    return ok || v === '';
-}
-
-['first_name','middle_name','last_name'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => validateName(id));
-});
-document.getElementById('contact_number')?.addEventListener('input', validatePhone);
-document.getElementById('new_password')?.addEventListener('input', validatePasswordStrength);
-
-// Cascading Address Selector Logic
-(function () {
-    const SAVED = {
-        region: <?php echo json_encode($user['region'] ?? null); ?>,
-        province: <?php echo json_encode($user['province'] ?? null); ?>,
-        city: <?php echo json_encode($user['city'] ?? null); ?>,
-        barangay: <?php echo json_encode($user['barangay'] ?? null); ?>,
-    };
-
-    const API = '/printflow/customer/api_address.php';
-
-    const selRegion = document.getElementById('addr_region');
-    const selProvince = document.getElementById('addr_province');
-    const selCity = document.getElementById('addr_city');
-    const selBarangay = document.getElementById('addr_barangay');
-
-    const spinOf = {
-        region: document.getElementById('spin_region'),
-        province: document.getElementById('spin_province'),
-        city: document.getElementById('spin_city'),
-        barangay: document.getElementById('spin_barangay'),
-    };
-
-    function spin(level, on) {
-        if (spinOf[level]) spinOf[level].classList.toggle('spinning', on);
-    }
-
-    function populate(sel, items, placeholder, savedCode) {
-        sel.innerHTML = '';
-        const ph = document.createElement('option');
-        ph.value = '';
-        ph.textContent = placeholder;
-        sel.appendChild(ph);
-
-        items.forEach(item => {
-            const opt = document.createElement('option');
-            const code = typeof item === 'string' ? item : item.code;
-            const name = typeof item === 'string' ? item : item.name;
-            opt.value = name;
-            opt.dataset.code = code;
-            opt.textContent = name;
-            if (savedCode && (name === savedCode || code === savedCode)) {
-                opt.selected = true;
-            }
-            sel.appendChild(opt);
-        });
-
-        sel.disabled = (items.length === 0);
-    }
-
-    function reset(sel, placeholder) {
-        sel.innerHTML = `<option value="">${placeholder}</option>`;
-        sel.disabled = true;
-    }
-
-    function selectedCode(sel) {
-        const opt = sel.options[sel.selectedIndex];
-        return opt ? opt.dataset.code || '' : '';
-    }
-
-    async function loadRegions() {
-        spin('region', true);
-        selRegion.disabled = true;
-        try {
-            const res = await fetch(`${API}?action=regions`);
-            const data = await res.json();
-            if (data.success) {
-                populate(selRegion, data.data, '— Select Region —', SAVED.region);
-                selRegion.disabled = false;
-                if (SAVED.region && selectedCode(selRegion)) {
-                    await loadProvinces(selectedCode(selRegion), true);
-                }
-            }
-        } catch (e) { console.error('Addr: regions', e); }
-        spin('region', false);
-    }
-
-    async function loadProvinces(regionCode, auto) {
-        spin('province', true);
-        reset(selCity, '— Select City / Municipality —');
-        reset(selBarangay, '— Select Barangay —');
-        try {
-            const res = await fetch(`${API}?action=provinces&region=${regionCode}`);
-            const data = await res.json();
-            if (data.success) {
-                populate(selProvince, data.data, '— Select Province —', auto ? SAVED.province : null);
-                if (auto && SAVED.province && selectedCode(selProvince)) {
-                    await loadCities(selectedCode(selProvince), true);
-                }
-            }
-        } catch (e) { console.error('Addr: provinces', e); }
-        spin('province', false);
-    }
-
-    async function loadCities(provinceCode, auto) {
-        spin('city', true);
-        reset(selBarangay, '— Select Barangay —');
-        try {
-            const res = await fetch(`${API}?action=cities&province=${provinceCode}`);
-            const data = await res.json();
-            if (data.success) {
-                populate(selCity, data.data, '— Select City / Municipality —', auto ? SAVED.city : null);
-                if (auto && SAVED.city && selectedCode(selCity)) {
-                    await loadBarangays(selectedCode(selCity), true);
-                }
-            }
-        } catch (e) { console.error('Addr: cities', e); }
-        spin('city', false);
-    }
-
-    async function loadBarangays(cityCode, auto) {
-        spin('barangay', true);
-        try {
-            const res = await fetch(`${API}?action=barangays&city=${cityCode}`);
-            const data = await res.json();
-            if (data.success) {
-                populate(selBarangay, data.data, '— Select Barangay —', auto ? SAVED.barangay : null);
-            }
-        } catch (e) { console.error('Addr: barangays', e); }
-        spin('barangay', false);
-    }
-
-    selRegion.addEventListener('change', function () {
-        reset(selProvince, '— Select Province —');
-        reset(selCity, '— Select City / Municipality —');
-        reset(selBarangay, '— Select Barangay —');
-        const code = selectedCode(this);
-        if (code) loadProvinces(code, false);
-    });
-
-    selProvince.addEventListener('change', function () {
-        reset(selCity, '— Select City / Municipality —');
-        reset(selBarangay, '— Select Barangay —');
-        const code = selectedCode(this);
-        if (code) loadCities(code, false);
-    });
-
-    selCity.addEventListener('change', function () {
-        reset(selBarangay, '— Select Barangay —');
-        const code = selectedCode(this);
-        if (code) loadBarangays(code, false);
-    });
-
-    loadRegions();
-})();
-</script>
-
-=======
 (function() {
     const addrApi = '/printflow/public/api_address_public.php';
     const prov = document.getElementById('profile_province');
@@ -716,6 +444,5 @@ document.getElementById('new_password')?.addEventListener('input', validatePassw
     }
 })();
 </script>
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
 </body>
 </html>
