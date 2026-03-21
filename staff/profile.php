@@ -212,7 +212,7 @@ $page_title = 'My Profile - Staff';
         .addr-select-wrap select:disabled + .addr-spinner { display: none !important; }
     </style>
 </head>
-<body>
+<body data-turbo="false">
 
 <div class="dashboard-container">
     <!-- Sidebar -->

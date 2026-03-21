@@ -3,6 +3,7 @@
  * Point of Sale (POS) - Staff Walk-in Interface
  * PrintFlow - Printing Shop PWA
  */
+$GLOBALS['PRINTFLOW_DISABLE_TURBO'] = true;
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';

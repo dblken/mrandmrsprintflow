@@ -310,7 +310,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .profile-hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #00232b, #53C5E0);
             border-radius: 16px;
             padding: 40px 32px;
             margin-bottom: 24px;
@@ -361,18 +361,19 @@ $page_title = 'My Profile - PrintFlow Admin';
             height: 32px;
             border-radius: 50%;
             background: white;
-            border: 2px solid #667eea;
+            border: 2px solid #00232b;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #667eea;
+            color: #00232b;
             transition: all 0.2s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
         .avatar-edit-btn:hover {
-            background: #667eea;
-            color: white;
+            background: linear-gradient(135deg, #f0fdfa 0%, #e0f2f4 50%, #d8eef2 100%);
+            color: #00232b;
+            border-color: #53C5E0;
         }
         .profile-hero-info h2 {
             color: white;
@@ -444,8 +445,8 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
         .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+            border-color: #53C5E0;
+            box-shadow: 0 0 0 3px rgba(83, 197, 224, 0.2);
         }
         .form-group input:disabled {
             background: #f9fafb;
@@ -456,16 +457,26 @@ $page_title = 'My Profile - PrintFlow Admin';
             align-items: center;
             gap: 6px;
             padding: 10px 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: #00232b;
             color: white;
             border: none;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.15s, color 0.15s, transform 0.2s, box-shadow 0.2s;
         }
-        .btn-save:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+        .btn-save:hover {
+            background: #0a3d4d;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(0, 35, 43, 0.25);
+        }
+        .btn-save:active {
+            background: linear-gradient(135deg, #f0fdfa 0%, #e0f2f4 50%, #d8eef2 100%);
+            color: #00232b;
+            transform: translateY(0);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        }
         .btn-danger-outline {
             display: inline-flex;
             align-items: center;
@@ -533,18 +544,12 @@ $page_title = 'My Profile - PrintFlow Admin';
             box-shadow: 0 25px 50px rgba(0,0,0,0.25);
         }
 
-        /* Validation Styles */
+        /* Validation: only show errors; neutral default (no persistent "valid" green) */
         .form-group.is-invalid input, 
         .form-group.is-invalid textarea,
         .form-group.is-invalid select {
             border-color: #ef4444 !important;
             background-color: #fef2f2;
-        }
-        .form-group.is-valid input, 
-        .form-group.is-valid textarea,
-        .form-group.is-valid select {
-            border-color: #10b981 !important;
-            background-color: #f0fdf4;
         }
         .error-message {
             color: #ef4444;
@@ -583,7 +588,7 @@ $page_title = 'My Profile - PrintFlow Admin';
             z-index: 10;
         }
         .password-toggle:hover {
-            color: #667eea;
+            color: #53C5E0;
         }
         .unsaved-overlay {
             position: fixed;
@@ -644,7 +649,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
     </style>
 </head>
-<body>
+<body data-turbo="false" data-pf-skip-global-guard>
 
 <div class="dashboard-container">
     <!-- Mobile Header -->
@@ -907,7 +912,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     const fileName = document.getElementById('fileName');
     
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#667eea'; });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#53C5E0'; });
     dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#e5e7eb'; });
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
@@ -1104,7 +1109,8 @@ $page_title = 'My Profile - PrintFlow Admin';
             checkPersonalInfo();
         })
         .finally(() => {
-            // Keep unsaved-changes baseline aligned with auto-populated address fields.
+            /* Run after PSGC selects are filled so province/city/barangay are not falsely invalid */
+            if (typeof checkPersonalInfo === 'function') checkPersonalInfo();
             refreshInitialSnapshots();
         });
 
@@ -1220,7 +1226,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
 
         group.classList.remove('is-invalid');
-        group.classList.add('is-valid');
+        group.classList.remove('is-valid');
         return true;
     }
 
@@ -1274,7 +1280,7 @@ $page_title = 'My Profile - PrintFlow Admin';
             cError.textContent = "Passwords do not match.";
         } else {
             cGroup.classList.remove('is-invalid');
-            cGroup.classList.add('is-valid');
+            cGroup.classList.remove('is-valid');
             confirmValid = true;
         }
 
@@ -1347,8 +1353,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         });
     });
 
-    // Initial check
-    checkPersonalInfo();
+    /* Personal form: checkPersonalInfo runs in loadProvinces().finally after address cascade */
     checkPassword(false);
 
     function validatePersonalInfoForm(e) {

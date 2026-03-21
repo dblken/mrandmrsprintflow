@@ -288,7 +288,7 @@ The following pages still need to be created. Use the existing examples as templ
 - [ ] `customers_management.php` - Customer list and management
 - [ ] `user_staff_management.php` - Create/manage admin/staff
 - [ ] `payment_methods.php` - Add/edit payment options
-- [ ] `faq_chatbot_management.php` - FAQ management
+- [ ] `faq_chatbot_management.php` - FAQ & support chat management
 - [ ] `notifications.php` - Notification inbox
 - [ ] `settings.php` - System configuration
 - [ ] `activity_logs.php` - View audit trail

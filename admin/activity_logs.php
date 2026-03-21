@@ -9,10 +9,10 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Admin');
 
-// Pagination & Sorting defaults
+// Pagination & Sorting defaults (print_all fetches all matching logs)
 $page = (int)($_GET['page'] ?? 1);
-$per_page = 20;
-$offset = ($page - 1) * $per_page;
+$per_page = !empty($_GET['print_all']) ? 100000 : 20;
+$offset = !empty($_GET['print_all']) ? 0 : ($page - 1) * 20;
 
 $sort_by = sanitize($_GET['sort_by'] ?? 'created_at');
 $dir = strtoupper(sanitize($_GET['dir'] ?? 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
@@ -58,7 +58,7 @@ $sort_col_sql = match($sort_by) {
 $total_sql = "SELECT COUNT(*) as total FROM ($sql_base) as t";
 $total_res = db_query($total_sql, $types ?: null, $params ?: null);
 $total_records = $total_res[0]['total'] ?? 0;
-$total_pages = ceil($total_records / $per_page);
+$total_pages = $per_page > 20 ? 1 : max(1, (int)ceil($total_records / $per_page));
 
 $query_sql = $sql_base . " ORDER BY $sort_col_sql $dir LIMIT $per_page OFFSET $offset";
 $logs = db_query($query_sql, $types ?: null, $params ?: null) ?: [];
@@ -101,15 +101,8 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    if ($total_pages > 1) {
-        echo '<div class="pagination-container" style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">';
-        for ($i = 1; $i <= $total_pages; $i++) {
-            $is_active = ($i == $page);
-            $style = $is_active ? 'background:#111827; color:white; border-color:#111827;' : 'background:white; color:#374151; border:1px solid #e5e7eb;';
-            echo '<button onclick="goToPage('.$i.')" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; '.$style.'">'.$i.'</button>';
-        }
-        echo '</div>';
-    }
+    $pp = array_filter(['search'=>$search, 'role'=>$role, 'date_from'=>$date_from, 'date_to'=>$date_to], function($v) { return $v !== null && $v !== ''; });
+    echo render_pagination($page, $total_pages, $pp);
     $pagination_html = ob_get_clean();
 
     echo json_encode([
@@ -125,6 +118,18 @@ if (isset($_GET['ajax'])) {
 }
 
 $page_title = 'Activity Logs - Admin';
+
+$print_date_range = 'All dates';
+if ($date_from && $date_to) {
+    $print_date_range = date('F j, Y', strtotime($date_from)) . ' – ' . date('F j, Y', strtotime($date_to));
+} elseif ($date_from) {
+    $print_date_range = 'From ' . date('F j, Y', strtotime($date_from));
+} elseif ($date_to) {
+    $print_date_range = 'Through ' . date('F j, Y', strtotime($date_to));
+}
+$print_role_label = $role !== '' ? $role : 'All roles';
+$print_search_label = $search !== '' ? $search : '—';
+$print_generated = date('F j, Y, g:i A');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -314,15 +319,142 @@ $page_title = 'Activity Logs - Admin';
         .logs-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #374151; word-break: break-word; }
         .logs-table tbody tr:hover td { background: #f9fafb; }
         .logs-table tbody tr:last-child td { border-bottom: none; }
-        .logs-table .col-timestamp { width: 15%; }
-        .logs-table .col-user { width: 14%; }
-        .logs-table .col-role { width: 9%; }
-        .logs-table .col-action { width: 16%; }
-        .logs-table .col-desc { width: 46%; }
+        .logs-table .col-timestamp { width: 18%; }
+        .logs-table .col-user { width: 18%; }
+        .logs-table .col-role { width: 12%; }
+        .logs-table .col-action { width: 18%; }
+        .logs-table .col-desc { width: 34%; }
         .role-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         .role-badge.admin { background: #fee2e2; color: #991b1b; }
         .role-badge.staff { background: #dbeafe; color: #1e40af; }
         .role-badge.manager { background: #ede9fe; color: #5b21b6; }
+
+        /* ── Print: simple B&W report (matches PrintFlow report print style) ── */
+        .activity-print-only { display: none !important; }
+        @media print {
+            .activity-print-only { display: block !important; }
+            .activity-no-print { display: none !important; }
+            #printflow-persistent-sidebar,
+            #mobileBurger,
+            #sidebarOverlay { display: none !important; }
+            html, body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+            body {
+                background: #fff !important;
+                color: #000 !important;
+                font-family: Arial, Helvetica, sans-serif !important;
+                font-size: 11px;
+                margin: 0;
+                padding: 0;
+            }
+            .dashboard-container { display: block !important; min-height: 0 !important; }
+                .main-content {
+                margin-left: 0 !important;
+                overflow: visible !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                padding: 0 !important;
+            }
+            main { padding: 0 !important; }
+            #logsTableContainer, .overflow-x-auto { overflow: visible !important; max-height: none !important; }
+            .card {
+                overflow: visible !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+            .activity-print-only {
+                padding: 0 !important;
+            }
+            .activity-print-body {
+                padding: 0 0 16px 0;
+            }
+            .activity-print-header-block {
+                text-align: left;
+                margin: 0;
+                padding: 0;
+            }
+            .activity-print-doc-title {
+                font-size: 22px;
+                font-weight: 700;
+                color: #000;
+                margin: 0 0 10px;
+                padding: 0;
+                letter-spacing: -0.02em;
+                line-height: 1.2;
+            }
+            .activity-print-meta {
+                font-size: 11px;
+                line-height: 1.5;
+                color: #333;
+                margin: 0 0 0 0;
+                padding: 0;
+            }
+            .activity-print-meta-line {
+                margin-bottom: 4px;
+            }
+            .activity-print-meta-line:last-child {
+                margin-bottom: 0;
+            }
+            .activity-print-meta strong { font-weight: 600; color: #000; }
+            .activity-print-rule-thick {
+                border: none;
+                border-bottom: 2px solid #000;
+                margin: 12px 0 16px;
+            }
+            .activity-print-section-title {
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+                margin: 0 0 10px;
+                color: #000;
+                text-align: left;
+            }
+            .logs-table {
+                width: 100%;
+                table-layout: auto !important;
+                font-size: 10px;
+                border-collapse: collapse;
+            }
+            .logs-table thead { display: table-header-group; }
+            .logs-table th {
+                background: transparent !important;
+                color: #000 !important;
+                font-size: 9px !important;
+                font-weight: 700 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.35px;
+                padding: 8px 8px 8px 0 !important;
+                border-bottom: 1px solid #000 !important;
+                white-space: nowrap;
+            }
+            .logs-table td {
+                padding: 7px 8px 7px 0 !important;
+                border-bottom: 1px solid #bbb !important;
+                color: #000 !important;
+                background: transparent !important;
+                vertical-align: top;
+            }
+            .logs-table tbody tr:hover td { background: transparent !important; }
+            .logs-table tbody tr:last-child td { border-bottom: 1px solid #bbb !important; }
+            .logs-table .role-badge {
+                background: transparent !important;
+                color: #000 !important;
+                padding: 0 !important;
+                border-radius: 0 !important;
+                font-weight: 500 !important;
+                font-size: inherit !important;
+            }
+            @page {
+                margin: 15mm;
+                size: A4;
+            }
+        }
     </style>
 </head>
 <body>
@@ -333,17 +465,33 @@ $page_title = 'Activity Logs - Admin';
 
     <!-- Main Content -->
     <div class="main-content">
-        <header>
+        <header class="activity-no-print">
             <h1 class="page-title">Activity Logs</h1>
-            <button class="btn-secondary" onclick="window.print()">
+            <button class="btn-secondary" onclick="activityDoPrint(event)" id="printLogsBtn">
                 Print Logs
             </button>
         </header>
 
         <main>
+            <div class="activity-print-only" aria-hidden="true">
+                <div class="activity-print-body">
+                    <div class="activity-print-header-block">
+                        <h1 class="activity-print-doc-title">PrintFlow Activity Logs Report</h1>
+                        <div class="activity-print-meta">
+                            <div class="activity-print-meta-line"><strong>Report Type:</strong> Activity Logs</div>
+                            <div class="activity-print-meta-line"><strong>Date Range:</strong> <span id="apPrintMetaDateRange"><?php echo htmlspecialchars($print_date_range); ?></span></div>
+                            <div class="activity-print-meta-line"><strong>Role:</strong> <span id="apPrintMetaRole"><?php echo htmlspecialchars($print_role_label); ?></span></div>
+                            <div class="activity-print-meta-line"><strong>Keyword:</strong> <span id="apPrintMetaSearch"><?php echo htmlspecialchars($print_search_label); ?></span></div>
+                            <div class="activity-print-meta-line"><strong>Generated On:</strong> <?php echo htmlspecialchars($print_generated); ?></div>
+                        </div>
+                    </div>
+                    <hr class="activity-print-rule-thick">
+                    <h2 class="activity-print-section-title">Activity logs</h2>
+                </div>
+            </div>
             <!-- Activity Logs Card -->
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;" x-data="filterPanel()">
+                <div class="activity-no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Activity Logs List</h3>
                     
                     <div style="display:flex; align-items:center; gap:8px;">
@@ -375,7 +523,7 @@ $page_title = 'Activity Logs - Admin';
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false">
+                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 Filter
                                 <span id="filterBadgeContainer"></span>
@@ -383,6 +531,18 @@ $page_title = 'Activity Logs - Admin';
                             <div class="filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
                                 <div class="filter-panel-header">Filter</div>
                                 
+                                <!-- Date Range -->
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Date range</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from', 'date_to'])">Reset</button>
+                                    </div>
+                                    <div class="filter-date-row">
+                                        <div><div class="filter-date-label">From:</div><input type="date" id="fp_date_from" class="filter-input" value="<?php echo $date_from; ?>"></div>
+                                        <div><div class="filter-date-label">To:</div><input type="date" id="fp_date_to" class="filter-input" value="<?php echo $date_to; ?>"></div>
+                                    </div>
+                                </div>
+
                                 <!-- Role -->
                                 <div class="filter-section">
                                     <div class="filter-section-head">
@@ -392,6 +552,7 @@ $page_title = 'Activity Logs - Admin';
                                     <select id="fp_role" class="filter-select">
                                         <option value="">All Roles</option>
                                         <option value="Admin">Admin</option>
+                                        <option value="Manager">Manager</option>
                                         <option value="Staff">Staff</option>
                                     </select>
                                 </div>
@@ -403,18 +564,6 @@ $page_title = 'Activity Logs - Admin';
                                         <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <input type="text" id="fp_search" class="filter-search-input" placeholder="Search logs..." value="<?php echo htmlspecialchars($search); ?>">
-                                </div>
-
-                                <!-- Date Range -->
-                                <div class="filter-section">
-                                    <div class="filter-section-head">
-                                        <span class="filter-section-label">Date range</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from', 'date_to'])">Reset</button>
-                                    </div>
-                                    <div class="filter-date-row">
-                                        <div><div class="filter-date-label">From:</div><input type="date" id="fp_date_from" class="filter-input" value="<?php echo $date_from; ?>"></div>
-                                        <div><div class="filter-date-label">To:</div><input type="date" id="fp_date_to" class="filter-input" value="<?php echo $date_to; ?>"></div>
-                                    </div>
                                 </div>
 
                                 <div class="filter-actions">
@@ -455,18 +604,11 @@ $page_title = 'Activity Logs - Admin';
                         </tbody>
                     </table>
                 </div>
-                <div id="logsPagination">
-                    <?php if ($total_pages > 1): ?>
-                        <div class="pagination-container" style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <?php 
-                                    $is_active = ($i == $page);
-                                    $style = $is_active ? 'background:#111827; color:white; border-color:#111827;' : 'background:white; color:#374151; border:1px solid #e5e7eb;';
-                                ?>
-                                <button onclick="goToPage(<?php echo $i; ?>)" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; <?php echo $style; ?>"><?php echo $i; ?></button>
-                            <?php endfor; ?>
-                        </div>
-                    <?php endif; ?>
+                <div id="logsPagination" class="activity-no-print">
+                    <?php 
+                        $pp = array_filter(['search'=>$search, 'role'=>$role, 'date_from'=>$date_from, 'date_to'=>$date_to], function($v) { return $v !== null && $v !== ''; });
+                        echo render_pagination($page, $total_pages, $pp); 
+                    ?>
                 </div>
             </div>
         </main>
@@ -534,13 +676,13 @@ $page_title = 'Activity Logs - Admin';
         fetchUpdatedTable();
     }
 
-    function buildFilterURL() {
+    function buildFilterURL(printAll = false) {
         const role = document.getElementById('fp_role')?.value || '';
         const search = document.getElementById('fp_search')?.value || '';
         const from = document.getElementById('fp_date_from')?.value || '';
         const to = document.getElementById('fp_date_to')?.value || '';
-        
-        return `activity_logs.php?ajax=1&page=${currentPage}&sort_by=${currentSort}&dir=${currentDir}&role=${role}&search=${encodeURIComponent(search)}&date_from=${from}&date_to=${to}`;
+        const base = `activity_logs.php?ajax=1&sort_by=${currentSort}&dir=${currentDir}&role=${role}&search=${encodeURIComponent(search)}&date_from=${from}&date_to=${to}`;
+        return printAll ? base + '&print_all=1' : base + `&page=${currentPage}`;
     }
 
     async function fetchUpdatedTable() {
@@ -550,7 +692,6 @@ $page_title = 'Activity Logs - Admin';
             if (data.success) {
                 document.getElementById('logsTableContainer').innerHTML = data.table;
                 document.getElementById('logsPagination').innerHTML = data.pagination;
-                // showingCount element replaced with heading - no update needed
                 updateBadgeCount();
             }
         } catch (e) { console.error(e); }
@@ -575,6 +716,40 @@ $page_title = 'Activity Logs - Admin';
         fetchUpdatedTable();
     }
 
+    async function activityDoPrint(evt) {
+        const btn = (evt && evt.target && evt.target.closest('button')) || document.getElementById('printLogsBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Preparing…';
+        }
+        try {
+            const res = await fetch(buildFilterURL(true));
+            const data = await res.json();
+            if (data.success && data.table) {
+                document.getElementById('logsTableContainer').innerHTML = data.table;
+                document.getElementById('logsPagination').innerHTML = '';
+                const origTitle = document.title;
+                document.title = '';
+                const restoreAfterPrint = () => {
+                    document.title = origTitle;
+                    fetchUpdatedTable();
+                    window.removeEventListener('afterprint', restoreAfterPrint);
+                };
+                window.addEventListener('afterprint', restoreAfterPrint);
+                requestAnimationFrame(() => {
+                    setTimeout(() => window.print(), 100);
+                });
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Print Logs';
+            }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('fp_search');
         if (searchInput) {
@@ -587,8 +762,19 @@ $page_title = 'Activity Logs - Admin';
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', () => { currentPage = 1; fetchUpdatedTable(); });
         });
+        const el = document.getElementById('logsPagination');
+        if (el) {
+            el.addEventListener('click', (e) => {
+                const link = e.target.closest('a');
+                if (link && link.href) {
+                    e.preventDefault();
+                    const url = new URL(link.href);
+                    const p = url.searchParams.get('page') || 1;
+                    goToPage(parseInt(p));
+                }
+            });
+        }
     });
 </script>
-
 </body>
 </html>

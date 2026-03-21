@@ -108,6 +108,7 @@ $page_title = 'Reports - Staff';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
+<<<<<<< HEAD
         .rpt-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
         @media (max-width: 1024px) { .rpt-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 640px) { .rpt-kpi-grid { grid-template-columns: 1fr; } }
@@ -128,6 +129,17 @@ $page_title = 'Reports - Staff';
         .badge-type { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
         .badge-std { background: #eef2ff; color: #4f46e5; }
         .badge-srv { background: #fdf2f7; color: #be185d; }
+=======
+        .report-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 900px) { .report-summary { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 540px) { .report-summary { grid-template-columns: 1fr; } }
+        .summary-box { background: #f9fafb; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #f3f4f6; }
+        .summary-box .label { font-size: 12px; color: #9ca3af; margin-bottom: 6px; }
+        .summary-box.warn .value { color: #f59e0b; }
+        .summary-box.danger .value { color: #ef4444; }
+        .summary-box.success .value { color: #10b981; }
+        .section-title { font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+>>>>>>> 84f1e77e8bd269bab68461aac6f0ecbbb79114f3
     </style>
 </head>
 <body>

@@ -44,18 +44,10 @@ $url_google_auth    = $base_url . '/google-auth/';
     <meta name="description" content="PrintFlow - Your trusted printing shop for tarpaulins, t-shirts, stickers, and more">
     <meta name="theme-color" content="#4F46E5">
     <title><?php echo $page_title ?? 'PrintFlow - Printing Shop'; ?></title>
+    <?php include __DIR__ . '/favicon_links.php'; ?>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
-    
-    <!-- Favicon / Shop Icon -->
-    <?php if (!empty($shop_logo_url)): ?>
-        <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
-        <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo $ver; ?>">
-    <?php else: ?>
-        <link rel="icon" type="image/png" href="<?php echo $asset_base; ?>/assets/images/favicon.png">
-        <link rel="apple-touch-icon" href="<?php echo $asset_base; ?>/assets/images/icon-192.png">
-    <?php endif; ?>
     
     <!-- Tailwind CSS - path works from both /printflow/ and /printflow/public/ -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">

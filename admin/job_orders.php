@@ -179,7 +179,6 @@ function jo_payment_badge($status) {
         .kpi-card.blue::before   { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
         .kpi-card.emerald::before{ background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-label { font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:6px; }
-        .kpi-value { font-size:26px;font-weight:800;color:#1f2937; }
         .kpi-sub   { font-size:12px;color:#6b7280;margin-top:4px; }
 
         .mobile-header { display:none; }

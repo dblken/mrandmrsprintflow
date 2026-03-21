@@ -58,6 +58,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
+<<<<<<< HEAD
         .stats-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; margin-bottom:24px; }
         @media (max-width:1100px) { .stats-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
         @media (max-width:680px) { .stats-grid { grid-template-columns:1fr; } }
@@ -66,6 +67,10 @@ $page_title = 'Staff Dashboard - PrintFlow';
         .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
         .stat-value { font-size: 30px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
         .stat-sub { font-size: 12px; color: #6b7280; }
+=======
+        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .stat-sub { font-size: 12px; color: #9ca3af; }
+>>>>>>> 84f1e77e8bd269bab68461aac6f0ecbbb79114f3
     </style>
 </head>
 <body>

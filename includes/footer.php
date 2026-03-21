@@ -193,17 +193,17 @@ function _ft_detect_social(string $url): array {
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width: 28px; height: 28px;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
     </a>
 
-    <!-- Chatbot Button (RIGHT) -->
-    <div id="chatbot-btn" class="ft-bubble ft-bubble-right" title="Chat with us">
+    <!-- Support chat button (RIGHT) -->
+    <div id="chatbot-btn" class="ft-bubble ft-bubble-right" title="Open support chat">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width: 32px; height: 32px; color: #00232b; transition: all 0.3s ease;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
     </div>
 
-    <!-- Chatbot Window -->
+    <!-- Support chat window -->
     <div id="chatbot-window" class="lp-chatbot-hidden" style="position: fixed; bottom: 100px; right: 20px; width: 380px; max-width: calc(100vw - 40px); max-height: 85vh; background: white; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 9998; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; opacity: 0; transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;">
         <!-- Header -->
         <div style="padding: 18px; background: linear-gradient(135deg, #00232b, #1a5a6f); color: white; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,35,43,0.3); flex-shrink: 0;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px;">PrintFlow Assistant</h3>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px;">Support chat</h3>
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.8);">Always online</p>
                 </div>
@@ -322,7 +322,7 @@ function _ft_detect_social(string $url): array {
     #chatbot-tabs button { transition: all 0.2s ease; }
     </style>
 
-    <!-- Chatbot Handler Script with React-like Features -->
+    <!-- Support chat widget script -->
     <script>
     (function() {
         var btn = document.getElementById('chatbot-btn');
@@ -336,6 +336,22 @@ function _ft_detect_social(string $url): array {
         var loaded = false;
         var isOpen = false;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
+        <?php
+        $chatbot_customer_id = null;
+        $chatbot_customer_name = 'Guest';
+        $chatbot_customer_email = '';
+        if (isset($is_logged_in) && $is_logged_in && function_exists('get_user_type') && get_user_type() === 'Customer') {
+            $chatbot_customer_id = function_exists('get_user_id') ? get_user_id() : null;
+            $chatbot_customer_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'Guest';
+            if (function_exists('db_query') && $chatbot_customer_id) {
+                $cem = db_query("SELECT email FROM customers WHERE customer_id = ?", 'i', [$chatbot_customer_id]);
+                $chatbot_customer_email = !empty($cem[0]['email']) ? $cem[0]['email'] : '';
+            }
+        }
+        ?>
+        var chatbotCustomerId = <?php echo $chatbot_customer_id ? (int)$chatbot_customer_id : 'null'; ?>;
+        var chatbotCustomerName = <?php echo json_encode($chatbot_customer_name); ?>;
+        var chatbotCustomerEmail = <?php echo json_encode($chatbot_customer_email); ?>;
 
         // Initialize scroll button visibility
         function updateScrollVisibility() {
@@ -361,7 +377,7 @@ function _ft_detect_social(string $url): array {
             });
         }
 
-        // Toggle chatbot on button click
+        // Toggle support chat on button click
         var checkInterval = null;
         btn.addEventListener('click', function() {
             isOpen = !isOpen;
@@ -381,7 +397,7 @@ function _ft_detect_social(string $url): array {
             }
         });
 
-        // Close chatbot
+        // Close support chat
         close.addEventListener('click', function() {
             isOpen = false;
             win.classList.remove('lp-chatbot-visible');
@@ -549,11 +565,18 @@ function _ft_detect_social(string $url): array {
                 msgs.appendChild(typing);
                 msgs.scrollTop = msgs.scrollHeight;
 
+                // Build inquiry payload (customer_id or guest_id for conversation grouping)
+                var guestId = localStorage.getItem('chatbot_guest_id');
+                if (!guestId) { guestId = 'g_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('chatbot_guest_id', guestId); }
+                var payload = { question: q, customer_name: (typeof chatbotCustomerName !== 'undefined' ? chatbotCustomerName : 'Guest'), customer_email: (typeof chatbotCustomerEmail !== 'undefined' ? chatbotCustomerEmail : '') };
+                if (typeof chatbotCustomerId !== 'undefined' && chatbotCustomerId) payload.customer_id = chatbotCustomerId;
+                else payload.guest_id = guestId;
+
                 // Send to API
                 fetch('/printflow/public/api/chatbot_inquiry.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: q, customer_name: 'Guest' })
+                    body: JSON.stringify(payload)
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
@@ -601,7 +624,7 @@ function _ft_detect_social(string $url): array {
             }
         });
 
-        // Check for replies to previous inquiries when chatbot opens
+        // Check for replies to previous threads when support chat opens
         function checkReplies() {
             var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
             if (ids.length === 0) return;

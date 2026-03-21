@@ -1,7 +1,7 @@
 <?php
 /**
  * API Endpoint - Get Active FAQs
- * Returns active FAQs as JSON for the chatbot
+ * Returns active FAQs as JSON for the support chat widget
  */
 
 header('Content-Type: application/json');

@@ -75,6 +75,7 @@ $page_title = "User Registration - PrintFlow";
 <head>
     <meta charset="UTF-8">
     <title><?php echo $page_title; ?></title>
+    <?php include __DIR__ . '/../includes/favicon_links.php'; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
