@@ -186,6 +186,13 @@
                     } catch (err9) {
                         console.error(err9);
                     }
+                    try {
+                        if (typeof window.printflowInitOrdersPage === 'function') {
+                            window.printflowInitOrdersPage();
+                        }
+                    } catch (err10) {
+                        console.error(err10);
+                    }
                 printflowRunChartInitsForPage();
                 try {
                     document.documentElement.dispatchEvent(new CustomEvent('printflow:turbo-page', { bubbles: true }));

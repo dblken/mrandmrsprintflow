@@ -762,7 +762,12 @@ function openModal(mode, svc) {
     const title = document.getElementById('modal-title');
     const modeInput = document.getElementById('modal-mode-input');
     const submitBtn = document.getElementById('modal-submit-btn');
-    document.getElementById('service-form').reset();
+    const form = document.getElementById('service-form');
+    if (!overlay || !title || !modeInput || !submitBtn || !form) {
+        console.warn('openModal: service modal markup not in DOM yet.');
+        return;
+    }
+    form.reset();
 
     if (mode === 'edit' && svc) {
         title.textContent = 'Edit Service';
