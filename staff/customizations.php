@@ -179,9 +179,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pf-tab-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         [x-cloak] { display: none !important; }
+        /* Real box (not display:contents) so Alpine binds one subtree; min-width avoids flex overflow quirks. */
+        .pf-staff-customizations-root { min-width: 0; }
     </style>
 </head>
-<body x-data="joManager('ALL')">
+<body>
 <div class="dashboard-container">
     <?php 
     if ($_SESSION['user_type'] === 'Staff') {
@@ -191,6 +193,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
     }
     ?>
     <div class="main-content">
+        <div id="staffJoCustomizationsPage" x-data="joManager('ALL')" class="pf-staff-customizations-root">
         <header>
             <h1 class="page-title">Customizations</h1>
         </header>
@@ -224,18 +227,44 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             <div class="card overflow-visible">
                 <div class="pf-custom-toolbar">
                     <div class="pf-custom-tabs">
-                        <template x-for="st in statuses">
-                            <button 
-                                type="button"
-                                @click="activeStatus = st" 
-                                :class="activeStatus === st ? 'active' : ''"
-                                class="pill-tab"
-                            >
-                                <span x-text="st === 'VERIFY_PAY' ? 'TO VERIFY' : (st === 'TO_RECEIVE' ? 'TO PICKUP' : st)"></span>
-                                <span class="tab-count" x-text="getStatusCount(st)"></span>
-                                <span x-show="st === 'VERIFY_PAY' && getStatusCount(st) > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
-                            </button>
-                        </template>
+                        <!-- Static tabs: avoids Turbo cache + Alpine.initTree re-running x-for and duplicating buttons. -->
+                        <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>ALL</span>
+                            <span class="tab-count" x-text="getStatusCount('ALL')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'PENDING'" :class="activeStatus === 'PENDING' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>PENDING</span>
+                            <span class="tab-count" x-text="getStatusCount('PENDING')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'APPROVED'" :class="activeStatus === 'APPROVED' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>APPROVED</span>
+                            <span class="tab-count" x-text="getStatusCount('APPROVED')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'TO_PAY'" :class="activeStatus === 'TO_PAY' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>TO_PAY</span>
+                            <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'VERIFY_PAY'" :class="activeStatus === 'VERIFY_PAY' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>TO VERIFY</span>
+                            <span class="tab-count" x-text="getStatusCount('VERIFY_PAY')"></span>
+                            <span x-show="getStatusCount('VERIFY_PAY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>IN_PRODUCTION</span>
+                            <span class="tab-count" x-text="getStatusCount('IN_PRODUCTION')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'TO_RECEIVE'" :class="activeStatus === 'TO_RECEIVE' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>TO PICKUP</span>
+                            <span class="tab-count" x-text="getStatusCount('TO_RECEIVE')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'COMPLETED'" :class="activeStatus === 'COMPLETED' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>COMPLETED</span>
+                            <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                            <span>CANCELLED</span>
+                            <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
+                        </button>
                     </div>
                     <div class="pf-custom-search">
                         <div style="position:relative;max-width:280px;">
@@ -312,8 +341,6 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 </div>
             </div>
         </main>
-    </div>
-</div>
 
     <!-- No more materials modal - integrated into details -->
 
@@ -772,11 +799,13 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         </div>
     </div>
 </div>
+        </div><!-- /#staffJoCustomizationsPage -->
+    </div><!-- /.main-content -->
+</div><!-- /.dashboard-container -->
 
 <script>
     function joManager(defaultStatus = 'PENDING') {
         return {
-            statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'VERIFY_PAY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
             activeStatus: defaultStatus || 'ALL',
             orders: [],
             machines: [],
@@ -1337,6 +1366,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             }
         }
     }
+    /*
+     * Do NOT call Alpine.initTree here when document.readyState !== 'loading' (Turbo body swap).
+     * Inline scripts run before turbo:load's setTimeout; initTree(root) + initTree(.main-content) double-mounts x-for (tripled tabs, zero counts).
+     * Full load: Alpine.start() (defer) inits the page. Turbo: public/assets/js/turbo-init.js initTree(.main-content) runs after swap.
+     */
 </script>
 </body>
 </html>

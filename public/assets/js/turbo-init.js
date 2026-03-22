@@ -53,7 +53,16 @@
         try { if (typeof window.printflowTeardownDashboardCharts === 'function') window.printflowTeardownDashboardCharts(); } catch (e) { console.error(e); }
     }
     document.addEventListener('turbo:before-render', function () { printflowTeardownAllCharts(); });
-    document.addEventListener('turbo:before-cache',  function () { printflowTeardownAllCharts(); });
+    document.addEventListener('turbo:before-cache', function () {
+        printflowTeardownAllCharts();
+        /* Drop Alpine clones (e.g. x-for tabs) before snapshot; restore + initTree was duplicating DOM. */
+        try {
+            if (typeof window.Alpine !== 'undefined' && typeof Alpine.destroyTree === 'function') {
+                var mc = document.querySelector('.main-content');
+                if (mc) Alpine.destroyTree(mc);
+            }
+        } catch (e) { /* ignore */ }
+    });
 
     /* ─── Charts: re-init after paint ────────────────────────────────────── */
     function printflowRunChartInitsForPage() {
@@ -91,7 +100,10 @@
             setTimeout(function () {
                 try {
                     var root = document.querySelector('.main-content') || document.body;
-                    if (root) Alpine.initTree(root);
+                    if (root) {
+                        try { Alpine.destroyTree(root); } catch (e0) { /* ignore */ }
+                        Alpine.initTree(root);
+                    }
                 } catch (e) { console.error('[turbo] Alpine.initTree:', e); }
                 finishPageBoot();
             }, 0);

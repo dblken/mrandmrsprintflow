@@ -125,14 +125,31 @@ if (isset($_SESSION['user_id'])) {
                 <div class="user-role">Staff<?php if ($is_pending): ?> <span style="color:#f59e0b;">• Pending</span><?php endif; ?></div>
             </div>
         </a>
-        <a href="/printflow/logout/" class="logout-btn" data-turbo="false">
+        <button type="button" onclick="document.getElementById('staffLogoutModal').style.display='flex'" class="logout-btn" title="Log out" style="border:none;background:transparent;cursor:pointer;font:inherit;width:100%;text-align:left;">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
             Log out
-        </a>
+        </button>
     </div>
 </aside>
+
+<!-- Logout confirmation (matches admin sidebar pattern) -->
+<div id="staffLogoutModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white; border-radius:16px; padding:32px; width:100%; max-width:380px; margin:16px; box-shadow:0 25px 50px rgba(0,0,0,0.25); text-align:center;">
+        <div style="width:56px; height:56px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+            <svg width="28" height="28" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+        </div>
+        <h3 style="font-size:18px; font-weight:700; color:#1f2937; margin:0 0 8px;">Log Out</h3>
+        <p style="font-size:14px; color:#6b7280; margin:0 0 24px;">Are you sure you want to log out of your staff account?</p>
+        <div style="display:flex; gap:10px;">
+            <button type="button" onclick="document.getElementById('staffLogoutModal').style.display='none'" style="flex:1; padding:10px; border:1px solid #e5e7eb; background:white; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">Cancel</button>
+            <a href="/printflow/logout/" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
+        </div>
+    </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
