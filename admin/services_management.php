@@ -324,7 +324,6 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:72px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; }
@@ -389,7 +388,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
     <div class="main-content">
         <header><h1 class="page-title">Services Management</h1></header>
         <main>
@@ -653,10 +652,11 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
 
 <script>
 window.PF_DEFAULT_SERVICE_MODAL_TEXT = <?php echo json_encode(printflow_default_customer_service_modal_text(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-let activeSort = '<?php echo htmlspecialchars($sort_by); ?>';
-let searchDebounceTimer = null;
-let _serviceStatusForm = null;
-let _serviceStatusButtonName = null;
+/* var: Turbo re-runs inline scripts; let/const would throw "already been declared". */
+var activeSort = '<?php echo htmlspecialchars($sort_by); ?>';
+var searchDebounceTimer = null;
+var _serviceStatusForm = null;
+var _serviceStatusButtonName = null;
 
 function filterPanel() {
     return {
@@ -738,7 +738,10 @@ function applySortFilter(sortKey) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function printflowInitServicesPage() {
+    if (!document.getElementById('servicesListHeader')) return;
+
+    // Filter and Search
     ['fp_date_from', 'fp_date_to', 'fp_category', 'fp_status'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => fetchUpdatedTable());
@@ -751,11 +754,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Form submit guard
     document.getElementById('service-form')?.addEventListener('submit', function () {
         const btn = document.getElementById('modal-submit-btn');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     });
-});
+
+    /* #servicesTableContainer has no x-data; turbo-init initTree(.main-content) already walked it. */
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitServicesPage);
+} else {
+    printflowInitServicesPage();
+}
+document.addEventListener('printflow:page-init', printflowInitServicesPage);
 
 function openModal(mode, svc) {
     const overlay = document.getElementById('service-modal-overlay');
@@ -916,51 +929,7 @@ window.closeArchiveModal = function closeArchiveModal() {
     document.body.style.overflow = '';
 };
 
-/**
- * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
- * After AJAX table replace: reinject Alpine directives on new markup where present.
- */
-function ensureServicesAlpineBoot() {
-    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-    var fp = document.querySelector('[x-data="filterPanel()"]');
-    if (fp && !fp._x_dataStack) {
-        try {
-            Alpine.initTree(fp);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    var tbl = document.getElementById('servicesTableContainer');
-    if (tbl) {
-        try {
-            Alpine.initTree(tbl);
-        } catch (e2) {
-            console.error(e2);
-        }
-    }
-}
-
-window.printflowInitServicesPage = ensureServicesAlpineBoot;
-
-(function scheduleServicesAlpineFirstVisit() {
-    function tick() {
-        ensureServicesAlpineBoot();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
-    } else {
-        schedule();
-    }
-    function schedule() {
-        tick();
-        queueMicrotask(tick);
-        setTimeout(tick, 0);
-        requestAnimationFrame(function () {
-            requestAnimationFrame(tick);
-        });
-        setTimeout(tick, 150);
-    }
-})();
+// Page-specific initialization is now handled above via printflowInitServicesPage.
 </script>
 </body>
 </html>

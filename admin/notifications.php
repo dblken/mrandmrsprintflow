@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
 
+$current_user = get_logged_in_user();
 $admin_id = get_user_id();
 
 // Handle actions
@@ -94,7 +95,6 @@ $page_title = 'Notifications - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }
@@ -306,8 +306,7 @@ $page_title = 'Notifications - Admin';
 <body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -461,6 +460,7 @@ $page_title = 'Notifications - Admin';
 </div>
 
 <script>
+var ntSearchTimer = null;
 function notifFilterPanel() {
     return {
         filterOpen: false,
@@ -473,6 +473,7 @@ function notifFilterPanel() {
         }
     };
 }
+window.notifFilterPanel = notifFilterPanel;
 function notifNavigate(page) {
     var p = new URLSearchParams();
     var ff = document.getElementById('nt_fp_filter');
@@ -497,44 +498,13 @@ function notifResetField(which) {
     }
     notifNavigate(1);
 }
-var ntSearchTimer = null;
-document.addEventListener('DOMContentLoaded', function () {
-    var sel = document.getElementById('nt_fp_filter');
-    if (sel) sel.addEventListener('change', function () { notifNavigate(1); });
-    var inp = document.getElementById('nt_fp_search');
-    if (inp) {
-        inp.addEventListener('input', function () {
-            clearTimeout(ntSearchTimer);
-            ntSearchTimer = setTimeout(function () { notifNavigate(1); }, 500);
-        });
-    }
-});
-
-// Auto-refresh every 10 seconds
-let autoRefreshInterval;
-
-function startAutoRefresh() {
-    autoRefreshInterval = setInterval(checkForNewNotifications, 10000);
-}
-
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-}
 
 function checkForNewNotifications() {
-    const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    const searchInput = document.getElementById('nt_fp_search');
+    var currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
+    var searchInput = document.getElementById('nt_fp_search');
     if (searchInput && !searchInput.value && (currentFilter === 'all' || currentFilter === 'unread')) {
-        refreshPage();
+        window.location.reload();
     }
-}
-
-function refreshPage() {
-    // Use AJAX to fetch just the content if possible, but for consistency we'll reload 
-    // without resetting scroll if possible. Actually, standard reload is fine if interval is 10s.
-    window.location.reload();
 }
 
 function handleNotifClick(e, notifId, url, isUnread) {
@@ -552,45 +522,44 @@ function refreshNotifications() {
     window.location.reload();
 }
 
-function markAsRead(notifId, redirectUrl = null) {
-    fetch(`?action=mark_read&id=${notifId}`)
-        .then(response => response.json())
-        .then(data => {
+function markAsRead(notifId, redirectUrl) {
+    redirectUrl = redirectUrl || null;
+    fetch('?action=mark_read&id=' + notifId)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
             if (data.success) {
                 if (redirectUrl && redirectUrl !== '#') {
                     window.location.href = redirectUrl;
                     return;
                 }
-                const item = document.querySelector(`[data-id="${notifId}"]`);
+                var item = document.querySelector('[data-id="' + notifId + '"]');
                 if (item) {
                     item.classList.add('read');
-                    const dot = item.querySelector('.notif-dot');
+                    var dot = item.querySelector('.notif-dot');
                     if (dot) dot.classList.add('read');
-                    // Remove the "Read" action button
-                    const readBtn = item.querySelector('.notif-action-btn:not(.danger)');
+                    var readBtn = item.querySelector('.notif-action-btn:not(.danger)');
                     if (readBtn) readBtn.remove();
                 }
-                setTimeout(() => window.location.reload(), 500);
+                setTimeout(function() { window.location.reload(); }, 500);
             }
         })
-        .catch(error => console.error('Error:', error));
+        .catch(function(error) { console.error('Error:', error); });
 }
 
 function deleteNotification(notifId) {
     if (!confirm('Delete this notification?')) return;
-    
-    fetch(`?action=delete&id=${notifId}`)
-        .then(response => response.json())
-        .then(data => {
+    fetch('?action=delete&id=' + notifId)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
             if (data.success) {
-                const item = document.querySelector(`[data-id="${notifId}"]`);
+                var item = document.querySelector('[data-id="' + notifId + '"]');
                 if (item) {
                     item.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
                     item.style.opacity = '0';
                     item.style.transform = 'translateX(16px)';
-                    setTimeout(() => {
+                    setTimeout(function() {
                         item.remove();
-                        const container = document.getElementById('notifications-container');
+                        var container = document.getElementById('notifications-container');
                         if (container && container.querySelectorAll('.notif-item').length === 0) {
                             window.location.reload();
                         }
@@ -598,18 +567,66 @@ function deleteNotification(notifId) {
                 }
             }
         })
-        .catch(error => console.error('Error:', error));
+        .catch(function(error) { console.error('Error:', error); });
 }
 
-// Start auto-refresh
-startAutoRefresh();
+// Turbo-safe init: called on first load and on every Turbo navigation
+function printflowInitNotificationsPage() {
+    if (!document.getElementById('notifications-container')) return;
 
-// Stop auto-refresh when page is hidden
-document.addEventListener('visibilitychange', function() {
+    // Re-attach filter input listeners (idempotent)
+    var sel = document.getElementById('nt_fp_filter');
+    if (sel && !sel._pf_bound) {
+        sel._pf_bound = true;
+        sel.addEventListener('change', function () { notifNavigate(1); });
+    }
+    var inp = document.getElementById('nt_fp_search');
+    if (inp && !inp._pf_bound) {
+        inp._pf_bound = true;
+        inp.addEventListener('input', function () {
+            clearTimeout(ntSearchTimer);
+            ntSearchTimer = setTimeout(function () { notifNavigate(1); }, 500);
+        });
+    }
+
+    // Clear any existing auto-refresh interval before starting a new one
+    if (window._pf_ntInterval) {
+        clearInterval(window._pf_ntInterval);
+        window._pf_ntInterval = null;
+    }
+    window._pf_ntInterval = setInterval(checkForNewNotifications, 10000);
+}
+
+// First full page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitNotificationsPage);
+} else {
+    printflowInitNotificationsPage();
+}
+
+// Every Turbo navigation
+document.addEventListener('printflow:page-init', printflowInitNotificationsPage);
+
+// Stop auto-refresh when tab is hidden; restart when visible
+document.addEventListener('visibilitychange', function () {
+    if (!document.getElementById('notifications-container')) return;
     if (document.hidden) {
-        stopAutoRefresh();
+        if (window._pf_ntInterval) {
+            clearInterval(window._pf_ntInterval);
+            window._pf_ntInterval = null;
+        }
     } else {
-        startAutoRefresh();
+        if (!window._pf_ntInterval) {
+            window._pf_ntInterval = setInterval(checkForNewNotifications, 10000);
+        }
+    }
+});
+
+// Clear on Turbo navigation away from this page
+document.addEventListener('turbo:before-visit', function () {
+    if (window._pf_ntInterval) {
+        clearInterval(window._pf_ntInterval);
+        window._pf_ntInterval = null;
     }
 });
 </script>

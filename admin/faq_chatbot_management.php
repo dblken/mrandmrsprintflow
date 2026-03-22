@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Admin');
 
+$current_user = get_logged_in_user();
+
 $error = '';
 $success = '';
 
@@ -181,7 +183,6 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* Tab Navigation */
@@ -715,7 +716,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <div class="main-content">
         <header>
@@ -743,6 +744,31 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
 
             <!-- ═══════ TAB 1: RESPONSES ═══════ -->
             <div class="cb-tab-content <?php echo $active_tab === 'responses' ? 'active' : ''; ?>">
+                <script>
+                function printflowInitFaqPage() {
+                    const btnAdd = document.getElementById('btn-add-faq');
+                    if (!btnAdd || btnAdd._pf_bound) return;
+                    btnAdd._pf_bound = true;
+                    btnAdd.addEventListener('click', () => { document.getElementById('modal-add').classList.add('open'); });
+                    ['modal-add', 'modal-edit'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.addEventListener('click', function (e) { if (e.target === this) this.classList.remove('open'); });
+                        }
+                    });
+                }
+                if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', printflowInitFaqPage); }
+                else { printflowInitFaqPage(); }
+                document.addEventListener('printflow:page-init', printflowInitFaqPage);
+
+                function openEdit(id, question, answer, status) {
+                    document.getElementById('edit-faq-id').value = id;
+                    document.getElementById('edit-question').value = question;
+                    document.getElementById('edit-answer').value = answer;
+                    document.getElementById('edit-status').value = status;
+                    document.getElementById('modal-edit').classList.add('open');
+                }
+                </script>
                 <!-- KPI Row -->
                 <div class="kpi-row">
                     <div class="kpi-card indigo">
@@ -797,6 +823,40 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
 
             <!-- ═══════ TAB 2: SUPPORT INBOX ═══════ -->
             <div class="cb-tab-content <?php echo $active_tab === 'inquiries' ? 'active' : ''; ?>">
+                <script>
+                /* Always define: inquiries tab markup stays in DOM (hidden on Responses); Alpine.initTree needs inqFilterPanel. */
+                function inqFilterPanel() {
+                    return {
+                        filterOpen: false,
+                        get hasActiveFilters() {
+                            var f = document.getElementById('inq_fp_filter');
+                            var s = document.getElementById('inq_fp_search');
+                            var fv = f ? f.value : 'all';
+                            var sv = s ? (s.value || '').trim() : '';
+                            return fv !== 'all' || sv.length > 0;
+                        }
+                    };
+                }
+                function buildInqFilterURL(page) {
+                    var p = new URLSearchParams();
+                    p.set('tab', 'inquiries');
+                    var ff = document.getElementById('inq_fp_filter');
+                    p.set('filter', ff ? ff.value : 'all');
+                    var si = document.getElementById('inq_fp_search');
+                    var q = si ? (si.value || '').trim() : '';
+                    if (q) p.set('search', q);
+                    if (page && page > 1) p.set('page', String(page));
+                    return '?' + p.toString();
+                }
+                function inqNavigateFilters(page) { window.location.href = buildInqFilterURL(page || 1); }
+                function inqResetAllFilters() { window.location.href = '?tab=inquiries'; }
+                function inqResetField(which) {
+                    if (which === 'filter') { var el = document.getElementById('inq_fp_filter'); if (el) el.value = 'all'; }
+                    if (which === 'search') { var el2 = document.getElementById('inq_fp_search'); if (el2) el2.value = ''; }
+                    inqNavigateFilters(1);
+                }
+                window.inqFilterPanel = inqFilterPanel;
+                </script>
                 <!-- KPI Row -->
                 <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
                     <div class="kpi-card amber">
@@ -1034,8 +1094,8 @@ foreach ($inq_conversations as $c):
     </div>
 </div>
 
-<?php if ($active_tab === 'inquiries'): ?>
 <script>
+/* Inbox modal + filters: always load (inquiries markup stays in DOM on Responses tab; Turbo needs openModal). */
 function inqFilterPanel() {
     return {
         filterOpen: false,
@@ -1077,16 +1137,23 @@ function inqResetField(which) {
     inqNavigateFilters(1);
 }
 var inqSearchTimer = null;
-document.addEventListener('DOMContentLoaded', function() {
+function printflowInitFaqChatbotPageFilters() {
+    if (!document.getElementById('inq_fp_filter') && !document.getElementById('inq-tbody')) return;
     var sel = document.getElementById('inq_fp_filter');
-    if (sel) sel.addEventListener('change', function() { inqNavigateFilters(1); });
+    if (sel && !sel._pf_bound) {
+        sel._pf_bound = true;
+        sel.addEventListener('change', function() { inqNavigateFilters(1); });
+    }
     var inp = document.getElementById('inq_fp_search');
-    if (inp) inp.addEventListener('input', function() {
-        clearTimeout(inqSearchTimer);
-        inqSearchTimer = setTimeout(function() { inqNavigateFilters(1); }, 500);
-    });
-});
-(function initInbox() {
+    if (inp && !inp._pf_bound) {
+        inp._pf_bound = true;
+        inp.addEventListener('input', function() {
+            clearTimeout(inqSearchTimer);
+            inqSearchTimer = setTimeout(function() { inqNavigateFilters(1); }, 500);
+        });
+    }
+}
+function initInbox() {
     var API = <?php echo json_encode($inq_api_url); ?>;
     var modal = document.getElementById('modal-conversation');
     var modalName = document.getElementById('modal-conv-name');
@@ -1099,12 +1166,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var modalReplyBtn = document.getElementById('modal-reply-btn');
     var tableBody = document.getElementById('inq-tbody');
     if (!modal) return;
-    var chatShell = modal.querySelector('.chat-modal-shell');
-    if (chatShell) {
-        chatShell.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-    }
     if (!tableBody) return;
 
     var loadedMessages = [];
@@ -1335,18 +1396,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Network error');
             });
     }
-    var closeBtn = modal.querySelector('.modal-close');
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', function (e) {
-        if (e.target === modal) closeModal();
+
+    tableBody.querySelectorAll('.inbox-row').forEach(function (row) {
+        if (row._pf_bound) return;
+        row._pf_bound = true;
+        row.addEventListener('click', function () {
+            openModal(parseInt(row.getAttribute('data-id'), 10));
+        });
     });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.classList.contains('open')) {
-            closeModal();
+    tableBody.querySelectorAll('.btn-open').forEach(function (btn) {
+        if (btn._pf_bound) return;
+        btn._pf_bound = true;
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openModal(parseInt(btn.getAttribute('data-id'), 10));
+        });
+    });
+
+    if (!modal._pf_faqChromeBound) {
+        modal._pf_faqChromeBound = true;
+        var chatShell = modal.querySelector('.chat-modal-shell');
+        if (chatShell) {
+            chatShell.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
         }
-    });
-    if (modalReplyBtn) modalReplyBtn.addEventListener('click', sendReply);
-    if (modalReplyInput) {
+        var closeBtn = modal.querySelector('.modal-close');
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) closeModal();
+        });
+    }
+    if (modalReplyBtn && !modalReplyBtn._pf_bound) {
+        modalReplyBtn._pf_bound = true;
+        modalReplyBtn.addEventListener('click', sendReply);
+    }
+    if (modalReplyInput && !modalReplyInput._pf_bound) {
+        modalReplyInput._pf_bound = true;
         modalReplyInput.addEventListener('input', function () {
             updateSendDisabled();
             autoResizeReply();
@@ -1354,43 +1440,32 @@ document.addEventListener('DOMContentLoaded', function() {
         modalReplyInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (!modalReplyBtn.disabled) sendReply();
+                sendReply();
             }
         });
     }
-    tableBody.querySelectorAll('.inbox-row').forEach(function (row) {
-        row.addEventListener('click', function () {
-            openModal(parseInt(row.dataset.id, 10));
-        });
-    });
-    tableBody.querySelectorAll('.btn-open').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            openModal(parseInt(btn.dataset.id, 10));
-        });
-    });
-})();
-</script>
-<?php endif; ?>
-<script>
-document.getElementById('btn-add-faq').addEventListener('click', () => {
-    document.getElementById('modal-add').classList.add('open');
-});
-
-function openEdit(id, question, answer, status) {
-    document.getElementById('edit-faq-id').value = id;
-    document.getElementById('edit-question').value = question;
-    document.getElementById('edit-answer').value = answer;
-    document.getElementById('edit-status').value = status;
-    document.getElementById('modal-edit').classList.add('open');
+    if (window._pf_faqKeydown) {
+        document.removeEventListener('keydown', window._pf_faqKeydown);
+    }
+    window._pf_faqKeydown = function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('open')) {
+            closeModal();
+        }
+    };
+    document.addEventListener('keydown', window._pf_faqKeydown);
 }
 
-// Close modals on backdrop click
-['modal-add','modal-edit'].forEach(id => {
-    document.getElementById(id).addEventListener('click', function(e) {
-        if (e.target === this) this.classList.remove('open');
-    });
-});
+function printflowInitFaqChatbotPage() {
+    printflowInitFaqChatbotPageFilters();
+    initInbox();
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitFaqChatbotPage);
+} else {
+    printflowInitFaqChatbotPage();
+}
+document.addEventListener('printflow:page-init', printflowInitFaqChatbotPage);
+window.inqFilterPanel = inqFilterPanel;
 </script>
 </body>
 </html>

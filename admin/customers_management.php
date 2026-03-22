@@ -167,7 +167,6 @@ $page_title = 'Customers Management - Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* KPI Row - matches dashboard page */
@@ -430,33 +429,236 @@ $page_title = 'Customers Management - Admin';
         .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
     </style>
 </head>
-<body x-data="customerModal()">
+<body>
 
 <div class="dashboard-container">
-    <!-- Mobile Header -->
-    <div class="mobile-header">
-        <div style="display:flex;align-items:center;gap:12px;">
-            <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('active')">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-            <span style="font-weight:600;font-size:18px;">PrintFlow</span>
-        </div>
-    </div>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+
 
     <!-- Main Content -->
     <div class="main-content">
+
         <header>
             <h1 class="page-title">Customers Management</h1>
-            <button class="btn-secondary no-print" onclick="window.print()">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                Print
-            </button>
         </header>
 
-        <main>
+        <script>
+            var searchDebounceTimer = null;
+
+            function buildFilterURL(overrides = {}, isAjax = false) {
+                const params = new URLSearchParams(window.location.search);
+                const fields = {
+                    search: () => document.getElementById('fp_search')?.value || '',
+                    date_from: () => document.getElementById('fp_date_from')?.value || '',
+                    date_to: () => document.getElementById('fp_date_to')?.value || '',
+                };
+                for (const [key, getter] of Object.entries(fields)) {
+                    const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+                    if (val) params.set(key, val);
+                    else params.delete(key);
+                }
+                if (overrides.sort !== undefined) {
+                    if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+                    else params.delete('sort');
+                }
+                if (isAjax) params.set('ajax', '1');
+                else params.delete('ajax');
+                params.delete('page');
+                return window.location.pathname + '?' + params.toString();
+            }
+
+            async function fetchUpdatedTable(overrides = {}) {
+                const url = buildFilterURL(overrides, true);
+                try {
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    if (data.success) {
+                        const tc = document.getElementById('customersTableContainer');
+                        if (tc) {
+                            tc.innerHTML = data.table;
+                            if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                                Alpine.initTree(tc);
+                            }
+                        }
+                        const pc = document.getElementById('customersPagination');
+                        if (pc) pc.innerHTML = data.pagination;
+                        const bc = document.getElementById('filterBadgeContainer');
+                        if (bc) bc.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
+                        
+                        window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
+                        const displayUrl = buildFilterURL(overrides, false);
+                        window.history.replaceState({ path: displayUrl }, '', displayUrl);
+                    }
+                } catch (e) { console.error('Error updating table:', e); }
+            }
+
+            function applyFilters(resetAll = false) {
+                if (resetAll) {
+                    const base = window.location.pathname;
+                    const branch = new URLSearchParams(window.location.search).get('branch_id');
+                    const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
+                    window.location.href = target;
+                } else { fetchUpdatedTable(); }
+            }
+
+            function applySortFilter(sortKey) {
+                window.dispatchEvent(new CustomEvent('sort-changed', { detail: { sortKey } }));
+                fetchUpdatedTable({ sort: sortKey });
+            }
+
+            function resetFilterField(fields) {
+                fields.forEach(f => {
+                    const el = document.getElementById('fp_' + f);
+                    if (el) el.value = '';
+                });
+                fetchUpdatedTable();
+            }
+
+            /* var: safe when Turbo re-executes this inline script */
+            var _activeSortKey = '<?php echo $sort_by; ?>';
+            var _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
+
+            function customerModal() {
+                return {
+                    showModal: false,
+                    loading: false,
+                    errorMsg: '',
+                    customer: null,
+                    filterOpen: false,
+                    sortOpen: false,
+                    activeSort: _activeSortKey,
+                    hasActiveFilters: _hasActiveFilters,
+
+                    showTransactionModal: false,
+                    transLoading: false,
+                    transActiveTab: 'orders',
+                    customerName: '',
+                    tabLoading: false,
+                    orders: [],
+                    customizations: [],
+                    ordersPagination: { current_page: 1, total_pages: 1 },
+                    customizationsPagination: { current_page: 1, total_pages: 1 },
+
+                    init() {
+                        window.addEventListener('filter-badge-update', e => { this.hasActiveFilters = (e.detail.badge > 0); });
+                        window.addEventListener('sort-changed', e => { this.activeSort = e.detail.sortKey; this.sortOpen = false; });
+                    },
+
+                    openModal(customerId) {
+                        this.showModal = true;
+                        this.loading = true;
+                        this.errorMsg = '';
+                        this.customer = null;
+                        fetch('/printflow/admin/api_customer_details.php?id=' + customerId, { credentials: 'same-origin' })
+                            .then(r => r.json())
+                            .then(data => {
+                                this.loading = false;
+                                if (data.success) { this.customer = data.customer; }
+                                else { this.errorMsg = data.error || 'Failed to load details.'; }
+                            })
+                            .catch(err => { this.loading = false; this.errorMsg = 'Network error.'; });
+                    },
+
+                    openTransactionModal(id) {
+                        this.showTransactionModal = true;
+                        this.transLoading = true;
+                        this.transActiveTab = 'orders';
+                        this.customerName = '';
+                        this.orders = [];
+                        this.customizations = [];
+                        fetch('/printflow/admin/api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                            .then(r => r.json())
+                            .then(data => {
+                                this.transLoading = false;
+                                if(data.success) {
+                                    this.customer = data.customer;
+                                    this.customerName = (data.customer.first_name || '') + ' ' + (data.customer.last_name || '');
+                                    this.loadTransTabData('orders', 1);
+                                }
+                            })
+                            .catch(e => { this.transLoading = false; console.error('Error:', e); });
+                    },
+
+                    async loadTransTabData(tab, page = 1) {
+                        if (!this.customer?.customer_id) return;
+                        this.tabLoading = true;
+                        try {
+                            if (tab === 'orders') {
+                                const res = await fetch(`/printflow/admin/api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
+                                const data = await res.json();
+                                this.orders = data.data || [];
+                                this.ordersPagination = data.pagination || { current_page: 1, total_pages: 1 };
+                            } else if (tab === 'customizations') {
+                                const res = await fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
+                                const data = await res.json();
+                                this.customizations = data.data || [];
+                                this.customizationsPagination = data.pagination || { current_page: 1, total_pages: 1 };
+                            }
+                        } catch (e) { console.error(`Error loading ${tab}:`, e); } finally { this.tabLoading = false; }
+                    },
+
+                    getStatusBadge(status) {
+                        const pc = { 'Pending': 'background:#fef9c3;color:#854d0e;', 'Paid': 'background:#dcfce7;color:#166534;', 'Failed': 'background:#fee2e2;color:#991b1b;', 'UNPAID': 'background:#fee2e2;color:#991b1b;', 'PARTIAL': 'background:#fef3c7;color:#b45309;', 'PAID': 'background:#dcfce7;color:#166534;' };
+                        const sc = { 'Pending': 'background:#fef3c7;color:#92400e;', 'Pending Review': 'background:#fef3c7;color:#92400e;', 'To Pay': 'background:#fce7f3;color:#9d174d;', 'Processing': 'background:#dbeafe;color:#1e40af;', 'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;', 'Completed': 'background:#dcfce7;color:#166534;', 'Cancelled': 'background:#fecaca;color:#b91c1c;', 'PENDING': 'background:#fef3c7;color:#92400e;', 'APPROVED': 'background:#dbeafe;color:#1e40af;', 'TO_PAY': 'background:#fce7f3;color:#9d174d;', 'IN_PRODUCTION': 'background:#d1fae5;color:#065f46;', 'TO_RECEIVE': 'background:#ede9fe;color:#5b21b6;', 'COMPLETED': 'background:#dcfce7;color:#166534;', 'CANCELLED': 'background:#fecaca;color:#b91c1c;' };
+                        const style = pc[status] || sc[status] || 'background:#f3f4f6;color:#6b7280;';
+                        const displayStatus = (status === 'Pending Review') ? 'Pending' : (status || 'N/A');
+                        return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;${style}">${displayStatus}</span>`;
+                    }
+                };
+            }
+            window.customerModal = customerModal;
+
+            function callCustomerModalMethod(methodName, id) {
+                function run() {
+                    try {
+                        var m = document.querySelector('main[x-data="customerModal()"]');
+                        var st = m && m._x_dataStack;
+                        if (st && st[0] && typeof st[0][methodName] === 'function') {
+                            st[0][methodName](id);
+                            return true;
+                        }
+                    } catch (e) { console.error(e); }
+                    return false;
+                }
+                if (run()) return;
+                printflowInitCustomersPage();
+                if (run()) return;
+                if (typeof Alpine !== 'undefined' && typeof Alpine.nextTick === 'function') {
+                    Alpine.nextTick(function () { if (!run()) setTimeout(run, 50); });
+                } else { setTimeout(run, 100); }
+            }
+
+            window.openModal = function (id) { callCustomerModalMethod('openModal', id); };
+            window.openTransactionModal = function (id) { callCustomerModalMethod('openTransactionModal', id); };
+
+            function printflowInitCustomersPage() {
+                if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+                var root = document.querySelector('main[x-data="customerModal()"]');
+                if (root && !root._x_dataStack) { try { Alpine.initTree(root); } catch (e) { console.error(e); } }
+                /* #customersTableContainer has no x-data; initTree here double-binds after Alpine.start / turbo-init(.main-content). */
+                ['fp_date_from', 'fp_date_to'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && !el._pf_bound) {
+                        el._pf_bound = true;
+                        el.addEventListener('change', () => fetchUpdatedTable());
+                    }
+                });
+                const searchInput = document.getElementById('fp_search');
+                if (searchInput && !searchInput._pf_bound) {
+                    searchInput._pf_bound = true;
+                    searchInput.addEventListener('input', () => {
+                        clearTimeout(searchDebounceTimer);
+                        searchDebounceTimer = setTimeout(() => { fetchUpdatedTable(); }, 500);
+                    });
+                }
+            }
+            if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', printflowInitCustomersPage); }
+            else { printflowInitCustomersPage(); }
+            document.addEventListener('printflow:page-init', printflowInitCustomersPage);
+        </script>
+
+        <main x-data="customerModal()">
             <!-- Print Header (visible only when printing) -->
             <div class="print-header">
                 <h2>PrintFlow - Customer List</h2>
@@ -629,11 +831,8 @@ $page_title = 'Customers Management - Admin';
                     ?>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
 
-<!-- Customer Profile Modal -->
+<!-- Customer Profile Modal (inside main x-data so Alpine can bind showModal / overlays do not block the page) -->
 <div x-show="showModal" x-cloak>
     <div class="modal-overlay" @click.self="showModal = false">
         <div class="modal-panel" style="max-width: 650px;" @click.stop>
@@ -811,365 +1010,9 @@ $page_title = 'Customers Management - Admin';
     </div>
 </div>
 
-<script>
-    /**
-     * First full-page visit: Alpine is defer+microtask — body may not have _x_dataStack on first paint.
-     * Turbo: new body needs initTree. Safe to call when stack already exists (guarded).
-     */
-    function ensureCustomersAlpineBoot() {
-        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-        var b = document.body;
-        if (!b || !b.getAttribute('x-data')) return;
-        if (!b._x_dataStack) {
-            try {
-                Alpine.initTree(document.body);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        var tbl = document.getElementById('customersTableContainer');
-        if (tbl) {
-            try {
-                Alpine.initTree(tbl);
-            } catch (e2) {
-                console.error(e2);
-            }
-        }
-    }
-
-    function callCustomerModalMethod(methodName, id) {
-        function run() {
-            try {
-                var st = document.body && document.body._x_dataStack;
-                if (st && st[0] && typeof st[0][methodName] === 'function') {
-                    st[0][methodName](id);
-                    return true;
-                }
-            } catch (e) {
-                console.error(e);
-            }
-            return false;
-        }
-        if (run()) return;
-        ensureCustomersAlpineBoot();
-        if (run()) return;
-        if (typeof Alpine !== 'undefined' && typeof Alpine.nextTick === 'function') {
-            Alpine.nextTick(function () {
-                if (run()) return;
-                queueMicrotask(function () {
-                    if (run()) return;
-                    setTimeout(function () {
-                        if (run()) return;
-                        setTimeout(function () { run(); }, 80);
-                    }, 0);
-                });
-            });
-            return;
-        }
-        queueMicrotask(function () {
-            if (run()) return;
-            requestAnimationFrame(function () {
-                if (run()) return;
-                setTimeout(function () {
-                    if (run()) return;
-                    setTimeout(function () { run(); }, 80);
-                }, 0);
-            });
-        });
-    }
-
-    window.openModal = function (id) {
-        callCustomerModalMethod('openModal', id);
-    };
-    window.openTransactionModal = function (id) {
-        callCustomerModalMethod('openTransactionModal', id);
-    };
-
-    // ── Filter + Sort helpers (matches orders_management.php exactly) ──
-    let searchDebounceTimer;
-
-    function buildFilterURL(overrides = {}, isAjax = false) {
-        const params = new URLSearchParams(window.location.search);
-
-        const fields = {
-            search:    () => document.getElementById('fp_search')?.value   || '',
-            date_from: () => document.getElementById('fp_date_from')?.value || '',
-            date_to:   () => document.getElementById('fp_date_to')?.value   || '',
-        };
-
-        for (const [key, getter] of Object.entries(fields)) {
-            const val = (overrides[key] !== undefined) ? overrides[key] : getter();
-            if (val) params.set(key, val);
-            else params.delete(key);
-        }
-
-        if (overrides.sort !== undefined) {
-            if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
-            else params.delete('sort');
-        }
-
-        if (isAjax) params.set('ajax', '1');
-        else params.delete('ajax');
-
-        params.delete('page');
-        return window.location.pathname + '?' + params.toString();
-    }
-
-    async function fetchUpdatedTable(overrides = {}) {
-        const url = buildFilterURL(overrides, true);
-        try {
-            const resp = await fetch(url);
-            const data = await resp.json();
-            if (data.success) {
-                const tableContainer = document.getElementById('customersTableContainer');
-                const paginationContainer = document.getElementById('customersPagination');
-                const filterBadgeContainer = document.getElementById('filterBadgeContainer');
-
-                if (tableContainer) {
-                    tableContainer.innerHTML = data.table;
-                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
-                        Alpine.initTree(tableContainer);
-                    }
-                }
-                if (paginationContainer) paginationContainer.innerHTML = data.pagination;
-
-                if (filterBadgeContainer) {
-                    if (data.badge > 0) {
-                        filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
-                    } else {
-                        filterBadgeContainer.innerHTML = '';
-                    }
-                }
-
-                // Update Alpine state for filter button background highlight
-                const root = document.body;
-                if (root && root._x_dataStack) {
-                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
-                }
-                const displayUrl = buildFilterURL(overrides, false);
-                window.history.replaceState({ path: displayUrl }, '', displayUrl);
-            }
-        } catch (e) {
-            console.error('Error updating table:', e);
-        }
-    }
-
-    function applyFilters(resetAll = false) {
-        if (resetAll) {
-            window.location.href = window.location.pathname;
-        } else {
-            fetchUpdatedTable();
-        }
-    }
-
-    function applySortFilter(sortKey) {
-        // Update Alpine state
-        const root = document.body;
-        if (root && root._x_dataStack) {
-            const data = root._x_dataStack[0];
-            data.activeSort = sortKey;
-            data.sortOpen = false;
-        }
-        fetchUpdatedTable({ sort: sortKey });
-    }
-
-    function resetFilterField(fields) {
-        fields.forEach(f => {
-            const el = document.getElementById('fp_' + f);
-            if (el) el.value = '';
-        });
-        fetchUpdatedTable();
-    }
-
-    // Real-time listeners
-    document.addEventListener('DOMContentLoaded', () => {
-        const inputs = ['fp_date_from', 'fp_date_to'];
-        inputs.forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
-        });
-
-        const searchInput = document.getElementById('fp_search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(() => {
-                    fetchUpdatedTable();
-                }, 500);
-            });
-        }
-    });
-
-    // ── Alpine.js filterPanel state (merged into customerModal via x-data) ──
-    // NOTE: filterPanel state is inlined into the customerModal() return object below.
-    // These globals are used to sync sort state.
-    let _activeSortKey = '<?php echo $sort_by; ?>';
-    let _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
-
-    // Customer Modal (Alpine.js component)
-    function customerModal() {
-        return {
-            showModal: false,
-            loading: false,
-            errorMsg: '',
-            customer: null,
-
-            // Sort/Filter panel state (inlined from filterPanel())
-            sortOpen: false,
-            filterOpen: false,
-            activeSort: '<?php echo $sort_by; ?>',
-            hasActiveFilters: <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>,
-
-            // Transaction Modal State
-            showTransactionModal: false,
-            transLoading: false,
-            transActiveTab: 'orders',
-            customerName: '',
-            tabLoading: false,
-            orders: [],
-            customizations: [],
-            ordersPagination: { current_page: 1, total_pages: 1 },
-            customizationsPagination: { current_page: 1, total_pages: 1 },
-
-            openModal(id) {
-                this.showModal = true;
-                this.loading = true;
-                this.errorMsg = '';
-                this.customer = null;
-
-                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
-                    .then(async r => {
-                        const ct = r.headers.get('content-type') || '';
-                        if (!ct.includes('application/json')) {
-                            const text = await r.text();
-                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
-                        }
-                        return r.json();
-                    })
-                    .then(data => {
-                        this.loading = false;
-                        if(data.success) { 
-                            this.customer = data.customer;
-                        } else { 
-                            this.errorMsg = data.error || 'Unknown error'; 
-                        }
-                    })
-                    .catch(e => { 
-                        this.loading = false; 
-                        this.errorMsg = (e.message || 'Failed to load customer details.').replace(/\(HTML\/login redirect\)/, ' — please refresh and log in again.');
-                        console.error('Fetch error:', e);
-                    });
-            },
-
-            openTransactionModal(id) {
-                this.showTransactionModal = true;
-                this.transLoading = true;
-                this.transActiveTab = 'orders';
-                this.customerName = '';
-                this.orders = [];
-                this.customizations = [];
-
-                // Load basic info first for the header
-                fetch('api_customer_details.php?id=' + id, { credentials: 'same-origin' })
-                    .then(async r => {
-                        const ct = r.headers.get('content-type') || '';
-                        if (!ct.includes('application/json')) {
-                            const text = await r.text();
-                            throw new Error('Server returned ' + r.status + (text.startsWith('<') ? ' (HTML/login redirect)' : ''));
-                        }
-                        return r.json();
-                    })
-                    .then(data => {
-                        this.transLoading = false;
-                        if(data.success) {
-                            this.customer = data.customer;
-                            this.customerName = (data.customer.first_name || '') + ' ' + (data.customer.last_name || '');
-                            this.loadTransTabData('orders', 1);
-                        }
-                    })
-                    .catch(e => {
-                        this.transLoading = false;
-                        console.error('Error:', e);
-                    });
-            },
-
-            async loadTransTabData(tab, page = 1) {
-                if (!this.customer?.customer_id) return;
-                
-                this.tabLoading = true;
-                
-                try {
-                    if (tab === 'orders') {
-                        const res = await fetch(`api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
-                        const data = await res.json();
-                        this.orders = data.data || [];
-                        this.ordersPagination = data.pagination || { current_page: 1, total_pages: 1 };
-                    } else if (tab === 'customizations') {
-                        const res = await fetch(`job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
-                        const data = await res.json();
-                        this.customizations = data.data || [];
-                        this.customizationsPagination = data.pagination || { current_page: 1, total_pages: 1 };
-                    }
-                } catch (e) {
-                    console.error(`Error loading ${tab}:`, e);
-                } finally {
-                    this.tabLoading = false;
-                }
-            },
-
-            getStatusBadge(status) {
-                const pc = {
-                    'Pending': 'background:#fef9c3;color:#854d0e;',
-                    'Paid': 'background:#dcfce7;color:#166534;',
-                    'Failed': 'background:#fee2e2;color:#991b1b;',
-                    'UNPAID': 'background:#fee2e2;color:#991b1b;',
-                    'PARTIAL': 'background:#fef3c7;color:#b45309;',
-                    'PAID': 'background:#dcfce7;color:#166534;',
-                };
-                const sc = {
-                    'Pending': 'background:#fef3c7;color:#92400e;',
-                    'Pending Review': 'background:#fef3c7;color:#92400e;',
-                    'To Pay': 'background:#fce7f3;color:#9d174d;',
-                    'Processing': 'background:#dbeafe;color:#1e40af;',
-                    'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
-                    'Completed': 'background:#dcfce7;color:#166534;',
-                    'Cancelled': 'background:#fecaca;color:#b91c1c;',
-                    'PENDING': 'background:#fef3c7;color:#92400e;',
-                    'APPROVED': 'background:#dbeafe;color:#1e40af;',
-                    'TO_PAY': 'background:#fce7f3;color:#9d174d;',
-                    'IN_PRODUCTION': 'background:#d1fae5;color:#065f46;',
-                    'TO_RECEIVE': 'background:#ede9fe;color:#5b21b6;',
-                    'COMPLETED': 'background:#dcfce7;color:#166534;',
-                    'CANCELLED': 'background:#fecaca;color:#b91c1c;',
-                };
-                const style = pc[status] || sc[status] || 'background:#f3f4f6;color:#6b7280;';
-                const displayStatus = (status === 'Pending Review') ? 'Pending' : (status || 'N/A');
-                return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;${style}">${displayStatus}</span>`;
-            }
-        };
-    }
-
-    window.printflowInitCustomersPage = ensureCustomersAlpineBoot;
-
-    (function scheduleCustomersAlpineFirstVisit() {
-        function tick() {
-            ensureCustomersAlpineBoot();
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', schedule);
-        } else {
-            schedule();
-        }
-        function schedule() {
-            tick();
-            queueMicrotask(tick);
-            setTimeout(tick, 0);
-            requestAnimationFrame(function () {
-                requestAnimationFrame(tick);
-            });
-            setTimeout(tick, 150);
-        }
-    })();
-</script>
+        </main>
+    </div>
+</div>
 
 </body>
 </html>

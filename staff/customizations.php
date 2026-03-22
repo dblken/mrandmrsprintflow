@@ -33,7 +33,6 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
     <meta charset="UTF-8">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script defer src="/printflow/public/assets/js/alpine.min.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }

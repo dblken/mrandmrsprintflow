@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Admin');
+$current_user = get_logged_in_user();
 
 // Pagination & Sorting defaults (print_all fetches all matching logs)
 $page = (int)($_GET['page'] ?? 1);
@@ -139,7 +140,6 @@ $print_generated = date('F j, Y, g:i A');
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <style>
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 
@@ -460,8 +460,140 @@ $print_generated = date('F j, Y, g:i A');
 <body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
+
+    <script>
+    var searchDebounceTimer = null;
+    function activityDoPrint(e) {
+        if (e) e.preventDefault();
+        try { window.print(); } catch (err) { console.error('Print failed', err); }
+    }
+
+    function buildFilterURL(overrides = {}, isAjax = false) {
+        const params = new URLSearchParams(window.location.search);
+        const fields = {
+            search: () => document.getElementById('fp_search')?.value || '',
+            role: () => document.getElementById('fp_role')?.value || '',
+            date_from: () => document.getElementById('fp_date_from')?.value || '',
+            date_to: () => document.getElementById('fp_date_to')?.value || ''
+        };
+        for (const [key, getter] of Object.entries(fields)) {
+            const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+            if (val) params.set(key, val);
+            else params.delete(key);
+        }
+        if (overrides.sort !== undefined) {
+            if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+            else params.delete('sort');
+        }
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
+        params.delete('page');
+        return window.location.pathname + '?' + params.toString();
+    }
+
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.success) {
+                const tc = document.getElementById('logsTableContainer');
+                if (tc) {
+                    tc.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        Alpine.initTree(tc);
+                    }
+                }
+                const pc = document.getElementById('logsPagination');
+                if (pc) pc.innerHTML = data.pagination;
+                const bc = document.getElementById('filterBadgeContainer');
+                if (bc) bc.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
+                window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+                
+                // Update print meta
+                const rangeTxt = (document.getElementById('fp_date_from')?.value || 'All Time') + ' - ' + (document.getElementById('fp_date_to')?.value || 'All Time');
+                const rangeEl = document.getElementById('apPrintMetaDateRange');
+                if (rangeEl) rangeEl.textContent = rangeTxt;
+                const roleEl = document.getElementById('apPrintMetaRole');
+                if (roleEl) roleEl.textContent = document.getElementById('fp_role')?.value || 'All';
+                const searchEl = document.getElementById('apPrintMetaSearch');
+                if (searchEl) searchEl.textContent = document.getElementById('fp_search')?.value || 'All';
+            }
+        } catch (e) { console.error('Error updating table:', e); }
+    }
+
+    function applyFilters(resetAll = false) {
+        if (resetAll) {
+            const base = window.location.pathname;
+            const branch = new URLSearchParams(window.location.search).get('branch_id');
+            const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
+            window.location.href = target;
+        } else { fetchUpdatedTable(); }
+    }
+
+    function applySortFilter(sortKey) {
+        window.dispatchEvent(new CustomEvent('sort-changed', { detail: { sortKey } }));
+        fetchUpdatedTable({ sort: sortKey });
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const el = document.getElementById('fp_' + f);
+            if (el) el.value = '';
+        });
+        fetchUpdatedTable();
+    }
+
+    /* var: safe when Turbo re-executes this inline script */
+    var _activeSortKey = '<?php echo $sort_by; ?>';
+    var _hasActiveFilters = <?php echo (!empty($search) || !empty($role_filter) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
+
+    function filterPanel() {
+        return {
+            filterOpen: false,
+            sortOpen: false,
+            activeSort: _activeSortKey,
+            hasActiveFilters: _hasActiveFilters,
+            init() {
+                window.addEventListener('filter-badge-update', e => { this.hasActiveFilters = (e.detail.badge > 0); });
+                window.addEventListener('sort-changed', e => { this.activeSort = e.detail.sortKey; this.sortOpen = false; });
+            }
+        };
+    }
+
+    function printflowInitActivityLogsPage() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var roots = document.querySelectorAll('[x-data]');
+        roots.forEach(r => {
+            if (!r._x_dataStack) {
+                try { Alpine.initTree(r); } catch (e) { console.error(e); }
+            }
+        });
+        ['fp_role', 'fp_date_from', 'fp_date_to'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el._pf_bound) {
+                el._pf_bound = true;
+                el.addEventListener('change', () => fetchUpdatedTable());
+            }
+        });
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput && !searchInput._pf_bound) {
+            searchInput._pf_bound = true;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => { fetchUpdatedTable(); }, 500);
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', printflowInitActivityLogsPage); }
+    else { printflowInitActivityLogsPage(); }
+    document.addEventListener('printflow:page-init', printflowInitActivityLogsPage);
+    </script>
+
 
     <!-- Main Content -->
     <div class="main-content">
@@ -472,7 +604,7 @@ $print_generated = date('F j, Y, g:i A');
             </button>
         </header>
 
-        <main>
+        <main x-data="filterPanel()">
             <div class="activity-print-only" aria-hidden="true">
                 <div class="activity-print-body">
                     <div class="activity-print-header-block">
@@ -491,7 +623,7 @@ $print_generated = date('F j, Y, g:i A');
             </div>
             <!-- Activity Logs Card -->
             <div class="card">
-                <div class="activity-no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;" x-data="filterPanel()">
+                <div class="activity-no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Activity Logs List</h3>
                     
                     <div style="display:flex; align-items:center; gap:8px;">
@@ -615,166 +747,6 @@ $print_generated = date('F j, Y, g:i A');
     </div>
 </div>
 
-<script>
-    let currentPage = <?php echo $page; ?>;
-    let currentSort = '<?php echo $sort_by; ?>';
-    let currentDir = '<?php echo $dir; ?>';
-    let activeSort = 'newest';
-    let searchDebounceTimer = null;
 
-    function filterPanel() {
-        return {
-            sortOpen: false,
-            filterOpen: false,
-            activeSort: activeSort,
-            get hasActiveFilters() {
-                return document.getElementById('fp_role')?.value || 
-                       document.getElementById('fp_search')?.value ||
-                       document.getElementById('fp_date_from')?.value ||
-                       document.getElementById('fp_date_to')?.value;
-            }
-        };
-    }
-
-    function applySortFilter(sortKey) {
-        activeSort = sortKey;
-        if (sortKey === 'newest') { currentSort = 'created_at'; currentDir = 'DESC'; }
-        else if (sortKey === 'oldest') { currentSort = 'created_at'; currentDir = 'ASC'; }
-        else if (sortKey === 'az') { currentSort = 'user_name'; currentDir = 'ASC'; }
-        else if (sortKey === 'za') { currentSort = 'user_name'; currentDir = 'DESC'; }
-        
-        currentPage = 1;
-        fetchUpdatedTable();
-        
-        const alpineEl = document.querySelector('[x-data="filterPanel()"]');
-        if (alpineEl && alpineEl._x_dataStack) {
-            alpineEl._x_dataStack[0].activeSort = sortKey;
-            alpineEl._x_dataStack[0].sortOpen = false;
-        }
-    }
-
-    function resetFilterField(fields) {
-        fields.forEach(f => {
-            const el = document.getElementById('fp_' + f);
-            if (el) el.value = '';
-        });
-        currentPage = 1;
-        fetchUpdatedTable();
-    }
-
-    function applyFilters(reset = false) {
-        if (reset) {
-            ['fp_role', 'fp_search', 'fp_date_from', 'fp_date_to'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            activeSort = 'newest';
-            currentSort = 'created_at';
-            currentDir = 'DESC';
-        }
-        currentPage = 1;
-        fetchUpdatedTable();
-    }
-
-    function buildFilterURL(printAll = false) {
-        const role = document.getElementById('fp_role')?.value || '';
-        const search = document.getElementById('fp_search')?.value || '';
-        const from = document.getElementById('fp_date_from')?.value || '';
-        const to = document.getElementById('fp_date_to')?.value || '';
-        const base = `activity_logs.php?ajax=1&sort_by=${currentSort}&dir=${currentDir}&role=${role}&search=${encodeURIComponent(search)}&date_from=${from}&date_to=${to}`;
-        return printAll ? base + '&print_all=1' : base + `&page=${currentPage}`;
-    }
-
-    async function fetchUpdatedTable() {
-        try {
-            const res = await fetch(buildFilterURL());
-            const data = await res.json();
-            if (data.success) {
-                document.getElementById('logsTableContainer').innerHTML = data.table;
-                document.getElementById('logsPagination').innerHTML = data.pagination;
-                updateBadgeCount();
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    function updateBadgeCount() {
-        const role = document.getElementById('fp_role')?.value;
-        const s = document.getElementById('fp_search')?.value;
-        const from = document.getElementById('fp_date_from')?.value;
-        const to = document.getElementById('fp_date_to')?.value;
-        let count = 0;
-        if (role) count++;
-        if (s) count++;
-        if (from) count++;
-        if (to) count++;
-        const cont = document.getElementById('filterBadgeContainer');
-        if (cont) cont.innerHTML = count > 0 ? `<span class="filter-badge">${count}</span>` : '';
-    }
-
-    function goToPage(p) {
-        currentPage = p;
-        fetchUpdatedTable();
-    }
-
-    async function activityDoPrint(evt) {
-        const btn = (evt && evt.target && evt.target.closest('button')) || document.getElementById('printLogsBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Preparing…';
-        }
-        try {
-            const res = await fetch(buildFilterURL(true));
-            const data = await res.json();
-            if (data.success && data.table) {
-                document.getElementById('logsTableContainer').innerHTML = data.table;
-                document.getElementById('logsPagination').innerHTML = '';
-                const origTitle = document.title;
-                document.title = '';
-                const restoreAfterPrint = () => {
-                    document.title = origTitle;
-                    fetchUpdatedTable();
-                    window.removeEventListener('afterprint', restoreAfterPrint);
-                };
-                window.addEventListener('afterprint', restoreAfterPrint);
-                requestAnimationFrame(() => {
-                    setTimeout(() => window.print(), 100);
-                });
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Print Logs';
-            }
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('fp_search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(() => { currentPage = 1; fetchUpdatedTable(); }, 500);
-            });
-        }
-        ['fp_role', 'fp_date_from', 'fp_date_to'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', () => { currentPage = 1; fetchUpdatedTable(); });
-        });
-        const el = document.getElementById('logsPagination');
-        if (el) {
-            el.addEventListener('click', (e) => {
-                const link = e.target.closest('a');
-                if (link && link.href) {
-                    e.preventDefault();
-                    const url = new URL(link.href);
-                    const p = url.searchParams.get('page') || 1;
-                    goToPage(parseInt(p));
-                }
-            });
-        }
-    });
-</script>
 </body>
 </html>

@@ -836,4 +836,17 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
 
     printflowAttachReportsChartLayoutHooks();
 };
+
+window.addEventListener('turbo:before-render', function() {
+    if (typeof window.printflowTeardownReportsCharts === 'function') {
+        window.printflowTeardownReportsCharts();
+    }
+});
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.printflowInitReportsCharts);
+} else {
+    window.printflowInitReportsCharts();
+}
+document.addEventListener('printflow:page-init', window.printflowInitReportsCharts);
 </script>

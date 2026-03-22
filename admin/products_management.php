@@ -390,7 +390,7 @@ if (isset($_GET['ajax'])) {
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo $product['status']; ?></span>
                         </td>
                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
-                            <button class="btn-action blue" onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
+                            <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                             
                             <?php if ($product['status'] !== 'Archived'): ?>
                                 <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
@@ -448,8 +448,6 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
-    <script src="/printflow/public/assets/js/product-form-validation.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action {
@@ -959,8 +957,7 @@ if (isset($_GET['ajax'])) {
 <body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -968,7 +965,103 @@ if (isset($_GET['ajax'])) {
             <h1 class="page-title">Products Management</h1>
         </header>
 
-        <main>
+        <script>
+            // ── Alpine.js Data Components ───────────────────────────
+            function filterPanel() {
+                return {
+                    sortOpen: false,
+                    filterOpen: false,
+                    activeSort: '<?php echo $sort_by; ?>',
+                    hasActiveFilters: <?php echo count(array_filter([$search,$cat_filter,$status_filter,$stock_filter,$date_from,$date_to], function($v) { return $v !== null && $v !== ''; })) > 0 ? 'true' : 'false'; ?>,
+                };
+            }
+
+            function productsPage() {
+                return {
+                    ...filterPanel(),
+                    init() {
+                        // Global event listeners (idempotent init handled by printflowInitProductsPage)
+                    }
+                };
+            }
+            window.filterPanel = filterPanel;
+            window.productsPage = productsPage;
+
+            // ── Filter & Sort JS ─────────────────────────────────────────
+            /* var: Turbo re-runs this script; let would conflict across visits. */
+            var activeSort = '<?php echo $sort_by; ?>';
+            var searchDebounceTimer = null;
+
+            function buildFilterURL(page = 1) {
+                const params = new URLSearchParams();
+                params.set('page', page);
+                const df = document.getElementById('fp_date_from')?.value; if (df) params.set('date_from', df);
+                const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
+                const cat = document.getElementById('fp_category')?.value; if (cat) params.set('category', cat);
+                const st = document.getElementById('fp_status')?.value;   if (st) params.set('status', st);
+                const stock = document.getElementById('fp_stock_status')?.value; if (stock) params.set('stock_status', stock);
+                const s = document.getElementById('fp_search')?.value;     if (s) params.set('search', s);
+                if (activeSort !== 'newest') params.set('sort', activeSort);
+                return '?' + params.toString();
+            }
+
+            async function fetchUpdatedTable(page = 1) {
+                const url = buildFilterURL(page) + '&ajax=1';
+                try {
+                    const r = await fetch(url);
+                    const data = await r.json();
+                    if (data.success) {
+                        const wrap = document.getElementById('productsTableContainer');
+                        if (wrap) {
+                            wrap.innerHTML = data.table + '<div id="productsPagination">' + data.pagination + '</div>';
+                            if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                                try { Alpine.initTree(wrap); } catch (e) { console.error(e); }
+                            }
+                        }
+                        const cont = document.getElementById('filterBadgeContainer');
+                        if (cont) cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
+                        
+                        // Update hasActiveFilters in Alpine
+                        const root = document.querySelector('[x-data*="productsPage"]');
+                        if (root && root._x_dataStack) root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
+
+                        history.replaceState(null, '', buildFilterURL(page));
+                    }
+                } catch (e) { console.error(e); }
+            }
+
+            function applyFilters(reset = false) {
+                if (reset) {
+                    ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status','fp_search'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = '';
+                    });
+                    activeSort = 'newest';
+                }
+                fetchUpdatedTable(1);
+            }
+
+            function resetFilterField(fields) {
+                fields.forEach(f => {
+                    const map = { date_from:'fp_date_from', date_to:'fp_date_to', category:'fp_category', status:'fp_status', stock_status:'fp_stock_status', search:'fp_search' };
+                    const el = document.getElementById(map[f] || 'fp_' + f);
+                    if (el) el.value = '';
+                });
+                fetchUpdatedTable(1);
+            }
+
+            function applySortFilter(sortKey) {
+                activeSort = sortKey;
+                fetchUpdatedTable(1);
+                const alpineEl = document.querySelector('[x-data*="productsPage"]');
+                if (alpineEl && alpineEl._x_dataStack) {
+                    alpineEl._x_dataStack[0].activeSort = sortKey;
+                    alpineEl._x_dataStack[0].sortOpen   = false;
+                }
+            }
+        </script>
+
+        <main x-data="productsPage()" x-init="init()">
             <?php if ($success): ?>
                 <div style="background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
                     ✓ <?php echo htmlspecialchars($success); ?>
@@ -1009,7 +1102,7 @@ if (isset($_GET['ajax'])) {
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="productsListHeader">Products List</h3>
 
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button class="toolbar-btn" type="button" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
+                        <button class="toolbar-btn" type="button" onclick="openProductModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
                         <button class="toolbar-btn" type="button" onclick="window.openArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280; display:flex; align-items:center; gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
@@ -1194,7 +1287,7 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
-                                                onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
+                                                onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                                             
                                             <?php if ($product['status'] !== 'Archived'): ?>
                                                 <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
@@ -1465,464 +1558,7 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<script>
-// ── Filter & Sort JS (products_management.php) ────────────────────────────
-let activeSort = '<?php echo $sort_by; ?>';
-let searchDebounceTimer = null;
 
-function filterPanel() {
-    return {
-        sortOpen: false,
-        filterOpen: false,
-        activeSort: activeSort,
-        get hasActiveFilters() {
-            return document.getElementById('fp_date_from')?.value ||
-                   document.getElementById('fp_date_to')?.value ||
-                   document.getElementById('fp_category')?.value ||
-                   document.getElementById('fp_status')?.value ||
-                   document.getElementById('fp_stock_status')?.value ||
-                   document.getElementById('fp_search')?.value;
-        }
-    };
-}
-
-function buildFilterURL(page = 1) {
-    const params = new URLSearchParams();
-    params.set('page', page);
-    const df = document.getElementById('fp_date_from')?.value; if (df) params.set('date_from', df);
-    const dt = document.getElementById('fp_date_to')?.value;   if (dt) params.set('date_to', dt);
-    const cat = document.getElementById('fp_category')?.value; if (cat) params.set('category', cat);
-    const st = document.getElementById('fp_status')?.value;   if (st) params.set('status', st);
-    const stock = document.getElementById('fp_stock_status')?.value; if (stock) params.set('stock_status', stock);
-    const s = document.getElementById('fp_search')?.value;     if (s) params.set('search', s);
-    if (activeSort !== 'newest') params.set('sort', activeSort);
-    return '?' + params.toString();
-}
-
-function fetchUpdatedTable(page = 1) {
-    const url = buildFilterURL(page) + '&ajax=1';
-    fetch(url)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) return;
-            const wrap = document.getElementById('productsTableContainer');
-            if (wrap) {
-                wrap.innerHTML = data.table + '<div id="productsPagination">' + data.pagination + '</div>';
-                if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
-                    try {
-                        Alpine.initTree(wrap);
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
-            }
-            // productsCount element replaced with heading - no update needed
-            // Badge
-            const cont = document.getElementById('filterBadgeContainer');
-            cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
-            history.replaceState(null, '', buildFilterURL(page));
-        })
-        .catch(console.error);
-}
-
-function applyFilters(reset = false) {
-    if (reset) {
-        ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status','fp_search'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        activeSort = 'newest';
-    }
-    fetchUpdatedTable(1);
-}
-
-function resetFilterField(fields) {
-    fields.forEach(f => {
-        const map = { date_from:'fp_date_from', date_to:'fp_date_to', category:'fp_category', status:'fp_status', stock_status:'fp_stock_status', search:'fp_search' };
-        const el = document.getElementById(map[f] || 'fp_' + f);
-        if (el) el.value = '';
-    });
-    fetchUpdatedTable(1);
-}
-
-function applySortFilter(sortKey) {
-    activeSort = sortKey;
-    fetchUpdatedTable(1);
-    // Update alpine data
-    const alpineEl = document.querySelector('[x-data="filterPanel()"]');
-    if (alpineEl && alpineEl._x_dataStack) {
-        alpineEl._x_dataStack[0].activeSort = sortKey;
-        alpineEl._x_dataStack[0].sortOpen   = false;
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => fetchUpdatedTable());
-    });
-    const searchInput = document.getElementById('fp_search');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => fetchUpdatedTable(), 500);
-        });
-    }
-});
-
-function openModal(mode, product) {
-    var overlay = document.getElementById('product-modal-overlay');
-    var title   = document.getElementById('modal-title');
-    var modeInput = document.getElementById('modal-mode-input');
-    var submitBtn = document.getElementById('modal-submit-btn');
-    var categorySelect = document.getElementById('modal-category');
-
-    // Clear form
-    document.getElementById('product-form').reset();
-
-    if (mode === 'edit' && product) {
-        title.textContent = 'Edit Product';
-        modeInput.name = 'update_product';
-        submitBtn.textContent = 'Save Changes';
-
-        document.getElementById('modal-product-id').value  = product.product_id || '';
-        document.getElementById('modal-name').value        = product.name || '';
-        document.getElementById('modal-sku').value         = product.sku || '';
-        document.getElementById('modal-category').value    = product.category || '';
-        document.getElementById('modal-price').value       = product.price || '';
-        document.getElementById('modal-description').value = product.description || '';
-        document.getElementById('modal-stock').value       = product.stock_quantity || 0;
-        document.getElementById('modal-low-stock').value   = product.low_stock_level ?? 10;
-        document.getElementById('modal-product-type').value = product.product_type || 'custom';
-        document.getElementById('modal-status').value      = product.status || 'Activated';
-        
-        // Load existing photo preview if available
-        var photoImg = document.getElementById('photo-preview-img');
-        var photoText = document.getElementById('photo-preview-text');
-        if (product.photo_path && product.photo_path.trim() !== '') {
-            photoImg.src = product.photo_path;
-            photoImg.style.display = 'block';
-            photoText.style.display = 'none';
-        } else {
-            photoImg.style.display = 'none';
-            photoText.style.display = 'block';
-        }
-        
-        // Remove auto-generate listener for edit mode
-        categorySelect.removeEventListener('change', autoGenerateSKU);
-    } else {
-        title.textContent = 'Add New Product';
-        modeInput.name = 'create_product';
-        submitBtn.textContent = 'Create Product';
-        document.getElementById('modal-product-id').value = '';
-        document.getElementById('modal-stock').value = '0';
-        document.getElementById('modal-low-stock').value = '10';
-        document.getElementById('modal-product-type').value = 'custom';
-        document.getElementById('modal-status').value = 'Activated';
-        
-        // Clear photo preview for new product
-        var photoImg = document.getElementById('photo-preview-img');
-        var photoText = document.getElementById('photo-preview-text');
-        photoImg.style.display = 'none';
-        photoText.style.display = 'block';
-        document.getElementById('modal-photo').value = '';
-        
-        // Add auto-generate listener for create mode
-        categorySelect.addEventListener('change', autoGenerateSKU);
-    }
-
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('modal-name').focus();
-}
-
-function closeProductModal() {
-    document.getElementById('product-modal-overlay').classList.remove('active');
-    document.body.style.overflow = '';
-    // Remove listener when closing modal
-    document.getElementById('modal-category').removeEventListener('change', autoGenerateSKU);
-}
-
-/**
- * Auto-generate SKU based on selected category
- */
-function autoGenerateSKU(event) {
-    var category = event.target.value;
-    
-    if (!category) {
-        document.getElementById('modal-sku').value = '';
-        return;
-    }
-
-    // Show loading state
-    var skuInput = document.getElementById('modal-sku');
-    skuInput.placeholder = 'Generating...';
-    skuInput.style.opacity = '0.6';
-
-    // Call API to generate SKU
-    fetch('/printflow/admin/api_generate_product_sku.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'category=' + encodeURIComponent(category)
-    })
-    .then(response => response.json())
-    .then(data => {
-        skuInput.style.opacity = '1';
-        skuInput.placeholder = 'e.g. TARP001 (auto-generated)';
-        
-        if (data.success) {
-            skuInput.value = data.sku;
-        } else {
-            console.error('SKU generation failed:', data.error);
-            skuInput.value = '';
-            skuInput.placeholder = 'Failed to generate SKU';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        skuInput.style.opacity = '1';
-        skuInput.placeholder = 'Error generating SKU';
-        skuInput.value = '';
-    });
-}
-
-/**
- * Handle product photo file selection and preview
- */
-document.addEventListener('DOMContentLoaded', function() {
-    var photoInput = document.getElementById('modal-photo');
-    if (photoInput) {
-        photoInput.addEventListener('change', function(e) {
-            var file = e.target.files[0];
-            if (file) {
-                // Check file size (5MB max)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('File size must be less than 5MB');
-                    this.value = '';
-                    return;
-                }
-                
-                // Check file type
-                var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Please select a valid image file (JPG, PNG, or GIF)');
-                    this.value = '';
-                    return;
-                }
-                
-                // Show preview
-                var reader = new FileReader();
-                reader.onload = function(event) {
-                    var previewImg = document.getElementById('photo-preview-img');
-                    var previewText = document.getElementById('photo-preview-text');
-                    previewImg.src = event.target.result;
-                    previewImg.style.display = 'block';
-                    previewText.style.display = 'none';
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-});
-
-
-
-var _productStatusForm = null;
-var _productStatusButtonName = null;
-
-function showProductStatusModal(event, form) {
-    if (event) event.preventDefault();
-    var action = form.getAttribute('data-action') || 'proceed';
-    var productName = form.getAttribute('data-product-name') || 'this product';
-    _productStatusForm = form;
-    
-    var btn = form.querySelector('button[type="submit"]');
-    _productStatusButtonName = btn ? btn.getAttribute('name') : null;
-
-    var modal = document.getElementById('productStatusConfirmModal');
-    var title = document.getElementById('productStatusConfirmTitle');
-    var text  = document.getElementById('productStatusConfirmText');
-    var info  = document.getElementById('productStatusInfoText');
-    var box   = document.getElementById('productStatusInfoBox');
-    var okBtn = document.getElementById('productStatusConfirmOk');
-    var icon  = document.getElementById('productStatusConfirmIcon');
-
-    // Close other modals to prevent overlap (as requested)
-    if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
-    closeProductModal(); 
-    closeViewModal();
-
-    title.textContent = 'Confirm ' + action;
-    text.innerHTML = 'Are you sure you want to ' + action.toLowerCase() + ' <br><strong style="color:#111827;">' + productName + '</strong>?';
-    
-    // Consequence logic
-    var msg = "";
-    var themeColor = "#3b82f6"; // Default blue
-    
-    if (action === 'Deactivate') {
-        msg = "Deactivating this product will hide it from the POS and Online Ordering, but its records will remain in the inventory.";
-        themeColor = "#ef4444"; // Red for deactivation
-    } else if (action === 'Activate') {
-        msg = "This will make the product visible again in the POS and Online Ordering for customers and staff.";
-        themeColor = "#14b8a6"; // Teal for activation
-    } else if (action === 'Archive') {
-        msg = "Archiving will remove this item from the main products list. You can still access and restore it from the <em>Archive Storage</em>.";
-        themeColor = "#6b7280"; // Gray for archive
-    } else if (action === 'Restore') {
-        msg = "This will bring the product back to the active list and make it available for use in the system.";
-        themeColor = "#14b8a6"; 
-    } else if (action === 'Delete Permanently') {
-        msg = "<strong>Warning:</strong> This action is permanent and cannot be undone. All associated product data will be removed.";
-        themeColor = "#ef4444";
-        box.style.background = "#fff5f5";
-        box.style.borderColor = "#fecaca";
-        box.style.color = "#991b1b";
-    }
-
-    if (action !== 'Delete Permanently') {
-        box.style.background = "#f9fafb";
-        box.style.borderColor = "#e5e7eb";
-        box.style.color = "#6b7280";
-    }
-
-    info.innerHTML = msg;
-    okBtn.style.background = themeColor;
-    icon.style.color = themeColor;
-    icon.style.background = themeColor + '15'; // 10% opacity
-
-    modal.style.display = 'flex';
-}
-
-function closeProductStatusModal() {
-    var modal = document.getElementById('productStatusConfirmModal');
-    modal.style.display = 'none';
-    _productStatusForm = null;
-    _productStatusButtonName = null;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var cancelBtn = document.getElementById('productStatusConfirmCancel');
-    var okBtn = document.getElementById('productStatusConfirmOk');
-    var modal = document.getElementById('productStatusConfirmModal');
-    if (cancelBtn) cancelBtn.addEventListener('click', closeProductStatusModal);
-    if (okBtn) okBtn.addEventListener('click', function() {
-        if (_productStatusForm) {
-            if (_productStatusButtonName) {
-                var hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = _productStatusButtonName;
-                hiddenInput.value = '1';
-                _productStatusForm.appendChild(hiddenInput);
-            }
-            _productStatusForm.submit();
-        }
-        closeProductStatusModal();
-    });
-    if (modal) modal.addEventListener('click', function(e) {
-        if (e.target === modal) closeProductStatusModal();
-    });
-});
-
-function handleOverlayClick(event) {
-    if (event.target === document.getElementById('product-modal-overlay')) {
-        closeProductModal();
-    }
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        var archiveOv = document.getElementById('archive-storage-overlay');
-        if (archiveOv && archiveOv.style.display === 'flex') {
-            if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
-            return;
-        }
-        var statusModal = document.getElementById('productStatusConfirmModal');
-        if (statusModal && statusModal.style.display === 'flex') {
-            closeProductStatusModal();
-        } else {
-            closeProductModal();
-            closeViewModal();
-        }
-    }
-});
-
-// View Modal Functions
-function openViewModal(product) {
-    var overlay = document.getElementById('view-product-modal-overlay');
-    var name = document.getElementById('view-product-name');
-    var sku = document.getElementById('view-product-sku');
-    var category = document.getElementById('view-product-category');
-    var price = document.getElementById('view-product-price');
-    var stock = document.getElementById('view-product-stock');
-    var status = document.getElementById('view-product-status');
-    var description = document.getElementById('view-product-description');
-
-    // Set product data
-    name.textContent = product.name || '-';
-    sku.textContent = product.sku || '—';
-    category.textContent = product.category || '—';
-    price.textContent = '₱' + (product.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    stock.textContent = product.stock_quantity || '0';
-    document.getElementById('view-product-low-stock').textContent = product.low_stock_level ?? 10;
-
-    // Stock Status (auto-computed)
-    var stockStatusEl = document.getElementById('view-product-stock-status');
-    var qty = parseInt(product.stock_quantity || 0, 10);
-    var lowLevel = parseInt(product.low_stock_level || 10, 10);
-    var stockStatusText = qty <= 0 ? 'Out of Stock' : (qty <= lowLevel ? 'Low Stock' : 'In Stock');
-    stockStatusEl.textContent = stockStatusText;
-    stockStatusEl.style.background = stockStatusText === 'In Stock' ? '#dcfce7' : (stockStatusText === 'Low Stock' ? '#fef9c3' : '#fee2e2');
-    stockStatusEl.style.color = stockStatusText === 'In Stock' ? '#166534' : (stockStatusText === 'Low Stock' ? '#854d0e' : '#991b1b');
-
-    // Set status (Activated/Deactivated) with styling
-    status.textContent = product.status || 'Activated';
-    if (product.status === 'Activated') {
-        status.style.background = '#dcfce7';
-        status.style.color = '#166534';
-    } else if (product.status === 'Deactivated') {
-        status.style.background = '#fee2e2';
-        status.style.color = '#991b1b';
-    } else {
-        status.style.background = '#fef9c3';
-        status.style.color = '#854d0e';
-    }
-    
-    // Set product photo
-    var photoImg = document.getElementById('view-product-photo-img');
-    var photoText = document.getElementById('view-product-photo-text');
-    if (product.photo_path && product.photo_path.trim() !== '') {
-        photoImg.src = product.photo_path;
-        photoImg.style.display = 'block';
-        photoText.style.display = 'none';
-    } else {
-        photoImg.style.display = 'none';
-        photoText.style.display = 'block';
-    }
-    
-    description.textContent = product.description || 'No description provided.';
-
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeViewModal() {
-    document.getElementById('view-product-modal-overlay').classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-function handleViewOverlayClick(event) {
-    if (event.target === document.getElementById('view-product-modal-overlay')) {
-        closeViewModal();
-    }
-}
-
-// Helper function to format currency (similar to PHP format_currency)
-function formatCurrency(amount) {
-    return '₱' + (amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-</script>
 
 <!-- Archived Items Modal (z-index above status modal 10000, logout 9999, pf-fg portal 10030+) -->
 <div id="archive-storage-overlay" role="dialog" aria-modal="true" aria-labelledby="archive-storage-title" onclick="if (event.target === this) window.closeArchiveModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10090;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
@@ -1961,6 +1597,232 @@ function formatCurrency(amount) {
 </div>
 
 <script>
+var _productStatusForm = null;
+var _productStatusButtonName = null;
+
+function pfProductStockStatusLabel(qty, low) {
+    qty = parseInt(qty, 10) || 0;
+    low = parseInt(low, 10) || 10;
+    if (qty <= 0) return 'Out of Stock';
+    if (qty <= low) return 'Low Stock';
+    return 'In Stock';
+}
+function pfStockBadgeStyle(label) {
+    if (label === 'In Stock') return 'background:#dcfce7;color:#166534;';
+    if (label === 'Low Stock') return 'background:#fef9c3;color:#854d0e;';
+    if (label === 'Out of Stock') return 'background:#fee2e2;color:#991b1b;';
+    return 'background:#f3f4f6;color:#374151;';
+}
+function pfVisibilityStatusStyle(st) {
+    if (st === 'Activated') return 'background:#dcfce7;color:#166534;';
+    if (st === 'Deactivated') return 'background:#fee2e2;color:#991b1b;';
+    if (st === 'Archived') return 'background:#f3f4f6;color:#374151;';
+    return 'background:#fef9c3;color:#854d0e;';
+}
+
+window.openProductModal = function openProductModal(mode, product) {
+    var overlay = document.getElementById('product-modal-overlay');
+    var form = document.getElementById('product-form');
+    if (!overlay || !form) {
+        console.warn('openProductModal: product modal markup not in DOM.');
+        return;
+    }
+    form.reset();
+    var title = document.getElementById('modal-title');
+    var modeInput = document.getElementById('modal-mode-input');
+    var submitBtn = document.getElementById('modal-submit-btn');
+    var previewImg = document.getElementById('photo-preview-img');
+    var previewText = document.getElementById('photo-preview-text');
+    var photoInput = document.getElementById('modal-photo');
+
+    if (mode === 'edit' && product) {
+        if (title) title.textContent = 'Edit Product';
+        if (modeInput) { modeInput.name = 'update_product'; modeInput.value = '1'; }
+        if (submitBtn) submitBtn.textContent = 'Save Changes';
+        var pidEl = document.getElementById('modal-product-id');
+        if (pidEl) pidEl.value = product.product_id != null ? String(product.product_id) : '';
+        var nameEl = document.getElementById('modal-name');
+        if (nameEl) nameEl.value = product.name || '';
+        var skuEl = document.getElementById('modal-sku');
+        if (skuEl) skuEl.value = product.sku || '';
+        var catEl = document.getElementById('modal-category');
+        if (catEl) catEl.value = product.category || '';
+        var priceEl = document.getElementById('modal-price');
+        if (priceEl) priceEl.value = product.price != null ? String(product.price) : '';
+        var descEl = document.getElementById('modal-description');
+        if (descEl) descEl.value = product.description || '';
+        var stockEl = document.getElementById('modal-stock');
+        if (stockEl) stockEl.value = product.stock_quantity != null ? String(product.stock_quantity) : '0';
+        var lowEl = document.getElementById('modal-low-stock');
+        if (lowEl) lowEl.value = product.low_stock_level != null ? String(product.low_stock_level) : '10';
+        var ptEl = document.getElementById('modal-product-type');
+        if (ptEl) ptEl.value = (product.product_type === 'fixed') ? 'fixed' : 'custom';
+        var stEl = document.getElementById('modal-status');
+        if (stEl) stEl.value = (product.status === 'Deactivated') ? 'Deactivated' : 'Activated';
+        if (photoInput) photoInput.value = '';
+        if (product.photo_path && previewImg && previewText) {
+            previewImg.src = product.photo_path;
+            previewImg.style.display = 'block';
+            previewText.style.display = 'none';
+        } else {
+            if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
+            if (previewText) previewText.style.display = 'block';
+        }
+    } else {
+        if (title) title.textContent = 'Add New Product';
+        if (modeInput) { modeInput.name = 'create_product'; modeInput.value = '1'; }
+        if (submitBtn) submitBtn.textContent = 'Create Product';
+        var pidEl2 = document.getElementById('modal-product-id');
+        if (pidEl2) pidEl2.value = '';
+        if (photoInput) photoInput.value = '';
+        if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
+        if (previewText) previewText.style.display = 'block';
+    }
+    if (submitBtn) submitBtn.disabled = false;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    var nm = document.getElementById('modal-name');
+    if (nm) setTimeout(function() { nm.focus(); }, 10);
+};
+
+function closeProductModal() {
+    var overlay = document.getElementById('product-modal-overlay');
+    if (overlay) overlay.classList.remove('active');
+    if (document.getElementById('archive-storage-overlay')?.style.display !== 'flex' &&
+        document.getElementById('productStatusConfirmModal')?.style.display !== 'flex') {
+        document.body.style.overflow = '';
+    }
+    var submitBtn = document.getElementById('modal-submit-btn');
+    var modeInput = document.getElementById('modal-mode-input');
+    if (submitBtn && modeInput) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = modeInput.name === 'update_product' ? 'Save Changes' : 'Create Product';
+    }
+}
+
+function handleOverlayClick(e) {
+    if (e.target.id === 'product-modal-overlay') closeProductModal();
+}
+
+function openViewModal(product) {
+    if (!product) return;
+    var stockLabel = pfProductStockStatusLabel(product.stock_quantity, product.low_stock_level);
+    var nameEl = document.getElementById('view-product-name');
+    if (nameEl) nameEl.textContent = product.name || '—';
+    var skuEl = document.getElementById('view-product-sku');
+    if (skuEl) skuEl.textContent = product.sku || '—';
+    var catEl = document.getElementById('view-product-category');
+    if (catEl) catEl.textContent = product.category || '—';
+    var priceEl = document.getElementById('view-product-price');
+    if (priceEl) {
+        var p = parseFloat(product.price);
+        priceEl.textContent = isNaN(p) ? '—' : '₱' + p.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    var ssEl = document.getElementById('view-product-stock-status');
+    if (ssEl) {
+        ssEl.textContent = stockLabel;
+        ssEl.setAttribute('style', 'height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12px;font-weight:700;' + pfStockBadgeStyle(stockLabel));
+    }
+    var sqEl = document.getElementById('view-product-stock');
+    if (sqEl) sqEl.textContent = product.stock_quantity != null ? String(product.stock_quantity) : '—';
+    var lowEl = document.getElementById('view-product-low-stock');
+    if (lowEl) lowEl.textContent = product.low_stock_level != null ? String(product.low_stock_level) : '—';
+    var visEl = document.getElementById('view-product-status');
+    var st = product.status || '';
+    if (visEl) {
+        visEl.textContent = st || '—';
+        visEl.setAttribute('style', 'height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12px;font-weight:700;' + pfVisibilityStatusStyle(st));
+    }
+    var img = document.getElementById('view-product-photo-img');
+    var imgTxt = document.getElementById('view-product-photo-text');
+    if (product.photo_path && img && imgTxt) {
+        img.src = product.photo_path;
+        img.style.display = 'block';
+        imgTxt.style.display = 'none';
+    } else {
+        if (img) { img.removeAttribute('src'); img.style.display = 'none'; }
+        if (imgTxt) imgTxt.style.display = 'block';
+    }
+    var descEl = document.getElementById('view-product-description');
+    if (descEl) descEl.textContent = (product.description && String(product.description).trim()) ? product.description : '—';
+    var vOverlay = document.getElementById('view-product-modal-overlay');
+    if (vOverlay) {
+        vOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeViewModal() {
+    var vOverlay = document.getElementById('view-product-modal-overlay');
+    if (vOverlay) vOverlay.classList.remove('active');
+    if (document.getElementById('product-modal-overlay')?.classList.contains('active')) return;
+    if (document.getElementById('archive-storage-overlay')?.style.display === 'flex') return;
+    if (document.getElementById('productStatusConfirmModal')?.style.display === 'flex') return;
+    document.body.style.overflow = '';
+}
+
+function handleViewOverlayClick(e) {
+    if (e.target.id === 'view-product-modal-overlay') closeViewModal();
+}
+
+function showProductStatusModal(event, form) {
+    if (event) event.preventDefault();
+    var action = form.getAttribute('data-action') || 'proceed';
+    var prodName = form.getAttribute('data-product-name') || 'this product';
+    _productStatusForm = form;
+    var btn = form.querySelector('button[type="submit"]');
+    _productStatusButtonName = btn ? btn.getAttribute('name') : null;
+
+    if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
+    closeProductModal();
+    closeViewModal();
+
+    var titleEl = document.getElementById('productStatusConfirmTitle');
+    var textEl = document.getElementById('productStatusConfirmText');
+    var infoEl = document.getElementById('productStatusInfoText');
+    if (titleEl) titleEl.textContent = 'Confirm ' + action;
+    if (textEl) {
+        textEl.innerHTML = 'Are you sure you want to <strong>' + action.toLowerCase() + '</strong> <strong style="color:#111827;">' + String(prodName).replace(/</g, '&lt;') + '</strong>?';
+    }
+    var msg = '';
+    if (action === 'Deactivate') msg = 'This product will be hidden from customers until activated again.';
+    else if (action === 'Activate') msg = 'This product will be visible to customers again.';
+    else if (action === 'Archive') msg = 'The product moves to archive storage; you can restore it later.';
+    else if (action === 'Restore') msg = 'The product returns to the main list as Active.';
+    else if (action === 'Delete Permanently') msg = 'This cannot be undone.';
+    if (infoEl) infoEl.textContent = msg;
+
+    var m = document.getElementById('productStatusConfirmModal');
+    if (m) {
+        m.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeProductStatusModal() {
+    var m = document.getElementById('productStatusConfirmModal');
+    if (m) m.style.display = 'none';
+    document.body.style.overflow = '';
+    _productStatusForm = null;
+    _productStatusButtonName = null;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    var archiveOv = document.getElementById('archive-storage-overlay');
+    if (archiveOv && archiveOv.style.display === 'flex') {
+        if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
+        return;
+    }
+    var statusM = document.getElementById('productStatusConfirmModal');
+    if (statusM && statusM.style.display === 'flex') {
+        closeProductStatusModal();
+        return;
+    }
+    closeProductModal();
+    closeViewModal();
+});
+
 // Archive Modal Functions (on window for Turbo + inline onclick)
 window.openArchiveModal = function openArchiveModal() {
     var el = document.getElementById('archive-storage-overlay');
@@ -1993,52 +1855,87 @@ function fetchArchivedProducts() {
         });
 }
 
-/**
- * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
- * After AJAX table replace: reinject Alpine directives on new markup where present.
- */
-function ensureProductsAlpineBoot() {
-    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-    var fp = document.querySelector('[x-data="filterPanel()"]');
-    if (fp && !fp._x_dataStack) {
-        try {
-            Alpine.initTree(fp);
-        } catch (e) {
-            console.error(e);
+function printflowInitProductsPage() {
+    /* Alpine tree: Alpine.start / turbo-init initTree(.main-content). Never initTree nested #productsTableContainer or filterPanel here. */
+    // Real-time filters (idempotent)
+    ['fp_date_from','fp_date_to','fp_category','fp_status','fp_stock_status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el._pf_bound) {
+            el._pf_bound = true;
+            el.addEventListener('change', () => fetchUpdatedTable());
         }
+    });
+
+    const searchInput = document.getElementById('fp_search');
+    if (searchInput && !searchInput._pf_bound) {
+        searchInput._pf_bound = true;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => fetchUpdatedTable(), 500);
+        });
     }
-    var tbl = document.getElementById('productsTableContainer');
-    if (tbl) {
-        try {
-            Alpine.initTree(tbl);
-        } catch (e2) {
-            console.error(e2);
-        }
+
+    // Photo preview (idempotent)
+    var photoInput = document.getElementById('modal-photo');
+    if (photoInput && !photoInput._pf_bound) {
+        photoInput._pf_bound = true;
+        photoInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) { alert('File size must be less than 5MB'); this.value = ''; return; }
+                var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+                if (!allowedTypes.includes(file.type)) { alert('Please select a valid image file (JPG, PNG, or GIF)'); this.value = ''; return; }
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    var previewImg = document.getElementById('photo-preview-img');
+                    var previewText = document.getElementById('photo-preview-text');
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                    previewText.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Status modal buttons (idempotent)
+    var cancelBtn = document.getElementById('productStatusConfirmCancel');
+    var okBtn = document.getElementById('productStatusConfirmOk');
+    var modal = document.getElementById('productStatusConfirmModal');
+    if (cancelBtn && !cancelBtn._pf_bound) {
+        cancelBtn._pf_bound = true;
+        cancelBtn.addEventListener('click', closeProductStatusModal);
+    }
+    if (okBtn && !okBtn._pf_bound) {
+        okBtn._pf_bound = true;
+        okBtn.addEventListener('click', function() {
+            if (_productStatusForm) {
+                if (_productStatusButtonName) {
+                    var hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = _productStatusButtonName;
+                    hiddenInput.value = '1';
+                    _productStatusForm.appendChild(hiddenInput);
+                }
+                _productStatusForm.submit();
+            }
+            closeProductStatusModal();
+        });
+    }
+    if (modal && !modal._pf_bound) {
+        modal._pf_bound = true;
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeProductStatusModal(); });
     }
 }
 
-window.printflowInitProductsPage = ensureProductsAlpineBoot;
-
-(function scheduleProductsAlpineFirstVisit() {
-    function tick() {
-        ensureProductsAlpineBoot();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
-    } else {
-        schedule();
-    }
-    function schedule() {
-        tick();
-        queueMicrotask(tick);
-        setTimeout(tick, 0);
-        requestAnimationFrame(function () {
-            requestAnimationFrame(tick);
-        });
-        setTimeout(tick, 150);
-    }
-})();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitProductsPage);
+} else {
+    printflowInitProductsPage();
+}
+document.addEventListener('printflow:page-init', printflowInitProductsPage);
 </script>
+<script src="/printflow/public/assets/js/product-form-validation.js"></script>
 
 </body>
 </html>

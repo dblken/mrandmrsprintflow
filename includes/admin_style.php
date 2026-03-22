@@ -1,4 +1,29 @@
 <?php require_once __DIR__ . '/favicon_links.php'; ?>
+<meta name="turbo-cache-control" content="no-cache">
+
+<?php
+/**
+ * Alpine + Turbo (admin / manager / staff shell).
+ * Many shell pages (e.g. customers_management, orders_management) rely on x-data / @click but never
+ * loaded these libraries — controls appear "dead". Loaded once per request; POS skips Turbo via PRINTFLOW_DISABLE_TURBO.
+ */
+if (empty($GLOBALS['__printflow_shell_core_js'])) {
+    $GLOBALS['__printflow_shell_core_js'] = true;
+    $__pf_asset_js = '/printflow/public/assets/js';
+    $__pf_skip_turbo = !empty($GLOBALS['PRINTFLOW_DISABLE_TURBO']);
+    ?>
+<?php if (!$__pf_skip_turbo): ?>
+<script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.13/dist/turbo.es2017-umd.js" defer></script>
+<?php endif; ?>
+<script src="<?php echo $__pf_asset_js; ?>/alpine.min.js" defer></script>
+<?php if (!$__pf_skip_turbo): ?>
+<script src="<?php echo $__pf_asset_js; ?>/turbo-init.js" defer></script>
+<?php endif; ?>
+<?php
+    unset($__pf_asset_js, $__pf_skip_turbo);
+}
+?>
+
 <?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>
 <script>(function(){document.documentElement.classList.add('printflow-staff');})();</script>
 <?php include __DIR__ . '/staff_theme.php'; ?>
@@ -912,11 +937,7 @@
         transform: translateY(0);
     }
 </style>
-<?php
-if (empty($GLOBALS['PRINTFLOW_DISABLE_TURBO'])):
-    require __DIR__ . '/turbo_admin_drive.php';
-endif;
-?>
+
 <script src="/printflow/public/assets/js/printflow_form_guard.js" defer></script>
 <?php if (!empty($GLOBALS['PRINTFLOW_DISABLE_TURBO'])): ?>
 <script>

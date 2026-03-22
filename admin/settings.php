@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Admin');
 
+$current_user = get_logged_in_user();
+
 $success = '';
 $error   = '';
 
@@ -252,7 +254,7 @@ $page_title = 'Settings - Admin';
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <div class="main-content">
         <header>
@@ -601,172 +603,216 @@ Stickers &amp; Decals"><?php
     </div>
 </div>
 
-<script>
-// Add social link row
-document.getElementById('add-social')?.addEventListener('click', function() {
-    var list = document.getElementById('social-list');
-    var row = document.createElement('div');
-    row.className = 'social-row';
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;';
-    row.innerHTML = '<input type="url" name="social_url[]" placeholder="https://facebook.com/yourpage" style="flex:1;">' +
-        '<button type="button" onclick="this.closest(\'.social-row\').remove()" style="padding:6px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;">✕</button>';
-    list.appendChild(row);
-    row.querySelector('input').focus();
-});
-
-// Add branch address row
-var branchOptions = <?php
-    $opts = [];
-    foreach ($branches as $br) {
-        $opts[] = '<option value="' . (int)$br['id'] . '">' . htmlspecialchars($br['name']) . '</option>';
+function printflowInitSettingsPage() {
+    // Add social link row
+    const addSocialBtn = document.getElementById('add-social');
+    if (addSocialBtn && !addSocialBtn.dataset.pfBound) {
+        addSocialBtn.dataset.pfBound = '1';
+        addSocialBtn.addEventListener('click', function() {
+            var list = document.getElementById('social-list');
+            if (!list) return;
+            var row = document.createElement('div');
+            row.className = 'social-row';
+            row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+            row.innerHTML = '<input type="url" name="social_url[]" placeholder="https://facebook.com/yourpage" style="flex:1;">' +
+                '<button type="button" onclick="this.closest(\'.social-row\').remove()" style="padding:6px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;">✕</button>';
+            list.appendChild(row);
+            row.querySelector('input').focus();
+        });
     }
-    echo json_encode(implode('', $opts));
-?>;
-document.getElementById('add-branch-addr')?.addEventListener('click', function() {
-    var list = document.getElementById('branch-addr-list');
-    var row = document.createElement('div');
-    row.className = 'branch-addr-row';
-    row.style.cssText = 'display:flex;flex-direction:column;gap:6px;background:#f9fafb;padding:10px;border-radius:8px;border:1px solid #e5e7eb;';
-    row.innerHTML =
-        '<div style="display:flex;gap:8px;align-items:center;">' +
-            '<select name="ba_branch_id[]" style="flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;background:#fff;color:#111827;">' +
-                '<option value="">-- Select Branch --</option>' + branchOptions +
-            '</select>' +
-            '<button type="button" onclick="this.closest(\'.branch-addr-row\').remove()" style="padding:5px 9px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>' +
-        '</div>' +
-        '<textarea name="ba_address[]" rows="2" placeholder="Full address for this branch" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;background:#fff;color:#111827;box-sizing:border-box;"></textarea>';
-    list.appendChild(row);
-    row.querySelector('select').focus();
-});
 
-document.getElementById('add-pm')?.addEventListener('click', function() {
-    var list = document.getElementById('pm-list');
-    var row = document.createElement('div');
-    row.className = 'pm-row';
-    row.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px;position:relative;';
-    row.innerHTML = `<button type="button" onclick="this.closest('.pm-row').remove()" style="position:absolute;top:10px;right:10px;padding:5px 9px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:12px;z-index:10;">✕</button>
-        <div class="toggle-row" style="margin-bottom:10px;">
-            <div>
-                <div class="toggle-label">Show Payment Option</div>
-                <div class="toggle-sub">Enabled</div>
-            </div>
-            <select name="pm_enabled[]" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#fff;">
-                <option value="1" selected>Enabled</option>
-                <option value="0">Disabled</option>
-            </select>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
-            <div class="f-group" style="margin-bottom:0;">
-                <label>Provider Name</label>
-                <input type="text" name="pm_provider[]" placeholder="e.g. GCash" required>
-            </div>
-            <div class="f-group" style="margin-bottom:0;">
-                <label>Account Name / Label</label>
-                <input type="text" name="pm_label[]" placeholder="e.g. Main Account">
-            </div>
-        </div>
-        <div class="f-group" style="margin-bottom:0;">
-            <label>Upload QR Image <span style="font-weight:400;color:#9ca3af;">(Auto-crops to square)</span></label>
-            <input type="file" name="pm_file[]" accept="image/*" class="pm-file-input">
-            <input type="hidden" name="pm_existing_file[]" value="">
-            <input type="hidden" name="pm_cropped_img[]" value="">
-            <div style="margin-top:8px;">
-                <img src="" class="pm-preview-img" style="height:80px; width:80px; object-fit:cover; border-radius:8px; border:2px solid #e5e7eb; background:#fff; display:none;" alt="QR">
-            </div>
-        </div>`;
-    list.appendChild(row);
-});
+    // Add branch address row
+    const addBranchBtn = document.getElementById('add-branch-addr');
+    if (addBranchBtn && !addBranchBtn.dataset.pfBound) {
+        addBranchBtn.dataset.pfBound = '1';
+        var branchOptions = <?php
+            $opts = [];
+            foreach ($branches as $br) {
+                $opts[] = '<option value="' . (int)$br['id'] . '">' . htmlspecialchars($br['name']) . '</option>';
+            }
+            echo json_encode(implode('', $opts));
+        ?>;
+        addBranchBtn.addEventListener('click', function() {
+            var list = document.getElementById('branch-addr-list');
+            if (!list) return;
+            var row = document.createElement('div');
+            row.className = 'branch-addr-row';
+            row.style.cssText = 'display:flex;flex-direction:column;gap:6px;background:#f9fafb;padding:10px;border-radius:8px;border:1px solid #e5e7eb;';
+            row.innerHTML =
+                '<div style="display:flex;gap:8px;align-items:center;">' +
+                    '<select name="ba_branch_id[]" style="flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;background:#fff;color:#111827;">' +
+                        '<option value="">-- Select Branch --</option>' + branchOptions +
+                    '</select>' +
+                    '<button type="button" onclick="this.closest(\'.branch-addr-row\').remove()" style="padding:5px 9px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>' +
+                '</div>' +
+                '<textarea name="ba_address[]" rows="2" placeholder="Full address for this branch" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;background:#fff;color:#111827;box-sizing:border-box;"></textarea>';
+            list.appendChild(row);
+            row.querySelector('select').focus();
+        });
+    }
 
-// Cropper Logic
-let currentCropper = null;
-let currentFileInput = null;
-let currentPreviewImg = null;
-let currentHiddenInput = null;
+    const addPmBtn = document.getElementById('add-pm');
+    if (addPmBtn && !addPmBtn.dataset.pfBound) {
+        addPmBtn.dataset.pfBound = '1';
+        addPmBtn.addEventListener('click', function() {
+            var list = document.getElementById('pm-list');
+            if (!list) return;
+            var row = document.createElement('div');
+            row.className = 'pm-row';
+            row.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px;position:relative;';
+            row.innerHTML = `<button type="button" onclick="this.closest('.pm-row').remove()" style="position:absolute;top:10px;right:10px;padding:5px 9px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:12px;z-index:10;">✕</button>
+                <div class="toggle-row" style="margin-bottom:10px;">
+                    <div>
+                        <div class="toggle-label">Show Payment Option</div>
+                        <div class="toggle-sub">Enabled</div>
+                    </div>
+                    <select name="pm_enabled[]" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#fff;">
+                        <option value="1" selected>Enabled</option>
+                        <option value="0">Disabled</option>
+                    </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+                    <div class="f-group" style="margin-bottom:0;">
+                        <label>Provider Name</label>
+                        <input type="text" name="pm_provider[]" placeholder="e.g. GCash" required>
+                    </div>
+                    <div class="f-group" style="margin-bottom:0;">
+                        <label>Account Name / Label</label>
+                        <input type="text" name="pm_label[]" placeholder="e.g. Main Account">
+                    </div>
+                </div>
+                <div class="f-group" style="margin-bottom:0;">
+                    <label>Upload QR Image <span style="font-weight:400;color:#9ca3af;">(Auto-crops to square)</span></label>
+                    <input type="file" name="pm_file[]" accept="image/*" class="pm-file-input">
+                    <input type="hidden" name="pm_existing_file[]" value="">
+                    <input type="hidden" name="pm_cropped_img[]" value="">
+                    <div style="margin-top:8px;">
+                        <img src="" class="pm-preview-img" style="height:80px; width:80px; object-fit:cover; border-radius:8px; border:2px solid #e5e7eb; background:#fff; display:none;" alt="QR">
+                    </div>
+                </div>`;
+            list.appendChild(row);
+        });
+    }
 
-document.addEventListener('change', function(e) {
-    if (e.target.matches('.pm-file-input')) {
-        const file = e.target.files[0];
-        if (file) {
-            const row = e.target.closest('.pm-row');
-            currentFileInput = e.target;
-            currentHiddenInput = row.querySelector('input[name="pm_cropped_img[]"]');
-            currentPreviewImg = row.querySelector('.pm-preview-img');
-            
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                document.getElementById('imageToCrop').src = event.target.result;
-                document.getElementById('cropperModal').style.display = 'flex';
-                
-                if (currentCropper) {
-                    currentCropper.destroy();
+    // Cropper Logic — use event delegation on document body to avoid duplicate listeners after Turbo
+    if (!document.body.dataset.pfSettingsBound) {
+        document.body.dataset.pfSettingsBound = '1';
+
+        let currentCropper = null;
+        let currentFileInput = null;
+        let currentPreviewImg = null;
+        let currentHiddenInput = null;
+
+        document.body.addEventListener('change', function(e) {
+            if (e.target.matches('.pm-file-input')) {
+                const file = e.target.files[0];
+                if (file) {
+                    const row = e.target.closest('.pm-row');
+                    currentFileInput = e.target;
+                    currentHiddenInput = row.querySelector('input[name="pm_cropped_img[]"]');
+                    currentPreviewImg = row.querySelector('.pm-preview-img');
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const img = document.getElementById('imageToCrop');
+                        if (!img) return;
+                        img.src = event.target.result;
+                        const modal = document.getElementById('cropperModal');
+                        if (modal) modal.style.display = 'flex';
+                        
+                        if (currentCropper) {
+                            currentCropper.destroy();
+                        }
+                        
+                        currentCropper = new Cropper(img, {
+                            aspectRatio: 1, // perfect square!
+                            viewMode: 1,
+                            autoCropArea: 0.8
+                        });
+                    };
+                    reader.readAsDataURL(file);
                 }
-                
-                currentCropper = new Cropper(document.getElementById('imageToCrop'), {
-                    aspectRatio: 1, // perfect square!
-                    viewMode: 1,
-                    autoCropArea: 0.8
-                });
-            };
-            reader.readAsDataURL(file);
+            }
+        });
+
+        window.closeCropper = function() {
+            const modal = document.getElementById('cropperModal');
+            if (modal) modal.style.display = 'none';
+            if (currentCropper) {
+                currentCropper.destroy();
+                currentCropper = null;
+            }
+            if (currentFileInput && currentHiddenInput && !currentHiddenInput.value) {
+                currentFileInput.value = ''; // Reset input if they cancelled
+            }
+        };
+
+        const cropBtn = document.getElementById('btnCrop');
+        if (cropBtn) {
+            cropBtn.addEventListener('click', function() {
+                if (currentCropper) {
+                    const canvas = currentCropper.getCroppedCanvas({ width: 500, height: 500 });
+                    const dataUrl = canvas.toDataURL('image/png');
+                    if (currentHiddenInput) {
+                        currentHiddenInput.value = dataUrl;
+                        currentHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    
+                    if (currentPreviewImg) {
+                        currentPreviewImg.src = dataUrl;
+                        currentPreviewImg.style.display = 'block';
+                    }
+                    window.closeCropper();
+                }
+            });
         }
     }
-});
 
-function closeCropper() {
-    document.getElementById('cropperModal').style.display = 'none';
-    if (currentCropper) {
-        currentCropper.destroy();
-        currentCropper = null;
+    // About Page — Add Value Row
+    const addValBtn = document.getElementById('add-about-value');
+    if (addValBtn && !addValBtn.dataset.pfBound) {
+        addValBtn.dataset.pfBound = '1';
+        addValBtn.addEventListener('click', function() {
+            var list = document.getElementById('about-values-list');
+            if (!list) return;
+            var row = document.createElement('div');
+            row.className = 'about-value-row';
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:10px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;';
+            row.innerHTML = '<div class="f-group" style="margin-bottom:0;"><label>Title</label><input type="text" name="about_value_title[]" placeholder="e.g. Quality First"><input type="hidden" name="about_value_icon[]" value="star"></div>' +
+                '<div class="f-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="about_value_desc[]" placeholder="Short description"></div>' +
+                '<button type="button" onclick="this.closest(\'.about-value-row\').remove()" style="margin-top:20px;padding:7px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>';
+            list.appendChild(row);
+            row.querySelector('input[type="text"]').focus();
+        });
     }
-    if (currentFileInput && !currentHiddenInput.value) {
-        currentFileInput.value = ''; // Reset input if they cancelled
+
+    // About Page — Add Team Member Row
+    const addTeamBtn = document.getElementById('add-about-team');
+    if (addTeamBtn && !addTeamBtn.dataset.pfBound) {
+        addTeamBtn.dataset.pfBound = '1';
+        addTeamBtn.addEventListener('click', function() {
+            var list = document.getElementById('about-team-list');
+            if (!list) return;
+            var idx = list.querySelectorAll('.about-team-row').length;
+            var row = document.createElement('div');
+            row.className = 'about-team-row';
+            row.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;position:relative;';
+            row.innerHTML = '<button type="button" onclick="this.closest(\'.about-team-row\').remove()" style="position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:5px;cursor:pointer;font-size:11px;">✕</button>' +
+                '<div class="f-group"><label>Full Name</label><input type="text" name="about_team_name[]" placeholder="e.g. Maria Santos"></div>' +
+                '<div class="f-group"><label>Role / Position</label><input type="text" name="about_team_role[]" placeholder="e.g. Founder & CEO"></div>' +
+                '<div class="f-group" style="margin-bottom:0;"><label>Photo <span style="font-weight:400;color:#9ca3af;">(optional)</span></label><input type="file" name="about_team_photo_upload[' + idx + ']" accept="image/*"><input type="hidden" name="about_team_photo[]" value=""></div>';
+            list.appendChild(row);
+            row.querySelector('input[type="text"]').focus();
+        });
     }
 }
 
-document.getElementById('btnCrop')?.addEventListener('click', function() {
-    if (currentCropper) {
-        const canvas = currentCropper.getCroppedCanvas({ width: 500, height: 500 });
-        const dataUrl = canvas.toDataURL('image/png');
-        currentHiddenInput.value = dataUrl;
-        
-        if (currentPreviewImg) {
-            currentPreviewImg.src = dataUrl;
-            currentPreviewImg.style.display = 'block';
-        }
-        if (currentHiddenInput) {
-            currentHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        closeCropper();
-    }
-});
-
-// About Page — Add Value Row
-document.getElementById('add-about-value')?.addEventListener('click', function() {
-    var list = document.getElementById('about-values-list');
-    var row = document.createElement('div');
-    row.className = 'about-value-row';
-    row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:10px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;';
-    row.innerHTML = '<div class="f-group" style="margin-bottom:0;"><label>Title</label><input type="text" name="about_value_title[]" placeholder="e.g. Quality First"><input type="hidden" name="about_value_icon[]" value="star"></div>' +
-        '<div class="f-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="about_value_desc[]" placeholder="Short description"></div>' +
-        '<button type="button" onclick="this.closest(\'.about-value-row\').remove()" style="margin-top:20px;padding:7px 10px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>';
-    list.appendChild(row);
-    row.querySelector('input[type="text"]').focus();
-});
-
-// About Page — Add Team Member Row
-document.getElementById('add-about-team')?.addEventListener('click', function() {
-    var list = document.getElementById('about-team-list');
-    var idx = list.querySelectorAll('.about-team-row').length;
-    var row = document.createElement('div');
-    row.className = 'about-team-row';
-    row.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;position:relative;';
-    row.innerHTML = '<button type="button" onclick="this.closest(\'.about-team-row\').remove()" style="position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid #fee2e2;background:#fef2f2;color:#b91c1c;border-radius:5px;cursor:pointer;font-size:11px;">✕</button>' +
-        '<div class="f-group"><label>Full Name</label><input type="text" name="about_team_name[]" placeholder="e.g. Maria Santos"></div>' +
-        '<div class="f-group"><label>Role / Position</label><input type="text" name="about_team_role[]" placeholder="e.g. Founder & CEO"></div>' +
-        '<div class="f-group" style="margin-bottom:0;"><label>Photo <span style="font-weight:400;color:#9ca3af;">(optional)</span></label><input type="file" name="about_team_photo_upload[' + idx + ']" accept="image/*"><input type="hidden" name="about_team_photo[]" value=""></div>';
-    list.appendChild(row);
-    row.querySelector('input[type="text"]').focus();
-});
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitSettingsPage);
+} else {
+    printflowInitSettingsPage();
+}
+document.addEventListener('printflow:page-init', printflowInitSettingsPage);
 </script>
 
 </body>

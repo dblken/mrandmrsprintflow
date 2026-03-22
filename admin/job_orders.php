@@ -145,7 +145,6 @@ function jo_payment_badge($status) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
     <style>
@@ -198,22 +197,116 @@ function jo_payment_badge($status) {
         .history-item:last-child { border-bottom: none; }
     </style>
 </head>
-<body x-data="jobOrderModal()">
+<body>
 
 <div class="dashboard-container">
-    <!-- Mobile Header -->
-    <div class="mobile-header">
-        <div style="display:flex;align-items:center;gap:12px;">
-            <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('active')">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-            <span style="font-weight:600;font-size:18px;">PrintFlow</span>
-        </div>
-    </div>
-
     <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
+    <script>
+        function jobOrderModal() {
+            return {
+                showModal: false,
+                loading: false,
+                errorMsg: '',
+                job: null,
+                items: [],
+                showHistory: false,
+                historyLoading: false,
+                historyOrders: [],
+                historyCustoms: [],
+                historyTab: 'orders',
+                historyCustomerName: '',
+
+                openModal(id) {
+                    this.showModal = true;
+                    this.loading = true;
+                    this.errorMsg = '';
+                    this.job = null;
+                    this.items = [];
+                    fetch('/printflow/admin/job_orders_api.php?action=get_order&id=' + id, { credentials: 'same-origin' })
+                        .then(r => r.json())
+                        .then(data => {
+                            this.loading = false;
+                            if (data.success) {
+                                this.job = data.data || data.job;
+                                this.items = data.items || [];
+                                if (this.job?.customer_id) {
+                                    this.fetchHistory(this.job.customer_id, this.job.customer_name);
+                                }
+                            } else { this.errorMsg = data.error || 'Failed to load details'; }
+                        })
+                        .catch(() => { this.loading = false; this.errorMsg = 'Network error'; });
+                },
+
+                async fetchHistory(customerId, name) {
+                    if (!customerId) return;
+                    this.historyCustomerName = name || 'Customer';
+                    this.historyLoading = true;
+                    this.historyOrders = [];
+                    this.historyCustoms = [];
+                    try {
+                        const [ordersRes, customsRes] = await Promise.all([
+                            fetch(`/printflow/admin/api_order_details.php?customer_id=${customerId}`, { credentials: 'same-origin' }),
+                            fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`, { credentials: 'same-origin' })
+                        ]);
+                        const ordersData = await ordersRes.json();
+                        const customsData = await customsRes.json();
+                        this.historyOrders = Array.isArray(ordersData) ? ordersData : (ordersData.data || []);
+                        this.historyCustoms = customsData.data || [];
+                    } catch (e) { console.error('History fetch error', e); } finally { this.historyLoading = false; }
+                },
+
+                openHistory(id, name) {
+                    this.showHistory = true;
+                    this.fetchHistory(id, name);
+                },
+
+                statusBadge(status) {
+                    const map = { PENDING: 'background:#fef9c3;color:#92400e', APPROVED: 'background:#dbeafe;color:#1e40af', TO_PAY: 'background:#fce7f3;color:#9d174d', IN_PRODUCTION: 'background:#d1fae5;color:#065f46', TO_RECEIVE: 'background:#ede9fe;color:#5b21b6', COMPLETED: 'background:#f0fdf4;color:#166534', CANCELLED: 'background:#fee2e2;color:#991b1b' };
+                    const labels = { PENDING:'Pending', APPROVED:'Approved', TO_PAY:'To Pay', IN_PRODUCTION:'In Production', TO_RECEIVE:'To Receive', COMPLETED:'Completed', CANCELLED:'Cancelled' };
+                    const s = map[status] || 'background:#f3f4f6;color:#6b7280';
+                    return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;${s}">${labels[status] || status}</span>`;
+                },
+
+                paymentBadge(status) {
+                    const map = { UNPAID: 'background:#fee2e2;color:#991b1b', PENDING_VERIFICATION: 'background:#fef9c3;color:#92400e', PARTIAL: 'background:#fef3c7;color:#b45309', PAID: 'background:#d1fae5;color:#065f46' };
+                    const labels = { UNPAID:'Unpaid', PENDING_VERIFICATION:'Verifying', PARTIAL:'Partial', PAID:'Paid' };
+                    const s = map[status] || 'background:#f3f4f6;color:#6b7280';
+                    return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;${s}">${labels[status] || status}</span>`;
+                }
+            };
+        }
+
+        function printflowInitJobOrdersPage() {
+            if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+            var root = document.querySelector('main[x-data="jobOrderModal()"]');
+            if (root && !root._x_dataStack) {
+                try { Alpine.initTree(root); } catch (e) { console.error(e); }
+            }
+        }
+
+        window.openJobModal = function(id) {
+            function run() {
+                var m = document.querySelector('main[x-data="jobOrderModal()"]');
+                var st = m && m._x_dataStack;
+                if (st && st[0] && typeof st[0].openModal === 'function') {
+                    st[0].openModal(id);
+                    return true;
+                }
+                return false;
+            }
+            if (run()) return;
+            printflowInitJobOrdersPage();
+            if (run()) return;
+            setTimeout(run, 100);
+        };
+
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', printflowInitJobOrdersPage); }
+        else { printflowInitJobOrdersPage(); }
+        document.addEventListener('printflow:page-init', printflowInitJobOrdersPage);
+        </script>
     <div class="main-content">
+
         <header>
             <div style="display:flex;align-items:center;gap:10px;">
                 <h1 class="page-title">Customization</h1>
@@ -221,7 +314,9 @@ function jo_payment_badge($status) {
             <?php render_branch_selector($branchCtx); ?>
         </header>
 
-        <main>
+
+
+        <main x-data="jobOrderModal()">
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
 
             <!-- KPI Row -->
@@ -565,102 +660,7 @@ function jo_payment_badge($status) {
     </div>
 </div>
 
-<script>
-    // Search submits on Enter (handled inline on the input element)
 
-function jobOrderModal() {
-    return {
-        showModal: false,
-        loading:   false,
-        errorMsg:  '',
-        job:       null,
-
-        showHistory:       false,
-        historyLoading:    false,
-        historyTab:        'orders',
-        historyCustomerName: '',
-        historyOrders:     [],
-        historyCustoms:    [],
-
-        openModal(id) {
-            this.showModal = true;
-            this.loading   = true;
-            this.errorMsg  = '';
-            this.job       = null;
-
-            fetch('/printflow/admin/job_orders_api.php?action=get_order&id=' + id)
-                .then(r => r.json())
-                .then(data => {
-                    this.loading = false;
-                    if (data.success) {
-                        this.job = data.data;
-                    } else {
-                        this.errorMsg = data.error || 'Could not load details.';
-                    }
-                })
-                .catch(() => {
-                    this.loading  = false;
-                    this.errorMsg = 'Failed to connect to server.';
-                });
-        },
-
-        async openHistory(customerId, name) {
-            this.showHistory         = true;
-            this.historyLoading      = true;
-            this.historyCustomerName = name;
-            this.historyOrders       = [];
-            this.historyCustoms      = [];
-            this.historyTab          = 'orders';
-
-            try {
-                const [ordersRes, customsRes] = await Promise.all([
-                    fetch(`/printflow/admin/api_order_details.php?customer_id=${customerId}`),
-                    fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`)
-                ]);
-                const ordersData = await ordersRes.json();
-                const customsData = await customsRes.json();
-                this.historyOrders = Array.isArray(ordersData) ? ordersData : (ordersData.data || []);
-                this.historyCustoms = customsData.data || [];
-            } catch (e) {
-                console.error('History fetch error', e);
-            } finally {
-                this.historyLoading = false;
-            }
-        },
-
-        statusBadge(status) {
-            const map = {
-                PENDING:       'background:#fef9c3;color:#92400e',
-                APPROVED:      'background:#dbeafe;color:#1e40af',
-                TO_PAY:        'background:#fce7f3;color:#9d174d',
-                IN_PRODUCTION: 'background:#d1fae5;color:#065f46',
-                TO_RECEIVE:    'background:#ede9fe;color:#5b21b6',
-                COMPLETED:     'background:#f0fdf4;color:#166534',
-                CANCELLED:     'background:#fee2e2;color:#991b1b',
-            };
-            const labels = {
-                PENDING:'Pending', APPROVED:'Approved', TO_PAY:'To Pay',
-                IN_PRODUCTION:'In Production', TO_RECEIVE:'To Receive',
-                COMPLETED:'Completed', CANCELLED:'Cancelled'
-            };
-            const s = map[status] || 'background:#f3f4f6;color:#6b7280';
-            return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;${s}">${labels[status] || status}</span>`;
-        },
-
-        paymentBadge(status) {
-            const map = {
-                UNPAID:               'background:#fee2e2;color:#991b1b',
-                PENDING_VERIFICATION: 'background:#fef9c3;color:#92400e',
-                PARTIAL:              'background:#fef3c7;color:#b45309',
-                PAID:                 'background:#d1fae5;color:#065f46',
-            };
-            const labels = { UNPAID:'Unpaid', PENDING_VERIFICATION:'Verifying', PARTIAL:'Partial', PAID:'Paid' };
-            const s = map[status] || 'background:#f3f4f6;color:#6b7280';
-            return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;${s}">${labels[status] || status}</span>`;
-        }
-    };
-}
-</script>
 
 </body>
 </html>

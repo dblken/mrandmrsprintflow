@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role('Admin');
+$current_user = get_logged_in_user();
 $page_title = 'Inventory Ledger - Admin';
 
 /** Safe JSON for onclick="viewTransaction(...)" — never emit empty / broken JS */
@@ -177,7 +178,7 @@ if (isset($_GET['ajax'])) {
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
+
     <style>
         :root {
             --glass-bg: rgba(255, 255, 255, 0.85);
@@ -429,7 +430,7 @@ if (isset($_GET['ajax'])) {
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <div class="main-content">
         <header>
@@ -730,12 +731,13 @@ if (isset($_GET['ajax'])) {
 </div>
 
 <script>
-    let ledgerPage = <?php echo $page; ?>;
-    let currentSort = '<?php echo $sort; ?>';
-    let currentDir = '<?php echo $dir; ?>';
-    let searchTimer = null;
-    let ledgerFetchController = null;
-    let ledgerRequestSerial = 0;
+    /* var: Turbo re-runs this script; let would conflict with other admin pages (e.g. inv_items currentSort). */
+    var ledgerPage = <?php echo $page; ?>;
+    var currentSort = '<?php echo $sort; ?>';
+    var currentDir = '<?php echo $dir; ?>';
+    var searchTimer = null;
+    var ledgerFetchController = null;
+    var ledgerRequestSerial = 0;
 
     function filterPanel() {
         return {
@@ -753,37 +755,13 @@ if (isset($_GET['ajax'])) {
             }
         };
     }
+    window.filterPanel = filterPanel;
 
-    /**
-     * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
-     * After AJAX tbody replace: reinject Alpine on new row markup where present.
-     */
-    function ensureLedgerAlpineBoot() {
-        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-        var fp = document.getElementById('ledger-filter-toolbar') || document.querySelector('[x-data="filterPanel()"]');
-        if (fp && !fp._x_dataStack) {
-            try {
-                Alpine.initTree(fp);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        var tb = document.getElementById('ledgerTableBody');
-        if (tb) {
-            try {
-                Alpine.initTree(tb);
-            } catch (e2) {
-                console.error(e2);
-            }
-        }
-    }
-
-    window.printflowInitInvLedger = function printflowInitInvLedger() {
-        ensureLedgerAlpineBoot();
-
+    function printflowInitInvLedgerPage() {
         const toolbar = document.getElementById('ledger-filter-toolbar');
-        if (!toolbar || toolbar.dataset.pfLedgerJsBound === '1') return;
-        toolbar.dataset.pfLedgerJsBound = '1';
+        if (!toolbar) return;
+
+        /* #ledgerTableBody: plain tbody; fetchUpdatedTable initTree(tbody) after AJAX only. */
 
         const panelSearchInput = document.getElementById('fp_search');
         const quickSearchInput = document.getElementById('ledgerQuickSearch');
@@ -800,18 +778,10 @@ if (isset($_GET['ajax'])) {
         };
 
         if (panelSearchInput) {
-            panelSearchInput.addEventListener('input', () => {
-                onSearchInput(panelSearchInput);
-            });
+            panelSearchInput.addEventListener('input', () => { onSearchInput(panelSearchInput); });
         }
         if (quickSearchInput) {
-            quickSearchInput.addEventListener('input', () => {
-                onSearchInput(quickSearchInput);
-            });
-        }
-
-        if (panelSearchInput && quickSearchInput && panelSearchInput.value !== quickSearchInput.value) {
-            panelSearchInput.value = quickSearchInput.value;
+            quickSearchInput.addEventListener('input', () => { onSearchInput(quickSearchInput); });
         }
 
         ['fp_item_id', 'fp_type', 'fp_start_date', 'fp_end_date'].forEach(id => {
@@ -820,8 +790,14 @@ if (isset($_GET['ajax'])) {
                 fetchUpdatedTable({ page: 1 });
             });
         });
-    };
-    document.addEventListener('DOMContentLoaded', window.printflowInitInvLedger);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', printflowInitInvLedgerPage);
+    } else {
+        printflowInitInvLedgerPage();
+    }
+    document.addEventListener('printflow:page-init', printflowInitInvLedgerPage);
 
     function buildFilterURL(overrides = {}, isAjax = false) {
         const params = new URLSearchParams(window.location.search);
@@ -1079,25 +1055,7 @@ if (isset($_GET['ajax'])) {
         location.reload(); 
     });
 
-    (function scheduleLedgerAlpineFirstVisit() {
-        function tick() {
-            ensureLedgerAlpineBoot();
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', schedule);
-        } else {
-            schedule();
-        }
-        function schedule() {
-            tick();
-            queueMicrotask(tick);
-            setTimeout(tick, 0);
-            requestAnimationFrame(function () {
-                requestAnimationFrame(tick);
-            });
-            setTimeout(tick, 150);
-        }
-    })();
+    // Page-specific initialization is handled above via printflowInitInvLedgerPage.
 </script>
 </body>
 </html>

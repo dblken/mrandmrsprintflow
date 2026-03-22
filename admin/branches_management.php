@@ -150,7 +150,6 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }
@@ -201,11 +200,272 @@ if (isset($_GET['ajax'])) {
         .filter-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #0d9488; color: #fff; border-radius: 50%; font-size: 10px; font-weight: 700; }
     </style>
 </head>
-<body x-data="branchManagement()" x-init="init(); checkUrlSuccess()">
+<body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
+
+<script>
+    var branchSearchDebounceTimer = null;
+
+    function branchManagement() {
+        return {
+            viewModal: { isOpen: false, data: {} },
+            archiveModal: { isOpen: false, loading: false, content: '', pagination: '', page: 1 },
+            archiveConfirmModal: { isOpen: false, id: 0, name: '' },
+            restoreConfirmModal: { isOpen: false, id: 0, name: '' },
+            deleteConfirmModal: { isOpen: false, id: 0, name: '' },
+            modal: { isOpen: false, mode: 'create', isSubmitting: false, error: '' },
+            form: { branch_id: 0, branch_name: '', email: '', address: '', address_province: '', address_city: '', address_barangay: '', address_line: '', contact_number: '09', status: 'Active' },
+            errors: { email: '' },
+            addressProvinces: [], addressCities: [], addressBarangays: [],
+            loadingCities: false, loadingBarangays: false,
+            toast: { show: false, message: '', type: 'success' },
+
+            async init() { if (typeof this.loadProvinces === 'function') await this.loadProvinces(); this.checkUrlSuccess(); },
+            
+            checkUrlSuccess() {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('restored') === '1') { this.showToast('Branch restored successfully.', 'success'); params.delete('restored'); }
+                if (params.get('deleted') === '1') { this.showToast('Branch deleted permanently.', 'success'); params.delete('deleted'); }
+                if (params.get('restored') || params.get('deleted')) {
+                    const qs = params.toString();
+                    window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+                }
+            },
+
+            async validateEmail() {
+                const email = this.form.email.trim();
+                if (!email) return;
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.errors.email = 'Invalid email'; return; }
+                try {
+                    const resp = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'check_email', email, exclude_id: this.form.branch_id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
+                    });
+                    const res = await resp.json();
+                    this.errors.email = res.exists ? 'Email already assigned' : '';
+                } catch (e) {}
+            },
+
+            async loadProvinces() {
+                try {
+                    const r = await fetch('/printflow/admin/api_address.php?address_action=provinces');
+                    const d = await r.json();
+                    if (d.success) this.addressProvinces = d.data;
+                } catch (e) {}
+            },
+
+            async loadCities(provinceName = null, targetValue = null) {
+                const pName = provinceName || this.form.address_province;
+                const p = this.addressProvinces.find(x => x.name.toLowerCase() === (pName || '').toLowerCase());
+                if (!p?.code) return;
+                this.loadingCities = true;
+                try {
+                    const r = await fetch('/printflow/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(p.code));
+                    const d = await r.json();
+                    if (d.success) {
+                        this.addressCities = d.data;
+                        if (targetValue) {
+                            const matched = d.data.find(c => c.name.toLowerCase() === targetValue.toLowerCase().trim());
+                            if (matched) this.form.address_city = matched.name;
+                        }
+                    }
+                    this.buildAddress();
+                } catch (e) {} finally { this.loadingCities = false; }
+            },
+
+            async loadBarangays(cityName = null, targetValue = null) {
+                const cName = cityName || this.form.address_city;
+                const c = this.addressCities.find(x => x.name.toLowerCase() === (cName || '').toLowerCase());
+                if (!c?.code) return;
+                this.loadingBarangays = true;
+                try {
+                    const r = await fetch('/printflow/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(c.code));
+                    const d = await r.json();
+                    if (d.success) {
+                        this.addressBarangays = d.data;
+                        if (targetValue) {
+                            const matched = d.data.find(b => b.name.toLowerCase() === targetValue.toLowerCase().trim());
+                            if (matched) this.form.address_barangay = matched.name;
+                        }
+                    }
+                    this.buildAddress();
+                } catch (e) {} finally { this.loadingBarangays = false; }
+            },
+
+            buildAddress() {
+                const p = [this.form.address_line, this.form.address_barangay ? 'Brgy. ' + this.form.address_barangay : '', this.form.address_city, this.form.address_province].filter(Boolean);
+                this.form.address = p.length ? p.join(', ') + ', Philippines' : '';
+            },
+
+            openViewModal(data) { if (data) { this.viewModal.data = data; this.viewModal.isOpen = true; } },
+            
+            async openModal(mode, data = null) {
+                this.modal.mode = mode; this.modal.error = ''; this.errors = { email: '' };
+                this.viewModal.isOpen = false; this.modal.isOpen = true;
+                if (mode === 'create') {
+                    this.addressCities = []; this.addressBarangays = [];
+                    this.form = { branch_id: 0, branch_name: '', email: '', address: '', address_province: '', address_city: '', address_barangay: '', address_line: '', contact_number: '09', status: 'Active' };
+                } else if (mode === 'update' && data) {
+                    this.form = {
+                        branch_id: data.id, branch_name: (data.name || '').replace(/\s+Branch$/i, ''),
+                        email: data.email || '', address: data.address || '',
+                        address_province: data.address_province || '', address_city: data.address_city || '',
+                        address_barangay: data.address_barangay || '', address_line: data.address_line || '',
+                        contact_number: data.contact || '', status: data.status || 'Active'
+                    };
+                    await this.cascadeLoadAddress(data.address_province, data.address_city, data.address_barangay);
+                }
+            },
+
+            async cascadeLoadAddress(targetP, targetC, targetB) {
+                if (!this.addressProvinces.length) await this.loadProvinces();
+                if (targetP) {
+                    const mp = this.addressProvinces.find(p => p.name.toLowerCase() === targetP.toLowerCase());
+                    if (mp) {
+                        this.form.address_province = mp.name;
+                        await this.loadCities(mp.name, targetC);
+                        if (this.form.address_city || targetC) await this.loadBarangays(this.form.address_city || targetC, targetB);
+                    }
+                }
+            },
+
+            showToast(m, t = 'success') { this.toast.message = m; this.toast.type = t; this.toast.show = true; setTimeout(() => this.toast.show = false, 3000); },
+
+            async submitForm() {
+                await this.validateEmail(); if (this.errors.email) return;
+                this.modal.isSubmitting = true; this.modal.error = '';
+                try {
+                    const res = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: this.modal.mode, ...this.form, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.success) { this.modal.isOpen = false; this.showToast(result.message); setTimeout(() => window.location.reload(), 1200); }
+                    else { this.modal.error = result.error || 'Request failed'; }
+                } catch (e) { this.modal.error = 'Network error'; } finally { this.modal.isSubmitting = false; }
+            },
+
+            async openArchiveModal(page = 1) {
+                this.archiveModal.isOpen = true; this.archiveModal.loading = true;
+                try {
+                    const r = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'get_archived', page, per_page: 7, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
+                    });
+                    const res = await r.json();
+                    if (res.success) { this.archiveModal.content = res.html; this.archiveModal.pagination = res.pagination; this.archiveModal.page = page; }
+                } catch (e) {} finally { this.archiveModal.loading = false; }
+            },
+
+            showRestoreConfirmModal(id, name) { this.restoreConfirmModal = { id, name, isOpen: true }; },
+            async restoreBranch(id) {
+                try {
+                    const r = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'restore', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
+                    });
+                    if ((await r.json()).success) window.location.href = 'branches_management.php?restored=1';
+                } catch (e) {}
+            },
+
+            showArchiveConfirmModal(id, name) { this.archiveConfirmModal = { id, name, isOpen: true }; },
+            async archiveBranch(id) {
+                try {
+                    const r = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'archive', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
+                    });
+                    if ((await r.json()).success) { this.showToast('Archived'); setTimeout(() => window.location.reload(), 500); }
+                } catch (e) {}
+            },
+
+            showDeleteConfirmModal(id, name) { this.deleteConfirmModal = { id, name, isOpen: true }; },
+            async confirmDeleteBranch() {
+                try {
+                    const r = await fetch('/printflow/admin/api_branch.php', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'delete_permanent', branch_id: this.deleteConfirmModal.id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
+                    });
+                    if ((await r.json()).success) window.location.href = 'branches_management.php?deleted=1';
+                } catch (e) {}
+            }
+        };
+    }
+    window.branchManagement = branchManagement;
+
+    function branchFilterPanel() {
+        return {
+            sortOpen: false, filterOpen: false, activeSort: '<?php echo $sort_by; ?>',
+            get hasActiveFilters() { return document.getElementById('fp_status')?.value || document.getElementById('fp_search')?.value; },
+            fetchBranchTable(page = 1) {
+                const p = new URLSearchParams(); p.set('ajax', '1'); if (page > 1) p.set('page', page);
+                const st = document.getElementById('fp_status')?.value; if (st) p.set('status', st);
+                const s = document.getElementById('fp_search')?.value; if (s) p.set('search', s);
+                if (this.activeSort !== 'newest') p.set('sort', this.activeSort);
+                fetch('?' + p.toString()).then(r => r.json()).then(d => {
+                    if (!d.success) return;
+                    const c = document.getElementById('branchesTableContainer');
+                    if (c) {
+                        c.innerHTML = d.table + '<div id="branchesPagination">' + d.pagination + '</div>';
+                        /* AJAX fragment is plain table rows; no Alpine directives — avoid nested initTree under branchManagement(). */
+                    }
+                    const b = document.getElementById('branchFilterBadgeContainer');
+                    if (b) b.innerHTML = d.badge > 0 ? `<span class="filter-badge">${d.badge}</span>` : '';
+                    p.delete('ajax');
+                    window.history.replaceState(null, '', 'branches_management.php' + (p.toString() ? '?' + p.toString() : ''));
+                });
+            },
+            applySortFilter(k) { this.activeSort = k; this.sortOpen = false; this.fetchBranchTable(1); },
+            applyBranchFilters(reset) {
+                if (reset) {
+                    const st = document.getElementById('fp_status'); if (st) st.value = '';
+                    const s = document.getElementById('fp_search'); if (s) s.value = '';
+                    this.activeSort = 'newest';
+                }
+                this.fetchBranchTable(1);
+            },
+            applyBranchFiltersDebounced() {
+                clearTimeout(branchSearchDebounceTimer);
+                branchSearchDebounceTimer = setTimeout(() => this.fetchBranchTable(1), 400);
+            },
+            resetFilterField(fs) {
+                fs.forEach(f => { const el = document.getElementById('fp_' + f); if (el) el.value = ''; });
+                this.fetchBranchTable(1);
+            }
+        };
+    }
+
+    function printflowInitBranchesPage() {
+        const c = document.getElementById('branchesTableContainer'); if (!c) return;
+        /* [x-data] roots: Alpine.start / turbo-init initTree(.main-content) — avoid extra initTree passes. */
+        if (!c._pf_bound) {
+            c._pf_bound = true;
+            c.addEventListener('click', e => {
+                const row = e.target.closest('tr[data-branch]'); if (!row) return;
+                const btnArc = e.target.closest('button[data-archive]');
+                const mainRoot = document.querySelector('main[x-data="branchManagement()"]');
+                const mgmt = mainRoot?._x_dataStack?.[0];
+                if (!mgmt) return;
+                if (btnArc) { e.stopPropagation(); mgmt.showArchiveConfirmModal(parseInt(btnArc.getAttribute('data-id')), btnArc.getAttribute('data-name')); return; }
+                const data = JSON.parse(row.getAttribute('data-branch'));
+                const btnView = e.target.closest('button[data-view]');
+                const btnEdit = e.target.closest('button[data-edit]');
+                if (btnView) { e.stopPropagation(); mgmt.openViewModal(data); }
+                else if (btnEdit) { e.stopPropagation(); mgmt.openModal('update', data); }
+                else mgmt.openViewModal(data);
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', printflowInitBranchesPage);
+    else printflowInitBranchesPage();
+    document.addEventListener('printflow:page-init', printflowInitBranchesPage);
+</script>
+
 
     <!-- Main Content -->
     <div class="main-content">
@@ -213,7 +473,7 @@ if (isset($_GET['ajax'])) {
             <h1 class="page-title">Branch Management</h1>
         </header>
 
-        <main>
+        <main x-data="branchManagement()" x-init="init(); checkUrlSuccess()">
             <?php if ($branch_success): ?>
             <div style="background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
                 ✓ <?php echo htmlspecialchars($branch_success); ?>
@@ -234,8 +494,8 @@ if (isset($_GET['ajax'])) {
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;" x-data="branchFilterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Branches List</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button type="button" @click="openModal('create')" class="toolbar-btn" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Item</button>
-                        <button type="button" @click="openArchiveModal()" class="toolbar-btn" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                        <button type="button" @click="$root.openModal('create')" class="toolbar-btn" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Item</button>
+                        <button type="button" @click="$root.openArchiveModal()" class="toolbar-btn" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
                             </svg>
@@ -369,10 +629,8 @@ if (isset($_GET['ajax'])) {
                 ?>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
 
+<!-- Branch modals (inside main x-data="branchManagement()" for Alpine scope) -->
 <!-- View Branch Modal -->
 <div x-show="viewModal.isOpen" x-cloak>
     <div class="modal-overlay" @click.self="viewModal.isOpen = false">
@@ -614,644 +872,9 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<script>
-function branchManagement() {
-    return {
-        viewModal: {
-            isOpen: false,
-            data: {}
-        },
-        archiveModal: {
-            isOpen: false,
-            loading: false,
-            content: '',
-            pagination: '',
-            page: 1
-        },
-        archiveConfirmModal: {
-            isOpen: false,
-            id: 0,
-            name: ''
-        },
-        restoreConfirmModal: {
-            isOpen: false,
-            id: 0,
-            name: ''
-        },
-        deleteConfirmModal: {
-            isOpen: false,
-            id: 0,
-            name: ''
-        },
-        modal: {
-            isOpen: false,
-            mode: 'create', // 'create' or 'update'
-            isSubmitting: false,
-            error: ''
-        },
-        form: {
-            branch_id: 0,
-            branch_name: '',
-            email: '',
-            address: '',
-            address_province: '',
-            address_city: '',
-            address_barangay: '',
-            address_line: '',
-            contact_number: '',
-            status: 'Active'
-        },
-        errors: {
-            email: ''
-        },
-        addressProvinces: [],
-        addressCities: [],
-        addressBarangays: [],
-        loadingCities: false,
-        loadingBarangays: false,
-        toast: {
-            show: false,
-            message: '',
-            type: 'success'
-        },
-
-        async validateEmail() {
-            const email = this.form.email.trim();
-            if (!email) {
-                this.errors.email = 'Email address is required.';
-                return;
-            } 
-            
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                this.errors.email = 'Please enter a valid email address.';
-                return;
-            }
-
-            // Uniqueness check
-            try {
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'check_email',
-                        email: email,
-                        exclude_id: this.form.branch_id,
-                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
-                    })
-                });
-                const result = await response.json();
-                if (result.success && result.exists) {
-                    this.errors.email = 'This email is already assigned to another branch.';
-                } else {
-                    this.errors.email = '';
-                }
-            } catch (err) {
-                console.error('Email check failed', err);
-            }
-        },
-
-        async init() {
-            await this.loadProvinces();
-        },
-        checkUrlSuccess() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('restored') === '1') {
-                this.showToast('Branch restored successfully.', 'success');
-                params.delete('restored');
-                const qs = params.toString();
-                window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
-            }
-            if (params.get('deleted') === '1') {
-                this.showToast('Branch deleted permanently.', 'success');
-                params.delete('deleted');
-                const qs = params.toString();
-                window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
-            }
-        },
-        handleArchiveAction(event) {
-            const btn = event.target.closest('button[data-action]');
-            if (!btn) return;
-            const action = btn.getAttribute('data-action');
-            if (action === 'view') {
-                try {
-                    const data = JSON.parse(btn.getAttribute('data-branch') || '{}');
-                    this.openViewModal(data);
-                } catch (e) { console.error(e); }
-                return;
-            }
-            const id = parseInt(btn.getAttribute('data-id'), 10);
-            const name = btn.getAttribute('data-name') || '';
-            if (action === 'restore') {
-                this.showRestoreConfirmModal(id, name);
-            } else if (action === 'delete') {
-                this.showDeleteConfirmModal(id, name);
-            }
-        },
-        showRestoreConfirmModal(id, name) {
-            this.restoreConfirmModal.id = id;
-            this.restoreConfirmModal.name = name || '';
-            this.restoreConfirmModal.isOpen = true;
-        },
-        confirmRestoreBranch() {
-            const id = this.restoreConfirmModal.id;
-            const name = this.restoreConfirmModal.name;
-            this.restoreConfirmModal.isOpen = false;
-            this.restoreBranch(id, name);
-        },
-        showDeleteConfirmModal(id, name) {
-            this.deleteConfirmModal.id = id;
-            this.deleteConfirmModal.name = name || '';
-            this.deleteConfirmModal.isOpen = true;
-        },
-        confirmDeleteBranch() {
-            const id = this.deleteConfirmModal.id;
-            const name = this.deleteConfirmModal.name;
-            this.deleteConfirmModal.isOpen = false;
-            this.deletePermanent(id, name);
-        },
-
-        async loadProvinces() {
-            try {
-                const r = await fetch('/printflow/admin/api_address.php?address_action=provinces');
-                const d = await r.json();
-                if (d.success && d.data) {
-                    this.addressProvinces = d.data;
-                }
-                return d.data || [];
-            } catch (e) { console.error('Address load failed:', e); return []; }
-        },
-        async loadCities(provinceName = null, targetValue = null) {
-            const pName = provinceName || this.form.address_province;
-            const p = this.addressProvinces.find(x => x.name.toLowerCase() === (pName || '').toLowerCase());
-            const code = p?.code || '';
-            
-            if (!code) {
-                this.addressCities = [];
-                this.addressBarangays = [];
-                return [];
-            }
-
-            this.loadingCities = true;
-            try {
-                const r = await fetch('/printflow/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(code));
-                const d = await r.json();
-                if (d.success && d.data) {
-                    this.addressCities = d.data;
-                    if (targetValue) {
-                        // More aggressive matching with multiple sync attempts to beat Alpine race
-                        const matchAndSet = () => {
-                            const matched = d.data.find(c => c.name.toLowerCase() === targetValue.toLowerCase().trim());
-                            if (matched) this.form.address_city = matched.name;
-                        };
-                        matchAndSet();
-                        await this.$nextTick(); 
-                        matchAndSet();
-                        setTimeout(matchAndSet, 50);
-                    }
-                }
-                this.buildAddress();
-                return d.data || [];
-            } catch (e) { console.error('Cities load failed:', e); return []; }
-            finally { this.loadingCities = false; }
-        },
-        async loadBarangays(cityName = null, targetValue = null) {
-            const cName = cityName || this.form.address_city;
-            const c = this.addressCities.find(x => x.name.toLowerCase() === (cName || '').toLowerCase());
-            const code = c?.code || '';
-            
-            if (!code) {
-                this.addressBarangays = [];
-                return [];
-            }
-
-            this.loadingBarangays = true;
-            try {
-                const r = await fetch('/printflow/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(code));
-                const d = await r.json();
-                if (d.success && d.data) {
-                    this.addressBarangays = d.data;
-                    if (targetValue) {
-                        const matchAndSet = () => {
-                            const matched = d.data.find(b => b.name.toLowerCase() === targetValue.toLowerCase().trim());
-                            if (matched) this.form.address_barangay = matched.name;
-                        };
-                        matchAndSet();
-                        await this.$nextTick();
-                        matchAndSet();
-                        setTimeout(matchAndSet, 50);
-                    }
-                }
-                this.buildAddress();
-                return d.data || [];
-            } catch (e) { console.error('Barangays load failed:', e); return []; }
-            finally { this.loadingBarangays = false; }
-        },
-        buildAddress() {
-            const p = [this.form.address_line, this.form.address_barangay ? 'Brgy. ' + this.form.address_barangay : '', this.form.address_city, this.form.address_province].filter(Boolean);
-            this.form.address = p.length ? p.join(', ') + ', Philippines' : '';
-        },
-
-        openViewModal(data) {
-            if (!data) return;
-            this.viewModal.data = data;
-            this.viewModal.isOpen = true;
-        },
-        async openModal(mode, data = null) {
-            this.modal.mode = mode;
-            this.modal.error = '';
-            this.errors = { email: '' };
-            this.viewModal.isOpen = false;
-            
-            // OPEN MODAL IMMEDIATELY
-            this.modal.isOpen = true;
-
-            if (mode === 'create') {
-                this.addressCities = [];
-                this.addressBarangays = [];
-                this.form = { branch_id: 0, branch_name: '', email: '', address: '', address_province: '', address_city: '', address_barangay: '', address_line: '', contact_number: '09', status: 'Active' };
-                if (!this.addressProvinces.length) await this.loadProvinces();
-            } else if (mode === 'update' && data) {
-                const branchNameDisplay = (data.name || '').replace(/\s+Branch$/i, '');
-                this.form = {
-                    branch_id: data.id,
-                    branch_name: branchNameDisplay,
-                    email: data.email || '',
-                    address: data.address || '',
-                    address_province: data.address_province || '',
-                    address_city: data.address_city || '',
-                    address_barangay: data.address_barangay || '',
-                    address_line: data.address_line || '',
-                    contact_number: data.contact || '',
-                    status: data.status || 'Active'
-                };
-                
-                // Background load dropdowns with preserved targets directly from data
-                this.cascadeLoadAddress(
-                    data.address_province || '',
-                    data.address_city || '',
-                    data.address_barangay || ''
-                );
-            }
-        },
-
-        async cascadeLoadAddress(targetP = null, targetC = null, targetB = null) {
-            if (!this.addressProvinces.length) await this.loadProvinces();
-
-            if (targetP) {
-                const matchedP = this.addressProvinces.find(p => p.name.toLowerCase() === targetP.toLowerCase());
-                if (matchedP) {
-                    this.form.address_province = matchedP.name; 
-                    await this.loadCities(matchedP.name, targetC);
-                    
-                    const currentCity = this.form.address_city || targetC;
-                    if (currentCity) {
-                        await this.loadBarangays(currentCity, targetB);
-                    }
-                }
-            }
-        },
-
-        showToast(message, type = 'success') {
-            this.toast.message = message;
-            this.toast.type = type;
-            this.toast.show = true;
-            setTimeout(() => { this.toast.show = false; }, 3000);
-        },
-
-        async submitForm() {
-            await this.validateEmail();
-            if (this.errors.email) return;
-
-            this.modal.isSubmitting = true;
-            this.modal.error = '';
-
-            try {
-                const payload = {
-                    action: this.modal.mode,
-                    branch_name: this.form.branch_name,
-                    email: this.form.email,
-                    address: this.form.address,
-                    address_line: this.form.address_line,
-                    address_barangay: this.form.address_barangay,
-                    address_city: this.form.address_city,
-                    address_province: this.form.address_province,
-                    contact_number: this.form.contact_number,
-                    csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
-                };
-
-                if (this.modal.mode === 'update') {
-                    payload.branch_id = this.form.branch_id;
-                    payload.status = this.form.status;
-                }
-
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const text = await response.text();
-                let result;
-                try {
-                    result = JSON.parse(text);
-                } catch (e) {
-                    throw new Error('Server returned invalid response: ' + text.substring(0, 100));
-                }
-
-                if (result.success) {
-                    this.modal.isOpen = false;
-                    this.showToast(result.message, 'success');
-                    // Reload the page to reflect newest data after 1 second
-                    setTimeout(() => { window.location.reload(); }, 1200);
-                } else {
-                    this.modal.error = result.error || 'Failed to process request.';
-                }
-
-            } catch (err) {
-                this.modal.error = 'Network error. Please check your connection and try again.';
-                console.error(err);
-            } finally {
-                this.modal.isSubmitting = false;
-            }
-        },
-
-        async openArchiveModal(page) {
-            this.archiveModal.isOpen = true;
-            this.archiveModal.loading = true;
-            this.archiveModal.page = page || 1;
-            await this.loadArchivePage(this.archiveModal.page);
-            this.archiveModal.loading = false;
-        },
-        async loadArchivePage(page) {
-            this.archiveModal.loading = true;
-            try {
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_archived', page: page || 1, per_page: 7, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    this.archiveModal.content = result.html;
-                    this.archiveModal.pagination = result.pagination || '';
-                    this.archiveModal.page = page || 1;
-                }
-            } catch (e) {
-                console.error('Failed to load archives:', e);
-            }
-            this.archiveModal.loading = false;
-        },
-        handleArchivePagination(event) {
-            const link = event.target.closest('a[data-archive-page]');
-            if (link) {
-                event.preventDefault();
-                const page = parseInt(link.getAttribute('data-archive-page'), 10);
-                if (page) this.loadArchivePage(page);
-            }
-        },
-
-        showArchiveConfirmModal(id, name) {
-            this.archiveConfirmModal.id = id;
-            this.archiveConfirmModal.name = name || '';
-            this.archiveConfirmModal.isOpen = true;
-        },
-        confirmArchiveBranch() {
-            const id = this.archiveConfirmModal.id;
-            const name = this.archiveConfirmModal.name;
-            this.archiveConfirmModal.isOpen = false;
-            this.archiveBranch(id, name);
-        },
-        async archiveBranch(id, name) {
-            try {
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'archive', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    this.showToast(result.message, 'success');
-                    setTimeout(() => window.location.reload(), 500);
-                } else {
-                    this.showToast(result.error || 'Failed to archive branch.', 'error');
-                }
-            } catch (e) {
-                this.showToast('Network error while archiving.', 'error');
-            }
-        },
-
-        async restoreBranch(id) {
-            try {
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'restore', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    this.archiveModal.isOpen = false;
-                    window.location.href = '/printflow/admin/branches_management.php?restored=1';
-                } else {
-                    this.showToast(result.error || 'Failed to restore branch.', 'error');
-                }
-            } catch (e) {
-                this.showToast('Network error while restoring.', 'error');
-            }
-        },
-
-        async deletePermanent(id, name) {
-            try {
-                const response = await fetch('/printflow/admin/api_branch.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'delete_permanent', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    this.archiveModal.isOpen = false;
-                    window.location.href = '/printflow/admin/branches_management.php?deleted=1';
-                } else {
-                    this.showToast(result.error || 'Failed to delete branch.', 'error');
-                }
-            } catch (e) {
-                this.showToast('Network error while deleting.', 'error');
-            }
-        }
-    };
-}
-
-let branchSearchDebounceTimer = null;
-
-function branchFilterPanel() {
-    return {
-        sortOpen: false,
-        filterOpen: false,
-        activeSort: '<?php echo $sort_by; ?>',
-        get hasActiveFilters() {
-            const status = document.getElementById('fp_status');
-            const search = document.getElementById('fp_search');
-            return (status && status.value) || (search && search.value);
-        },
-        buildFilterURL(page) {
-            const params = new URLSearchParams();
-            params.set('ajax', '1');
-            if (page > 1) params.set('page', page);
-            const st = document.getElementById('fp_status')?.value;
-            const s = document.getElementById('fp_search')?.value;
-            if (st) params.set('status', st);
-            if (s) params.set('search', s);
-            if (this.activeSort !== 'newest') params.set('sort', this.activeSort);
-            return '?' + params.toString();
-        },
-        fetchBranchTable(page) {
-            const params = new URLSearchParams();
-            params.set('ajax', '1');
-            if (page > 1) params.set('page', page);
-            const st = document.getElementById('fp_status')?.value;
-            const s = document.getElementById('fp_search')?.value;
-            if (st) params.set('status', st);
-            if (s) params.set('search', s);
-            if (this.activeSort !== 'newest') params.set('sort', this.activeSort);
-            fetch('/printflow/admin/branches_management.php?' + params.toString())
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return;
-                    const container = document.getElementById('branchesTableContainer');
-                    if (container) {
-                        container.innerHTML = data.table + '<div id="branchesPagination">' + data.pagination + '</div>';
-                        if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
-                            try {
-                                Alpine.initTree(container);
-                            } catch (e) {
-                                console.error(e);
-                            }
-                        }
-                    }
-                    const badgeCont = document.getElementById('branchFilterBadgeContainer');
-                    if (badgeCont) badgeCont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
-                    params.delete('ajax');
-                    window.history.replaceState(null, '', '/printflow/admin/branches_management.php' + (params.toString() ? '?' + params.toString() : ''));
-                })
-                .catch(console.error);
-        },
-        applySortFilter(sortKey) {
-            this.activeSort = sortKey;
-            this.sortOpen = false;
-            this.fetchBranchTable(1);
-        },
-        applyBranchFilters(reset) {
-            if (reset) {
-                const status = document.getElementById('fp_status');
-                const search = document.getElementById('fp_search');
-                if (status) status.value = '';
-                if (search) search.value = '';
-                this.activeSort = 'newest';
-            }
-            this.fetchBranchTable(1);
-        },
-        applyBranchFiltersDebounced() {
-            clearTimeout(branchSearchDebounceTimer);
-            branchSearchDebounceTimer = setTimeout(() => this.fetchBranchTable(1), 400);
-        },
-        resetFilterField(fields) {
-            if (fields.includes('status')) {
-                const el = document.getElementById('fp_status');
-                if (el) el.value = '';
-            }
-            if (fields.includes('search')) {
-                const el = document.getElementById('fp_search');
-                if (el) el.value = '';
-            }
-            this.fetchBranchTable(1);
-        }
-    };
-}
-
-/**
- * First visit: defer Alpine may leave branchManagement() / branchFilterPanel() without _x_dataStack briefly.
- * After AJAX table replace: reinject Alpine directives on #branchesTableContainer fragment.
- */
-function ensureBranchesAlpineBoot() {
-    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-    var body = document.body;
-    if (body && body.getAttribute('x-data') && !body._x_dataStack) {
-        try {
-            Alpine.initTree(body);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    var fp = document.querySelector('[x-data="branchFilterPanel()"]');
-    if (fp && !fp._x_dataStack) {
-        try {
-            Alpine.initTree(fp);
-        } catch (e2) {
-            console.error(e2);
-        }
-    }
-    var tbl = document.getElementById('branchesTableContainer');
-    if (tbl) {
-        try {
-            Alpine.initTree(tbl);
-        } catch (e3) {
-            console.error(e3);
-        }
-    }
-}
-
-window.printflowInitBranchesPage = ensureBranchesAlpineBoot;
-
-(function scheduleBranchesAlpineFirstVisit() {
-    function tick() {
-        ensureBranchesAlpineBoot();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
-    } else {
-        schedule();
-    }
-    function schedule() {
-        tick();
-        queueMicrotask(tick);
-        setTimeout(tick, 0);
-        requestAnimationFrame(function () {
-            requestAnimationFrame(tick);
-        });
-        setTimeout(tick, 150);
-    }
-})();
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Event delegation for branches table (works with AJAX-replaced content)
-    document.getElementById('branchesTableContainer')?.addEventListener('click', (e) => {
-        const row = e.target.closest('tr[data-branch]');
-        if (!row) return;
-        const btn = e.target.closest('button[data-archive]');
-        if (btn) {
-            e.stopPropagation();
-            const mgmt = document.querySelector('body')?._x_dataStack?.[0];
-            if (mgmt) mgmt.showArchiveConfirmModal(parseInt(btn.getAttribute('data-id'), 10), btn.getAttribute('data-name') || '');
-            return;
-        }
-        if (e.target.closest('button[data-view], button[data-edit]')) {
-            e.stopPropagation();
-            try {
-                const data = JSON.parse(row.getAttribute('data-branch'));
-                const mgmt = document.querySelector('body')?._x_dataStack?.[0];
-                if (!mgmt) return;
-                if (e.target.closest('button[data-view]')) mgmt.openViewModal(data);
-                else mgmt.openModal('update', data);
-            } catch (err) { console.error(err); }
-            return;
-        }
-        try {
-            const data = JSON.parse(row.getAttribute('data-branch'));
-            const mgmt = document.querySelector('body')?._x_dataStack?.[0];
-            if (mgmt) mgmt.openViewModal(data);
-        } catch (err) { console.error(err); }
-    });
-});
-</script>
+        </main>
+    </div>
+</div>
 
 </body>
 </html>

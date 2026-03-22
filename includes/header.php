@@ -61,6 +61,11 @@ $url_google_auth    = $base_url . '/google-auth/';
     <?php if (!empty($use_customer_css)): ?>
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/customer-theme.css?v=<?php echo $ver; ?>">
     <?php endif; ?>
+
+    <!-- Core Libraries (Turbo & Alpine) -->
+    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.13/dist/turbo.es2017-umd.js" defer></script>
+    <script src="<?php echo $asset_base; ?>/assets/js/alpine.min.js" defer></script>
+    <script src="<?php echo $asset_base; ?>/assets/js/turbo-init.js" defer></script>
     
     <!-- Critical: base link/layout so page is never unstyled -->
     <style>
