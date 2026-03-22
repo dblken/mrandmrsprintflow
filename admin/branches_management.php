@@ -234,15 +234,15 @@ if (isset($_GET['ajax'])) {
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;" x-data="branchFilterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Branches List</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button @click="openModal('create')" class="toolbar-btn" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Item</button>
-                        <button @click="openArchiveModal()" class="toolbar-btn" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                        <button type="button" @click="openModal('create')" class="toolbar-btn" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Item</button>
+                        <button type="button" @click="openArchiveModal()" class="toolbar-btn" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
                             </svg>
                             Archived Items
                         </button>
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -258,7 +258,7 @@ if (isset($_GET['ajax'])) {
                             </div>
                         </div>
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                                 </svg>
@@ -274,7 +274,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Status</span>
-                                        <button class="filter-reset-link" @click="resetFilterField(['status'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" @click="resetFilterField(['status'])">Reset</button>
                                     </div>
                                     <select id="fp_status" class="filter-select" @change="applyBranchFilters()">
                                         <option value="">All statuses</option>
@@ -285,7 +285,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Keyword search</span>
-                                        <button class="filter-reset-link" @click="resetFilterField(['search'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" @click="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name, email..." value="<?php echo htmlspecialchars($search); ?>" @input="applyBranchFiltersDebounced()">
                                 </div>
@@ -1117,7 +1117,16 @@ function branchFilterPanel() {
                 .then(data => {
                     if (!data.success) return;
                     const container = document.getElementById('branchesTableContainer');
-                    if (container) container.innerHTML = data.table + '<div id="branchesPagination">' + data.pagination + '</div>';
+                    if (container) {
+                        container.innerHTML = data.table + '<div id="branchesPagination">' + data.pagination + '</div>';
+                        if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                            try {
+                                Alpine.initTree(container);
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }
+                    }
                     const badgeCont = document.getElementById('branchFilterBadgeContainer');
                     if (badgeCont) badgeCont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
                     params.delete('ajax');
@@ -1157,6 +1166,60 @@ function branchFilterPanel() {
         }
     };
 }
+
+/**
+ * First visit: defer Alpine may leave branchManagement() / branchFilterPanel() without _x_dataStack briefly.
+ * After AJAX table replace: reinject Alpine directives on #branchesTableContainer fragment.
+ */
+function ensureBranchesAlpineBoot() {
+    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+    var body = document.body;
+    if (body && body.getAttribute('x-data') && !body._x_dataStack) {
+        try {
+            Alpine.initTree(body);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    var fp = document.querySelector('[x-data="branchFilterPanel()"]');
+    if (fp && !fp._x_dataStack) {
+        try {
+            Alpine.initTree(fp);
+        } catch (e2) {
+            console.error(e2);
+        }
+    }
+    var tbl = document.getElementById('branchesTableContainer');
+    if (tbl) {
+        try {
+            Alpine.initTree(tbl);
+        } catch (e3) {
+            console.error(e3);
+        }
+    }
+}
+
+window.printflowInitBranchesPage = ensureBranchesAlpineBoot;
+
+(function scheduleBranchesAlpineFirstVisit() {
+    function tick() {
+        ensureBranchesAlpineBoot();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+    function schedule() {
+        tick();
+        queueMicrotask(tick);
+        setTimeout(tick, 0);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(tick);
+        });
+        setTimeout(tick, 150);
+    }
+})();
 
 document.addEventListener('DOMContentLoaded', () => {
     // Event delegation for branches table (works with AJAX-replaced content)

@@ -6,8 +6,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
+
+// Keep session branch in sync when opened with ?branch_id= (e.g. from dashboard KPI links)
+init_branch_context(false);
 
 $current_user = get_logged_in_user();
 
@@ -498,7 +502,7 @@ $page_title = 'Customers Management - Admin';
                     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -574,7 +578,7 @@ $page_title = 'Customers Management - Admin';
 
                                 <!-- Actions -->
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                    <button type="button" class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
@@ -800,7 +804,7 @@ $page_title = 'Customers Management - Admin';
 
                 <!-- Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;">
-                    <button @click="showTransactionModal = false" class="btn-secondary">Close</button>
+                    <button type="button" @click="showTransactionModal = false" class="btn-secondary">Close</button>
                 </div>
             </div>
         </div>
@@ -808,6 +812,79 @@ $page_title = 'Customers Management - Admin';
 </div>
 
 <script>
+    /**
+     * First full-page visit: Alpine is defer+microtask — body may not have _x_dataStack on first paint.
+     * Turbo: new body needs initTree. Safe to call when stack already exists (guarded).
+     */
+    function ensureCustomersAlpineBoot() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var b = document.body;
+        if (!b || !b.getAttribute('x-data')) return;
+        if (!b._x_dataStack) {
+            try {
+                Alpine.initTree(document.body);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        var tbl = document.getElementById('customersTableContainer');
+        if (tbl) {
+            try {
+                Alpine.initTree(tbl);
+            } catch (e2) {
+                console.error(e2);
+            }
+        }
+    }
+
+    function callCustomerModalMethod(methodName, id) {
+        function run() {
+            try {
+                var st = document.body && document.body._x_dataStack;
+                if (st && st[0] && typeof st[0][methodName] === 'function') {
+                    st[0][methodName](id);
+                    return true;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            return false;
+        }
+        if (run()) return;
+        ensureCustomersAlpineBoot();
+        if (run()) return;
+        if (typeof Alpine !== 'undefined' && typeof Alpine.nextTick === 'function') {
+            Alpine.nextTick(function () {
+                if (run()) return;
+                queueMicrotask(function () {
+                    if (run()) return;
+                    setTimeout(function () {
+                        if (run()) return;
+                        setTimeout(function () { run(); }, 80);
+                    }, 0);
+                });
+            });
+            return;
+        }
+        queueMicrotask(function () {
+            if (run()) return;
+            requestAnimationFrame(function () {
+                if (run()) return;
+                setTimeout(function () {
+                    if (run()) return;
+                    setTimeout(function () { run(); }, 80);
+                }, 0);
+            });
+        });
+    }
+
+    window.openModal = function (id) {
+        callCustomerModalMethod('openModal', id);
+    };
+    window.openTransactionModal = function (id) {
+        callCustomerModalMethod('openTransactionModal', id);
+    };
+
     // ── Filter + Sort helpers (matches orders_management.php exactly) ──
     let searchDebounceTimer;
 
@@ -848,7 +925,12 @@ $page_title = 'Customers Management - Admin';
                 const paginationContainer = document.getElementById('customersPagination');
                 const filterBadgeContainer = document.getElementById('filterBadgeContainer');
 
-                if (tableContainer) tableContainer.innerHTML = data.table;
+                if (tableContainer) {
+                    tableContainer.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        Alpine.initTree(tableContainer);
+                    }
+                }
                 if (paginationContainer) paginationContainer.innerHTML = data.pagination;
 
                 if (filterBadgeContainer) {
@@ -923,15 +1005,6 @@ $page_title = 'Customers Management - Admin';
     let _activeSortKey = '<?php echo $sort_by; ?>';
     let _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
 
-    // Global bridge for onclick in table rows/buttons (incl. AJAX-loaded table)
-    // Uses custom events so Alpine reliably receives the call
-    window.openModal = function(id) {
-        window.dispatchEvent(new CustomEvent('open-customer-modal', { detail: { id } }));
-    };
-    window.openTransactionModal = function(id) {
-        window.dispatchEvent(new CustomEvent('open-transaction-modal', { detail: { id } }));
-    };
-
     // Customer Modal (Alpine.js component)
     function customerModal() {
         return {
@@ -956,12 +1029,6 @@ $page_title = 'Customers Management - Admin';
             customizations: [],
             ordersPagination: { current_page: 1, total_pages: 1 },
             customizationsPagination: { current_page: 1, total_pages: 1 },
-
-            init() {
-                const self = this;
-                window.addEventListener('open-customer-modal', e => { self.openModal(e.detail.id); });
-                window.addEventListener('open-transaction-modal', e => { self.openTransactionModal(e.detail.id); });
-            },
 
             openModal(id) {
                 this.showModal = true;
@@ -1080,6 +1147,28 @@ $page_title = 'Customers Management - Admin';
             }
         };
     }
+
+    window.printflowInitCustomersPage = ensureCustomersAlpineBoot;
+
+    (function scheduleCustomersAlpineFirstVisit() {
+        function tick() {
+            ensureCustomersAlpineBoot();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', schedule);
+        } else {
+            schedule();
+        }
+        function schedule() {
+            tick();
+            queueMicrotask(tick);
+            setTimeout(tick, 0);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+            setTimeout(tick, 150);
+        }
+    })();
 </script>
 
 </body>

@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 4. Hash password
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-    // Check if email exists
+    // Check if email exists in users (pending row can be replaced)
     $existing = db_query("SELECT user_id, email_verified FROM users WHERE email = ?", 's', [$email]);
     if (!empty($existing)) {
         if (isset($existing[0]['email_verified']) && $existing[0]['email_verified'] == 0) {
@@ -68,6 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             redirect('register.php?error=Email already exists');
         }
+    }
+
+    // Same email cannot be a customer account
+    if (email_in_use_across_accounts($email, null, null)) {
+        redirect('register.php?error=' . urlencode('This email is already registered as a customer. Please sign in with that account or use a different email.'));
     }
 
     // 3. Insert user record with email_verified = 0

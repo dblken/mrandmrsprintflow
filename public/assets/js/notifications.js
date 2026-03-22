@@ -55,13 +55,25 @@
 
     function updateBadge(count) {
         document.querySelectorAll(BADGE_SELECTOR).forEach(el => {
+            const inPersistentSidebar = el.id === 'sidebar-notif-badge' || (el.closest && el.closest('#printflow-persistent-sidebar'));
             if (count > 0) {
                 el.textContent = count > 99 ? '99+' : count;
-                // Restore the element's natural display (flex for customer nav, inline-flex for sidebar)
-                el.style.display = el.dataset.badgeDisplay || (el.id === 'nav-notif-badge' ? 'flex' : 'inline-flex');
+                if (inPersistentSidebar) {
+                    el.style.display = 'inline-flex';
+                    el.style.visibility = 'visible';
+                } else {
+                    el.style.visibility = '';
+                    el.style.display = el.dataset.badgeDisplay || (el.id === 'nav-notif-badge' ? 'flex' : 'inline-flex');
+                }
             } else {
                 el.textContent = '';
-                el.style.display = 'none';
+                if (inPersistentSidebar) {
+                    el.style.display = 'inline-flex';
+                    el.style.visibility = 'hidden';
+                } else {
+                    el.style.visibility = '';
+                    el.style.display = 'none';
+                }
             }
         });
         // PWA badge API (Chrome/Android)

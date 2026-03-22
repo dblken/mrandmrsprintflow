@@ -44,9 +44,16 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
             if ($data_id && $user_type === 'Customer') {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
-            return $user_type === 'Customer'
-                ? $base . '/customer/orders.php'
-                : $base . '/admin/orders_management.php';
+            if ($user_type === 'Customer') {
+                return $base . '/customer/orders.php';
+            }
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                if ($data_id) {
+                    return $base . '/staff/order_details.php?id=' . (int)$data_id;
+                }
+                return $base . '/staff/notifications.php';
+            }
+            return $base . '/admin/orders_management.php';
         case 'Job Order':
             return $user_type === 'Customer'
                 ? $base . '/customer/new_job_order.php'
@@ -56,6 +63,7 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
             return $data_id
                 ? $base . '/customer/order_chat.php?order_id=' . $data_id
                 : $base . '/customer/orders.php';
+        case 'Stock':
         case 'Inventory':
             return $base . '/admin/inv_items_management.php';
         case 'Design':

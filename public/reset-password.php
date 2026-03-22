@@ -106,10 +106,20 @@ $page_title = 'Reset Your Password - PrintFlow';
     }
     .back-link:hover { color: #7acae3; text-decoration: none; }
 
-    /* Validation Feedback */
-    .field-error {
-        margin: 6px 0 0; font-size: 0.75rem; color: #f87171;
-        min-height: 1.1em; transition: opacity 0.15s;
+    /* Same inline errors as register modal (includes/auth-modals.php .modal-field-error) */
+    .modal-field-error {
+        margin: 0;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        font-size: 0.72rem;
+        color: #f87171;
+        transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+    }
+    .modal-field-error:not(:empty) {
+        margin-top: 6px;
+        max-height: 72px;
+        opacity: 1;
     }
     .form-input.is-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 4px rgba(248,113,113,0.1) !important; }
     .form-input.is-valid { border-color: #4ade80 !important; box-shadow: 0 0 0 4px rgba(74,222,128,0.1) !important; }
@@ -148,13 +158,13 @@ $page_title = 'Reset Your Password - PrintFlow';
     </div>
 
     <?php if ($valid): ?>
-    <form id="resetForm" onsubmit="handleReset(event)">
+    <form id="resetForm" onsubmit="handleReset(event)" novalidate>
         <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
         
         <div class="form-group">
             <label class="auth-label">New Password</label>
             <div class="input-wrapper">
-                <input type="password" name="password" id="password" class="form-input" placeholder="Min. 8 characters" required minlength="8" maxlength="100">
+                <input type="password" name="password" id="password" class="form-input" placeholder="Min. 8 characters" autocomplete="new-password" maxlength="64">
                 <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-label="Toggle password">
                     <svg class="eye-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 </button>
@@ -166,20 +176,22 @@ $page_title = 'Reset Your Password - PrintFlow';
                 <li id="pw-rule-num"><span class="ck">✗</span> Number</li>
                 <li id="pw-rule-spec"><span class="ck">✗</span> Special char</li>
             </ul>
+            <p class="modal-field-error" id="reset-pw-field-error"></p>
         </div>
         
         <div class="form-group">
             <label class="auth-label">Confirm Password</label>
             <div class="input-wrapper">
-                <input type="password" name="confirm_password" id="confirm_password" class="form-input" placeholder="Repeat new password" required minlength="8" maxlength="100">
+                <input type="password" name="confirm_password" id="confirm_password" class="form-input" placeholder="Repeat new password" autocomplete="new-password" maxlength="64">
                 <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')" aria-label="Toggle password">
                     <svg class="eye-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 </button>
             </div>
+            <p class="modal-field-error" id="reset-confirm-field-error"></p>
             <p class="pw-match-indicator" id="pw-match-indicator"></p>
         </div>
         
-        <button type="submit" id="submitBtn" class="btn-submit">Update Password</button>
+        <button type="submit" id="submitBtn" class="btn-submit" disabled>Update Password</button>
     </form>
     <?php endif; ?>
 
@@ -206,6 +218,11 @@ const passInput = document.getElementById('password');
 const confirmInput = document.getElementById('confirm_password');
 const pwChecklist = document.getElementById('pw-checklist');
 const matchIndicator = document.getElementById('pw-match-indicator');
+const submitBtn = document.getElementById('submitBtn');
+const pwFieldErr = document.getElementById('reset-pw-field-error');
+const confirmFieldErr = document.getElementById('reset-confirm-field-error');
+
+var resetTouched = { password: false, confirm: false };
 
 blockSpaces(passInput);
 blockSpaces(confirmInput);
@@ -218,6 +235,81 @@ const pwRules = {
     spec:  document.getElementById('pw-rule-spec')
 };
 
+/** Align with includes/auth-modals.php regValidPassword + public/api_update_password.php */
+function resetValidPassword(val) {
+    if (!val) return 'Password is required.';
+    if (val.length < 8) return 'Password must be at least 8 characters.';
+    if (val.length > 64) return 'Password must be at most 64 characters.';
+    if (!/[A-Z]/.test(val)) return 'Need at least 1 uppercase letter.';
+    if (!/[a-z]/.test(val)) return 'Need at least 1 lowercase letter.';
+    if (!/[0-9]/.test(val)) return 'Need at least 1 number.';
+    if (!/[^A-Za-z0-9]/.test(val)) return 'Need at least 1 special character.';
+    return null;
+}
+
+function resetSetFieldError(inputEl, errEl, msg) {
+    if (!inputEl || !errEl) return;
+    errEl.textContent = msg || '';
+    if (msg) {
+        inputEl.classList.add('is-invalid');
+        inputEl.classList.remove('is-valid');
+    } else {
+        inputEl.classList.remove('is-invalid');
+    }
+}
+
+function resetCheckConfirm(showErrors) {
+    var pw = passInput ? passInput.value : '';
+    var cpw = confirmInput ? confirmInput.value : '';
+    var showMsg = Boolean(showErrors || resetTouched.confirm);
+    if (!confirmInput || !confirmFieldErr) return false;
+    if (!cpw) {
+        confirmFieldErr.textContent = showMsg ? 'Please confirm your password.' : '';
+        confirmInput.classList.remove('is-valid');
+        if (showMsg) confirmInput.classList.add('is-invalid');
+        else confirmInput.classList.remove('is-invalid');
+        if (matchIndicator) matchIndicator.textContent = '';
+        return false;
+    }
+    if (cpw !== pw) {
+        confirmFieldErr.textContent = showMsg ? 'Passwords do not match.' : '';
+        if (matchIndicator) matchIndicator.textContent = '';
+        if (showMsg) {
+            confirmInput.classList.add('is-invalid');
+            confirmInput.classList.remove('is-valid');
+        } else {
+            confirmInput.classList.remove('is-invalid', 'is-valid');
+        }
+        return false;
+    }
+    confirmFieldErr.textContent = '';
+    confirmInput.classList.remove('is-invalid');
+    confirmInput.classList.add('is-valid');
+    if (matchIndicator) {
+        matchIndicator.textContent = '✓ Passwords match';
+        matchIndicator.style.color = '#4ade80';
+    }
+    return true;
+}
+
+function resetCheckForm(showErrors) {
+    showErrors = Boolean(showErrors);
+    if (!passInput || !pwFieldErr) return;
+    var pwVal = passInput.value;
+    var pwErrRaw = resetValidPassword(pwVal);
+    var pwMsg = (showErrors || resetTouched.password) ? (pwErrRaw || '') : '';
+    resetSetFieldError(passInput, pwFieldErr, pwMsg);
+    if (!pwErrRaw && pwVal) {
+        passInput.classList.add('is-valid');
+        passInput.classList.remove('is-invalid');
+    } else if (!pwVal) {
+        passInput.classList.remove('is-valid');
+    }
+    var pwOk = !pwErrRaw;
+    var cpwOk = resetCheckConfirm(showErrors || resetTouched.confirm);
+    if (submitBtn) submitBtn.disabled = !(pwOk && cpwOk);
+}
+
 function setRule(el, met) {
     if (!el) return;
     el.classList.toggle('met', met);
@@ -227,38 +319,42 @@ function setRule(el, met) {
 
 function updatePwChecklist() {
     const v = passInput.value;
-    if (v.length > 0) pwChecklist.classList.add('active');
-    else pwChecklist.classList.remove('active');
+    if (pwChecklist) {
+        if (v.length > 0) pwChecklist.classList.add('active');
+        else pwChecklist.classList.remove('active');
+    }
 
     setRule(pwRules.len,   v.length >= 8 && v.length <= 64);
     setRule(pwRules.upper, /[A-Z]/.test(v));
     setRule(pwRules.lower, /[a-z]/.test(v));
     setRule(pwRules.num,   /[0-9]/.test(v));
     setRule(pwRules.spec,  /[^A-Za-z0-9]/.test(v));
-    
-    updatePwMatch();
+
+    resetCheckForm(false);
 }
 
-function updatePwMatch() {
-    const pv = passInput.value;
-    const cpv = confirmInput.value;
-    if (!cpv) { matchIndicator.textContent = ''; return; }
-    
-    if (pv === cpv) {
-        matchIndicator.textContent = '✓ Passwords match';
-        matchIndicator.style.color = '#4ade80';
-        confirmInput.classList.add('is-valid');
-        confirmInput.classList.remove('is-invalid');
-    } else {
-        matchIndicator.textContent = '✗ Passwords do not match';
-        matchIndicator.style.color = '#f87171';
-        confirmInput.classList.add('is-invalid');
-        confirmInput.classList.remove('is-valid');
-    }
+if (passInput) {
+    passInput.addEventListener('input', function() {
+        resetTouched.password = true;
+        updatePwChecklist();
+    });
+    passInput.addEventListener('blur', function() {
+        resetTouched.password = true;
+        resetCheckForm(true);
+    });
+}
+if (confirmInput) {
+    confirmInput.addEventListener('input', function() {
+        resetTouched.confirm = true;
+        updatePwChecklist();
+    });
+    confirmInput.addEventListener('blur', function() {
+        resetTouched.confirm = true;
+        resetCheckForm(true);
+    });
 }
 
-if (passInput) passInput.addEventListener('input', updatePwChecklist);
-if (confirmInput) confirmInput.addEventListener('input', updatePwMatch);
+resetCheckForm(false);
 
 async function handleReset(e) {
     e.preventDefault();
@@ -267,22 +363,12 @@ async function handleReset(e) {
     const pw = passInput.value;
     const cpw = confirmInput.value;
 
-    // Final checks
-    const errors = [];
-    if (pw.length < 8)            errors.push('at least 8 characters');
-    if (pw.length > 64)           errors.push('at most 64 characters');
-    if (!/[A-Z]/.test(pw))        errors.push('an uppercase letter');
-    if (!/[a-z]/.test(pw))        errors.push('a lowercase letter');
-    if (!/[0-9]/.test(pw))        errors.push('a number');
-    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('a special character');
+    resetTouched.password = true;
+    resetTouched.confirm = true;
+    resetCheckForm(true);
 
-    if (errors.length > 0) {
-        alert.innerHTML = '<div class="alert alert-error">Password must contain: ' + errors.join(', ') + '.</div>';
-        return;
-    }
-
-    if (pw !== cpw) {
-        alert.innerHTML = '<div class="alert alert-error">Passwords do not match.</div>';
+    if (btn && btn.disabled) {
+        alert.innerHTML = '';
         return;
     }
 
@@ -309,11 +395,13 @@ async function handleReset(e) {
             alert.innerHTML = `<div class="alert alert-error">${result.message}</div>`;
             btn.disabled = false;
             btn.innerText = 'Update Password';
+            resetCheckForm(false);
         }
     } catch (error) {
         alert.innerHTML = '<div class="alert alert-error">A network error occurred. Please try again.</div>';
         btn.disabled = false;
         btn.innerText = 'Update Password';
+        resetCheckForm(false);
     }
 }
 </script>

@@ -58,19 +58,13 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-<<<<<<< HEAD
         .stats-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; margin-bottom:24px; }
         @media (max-width:1100px) { .stats-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
         @media (max-width:680px) { .stats-grid { grid-template-columns:1fr; } }
         .stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px; position:relative; overflow:hidden; }
-        .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, #1d4ed8, #06b6d4); }
-        .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
         .stat-value { font-size: 30px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
-        .stat-sub { font-size: 12px; color: #6b7280; }
-=======
-        .stat-label { font-size: 13px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .stat-sub { font-size: 12px; color: #9ca3af; }
->>>>>>> 84f1e77e8bd269bab68461aac6f0ecbbb79114f3
     </style>
 </head>
 <body>
@@ -124,7 +118,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
             <div class="card" style="border-left:4px solid #f59e0b;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                     <h2 style="display:flex; align-items:center; gap:8px;">Low Stock Alerts</h2>
-                    <a href="products" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
+                    <a href="products" style="color:#06A1A1; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
                 </div>
                 <div class="overflow-x-auto">
                     <table>
@@ -155,7 +149,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                     <h2>Recent Orders</h2>
-                    <a href="orders" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
+                    <a href="orders" style="color:#06A1A1; font-size:13px; font-weight:500; text-decoration:none;">View All →</a>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -179,7 +173,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
                                     <td style="font-weight:600;"><?php echo format_currency($order['total_amount']); ?></td>
                                     <td><?php echo status_badge($order['status'], 'order'); ?></td>
                                     <td>
-                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" style="color:#10b981; font-size:13px; font-weight:500; text-decoration:none;">Update</a>
+                                        <a href="order_details.php?id=<?php echo $order['order_id']; ?>" style="color:#06A1A1; font-size:13px; font-weight:500; text-decoration:none;">Update</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

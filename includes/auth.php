@@ -285,6 +285,12 @@ function login_customer_by_google($email, $first_name, $last_name) {
         }
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
+    if (email_in_use_across_accounts($email)) {
+        return [
+            'success' => false,
+            'message' => 'This email is already used for a staff or admin account. Sign in with your work credentials instead of Google.',
+        ];
+    }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
     $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?)";
     $cid = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
@@ -343,12 +349,14 @@ function login($email, $password, $remember_me = false) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer($data) {
-    // Check if email already exists
-    $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$data['email']]);
-    if (!empty($existing)) {
-        return ['success' => false, 'message' => 'Email already registered'];
+    if (email_in_use_across_accounts($data['email'] ?? '')) {
+        return ['success' => false, 'message' => 'This email is already in use. Please sign in.'];
     }
-    
+    $cn = $data['contact_number'] ?? '';
+    if ($cn !== '' && $cn !== null && contact_phone_in_use_across_accounts($cn)) {
+        return ['success' => false, 'message' => 'This phone number is already in use. Please sign in or use a different number.'];
+    }
+
     // Hash password
     $password_hash = password_hash($data['password'], PASSWORD_BCRYPT);
     
@@ -404,7 +412,7 @@ function register_customer_direct($type, $identifier, $password) {
             // Delete unverified account to allow retry
             db_execute("DELETE FROM customers WHERE customer_id = ?", 'i', [$existing[0]['customer_id']]);
         } else {
-            return ['success' => false, 'message' => 'Account already exists. Please login.'];
+            return ['success' => false, 'message' => 'This email is already in use. Please sign in.'];
         }
     }
 
@@ -417,6 +425,13 @@ function register_customer_direct($type, $identifier, $password) {
                 return ['success' => false, 'message' => 'Phone number already registered. Please login.'];
             }
         }
+    }
+
+    if (email_in_use_across_accounts($email)) {
+        return ['success' => false, 'message' => 'This email is already in use (customer or staff account). Please sign in or use a different email.'];
+    }
+    if ($contact_number && contact_phone_in_use_across_accounts($contact_number)) {
+        return ['success' => false, 'message' => 'This phone number is already in use on another account. Please sign in or use a different number.'];
     }
 
     $password_hash = password_hash($password, PASSWORD_BCRYPT);

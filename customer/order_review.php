@@ -166,10 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                 $welcomeMsg = "Your order #{$order_id} has been placed successfully! Our team will review it shortly.";
                 create_notification($customer_id, 'Customer', $welcomeMsg, 'Order', true, false, $order_id);
                 add_order_system_message($order_id, $welcomeMsg);
-                $staff_users = db_query("SELECT user_id FROM users WHERE role='Staff' AND status='Activated'");
-                foreach ($staff_users as $staff) {
-                    create_notification($staff['user_id'], 'Staff', "New Order #{$order_id} from {$customer['first_name']}!", 'Order', false, false, $order_id);
-                }
+                notify_staff_new_order((int)$order_id, (string)($customer['first_name'] ?? 'Customer'));
 
                 $_SESSION['success'] = "Your order #{$order_id} has been placed successfully! Our team will review it shortly. You can track the status here.";
                 redirect("order_details.php?id=$order_id");

@@ -65,6 +65,16 @@ unset($item);
 // Get categories for filters
 $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, name ASC") ?: [];
 
+// Safe JSON for inline <script> (invalid UTF-8 or encode failure must not emit empty → JS syntax error)
+$items_js_flags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP;
+if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+    $items_js_flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+}
+$items_js = json_encode($items, $items_js_flags);
+if ($items_js === false) {
+    $items_js = '[]';
+}
+
 // AJAX Partial Response
 if (isset($_GET['ajax'])) {
     ob_start();
@@ -96,8 +106,8 @@ if (isset($_GET['ajax'])) {
                 <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                 <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
                 <td class="no-truncate" style="text-align:right;">
-                    <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
-                    <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                    <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                    <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                 </td>
             </tr>
     <?php endforeach; ?>
@@ -137,6 +147,7 @@ if (isset($_GET['ajax'])) {
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <style>
+        [x-cloak] { display: none !important; }
         :root {
             --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             --glass-bg: rgba(255, 255, 255, 0.8);
@@ -442,20 +453,20 @@ if (isset($_GET['ajax'])) {
         <main>
             <!-- Items Card -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                <div id="inv-filter-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Inventory Items List
                         <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
-                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong> of <?php echo number_format($total_rows); ?> items)
+                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong><span id="invShowingMeta"> of <?php echo number_format($total_rows); ?> items)</span>
                         </span>
                     </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <button class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
+                        <button type="button" class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
                         
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
                                 Sort by
                             </button>
@@ -481,7 +492,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 Filter
                                 <span id="filterBadgeContainer">
@@ -500,7 +511,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Category</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['category'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['category'])">Reset</button>
                                     </div>
                                     <select id="fp_category" class="filter-select">
                                         <option value="">All Categories</option>
@@ -513,7 +524,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Tracking Type</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['track_by_roll'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['track_by_roll'])">Reset</button>
                                     </div>
                                     <select id="fp_track_by_roll" class="filter-select">
                                         <option value="">All Tracking</option>
@@ -526,13 +537,13 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Keyword search</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name..." value="">
                                 </div>
 
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" style="width:100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                    <button type="button" class="filter-btn-reset" style="width:100%;" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
@@ -583,8 +594,8 @@ if (isset($_GET['ajax'])) {
                                         <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                                         <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
-                                            <button class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
-                                            <button class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                                            <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                                            <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -927,49 +938,9 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<!-- Add Stock Large Quantity Confirm Modal -->
-<div id="addStockConfirmModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:16px;">
-    <div style="background:white;border-radius:16px;padding:24px;max-width:380px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
-        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0 0 8px;">Confirm Large Quantity</h3>
-        <p style="font-size:14px;color:#6b7280;margin:0 0 4px;">You are adding <strong id="addStockConfirmQty"></strong> units.</p>
-        <p style="font-size:14px;color:#6b7280;margin:0 0 20px;">New total will be <strong id="addStockConfirmTotal"></strong>.</p>
-        <div style="display:flex;gap:10px;justify-content:center;">
-            <button type="button" onclick="closeAddStockConfirmModal(); addStockPendingSubmit = false;" style="flex:1;padding:10px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Cancel</button>
-            <button type="button" id="addStockConfirmBtn" style="flex:1;padding:10px 16px;border:none;background:#0d9488;border-radius:8px;font-size:14px;font-weight:600;color:white;cursor:pointer;">Confirm</button>
-        </div>
-    </div>
-</div>
-
-<!-- Deduct Stock Modal -->
-<div id="deductStockModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:16px;">
-    <div style="background:white;border-radius:16px;padding:24px;max-width:480px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);position:relative;">
-        <button type="button" onclick="closeDeductStockModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:20px;">&times;</button>
-        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0 0 4px;">Deduct Stock</h3>
-        <p id="deductStockItemName" style="font-size:13px;color:#6b7280;margin:0 0 20px;"></p>
-        
-        <input type="hidden" id="deductStockItemId">
-        <input type="hidden" id="deductStockUom" value="pcs">
-
-        <div style="margin-bottom:16px;">
-            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">QUANTITY TO DEDUCT <span style="color:#ef4444;">*</span></label>
-            <input type="number" id="deductStockQty" step="0.01" min="0.01" placeholder="Enter quantity" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-        </div>
-
-        <div style="margin-bottom:20px;">
-            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">NOTES</label>
-            <textarea id="deductStockNotes" rows="2" placeholder="Reason for deduction..." style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
-        </div>
-
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
-            <button type="button" onclick="closeDeductStockModal()" style="padding:10px 20px;border:1px solid #e5e7eb;background:white;border-radius:8px;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Cancel</button>
-            <button type="button" id="deductStockBtn" onclick="saveDeductStock(event)" style="padding:10px 20px;border:none;background:#ef4444;border-radius:8px;font-size:14px;font-weight:600;color:white;cursor:pointer;">Deduct</button>
-        </div>
-    </div>
-</div>
-
   <script>
     const ADMIN_API_BASE = '/printflow/admin/';
-    let currentItems = <?php echo json_encode($items); ?>;
+    let currentItems = <?php echo $items_js; ?>;
     let usageChart = null;
     let selectedItemForStockCard = null;
     let editItemOriginalValues = {};
@@ -977,6 +948,7 @@ if (isset($_GET['ajax'])) {
     let currentSort = '<?php echo $sort; ?>';
     let currentDir = '<?php echo $dir; ?>';
     let searchDebounceTimer = null;
+    let addStockPendingSubmit = false;
 
     function filterPanel() {
         return {
@@ -1172,11 +1144,21 @@ if (isset($_GET['ajax'])) {
                 const showingText = document.getElementById('showingCount');
                 const badgeCont = document.getElementById('filterBadgeContainer');
 
-                if (tbody) tbody.innerHTML = data.table;
+                if (tbody) {
+                    tbody.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        try {
+                            Alpine.initTree(tbody);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }
                 if (pagination) pagination.innerHTML = data.pagination;
-                if (showingText) {
+                const showingMeta = document.getElementById('invShowingMeta');
+                if (showingText && showingMeta) {
                     showingText.textContent = data.startIdx + '–' + data.endIdx;
-                    showingText.nextSibling.textContent = ' of ' + data.total + ' items)';
+                    showingMeta.textContent = ' of ' + data.total + ' items)';
                 }
                 
                 if (badgeCont) {
@@ -1211,7 +1193,7 @@ if (isset($_GET['ajax'])) {
         else if (sortKey === 'az') { sort = 'name'; dir = 'ASC'; }
         else if (sortKey === 'za') { sort = 'name'; dir = 'DESC'; }
         
-        const root = document.querySelector('[x-data]');
+        const root = document.getElementById('inv-filter-toolbar');
         if (root && root._x_dataStack) {
             const data = root._x_dataStack[0];
             data.activeSort = sortKey;
@@ -1642,9 +1624,8 @@ if (isset($_GET['ajax'])) {
 
     function closeAddStockConfirmModal() {
         document.getElementById('addStockConfirmModal').style.display = 'none';
+        addStockPendingSubmit = false;
     }
-
-    let addStockPendingSubmit = false;
 
     function closeAddStockModal() {
         document.getElementById('addStockModal').style.display = 'none';
@@ -1864,6 +1845,52 @@ if (isset($_GET['ajax'])) {
     window.addEventListener('popstate', (event) => {
         location.reload(); 
     });
+
+    /**
+     * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
+     * After AJAX tbody replace: reinject Alpine on new row markup where present.
+     */
+    function ensureInvItemsAlpineBoot() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var fp = document.querySelector('[x-data="filterPanel()"]');
+        if (fp && !fp._x_dataStack) {
+            try {
+                Alpine.initTree(fp);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        var tb = document.getElementById('itemsTableBody');
+        if (tb) {
+            try {
+                Alpine.initTree(tb);
+            } catch (e2) {
+                console.error(e2);
+            }
+        }
+    }
+
+    window.printflowInitInvItemsPage = ensureInvItemsAlpineBoot;
+
+    (function scheduleInvItemsAlpineFirstVisit() {
+        function tick() {
+            ensureInvItemsAlpineBoot();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', schedule);
+        } else {
+            schedule();
+        }
+        function schedule() {
+            tick();
+            queueMicrotask(tick);
+            setTimeout(tick, 0);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+            setTimeout(tick, 150);
+        }
+    })();
 </script>
 </body>
 </html>

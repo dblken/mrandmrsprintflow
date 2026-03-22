@@ -66,6 +66,20 @@ function service_order_validate_file($file) {
 }
 
 /**
+ * Writable directory for cart design uploads (move_uploaded_file).
+ * Creates project-root uploads/temp if missing.
+ */
+function service_order_temp_dir(): string {
+    $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'temp';
+    if (!is_dir($dir)) {
+        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            error_log('PrintFlow service_order_temp_dir: cannot create ' . $dir);
+        }
+    }
+    return $dir;
+}
+
+/**
  * Read uploaded file binary data (NO filesystem write ever occurs)
  *
  * @param array  $file   $_FILES['field_name']

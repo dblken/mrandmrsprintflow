@@ -27,6 +27,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     opacity: 1;
     visibility: visible;
 }
+/* Single max-width for login + register (register must not override with a wider value) */
 .auth-modal {
     position: fixed;
     left: 50%;
@@ -34,7 +35,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     transform: translate(-50%, -50%);
     z-index: 99999;
     width: 100%;
-    max-width: 440px;
+    max-width: min(440px, calc(100vw - 2rem));
     background: #00151b;
     border: 1px solid rgba(255,255,255,.12);
     border-radius: 1.25rem;
@@ -50,7 +51,8 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     opacity: 1;
     visibility: visible;
 }
-    .auth-modal-register { max-width: 32rem; max-height: 95vh; }
+    /* Same width as login modal — do not set a different max-width here */
+    .auth-modal-register { max-height: 95vh; }
     .auth-modal-close {
         position: absolute;
         right: 1rem;
@@ -106,6 +108,15 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         border-color: #32a1c4;
         box-shadow: 0 0 0 3px rgba(83, 197, 224, 0.2);
         background: rgba(255,255,255,.09);
+    }
+    /* Same valid/invalid realtime cues as public/reset-password.php */
+    .auth-modal .input-field.is-invalid {
+        border-color: #f87171 !important;
+        box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2) !important;
+    }
+    .auth-modal .input-field.is-valid {
+        border-color: #34d399 !important;
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15) !important;
     }
     .auth-modal label { display: block; font-size: 0.875rem; font-weight: 500; color: #94a3b8; margin-bottom: 0.375rem; }
     .auth-modal .auth-alert-error { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.35); color: #fca5a5; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
@@ -407,7 +418,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             <!-- Step indicator (Removed) -->
 
             <!-- ═══ DIRECT REGISTRATION FORM ═══ -->
-            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/" id="reg-form-final">
+            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/register/" id="reg-form-final" novalidate>
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="reg_type" value="direct">
                 <input type="hidden" name="identifier_type" id="reg-h-type" value="email">
@@ -416,7 +427,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 <div class="auth-field">
                     <label id="reg-id-label" for="reg-identifier">Email Address</label>
                     <input type="text" id="reg-identifier" name="identifier" class="input-field"
-                           placeholder="Email address" required
+                           placeholder="Email address"
                            maxlength="150"
                            autocomplete="email">
                     <p class="modal-field-error" id="reg-id-error"></p>
@@ -427,7 +438,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     <label for="reg-password">Password <span style="color:#dc2626;">*</span></label>
                     <div class="auth-password-wrap">
                         <input type="password" id="reg-password" name="password" class="input-field"
-                               placeholder="Password" required
+                               placeholder="Password"
                                maxlength="64"
                                autocomplete="new-password">
                         <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-password">
@@ -436,7 +447,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     </div>
                     <!-- Password strength checklist — 2 cols × 3 rows -->
                     <ul class="reg-pw-checklist" id="reg-pw-checklist">
-                        <li id="reg-pw-len" class="neutral">At least 8 characters</li>
+                        <li id="reg-pw-len" class="neutral">8–64 characters</li>
                         <li id="reg-pw-upper" class="neutral">1 uppercase letter</li>
                         <li id="reg-pw-lower" class="neutral">1 lowercase letter</li>
                         <li id="reg-pw-number" class="neutral">1 number</li>
@@ -449,7 +460,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     <label for="reg-confirm-pw">Confirm Password <span style="color:#dc2626;">*</span></label>
                     <div class="auth-password-wrap">
                         <input type="password" id="reg-confirm-pw" name="confirm_password" class="input-field"
-                               placeholder="Confirm password" required
+                               placeholder="Confirm password"
                                maxlength="64"
                                autocomplete="new-password">
                         <button type="button" class="auth-password-toggle" data-toggle-password aria-label="Show password" aria-controls="reg-confirm-pw">
@@ -499,12 +510,13 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         <div id="forgot-message"></div>
         
         <!-- Form -->
-        <form id="forgot-form" onsubmit="handleForgotSubmit(event)">
+        <form id="forgot-form" onsubmit="handleForgotSubmit(event)" novalidate>
             <input type="hidden" id="forgot-type" value="email">
             
             <div class="auth-field">
                 <label id="forgot-label" for="forgot-identifier">Email Address</label>
-                <input type="email" id="forgot-identifier" name="identifier" class="input-field" placeholder="you@example.com" required>
+                <input type="email" id="forgot-identifier" name="identifier" class="input-field" placeholder="you@example.com" maxlength="150" autocomplete="email">
+                <p class="modal-field-error" id="forgot-identifier-error"></p>
             </div>
             
             <button type="submit" class="auth-btn-submit" style="margin-top: 0.5rem;">Send Reset Code</button>
@@ -625,6 +637,10 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     function openForgotModal() {
         closeModal();
         if (!forgotBackdrop || !forgotModal) return;
+        var fidErr = document.getElementById('forgot-identifier-error');
+        var fidInp = document.getElementById('forgot-identifier');
+        if (fidErr) fidErr.textContent = '';
+        if (fidInp) fidInp.style.borderColor = '';
         forgotBackdrop.classList.add('is-open');
         forgotModal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -640,9 +656,29 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (form) form.reset();
         var msg = document.getElementById('forgot-message');
         if (msg) msg.innerHTML = '';
+        var fidErr = document.getElementById('forgot-identifier-error');
+        if (fidErr) fidErr.textContent = '';
+        var fidInp = document.getElementById('forgot-identifier');
+        if (fidInp) { fidInp.style.borderColor = ''; }
 
         if (backToLogin) {
             openModal('login');
+        }
+    }
+
+    function forgotValidEmail(val) {
+        if (!val) return 'Email is required.';
+        if (val.length > 150) return 'Email must not exceed 150 characters.';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Invalid email address.';
+        return null;
+    }
+    function forgotSetFieldError(inputEl, errEl, msg) {
+        if (!inputEl || !errEl) return;
+        errEl.textContent = msg || '';
+        if (msg) {
+            inputEl.style.borderColor = '#f87171';
+        } else {
+            inputEl.style.borderColor = '';
         }
     }
 
@@ -650,12 +686,18 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         e.preventDefault();
 
         var type = document.getElementById('forgot-type').value;
-        var identifier = (document.getElementById('forgot-identifier').value || '').trim();
+        var idInput = document.getElementById('forgot-identifier');
+        var idErrEl = document.getElementById('forgot-identifier-error');
+        var identifier = (idInput && idInput.value || '').trim().replace(/\s/g, '');
+        if (idInput) idInput.value = identifier;
         var submitBtn = e.target.querySelector('button[type="submit"]');
         var originalText = submitBtn ? submitBtn.textContent : '';
 
-        if (!identifier) {
-            showForgotMessage('error', 'Please enter your email address.');
+        var emailErr = type === 'email' ? forgotValidEmail(identifier) : null;
+        forgotSetFieldError(idInput, idErrEl, emailErr || '');
+        if (emailErr) {
+            var msgTop = document.getElementById('forgot-message');
+            if (msgTop) msgTop.innerHTML = '';
             return;
         }
 
@@ -701,6 +743,21 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             }
         });
     };
+
+    var forgotIdInput = document.getElementById('forgot-identifier');
+    if (forgotIdInput) {
+        forgotIdInput.addEventListener('input', function() {
+            this.value = this.value.replace(/\s/g, '');
+            forgotSetFieldError(this, document.getElementById('forgot-identifier-error'), '');
+        });
+        forgotIdInput.addEventListener('blur', function() {
+            var t = (document.getElementById('forgot-type') || {}).value || 'email';
+            if (t !== 'email') return;
+            var v = (this.value || '').trim();
+            var err = forgotValidEmail(v);
+            forgotSetFieldError(this, document.getElementById('forgot-identifier-error'), err || '');
+        });
+    }
     
     // Forgot modal event listeners
     document.addEventListener('click', function(e) {
@@ -807,6 +864,20 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     };
 
     // ── Register modal validators ────────────────────────────────
+    /** True when server message means email/identifier is already registered (show under email field). */
+    function regIsEmailInUseError(text) {
+        if (!text) return false;
+        var s = String(text).toLowerCase();
+        var dupCue = ['already', 'exist', 'registered', 'in use', 'taken', 'duplicate'];
+        var hasDup = false;
+        for (var i = 0; i < dupCue.length; i++) {
+            if (s.indexOf(dupCue[i]) !== -1) { hasDup = true; break; }
+        }
+        if (!hasDup) return false;
+        return s.indexOf('email') !== -1 || s.indexOf('account') !== -1 || s.indexOf('address') !== -1
+            || s.indexOf('sign in') !== -1 || s.indexOf('login') !== -1 || s.indexOf('sign-in') !== -1;
+    }
+
     function regValidEmail(val) {
         if (!val) return 'Email is required.';
         if (val.length > 150) return 'Email must not exceed 150 characters.';
@@ -829,8 +900,9 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         var val = (document.getElementById('reg-password') || {}).value || '';
         var hasAny = val.length > 0;
         if (checklistEl) checklistEl.classList.toggle('is-visible', hasAny);
+        /* Same rule row as reset-password.php setRule(pwRules.len, …) */
         var checks = {
-            'reg-pw-len':     val.length >= 8,
+            'reg-pw-len':     val.length >= 8 && val.length <= 64,
             'reg-pw-upper':   /[A-Z]/.test(val),
             'reg-pw-lower':   /[a-z]/.test(val),
             'reg-pw-number':  /[0-9]/.test(val),
@@ -850,24 +922,40 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         });
     }
 
-    function regCheckConfirm(showError) {
-        var pw  = (document.getElementById('reg-password') || {}).value || '';
+    function regCheckConfirm(showErrors) {
+        var pw = (document.getElementById('reg-password') || {}).value || '';
         var cpw = (document.getElementById('reg-confirm-pw') || {}).value || '';
+        var confirmInput = document.getElementById('reg-confirm-pw');
         var errEl = document.getElementById('reg-confirm-error');
-        var okEl  = document.getElementById('reg-match-ok');
+        var okEl = document.getElementById('reg-match-ok');
+        var showMsg = Boolean(showErrors || regTouched.confirm);
+        if (!confirmInput || !errEl) return false;
         if (!cpw) {
-            if (errEl && showError) errEl.textContent = 'Please confirm your password.';
-            if (errEl && !showError) errEl.textContent = '';
+            errEl.textContent = showMsg ? 'Please confirm your password.' : '';
+            confirmInput.classList.remove('is-valid');
+            if (showMsg) confirmInput.classList.add('is-invalid');
+            else confirmInput.classList.remove('is-invalid');
             if (okEl) okEl.style.display = 'none';
             return false;
         }
         if (cpw !== pw) {
-            if (errEl && showError) errEl.textContent = 'Passwords do not match.';
+            errEl.textContent = showMsg ? 'Passwords do not match.' : '';
             if (okEl) okEl.style.display = 'none';
+            if (showMsg) {
+                confirmInput.classList.add('is-invalid');
+                confirmInput.classList.remove('is-valid');
+            } else {
+                confirmInput.classList.remove('is-invalid', 'is-valid');
+            }
             return false;
         }
-        if (errEl) errEl.textContent = '';
-        if (okEl) okEl.style.display = '';
+        errEl.textContent = '';
+        confirmInput.classList.remove('is-invalid');
+        confirmInput.classList.add('is-valid');
+        if (okEl) {
+            okEl.style.display = '';
+            okEl.textContent = '✓ Passwords match';
+        }
         return true;
     }
 
@@ -875,46 +963,66 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (!inputEl || !errEl) return;
         errEl.textContent = msg || '';
         if (msg) {
-            inputEl.style.borderColor = '#f87171';
+            inputEl.classList.add('is-invalid');
+            inputEl.classList.remove('is-valid');
         } else {
-            inputEl.style.borderColor = '';
+            inputEl.classList.remove('is-invalid');
         }
     }
 
     function regCheckForm(showErrors) {
         showErrors = Boolean(showErrors);
-        var idType  = (document.getElementById('reg-h-type') || {}).value || 'email';
-        var idEl    = document.getElementById('reg-identifier');
-        var pwEl    = document.getElementById('reg-password');
-        var cpwEl   = document.getElementById('reg-confirm-pw');
+        /* Checklist first on every pass — same order as reset-password updatePwChecklist → resetCheckForm */
+        regUpdateChecklist();
+
+        var idEl = document.getElementById('reg-identifier');
+        var pwEl = document.getElementById('reg-password');
         var idErrEl = document.getElementById('reg-id-error');
         var pwErrEl = document.getElementById('reg-password-error');
         var submitBtn = document.querySelector('#reg-form-final button[type="submit"]');
 
-        var idVal  = idEl ? idEl.value.trim() : '';
-        var pwVal  = pwEl ? pwEl.value : '';
+        var idVal = idEl ? idEl.value.trim() : '';
+        var pwVal = pwEl ? pwEl.value : '';
 
-        var idOk, pwOk, cpwOk;
-
-        // Validate identifier (email only)
         var idErr = regValidEmail(idVal);
-        regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) ? idErr : '');
-        idOk = !idErr;
+        regSetFieldError(idEl, idErrEl, (showErrors || regTouched.identifier) ? (idErr || '') : '');
+        if (!idErr && idVal && idEl) {
+            idEl.classList.add('is-valid');
+            idEl.classList.remove('is-invalid');
+        } else if (!idVal && idEl) {
+            idEl.classList.remove('is-valid');
+        }
+        var idOk = !idErr;
 
-        // Validate password
         var pwErr = regValidPassword(pwVal);
-        // Password checklist is the primary inline feedback; keep bottom text empty.
-        regSetFieldError(pwEl, pwErrEl, '');
-        pwOk = !pwErr;
+        regSetFieldError(pwEl, pwErrEl, (showErrors || regTouched.password) ? (pwErr || '') : '');
+        if (!pwErr && pwVal && pwEl) {
+            pwEl.classList.add('is-valid');
+            pwEl.classList.remove('is-invalid');
+        } else if (!pwVal && pwEl) {
+            pwEl.classList.remove('is-valid');
+        }
+        var pwOk = !pwErr;
 
-        // Validate confirm
-        cpwOk = regCheckConfirm(showErrors || regTouched.confirm);
+        var cpwOk = regCheckConfirm(showErrors || regTouched.confirm);
 
-        // Update checklist
-        regUpdateChecklist();
-
-        // Enable/disable submit
         if (submitBtn) submitBtn.disabled = !(idOk && pwOk && cpwOk);
+    }
+
+    function regBlockSpaces(el) {
+        if (!el) return;
+        el.addEventListener('keydown', function(e) {
+            if (e.key === ' ') e.preventDefault();
+        });
+        el.addEventListener('paste', function() {
+            var self = this;
+            setTimeout(function() {
+                self.value = self.value.replace(/\s/g, '');
+                if (self.id === 'reg-password') regTouched.password = true;
+                else if (self.id === 'reg-confirm-pw') regTouched.confirm = true;
+                regCheckForm(false);
+            }, 0);
+        });
     }
 
     function showRegisterStep(stepName) {
@@ -1116,40 +1224,6 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (err) err.textContent = '';
     }
 
-    document.getElementById('reg-verify-phone-btn').addEventListener('click', function() {
-        var idVal = (document.getElementById('reg-identifier') || {}).value.trim() || '';
-        var err = regValidPhone(idVal);
-        if (err) {
-            regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), err);
-            return;
-        }
-        var digits = idVal.replace(/\D/g, '');
-        var query = digits.indexOf('63') === 0 ? digits : ('63' + digits.replace(/^0/, ''));
-        var btn = this;
-        btn.disabled = true;
-        btn.textContent = 'Verifying...';
-        fetch(apiBase + '/api/phone_verify.php?number=' + encodeURIComponent(query))
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.valid) {
-                regPhoneVerified = true;
-                regPhoneCarrier = (data.carrier || '') + (data.location ? ' • ' + data.location : '');
-                var ve = document.getElementById('reg-phone-verified');
-                if (ve) { ve.textContent = '✓ ' + regPhoneCarrier || 'Valid number'; ve.style.display = 'block'; }
-                regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), '');
-            } else {
-                regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), data.error || 'Invalid phone number');
-            }
-        })
-        .catch(function() {
-            regSetFieldError(document.getElementById('reg-identifier'), document.getElementById('reg-id-error'), 'Network error. Please try again.');
-        })
-        .finally(function() {
-            btn.disabled = false;
-            btn.textContent = 'Verify Number';
-        });
-    });
-
     document.addEventListener('click', function(e) {
         if (e.target.matches('[data-phone-otp-close]') || e.target.id === 'phone-otp-backdrop') {
             e.preventDefault();
@@ -1237,8 +1311,8 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     var regCpwEl = document.getElementById('reg-confirm-pw');
 
     if (regIdEl) {
-            regIdEl.addEventListener('input', function() {
-            // Strip spaces from email
+        regIdEl.addEventListener('input', function() {
+            regTouched.identifier = true;
             var type = (document.getElementById('reg-h-type') || {}).value || 'email';
             if (type === 'email') this.value = this.value.replace(/\s/g, '');
             regCheckForm(false);
@@ -1270,10 +1344,21 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             regCheckForm(true);
         });
     }
+    if (regPwEl) regBlockSpaces(regPwEl);
+    if (regCpwEl) regBlockSpaces(regCpwEl);
 
-    // Initial state — disable submit until valid
-    var regSubmitBtn = document.querySelector('#reg-form-final button[type="submit"]');
-    if (regSubmitBtn) regSubmitBtn.disabled = true;
+    // Initial state — sync disabled + field errors with validators
+    regCheckForm(false);
+
+    if (authModal === 'register' && authError && regIsEmailInUseError(authError)) {
+        regTouched.identifier = true;
+        regSetFieldError(
+            document.getElementById('reg-identifier'),
+            document.getElementById('reg-id-error'),
+            authError
+        );
+        regCheckForm(true);
+    }
 
     // Register submit -> keep flow in modal and show OTP step
     var finalForm = document.getElementById('reg-form-final');
@@ -1292,16 +1377,8 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             regTouched.confirm = true;
             regCheckForm(true);
 
-            if (idType === 'email' && regValidEmail(idVal)) {
-                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">' + escapeHtml(regValidEmail(idVal)) + '</div>';
-                return;
-            }
-            if (regValidPassword(pw)) {
-                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Please complete all password requirements.</div>';
-                return;
-            }
-            if (pw !== cpw) {
-                if (msgEl) msgEl.innerHTML = '<div class="auth-alert-error">Passwords do not match.</div>';
+            if (submitBtn && submitBtn.disabled) {
+                if (msgEl) msgEl.innerHTML = '';
                 return;
             }
 
@@ -1338,14 +1415,14 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
                 if (errorText && msgEl) {
                     msgEl.innerHTML = '<div class="auth-alert-error">' + escapeHtml(errorText) + '</div>';
-                    var lowerError = (errorText || '').toLowerCase();
-                    if (lowerError.indexOf('email') !== -1 && (lowerError.indexOf('exist') !== -1 || lowerError.indexOf('already') !== -1 || lowerError.indexOf('registered') !== -1)) {
+                    if (idType === 'email' && regIsEmailInUseError(errorText)) {
                         regTouched.identifier = true;
                         regSetFieldError(
                             document.getElementById('reg-identifier'),
                             document.getElementById('reg-id-error'),
                             errorText
                         );
+                        regCheckForm(true);
                     }
                 } else if (msgEl) {
                     msgEl.innerHTML = '<div class="auth-alert-error">Registration failed. Please try again.</div>';

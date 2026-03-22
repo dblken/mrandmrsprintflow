@@ -649,7 +649,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
     </style>
 </head>
-<body data-turbo="false" data-pf-skip-global-guard>
+<body data-pf-skip-global-guard>
 
 <div class="dashboard-container">
     <!-- Mobile Header -->

@@ -44,8 +44,8 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
         }
         .btn-action.teal { color: #14b8a6; border-color: #14b8a6; }
         .btn-action.teal:hover { background: #14b8a6; color: white; }
-        .btn-action.blue { color: #3b82f6; border-color: #3b82f6; }
-        .btn-action.blue:hover { background: #3b82f6; color: white; }
+        .btn-action.blue { color: #06A1A1; border-color: #06A1A1; }
+        .btn-action.blue:hover { background: #06A1A1; color: white; }
         .btn-action.red { color: #ef4444; border-color: #ef4444; }
         .btn-action.red:hover { background: #ef4444; color: white; }
         .btn-action.amber { color: #f59e0b; border-color: #f59e0b; }
@@ -67,7 +67,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
             background: transparent;
         }
         .pill-tab:hover { background: #f3f4f6; color: #111827; }
-        .pill-tab.active { background: #eef2ff; color: #4f46e5; border: 1px solid #4f46e5; }
+        .pill-tab.active { background: #e6f7f5; color: #4f46e5; border: 1px solid #4f46e5; }
         .tab-count { 
             background: #4f46e5; 
             color: white; 
@@ -410,7 +410,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                         </div>
                         <div class="om-row">
                             <span class="om-label">Estimated Total</span>
-                            <span class="om-value" style="color:#6366f1; font-size:15px;" x-text="'₱' + Number(currentJo.estimated_total || 0).toLocaleString()"></span>
+                            <span class="om-value" style="color:#06A1A1; font-size:15px;" x-text="'₱' + Number(currentJo.estimated_total || 0).toLocaleString()"></span>
                         </div>
                         <div class="om-row">
                             <span class="om-label">Amount Paid</span>
@@ -646,7 +646,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE statu
                                         <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                                             <img :src="'/printflow/' + file.file_path.replace(/^\/+/, '')" alt="Design" style="width: 100%; max-height: 250px; object-fit: cover; display: block;">
                                         </a>
-                                        <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: inline-block; font-size: 12px; color: #6366f1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
+                                        <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: inline-block; font-size: 12px; color: #06A1A1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #e6f7f5; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
                                     </div>
                                 </template>
                             </div>

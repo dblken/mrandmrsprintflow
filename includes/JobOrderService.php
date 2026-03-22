@@ -72,6 +72,130 @@ class JobOrderService {
     }
 
     /**
+     * Same service_type mapping as customer/checkout.php when creating jobs from cart line items.
+     */
+    public static function inferServiceTypeFromProduct(string $category, string $name): string {
+        $cat_lower = strtolower($category . ' ' . $name);
+        if (strpos($cat_lower, 'tarpaulin') !== false) {
+            return 'Tarpaulin Printing';
+        }
+        if (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
+            return 'T-shirt Printing';
+        }
+        if (strpos($cat_lower, 'reflectorized') !== false) {
+            return 'Reflectorized (Subdivision Stickers/Signages)';
+        }
+        if (strpos($cat_lower, 'transparent') !== false) {
+            return 'Transparent Stickers';
+        }
+        if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'wall') !== false || strpos($cat_lower, 'frosted') !== false) {
+            return 'Glass Stickers / Wall / Frosted Stickers';
+        }
+        if (strpos($cat_lower, 'sintraboard') !== false && (strpos($cat_lower, 'standee') !== false || strpos($cat_lower, 'stand') !== false)) {
+            return 'Sintraboard Standees';
+        }
+        if (strpos($cat_lower, 'sintraboard') !== false) {
+            return 'Stickers on Sintraboard';
+        }
+        if (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
+            return 'Decals/Stickers (Print/Cut)';
+        }
+        if (strpos($cat_lower, 'souvenir') !== false) {
+            return 'Souvenirs';
+        }
+        if (strpos($cat_lower, 'layout') !== false) {
+            return 'Layouts';
+        }
+        return 'Tarpaulin Printing';
+    }
+
+    /**
+     * If a store order has line items but no job_orders (e.g. checkout job step failed), create jobs like checkout does.
+     * Returns first job_orders.id or null if order/items missing.
+     */
+    public static function ensureJobsForStoreOrder(int $orderId): ?int {
+        $existing = db_query('SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1', 'i', [$orderId]);
+        if (!empty($existing)) {
+            return (int)$existing[0]['id'];
+        }
+        $order = db_query('SELECT * FROM orders WHERE order_id = ?', 'i', [$orderId]);
+        if (empty($order)) {
+            return null;
+        }
+        $order = $order[0];
+        $customerId = (int)$order['customer_id'];
+        $notes = $order['notes'] ?? '';
+
+        $items = db_query(
+            "SELECT oi.*, p.name AS product_name, p.category AS product_category
+             FROM order_items oi
+             LEFT JOIN products p ON oi.product_id = p.product_id
+             WHERE oi.order_id = ?",
+            'i',
+            [$orderId]
+        ) ?: [];
+
+        if (empty($items)) {
+            return null;
+        }
+
+        $firstJobId = null;
+        foreach ($items as $item) {
+            $custom = [];
+            if (!empty($item['customization_data'])) {
+                $decoded = json_decode($item['customization_data'], true);
+                if (is_array($decoded)) {
+                    $custom = $decoded;
+                }
+            }
+            $pname = (string)($item['product_name'] ?? '');
+            $pcat = (string)($item['product_category'] ?? '');
+            $service_type = self::inferServiceTypeFromProduct($pcat, $pname);
+
+            $dimensions = $custom['dimensions'] ?? $custom['Size'] ?? '';
+            $width_ft = 0.0;
+            $height_ft = 0.0;
+            if ($dimensions && (strpos($dimensions, 'x') !== false || strpos($dimensions, '×') !== false)) {
+                $d_parts = preg_split('/[x×]/u', strtolower($dimensions));
+                $width_ft = (float)(trim($d_parts[0] ?? 0));
+                $height_ft = (float)(trim($d_parts[1] ?? 0));
+            }
+
+            $job_title = $pname !== '' ? $pname : $service_type;
+            $job_qty = (int)($item['quantity'] ?? 1);
+            $unit_price = (float)($item['unit_price'] ?? 0);
+
+            try {
+                $jid = self::createOrder([
+                    'order_id'        => $orderId,
+                    'customer_id'     => $customerId,
+                    'job_title'       => $job_title,
+                    'service_type'    => $service_type,
+                    'width_ft'        => $width_ft,
+                    'height_ft'       => $height_ft,
+                    'quantity'        => $job_qty,
+                    'total_sqft'      => $width_ft * $height_ft * $job_qty,
+                    'price_per_sqft'  => null,
+                    'price_per_piece' => null,
+                    'estimated_total' => $unit_price * $job_qty,
+                    'notes'           => $notes,
+                    'due_date'        => null,
+                    'priority'        => 'NORMAL',
+                    'artwork_path'    => null,
+                    'created_by'      => null,
+                ]);
+                if ($firstJobId === null) {
+                    $firstJobId = (int)$jid;
+                }
+            } catch (Throwable $e) {
+                error_log('PrintFlow ensureJobsForStoreOrder: order ' . $orderId . ' — ' . $e->getMessage());
+            }
+        }
+
+        return $firstJobId;
+    }
+
+    /**
      * Assign a specific roll to a job order material item.
      */
     public static function assignRoll($jomId, $rollId) {

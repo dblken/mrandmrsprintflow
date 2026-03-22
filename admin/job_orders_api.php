@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
+require_once __DIR__ . '/../includes/service_order_helper.php';
 
 require_role(['Admin', 'Staff', 'Customer']); // Allow Admin (read), Staff (manage), Customer (create/track)
 header('Content-Type: application/json');
@@ -32,7 +33,10 @@ try {
             
             // Pagination for customer-specific requests
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $per_page = isset($_GET['customer_id']) ? 10 : 50; // Limit to 10 for customer profile
+            // Staff dashboard needs enough rows to pair with store orders (avoid "orphan" #ORD- rows)
+            $per_page = isset($_GET['customer_id'])
+                ? 10
+                : min(500, max(1, (int)($_GET['per_page'] ?? 250)));
             $offset = ($page - 1) * $per_page;
             
             // Get total count for pagination
@@ -45,6 +49,7 @@ try {
             
             // Enrich with readiness and cost
             foreach ($orders as &$jo) {
+                $jo['order_type'] = 'JOB';
                 $jo['readiness'] = JobOrderService::getMaterialReadiness($jo['id']);
                 $jo['estimated_cost'] = JobOrderService::calculateJobCost($jo['id']);
             }
@@ -62,6 +67,24 @@ try {
             echo json_encode($response);
             break;
 
+        case 'resolve_job_for_order':
+            if (!in_array(get_user_type() ?? '', ['Admin', 'Staff'], true)) {
+                throw new Exception('Unauthorized');
+            }
+            $orderId = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
+            if (!$orderId) {
+                throw new Exception('order_id required');
+            }
+            $row = db_query('SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1', 'i', [$orderId]);
+            $jobId = $row[0]['id'] ?? null;
+            // Checkout sometimes leaves orders without job_orders if job creation failed — backfill from order_items (same rules as checkout)
+            if ($jobId === null) {
+                $created = JobOrderService::ensureJobsForStoreOrder($orderId);
+                $jobId = $created !== null ? $created : null;
+            }
+            echo json_encode(['success' => true, 'job_id' => $jobId !== null ? (int)$jobId : null]);
+            break;
+
         case 'list_pending_orders':
             // Fetch regular product orders with pending status for staff customization dashboard
             $sql = "SELECT 
@@ -73,7 +96,7 @@ try {
                         c.customer_type,
                         c.transaction_count,
                         CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
-                        CONCAT(c.street, ', ', c.barangay, ', ', c.municipality) as customer_contact,
+                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) as customer_contact,
                         'ORDER' as order_type,
                         'Standard Order' as service_type,
                         GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') as job_title,
@@ -100,7 +123,8 @@ try {
                         o.order_date,
                         NULL as due_date,
                         NULL as priority,
-                        o.total_amount as estimated_total
+                        o.total_amount as estimated_total,
+                        (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = o.order_id) AS job_order_id
                     FROM orders o
                     LEFT JOIN order_items oi ON o.order_id = oi.order_id
                     LEFT JOIN products p ON oi.product_id = p.product_id
@@ -117,10 +141,66 @@ try {
                 $order['readiness'] = 'READY'; // Regular orders don't have material tracking
                 $order['estimated_cost'] = 0;
             }
-            
-            echo json_encode(['success' => true, 'data' => $pending_orders]);
+            unset($order);
+
+            // Service purchases (service_orders) — same dashboard shape; order_type SERVICE
+            service_order_ensure_tables();
+            $svc_sql = "SELECT 
+                    so.id AS id,
+                    so.id AS order_id,
+                    so.customer_id,
+                    c.first_name,
+                    c.last_name,
+                    c.customer_type,
+                    c.transaction_count,
+                    TRIM(CONCAT(COALESCE(c.first_name, ''), ' ', COALESCE(c.last_name, ''))) AS customer_full_name,
+                    TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_contact,
+                    'SERVICE' AS order_type,
+                    so.service_name AS service_type,
+                    so.service_name AS job_title,
+                    '1' AS width_ft,
+                    '1' AS height_ft,
+                    1 AS quantity,
+                    CASE 
+                        WHEN so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
+                        WHEN so.status = 'Approved' THEN 'APPROVED'
+                        WHEN so.status = 'Processing' THEN 'IN_PRODUCTION'
+                        WHEN so.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
+                        WHEN so.status = 'Completed' THEN 'COMPLETED'
+                        WHEN so.status IN ('Rejected', 'Cancelled') THEN 'CANCELLED'
+                        ELSE 'PENDING'
+                    END AS status,
+                    'PAID' AS payment_proof_status,
+                    'NO' AS payment_status,
+                    '' AS materials,
+                    so.created_at AS created_at,
+                    so.created_at AS order_date,
+                    NULL AS due_date,
+                    NULL AS priority,
+                    so.total_price AS estimated_total
+                FROM service_orders so
+                LEFT JOIN customers c ON so.customer_id = c.customer_id
+                WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')
+                ORDER BY so.created_at DESC
+                LIMIT 50";
+            $svc_orders = db_query($svc_sql) ?: [];
+            foreach ($svc_orders as &$so) {
+                $so['readiness'] = 'READY';
+                $so['estimated_cost'] = 0;
+            }
+            unset($so);
+
+            $merged = array_merge($pending_orders, $svc_orders);
+            usort($merged, function ($a, $b) {
+                $ta = strtotime($a['created_at'] ?? $a['order_date'] ?? 'now');
+                $tb = strtotime($b['created_at'] ?? $b['order_date'] ?? 'now');
+                return $tb <=> $ta;
+            });
+
+            echo json_encode(['success' => true, 'data' => $merged]);
             break;
 
+        case 'list_machines':
             $machines = db_query("SELECT * FROM machines WHERE status = 'ACTIVE'") ?: [];
             echo json_encode(['success' => true, 'data' => $machines]);
             break;

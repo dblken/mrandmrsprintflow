@@ -88,6 +88,7 @@ TROUBLESHOOTING*.md
 .env.local
 .env.*.local
 config.local.php
+includes/db.local.php
 
 # ===========================================
 # VAPID Keys (contain private key — never commit)

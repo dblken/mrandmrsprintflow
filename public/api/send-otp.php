@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) $input = $_POST;
@@ -42,16 +43,15 @@ if ($type === 'email') {
     $identifier = $phone_clean;
 }
 
-// Check if already registered (for registration purpose)
+// Check if already registered (for registration purpose) — customers OR staff/users
 if ($purpose === 'register') {
     if ($type === 'email') {
-        $existing = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$identifier]);
-    } else {
-        $existing = db_query("SELECT customer_id FROM customers WHERE contact_number = ?", 's', [$identifier]);
-    }
-    if (!empty($existing)) {
-        $label = $type === 'email' ? 'Email' : 'Phone number';
-        echo json_encode(['success' => false, 'message' => "$label is already registered. Please login instead."]);
+        if (email_in_use_across_accounts($identifier)) {
+            echo json_encode(['success' => false, 'message' => 'This email is already in use. Please sign in instead.']);
+            exit;
+        }
+    } elseif (contact_phone_in_use_across_accounts($identifier)) {
+        echo json_encode(['success' => false, 'message' => 'This phone number is already in use. Please sign in instead.']);
         exit;
     }
 }

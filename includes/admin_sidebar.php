@@ -35,7 +35,7 @@ if (isset($_SESSION['user_id'])) {
 
 <aside class="sidebar" id="adminSidebar">
     <div class="sidebar-header">
-        <a href="dashboard" class="logo">
+        <a href="/printflow/admin/dashboard.php" class="logo">
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
@@ -117,27 +117,27 @@ if (isset($_SESSION['user_id'])) {
         <!-- System Management -->
         <div class="nav-section">
             <div class="nav-section-title">System</div>
-            <a href="user_staff_management" class="nav-item <?php echo in_array($current_page, ['user_staff_management.php','create_manager.php']) ? 'active' : ''; ?>">
+            <a href="/printflow/admin/user_staff_management.php" class="nav-item <?php echo in_array($current_page, ['user_staff_management.php','create_manager.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                 </svg>
                 Users & Staff
             </a>
 
-            <a href="faq_chatbot_management" class="nav-item <?php echo $current_page === 'faq_chatbot_management.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/faq_chatbot_management.php" class="nav-item <?php echo $current_page === 'faq_chatbot_management.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
                 Support chat
             </a>
-            <a href="notifications" class="nav-item <?php echo $current_page === 'notifications.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/notifications.php" class="nav-item <?php echo $current_page === 'notifications.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
+                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="visibility:<?php echo ($unread_notif_count > 0 ? 'visible' : 'hidden'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : ($unread_notif_count > 0 ? (int)$unread_notif_count : ''); ?></span>
             </a>
-            <a href="settings" class="nav-item <?php echo $current_page === 'settings.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/settings.php" class="nav-item <?php echo $current_page === 'settings.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -149,7 +149,7 @@ if (isset($_SESSION['user_id'])) {
         <!-- Maintenance -->
         <div class="nav-section">
             <div class="nav-section-title">Maintenance</div>
-            <a href="activity_logs" class="nav-item <?php echo $current_page === 'activity_logs.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/activity_logs.php" class="nav-item <?php echo $current_page === 'activity_logs.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -160,7 +160,7 @@ if (isset($_SESSION['user_id'])) {
         <!-- Account -->
         <div class="nav-section">
             <div class="nav-section-title">Account</div>
-            <a href="profile" class="nav-item <?php echo $current_page === 'profile.php' ? 'active' : ''; ?>">
+            <a href="/printflow/admin/profile.php" class="nav-item <?php echo $current_page === 'profile.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -170,7 +170,7 @@ if (isset($_SESSION['user_id'])) {
     </nav>
     
     <div class="sidebar-footer">
-        <a href="profile" class="user-profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; width:100%;">
+        <a href="/printflow/admin/profile.php" class="user-profile" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px; width:100%;">
             <div class="user-avatar" style="flex-shrink:0; overflow:hidden;">
                 <?php if ($sidebar_profile_pic): ?>
                     <img src="<?php echo $sidebar_profile_pic; ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
@@ -282,38 +282,57 @@ document.addEventListener('click', function(event) {
     }
 });
 
-    // Sidebar scroll persistence (no auto-scroll when collapsed — avoids jump on every navigation)
     document.addEventListener('DOMContentLoaded', function() {
-        var nav = document.querySelector('.sidebar-nav');
+        var nav = document.querySelector('#printflow-persistent-sidebar .sidebar-nav') || document.querySelector('.sidebar-nav');
         var sidebar = document.getElementById('adminSidebar');
         if (!nav || !sidebar) return;
-        var isCollapsed = sidebar.classList.contains('collapsed');
 
-        var saved = sessionStorage.getItem('sidebarScroll');
-        if (saved !== null) {
-            requestAnimationFrame(function() {
-                nav.scrollTop = parseInt(saved, 10);
-            });
-        } else if (!isCollapsed) {
-            var activeItem = nav.querySelector('.nav-item.active');
-            if (activeItem) {
-                requestAnimationFrame(function() {
-                    activeItem.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-                });
+        var scrollKey = 'printflow_admin_sidebar_nav_scroll';
+        function clampNavScroll(y) {
+            var max = Math.max(0, nav.scrollHeight - nav.clientHeight);
+            return Math.max(0, Math.min(y, max));
+        }
+        if (!sidebar.classList.contains('collapsed')) {
+            var saved = null;
+            try { saved = sessionStorage.getItem(scrollKey); } catch (e) {}
+            if (saved !== null && saved !== '') {
+                var y = parseInt(saved, 10);
+                if (!isNaN(y)) {
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            nav.scrollTop = clampNavScroll(y);
+                        });
+                    });
+                }
+            } else {
+                var activeItem = nav.querySelector('a.nav-item.active');
+                if (activeItem) {
+                    requestAnimationFrame(function() {
+                        activeItem.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                    });
+                }
             }
         }
 
-        // Save scroll position before navigating
+        var shell = document.getElementById('printflow-persistent-sidebar');
+        if (shell) {
+            shell.addEventListener('click', function(ev) {
+                var a = ev.target.closest && ev.target.closest('a[href]');
+                if (!a || !shell.contains(a)) return;
+                var href = a.getAttribute('href') || '';
+                if (href === '' || href.charAt(0) === '#') return;
+                try {
+                    sessionStorage.setItem(scrollKey, String(nav.scrollTop));
+                } catch (e) {}
+            }, true);
+        }
         nav.querySelectorAll('a.nav-item').forEach(function(link) {
             link.addEventListener('click', function() {
-                sessionStorage.setItem('sidebarScroll', nav.scrollTop);
-
-                // Close mobile sidebar on navigation (mobile only)
                 if (window.innerWidth <= 768) {
-                    var sidebar = document.getElementById('adminSidebar');
+                    var sb = document.getElementById('adminSidebar');
                     var overlay = document.getElementById('sidebarOverlay');
-                    if (sidebar && sidebar.classList.contains('active')) {
-                        sidebar.classList.remove('active');
+                    if (sb && sb.classList.contains('active')) {
+                        sb.classList.remove('active');
                         if (overlay) overlay.classList.remove('active');
                         document.body.style.overflow = '';
                     }

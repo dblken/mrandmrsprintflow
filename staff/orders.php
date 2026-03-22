@@ -257,7 +257,7 @@ $page_title = 'Orders - Staff';
         .om-loader { text-align: center; padding: 64px 0; }
         .om-spinner {
             width: 40px; height: 40px; border-radius: 50%;
-            border: 3px solid #e2e8f0; border-top-color: #6366f1;
+            border: 3px solid #e2e8f0; border-top-color: #06A1A1;
             animation: om-spin 0.7s linear infinite; margin: 0 auto 12px;
         }
         @keyframes om-spin { to { transform: rotate(360deg); } }
@@ -334,16 +334,12 @@ $page_title = 'Orders - Staff';
                         <label>Filter by Status</label>
                         <select name="status" id="statusFilterSelect" class="input-field">
                             <option value="">All Statuses</option>
-<<<<<<< HEAD
                             <option value="Pending Review" <?php echo $status_filter === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
                             <option value="Approved" <?php echo $status_filter === 'Approved' ? 'selected' : ''; ?>>Approved</option>
                             <option value="To Pay" <?php echo $status_filter === 'To Pay' ? 'selected' : ''; ?>>To Pay</option>
                             <option value="Downpayment Submitted" <?php echo $status_filter === 'Downpayment Submitted' ? 'selected' : ''; ?>>Downpayment Submitted</option>
                             <option value="Pending Verification" <?php echo $status_filter === 'Pending Verification' ? 'selected' : ''; ?>>Pending Verification</option>
                             <option value="For Revision" <?php echo $status_filter === 'For Revision' ? 'selected' : ''; ?>>For Revision</option>
-=======
-                            <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
                             <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                             <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
                             <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
@@ -540,15 +536,11 @@ function statusBadge(val) {
     const map = {
         'Completed':        'badge-green',
         'Pending':          'badge-yellow',
-<<<<<<< HEAD
         'Pending Review':   'badge-yellow',
         'Approved':         'badge-green',
         'To Pay':           'badge-blue',
         'Downpayment Submitted': 'badge-yellow',
         'Pending Verification': 'badge-yellow',
-=======
-        'Pending Approval': 'badge-yellow',
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
         'Processing':       'badge-blue',
         'In Production':    'badge-blue',
         'Printing':         'badge-blue',
@@ -778,7 +770,7 @@ function renderOrderModal(d) {
                         <a href="${item.design_url}" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                             <img src="${item.design_url}" alt="Design" style="width: 100%; max-height: 400px; object-fit: cover; display: block;" onerror="this.outerHTML='<div style=\'padding:20px;font-size:12px;color:#94a3b8;text-align:center;\'>N/A</div>'">
                         </a>
-                        <a href="${item.design_url}" target="_blank" style="display: inline-block; font-size: 12px; color: #6366f1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
+                        <a href="${item.design_url}" target="_blank" style="display: inline-block; font-size: 12px; color: #06A1A1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #e6f7f5; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
                     </div>`;
             }
             
@@ -822,7 +814,7 @@ function renderOrderModal(d) {
                             </div>
                             <div>
                                 <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Subtotal</div>
-                                <div style="font-size: 15px; font-weight: 700; color: #6366f1;">PHP ${(item.subtotal || 0).toFixed(2)}</div>
+                                <div style="font-size: 15px; font-weight: 700; color: #06A1A1;">PHP ${(item.subtotal || 0).toFixed(2)}</div>
                             </div>
                         </div>
                     </div>
@@ -851,7 +843,7 @@ function renderOrderModal(d) {
                 </div>
                 <div class="om-row">
                     <span class="om-label">Total Amount</span>
-                    <span class="om-value" style="color:#6366f1;font-size:15px;">${esc(d.total_amount)}</span>
+                    <span class="om-value" style="color:#06A1A1;font-size:15px;">${esc(d.total_amount)}</span>
                 </div>
                 <div class="om-row">
                     <span class="om-label">Current Status</span>
@@ -864,8 +856,8 @@ function renderOrderModal(d) {
                 <!-- Flex Payment Option Display -->
                 ${d.payment_type !== 'full_payment' ? `
                 <div class="om-row">
-                    <span class="om-label" style="color:#6366f1;">Payment Option</span>
-                    <span class="om-value" style="color:#6366f1; font-weight:600;">
+                    <span class="om-label" style="color:#06A1A1;">Payment Option</span>
+                    <span class="om-value" style="color:#06A1A1; font-weight:600;">
                         ${d.payment_type === '50_percent' ? '50% Downpayment' : 'Pay Upon Pickup'}
                     </span>
                 </div>
@@ -931,7 +923,7 @@ function renderOrderModal(d) {
                                         <div style="flex:1;">
                                             <div style="font-size:10px; font-weight:600; color:#475569;">Rejected Design File</div>
                                             <div style="font-size:10px; color:#94a3b8;">${esc(rev.product_name)}</div>
-                                            <a href="${rev.design_url}" target="_blank" style="font-size:10px; color:#6366f1; text-decoration:none; font-weight:600;">↗ View Full Size</a>
+                                            <a href="${rev.design_url}" target="_blank" style="font-size:10px; color:#06A1A1; text-decoration:none; font-weight:600;">↗ View Full Size</a>
                                         </div>
                                     </div>
                                 </div>
@@ -981,7 +973,7 @@ function renderOrderModal(d) {
             </div>
             <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 20px; margin-top: 10px;">
                 <div style="font-size: 16px; font-weight: 700; color: #475569; margin-right: 16px;">Total Amount:</div>
-                <div style="font-size: 20px; font-weight: 800; color: #6366f1;">${esc(d.total_amount)}</div>
+                <div style="font-size: 20px; font-weight: 800; color: #06A1A1;">${esc(d.total_amount)}</div>
             </div>
         </div>
     `;

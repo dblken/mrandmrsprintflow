@@ -48,12 +48,10 @@ if ($custom_print === 'Yes') {
         exit;
     }
     
-    $tmp_dir = __DIR__ . '/../uploads/temp';
-    if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
-    
+    $tmp_dir = service_order_temp_dir();
     $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
     $tmp_filename = uniqid('souv_tmp_') . '.' . $ext;
-    $design_tmp_path = $tmp_dir . '/' . $tmp_filename;
+    $design_tmp_path = $tmp_dir . DIRECTORY_SEPARATOR . $tmp_filename;
     
     if (move_uploaded_file($_FILES['design_file']['tmp_name'], $design_tmp_path)) {
         $design_name = $_FILES['design_file']['name'];

@@ -31,9 +31,24 @@ function send_email($to, $subject, $message, $is_html = true) {
     
     try {
         $mail = new PHPMailer(true);
-        
-        // Server settings
-        if (EMAIL_SERVICE === 'smtp') {
+
+        $smtpFile = __DIR__ . '/smtp_config.php';
+        $smtpCfg  = (is_file($smtpFile)) ? require $smtpFile : null;
+
+        // Prefer includes/smtp_config.php (same as OTP / profile mailers) over email_sms_config placeholders
+        if (is_array($smtpCfg) && !empty($smtpCfg['smtp_host']) && !empty($smtpCfg['smtp_user']) && ($smtpCfg['smtp_pass'] ?? '') !== '') {
+            $mail->isSMTP();
+            $mail->Host       = $smtpCfg['smtp_host'];
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $smtpCfg['smtp_user'];
+            $mail->Password   = $smtpCfg['smtp_pass'];
+            $mail->SMTPSecure = ($smtpCfg['smtp_secure'] ?? 'tls') === 'ssl'
+                ? PHPMailer::ENCRYPTION_SMTPS
+                : PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = (int) ($smtpCfg['smtp_port'] ?? 587);
+            $fromEmail        = $smtpCfg['from_email'] ?? $smtpCfg['smtp_user'];
+            $fromName         = $smtpCfg['from_name'] ?? 'PrintFlow';
+        } elseif (EMAIL_SERVICE === 'smtp') {
             $mail->isSMTP();
             $mail->Host       = SMTP_HOST;
             $mail->SMTPAuth   = true;
@@ -41,17 +56,22 @@ function send_email($to, $subject, $message, $is_html = true) {
             $mail->Password   = SMTP_PASSWORD;
             $mail->SMTPSecure = SMTP_ENCRYPTION;
             $mail->Port       = SMTP_PORT;
+            $fromEmail        = EMAIL_FROM_ADDRESS;
+            $fromName         = EMAIL_FROM_NAME;
         } elseif (EMAIL_SERVICE === 'sendmail') {
             $mail->isSendmail();
+            $fromEmail = EMAIL_FROM_ADDRESS;
+            $fromName  = EMAIL_FROM_NAME;
         } else {
-            // Use PHP's mail() function
             $mail->isMail();
+            $fromEmail = EMAIL_FROM_ADDRESS;
+            $fromName  = EMAIL_FROM_NAME;
         }
         
         // Recipients
-        $mail->setFrom(EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME);
+        $mail->setFrom($fromEmail, $fromName);
         $mail->addAddress($to);
-        $mail->addReplyTo(EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME);
+        $mail->addReplyTo($fromEmail, $fromName);
         
         // Content
         $mail->isHTML($is_html);
@@ -193,6 +213,61 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
     }
 
     return $result;
+}
+
+/**
+ * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
+ * Uses each user's role for web push subscription matching.
+ */
+function notify_staff_new_order(int $order_id, string $customer_first_name): void {
+    $users = db_query(
+        "SELECT user_id, role FROM users WHERE role IN ('Staff', 'Admin', 'Manager') AND status = 'Activated'"
+    );
+    if (empty($users)) {
+        return;
+    }
+    $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
+    $msg = "New Order #{$order_id} from {$name}!";
+    foreach ($users as $u) {
+        $role = $u['role'] ?? 'Staff';
+        if (!in_array($role, ['Staff', 'Admin', 'Manager'], true)) {
+            $role = 'Staff';
+        }
+        create_notification((int)$u['user_id'], $role, $msg, 'Order', false, false, $order_id);
+    }
+}
+
+/**
+ * Target URL when a staff user opens a notification (dashboard, list, etc.).
+ */
+function staff_notification_target_url(array $n): string {
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $is_rating = (
+        (isset($n['type']) && (string)$n['type'] === 'Rating') ||
+        (isset($n['message']) && (
+            stripos((string)$n['message'], 'rating') !== false ||
+            stripos((string)$n['message'], 'review') !== false
+        ))
+    );
+    if ($is_rating) {
+        return $base . '/staff/reviews.php';
+    }
+    if (!empty($n['data_id']) && isset($n['type']) && (string)$n['type'] === 'Order') {
+        return $base . '/staff/customizations.php?order_id=' . (int)$n['data_id'];
+    }
+    return $base . '/staff/notifications.php';
+}
+
+/**
+ * Link for a staff notification row (marks read then redirects when unread).
+ */
+function staff_notification_item_href(array $n): string {
+    $target = staff_notification_target_url($n);
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    if (isset($n['is_read']) && (int)$n['is_read'] === 0) {
+        return $base . '/staff/notifications.php?mark_read=' . (int)($n['notification_id'] ?? 0) . '&next=' . urlencode($target);
+    }
+    return $target;
 }
 
 /**
@@ -852,7 +927,7 @@ function set_setting($key, $value) {
  * @param string $page_param Query param name for page number (default: 'page')
  * @return string HTML string
  */
-function render_pagination($current_page, $total_pages, $extra_params = []) {
+function render_pagination($current_page, $total_pages, $extra_params = [], $page_param = 'page') {
     $current_page = (int)$current_page;
 
     if ($total_pages <= 1) return '';
@@ -906,7 +981,7 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
             $html .= $ellipsis;
         }
 
-        $params['page'] = $p;
+        $params[$page_param] = $p;
         $url = '?' . http_build_query($params);
         if ($p === $current_page) {
             $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $active_btn . '">' . $p . '</a>';
@@ -933,8 +1008,8 @@ function render_pagination($current_page, $total_pages, $extra_params = []) {
 /**
  * Alias for render_pagination (backward compatibility)
  */
-function get_pagination_links($current_page, $total_pages, $extra_params = []) {
-    return render_pagination($current_page, $total_pages, $extra_params);
+function get_pagination_links($current_page, $total_pages, $extra_params = [], $page_param = 'page') {
+    return render_pagination($current_page, $total_pages, $extra_params, $page_param);
 }
 
 /**
@@ -1075,4 +1150,102 @@ function get_service_image_url($service_type_or_name) {
     }
 
     return '/printflow/public/assets/images/placeholder.jpg';
+}
+
+/**
+ * Normalize PH-style phone to digits for comparison (63 + national mobile).
+ */
+function normalize_contact_phone_digits($raw) {
+    $d = preg_replace('/\D/', '', (string)$raw);
+    if ($d === '') {
+        return '';
+    }
+    if (strlen($d) >= 11 && $d[0] === '0' && ($d[1] ?? '') === '9') {
+        $d = '63' . substr($d, 1);
+    } elseif (strlen($d) === 10 && $d[0] === '9') {
+        $d = '63' . $d;
+    }
+    return $d;
+}
+
+/**
+ * Whether email is already used on `users` or `customers` (case-insensitive).
+ * Pass exclusions when updating the same account row.
+ */
+function email_in_use_across_accounts($email, $exclude_customer_id = null, $exclude_user_id = null) {
+    $email = trim((string)$email);
+    if ($email === '') {
+        return false;
+    }
+    $u = db_query('SELECT user_id FROM users WHERE LOWER(TRIM(email)) = LOWER(?) LIMIT 1', 's', [$email]);
+    if (!empty($u)) {
+        $uid = (int)$u[0]['user_id'];
+        if ($exclude_user_id === null || $uid !== (int)$exclude_user_id) {
+            return true;
+        }
+    }
+    $c = db_query('SELECT customer_id FROM customers WHERE LOWER(TRIM(email)) = LOWER(?) LIMIT 1', 's', [$email]);
+    if (!empty($c)) {
+        $cid = (int)$c[0]['customer_id'];
+        if ($exclude_customer_id === null || $cid !== (int)$exclude_customer_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Whether normalized phone matches another row's `contact_number` on users or customers.
+ */
+function contact_phone_in_use_across_accounts($raw, $exclude_customer_id = null, $exclude_user_id = null) {
+    $norm = normalize_contact_phone_digits($raw);
+    if ($norm === '' || strlen($norm) < 10) {
+        return false;
+    }
+    $users = db_query("SELECT user_id, contact_number FROM users WHERE contact_number IS NOT NULL AND TRIM(contact_number) <> ''", '', []);
+    foreach ($users ?: [] as $row) {
+        if ($exclude_user_id !== null && (int)$row['user_id'] === (int)$exclude_user_id) {
+            continue;
+        }
+        if (normalize_contact_phone_digits($row['contact_number']) === $norm) {
+            return true;
+        }
+    }
+    $custs = db_query("SELECT customer_id, contact_number FROM customers WHERE contact_number IS NOT NULL AND TRIM(contact_number) <> ''", '', []);
+    foreach ($custs ?: [] as $row) {
+        if ($exclude_customer_id !== null && (int)$row['customer_id'] === (int)$exclude_customer_id) {
+            continue;
+        }
+        if (normalize_contact_phone_digits($row['contact_number']) === $norm) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Application base path (e.g. /printflow). Uses AUTH_REDIRECT_BASE when defined.
+ */
+function pf_app_base_path(): string {
+    return rtrim(defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow', '/');
+}
+
+/**
+ * Build an absolute app URL for a script under admin/ with optional query and fragment.
+ *
+ * @param string $script File name (e.g. orders_management.php) or path starting with admin/
+ * @param array  $query  Query parameters
+ * @param string|null $fragment Hash without leading #
+ */
+function pf_admin_url(string $script, array $query = [], ?string $fragment = null): string {
+    $script = ltrim($script, '/');
+    $path = (strpos($script, 'admin/') === 0) ? $script : ('admin/' . $script);
+    $url = pf_app_base_path() . '/' . $path;
+    if ($query !== []) {
+        $url .= '?' . http_build_query($query);
+    }
+    if ($fragment !== null && $fragment !== '') {
+        $url .= '#' . ltrim($fragment, '#');
+    }
+    return $url;
 }

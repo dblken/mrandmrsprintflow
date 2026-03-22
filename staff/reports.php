@@ -108,38 +108,26 @@ $page_title = 'Reports - Staff';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
-<<<<<<< HEAD
         .rpt-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
         @media (max-width: 1024px) { .rpt-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 640px) { .rpt-kpi-grid { grid-template-columns: 1fr; } }
-        
+
         .kpi-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
         .kpi-box::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; }
-        .kpi-indigo::after { background: #6366f1; }
-        .kpi-emerald::after { background: #10b981; }
+        .kpi-indigo::after { background: #06A1A1; }
+        .kpi-emerald::after { background: #9ED7C4; }
         .kpi-amber::after { background: #f59e0b; }
         .kpi-rose::after { background: #ef4444; }
-        
+
         .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 8px; letter-spacing: 0.05em; }
         .kpi-value { font-size: 24px; font-weight: 800; color: #1f2937; }
         .kpi-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
         .chart-container { height: 250px; width: 100%; margin-top: 20px; }
-        
+
         .badge-type { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-        .badge-std { background: #eef2ff; color: #4f46e5; }
+        .badge-std { background: #e6f7f5; color: #047676; }
         .badge-srv { background: #fdf2f7; color: #be185d; }
-=======
-        .report-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-        @media (max-width: 900px) { .report-summary { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 540px) { .report-summary { grid-template-columns: 1fr; } }
-        .summary-box { background: #f9fafb; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #f3f4f6; }
-        .summary-box .label { font-size: 12px; color: #9ca3af; margin-bottom: 6px; }
-        .summary-box.warn .value { color: #f59e0b; }
-        .summary-box.danger .value { color: #ef4444; }
-        .summary-box.success .value { color: #10b981; }
-        .section-title { font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
->>>>>>> 84f1e77e8bd269bab68461aac6f0ecbbb79114f3
     </style>
 </head>
 <body>
@@ -284,7 +272,7 @@ $page_title = 'Reports - Staff';
                         </table>
                     </div>
                     <?php else: ?>
-                    <p style="text-align:center; padding:20px; color:#10b981; font-size:13px;">✅ All products are well-stocked.</p>
+                    <p style="text-align:center; padding:20px; color:#06A1A1; font-size:13px;">✅ All products are well-stocked.</p>
                     <?php endif; ?>
                 </div>
 
@@ -312,7 +300,7 @@ $page_title = 'Reports - Staff';
                         </table>
                     </div>
                     <?php else: ?>
-                    <p style="text-align:center; padding:20px; color:#10b981; font-size:13px;">✅ All materials are well-stocked.</p>
+                    <p style="text-align:center; padding:20px; color:#06A1A1; font-size:13px;">✅ All materials are well-stocked.</p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -342,7 +330,7 @@ new Chart(ctx, {
         labels: ['Standard', 'Service'],
         datasets: [{
             data: [<?php echo (int)$summary['total_orders']; ?>, <?php echo (int)$s_summary['total_sorders']; ?>],
-            backgroundColor: ['#6366f1', '#ec4899'],
+            backgroundColor: ['#06A1A1', '#9ED7C4'],
             borderWidth: 0,
             hoverOffset: 10
         }]

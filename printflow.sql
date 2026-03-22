@@ -415,7 +415,7 @@ DROP TABLE IF EXISTS `order_messages`;
 CREATE TABLE `order_messages` (
   `message_id` int NOT NULL AUTO_INCREMENT,
   `order_id` int NOT NULL,
-  `sender` enum('Customer','Staff') NOT NULL,
+  `sender` enum('Customer','Staff','System') NOT NULL DEFAULT 'Customer',
   `sender_id` int NOT NULL,
   `message` text NOT NULL,
   `read_receipt` tinyint(1) DEFAULT '0',

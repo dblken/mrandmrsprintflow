@@ -175,7 +175,12 @@ try {
             <div class='ftr'>&copy;" . date('Y') . " PrintFlow. All rights reserved.</div>
         </div></body></html>";
 
-        send_email($identifier, 'PrintFlow - Reset Your Password', $html, true);
+        $sent = send_email($identifier, 'PrintFlow - Reset Your Password', $html, true);
+        if (!$sent) {
+            db_execute("DELETE FROM password_resets WHERE user_id = ? AND user_type = ?", 'is', [$user_found['user_id'], $user_type]);
+            echo json_encode(['success' => false, 'message' => 'Could not send the email. Check includes/smtp_config.php (Gmail App Password) or try again later.']);
+            exit;
+        }
     } else {
         // SMS still gets a link, but shortened or direct
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";

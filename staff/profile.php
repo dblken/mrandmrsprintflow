@@ -294,7 +294,7 @@ $page_title = 'My Profile - Staff';
                             <label>Upload Valid ID *</label>
                             <label style="display:block; border:2px dashed #e5e7eb; border-radius:8px; padding:24px; text-align:center; cursor:pointer;">
                                 <input type="file" name="id_image" accept="image/*" required>
-                                <span id="profile_id_label">Click to select ID image (JPG, PNG, max 5MB)</span>
+                                <span class="profile-id-file-hint" data-default="Click to select ID image (JPG, PNG, max 5MB)">Click to select ID image (JPG, PNG, max 5MB)</span>
                             </label>
                         </div>
                         <?php elseif (!empty($user['id_validation_image'])): ?>
@@ -303,7 +303,7 @@ $page_title = 'My Profile - Staff';
                             <div><a href="/printflow/uploads/ids/<?php echo htmlspecialchars($user['id_validation_image']); ?>" target="_blank" rel="noopener" style="color:#0d9488; font-weight:600;">View ID Image</a></div>
                             <label style="display:block; margin-top:8px; border:2px dashed #e5e7eb; border-radius:8px; padding:16px; text-align:center; cursor:pointer;">
                                 <input type="file" name="id_image" accept="image/*">
-                                <span id="profile_id_label">Replace ID image (optional)</span>
+                                <span class="profile-id-file-hint" data-default="Replace ID image (optional)">Replace ID image (optional)</span>
                             </label>
                         </div>
                         <?php endif; ?>
@@ -428,13 +428,14 @@ $page_title = 'My Profile - Staff';
         });
     }
 
-    const idInput = document.querySelector('input[name="id_image"]');
-    if (idInput) {
-        idInput.addEventListener('change', function() {
-            const lbl = document.getElementById('profile_id_label');
-            if (lbl) lbl.textContent = this.files[0] ? this.files[0].name : 'Click to select ID image (JPG, PNG, max 5MB)';
+    document.querySelectorAll('input[name="id_image"]').forEach(function (idInput) {
+        idInput.addEventListener('change', function () {
+            const lbl = this.closest('label')?.querySelector('.profile-id-file-hint');
+            if (!lbl) return;
+            const def = lbl.getAttribute('data-default') || '';
+            lbl.textContent = this.files[0] ? this.files[0].name : def;
         });
-    }
+    });
 
     const form = document.getElementById('profileForm');
     if (form) {

@@ -33,6 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($contact_number !== '' && contact_phone_in_use_across_accounts($contact_number, $customer_id, null)) {
+            echo json_encode(['success' => false, 'error' => 'This phone number is already used by another account.']);
+            exit;
+        }
+
         $result = db_execute("UPDATE customers SET first_name = ?, last_name = ?, contact_number = ?, gender = ? WHERE customer_id = ?",
             'ssssi', [$first_name, $last_name, $contact_number, $gender, $customer_id]);
         

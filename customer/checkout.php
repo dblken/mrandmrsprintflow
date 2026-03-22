@@ -66,14 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         }
 
         $notes = $_POST['notes'] ?? null;
-<<<<<<< HEAD
         $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
                       VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
-=======
-        $order_sql = "INSERT INTO orders (customer_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes) 
-                      VALUES (?, NOW(), ?, ?, 'Pending', ?, ?, ?)";
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
-        
+
         $payment_method = $_POST['payment_method'] ?? 'pay_later';
         
         // Removed payment_method from query as column doesn't exist
@@ -142,31 +137,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             
             // 4. Auto-create Job Orders for Production Workflow
             foreach ($cart_items as $pid => $item) {
-<<<<<<< HEAD
                 // Determine service type accurately for ENUM matching
                 $service_type = 'Tarpaulin Printing'; // Default
                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
-                
-                if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin Printing';
-                elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-shirt Printing';
-                elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized (Subdivision Stickers/Signages)';
-                elseif (strpos($cat_lower, 'transparent') !== false) $service_type = 'Transparent Stickers';
-                elseif (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'wall') !== false || strpos($cat_lower, 'frosted') !== false) $service_type = 'Glass Stickers / Wall / Frosted Stickers';
-                elseif (strpos($cat_lower, 'sintraboard') !== false && (strpos($cat_lower, 'standee') !== false || strpos($cat_lower, 'stand') !== false)) $service_type = 'Sintraboard Standees';
-                elseif (strpos($cat_lower, 'sintraboard') !== false) $service_type = 'Stickers on Sintraboard';
-                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals/Stickers (Print/Cut)';
-=======
-                // Determine service type from item category or name
-                $service_type = $item['category'] ?? 'General';
-                $cat_lower = strtolower($service_type . ' ' . ($item['name'] ?? ''));
-                if (strpos($cat_lower, 'tarpaulin') !== false) $service_type = 'Tarpaulin';
-                elseif (strpos($cat_lower, 'reflectorized') !== false) $service_type = 'Reflectorized Signage';
-                elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) $service_type = 'Sintraboard & Standees';
-                elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) $service_type = 'T-Shirt Printing';
-                elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) $service_type = 'Decals & Stickers';
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
-                elseif (strpos($cat_lower, 'souvenir') !== false) $service_type = 'Souvenirs';
-                elseif (strpos($cat_lower, 'layout') !== false) $service_type = 'Layouts';
+
+                if (strpos($cat_lower, 'tarpaulin') !== false) {
+                    $service_type = 'Tarpaulin Printing';
+                } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
+                    $service_type = 'T-shirt Printing';
+                } elseif (strpos($cat_lower, 'reflectorized') !== false) {
+                    $service_type = 'Reflectorized (Subdivision Stickers/Signages)';
+                } elseif (strpos($cat_lower, 'transparent') !== false) {
+                    $service_type = 'Transparent Stickers';
+                } elseif (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'wall') !== false || strpos($cat_lower, 'frosted') !== false) {
+                    $service_type = 'Glass Stickers / Wall / Frosted Stickers';
+                } elseif (strpos($cat_lower, 'sintraboard') !== false && (strpos($cat_lower, 'standee') !== false || strpos($cat_lower, 'stand') !== false)) {
+                    $service_type = 'Sintraboard Standees';
+                } elseif (strpos($cat_lower, 'sintraboard') !== false) {
+                    $service_type = 'Stickers on Sintraboard';
+                } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
+                    $service_type = 'Decals/Stickers (Print/Cut)';
+                } elseif (strpos($cat_lower, 'souvenir') !== false) {
+                    $service_type = 'Souvenirs';
+                } elseif (strpos($cat_lower, 'layout') !== false) {
+                    $service_type = 'Layouts';
+                }
                 
                 // Parse dimensions from customization data
                 $custom = $item['customization'] ?? [];
@@ -181,8 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 $job_title = $item['name'] ?? $service_type;
                 $job_qty   = (int)($item['quantity'] ?? 1);
                 $oi_id     = $inserted_order_item_ids[$pid] ?? null;
-                
-<<<<<<< HEAD
+
                 // Use JobOrderService for robust creation
                 try {
                     JobOrderService::createOrder([
@@ -198,34 +192,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                         'price_per_piece' => null,
                         'estimated_total' => $item['price'] * $job_qty,
                         'notes'           => $notes,
-                        'due_date'        => null, // Set by staff
+                        'due_date'        => null,
                         'priority'        => 'NORMAL',
-                        'artwork_path'    => null, 
-                        'created_by'      => null  // System created
+                        'artwork_path'    => null,
+                        'created_by'      => null,
                     ]);
                 } catch (Exception $e) {
                     error_log("Failed to create job order for item in Order #$order_id: " . $e->getMessage());
                 }
-=======
-                db_execute(
-                    "INSERT INTO job_orders (job_title, service_type, customer_id, order_item_id, width_ft, height_ft, quantity, status, customer_type, estimated_total, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())",
-                    'ssiididids',
-                    [$job_title, $service_type, $customer_id, $oi_id, $width_ft, $height_ft, $job_qty, $cust_type, $item['price'] * $job_qty]
-                );
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
             }
             
             unset($_SESSION['cart']);
             
             // 5. Notification
             create_notification($customer_id, 'Customer', "Order #{$order_id} placed successfully!", 'Order', true, false, $order_id);
-            
-            // Notify Staff
-            $staff_users = db_query("SELECT user_id FROM users WHERE role = 'Staff' AND status = 'Activated'");
-            foreach ($staff_users as $staff) {
-                create_notification($staff['user_id'], 'Staff', "New Order #{$order_id} received from {$customer['first_name']}!", 'Order', false, false, $order_id);
-            }
+            notify_staff_new_order((int)$order_id, (string)($customer['first_name'] ?? 'Customer'));
             
             $_SESSION['success'] = "Your order #{$order_id} has been placed successfully! Our team will review it shortly. You can track the status here.";
             

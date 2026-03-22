@@ -45,7 +45,11 @@ $url_google_auth    = $base_url . '/google-auth/';
     <meta name="theme-color" content="#4F46E5">
     <title><?php echo $page_title ?? 'PrintFlow - Printing Shop'; ?></title>
     <?php include __DIR__ . '/favicon_links.php'; ?>
-    
+    <?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>
+    <script>(function(){document.documentElement.classList.add('printflow-staff');})();</script>
+    <?php include __DIR__ . '/staff_theme.php'; ?>
+    <?php endif; ?>
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
     

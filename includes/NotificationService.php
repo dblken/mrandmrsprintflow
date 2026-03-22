@@ -5,7 +5,15 @@
  * PrintFlow v2
  */
 
+require_once __DIR__ . '/functions.php';
+
 class NotificationService {
+
+    /** Values allowed by `notifications.type` ENUM (avoid "Data truncated for column 'type'"). */
+    private static function normalizeNotificationType(string $type): string {
+        $allowed = ['Order', 'Stock', 'System', 'Message', 'Job Order', 'Payment Issue', 'Design', 'Payment', 'Status'];
+        return in_array($type, $allowed, true) ? $type : 'System';
+    }
 
     /**
      * Status → human-readable notification messages.
@@ -38,14 +46,16 @@ class NotificationService {
         // Append order reference
         $message = $message . " (Order #JO-" . str_pad($jobOrderId, 5, '0', STR_PAD_LEFT) . ")";
 
-        $result = db_execute(
-            "INSERT INTO notifications (customer_id, type, message, data_id, is_read, created_at)
-             VALUES (?, 'Job Order', ?, ?, 0, NOW())",
-            'isi',
-            [$customerId, $message, $jobOrderId]
+        // Use shared helper + type "Order" (always in ENUM); some DBs omit "Job Order" and truncate.
+        return (bool) create_notification(
+            $customerId,
+            'Customer',
+            $message,
+            'Order',
+            false,
+            false,
+            $jobOrderId
         );
-
-        return (bool) $result;
     }
 
     /**
@@ -53,6 +63,8 @@ class NotificationService {
      */
     public static function send(int $customerId, string $type, string $message, int $dataId = 0): bool {
         if (!$customerId) return false;
+
+        $type = self::normalizeNotificationType($type);
 
         $result = db_execute(
             "INSERT INTO notifications (customer_id, type, message, data_id, is_read, created_at)
