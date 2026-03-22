@@ -32,7 +32,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-const baseUrl = '<?php echo BASE_URL; ?>';
+window.baseUrl = window.baseUrl || '<?php echo BASE_URL; ?>';
 
 fetch('/printflow/public/api/chat/list_conversations.php')
     .then(r => r.json())
@@ -47,7 +47,7 @@ fetch('/printflow/public/api/chat/list_conversations.php')
         list.classList.remove('divide-y');
         data.conversations.forEach(c => {
             const a = document.createElement('a');
-            a.href = baseUrl + '/customer/chat.php?order_id=' + c.order_id;
+            a.href = window.baseUrl + '/customer/chat.php?order_id=' + c.order_id;
             a.className = 'block p-4 hover:bg-gray-50 transition flex items-start gap-4';
             a.style.textDecoration = 'none';
             a.style.color = 'inherit';

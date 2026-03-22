@@ -1220,9 +1220,9 @@ if (isset($_GET['ajax'])) {
     }
 
     // Global bridge: dispatches custom event so Alpine receives it (no _x_dataStack)
-    function openOrderModal(orderId) {
+    window.openOrderModal = function openOrderModal(orderId) {
         window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } }));
-    }
+    };
 </script>
 
 </body>

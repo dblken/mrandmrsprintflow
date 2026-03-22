@@ -121,6 +121,7 @@ try {
             echo json_encode(['success' => true, 'data' => $pending_orders]);
             break;
 
+        case 'list_machines':
             $machines = db_query("SELECT * FROM machines WHERE status = 'ACTIVE'") ?: [];
             echo json_encode(['success' => true, 'data' => $machines]);
             break;

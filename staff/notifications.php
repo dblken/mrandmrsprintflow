@@ -165,6 +165,8 @@ $page_title = 'Notifications - Staff';
                 $redirect_url = "#";
                 if ($is_rating_notif) {
                     $redirect_url = "/printflow/staff/reviews.php";
+                } elseif (!empty($notif['data_id']) && $notif['type'] === 'Message') {
+                    $redirect_url = "/printflow/staff/chats.php?order_id=" . $notif['data_id'];
                 } elseif (!empty($notif['data_id']) && $notif['type'] === 'Order') {
                     $redirect_url = "/printflow/staff/customizations.php?order_id=" . $notif['data_id'];
                 }

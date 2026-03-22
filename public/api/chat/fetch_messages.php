@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 header('Content-Type: application/json');
 
@@ -16,6 +17,15 @@ $user_type = get_user_type();
 if (!$order_id) {
     echo json_encode(['success' => false, 'error' => 'Missing order ID']);
     exit();
+}
+
+// Ensure customers can only access their own orders
+if ($user_type === 'Customer') {
+    $check = db_query("SELECT order_id FROM orders WHERE order_id = ? AND customer_id = ?", 'ii', [$order_id, $user_id]);
+    if (empty($check)) {
+        echo json_encode(['success' => false, 'error' => 'Access denied']);
+        exit();
+    }
 }
 
 // 1. Fetch new messages

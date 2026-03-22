@@ -33,7 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $shirt_type_other = trim($_POST['shirt_type_other'] ?? '');
     $shirt_color = trim($_POST['shirt_color'] ?? '');
     $color_other = trim($_POST['color_other'] ?? '');
-    $size = trim($_POST['size'] ?? '');
+    $sizes = trim($_POST['sizes'] ?? '');
+    $sizes_other = trim($_POST['sizes_other'] ?? '');
+    $size = ($sizes === 'Others' && $sizes_other) ? $sizes_other : $sizes;
     $print_placement = trim($_POST['print_placement'] ?? '');
     $lamination = trim($_POST['lamination'] ?? '');
     $quantity = (int)($_POST['quantity'] ?? 1);
@@ -48,9 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please select whether the shop or customer will provide the shirt.';
     } elseif ($shop_provides) {
         if (empty($shirt_type_display) || empty($color_display) || empty($size) || empty($print_placement) || empty($lamination) || $quantity < 1) {
-            $error = 'Please fill in Shirt Type, Color, Size, Print Placement, Lamination, and Quantity.';
+            $error = 'Please fill in Shirt Type, Color, Sizes, Print Placement, Lamination, and Quantity.';
         } elseif ($shirt_type === 'Others' && empty($shirt_type_other)) {
             $error = 'Please enter your custom shirt type.';
+        } elseif ($sizes === 'Others' && empty($sizes_other)) {
+            $error = 'Please enter your custom size.';
         } elseif ($shirt_color === 'Other' && empty($color_other)) {
             $error = 'Please enter your custom shirt color.';
         } else {
@@ -192,16 +196,21 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                     </div>
                 </div>
 
-                <!-- 4. Size (shown only when Shop provides) -->
+                <!-- 4. Sizes (shown only when Shop provides) -->
                 <div class="mb-4" id="size-section" style="display: none;">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Size <span id="size-required-mark">*</span></label>
-                    <div class="opt-btn-group">
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="S"> <span>S</span></label>
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="M"> <span>M</span></label>
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="L"> <span>L</span></label>
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="XL"> <span>XL</span></label>
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="2XL"> <span>2XL</span></label>
-                        <label class="opt-btn-wrap"><input type="radio" name="size" value="3XL"> <span>3XL</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sizes <span id="size-required-mark">*</span></label>
+                    <div class="option-grid option-grid-3x2">
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="XS"> <span>XS</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="S"> <span>S</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="M"> <span>M</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="L"> <span>L</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="XL"> <span>XL</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="XXL"> <span>XXL</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="XXXL"> <span>XXXL</span></label>
+                        <label class="opt-btn-wrap"><input type="radio" name="sizes" value="Others" id="sizes-others-radio"> <span>Others</span></label>
+                    </div>
+                    <div id="sizes-other-wrap" style="display: none; margin-top: 0.75rem;">
+                        <input type="text" name="sizes_other" id="sizes_other" class="input-field" placeholder="Enter custom size or measurements">
                     </div>
                 </div>
 
@@ -331,10 +340,19 @@ document.querySelectorAll('input[name="shirt_source"]').forEach(r => {
         const shopProvides = this.value === 'Shop will provide the shirt';
         document.getElementById('shop-provides-note').style.display = shopProvides ? 'block' : 'none';
         document.getElementById('size-section').style.display = shopProvides ? 'block' : 'none';
-        document.querySelectorAll('input[name="size"]').forEach(s => { s.required = shopProvides; if (!shopProvides) s.checked = false; });
+        document.querySelectorAll('input[name="sizes"]').forEach(s => { s.required = shopProvides; if (!shopProvides) s.checked = false; });
         document.querySelectorAll('input[name="shirt_type"]').forEach(s => s.required = shopProvides);
         document.getElementById('size-required-mark').textContent = shopProvides ? '*' : '';
         document.getElementById('shirt-type-required-mark').textContent = shopProvides ? '*' : '';
+        if (!shopProvides) document.getElementById('sizes-other-wrap').style.display = 'none';
+        checkFormValid();
+    });
+});
+
+document.querySelectorAll('input[name="sizes"]').forEach(r => {
+    r.addEventListener('change', function() {
+        document.getElementById('sizes-other-wrap').style.display = this.value === 'Others' ? 'block' : 'none';
+        document.getElementById('sizes_other').required = this.value === 'Others';
         checkFormValid();
     });
 });
@@ -361,7 +379,8 @@ function checkFormValid() {
     const shirtTypeOther = document.getElementById('shirt_type_other');
     const shirtColor = document.querySelector('input[name="shirt_color"]:checked');
     const colorOther = document.getElementById('color_other');
-    const size = document.querySelector('input[name="size"]:checked');
+    const sizes = document.querySelector('input[name="sizes"]:checked');
+    const sizesOther = document.getElementById('sizes_other');
     const placement = document.querySelector('input[name="print_placement"]:checked');
     const lamination = document.querySelector('input[name="lamination"]:checked');
     const qty = parseInt(document.getElementById('quantity-input').value) || 0;
@@ -372,8 +391,9 @@ function checkFormValid() {
 
     const shopProvides = shirtSource && shirtSource.value === 'Shop will provide the shirt';
     if (shopProvides) {
-        ok = ok && !!shirtType && !!size;
+        ok = ok && !!shirtType && !!sizes;
         if (shirtType && shirtType.value === 'Others') ok = ok && shirtTypeOther.value.trim() !== '';
+        if (sizes && sizes.value === 'Others') ok = ok && sizesOther && sizesOther.value.trim() !== '';
     }
 
     const btn = document.getElementById('buyNowBtn');

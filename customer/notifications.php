@@ -310,7 +310,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 } elseif ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
                                     $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 } elseif ($notif['type'] === 'Message') {
-                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&chat=open&mark_read=" . $notif['notification_id'];
+                                    $link = "/printflow/customer/chat.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 }
                             }
                         ?>

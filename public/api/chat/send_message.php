@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 header('Content-Type: application/json');
 
@@ -77,10 +78,11 @@ $notif_msg = ($db_sender === 'Customer')
     : "New message from Staff for Order #{$order_id}";
 
 if ($db_sender === 'Customer') {
-    // Notify active staff users
-    $staff_users = db_query("SELECT user_id FROM users WHERE role = 'Staff' AND status = 'Activated'");
+    // Notify active Staff, Admin, Manager
+    $staff_users = db_query("SELECT user_id, role FROM users WHERE role IN ('Staff','Admin','Manager') AND status = 'Activated'");
     foreach ($staff_users as $staff) {
-        create_notification((int)$staff['user_id'], 'Staff', $notif_msg, 'Message', false, false, $order_id);
+        $role = $staff['role'] ?? 'Staff';
+        create_notification((int)$staff['user_id'], $role, $notif_msg, 'Message', false, false, $order_id);
     }
 } else {
     $order = db_query("SELECT customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);

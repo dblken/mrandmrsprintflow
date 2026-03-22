@@ -564,7 +564,7 @@ function statusBadge(val) {
 }
 
 // ── Open / close ─────────────────────────────────────────
-function openOrderModal(orderId) {
+window.openOrderModal = function openOrderModal(orderId) {
     currentOrderId = orderId;
     const modal = document.getElementById('orderModal');
     document.getElementById('omTitle').textContent = `Order #${orderId}`;
@@ -612,9 +612,9 @@ function openOrderModal(orderId) {
     .catch(err => {
         console.error("Fetch Error:", err);
         document.getElementById('omBody').innerHTML =
-            `<div class="om-alert om-alert-error">Network Error: ${err.message}</div>`;
+                `<div class="om-alert om-alert-error">Network Error: ${err.message}</div>`;
     });
-}
+};
 
 function closeOrderModal() {
     const modal = document.getElementById('orderModal');

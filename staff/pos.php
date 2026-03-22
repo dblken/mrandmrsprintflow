@@ -27,6 +27,12 @@ $customers = [];
 try {
     $customers = db_query("SELECT customer_id, first_name, last_name, email, contact_number FROM customers ORDER BY first_name ASC, last_name ASC");
 } catch (Exception $e) { }
+
+// Fetch Branches (for service modals)
+$branches = [];
+try {
+    $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active' ORDER BY branch_name ASC");
+} catch (Exception $e) { }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -449,87 +455,56 @@ try {
         .pos-btn-checkout:hover { background: #4338ca; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .pos-btn-checkout:disabled { background: #94a3b8; cursor: not-allowed; }
 
+        /* Clean text-based service buttons - Shopee style */
         .service-btn {
             background: #ffffff;
-            border: 1px solid rgba(226, 232, 240, 0.8);
-            padding: 32px 24px;
-            border-radius: 20px;
-            font-size: 16px;
-            font-weight: 800;
+            border: 2px solid #e2e8f0;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease-out;
-            color: #1e293b;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #475569;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            gap: 8px;
             position: relative;
-            overflow: hidden;
-            will-change: transform, box-shadow;
-            backface-visibility: hidden;
-            transform: translateZ(0);
-        }
-        .service-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .service-btn i {
-            font-size: 32px;
-            color: #4f46e5;
-            background: #f5f3ff;
-            width: 64px;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 16px;
-            transition: all 0.3s ease-out;
-            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.1);
         }
         .service-btn:hover {
-            transform: translateY(-4px) scale(1.02);
             border-color: #6366f1;
-            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.15), 0 10px 10px -5px rgba(99, 102, 241, 0.1);
+            background: #f5f3ff;
+            color: #4f46e5;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
         }
-        .service-btn:hover::before {
-            opacity: 1;
-        }
-        .service-btn:hover i {
-            background: #4f46e5;
-            color: #fff;
-            transform: scale(1.05) rotate(-5deg);
-            box-shadow: 0 10px 15px rgba(79, 70, 229, 0.2);
+        .service-btn.active,
+        .service-btn:active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
         }
         .service-btn.btn-other {
-            grid-column: 2;
-            background: #fdfdfd;
-            border: 2px dashed #e2e8f0;
-        }
-        .service-btn.btn-other i {
             background: #f8fafc;
+            border: 2px dashed #cbd5e1;
             color: #64748b;
         }
-        .service-btn.btn-other:hover {
+        .service-btn.btn-other:hover,
+        .service-btn.btn-other.active {
             border-style: solid;
             border-color: #6366f1;
+            background: #f5f3ff;
+            color: #4f46e5;
         }
 
         .pos-services-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            padding: 32px;
-            align-content: center;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 24px;
+            align-content: start;
             height: 100%;
         }
 
@@ -546,7 +521,7 @@ try {
         .pos-products-grid::-webkit-scrollbar-thumb, .pos-cart-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
-<body>
+<body data-turbo="false">
 
 <div class="dashboard-container">
     <?php 
@@ -569,36 +544,16 @@ try {
                     </div>
                     
                     <div class="pos-services-grid" style="border-bottom:none; padding: 24px;">
-                        <button class="service-btn" onclick="addQuickService('Tarpaulin', 'fas fa-map')">
-                            <i class="fas fa-map"></i> Tarpaulin
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('T-Shirt', 'fas fa-tshirt')">
-                            <i class="fas fa-tshirt"></i> T-Shirt
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Stickers', 'fas fa-sticky-note')">
-                            <i class="fas fa-sticky-note"></i> Stickers
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Glass/Wall', 'fas fa-window-maximize')">
-                            <i class="fas fa-window-maximize"></i> Glass/Wall
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Transparent Stickers', 'fas fa-search-plus')">
-                            <i class="fas fa-search-plus"></i> Transparent
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Reflectorized', 'fas fa-lightbulb')">
-                            <i class="fas fa-lightbulb"></i> Reflectorized
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Sintraboard', 'fas fa-square')">
-                            <i class="fas fa-square"></i> Sintraboard
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Standees', 'fas fa-user-tie')">
-                            <i class="fas fa-user-tie"></i> Standees
-                        </button>
-                        <button class="service-btn" onclick="addQuickService('Souvenirs', 'fas fa-gift')">
-                            <i class="fas fa-gift"></i> Souvenirs
-                        </button>
-                        <button class="service-btn btn-other" onclick="addOtherService()">
-                            <i class="fas fa-plus-circle"></i> Other
-                        </button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Tarpaulin'); setActiveService(this)" data-service="Tarpaulin">Tarpaulin</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('T-Shirt'); setActiveService(this)" data-service="T-Shirt">T-Shirt</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Decals / Stickers'); setActiveService(this)" data-service="Decals / Stickers">Decals / Stickers</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Reflectorized'); setActiveService(this)" data-service="Reflectorized">Reflectorized</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Glass/Wall'); setActiveService(this)" data-service="Glass/Wall">Glass/Wall</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Transparent Stickers'); setActiveService(this)" data-service="Transparent Stickers">Transparent</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Sintraboard'); setActiveService(this)" data-service="Sintraboard">Sintraboard</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Standees'); setActiveService(this)" data-service="Standees">Standees</button>
+                        <button type="button" class="service-btn" onclick="addQuickService('Souvenirs'); setActiveService(this)" data-service="Souvenirs">Souvenirs</button>
+                        <button type="button" class="service-btn btn-other" onclick="addOtherService(); setActiveService(this)" data-service="Other">+ Other</button>
                     </div>
                 </div>
                 
@@ -667,7 +622,7 @@ try {
 </div>
 
 <!-- POS Customization Modal -->
-<div id="custom-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center;">
+<div id="custom-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center; flex-direction:column;">
     <div style="background:#ffffff; width:450px; border-radius:20px; padding:28px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15); border:1px solid #e2e8f0; transform:translateY(0); transition:all 0.3s; margin:16px; color:#1e293b;">
         <h3 id="cm-title" style="margin:0 0 20px 0; font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em;">Product Customization</h3>
         
@@ -719,6 +674,7 @@ try {
 </div>
 
 <script>
+window.POS_BRANCHES = <?php echo json_encode(array_map(function($b){return ['id'=>(int)$b['id'],'name'=>$b['branch_name']];}, $branches ?: [])); ?>;
 
 let products = [];
 let cart = [];
@@ -726,8 +682,10 @@ let currentTotal = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchProducts();
-    document.getElementById('pos-search').addEventListener('input', renderProducts);
-    document.getElementById('pos-category').addEventListener('change', renderProducts);
+    const searchEl = document.getElementById('pos-search');
+    const catEl = document.getElementById('pos-category');
+    if (searchEl) searchEl.addEventListener('input', renderProducts);
+    if (catEl) catEl.addEventListener('change', renderProducts);
 });
 
 async function fetchProducts() {
@@ -735,66 +693,192 @@ async function fetchProducts() {
         const res = await fetch('/printflow/staff/api/get_products.php');
         const data = await res.json();
         if(data.success) {
-            products = data.products;
-            renderProducts();
+            products = data.products || [];
+            const grid = document.getElementById('pos-products-grid');
+            if (grid) renderProducts();
         } else {
-            document.getElementById('pos-products-grid').innerHTML = '<p style="color:red; text-align:center; padding:20px;">Failed to load products.</p>';
+            const grid = document.getElementById('pos-products-grid');
+            if (grid) grid.innerHTML = '<p style="color:red; text-align:center; padding:20px;">Failed to load products.</p>';
         }
     } catch(e) {
-        document.getElementById('pos-products-grid').innerHTML = '<p style="color:red; text-align:center; padding:20px;">Network error.</p>';
+        const grid = document.getElementById('pos-products-grid');
+        if (grid) grid.innerHTML = '<p style="color:red; text-align:center; padding:20px;">Network error.</p>';
     }
 }
 
-// POS Dynamic Requirements Config
+// POS Dynamic Requirements Config - Synced with customer service forms (excluding Notes)
+function getBranchField() {
+    const branches = (window.POS_BRANCHES || []).map(b => ({ value: b.id, label: b.name }));
+    const hasBranches = branches && branches.length > 0;
+    return { label: 'Branch *', type: 'select', name: 'branch_id', options: branches, required: hasBranches };
+}
 const serviceRequirements = {
-    'T-Shirt': [
-        { label: 'Size', type: 'select', name: 'size', options: ['S', 'M', 'L', 'XL', '2XL', '3XL'] },
-        { label: 'Color', type: 'text', name: 'color', placeholder: 'e.g., Black, White' },
-        { label: 'Print Placement', type: 'select', name: 'print_placement', options: ['Front', 'Back', 'Front & Back', 'Pocket'] }
-    ],
     'Tarpaulin': [
-        { label: 'Width (ft)', type: 'number', name: 'width_ft', placeholder: 'E.g., 2', step: '0.1' },
-        { label: 'Height (ft)', type: 'number', name: 'height_ft', placeholder: 'E.g., 3', step: '0.1' },
-        { label: 'Thickness/Type', type: 'select', name: 'thickness', options: ['10oz', '12oz', 'Others'] },
-        { label: 'Finish', type: 'select', name: 'finish', options: ['With Eyelets', 'Wood Frame', 'None'] }
+        getBranchField,
+        { label: 'Dimensions (ft)', type: 'dimensions_ft', name: 'dimensions', subNames: ['width', 'height'], placeholders: ['Width', 'Height'], required: true },
+        { label: 'Finish Type', type: 'select', name: 'finish', options: ['Matte', 'Glossy'] },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Eyelets', type: 'select', name: 'with_eyelets', options: ['Yes', 'No'] },
+        { label: 'Layout', type: 'select', name: 'layout', options: ['With Layout', 'Without Layout'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
     ],
-    'Sticker': [
-        { label: 'Width (inches)', type: 'number', name: 'width_in', placeholder: 'E.g., 2', step: '0.1' },
-        { label: 'Height (inches)', type: 'number', name: 'height_in', placeholder: 'E.g., 2', step: '0.1' },
-        { label: 'Finish', type: 'select', name: 'finish', options: ['Glossy', 'Matte', 'Transparent'] },
-        { label: 'Cut Type', type: 'select', name: 'cut_type', options: ['Kiss Cut', 'Die Cut'] }
+    'T-Shirt': [
+        getBranchField,
+        { label: 'Shirt Source', type: 'select', name: 'shirt_source', options: ['Shop will provide the shirt', 'Customer will provide the shirt'], required: true },
+        { label: 'Shirt Type', type: 'select', name: 'shirt_type', options: ['Crew Neck', 'V-Neck', 'Polo', 'Raglan', 'Long Sleeve', 'Others'] },
+        { label: 'Shirt Type (if Others)', type: 'text', name: 'shirt_type_other', placeholder: 'Enter custom shirt type', conditionalOn: { field: 'shirt_type', value: 'Others' } },
+        { label: 'Shirt Color', type: 'select', name: 'shirt_color', options: ['Black', 'White', 'Red', 'Blue', 'Navy', 'Grey', 'Other'] },
+        { label: 'Color (if Other)', type: 'text', name: 'color_other', placeholder: 'Enter custom color', conditionalOn: { field: 'shirt_color', value: 'Other' } },
+        { label: 'Sizes', type: 'select_other', name: 'sizes', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Others'], otherOption: 'Others', otherName: 'sizes_other', otherPlaceholder: 'Enter custom size', disabledWhen: { field: 'shirt_source', value: 'Customer will provide the shirt' } },
+        { label: 'Print Placement', type: 'select', name: 'print_placement', options: ['Front Center Print', 'Back Upper Print', 'Left/Right Chest Print', 'Bottom Hem Print', 'Sleeve Print', 'Long Sleeve Arm Print'] },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
     ],
+    'Stickers': [
+        getBranchField,
+        { label: 'Dimensions (W × H, inches)', type: 'text', name: 'size', placeholder: 'e.g. 2x2', required: true },
+        { label: 'Finish', type: 'select', name: 'finish', options: ['Glossy', 'Matte'] },
+        { label: 'Laminate', type: 'select', name: 'laminate_option', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
+    ],
+    'Decals / Stickers': [
+        getBranchField,
+        { label: 'Dimensions (W × H, inches)', type: 'text', name: 'size', placeholder: 'e.g. 2x2', required: true },
+        { label: 'Finish', type: 'select', name: 'finish', options: ['Glossy', 'Matte'] },
+        { label: 'Laminate', type: 'select', name: 'laminate_option', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
+    ],
+    'Glass/Wall': [
+        getBranchField,
+        { label: 'Dimensions (ft)', type: 'dimensions_ft', name: 'dimensions', subNames: ['width', 'height'], placeholders: ['Width', 'Height'], required: true },
+        { label: 'Surface Type', type: 'select', name: 'surface_type', options: ['Glass (Window/Door/Storefront)', 'Wall (Painted/Concrete)', 'Frosted Glass', 'Mirror', 'Acrylic/Panel', 'Others'] },
+        { label: 'Surface Type (if Others)', type: 'text', name: 'surface_type_other', placeholder: 'Specify surface type', conditionalOn: { field: 'surface_type', value: 'Others' } },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Installation', type: 'select', name: 'installation', options: ['Without Installation', 'With Installation'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
+    ],
+    'Transparent Stickers': [
+        getBranchField,
+        { label: 'Surface Application', type: 'select', name: 'surface_application', options: ['Glass (Window/Door/Storefront)', 'Plastic / Acrylic', 'Metal', 'Smooth Painted Wall', 'Mirror', 'Others'] },
+        { label: 'Surface (if Others)', type: 'text', name: 'surface_other', placeholder: 'Specify surface', conditionalOn: { field: 'surface_application', value: 'Others' } },
+        { label: 'Dimensions (e.g. 2x2, 3x4 ft)', type: 'text', name: 'dimensions', placeholder: 'e.g. 2x2', required: true },
+        { label: 'Layout', type: 'select', name: 'layout', options: ['With Layout', 'Without Layout'] },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Laminate', 'Without Laminate'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
+    ],
+    'Reflectorized': {
+        isDynamic: true,
+        base: [
+            getBranchField,
+            { label: 'Product Type *', type: 'select', name: 'product_type', options: ['Subdivision / Gate Pass (Vehicle Sticker)', 'Plate Number / Temporary Plate', 'Custom Reflectorized Sign'], required: true, dynamicTrigger: true }
+        ],
+        'Subdivision / Gate Pass (Vehicle Sticker)': [
+            { label: 'Subdivision / Company Name *', type: 'text', name: 'gate_pass_subdivision', placeholder: 'GREEN VALLEY SUBDIVISION', required: true },
+            { label: 'Gate Pass Number *', type: 'text', name: 'gate_pass_number', placeholder: 'GP-0215', required: true },
+            { label: 'Plate Number *', type: 'text', name: 'gate_pass_plate', placeholder: 'ABC 1234', required: true },
+            { label: 'Year / Validity *', type: 'text', name: 'gate_pass_year', placeholder: 'VALID UNTIL: 2026', required: true },
+            { label: 'Vehicle Type', type: 'select', name: 'gate_pass_vehicle_type', options: [{ value: '', label: 'Select' }, { value: 'Car', label: 'Car' }, { value: 'Motorcycle', label: 'Motorcycle' }] },
+            { label: 'Exact Size (Width × Height)', type: 'text', name: 'dimensions', placeholder: 'e.g. 12 x 18' },
+            { label: 'Unit', type: 'select', name: 'unit', options: ['in', 'ft'] },
+            { label: 'Needed Date * (dd/mm/yyyy)', type: 'date', name: 'needed_date', required: true },
+            { label: 'Upload Design * (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' },
+            { label: 'Quantity Required *', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true }
+        ],
+        'Plate Number / Temporary Plate': [
+            { label: 'Material Selection *', type: 'select', name: 'temp_plate_material', options: ['Acrylic', 'Aluminum Sheet', 'Aluminum Coated (Steel)'], required: true },
+            { label: 'Plate Number * (must match OR/CR)', type: 'text', name: 'temp_plate_number', placeholder: 'Must match OR/CR', required: true },
+            { label: 'TEMPORARY PLATE text', type: 'text', name: 'temp_plate_text', placeholder: 'Auto-displayed on design', defaultValue: 'TEMPORARY PLATE' },
+            { label: 'MV File Number', type: 'text', name: 'mv_file_number', placeholder: 'Optional' },
+            { label: 'Dealer Name', type: 'text', name: 'dealer_name', placeholder: 'Optional' },
+            { label: 'Needed Date * (dd/mm/yyyy)', type: 'date', name: 'needed_date', required: true },
+            { label: 'Quantity Required *', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true }
+        ],
+        'Custom Reflectorized Sign': [
+            { label: 'Needed Date * (dd/mm/yyyy)', type: 'date', name: 'needed_date', required: true },
+            { label: 'Dimensions *', type: 'select_other', name: 'dimensions', options: ['6 x 12 in', '9 x 12 in', '12 x 18 in', '18 x 24 in', '24 x 36 in'], otherOption: 'Others', otherName: 'dimensions_other', otherPlaceholder: 'e.g. 10 x 14 in', required: true },
+            { label: 'Lamination', type: 'select', name: 'laminate_option', options: ['With Lamination', 'Without Lamination'] },
+            { label: 'Layout', type: 'select', name: 'layout', options: ['With Layout', 'Without Layout'] },
+            { label: 'Material Brand', type: 'select', name: 'material_type', options: ['Kiwalite (Japan Brand)', '3M Brand'] },
+            { label: 'Upload Design * (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' },
+            { label: 'Quantity Required *', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true }
+        ]
+    },
     'Sintraboard': [
-        { label: 'Width (in)', type: 'number', name: 'width_in' },
-        { label: 'Height (in)', type: 'number', name: 'height_in' },
-        { label: 'Thickness', type: 'select', name: 'thickness', options: ['3mm', '5mm'] }
+        getBranchField,
+        { label: 'Sintraboard Type', type: 'select', name: 'sintra_type', options: ['Flat Type', '2D Type (with Frame)', 'Standee (Back Stand Support)'], required: true },
+        { label: 'Dimensions (e.g. 12 x 18)', type: 'text', name: 'dimensions', placeholder: 'e.g. 12 x 18', required: true },
+        { label: 'Unit', type: 'select', name: 'unit', options: ['in', 'ft'] },
+        { label: 'Thickness', type: 'select', name: 'thickness', options: ['3mm', '5mm'], required: true },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Lamination', 'Without Lamination'] },
+        { label: 'Layout', type: 'select', name: 'layout', options: ['With Layout', 'Without Layout'] },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
     ],
-    'Reflectorized': [
-        { label: 'Shape', type: 'select', name: 'shape', options: ['Square', 'Rectangle', 'Circle', 'Triangle'] },
-        { label: 'Background Color', type: 'text', name: 'bg_color' },
-        { label: 'Text/Graphic Color', type: 'text', name: 'text_color' }
+    'Standees': [
+        getBranchField,
+        { label: 'Size', type: 'text', name: 'size', placeholder: 'e.g. 22x28 inches', required: true },
+        { label: 'With Stand?', type: 'select', name: 'with_stand', options: ['No', 'Yes'] },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
     ],
-    'Souvenir': [
-        { label: 'Type', type: 'select', name: 'type', options: ['Mug', 'Keychain', 'Tumbler', 'Pen', 'Button Pin', 'Other'] },
-        { label: 'Details / Occasion', type: 'text', name: 'details' }
+    'Souvenirs': [
+        getBranchField,
+        { label: 'Type', type: 'select', name: 'souvenir_type', options: ['Mug', 'Keychain', 'Tote Bag', 'Pen', 'Tumbler', 'T-Shirt', 'Other'] },
+        { label: 'Custom Print?', type: 'select', name: 'custom_print', options: ['No', 'Yes – I have a design'] },
+        { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Lamination', 'Without Lamination'] },
+        { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
+        { label: 'Quantity', type: 'number', name: 'quantity', placeholder: '1', step: '1', required: true },
+        { label: 'Upload Design (JPG, PNG, PDF - max 5MB)', type: 'file', name: 'design_file', accept: '.jpg,.jpeg,.png,.pdf' }
     ]
 };
 
 function getRequirementsForProduct(productName, category) {
-    const term = (productName + " " + category).toLowerCase();
-    if(term.includes('t-shirt') || term.includes('tshirt')) return serviceRequirements['T-Shirt'];
-    if(term.includes('tarpaulin') || term.includes('tarp')) return serviceRequirements['Tarpaulin'];
-    if(term.includes('sticker') || term.includes('decal')) return serviceRequirements['Sticker'];
-    if(term.includes('sintraboard') || term.includes('standee')) return serviceRequirements['Sintraboard'];
-    if(term.includes('reflectorized') || term.includes('signage')) return serviceRequirements['Reflectorized'];
-    if(term.includes('souvenir') || term.includes('mug')) return serviceRequirements['Souvenir'];
+    const term = (productName + ' ' + (category || '')).toLowerCase();
+    const svc = productName || category || '';
+    if (term.includes('tarpaulin') || term.includes('tarp')) return expandRequirements('Tarpaulin');
+    if (term.includes('t-shirt') || term.includes('tshirt')) return expandRequirements('T-Shirt');
+    if (term.includes('sticker') || term.includes('decal') || svc === 'Decals / Stickers') return expandRequirements(svc === 'Decals / Stickers' ? 'Decals / Stickers' : 'Stickers');
+    if (term.includes('glass') || term.includes('wall')) return expandRequirements('Glass/Wall');
+    if (term.includes('transparent')) return expandRequirements('Transparent Stickers');
+    if (term.includes('reflectorized') || term.includes('signage')) return expandRequirements('Reflectorized');
+    if (term.includes('sintraboard') && !term.includes('standee')) return expandRequirements('Sintraboard');
+    if (term.includes('standee')) return expandRequirements('Standees');
+    if (term.includes('souvenir')) return expandRequirements('Souvenirs');
     return null;
+}
+function expandRequirements(key, productType) {
+    const raw = serviceRequirements[key];
+    if (!raw) return [];
+    if (raw.isDynamic) {
+        const base = (raw.base || []).map(r => typeof r === 'function' ? r() : r).filter(Boolean);
+        if (productType && raw[productType]) {
+            return base.concat(raw[productType]);
+        }
+        return base;
+    }
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(r => typeof r === 'function' ? r() : r).filter(Boolean);
 }
 
 function renderProducts() {
     const grid = document.getElementById('pos-products-grid');
-    const search = document.getElementById('pos-search').value.toLowerCase();
-    const cat = document.getElementById('pos-category').value;
+    if (!grid) return;
+    const searchEl = document.getElementById('pos-search');
+    const catEl = document.getElementById('pos-category');
+    const search = (searchEl ? searchEl.value : '').toLowerCase();
+    const cat = catEl ? catEl.value : '';
     
     grid.innerHTML = '';
     
@@ -863,51 +947,148 @@ function addToCart(p, overridePrice = null, overrideName = null) {
 
 let pendingCustomProduct = null;
 let currentCustomRequirements = null;
+let posDynamicRequirements = null;
+let posDynamicFieldStartIndex = 500;
+
+function renderPosField(container, req, idx, baseStyle) {
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.gap = '4px';
+    const reqLabel = req.label || '';
+    const reqName = req.name || ('field_' + idx);
+    const isOpt = reqLabel.includes('(if ');
+    let label = `<label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">${reqLabel}</label>`;
+    let inputHtml = '';
+    if (req.type === 'dimensions_ft') {
+        const subNames = req.subNames || ['width', 'height'];
+        const placeholders = req.placeholders || ['Width', 'Height'];
+        div.innerHTML = `<label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">${reqLabel}</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="number" id="custom_field_${idx}_0" name="${subNames[0]}" placeholder="${placeholders[0]}" step="0.1" style="${baseStyle}; flex:1;" data-field-name="${subNames[0]}">
+                <span style="flex-shrink:0; font-weight:700; color:#94a3b8;">×</span>
+                <input type="number" id="custom_field_${idx}_1" name="${subNames[1]}" placeholder="${placeholders[1]}" step="0.1" style="${baseStyle}; flex:1;" data-field-name="${subNames[1]}">
+            </div>`;
+        div.dataset.fieldType = 'dimensions_ft';
+        div.dataset.fieldIndex = String(idx);
+    } else if (req.type === 'select_other') {
+        const opts = req.options || [];
+        const otherOpt = req.otherOption || 'Others';
+        const otherName = req.otherName || (reqName + '_other');
+        const otherPh = (req.otherPlaceholder || 'Enter custom').replace(/"/g, '&quot;');
+        inputHtml = `<select id="custom_field_${idx}" name="${reqName}" style="${baseStyle}" data-field-name="${reqName}" data-other-option="${otherOpt}" data-other-name="${otherName}" onchange="togglePosOtherInput(${idx}, '${otherOpt}', '${otherName}')">`;
+        inputHtml += `<option value="">Select...</option>`;
+        opts.forEach(opt => {
+            const val = (typeof opt === 'object' && opt !== null && 'value' in opt) ? opt.value : opt;
+            const lab = (typeof opt === 'object' && opt !== null && 'label' in opt) ? opt.label : opt;
+            inputHtml += `<option value="${String(val).replace(/"/g, '&quot;')}">${String(lab).replace(/</g, '&lt;')}</option>`;
+        });
+        inputHtml += `</select>`;
+        inputHtml += `<div id="custom_other_${idx}" style="display:none; margin-top:6px;"><input type="text" id="custom_field_${idx}_other" name="${otherName}" placeholder="${otherPh}" style="${baseStyle}" data-field-name="${otherName}"></div>`;
+        div.innerHTML = label + inputHtml;
+        div.dataset.fieldType = 'select_other';
+        if (req.disabledWhen && req.disabledWhen.field && req.disabledWhen.value) {
+            const wrap = document.createElement('div');
+            wrap.dataset.disabledWhenField = req.disabledWhen.field;
+            wrap.dataset.disabledWhenValue = req.disabledWhen.value;
+            wrap.dataset.disabledWhenDisplay = req.disabledWhen.display || 'Provided by Customer';
+            const readonlyDiv = document.createElement('div');
+            readonlyDiv.className = 'pos-disabled-when-display';
+            readonlyDiv.style.cssText = 'display:none; padding:10px 12px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; color:#64748b;';
+            readonlyDiv.innerHTML = reqLabel + ': <strong style="color:#475569;">' + (req.disabledWhen.display || 'Provided by Customer') + '</strong>';
+            wrap.appendChild(div);
+            wrap.appendChild(readonlyDiv);
+            container.appendChild(wrap);
+            return wrap;
+        }
+    } else if (req.type === 'select') {
+        inputHtml = `<select id="custom_field_${idx}" name="${reqName}" style="${baseStyle}" data-field-name="${reqName}">`;
+        inputHtml += `<option value="">Select...</option>`;
+        const opts = req.options || [];
+        opts.forEach(opt => {
+            const val = (typeof opt === 'object' && opt !== null && 'value' in opt) ? opt.value : opt;
+            const lab = (typeof opt === 'object' && opt !== null && 'label' in opt) ? opt.label : opt;
+            inputHtml += `<option value="${String(val).replace(/"/g, '&quot;')}">${String(lab).replace(/</g, '&lt;')}</option>`;
+        });
+        inputHtml += `</select>`;
+        div.innerHTML = label + inputHtml;
+    } else if (req.type === 'file') {
+        inputHtml = `<input type="file" id="custom_field_${idx}" name="${reqName}" accept="${(req.accept || '').replace(/"/g, '&quot;')}" style="${baseStyle}" data-field-name="${reqName}">`;
+        div.innerHTML = label + inputHtml;
+    } else if (req.type === 'date') {
+        const minDate = new Date().toISOString().split('T')[0];
+        inputHtml = `<input type="date" id="custom_field_${idx}" name="${reqName}" min="${minDate}" style="${baseStyle}" data-field-name="${reqName}">`;
+        div.innerHTML = label + inputHtml;
+    } else {
+        const ph = (req.placeholder || '').replace(/"/g, '&quot;');
+        const st = req.step ? ` step="${req.step}"` : '';
+        const dv = req.defaultValue ? ` value="${String(req.defaultValue).replace(/"/g, '&quot;')}"` : '';
+        inputHtml = `<input type="${req.type || 'text'}" id="custom_field_${idx}" name="${reqName}" placeholder="${ph}"${st}${dv} style="${baseStyle}" data-field-name="${reqName}">`;
+        div.innerHTML = label + inputHtml;
+    }
+    div.dataset.fieldName = reqName;
+    if (req.conditionalOn && req.conditionalOn.field && req.conditionalOn.value) {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'none';
+        wrap.dataset.conditionalField = req.conditionalOn.field;
+        wrap.dataset.conditionalValue = req.conditionalOn.value;
+        wrap.appendChild(div);
+        container.appendChild(wrap);
+        return wrap;
+    }
+    container.appendChild(div);
+    return div;
+}
+
+function renderReflectorizedDynamicFields(productType) {
+    const dynContainer = document.getElementById('cm-dynamic-product-fields');
+    if (!dynContainer) return;
+    dynContainer.innerHTML = '';
+    posDynamicRequirements = null;
+    if (!productType) return;
+    const refl = serviceRequirements['Reflectorized'];
+    if (!refl || !refl[productType]) return;
+    posDynamicRequirements = refl[productType];
+    const baseStyle = 'width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none;';
+    posDynamicRequirements.forEach((req, i) => {
+        const idx = posDynamicFieldStartIndex + i;
+        renderPosField(dynContainer, req, idx, baseStyle);
+    });
+}
 
 function openCustomModal(product, requirements) {
     pendingCustomProduct = product;
     currentCustomRequirements = requirements;
+    posDynamicRequirements = null;
     
-    document.getElementById('cm-title').textContent = product.product_name + ' Details';
+    const isReflectorized = (product.category === 'Reflectorized' || product.product_name === 'Reflectorized');
+    
+    document.getElementById('cm-title').textContent = (product.product_name || product.name) + ' Details';
     const container = document.getElementById('cm-dynamic-fields');
     container.innerHTML = '';
     
-    requirements.forEach((req, idx) => {
-        const div = document.createElement('div');
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.style.gap = '4px';
-        
-        let label = `<label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">${req.label}</label>`;
-        let inputHtml = '';
-        
-        const baseClass = 'style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none;"';
-        
-        if (req.type === 'select') {
-            inputHtml = `<select id="custom_field_${idx}" ${baseClass}>`;
-            inputHtml += `<option value="">Select ${req.label}</option>`;
-            req.options.forEach(opt => {
-                inputHtml += `<option value="${opt}">${opt}</option>`;
-            });
-            inputHtml += `</select>`;
-        } else {
-            inputHtml = `<input type="${req.type}" id="custom_field_${idx}" placeholder="${req.placeholder || ''}" ${req.step ? `step="${req.step}"` : ''} ${baseClass}>`;
-        }
-        
-        div.innerHTML = label + inputHtml;
-        container.appendChild(div);
-    });
+    const baseStyle = 'width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none;';
     
-    // Add generic Notes/Instructions field at the end
-    const notesDiv = document.createElement('div');
-    notesDiv.style.display = 'flex';
-    notesDiv.style.flexDirection = 'column';
-    notesDiv.style.gap = '4px';
-    notesDiv.innerHTML = `
-        <label style="font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">Special Instructions</label>
-        <textarea id="custom_notes" rows="2" placeholder="Any additional details..." style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; resize:vertical;"></textarea>
-    `;
-    container.appendChild(notesDiv);
+    requirements.forEach((req, idx) => {
+        const r = typeof req === 'function' ? req() : req;
+        if (r) renderPosField(container, r, idx, baseStyle);
+    });
+    wireUpConditionalFields(container);
+    wireUpDisabledWhenFields(container);
+    if (isReflectorized) {
+        const dynWrap = document.createElement('div');
+        dynWrap.id = 'cm-dynamic-product-fields';
+        dynWrap.style.marginTop = '12px';
+        container.appendChild(dynWrap);
+        const ptSelect = container.querySelector('select[name="product_type"]');
+        if (ptSelect) {
+            ptSelect.addEventListener('change', function() {
+                const val = this.value;
+                renderReflectorizedDynamicFields(val);
+            });
+            if (ptSelect.value) renderReflectorizedDynamicFields(ptSelect.value);
+        }
+    }
     
     document.getElementById('custom-modal-overlay').style.display = 'flex';
 }
@@ -916,37 +1097,171 @@ function closeCustomModal() {
     document.getElementById('custom-modal-overlay').style.display = 'none';
     pendingCustomProduct = null;
     currentCustomRequirements = null;
+    posDynamicRequirements = null;
+}
+function togglePosOtherInput(idx, otherOption, otherName) {
+    const sel = document.getElementById('custom_field_' + idx);
+    const wrap = document.getElementById('custom_other_' + idx);
+    if (sel && wrap) {
+        wrap.style.display = (sel.value === otherOption) ? 'block' : 'none';
+        if (sel.value !== otherOption) {
+            const inp = wrap.querySelector('input');
+            if (inp) inp.value = '';
+        }
+    }
+}
+
+function wireUpConditionalFields(container) {
+    if (!container) return;
+    container.querySelectorAll('[data-conditional-field]').forEach(wrap => {
+        const fieldName = wrap.dataset.conditionalField;
+        const showValue = wrap.dataset.conditionalValue;
+        const parentSelect = container.querySelector('select[name="' + fieldName + '"]');
+        const input = wrap.querySelector('input');
+        if (!parentSelect) return;
+        function sync() {
+            const show = parentSelect.value === showValue;
+            wrap.style.display = show ? 'block' : 'none';
+            if (!show && input) input.value = '';
+        }
+        parentSelect.addEventListener('change', sync);
+        sync();
+    });
+}
+
+function wireUpDisabledWhenFields(container) {
+    if (!container) return;
+    container.querySelectorAll('[data-disabled-when-field]').forEach(wrap => {
+        const fieldName = wrap.dataset.disabledWhenField;
+        const triggerValue = wrap.dataset.disabledWhenValue;
+        const triggerSelect = container.querySelector('select[name="' + fieldName + '"]');
+        const editableChild = wrap.firstElementChild;
+        const readonlyChild = wrap.querySelector('.pos-disabled-when-display');
+        if (!triggerSelect || !editableChild || !readonlyChild) return;
+        function sync() {
+            const disabled = triggerSelect.value === triggerValue;
+            editableChild.style.display = disabled ? 'none' : 'flex';
+            readonlyChild.style.display = disabled ? 'block' : 'none';
+            const sel = editableChild.querySelector('select');
+            const otherWrap = editableChild.querySelector('[id^="custom_other_"]');
+            const otherInp = otherWrap ? otherWrap.querySelector('input') : null;
+            if (sel) sel.disabled = disabled;
+            if (disabled) {
+                if (sel) sel.value = '';
+                if (otherInp) otherInp.value = '';
+                if (otherWrap) otherWrap.style.display = 'none';
+            }
+        }
+        triggerSelect.addEventListener('change', sync);
+        sync();
+    });
+}
+
+function collectRequirementsToCustomization(requirements, startIdx, customization, validation) {
+    if (!requirements) return;
+    requirements.forEach((req, i) => {
+        const resolvedReq = typeof req === 'function' ? req() : req;
+        if (!resolvedReq) return;
+        req = resolvedReq;
+        const idx = startIdx + i;
+        const name = req.name || ('field_' + idx);
+        let val = null;
+        
+        if (req.type === 'dimensions_ft') {
+            const w = document.getElementById(`custom_field_${idx}_0`);
+            const h = document.getElementById(`custom_field_${idx}_1`);
+            if (w && h) {
+                const wv = w.value, hv = h.value;
+                if (req.required && (!wv || !hv)) validation.valid = false;
+                if (wv) customization['width'] = wv;
+                if (hv) customization['height'] = hv;
+            }
+            return;
+        }
+        if (req.type === 'select_other') {
+            const sel = document.getElementById(`custom_field_${idx}`);
+            const other = document.getElementById(`custom_field_${idx}_other`);
+            const otherOpt = req.otherOption || 'Others';
+            if (req.disabledWhen && req.disabledWhen.field) {
+                const overlay = document.getElementById('custom-modal-overlay');
+                const trigger = overlay ? overlay.querySelector('select[name="' + req.disabledWhen.field + '"]') : null;
+                if (trigger && trigger.value === req.disabledWhen.value) {
+                    customization[name] = 'Provided by Customer';
+                    return;
+                }
+            }
+            if (sel) {
+                val = sel.value;
+                if (val === otherOpt && other && other.value) {
+                    val = other.value;
+                } else if (val === otherOpt && req.required) {
+                    validation.valid = false;
+                    return;
+                }
+                if (req.required && !val) validation.valid = false;
+                if (val) customization[name] = val;
+            }
+            return;
+        }
+        
+        const el = document.getElementById(`custom_field_${idx}`);
+        if (!el) return;
+        val = el.value;
+        if (req.type === 'file' && el.files && el.files.length > 0) {
+            val = el.files[0].name;
+        }
+        if (req.required && !val) validation.valid = false;
+        if (val) customization[name] = val;
+    });
 }
 
 function confirmCustomization() {
     if (!pendingCustomProduct || !currentCustomRequirements) return;
     
     const customization = {};
-    let valid = true;
+    const validation = { valid: true };
     
-    currentCustomRequirements.forEach((req, idx) => {
-        const val = document.getElementById(`custom_field_${idx}`).value;
-        if (!val && req.type !== 'text') { // Basic validation
-            valid = false;
+    collectRequirementsToCustomization(currentCustomRequirements, 0, customization, validation);
+    if (posDynamicRequirements) {
+        collectRequirementsToCustomization(posDynamicRequirements, posDynamicFieldStartIndex, customization, validation);
+    }
+    
+    if (pendingCustomProduct.category === 'Reflectorized' || pendingCustomProduct.product_name === 'Reflectorized') {
+        customization.service_type = 'Reflectorized Signage';
+        if (!customization.product_type) {
+            validation.valid = false;
         }
-        customization[req.label] = val;
-    });
+        if (customization.product_type === 'Custom Reflectorized Sign' && customization.dimensions) {
+            customization.unit = customization.unit || 'in';
+        }
+        if (customization.product_type === 'Plate Number / Temporary Plate' && !customization.temp_plate_text) {
+            customization.temp_plate_text = 'TEMPORARY PLATE';
+        }
+    }
     
-    const notes = document.getElementById('custom_notes').value;
-    if (notes) customization['Notes'] = notes;
+    if (!validation.valid) {
+        alert('Please complete all required fields before proceeding.');
+        return;
+    }
     
-    // Check if exactly this item exists WITH SAME CUSTOMIZATION
+    const price = parseFloat(pendingCustomProduct.price) || 0;
+    if (price === 0) {
+        closeCustomModal();
+        openPriceModal(pendingCustomProduct, false, customization);
+        return;
+    }
+    
     const customString = JSON.stringify(customization);
-    const existing = cart.find(i => i.product_id === pendingCustomProduct.product_id && i.price === parseFloat(pendingCustomProduct.price) && JSON.stringify(i.customization) === customString);
+    const existing = cart.find(i => i.product_id === pendingCustomProduct.product_id && i.price === price && JSON.stringify(i.customization) === customString);
     
-    if(existing) {
-        if(existing.qty < pendingCustomProduct.stock_quantity || pendingCustomProduct.stock_quantity === null) existing.qty++;
+    if (existing) {
+        if (existing.stock === null || existing.qty < existing.stock) existing.qty++;
         else alert('Not enough stock!');
     } else {
         cart.push({
             product_id: pendingCustomProduct.product_id,
-            name: pendingCustomProduct.product_name,
-            price: parseFloat(pendingCustomProduct.price),
+            name: pendingCustomProduct.product_name || pendingCustomProduct.name,
+            price: price,
             qty: 1,
             stock: pendingCustomProduct.stock_quantity,
             customization: customization
@@ -959,14 +1274,16 @@ function confirmCustomization() {
 
 let pendingProduct = null;
 let isOtherService = false;
+let pendingCustomization = null;
 
-function openPriceModal(p, isOther = false) {
+function openPriceModal(p, isOther = false, customization = null) {
     pendingProduct = p;
     isOtherService = isOther;
+    pendingCustomization = customization || null;
     
     document.getElementById('pm-title').textContent = isOther ? 'Custom Service' : 'Set Service Price';
     document.getElementById('pm-name-group').style.display = isOther ? 'block' : 'none';
-    document.getElementById('pm-name-input').value = isOther ? '' : p.product_name;
+    document.getElementById('pm-name-input').value = isOther ? '' : (p.product_name || p.name || '');
     document.getElementById('pm-price-input').value = p.price > 0 ? p.price : '';
     document.getElementById('price-modal-overlay').style.display = 'flex';
     
@@ -978,17 +1295,43 @@ function closePriceModal() {
     document.getElementById('price-modal-overlay').style.display = 'none';
     pendingProduct = null;
     isOtherService = false;
+    pendingCustomization = null;
 }
 
 function confirmPrice() {
     const name = document.getElementById('pm-name-input').value.trim();
     const price = parseFloat(document.getElementById('pm-price-input').value);
     
-    if(isOtherService && !name) return alert('Please enter a service name.');
-    if(isNaN(price) || price < 0) return alert('Please enter a valid price.');
+    if (isOtherService && !name) return alert('Please enter a service name.');
+    if (isNaN(price) || price < 0) return alert('Please enter a valid price.');
     
-    addToCart(pendingProduct, price, name);
+    addToCartWithCustomization(pendingProduct, price, name, pendingCustomization);
     closePriceModal();
+}
+
+function addToCartWithCustomization(p, price, name, customization) {
+    const itemName = name || p.product_name || p.name;
+    const existing = cart.find(i => i.product_id === p.product_id && i.name === itemName && i.price === price && JSON.stringify(i.customization || {}) === JSON.stringify(customization || {}));
+    if (existing) {
+        if (existing.stock === null || existing.qty < existing.stock) existing.qty++;
+        else alert('Not enough stock!');
+    } else {
+        cart.push({
+            product_id: p.product_id,
+            name: itemName,
+            price: price,
+            qty: 1,
+            stock: p.stock_quantity,
+            customization: customization || null
+        });
+    }
+    renderCart();
+}
+
+function setActiveService(btn) {
+    document.querySelectorAll('.pos-services-grid .service-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    setTimeout(() => btn && btn.classList.remove('active'), 400);
 }
 
 function addQuickService(serviceName) {
@@ -1168,7 +1511,7 @@ async function processCheckout() {
         customer_id: document.getElementById('pos-customer').value,
         payment_method: document.getElementById('pos-active-pm').value,
         amount_tendered: document.getElementById('pos-tendered').value || currentTotal,
-        items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price, customization: i.customization || null }))
+        items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price, name: i.name || null, customization: i.customization || null }))
     };
     
     try {
@@ -1238,6 +1581,16 @@ async function saveCustomer() {
         document.getElementById('nc-save-btn').textContent = 'Save Customer';
     }
 }
+
+// Expose key handlers globally for reliability (Turbo/SPA compatibility)
+window.confirmCustomization = confirmCustomization;
+window.closeCustomModal = closeCustomModal;
+window.confirmPrice = confirmPrice;
+window.closePriceModal = closePriceModal;
+window.processCheckout = processCheckout;
+window.addQuickService = addQuickService;
+window.addToCart = addToCart;
+window.togglePosOtherInput = togglePosOtherInput;
 </script>
 
 </body>
