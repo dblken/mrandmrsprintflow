@@ -6,7 +6,8 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-require_role(['Admin', 'Staff']);
+if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+require_role(['Admin', 'Staff', 'Manager']);
 $page_title = 'Customizations - PrintFlow';
 
 // Get statistics for KPIs (include both job_orders and regular orders pending review)
@@ -150,10 +151,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body x-data="joManager('ALL')">
+<body x-data="joManager('ALL')" data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
 <div class="dashboard-container">
     <?php 
-    if ($_SESSION['user_type'] === 'Staff') {
+    if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'])) {
         include __DIR__ . '/../includes/staff_sidebar.php';
     } else {
         include __DIR__ . '/../includes/admin_sidebar.php';
@@ -380,14 +381,39 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </div>
 
+                    <!-- Dynamic Order Details (service-specific fields from customization_data) -->
+                    <template x-if="currentJo.items && currentJo.items.length > 0">
+                        <div style="margin-bottom:20px; padding:16px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
+                            <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:12px;">Order Details (Customer Specifications)</label>
+                            <template x-for="(item, idx) in currentJo.items" :key="item.order_item_id || idx">
+                                <div style="margin-bottom:16px; padding:12px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
+                                    <div style="font-size:13px; font-weight:700; color:#1f2937; margin-bottom:10px;" x-text="item.product_name + ' × ' + item.quantity"></div>
+                                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
+                                        <template x-for="([k, v]) in getDisplayableCustom(item.customization)" :key="k">
+                                            <div style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; background:#fff; min-width:0; overflow-wrap:break-word;">
+                                                <div style="font-size:10px; font-weight:600; color:#6b7280; text-transform:uppercase; margin-bottom:2px;" x-text="getCustomLabel(k)"></div>
+                                                <div style="font-size:12px; font-weight:500; color:#1f2937; word-break:break-word; overflow-wrap:break-word;" x-text="typeof v === 'object' ? JSON.stringify(v) : v"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <template x-if="item.design_url">
+                                        <div style="margin-top:10px;">
+                                            <a :href="item.design_url" target="_blank" rel="noopener" style="font-size:12px; color:#4f46e5; font-weight:600;">View Upload Design →</a>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
                     <!-- Notes -->
                     <div style="margin-bottom:20px;">
                         <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:6px;">Production Notes</label>
-                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;font-style:italic;" x-text="currentJo.notes || 'No instructions provided.'"></div>
+                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;font-style:italic;word-break:break-word;overflow-wrap:break-word;" x-text="currentJo.notes || (currentJo.items && currentJo.items[0] && (currentJo.items[0].customization?.notes || currentJo.items[0].customization?.additional_notes)) || 'No instructions provided.'"></div>
                     </div>
 
                     <!-- Payment Proof Section -->
-                    <template x-if="currentJo.payment_proof_status && currentJo.payment_proof_status !== 'NONE'">
+                    <template x-if="currentJo.status === 'VERIFY_PAY' && currentJo.payment_proof_status && currentJo.payment_proof_status !== 'NONE'">
                         <div style="margin-bottom:20px; padding:16px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:12px;">Payment Proof</label>
                             
@@ -442,6 +468,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     </template>
 
                     <!-- Materials -->
+                    <template x-if="currentJo.status === 'APPROVED' || (currentJo.materials && currentJo.materials.length > 0)">
                     <div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin:0;">Production Materials</label>
@@ -477,8 +504,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                         <div>
                                             <select x-model="newMaterialId" @change="newMaterialId = $event.target.value; newMaterialRollId = ''; availableRollsList = []; if(isRollTracked(newMaterialId)) loadAvailableRolls(newMaterialId);" style="width:100%; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:white;">
                                                 <option value="">-- Select Material / Item --</option>
-                                                <template x-for="item in allInventoryItems" :key="item.id">
-                                                    <option :value="item.id" x-text="item.name"></option>
+                                                <template x-for="item in availableMaterialsForCurrentOrder" :key="item.id">
+                                                    <option :value="item.id" x-text="`${item.name} (${item.current_stock} ${item.unit_of_measure} available)`"></option>
                                                 </template>
                                             </select>
                                         </div>
@@ -663,6 +690,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             </template>
                         </div>
                     </div>
+                    </template>
 
                     <template x-if="currentJo.ink_usage && currentJo.ink_usage.length > 0">
                         <div style="margin-top:16px;">
@@ -711,7 +739,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     <!-- Left: Status actions -->
                     <div style="display:flex;gap:8px; flex-wrap:wrap;">
                         <template x-if="currentJo.status === 'PENDING'">
-                            <button @click="updateStatus(currentJo.id, 'APPROVED'); showDetailsModal = false;" class="btn-action blue">✓ Approve</button>
+                            <button @click.prevent="await updateStatus(currentJo.id, 'APPROVED'); showDetailsModal = false;" class="btn-action blue">✓ Approve</button>
                         </template>
                         <template x-if="currentJo.status === 'APPROVED'">
                             <button @click="submitToPay()" class="btn-action amber">💰 Set Price & Request Payment</button>
@@ -723,14 +751,14 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <button @click="verifyPayment()" class="btn-action emerald">✓ Verify Payment & Start Production</button>
                         </template>
                         <template x-if="currentJo.status === 'IN_PRODUCTION'">
-                            <button @click="updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">📦 Mark Ready for Pickup</button>
+                            <button @click.prevent="await updateStatus(currentJo.id, 'TO_RECEIVE'); showDetailsModal = false;" class="btn-action amber">📦 Mark Ready for Pickup</button>
                         </template>
                         <template x-if="currentJo.status === 'TO_RECEIVE'">
-                            <button @click="completeOrder(currentJo.id); showDetailsModal = false;" class="btn-action emerald">✓ Mark Complete</button>
+                            <button @click.prevent="await completeOrder(currentJo.id); showDetailsModal = false;" class="btn-action emerald">✓ Mark Complete</button>
                         </template>
 
                         <template x-if="currentJo.status !== 'CANCELLED' && currentJo.status !== 'COMPLETED'">
-                            <button @click="updateStatus(currentJo.id, 'CANCELLED'); showDetailsModal = false;" class="btn-action red">✕ Cancel</button>
+                            <button @click.prevent="await updateStatus(currentJo.id, 'CANCELLED'); showDetailsModal = false;" class="btn-action red">✕ Cancel</button>
                         </template>
                     </div>
                     <!-- Right: Close -->
@@ -781,10 +809,71 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 'L130': { 'BLUE': 32, 'RED': 33, 'BLACK': 34, 'YELLOW': 35 }
             },
 
+            customFieldLabels: {
+                size: 'Size', color: 'Color', shirt_color: 'Color', print_placement: 'Placement',
+                design_type: 'Design Type', template: 'Template', width: 'Width (ft)', height: 'Height (ft)',
+                finish: 'Finish', with_eyelets: 'Eyelets', shape: 'Shape', waterproof: 'Waterproof',
+                lamination: 'Lamination', laminate_option: 'Lamination Option', layout: 'Layout',
+                dimensions: 'Dimensions', needed_date: 'Needed Date', notes: 'Notes', additional_notes: 'Notes',
+                tshirt_provider: 'T-Shirt Provider', shirt_source: 'Shirt Source', brand: 'Brand',
+                material: 'Material', surface_application: 'Surface', surface_type: 'Surface Type',
+                sintraboard_thickness: 'Thickness', is_standee: 'Standee', sticker_type: 'Sticker Type',
+                cut_type: 'Cut Type', thickness: 'Thickness', installation_fee: 'Installation Fee'
+            },
+            customFieldSkip: ['design_upload','reference_upload','Branch_ID','service_type','product_type','unit','design_upload_path','notes','additional_notes'],
+            getDisplayableCustom(custom) {
+                if (!custom || typeof custom !== 'object') return [];
+                const skip = this.customFieldSkip;
+                return Object.entries(custom).filter(([k, v]) =>
+                    v !== '' && v != null && !skip.includes(k) && !String(k).startsWith('install_')
+                );
+            },
+            getCustomLabel(k) {
+                return this.customFieldLabels[k] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            },
+
+            get availableMaterialsForCurrentOrder() {
+                if (!this.currentJo || !this.allInventoryItems) return [];
+                
+                const service = String(this.currentJo.service_type || this.currentJo.job_title || '').toUpperCase();
+                
+                return this.allInventoryItems.filter(item => {
+                    // MUST HAVE STOCK > 0
+                    const stock = parseFloat(item.current_stock || 0);
+                    if (stock <= 0) return false;
+
+                    const cat = String(item.category_name || '').toUpperCase();
+                    const name = String(item.name || '').toUpperCase();
+
+                    // FILTER BASED ON ORDER TYPE
+                    if (service.includes('T-SHIRT') || service.includes('SHIRT')) {
+                        return cat.includes('VINYL') || cat.includes('INK') || cat.includes('HEAT TRANSFER') || cat.includes('APPAREL') || name.includes('SHIRT');
+                    } else if (service.includes('TARPAULIN')) {
+                        return cat.includes('TARPAULIN') || cat.includes('INK') || cat.includes('EYELET') || name.includes('GLUE') || name.includes('ROPE');
+                    } else if (service.includes('STICKER') || service.includes('DECAL')) {
+                        return cat.includes('STICKER') || cat.includes('VINYL') || cat.includes('INK') || cat.includes('LAMINATE') || name.includes('LAMINATION');
+                    } else if (service.includes('SINTRA') || service.includes('STANDEE')) {
+                        return cat.includes('SINTRA') || cat.includes('FOAM') || cat.includes('STICKER') || cat.includes('INK') || cat.includes('STAND');
+                    } else if (service.includes('REFLECT') || service.includes('SIGN')) {
+                        return cat.includes('REFLECT') || cat.includes('STICKER') || cat.includes('ACRYLIC') || cat.includes('INK') || cat.includes('SINTRA');
+                    } else if (service.includes('GLASS') || service.includes('WALL') || service.includes('FROSTED')) {
+                        return cat.includes('STICKER') || cat.includes('FROSTED') || cat.includes('INK') || cat.includes('INSTALL');
+                    }
+                    
+                    // Fallback to true if no service string matched cleanly, but still filtered strictly by > 0 stock
+                    return true;
+                });
+            },
+
             async init() {
                 await this.loadOrders();
                 await this.loadMachines();
                 await this.loadAllInventoryItems();
+                // Auto-open modal if order_id is in URL (e.g. from staff/orders.php "Manage" link)
+                const orderId = new URLSearchParams(window.location.search).get('order_id');
+                if (orderId) {
+                    await this.viewDetails(parseInt(orderId, 10));
+                }
             },
 
             async loadOrders() {
@@ -841,36 +930,59 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
                 this.currentJo = {};
+                const orderId = parseInt(id, 10);
+                const order = this.orders.find(o => o.id == orderId);
+                const orderType = order?.order_type || null;
+                const base = document.body.getAttribute('data-base-url') || '/printflow';
                 
-                // Find the order from local data to check its type
-                const order = this.orders.find(o => o.id === id);
-                const orderType = order?.order_type || 'JOB';
-                
-                let res;
-                if (orderType === 'ORDER') {
-                    // For regular orders, display limited details (no materials/inks for now)
-                    this.loadingDetails = false;
-                    this.currentJo = order;
-                    this.jobPriceInput = this.currentJo.estimated_total || 0;
-                    // Regular orders don't have materials, so skip loading
-                } else {
-                    // For job orders, fetch full details from API
-                    res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${id}`)).json();
-                    this.loadingDetails = false;
-                    if(res.success) {
-                        this.currentJo = res.data;
-                        this.jobPriceInput = this.currentJo.estimated_total || 0;
-                        this.resetMaterialForm();
-                        this.resetInkForm();
-                        // Auto-load available rolls for relevant materials
-                        for(const m of this.currentJo.materials || []) {
-                            if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
+                const tryRegular = async () => {
+                    try {
+                        const r = await fetch(`${base}/staff/get_order_for_modal.php?id=${orderId}`, { credentials: 'same-origin' });
+                        const j = await r.json();
+                        if (j.success && j.data) {
+                            this.loadingDetails = false;
+                            this.currentJo = j.data;
+                            this.jobPriceInput = this.currentJo.estimated_total || 0;
+                            return true;
                         }
-                    } else {
-                        this.showDetailsModal = false;
-                        alert(res.error || 'Could not load job details.');
+                        return false;
+                    } catch (e) {
+                        console.warn('get_order_for_modal failed:', e);
+                        return false;
                     }
+                };
+                const tryJobOrder = async () => {
+                    try {
+                        const r = await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${orderId}`, { credentials: 'same-origin' });
+                        const j = await r.json();
+                        if (j.success && j.data) {
+                            this.loadingDetails = false;
+                            this.currentJo = j.data;
+                            this.jobPriceInput = this.currentJo.estimated_total || 0;
+                            this.resetMaterialForm();
+                            this.resetInkForm();
+                            for (const m of this.currentJo.materials || []) {
+                                if (m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
+                            }
+                            return true;
+                        }
+                        return false;
+                    } catch (e) {
+                        console.warn('get_order (job) failed:', e);
+                        return false;
+                    }
+                };
+                
+                if (orderType === 'JOB') {
+                    if (await tryJobOrder()) return;
+                } else {
+                    if (await tryRegular()) return;
+                    if (await tryJobOrder()) return;
                 }
+                
+                this.loadingDetails = false;
+                this.showDetailsModal = false;
+                alert('Order not found.');
             },
 
             isOverdue(date) {
@@ -910,21 +1022,44 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             },
 
             async updateStatus(id, status, machineId = null) {
-                const fd = new FormData();
-                fd.append('action', 'update_status');
-                fd.append('id', id);
-                fd.append('status', status);
-                if(machineId) fd.append('machine_id', machineId);
-                
-                const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
-                if(res.success) {
-                    await this.loadOrders();
-                    // If we were viewing details, refresh them
-                    if (this.currentJo.id === id) {
-                        await this.viewDetails(id);
+                try {
+                    const base = document.body.getAttribute('data-base-url') || '/printflow';
+                    const csrf = document.body.getAttribute('data-csrf') || '';
+                    
+                    if (this.currentJo.order_type === 'ORDER') {
+                        const fd = new FormData();
+                        fd.append('order_id', id);
+                        fd.append('status', status);
+                        fd.append('csrf_token', csrf);
+                        const response = await fetch(`${base}/staff/api_update_order_status.php`, { method: 'POST', body: fd, credentials: 'same-origin' });
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const res = await response.json();
+                        if (res.success) {
+                            await this.loadOrders();
+                            this.activeStatus = status;
+                        } else {
+                            alert(res.error || 'Failed to update order.');
+                        }
+                        return;
                     }
-                } else {
-                    alert(res.error);
+                    
+                    const fd = new FormData();
+                    fd.append('action', 'update_status');
+                    fd.append('id', id);
+                    fd.append('status', status);
+                    if (machineId) fd.append('machine_id', machineId);
+                    const response2 = await fetch(`${base}/admin/job_orders_api.php`, { method: 'POST', body: fd, credentials: 'same-origin' });
+                    if (!response2.ok) throw new Error(`HTTP error! status: ${response2.status}`);
+                    const res = await response2.json();
+                    if (res.success) {
+                        await this.loadOrders();
+                        this.activeStatus = status;
+                    } else {
+                        alert(res.error || 'Failed to update order.');
+                    }
+                } catch (error) {
+                    console.error('Update status error:', error);
+                    alert('An unexpected error occurrred while updating status. Check console for details.');
                 }
             },
 
@@ -1012,6 +1147,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     const fd = new FormData();
                     fd.append('action', 'add_material');
                     fd.append('order_id', this.currentJo.id);
+                    fd.append('order_type', this.currentJo.order_type || 'JOB');
                     fd.append('item_id', pm.item_id);
                     fd.append('quantity', pm.qty);
                     fd.append('uom', pm.uom);
@@ -1042,6 +1178,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         const fdInk = new FormData();
                         fdInk.append('action', 'save_ink_usage');
                         fdInk.append('order_id', this.currentJo.id);
+                        fdInk.append('order_type', this.currentJo.order_type || 'JOB');
                         fdInk.append('ink_data', JSON.stringify(inkPayload));
 
                         const resInk = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fdInk })).json();

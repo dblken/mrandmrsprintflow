@@ -1,0 +1,77 @@
+--- job_order_materials ---
+  id | bigint | NO | PRI
+  job_order_id | bigint | YES | MUL
+  std_order_id | int | YES | MUL
+  item_id | int | NO | MUL
+  roll_id | int | YES | MUL
+  quantity | decimal(10,2) | NO | 
+  uom | varchar(20) | NO | 
+  computed_required_length_ft | decimal(10,2) | YES | 
+  unit_cost_at_assignment | decimal(12,2) | YES | 
+  notes | text | YES | 
+  metadata | json | YES | 
+  deducted_at | datetime | YES | 
+--- job_orders ---
+  id | bigint | NO | PRI
+  order_id | int | YES | MUL
+  customer_id | int | YES | MUL
+  order_item_id | int | YES | 
+  branch_id | int | YES | MUL
+  job_title | varchar(150) | YES | 
+  customer_name | varchar(120) | YES | 
+  service_type | enum('Tarpaulin Printing','T-shirt Printing','Decals/Stickers (Print/Cut)','Glass Stickers / Wall / Frosted Stickers','Transparent Stickers','Layouts','Reflectorized (Subdivision Stickers/Signages)','Stickers on Sintraboard','Sintraboard Standees','Souvenirs') | NO | 
+  status | enum('PENDING','APPROVED','TO_PAY','IN_PRODUCTION','TO_RECEIVE','COMPLETED','CANCELLED') | YES | MUL
+  customer_type | enum('NEW','REGULAR') | YES | 
+  width_ft | decimal(10,2) | YES | 
+  height_ft | decimal(10,2) | YES | 
+  quantity | int | NO | 
+  total_sqft | decimal(10,2) | YES | 
+  price_per_sqft | decimal(10,2) | YES | 
+  price_per_piece | decimal(10,2) | YES | 
+  estimated_total | decimal(12,2) | YES | 
+  amount_paid | decimal(12,2) | NO | 
+  required_payment | decimal(12,2) | NO | 
+  payment_status | enum('UNPAID','PENDING_VERIFICATION','PARTIAL','PAID') | NO | 
+  notes | text | YES | 
+  due_date | datetime | YES | 
+  priority | enum('HIGH','NORMAL','LOW') | YES | 
+  artwork_path | text | YES | 
+  assigned_to | int | YES | 
+  machine_id | int | YES | 
+  created_by | int | YES | 
+  created_at | datetime | NO | 
+  updated_at | datetime | NO | 
+  payment_proof_path | varchar(255) | YES | 
+  payment_method | varchar(50) | YES | 
+  payment_reference | varchar(100) | YES | 
+  payment_submitted_amount | decimal(12,2) | YES | 
+  payment_proof_status | enum('NONE','SUBMITTED','VERIFIED','REJECTED') | YES | 
+  payment_proof_uploaded_at | datetime | YES | 
+  payment_verified_at | datetime | YES | 
+  payment_verified_by | int | YES | 
+  payment_rejection_reason | text | YES | 
+--- orders ---
+  order_id | int | NO | PRI
+  customer_id | int | NO | MUL
+  order_date | timestamp | YES | 
+  updated_at | timestamp | NO | 
+  total_amount | decimal(10,2) | NO | 
+  downpayment_amount | decimal(10,2) | YES | 
+  status | enum('Pending','Pending Review','To Pay','Downpayment Submitted','Processing','Ready for Pickup','Completed','Cancelled','For Revision','Pending Verification','Approved','In Production','Pending Approval','Printing') | YES | 
+  payment_status | enum('Unpaid','Paid','Refunded','Pending Verification') | YES | 
+  payment_method_id | int | YES | MUL
+  payment_reference | varchar(100) | YES | 
+  payment_method | varchar(50) | YES | 
+  payment_proof_path | varchar(255) | YES | 
+  notes | text | YES | 
+  discount_id | int | YES | MUL
+  branch_id | int | NO | MUL
+  cancelled_by | varchar(100) | YES | 
+  cancel_reason | text | YES | 
+  cancelled_at | timestamp | YES | 
+  design_status | varchar(50) | YES | 
+  revision_reason | text | YES | 
+  estimated_completion | date | YES | 
+  payment_type | enum('full_payment','50_percent','upon_pickup') | YES | 
+  payment_proof | varchar(255) | YES | 
+  payment_submitted_at | timestamp | YES | 

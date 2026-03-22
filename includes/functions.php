@@ -852,7 +852,7 @@ function set_setting($key, $value) {
  * @param string $page_param Query param name for page number (default: 'page')
  * @return string HTML string
  */
-function render_pagination($current_page, $total_pages, $extra_params = []) {
+function render_pagination($current_page, $total_pages, $extra_params = [], $page_param = 'page') {
     $current_page = (int)$current_page;
 
     if ($total_pages <= 1) return '';

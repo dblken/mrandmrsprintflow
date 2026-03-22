@@ -1,0 +1,7 @@
+--- job_order_ink_usage ---
+  id | int | NO | PRI
+  job_order_id | bigint | NO | MUL
+  item_id | int | NO | 
+  ink_color | varchar(50) | NO | 
+  quantity_used | decimal(10,4) | NO | 
+  created_at | datetime | YES | 

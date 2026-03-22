@@ -82,7 +82,13 @@ class JobOrderService {
     /**
      * Add a material to a job order with advanced metadata.
      */
-    public static function addMaterial($orderId, $itemId, $qty, $uom, $rollId = null, $notes = '', $metadata = null) {
+    public static function addMaterial($orderId, $itemId, $qty, $uom, $rollId = null, $notes = '', $metadata = null, $orderType = null) {
+        if ($orderType === null) {
+            // Auto-detect based on existence in job_orders table
+            $isJob = db_query("SELECT id FROM job_orders WHERE id = ?", 'i', [$orderId]);
+            $orderType = (!empty($isJob)) ? 'JOB' : 'ORDER';
+        }
+        
         $item = InventoryManager::getItem($itemId);
         if (!$item) throw new Exception("Item not found.");
         
@@ -103,18 +109,20 @@ class JobOrderService {
 
         $metaJson = $metadata ? json_encode($metadata) : null;
 
+        $colId = ($orderType === 'ORDER') ? 'std_order_id' : 'job_order_id';
+
         // Check for duplicates
         if ($rollId) {
-            $exists = db_query("SELECT id FROM job_order_materials WHERE job_order_id = ? AND item_id = ? AND roll_id = ?", 'iii', [$orderId, $itemId, $rollId]);
+            $exists = db_query("SELECT id FROM job_order_materials WHERE $colId = ? AND item_id = ? AND roll_id = ?", 'iii', [$orderId, $itemId, $rollId]);
         } else {
-            $exists = db_query("SELECT id FROM job_order_materials WHERE job_order_id = ? AND item_id = ? AND roll_id IS NULL", 'ii', [$orderId, $itemId]);
+            $exists = db_query("SELECT id FROM job_order_materials WHERE $colId = ? AND item_id = ? AND roll_id IS NULL", 'ii', [$orderId, $itemId]);
         }
         
         if (!empty($exists)) {
             return $exists[0]['id']; // Return existing ID instead of creating duplicate
         }
 
-        $sql = "INSERT INTO job_order_materials (job_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata) 
+        $sql = "INSERT INTO job_order_materials ($colId, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         return db_execute($sql, 'iiidsddss', [$orderId, $itemId, $rollId, $qty, $uom, $computed_len, $cost, $notes, $metaJson]);
     }
@@ -463,17 +471,25 @@ class JobOrderService {
     /**
      * Save Ink Usage for an Order
      */
-    public static function saveInkUsage($orderId, $inkData) {
+    public static function saveInkUsage($orderId, $inkData, $orderType = null) {
         $conn = $GLOBALS['conn'] ?? null;
         if (!$conn) return false;
+
+        if ($orderType === null) {
+            // Auto-detect based on existence in job_orders table
+            $isJob = db_query("SELECT id FROM job_orders WHERE id = ?", 'i', [$orderId]);
+            $orderType = (!empty($isJob)) ? 'JOB' : 'ORDER';
+        }
+
+        $colId = ($orderType === 'ORDER') ? 'std_order_id' : 'job_order_id';
 
         $conn->begin_transaction();
         try {
             // Remove existing ink records for easy replace strategy
-            db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$orderId]);
+            db_execute("DELETE FROM job_order_ink_usage WHERE $colId = ?", 'i', [$orderId]);
 
             if (!empty($inkData) && is_array($inkData)) {
-                $sql = "INSERT INTO job_order_ink_usage (job_order_id, item_id, ink_color, quantity_used) VALUES (?, ?, ?, ?)";
+                $sql = "INSERT INTO job_order_ink_usage ($colId, item_id, ink_color, quantity_used) VALUES (?, ?, ?, ?)";
                 $stmt = $conn->prepare($sql);
                 if ($stmt) {
                     foreach ($inkData as $ink) {
