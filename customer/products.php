@@ -13,8 +13,9 @@ require_role('Customer');
 $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
-// Build query - include variant count to know if we can add directly
-$sql = "SELECT p.*, (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count FROM products p WHERE p.status = 'Activated' AND p.product_type = 'fixed'";
+// Build query — match admin catalog for customers: show all Activated products (fixed + custom).
+// Deactivated / Archived are excluded so only “live” admin rows appear here.
+$sql = "SELECT p.*, (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count FROM products p WHERE p.status = 'Activated'";
 $params = [];
 $types = '';
 
@@ -38,7 +39,7 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 // Count total items for pagination
-$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated' AND product_type = 'fixed'";
+$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated'";
 $count_params = [];
 $count_types = '';
 
@@ -94,9 +95,14 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="ct-product-grid">
                 <?php foreach ($products as $product): 
-                    // Try to use photo_path from database first (new method)
+                    // Prefer admin-uploaded photo_path, then legacy product_image, then files on disk
                     $display_img = "";
-                    if (!empty($product['product_image'])) {
+                    if (!empty($product['photo_path'])) {
+                        $display_img = $product['photo_path'];
+                        if ($display_img !== '' && $display_img[0] !== '/') {
+                            $display_img = '/' . ltrim($display_img, '/');
+                        }
+                    } elseif (!empty($product['product_image'])) {
                         $display_img = $product['product_image'];
                     } else {
                         // Fall back to old method of checking public/images/products directory

@@ -17,9 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($layout_type) || empty($needed_date)) {
         $error = 'Please select type of layout and provide needed date.';
     } else {
-        $tmp_dir = __DIR__ . '/../uploads/temp';
-        if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
-        
+        $tmp_dir = service_order_temp_dir();
         $tmp_path = null;
         $mime = null;
         $design_name = null;
@@ -30,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db_data = file_get_contents($_FILES['reference_file']['tmp_name']);
                 $ext = pathinfo($_FILES['reference_file']['name'], PATHINFO_EXTENSION);
                 $tmp_filename = uniqid('layout_') . '.' . $ext;
-                $tmp_path = $tmp_dir . '/' . $tmp_filename;
+                $tmp_path = $tmp_dir . DIRECTORY_SEPARATOR . $tmp_filename;
                 file_put_contents($tmp_path, $db_data);
                 
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);

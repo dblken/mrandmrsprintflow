@@ -136,7 +136,7 @@ class InventoryManager {
                     $msg = "Low stock: {$item['name']} is at {$newSoh} {$item['unit_of_measure']} (reorder at {$item['reorder_level']})";
                     $admins = db_query("SELECT user_id FROM users WHERE user_type IN ('Admin','Manager') AND status = 'Activated'", '', []);
                     foreach ((array)$admins as $u) {
-                        create_notification((int)$u['user_id'], 'Admin', $msg, 'Inventory', false, false, $itemId);
+                        create_notification((int)$u['user_id'], 'Admin', $msg, 'Stock', false, false, $itemId);
                     }
                 }
             }

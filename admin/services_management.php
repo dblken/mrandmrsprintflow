@@ -4,11 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/ensure_services_table.php';
+require_once __DIR__ . '/../includes/customer_service_catalog.php';
 
 require_role(['Admin', 'Manager']);
-
-ensure_services_table();
 
 $current_user = get_logged_in_user();
 $error = '';
@@ -30,11 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $category = sanitize($_POST['category'] ?? '');
         $description = sanitize($_POST['description'] ?? '');
-        $price = (float)($_POST['price'] ?? 0);
-        $durRaw = trim($_POST['duration'] ?? '');
-        $duration = $durRaw === '' ? null : sanitize($durRaw);
-        $statusRaw = trim((string)($_POST['status'] ?? ''));
+        $price = 1.0;
+        $statusRaw = trim((string) ($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
+        $customer_link = sanitize(trim((string) ($_POST['customer_link'] ?? '')));
+        $hero_image = sanitize(trim((string) ($_POST['hero_image'] ?? '')));
+        $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($name === '') {
             $error = 'Service name is required.';
@@ -44,15 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Please select a category.';
         } elseif (strlen($description) > 2000) {
             $error = 'Description must not exceed 2000 characters.';
-        } elseif ($price <= 0 || $price > 1000000) {
-            $error = $price <= 0 ? 'Base price must be greater than 0.' : 'Base price must not exceed ₱1,000,000.00.';
+        } elseif (strlen($customer_modal_text) > 2000) {
+            $error = 'Customer modal message must not exceed 2000 characters.';
         } elseif (service_name_exists($name, 0)) {
             $error = 'A service with this name already exists.';
         } else {
             $result = db_execute(
-                "INSERT INTO services (name, category, description, price, duration, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                'sss' . 'd' . 'ss',
-                [$name, $category, $description, $price, $duration, $status]
+                'INSERT INTO services (name, category, description, price, duration, status, visible_to_customer, customer_link, hero_image, customer_modal_text, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, 1, ?, ?, ?, NOW(), NOW())',
+                'sss' . 'd' . 's' . 'sss',
+                [$name, $category, $description, $price, $status, $customer_link, $hero_image, $customer_modal_text]
             );
             if ($result) {
                 $success = 'Service created successfully';
@@ -66,11 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $category = sanitize($_POST['category'] ?? '');
         $description = sanitize($_POST['description'] ?? '');
-        $price = (float)($_POST['price'] ?? 0);
-        $durRaw = trim($_POST['duration'] ?? '');
-        $duration = $durRaw === '' ? null : sanitize($durRaw);
-        $statusRaw = trim((string)($_POST['status'] ?? ''));
+        $price = 1.0;
+        $statusRaw = trim((string) ($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
+        $customer_link = sanitize(trim((string) ($_POST['customer_link'] ?? '')));
+        $hero_image = sanitize(trim((string) ($_POST['hero_image'] ?? '')));
+        $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($service_id < 1) {
             $error = 'Invalid service.';
@@ -82,15 +82,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Please select a category.';
         } elseif (strlen($description) > 2000) {
             $error = 'Description must not exceed 2000 characters.';
-        } elseif ($price <= 0 || $price > 1000000) {
-            $error = $price <= 0 ? 'Base price must be greater than 0.' : 'Base price must not exceed ₱1,000,000.00.';
+        } elseif (strlen($customer_modal_text) > 2000) {
+            $error = 'Customer modal message must not exceed 2000 characters.';
         } elseif (service_name_exists($name, $service_id)) {
             $error = 'A service with this name already exists.';
         } else {
             $result = db_execute(
-                "UPDATE services SET name = ?, category = ?, description = ?, price = ?, duration = ?, status = ?, updated_at = NOW() WHERE service_id = ?",
-                'sss' . 'd' . 'ssi',
-                [$name, $category, $description, $price, $duration, $status, $service_id]
+                'UPDATE services SET name = ?, category = ?, description = ?, price = ?, duration = NULL, status = ?, customer_link = ?, hero_image = ?, customer_modal_text = ?, updated_at = NOW() WHERE service_id = ?',
+                'sss' . 'd' . 's' . 'ss' . 's' . 'i',
+                [$name, $category, $description, $price, $status, $customer_link, $hero_image, $customer_modal_text, $service_id]
             );
             if ($result) {
                 $success = 'Service updated successfully';
@@ -140,11 +140,11 @@ if (isset($_GET['get_archived'])) {
             $html .= '<td style="font-weight:500; max-width:300px; word-break: break-word;">' . htmlspecialchars($s['name']) . '</td>';
             $html .= '<td>' . htmlspecialchars($s['category'] ?? '—') . '</td>';
             $html .= '<td style="text-align:right;white-space:nowrap;">';
-            $html .= '<form method="POST" class="inline service-status-form" style="display:inline-block;margin-right:4px;" data-action="Restore" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
+            $html .= '<form method="POST" class="inline service-status-form" data-pf-skip-guard style="display:inline-block;margin-right:4px;" data-action="Restore" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
             $html .= '<button type="submit" name="restore_service" class="btn-action teal">Restore</button></form>';
-            $html .= '<form method="POST" class="inline service-status-form" style="display:inline-block;" data-action="Delete Permanently" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
+            $html .= '<form method="POST" class="inline service-status-form" data-pf-skip-guard style="display:inline-block;" data-action="Delete Permanently" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
             $html .= '<button type="submit" name="delete_service" class="btn-action red">Delete</button></form>';
@@ -162,7 +162,7 @@ $per_page = 10;
 $search = trim($_GET['search'] ?? '');
 $cat_filter = $_GET['category'] ?? '';
 $status_filter = $_GET['status'] ?? '';
-$sort_by = $_GET['sort'] ?? 'newest';
+$sort_by = $_GET['sort'] ?? 'az';
 $date_from = $_GET['date_from'] ?? '';
 $date_to = $_GET['date_to'] ?? '';
 
@@ -230,23 +230,19 @@ function render_services_table_rows(array $services): void {
                 <th>ID</th>
                 <th>Service Name</th>
                 <th>Category</th>
-                <th>Base Price</th>
-                <th>Est. Duration</th>
                 <th>Status</th>
                 <th style="text-align:right;">Actions</th>
             </tr>
         </thead>
         <tbody id="servicesTableBody">
             <?php if (empty($services)): ?>
-                <tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No services found.</td></tr>
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No services found.</td></tr>
             <?php else: ?>
                 <?php foreach ($services as $svc): ?>
                     <tr onclick="openViewModal(<?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)">
                         <td style="color:#1f2937;"><?php echo (int)$svc['service_id']; ?></td>
                         <td style="font-weight:500;color:#1f2937;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($svc['name']); ?></td>
                         <td><?php echo htmlspecialchars($svc['category'] ?? '—'); ?></td>
-                        <td style="font-weight:600;white-space:nowrap;">₱<?php echo number_format((float)$svc['price'], 2); ?></td>
-                        <td style="color:#6b7280;"><?php echo $svc['duration'] !== null && $svc['duration'] !== '' ? htmlspecialchars($svc['duration']) : '—'; ?></td>
                         <td>
                             <?php
                             $sc = match ($svc['status']) {
@@ -262,7 +258,7 @@ function render_services_table_rows(array $services): void {
                             <button type="button" class="btn-action gray" onclick='openViewModal(<?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)'>View</button>
                             <button type="button" class="btn-action blue" onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)'>Edit</button>
                             <?php if ($svc['status'] !== 'Archived'): ?>
-                                <form method="POST" class="inline service-status-form" data-action="<?php echo $svc['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
+                                <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="<?php echo $svc['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
                                     <button type="submit" name="delete_service" class="btn-action <?php echo $svc['status'] === 'Activated' ? 'red' : 'teal'; ?>">
@@ -270,19 +266,19 @@ function render_services_table_rows(array $services): void {
                                     </button>
                                 </form>
                                 <?php if ($svc['status'] === 'Deactivated'): ?>
-                                    <form method="POST" class="inline service-status-form" data-action="Archive" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
+                                    <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="Archive" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
                                         <button type="submit" name="archive_service" class="btn-action gray">Archive</button>
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <form method="POST" class="inline service-status-form" data-action="Restore" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
+                                <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="Restore" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
                                     <button type="submit" name="restore_service" class="btn-action teal">Restore</button>
                                 </form>
-                                <form method="POST" class="inline service-status-form" data-action="Delete Permanently" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
+                                <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="Delete Permanently" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
                                     <button type="submit" name="delete_service" class="btn-action red">Delete</button>
@@ -432,17 +428,17 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="servicesListHeader">Service List</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <button class="toolbar-btn" type="button" onclick="openModal('create')" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Service</button>
-                        <button class="toolbar-btn" type="button" onclick="openArchiveModal()" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                        <button class="toolbar-btn" type="button" onclick="window.openArchiveModal()" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                             Archived
                         </button>
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
                                 Sort by
                             </button>
                             <div class="sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                                <?php $sorts = ['newest' => 'Newest to Oldest', 'oldest' => 'Oldest to Newest', 'az' => 'A → Z', 'za' => 'Z → A'];
+                                <?php $sorts = ['az' => 'A → Z', 'za' => 'Z → A', 'newest' => 'Newest to Oldest', 'oldest' => 'Oldest to Newest'];
                                 foreach ($sorts as $key => $label): ?>
                                 <div class="sort-option" :class="{ 'selected': activeSort === '<?php echo $key; ?>' }" onclick="applySortFilter('<?php echo $key; ?>')">
                                     <?php echo htmlspecialchars($label); ?>
@@ -452,7 +448,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
                             </div>
                         </div>
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 Filter
                                 <span id="filterBadgeContainer">
@@ -528,9 +524,9 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
     </div>
 </div>
 
-<!-- Confirm modal -->
-<div id="serviceStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:16px;flex-wrap:wrap;">
-    <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
+<!-- Confirm modal (z-index above printflow_form_guard overlays at 10030+) -->
+<div id="serviceStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10100;align-items:center;justify-content:center;padding:16px;flex-wrap:wrap;">
+    <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;position:relative;z-index:1;" role="dialog" aria-modal="true" aria-labelledby="serviceStatusConfirmTitle" onclick="event.stopPropagation();">
         <h3 id="serviceStatusConfirmTitle" style="font-size:18px;font-weight:700;margin:0 0 8px;">Confirm</h3>
         <p id="serviceStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;"></p>
         <div id="serviceStatusInfoBox" style="font-size:12px;color:#6b7280;background:#f9fafb;padding:12px;border-radius:10px;margin-bottom:20px;text-align:left;border:1px solid #e5e7eb;">
@@ -563,20 +559,14 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
                     <input type="text" id="modal-name" name="name" maxlength="150" required placeholder="e.g. Large format printing">
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="modal-category">Category <span style="color:red">*</span></label>
-                        <select id="modal-category" name="category" required>
-                            <option value="">-- Select Category --</option>
-                            <?php foreach ($category_options as $opt): ?>
-                                <option value="<?php echo htmlspecialchars($opt); ?>"><?php echo htmlspecialchars($opt); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-price">Base Price (₱) <span style="color:red">*</span></label>
-                        <input type="number" id="modal-price" name="price" step="0.01" min="0.01" required placeholder="0.00">
-                    </div>
+                <div class="form-group">
+                    <label for="modal-category">Category <span style="color:red">*</span></label>
+                    <select id="modal-category" name="category" required>
+                        <option value="">-- Select Category --</option>
+                        <?php foreach ($category_options as $opt): ?>
+                            <option value="<?php echo htmlspecialchars($opt); ?>"><?php echo htmlspecialchars($opt); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -585,8 +575,19 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
                 </div>
 
                 <div class="form-group">
-                    <label for="modal-duration">Estimated Duration <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
-                    <input type="text" id="modal-duration" name="duration" maxlength="100" placeholder="e.g. 2–3 business days">
+                    <label for="modal-customer-modal-text">Customer modal message</label>
+                    <small style="display:block;color:#6b7280;font-size:12px;margin:-2px 0 6px;">Text shown on the customer Services page when they open a service (below the title). Leave blank to use the default wording.</small>
+                    <textarea id="modal-customer-modal-text" name="customer_modal_text" rows="4" maxlength="2000" placeholder="<?php echo htmlspecialchars(printflow_default_customer_service_modal_text()); ?>"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-customer-link">Customer order link <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+                    <input type="text" id="modal-customer-link" name="customer_link" maxlength="255" placeholder="e.g. order_tarpaulin.php">
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-hero-image">Card image path <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+                    <input type="text" id="modal-hero-image" name="hero_image" maxlength="512" placeholder="/printflow/public/images/...">
                 </div>
 
                 <div class="form-group">
@@ -620,13 +621,10 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
                 <div><span class="view-label">Service Name</span><div id="view-name" class="view-value-box" style="font-weight:700;">—</div></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div><span class="view-label">Category</span><div id="view-category" class="view-value-box">—</div></div>
-                    <div><span class="view-label">Base Price</span><div id="view-price" class="view-value-box" style="color:#0d9488;font-weight:700;">—</div></div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div><span class="view-label">Estimated Duration</span><div id="view-duration" class="view-value-box">—</div></div>
                     <div><span class="view-label">Status</span><div id="view-status" class="view-value-box">—</div></div>
                 </div>
                 <div><span class="view-label">Description</span><div id="view-description" class="view-value-box" style="white-space:pre-wrap;min-height:60px;">—</div></div>
+                <div><span class="view-label">Customer modal message</span><div id="view-customer-modal-text" class="view-value-box" style="white-space:pre-wrap;min-height:48px;">—</div></div>
             </div>
             <div class="modal-footer" style="justify-content:flex-end;margin-top:20px;">
                 <button type="button" class="btn-cancel" onclick="closeViewModal()" style="max-width:120px;">Close</button>
@@ -635,12 +633,12 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
     </div>
 </div>
 
-<!-- Archive modal -->
-<div id="archive-storage-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:16px;flex-wrap:wrap;">
-    <div style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+<!-- Archive modal (z-index above form-guard / sidebar layers) -->
+<div id="archive-storage-overlay" role="dialog" aria-modal="true" aria-labelledby="archive-services-title" onclick="if (event.target === this) window.closeArchiveModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10090;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
+    <div onclick="event.stopPropagation()" style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);pointer-events:auto;">
         <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="font-size:18px;font-weight:700;margin:0;">Archived Services</h3>
-            <button type="button" onclick="closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;">✕</button>
+            <h3 id="archive-services-title" style="font-size:18px;font-weight:700;margin:0;">Archived Services</h3>
+            <button type="button" onclick="window.closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;">✕</button>
         </div>
         <div style="padding:0;overflow-y:auto;flex:1;">
             <div id="archived-services-container" style="min-height:160px;padding:16px;">
@@ -648,12 +646,13 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard', 'Apparel
             </div>
         </div>
         <div style="padding:16px 24px;border-top:1px solid #e5e7eb;text-align:right;">
-            <button type="button" class="btn-cancel" onclick="closeArchiveModal()">Close</button>
+            <button type="button" class="btn-cancel" onclick="window.closeArchiveModal()">Close</button>
         </div>
     </div>
 </div>
 
 <script>
+window.PF_DEFAULT_SERVICE_MODAL_TEXT = <?php echo json_encode(printflow_default_customer_service_modal_text(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 let activeSort = '<?php echo htmlspecialchars($sort_by); ?>';
 let searchDebounceTimer = null;
 let _serviceStatusForm = null;
@@ -682,7 +681,7 @@ function buildFilterURL(page = 1) {
     const cat = document.getElementById('fp_category')?.value; if (cat) params.set('category', cat);
     const st = document.getElementById('fp_status')?.value; if (st) params.set('status', st);
     const s = document.getElementById('fp_search')?.value; if (s) params.set('search', s);
-    if (activeSort !== 'newest') params.set('sort', activeSort);
+    if (activeSort !== 'az') params.set('sort', activeSort);
     return '?' + params.toString();
 }
 
@@ -691,7 +690,17 @@ function fetchUpdatedTable(page = 1) {
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            document.getElementById('servicesTableContainer').innerHTML = data.table + '<div id="servicesPagination">' + data.pagination + '</div>';
+            const wrap = document.getElementById('servicesTableContainer');
+            if (wrap) {
+                wrap.innerHTML = data.table + '<div id="servicesPagination">' + data.pagination + '</div>';
+                if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                    try {
+                        Alpine.initTree(wrap);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            }
             const cont = document.getElementById('filterBadgeContainer');
             if (cont) cont.innerHTML = data.badge > 0 ? '<span class="filter-badge">' + data.badge + '</span>' : '';
             history.replaceState(null, '', buildFilterURL(page));
@@ -701,11 +710,11 @@ function fetchUpdatedTable(page = 1) {
 
 function applyFilters(reset = false) {
     if (reset) {
-        ['fp_date_from', 'fp_date_to', 'fp_category', 'fp_status', 'fp_search'].forEach(id => {
+        ['fp_date_from', 'fp_date_to', 'fp_category', 'fp_status', 'fp_search'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
-        activeSort = 'newest';
+        activeSort = 'az';
     }
     fetchUpdatedTable(1);
 }
@@ -753,7 +762,12 @@ function openModal(mode, svc) {
     const title = document.getElementById('modal-title');
     const modeInput = document.getElementById('modal-mode-input');
     const submitBtn = document.getElementById('modal-submit-btn');
-    document.getElementById('service-form').reset();
+    const form = document.getElementById('service-form');
+    if (!overlay || !title || !modeInput || !submitBtn || !form) {
+        console.warn('openModal: service modal markup not in DOM yet.');
+        return;
+    }
+    form.reset();
 
     if (mode === 'edit' && svc) {
         title.textContent = 'Edit Service';
@@ -762,16 +776,21 @@ function openModal(mode, svc) {
         document.getElementById('modal-service-id').value = svc.service_id || '';
         document.getElementById('modal-name').value = svc.name || '';
         document.getElementById('modal-category').value = svc.category || '';
-        document.getElementById('modal-price').value = svc.price ?? '';
         document.getElementById('modal-description').value = svc.description || '';
-        document.getElementById('modal-duration').value = svc.duration || '';
+        const cm = svc.customer_modal_text;
+        document.getElementById('modal-customer-modal-text').value = (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '');
         document.getElementById('modal-status').value = (svc.status === 'Deactivated') ? 'Deactivated' : 'Activated';
+        document.getElementById('modal-customer-link').value = svc.customer_link || '';
+        document.getElementById('modal-hero-image').value = svc.hero_image || '';
     } else {
         title.textContent = 'Add Service';
         modeInput.name = 'create_service';
         submitBtn.textContent = 'Save Service';
         document.getElementById('modal-service-id').value = '';
         document.getElementById('modal-status').value = 'Activated';
+        document.getElementById('modal-customer-modal-text').value = window.PF_DEFAULT_SERVICE_MODAL_TEXT || '';
+        document.getElementById('modal-customer-link').value = '';
+        document.getElementById('modal-hero-image').value = '';
     }
     submitBtn.disabled = false;
     overlay.classList.add('active');
@@ -793,11 +812,12 @@ function handleOverlayClick(e) {
 function openViewModal(svc) {
     document.getElementById('view-name').textContent = svc.name || '—';
     document.getElementById('view-category').textContent = svc.category || '—';
-    document.getElementById('view-price').textContent = '₱' + Number(svc.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    document.getElementById('view-duration').textContent = (svc.duration && String(svc.duration).trim()) ? svc.duration : '—';
     const st = svc.status || '';
     document.getElementById('view-status').textContent = st === 'Activated' ? 'Active' : (st === 'Deactivated' ? 'Inactive' : st);
     document.getElementById('view-description').textContent = svc.description || '—';
+    const cm = svc.customer_modal_text;
+    document.getElementById('view-customer-modal-text').textContent =
+        (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '—');
     document.getElementById('view-service-modal-overlay').classList.add('active');
     document.body.style.overflow = 'hidden';
 }
@@ -819,7 +839,7 @@ function showServiceStatusModal(event, form) {
     const btn = form.querySelector('button[type="submit"]');
     _serviceStatusButtonName = btn ? btn.getAttribute('name') : null;
 
-    closeArchiveModal();
+    if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
     closeServiceModal();
     closeViewModal();
 
@@ -834,14 +854,21 @@ function showServiceStatusModal(event, form) {
     else if (action === 'Delete Permanently') msg = 'This cannot be undone.';
     document.getElementById('serviceStatusInfoText').textContent = msg;
 
-    document.getElementById('serviceStatusConfirmModal').style.display = 'flex';
+    const m = document.getElementById('serviceStatusConfirmModal');
+    m.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 }
 
 function closeServiceStatusModal() {
     document.getElementById('serviceStatusConfirmModal').style.display = 'none';
+    document.body.style.overflow = '';
     _serviceStatusForm = null;
     _serviceStatusButtonName = null;
 }
+
+document.getElementById('serviceStatusConfirmModal')?.addEventListener('click', function (e) {
+    if (e.target === this) closeServiceStatusModal();
+});
 
 document.getElementById('serviceStatusConfirmCancel')?.addEventListener('click', closeServiceStatusModal);
 document.getElementById('serviceStatusConfirmOk')?.addEventListener('click', function () {
@@ -860,13 +887,20 @@ document.getElementById('serviceStatusConfirmOk')?.addEventListener('click', fun
 
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+        var archiveOv = document.getElementById('archive-storage-overlay');
+        if (archiveOv && archiveOv.style.display === 'flex') {
+            if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
+            return;
+        }
         if (document.getElementById('serviceStatusConfirmModal').style.display === 'flex') closeServiceStatusModal();
-        else { closeServiceModal(); closeViewModal(); closeArchiveModal(); }
+        else { closeServiceModal(); closeViewModal(); }
     }
 });
 
-function openArchiveModal() {
-    document.getElementById('archive-storage-overlay').style.display = 'flex';
+window.openArchiveModal = function openArchiveModal() {
+    var el = document.getElementById('archive-storage-overlay');
+    if (!el) return;
+    el.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     const c = document.getElementById('archived-services-container');
     c.innerHTML = '<p style="text-align:center;color:#9ca3af;">Loading…</p>';
@@ -874,12 +908,59 @@ function openArchiveModal() {
         if (data.success) c.innerHTML = data.html;
         else c.innerHTML = '<p style="color:#ef4444;text-align:center;">Failed to load.</p>';
     }).catch(() => { c.innerHTML = '<p style="color:#ef4444;text-align:center;">Error loading archive.</p>'; });
+};
+
+window.closeArchiveModal = function closeArchiveModal() {
+    var el = document.getElementById('archive-storage-overlay');
+    if (el) el.style.display = 'none';
+    document.body.style.overflow = '';
+};
+
+/**
+ * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
+ * After AJAX table replace: reinject Alpine directives on new markup where present.
+ */
+function ensureServicesAlpineBoot() {
+    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+    var fp = document.querySelector('[x-data="filterPanel()"]');
+    if (fp && !fp._x_dataStack) {
+        try {
+            Alpine.initTree(fp);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    var tbl = document.getElementById('servicesTableContainer');
+    if (tbl) {
+        try {
+            Alpine.initTree(tbl);
+        } catch (e2) {
+            console.error(e2);
+        }
+    }
 }
 
-function closeArchiveModal() {
-    document.getElementById('archive-storage-overlay').style.display = 'none';
-    document.body.style.overflow = '';
-}
+window.printflowInitServicesPage = ensureServicesAlpineBoot;
+
+(function scheduleServicesAlpineFirstVisit() {
+    function tick() {
+        ensureServicesAlpineBoot();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+    function schedule() {
+        tick();
+        queueMicrotask(tick);
+        setTimeout(tick, 0);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(tick);
+        });
+        setTimeout(tick, 150);
+    }
+})();
 </script>
 </body>
 </html>

@@ -248,11 +248,11 @@ if (isset($_GET['get_archived'])) {
             $html .= '<td style="font-weight:500; max-width:300px; word-break: break-word; overflow-wrap: anywhere;">' . htmlspecialchars($p['name']) . '</td>';
             $html .= '<td>' . htmlspecialchars($p['category'] ?? '—') . '</td>';
             $html .= '<td style="text-align:right;white-space:nowrap;">';
-            $html .= '<form method="POST" class="inline product-status-form" style="display:inline-block;margin-right:4px;" data-action="Restore" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard style="display:inline-block;margin-right:4px;" data-action="Restore" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
             $html .= '<button type="submit" name="restore_product" class="btn-action teal">Restore</button></form>';
-            $html .= '<form method="POST" class="inline product-status-form" style="display:inline-block;" data-action="Delete Permanently" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard style="display:inline-block;" data-action="Delete Permanently" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
             $html .= '<button type="submit" name="delete_product" class="btn-action red">Delete</button></form>';
@@ -393,7 +393,7 @@ if (isset($_GET['ajax'])) {
                             <button class="btn-action blue" onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                             
                             <?php if ($product['status'] !== 'Archived'): ?>
-                                <form method="POST" class="inline product-status-form" data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                     <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
@@ -401,19 +401,19 @@ if (isset($_GET['ajax'])) {
                                     </button>
                                 </form>
                                 <?php if ($product['status'] === 'Deactivated'): ?>
-                                    <form method="POST" class="inline product-status-form" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                         <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <form method="POST" class="inline product-status-form" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                     <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
                                 </form>
-                                <form method="POST" class="inline product-status-form" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
@@ -1010,7 +1010,7 @@ if (isset($_GET['ajax'])) {
 
                     <div style="display:flex; align-items:center; gap:8px;">
                         <button class="toolbar-btn" type="button" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
-                        <button class="toolbar-btn" type="button" onclick="openArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280; display:flex; align-items:center; gap:6px;">
+                        <button class="toolbar-btn" type="button" onclick="window.openArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280; display:flex; align-items:center; gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
                             </svg>
@@ -1019,7 +1019,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -1037,7 +1037,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                                 </svg>
@@ -1197,7 +1197,7 @@ if (isset($_GET['ajax'])) {
                                                 onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
                                             
                                             <?php if ($product['status'] !== 'Archived'): ?>
-                                                <form method="POST" class="inline product-status-form" data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                                     <?php echo csrf_field(); ?>
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                                     <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
@@ -1205,19 +1205,19 @@ if (isset($_GET['ajax'])) {
                                                     </button>
                                                 </form>
                                                 <?php if ($product['status'] === 'Deactivated'): ?>
-                                                    <form method="POST" class="inline product-status-form" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                                         <?php echo csrf_field(); ?>
                                                         <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                                         <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
                                                     </form>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <form method="POST" class="inline product-status-form" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                                     <?php echo csrf_field(); ?>
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                                     <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
                                                 </form>
-                                                <form method="POST" class="inline product-status-form" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                                     <?php echo csrf_field(); ?>
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
@@ -1243,7 +1243,7 @@ if (isset($_GET['ajax'])) {
 </div>
 
 <!-- Product Status Confirmation Modal -->
-<div id="productStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:16px;flex-direction:column;">
+<div id="productStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10100;align-items:center;justify-content:center;padding:16px;flex-direction:column;pointer-events:auto;">
     <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
         <div id="productStatusConfirmIcon" style="width:48px;height:48px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#6b7280;">
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -1354,20 +1354,12 @@ if (isset($_GET['ajax'])) {
                         <span id="err-low-stock" class="field-error"></span>
                     </div>
                     <div class="form-group">
-<<<<<<< HEAD
                         <label for="modal-product-type">Product Type <span style="color:red">*</span></label>
                         <select id="modal-product-type" name="product_type" required>
                             <option value="custom">Service (Customizable)</option>
                             <option value="fixed">Fixed Product</option>
-=======
-                        <label for="modal-status">Status</label>
-                        <select id="modal-status" name="status">
-                            <option value="Activated">Activated</option>
-                            <option value="Deactivated">Deactivated</option>
-                            <option value="Archived">Archived</option>
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
                         </select>
-                        <small>Product visibility</small>
+                        <small>Fixed product vs service/customizable</small>
                     </div>
                 </div>
 
@@ -1513,7 +1505,17 @@ function fetchUpdatedTable(page = 1) {
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            document.getElementById('productsTableContainer').innerHTML = data.table + '<div id="productsPagination">' + data.pagination + '</div>';
+            const wrap = document.getElementById('productsTableContainer');
+            if (wrap) {
+                wrap.innerHTML = data.table + '<div id="productsPagination">' + data.pagination + '</div>';
+                if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                    try {
+                        Alpine.initTree(wrap);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            }
             // productsCount element replaced with heading - no update needed
             // Badge
             const cont = document.getElementById('filterBadgeContainer');
@@ -1590,11 +1592,8 @@ function openModal(mode, product) {
         document.getElementById('modal-price').value       = product.price || '';
         document.getElementById('modal-description').value = product.description || '';
         document.getElementById('modal-stock').value       = product.stock_quantity || 0;
-<<<<<<< HEAD
-        document.getElementById('modal-product-type').value = product.product_type || 'custom';
-=======
         document.getElementById('modal-low-stock').value   = product.low_stock_level ?? 10;
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+        document.getElementById('modal-product-type').value = product.product_type || 'custom';
         document.getElementById('modal-status').value      = product.status || 'Activated';
         
         // Load existing photo preview if available
@@ -1617,11 +1616,8 @@ function openModal(mode, product) {
         submitBtn.textContent = 'Create Product';
         document.getElementById('modal-product-id').value = '';
         document.getElementById('modal-stock').value = '0';
-<<<<<<< HEAD
-        document.getElementById('modal-product-type').value = 'custom';
-=======
         document.getElementById('modal-low-stock').value = '10';
->>>>>>> 04d53d75d5323397db2238c2717dfa1e7e2e79fe
+        document.getElementById('modal-product-type').value = 'custom';
         document.getElementById('modal-status').value = 'Activated';
         
         // Clear photo preview for new product
@@ -1754,7 +1750,7 @@ function showProductStatusModal(event, form) {
     var icon  = document.getElementById('productStatusConfirmIcon');
 
     // Close other modals to prevent overlap (as requested)
-    closeArchiveModal();
+    if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
     closeProductModal(); 
     closeViewModal();
 
@@ -1837,6 +1833,11 @@ function handleOverlayClick(event) {
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        var archiveOv = document.getElementById('archive-storage-overlay');
+        if (archiveOv && archiveOv.style.display === 'flex') {
+            if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
+            return;
+        }
         var statusModal = document.getElementById('productStatusConfirmModal');
         if (statusModal && statusModal.style.display === 'flex') {
             closeProductStatusModal();
@@ -1923,9 +1924,9 @@ function formatCurrency(amount) {
 }
 </script>
 
-<!-- Archived Items Modal -->
-<div id="archive-storage-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:16px;">
-    <div id="archive-storage-modal" style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+<!-- Archived Items Modal (z-index above status modal 10000, logout 9999, pf-fg portal 10030+) -->
+<div id="archive-storage-overlay" role="dialog" aria-modal="true" aria-labelledby="archive-storage-title" onclick="if (event.target === this) window.closeArchiveModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10090;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
+    <div id="archive-storage-modal" onclick="event.stopPropagation()" style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);pointer-events:auto;">
         <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
             <div style="display:flex;align-items:center;gap:10px;">
                 <div style="background:#f3f4f6;padding:8px;border-radius:10px;color:#6b7280;">
@@ -1934,11 +1935,11 @@ function formatCurrency(amount) {
                     </svg>
                 </div>
                 <div>
-                    <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Archived Items</h3>
+                    <h3 id="archive-storage-title" style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Archived Items</h3>
                     <p style="font-size:12px;color:#6b7280;margin:0;">Manage archived products here.</p>
                 </div>
             </div>
-            <button onclick="closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px;line-height:1;">
+            <button type="button" onclick="window.closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px;line-height:1;">
                 <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -1954,23 +1955,26 @@ function formatCurrency(amount) {
             </div>
         </div>
         <div class="modal-footer" style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;">
-            <button type="button" class="btn-cancel" onclick="closeArchiveModal()" style="padding:8px 20px;background:#f3f4f6;border:none;border-radius:8px;color:#374151;font-weight:600;cursor:pointer;">Close</button>
+            <button type="button" class="btn-cancel" onclick="window.closeArchiveModal()" style="padding:8px 20px;background:#f3f4f6;border:none;border-radius:8px;color:#374151;font-weight:600;cursor:pointer;">Close</button>
         </div>
     </div>
 </div>
 
 <script>
-// Archive Modal Functions
-function openArchiveModal() {
-    document.getElementById('archive-storage-overlay').style.display = 'flex';
+// Archive Modal Functions (on window for Turbo + inline onclick)
+window.openArchiveModal = function openArchiveModal() {
+    var el = document.getElementById('archive-storage-overlay');
+    if (!el) return;
+    el.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     fetchArchivedProducts();
-}
+};
 
-function closeArchiveModal() {
-    document.getElementById('archive-storage-overlay').style.display = 'none';
+window.closeArchiveModal = function closeArchiveModal() {
+    var el = document.getElementById('archive-storage-overlay');
+    if (el) el.style.display = 'none';
     document.body.style.overflow = '';
-}
+};
 
 function fetchArchivedProducts() {
     const container = document.getElementById('archived-products-container');
@@ -1988,6 +1992,52 @@ function fetchArchivedProducts() {
             container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Error loading archived products.</div>';
         });
 }
+
+/**
+ * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
+ * After AJAX table replace: reinject Alpine directives on new markup where present.
+ */
+function ensureProductsAlpineBoot() {
+    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+    var fp = document.querySelector('[x-data="filterPanel()"]');
+    if (fp && !fp._x_dataStack) {
+        try {
+            Alpine.initTree(fp);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    var tbl = document.getElementById('productsTableContainer');
+    if (tbl) {
+        try {
+            Alpine.initTree(tbl);
+        } catch (e2) {
+            console.error(e2);
+        }
+    }
+}
+
+window.printflowInitProductsPage = ensureProductsAlpineBoot;
+
+(function scheduleProductsAlpineFirstVisit() {
+    function tick() {
+        ensureProductsAlpineBoot();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+    function schedule() {
+        tick();
+        queueMicrotask(tick);
+        setTimeout(tick, 0);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(tick);
+        });
+        setTimeout(tick, 150);
+    }
+})();
 </script>
 
 </body>

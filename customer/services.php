@@ -6,67 +6,74 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/customer_service_catalog.php';
 
-// Require customer access
 require_role('Customer');
 
-$customer_id = get_user_id();
+$legacy_catalog = printflow_default_customer_service_catalog();
+$legacy_by_name = [];
+foreach ($legacy_catalog as $d) {
+    $legacy_by_name[strtolower(trim($d['name']))] = $d;
+}
+
+$visible_rows = db_query(
+    "SELECT * FROM services WHERE status = 'Activated' ORDER BY name ASC",
+    '',
+    []
+) ?: [];
+
+$services_table_count = 0;
+$cnt_row = db_query('SELECT COUNT(*) AS c FROM services', '', []);
+if (!empty($cnt_row)) {
+    $services_table_count = (int) ($cnt_row[0]['c'] ?? 0);
+}
+
+$core_services = [];
+if (!empty($visible_rows)) {
+    foreach ($visible_rows as $row) {
+        $key = strtolower(trim($row['name']));
+        $img = trim((string) ($row['hero_image'] ?? ''));
+        if ($img === '') {
+            $img = $legacy_by_name[$key]['img'] ?? '/printflow/public/assets/images/placeholder.jpg';
+        }
+        if ($img !== '' && $img[0] !== '/') {
+            $img = '/' . ltrim($img, '/');
+        }
+        $link = trim((string) ($row['customer_link'] ?? ''));
+        if ($link === '') {
+            $link = $legacy_by_name[$key]['link'] ?? 'products.php';
+        }
+        $modalRaw = trim((string) ($row['customer_modal_text'] ?? ''));
+        $core_services[] = [
+            'name' => $row['name'],
+            'category' => $row['category'] ?? '',
+            'img' => $img,
+            'link' => $link,
+            'modal_text' => $modalRaw !== '' ? $modalRaw : printflow_default_customer_service_modal_text(),
+        ];
+    }
+} elseif ($services_table_count === 0) {
+    // No DB rows yet: show static catalog until services are seeded/managed in Admin.
+    $defModal = printflow_default_customer_service_modal_text();
+    $core_services = [];
+    foreach ($legacy_catalog as $row) {
+        $core_services[] = array_merge($row, ['modal_text' => $defModal]);
+    }
+}
+
 $csrf_token = generate_csrf_token();
-
-$featured_products = db_query("
-    SELECT * FROM products
-    WHERE product_type = 'custom' 
-    AND category IN ('Decals', 'Stickers', 'Decals & Stickers', 'Merchandise')
-    AND status = 'Activated'
-    ORDER BY name ASC
-", '', []);
-
-$tshirt_products = db_query("
-    SELECT * FROM products
-    WHERE product_type = 'custom' 
-    AND category IN ('T-Shirt', 'Apparel', 'T-Shirts')
-    AND status = 'Activated'
-    ORDER BY name ASC
-", '', []);
-
-$tarpaulin_products = db_query("
-    SELECT * FROM products
-    WHERE product_type = 'custom' 
-    AND category = 'Tarpaulin'
-    AND status = 'Activated'
-    ORDER BY name ASC
-", '', []);
-
-$feed_products = db_query("
-    SELECT * FROM products 
-    WHERE product_type = 'custom' 
-    AND category IN ('Sintraboard', 'Signage', 'Sintraboard Flat')
-    AND status = 'Activated' 
-    ORDER BY name ASC
-", '', []);
-
-
 
 $page_title = 'Services - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 
-$core_services = [
-    ['name' => 'Tarpaulin', 'category' => 'Signage', 'img' => '/printflow/public/images/products/product_42.jpg', 'link' => 'order_tarpaulin.php'],
-    ['name' => 'T-Shirt', 'category' => 'Apparel', 'img' => '/printflow/public/images/products/product_31.jpg', 'link' => 'order_tshirt.php'],
-    ['name' => 'Stickers', 'category' => 'Decals', 'img' => '/printflow/public/images/products/product_21.jpg', 'link' => 'order_stickers.php'],
-    ['name' => 'Glass/Wall', 'category' => 'Decals', 'img' => '/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png', 'link' => 'order_glass_stickers.php'],
-    ['name' => 'Transparent', 'category' => 'Decals', 'img' => '/printflow/public/images/products/product_26.jpg', 'link' => 'order_transparent.php'],
-    ['name' => 'Reflectorized', 'category' => 'Signage', 'img' => '/printflow/public/images/products/signage.jpg', 'link' => 'order_reflectorized.php'],
-    ['name' => 'Sintraboard', 'category' => 'Signage', 'img' => '/printflow/public/images/products/standeeflat.jpg', 'link' => 'order_sintraboard.php'],
-    ['name' => 'Standees', 'category' => 'Signage', 'img' => '/printflow/public/images/services/Sintraboard Standees.jpg', 'link' => 'order_standees.php'],
-    ['name' => 'Souvenirs', 'category' => 'Merchandise', 'img' => '/printflow/public/assets/images/placeholder.jpg', 'link' => 'order_souvenirs.php']
-];
-
 // Reusable card template function
-function render_service_card($name, $category, $img, $link, $is_service = true, $price = null, $stock = null) {
+function render_service_card($name, $category, $img, $link, $is_service = true, $price = null, $stock = null, $modal_text = null) {
     if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img)) {
         $img = '/printflow/public/assets/images/placeholder.jpg';
+    }
+    if ($modal_text === null || trim((string) $modal_text) === '') {
+        $modal_text = printflow_default_customer_service_modal_text();
     }
     // Escape values for JS safely using json_encode
     $json_name = htmlspecialchars(json_encode($name), ENT_QUOTES, 'UTF-8');
@@ -75,9 +82,10 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
     $json_link = htmlspecialchars(json_encode($link), ENT_QUOTES, 'UTF-8');
     $json_price = htmlspecialchars(json_encode($price !== null ? format_currency($price) : ''), ENT_QUOTES, 'UTF-8');
     $json_stock = htmlspecialchars(json_encode($stock !== null ? (string)$stock : ''), ENT_QUOTES, 'UTF-8');
+    $json_modal_text = htmlspecialchars(json_encode($modal_text), ENT_QUOTES, 'UTF-8');
     $is_service_str = $is_service ? 'true' : 'false';
     ?>
-    <div class="ct-product-card cursor-pointer group" onclick="openServiceModal(<?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_img; ?>, <?php echo $json_link; ?>, <?php echo $is_service_str; ?>, <?php echo $json_price; ?>, <?php echo $json_stock; ?>)">
+    <div class="ct-product-card cursor-pointer group" onclick="openServiceModal(<?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_img; ?>, <?php echo $json_link; ?>, <?php echo $is_service_str; ?>, <?php echo $json_price; ?>, <?php echo $json_stock; ?>, <?php echo $json_modal_text; ?>)">
         <div class="ct-product-img overflow-hidden">
             <div class="ct-product-img-inner transition-transform duration-500 group-hover:scale-110">
                 <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($name); ?>" style="width:100%; height:100%; object-fit:cover; border-radius:0.5rem;">
@@ -133,62 +141,15 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
             </form>
         </div>
 
+        <?php if (empty($core_services)): ?>
+            <div class="ct-empty" style="padding:2rem;text-align:center;color:#6b7280;">
+                <p>No services are available at the moment.</p>
+            </div>
+        <?php else: ?>
         <div class="ct-product-grid mb-12">
             <?php foreach ($core_services as $srv): ?>
-                <?php render_service_card($srv['name'], $srv['category'], $srv['img'], $srv['link']); ?>
+                <?php render_service_card($srv['name'], $srv['category'], $srv['img'], $srv['link'], true, null, null, $srv['modal_text'] ?? printflow_default_customer_service_modal_text()); ?>
             <?php endforeach; ?>
-        </div>
-
-        <!-- Decals & Stickers -->
-        <?php if (!empty($featured_products)): ?>
-        <h2 class="ct-section-title mb-6 mt-12 pt-8 border-t border-gray-100">Decals & Stickers Showcase</h2>
-        <div class="ct-product-grid mb-12">
-            <?php foreach ($featured_products as $product): ?>
-                <?php 
-                $img_link = "/printflow/public/images/products/product_" . $product['product_id'];
-                $img_path = __DIR__ . "/../public/images/products/product_" . $product['product_id'];
-                $display_img = "/printflow/public/assets/images/placeholder.jpg";
-                if (file_exists($img_path . ".jpg")) { $display_img = $img_link . ".jpg"; }
-                elseif (file_exists($img_path . ".png")) { $display_img = $img_link . ".png"; }
-                
-                render_service_card($product['name'], $product['category'], $display_img, "order_create.php?product_id=".$product['product_id'], false, $product['price'], $product['stock_quantity']);
-                ?>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- T-Shirt Customization Grid -->
-        <?php if (!empty($tshirt_products)): ?>
-        <h2 class="ct-section-title mb-6 mt-12 pt-8 border-t border-gray-100">Apparel Customization</h2>
-        <div class="ct-product-grid mb-12">
-            <?php foreach ($tshirt_products as $product): ?>
-                <?php 
-                render_service_card($product['name'], $product['category'], "/printflow/public/images/products/product_".$product['product_id'].".jpg", "order_create.php?product_id=".$product['product_id'], false, $product['price'], $product['stock_quantity']);
-                ?>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Tarpaulin "JUST FOR YOU" Section -->
-        <?php if (!empty($tarpaulin_products)): ?>
-        <h2 class="ct-section-title mb-6 mt-12 pt-8 border-t border-gray-100">Tarpaulin & Layout Selection</h2>
-        <div class="ct-product-grid mb-12">
-            <?php foreach ($tarpaulin_products as $product): ?>
-                <?php 
-                render_service_card($product['name'], $product['category'], "/printflow/public/images/products/product_".$product['product_id'].".jpg", "order_create.php?product_id=".$product['product_id'], false, $product['price'], $product['stock_quantity']);
-                ?>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Sintraboard Flat Section -->
-        <?php if (!empty($feed_products)): ?>
-        <h2 class="ct-section-title mb-6 mt-12 pt-8 border-t border-gray-100">Sintraboard Flats</h2>
-        <div class="ct-product-grid mb-12">
-            <?php foreach ($feed_products as $product): 
-                $img = !empty($product['product_image']) ? "/printflow/" . $product['product_image'] : '/printflow/public/assets/images/placeholder.jpg';
-                render_service_card($product['name'], $product['category'], $img, "order_create.php?product_id=".$product['product_id'], false, $product['price'], $product['stock_quantity']);
-            endforeach; ?>
         </div>
         <?php endif; ?>
 
@@ -296,9 +257,7 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
                     <div id="modal-stock" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600;"></div>
                 </div>
 
-                <p style="color: #4b5563; margin: 0; line-height: 1.6; font-size: 0.9rem;">
-                    Choose this service to start your customization. You will be able to select specific materials, sizes, and upload your layout on the next page to complete your order.
-                </p>
+                <p id="modal-intro-text" style="color: #4b5563; margin: 0; line-height: 1.6; font-size: 0.9rem;"></p>
             </div>
         </div>
 
@@ -329,13 +288,19 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
 <script>
 // CSRF Token
 const SERVICE_MODAL_CSRF = '<?php echo $csrf_token; ?>';
+const DEFAULT_SERVICE_MODAL_TEXT = <?php echo json_encode(printflow_default_customer_service_modal_text(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 let modalQuantity = 1;
 let currentModalData = {};
 
-function openServiceModal(name, category, img, link, is_service, price, stock) {
+function openServiceModal(name, category, img, link, is_service, price, stock, modalIntro) {
     document.getElementById('modal-name').textContent = name || '';
     document.getElementById('modal-category').textContent = category || '';
     document.getElementById('modal-img').src = img || '';
+    const introEl = document.getElementById('modal-intro-text');
+    if (introEl) {
+        const t = (modalIntro !== undefined && modalIntro !== null && String(modalIntro).trim() !== '') ? String(modalIntro) : DEFAULT_SERVICE_MODAL_TEXT;
+        introEl.textContent = t;
+    }
     
     // Store current modal data for cart operations
     currentModalData = {

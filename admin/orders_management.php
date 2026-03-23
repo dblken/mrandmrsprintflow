@@ -512,7 +512,7 @@ if (isset($_GET['ajax'])) {
         .history-item:last-child { border-bottom: none; }
     </style>
 </head>
-<body x-data="{ ...orderModal(), ...filterPanel() }">
+<body x-data="ordersPage()">
 
 <div class="dashboard-container">
     <!-- Sidebar -->
@@ -971,7 +971,16 @@ if (isset($_GET['ajax'])) {
                 const countBadge = document.querySelector('.card span[style*="6b7280"]');
                 const filterBadgeContainer = document.getElementById('filterBadgeContainer');
 
-                if (tableContainer) tableContainer.innerHTML = data.table;
+                if (tableContainer) {
+                    tableContainer.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        try {
+                            Alpine.initTree(tableContainer);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }
                 if (paginationContainer) paginationContainer.innerHTML = data.pagination;
                 if (countBadge) countBadge.textContent = `(${data.count} records)`;
                 
@@ -1035,16 +1044,6 @@ if (isset($_GET['ajax'])) {
         }
     });
 
-    // ── Alpine.js: merged orders page (modal + filter) ──────
-    function ordersPage() {
-        return { ...orderModal(), ...filterPanel() };
-    }
-
-    // ── Alpine.js: merged page state (order modal + filter/sort) ───
-    function ordersPage() {
-        return { ...orderModal(), ...filterPanel() };
-    }
-
     function filterPanel() {
         return {
             filterOpen: false,
@@ -1052,11 +1051,6 @@ if (isset($_GET['ajax'])) {
             activeSort: '<?php echo $sort_by; ?>',
             hasActiveFilters: <?php echo count(array_filter([$status_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
         };
-    }
-
-    // Merged page component (order modal + filter panel)
-    function ordersPage() {
-        return { ...orderModal(), ...filterPanel() };
     }
 
     // ── Alpine.js data for order modal ─────────────────────
@@ -1218,6 +1212,53 @@ if (isset($_GET['ajax'])) {
             }
         };
     }
+
+    /** Single root component for body x-data (Alpine cannot resolve orderModal()/filterPanel() inside spread in x-data string). */
+    function ordersPage() {
+        return { ...orderModal(), ...filterPanel() };
+    }
+
+    window.printflowInitOrdersPage = function printflowInitOrdersPage() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var root = document.querySelector('[x-data="ordersPage()"]') || document.body;
+        if (root && !root._x_dataStack) {
+            try {
+                Alpine.initTree(root);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        var tc = document.getElementById('ordersTableContainer');
+        if (tc) {
+            try {
+                Alpine.initTree(tc);
+            } catch (e2) {
+                console.error(e2);
+            }
+        }
+    };
+
+    (function scheduleOrdersAlpineFirstVisit() {
+        function tick() {
+            if (typeof window.printflowInitOrdersPage === 'function') {
+                window.printflowInitOrdersPage();
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', schedule);
+        } else {
+            schedule();
+        }
+        function schedule() {
+            tick();
+            queueMicrotask(tick);
+            setTimeout(tick, 0);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+            setTimeout(tick, 150);
+        }
+    })();
 
     // Global bridge: dispatches custom event so Alpine receives it (no _x_dataStack)
     window.openOrderModal = function openOrderModal(orderId) {

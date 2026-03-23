@@ -91,12 +91,10 @@ if (isset($_FILES[$logo_key]) && $_FILES[$logo_key]['error'] === UPLOAD_ERR_OK) 
         exit;
     }
     
-    $tmp_dir = __DIR__ . '/../uploads/temp';
-    if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
-    
+    $tmp_dir = service_order_temp_dir();
     $ext = pathinfo($_FILES[$logo_key]['name'], PATHINFO_EXTENSION);
     $tmp_filename = uniqid('ref_tmp_') . '.' . $ext;
-    $design_tmp_path = $tmp_dir . '/' . $tmp_filename;
+    $design_tmp_path = $tmp_dir . DIRECTORY_SEPARATOR . $tmp_filename;
     
     if (move_uploaded_file($_FILES[$logo_key]['tmp_name'], $design_tmp_path)) {
         $design_name = $_FILES[$logo_key]['name'];

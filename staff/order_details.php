@@ -225,7 +225,7 @@ $page_title = "Order #{$order_id} - Staff";
                         <?php foreach ($customer_orders as $co): ?>
                         <div class="detail-row">
                             <span>
-                                <a href="order_details.php?id=<?php echo $co['order_id']; ?>" style="color:#10b981; text-decoration:none; font-weight:500;">#<?php echo $co['order_id']; ?></a>
+                                <a href="order_details.php?id=<?php echo $co['order_id']; ?>" style="color:#06A1A1; text-decoration:none; font-weight:500;">#<?php echo $co['order_id']; ?></a>
                                 <span class="detail-label" style="margin-left:8px;"><?php echo format_date($co['order_date']); ?></span>
                             </span>
                             <span class="detail-value"><?php echo format_currency($co['total_amount']); ?> <?php echo status_badge($co['status'], 'order'); ?></span>

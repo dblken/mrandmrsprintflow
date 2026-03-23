@@ -10,6 +10,19 @@ require_once __DIR__ . '/../includes/InventoryManager.php';
 require_role('Admin');
 $page_title = 'Inventory Ledger - Admin';
 
+/** Safe JSON for onclick="viewTransaction(...)" — never emit empty / broken JS */
+function pf_ledger_tx_json_attr(array $row): string {
+    $flags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+        $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    }
+    $j = json_encode($row, $flags);
+    if ($j === false) {
+        $j = '{}';
+    }
+    return htmlspecialchars($j, ENT_QUOTES, 'UTF-8');
+}
+
 // Get filter parameters
 $item_id      = (int)($_GET['item_id'] ?? 0);
 $type_filter  = $_GET['type'] ?? '';
@@ -111,7 +124,7 @@ if (isset($_GET['ajax'])) {
                 $typeBadgeStyle = 'display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;';
             }
         ?>
-            <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)">
+            <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)">
                 <td style="font-family:monospace;font-size:12px;color:#111827;">#TX-<?php echo $t['id']; ?></td>
                 <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
                 <td class="truncate" style="font-weight:500;color:#111827;text-transform:capitalize;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
@@ -128,7 +141,7 @@ if (isset($_GET['ajax'])) {
                 <td class="truncate" style="font-size:12px;color:#6b7280;" title="<?php echo htmlspecialchars($t['notes'] ?: '—'); ?>"><?php echo htmlspecialchars($t['notes'] ?: '—'); ?></td>
                 <td style="font-size:12px;color:#374151;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
                 <td class="no-truncate" style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
-                    <button onclick="event.stopPropagation();viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)" class="btn-action blue">View</button>
+                    <button type="button" onclick="event.stopPropagation();viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)" class="btn-action blue">View</button>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -432,7 +445,7 @@ if (isset($_GET['ajax'])) {
         <main>
             <!-- Ledger Card -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
+                <div id="ledger-filter-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Ledger List
                         <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
@@ -441,18 +454,18 @@ if (isset($_GET['ajax'])) {
                     </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
-                        <button onclick="openModal('purchase')" class="toolbar-btn" style="height:38px; border-color:#059669; color:#059669; background:#ecfdf5; gap:6px;">
+                        <button type="button" onclick="openModal('purchase')" class="toolbar-btn" style="height:38px; border-color:#059669; color:#059669; background:#ecfdf5; gap:6px;">
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Receive IN
                         </button>
-                        <button onclick="openModal('issue')" class="toolbar-btn" style="height:38px; border-color:#dc2626; color:#dc2626; background:#fef2f2; gap:6px;">
+                        <button type="button" onclick="openModal('issue')" class="toolbar-btn" style="height:38px; border-color:#dc2626; color:#dc2626; background:#fef2f2; gap:6px;">
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Issue OUT
                         </button>
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: sortOpen}" @click="sortOpen = !sortOpen; filterOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
                                 Sort by
                             </button>
@@ -478,7 +491,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen; sortOpen = false" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 Filter
                                 <span id="filterBadgeContainer">
@@ -497,7 +510,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Date range</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['start_date','end_date'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['start_date','end_date'])">Reset</button>
                                     </div>
                                     <div class="filter-date-row">
                                         <div><div class="filter-date-label">From:</div><input type="date" id="fp_start_date" class="filter-input" value="<?php echo htmlspecialchars($start_date); ?>"></div>
@@ -509,7 +522,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Material</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['item_id'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['item_id'])">Reset</button>
                                     </div>
                                     <select id="fp_item_id" class="filter-select">
                                         <option value="">All Materials</option>
@@ -525,7 +538,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Trans. Type</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['type'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['type'])">Reset</button>
                                     </div>
                                     <select id="fp_type" class="filter-select">
                                         <option value="">All Types</option>
@@ -542,7 +555,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Keyword search</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <div class="filter-search-wrap">
                                         <input type="text" id="fp_search" class="filter-search-input" placeholder="Search item, notes, ref..." value="<?php echo htmlspecialchars($search); ?>">
@@ -550,7 +563,7 @@ if (isset($_GET['ajax'])) {
                                 </div>
 
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
+                                    <button type="button" class="filter-btn-reset" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
@@ -591,7 +604,7 @@ if (isset($_GET['ajax'])) {
                                         $typeBadgeStyle = 'display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;';
                                     }
                                 ?>
-                                    <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)">
+                                    <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)">
                                         <td style="font-family:monospace;font-size:12px;color:#111827;">#TX-<?php echo $t['id']; ?></td>
                                         <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
                                         <td class="truncate" style="font-weight:500;color:#111827;text-transform:capitalize;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
@@ -608,7 +621,7 @@ if (isset($_GET['ajax'])) {
                                         <td class="truncate" style="font-size:12px;color:#6b7280;" title="<?php echo htmlspecialchars($t['notes'] ?: '—'); ?>"><?php echo htmlspecialchars($t['notes'] ?: '—'); ?></td>
                                         <td style="font-size:12px;color:#374151;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
                                         <td class="no-truncate" style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
-                                            <button onclick="event.stopPropagation();viewTransaction(<?php echo htmlspecialchars(json_encode($t)); ?>)" class="btn-action blue">View</button>
+                                            <button type="button" onclick="event.stopPropagation();viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)" class="btn-action blue">View</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -635,7 +648,7 @@ if (isset($_GET['ajax'])) {
                 <h3 class="modal-title" style="padding-right:30px;">Transaction Details</h3>
                 <p style="color:#6b7280; margin-top:2px; padding-right:30px; overflow-wrap:break-word; word-break:break-word; hyphens:auto;" id="viewModalRef"></p>
             </div>
-            <button class="close-btn" onclick="document.getElementById('viewModal').style.display='none'">×</button>
+            <button type="button" class="close-btn" onclick="document.getElementById('viewModal').style.display='none'">×</button>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
             <div style="grid-column:span 2; background:#f9fafb; padding:16px; border-radius:12px; border:1px solid #f3f4f6;">
@@ -665,7 +678,7 @@ if (isset($_GET['ajax'])) {
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; padding-top:20px; border-top:1px solid #f3f4f6;">
             <div style="color:#6b7280;">Recorded by: <span style="font-weight:600; color:#374151;" id="viewModalAdmin"></span></div>
-            <button onclick="document.getElementById('viewModal').style.display='none'" class="btn-action blue">Close</button>
+            <button type="button" onclick="document.getElementById('viewModal').style.display='none'" class="btn-action blue">Close</button>
         </div>
     </div>
 </div>
@@ -675,7 +688,7 @@ if (isset($_GET['ajax'])) {
     <div class="modal-content">
         <div class="modal-header">
             <h3 class="modal-title" id="modalTitle" style="padding-right:30px;">Record Transaction</h3>
-            <button class="close-btn" onclick="closeModal()">×</button>
+            <button type="button" class="close-btn" onclick="closeModal()">×</button>
         </div>
         <form id="txForm" onsubmit="saveTransaction(event)">
             <input type="hidden" name="action" value="record_transaction">
@@ -741,7 +754,37 @@ if (isset($_GET['ajax'])) {
         };
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    /**
+     * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
+     * After AJAX tbody replace: reinject Alpine on new row markup where present.
+     */
+    function ensureLedgerAlpineBoot() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var fp = document.getElementById('ledger-filter-toolbar') || document.querySelector('[x-data="filterPanel()"]');
+        if (fp && !fp._x_dataStack) {
+            try {
+                Alpine.initTree(fp);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        var tb = document.getElementById('ledgerTableBody');
+        if (tb) {
+            try {
+                Alpine.initTree(tb);
+            } catch (e2) {
+                console.error(e2);
+            }
+        }
+    }
+
+    window.printflowInitInvLedger = function printflowInitInvLedger() {
+        ensureLedgerAlpineBoot();
+
+        const toolbar = document.getElementById('ledger-filter-toolbar');
+        if (!toolbar || toolbar.dataset.pfLedgerJsBound === '1') return;
+        toolbar.dataset.pfLedgerJsBound = '1';
+
         const panelSearchInput = document.getElementById('fp_search');
         const quickSearchInput = document.getElementById('ledgerQuickSearch');
 
@@ -777,7 +820,8 @@ if (isset($_GET['ajax'])) {
                 fetchUpdatedTable({ page: 1 });
             });
         });
-    });
+    };
+    document.addEventListener('DOMContentLoaded', window.printflowInitInvLedger);
 
     function buildFilterURL(overrides = {}, isAjax = false) {
         const params = new URLSearchParams(window.location.search);
@@ -847,7 +891,16 @@ if (isset($_GET['ajax'])) {
                 const totalText = document.getElementById('totalCount');
                 const badgeCont = document.getElementById('filterBadgeContainer');
 
-                if (tbody) tbody.innerHTML = data.table;
+                if (tbody) {
+                    tbody.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        try {
+                            Alpine.initTree(tbody);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }
                 if (pagination) pagination.innerHTML = data.pagination;
                 if (showingText) {
                     showingText.textContent = data.startIdx + '–' + data.endIdx;
@@ -856,12 +909,6 @@ if (isset($_GET['ajax'])) {
                 
                 if (badgeCont) {
                     badgeCont.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
-                }
-
-                // Update Alpine state
-                const root = document.querySelector('[x-data]');
-                if (root && root._x_dataStack) {
-                    root._x_dataStack[0].hasActiveFilters = (data.badge > 0);
                 }
 
                 if (overrides.page !== undefined) ledgerPage = overrides.page;
@@ -902,7 +949,7 @@ if (isset($_GET['ajax'])) {
         else if (sortKey === 'az') { sort = 'item_name'; dir = 'ASC'; }
         else if (sortKey === 'za') { sort = 'item_name'; dir = 'DESC'; }
         
-        const root = document.querySelector('[x-data]');
+        const root = document.getElementById('ledger-filter-toolbar');
         if (root && root._x_dataStack) {
             const data = root._x_dataStack[0];
             data.activeSort = sortKey;
@@ -1031,6 +1078,26 @@ if (isset($_GET['ajax'])) {
     window.addEventListener('popstate', (event) => {
         location.reload(); 
     });
+
+    (function scheduleLedgerAlpineFirstVisit() {
+        function tick() {
+            ensureLedgerAlpineBoot();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', schedule);
+        } else {
+            schedule();
+        }
+        function schedule() {
+            tick();
+            queueMicrotask(tick);
+            setTimeout(tick, 0);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+            setTimeout(tick, 150);
+        }
+    })();
 </script>
 </body>
 </html>

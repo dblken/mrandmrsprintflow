@@ -25,164 +25,136 @@ $customer_id = get_user_id();
 $customer    = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0] ?? [];
 $customer_type = $customer['customer_type'] ?? 'new';
 
-$subtotal = $item['price'] * $item['quantity'];
-
-// ── Handle Cancel ──────────────────────────────────────────────
-if (isset($_GET['cancel'])) {
-    // Clean up temp file
-    if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) {
-        @unlink($item['design_tmp_path']);
-    }
-    unset($_SESSION['cart'][$item_key]);
-    redirect('products.php');
-}
-
-// ── Handle Place Order ─────────────────────────────────────────
+// ── Handle Place Order FIRST (to allow clearing cart without trigger redirect) ──
 $order_error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $order_error = 'Invalid request. Please try again.';
     } else {
-        // Check restriction AGAIN at submission
-        $cancel_count = get_customer_cancel_count($customer_id);
-        $is_restricted = is_customer_restricted($customer_id);
+        // Fetch cart again for current POST request
+        $item        = $cart[$item_key] ?? null;
+        if ($item) {
+            $subtotal = $item['price'] * $item['quantity'];
 
-        if ($is_restricted) {
-            $order_error = "🚫 Your account is restricted from placing new orders.";
-        } else {
-            global $conn;
+            // Check restriction AGAIN at submission
+            $cancel_count = get_customer_cancel_count($customer_id);
+            $is_restricted = is_customer_restricted($customer_id);
 
-            // Pricing and payment are determined AFTER staff review.
-            // The review page does not collect payment choice from the customer.
-            // Staff will set the price and move to 'To Pay' status when ready.
-            $downpayment_amount = 0;
-            $payment_type = 'full_payment'; // Staff will update when finalizing payment
-            $payment_status = 'Unpaid';
-
-            // 1. Create order (notes from cart customization - no separate field on review page)
-            $notes = $item['customization']['notes'] ?? $item['customization']['additional_notes'] ?? null;
-            $branch_id = $item['branch_id'] ?? null;
-            $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes)
-                          VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
-            $order_id  = db_execute($order_sql, 'iiddsss', [$customer_id, $branch_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
-
-            if ($order_id) {
-                $custom = $item['customization'] ?? [];
-                if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
-                    $custom['service_type'] = $item['name'];
-                }
-                $custom_data   = json_encode($custom);
-                $design_binary = null;
-                $design_mime   = $item['design_mime']   ?? null;
-                $design_name   = $item['design_name']   ?? null;
-                
-                $upload_dir = __DIR__ . '/../uploads/orders';
-                if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-
-                $design_file_path = null;
-                $reference_file_path = null;
-
-                // 1. Handle Main Design
-                if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) {
-                    $design_binary = file_get_contents($item['design_tmp_path']);
-                    $ext = strtolower(pathinfo($design_name, PATHINFO_EXTENSION));
-                    $new_name = uniqid('design_') . '_' . time() . '.' . $ext;
-                    if (copy($item['design_tmp_path'], $upload_dir . '/' . $new_name)) {
-                        $design_file_path = '/printflow/uploads/orders/' . $new_name;
-                    }
-                }
-
-                // 2. Handle Reference Image
-                if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) {
-                    $ref_name = $item['reference_name'] ?? 'reference.jpg';
-                    $ext = strtolower(pathinfo($ref_name, PATHINFO_EXTENSION));
-                    $new_name = uniqid('ref_') . '_' . time() . '.' . $ext;
-                    if (copy($item['reference_tmp_path'], $upload_dir . '/' . $new_name)) {
-                        $reference_file_path = '/printflow/uploads/orders/' . $new_name;
-                    }
-                }
-
-                // Resolve product_id for service orders (no product_id in cart)
-                $product_id = !empty($item['product_id']) ? (int)$item['product_id'] : null;
-                if ($product_id === null) {
-                    $service_type = $custom['service_type'] ?? $item['name'] ?? '';
-                    $service_product_map = [
-                        'Tarpaulin Printing' => 4,   // TARPAULIN001
-                        'T-Shirt Printing' => 1,     // TSHIRT001
-                        'Glass & Wall Sticker Printing' => 3,
-                        'Transparent Sticker Printing' => 3,
-                        'Decals / Stickers' => 3,
-                        'Sintraboard Standees' => 3,
-                        'Layout Design Service' => 3,
-                    ];
-                    $product_id = $service_product_map[$service_type] ?? 3; // fallback to Sticker Pack
-                }
-
-                if ($design_binary) {
-                    $stmt = $conn->prepare(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, 
-                                                design_image, design_image_mime, design_image_name, design_file, reference_image_file)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                    );
-                    if ($stmt) {
-                        $null = NULL;
-                        $stmt->bind_param('iiidssssss',
-                            $order_id,
-                            $product_id,
-                            $item['quantity'],
-                            $item['price'],
-                            $custom_data,
-                            $null,
-                            $design_mime,
-                            $design_name,
-                            $design_file_path,
-                            $reference_file_path
-                        );
-                        $stmt->send_long_data(5, $design_binary);
-                        $stmt->execute();
-                        $stmt->close();
-                    }
-                } else {
-                    db_execute(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file, reference_image_file) 
-                         VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        'iiidsss',
-                        [
-                            $order_id, $product_id, $item['quantity'], $item['price'], $custom_data, $design_file_path, $reference_file_path
-                        ]
-                    );
-                }
-
-                // Clean up temp files
-                if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) {
-                    @unlink($item['design_tmp_path']);
-                }
-                if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) {
-                    @unlink($item['reference_tmp_path']);
-                }
-                unset($_SESSION['cart'][$item_key]);
-
-                // Notifications + system message in chat
-                $welcomeMsg = "Your order #{$order_id} has been placed successfully! Our team will review it shortly.";
-                create_notification($customer_id, 'Customer', $welcomeMsg, 'Order', true, false, $order_id);
-                add_order_system_message($order_id, $welcomeMsg);
-                $staff_users = db_query("SELECT user_id FROM users WHERE role='Staff' AND status='Activated'");
-                foreach ($staff_users as $staff) {
-                    create_notification($staff['user_id'], 'Staff', "New Order #{$order_id} from {$customer['first_name']}!", 'Order', false, false, $order_id);
-                }
-
-                $_SESSION['success'] = "Your order #{$order_id} has been placed successfully! Our team will review it shortly. You can track the status here.";
-                redirect("order_details.php?id=$order_id");
+            if ($is_restricted) {
+                $order_error = "🚫 Your account is restricted from placing new orders.";
             } else {
-                $order_error = 'Failed to place order. Please try again.';
+                global $conn;
+                $downpayment_amount = 0;
+                $payment_type = 'full_payment';
+                $payment_status = 'Unpaid';
+
+                $notes = $item['customization']['notes'] ?? $item['customization']['additional_notes'] ?? null;
+                $branch_id = $item['branch_id'] ?? null;
+                $order_sql = "INSERT INTO orders (customer_id, branch_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes)
+                              VALUES (?, ?, NOW(), ?, ?, 'Pending Review', ?, ?, ?)";
+                $order_id  = db_execute($order_sql, 'iiddsss', [$customer_id, $branch_id, $subtotal, $downpayment_amount, $payment_status, $payment_type, $notes]);
+
+                if ($order_id) {
+                    $custom = $item['customization'] ?? [];
+                    if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
+                        $custom['service_type'] = $item['name'];
+                    }
+                    $custom_data   = json_encode($custom);
+                    $design_binary = null;
+                    $design_mime   = $item['design_mime']   ?? null;
+                    $design_name   = $item['design_name']   ?? null;
+                    
+                    $upload_dir = __DIR__ . '/../uploads/orders';
+                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+
+                    $design_file_path = null;
+                    $reference_file_path = null;
+
+                    if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) {
+                        $design_binary = file_get_contents($item['design_tmp_path']);
+                        $ext = strtolower(pathinfo($design_name, PATHINFO_EXTENSION));
+                        $new_name = uniqid('design_') . '_' . time() . '.' . $ext;
+                        if (copy($item['design_tmp_path'], $upload_dir . '/' . $new_name)) {
+                            $design_file_path = '/printflow/uploads/orders/' . $new_name;
+                        }
+                    }
+
+                    if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) {
+                        $ref_name = $item['reference_name'] ?? 'reference.jpg';
+                        $ext = strtolower(pathinfo($ref_name, PATHINFO_EXTENSION));
+                        $new_name = uniqid('ref_') . '_' . time() . '.' . $ext;
+                        if (copy($item['reference_tmp_path'], $upload_dir . '/' . $new_name)) {
+                            $reference_file_path = '/printflow/uploads/orders/' . $new_name;
+                        }
+                    }
+
+                    $product_id = !empty($item['product_id']) ? (int)$item['product_id'] : null;
+                    if ($product_id === null) {
+                        $service_type = $custom['service_type'] ?? $item['name'] ?? '';
+                        $service_product_map = [
+                            'Tarpaulin Printing' => 4,
+                            'T-Shirt Printing' => 1,
+                            'Glass & Wall Sticker Printing' => 3,
+                            'Transparent Sticker Printing' => 3,
+                            'Decals / Stickers' => 3,
+                            'Sintraboard Standees' => 3,
+                            'Layout Design Service' => 3,
+                        ];
+                        $product_id = $service_product_map[$service_type] ?? 3;
+                    }
+
+                    if ($design_binary) {
+                        $stmt = $conn->prepare(
+                            "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, 
+                                                    design_image, design_image_mime, design_image_name, design_file, reference_image_file)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                        );
+                        if ($stmt) {
+                            $null = NULL;
+                            $stmt->bind_param('iiidssssss', $order_id, $product_id, $item['quantity'], $item['price'], $custom_data, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
+                            $stmt->send_long_data(5, $design_binary);
+                            $stmt->execute();
+                            $stmt->close();
+                        }
+                    } else {
+                        db_execute(
+                            "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file, reference_image_file) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            'iiidsss',
+                            [$order_id, $product_id, $item['quantity'], $item['price'], $custom_data, $design_file_path, $reference_file_path]
+                        );
+                    }
+
+                    if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) @unlink($item['design_tmp_path']);
+                    if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) @unlink($item['reference_tmp_path']);
+                    unset($_SESSION['cart'][$item_key]);
+
+                    $welcomeMsg = "Your order #{$order_id} has been placed successfully! Our team will review it shortly.";
+                    create_notification($customer_id, 'Customer', $welcomeMsg, 'Order', true, false, $order_id);
+                    add_order_system_message($order_id, $welcomeMsg);
+                    notify_staff_new_order((int)$order_id, (string)($customer['first_name'] ?? 'Customer'));
+
+                    $_SESSION['success'] = "Your order #{$order_id} has been placed successfully!";
+                    $order_placed_id = $order_id;
+                } else {
+                    $order_error = 'Failed to place order. Please try again.';
+                }
             }
         }
     }
 }
 
+$cart = $_SESSION['cart'] ?? [];
+if (!$item_key || (!isset($cart[$item_key]) && !isset($order_placed_id))) {
+    redirect('products.php');
+}
+
+$item     = $cart[$item_key] ?? null;
+$subtotal = $item ? ($item['price'] * $item['quantity']) : 0;
+
 // ── Build design preview (base64 for inline display) ───────────
 $design_preview_src = null;
-if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
+if (!isset($order_placed_id) && !empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
     $binary = file_get_contents($item['design_tmp_path']);
     if ($binary) {
         $design_preview_src = 'data:' . $item['design_mime'] . ';base64,' . base64_encode($binary);
@@ -213,9 +185,81 @@ require_once __DIR__ . '/../includes/header.php';
     .order-container { max-width: 650px; margin: 0 auto; }
     .compact-section { margin-bottom: 1.25rem; }
     .compact-card { padding: 1.25rem !important; }
+
+    /* Success Modal Styles */
+    .success-modal-overlay {
+        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(8px); z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    }
+    .success-modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .success-modal-card {
+        background: white; width: 90%; max-width: 400px; padding: 40px 30px;
+        border-radius: 24px; text-align: center;
+        transform: scale(0.9); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .success-modal-overlay.active .success-modal-card { transform: scale(1); }
+
+    .success-icon-wrap {
+        width: 80px; height: 80px; background: #ecfdf5; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 24px; color: #10b981;
+    }
+    .success-checkmark { font-size: 3rem; animation: checkmarkScale 0.5s ease 0.2s both; }
+    @keyframes checkmarkScale { 
+        0% { transform: scale(0); opacity: 0; }
+        60% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title { font-size: 1.25rem; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+    .success-msg { font-size: 0.95rem; color: #64748b; line-height: 1.5; margin-bottom: 24px; }
+    
+    .loading-bar-wrap { width: 100%; height: 6px; background: #f1f5f9; border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+    .loading-bar-fill { width: 0%; height: 100%; background: #10b981; transition: width 3s linear; }
+    .redirect-msg { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 </style>
 
+<!-- Success Modal -->
+<div id="successModal" class="success-modal-overlay <?php echo isset($order_placed_id) ? 'active' : ''; ?>">
+    <div class="success-modal-card">
+        <div class="success-icon-wrap">
+            <span class="success-checkmark">✓</span>
+        </div>
+        <h2 class="success-title">Order Placed Successfully!</h2>
+        <p class="success-msg">Your order <strong>#<?php echo $order_placed_id ?? ''; ?></strong> has been sent to our team for review. You'll receive a notification shortly.</p>
+        
+        <div class="loading-bar-wrap">
+            <div id="loadingBar" class="loading-bar-fill"></div>
+        </div>
+        <p class="redirect-msg">Redirecting to services...</p>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const modal = document.getElementById('successModal');
+        const bar = document.getElementById('loadingBar');
+        
+        if (modal && modal.classList.contains('active')) {
+            // Start loading bar animation
+            setTimeout(() => {
+                bar.style.width = '100%';
+            }, 100);
+
+            // Redirect after 3 seconds
+            setTimeout(() => {
+                window.location.href = '/printflow/customer/services.php';
+            }, 3100);
+        }
+    });
+</script>
+
 <div class="min-h-screen py-8">
+    <?php if (!isset($order_placed_id)): ?>
     <div class="container mx-auto px-4 order-container">
         <h1 class="ct-page-title" style="text-align: center; margin-bottom: 2rem;">Review Your Order</h1>
 
@@ -289,9 +333,9 @@ require_once __DIR__ . '/../includes/header.php';
                     </a>
                 </div>
             </div>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 

@@ -24,6 +24,13 @@ if (is_manager()) {
 $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id']; // 'all' | int
 
+// KPI drill-down links (branch preserved via query; uses pf_admin_url — no hardcoded host)
+$kpiBranchQs      = ($branchId === 'all') ? [] : ['branch_id' => (int)$branchId];
+$kpiHrefCustomers = pf_admin_url('customers_management.php', $kpiBranchQs);
+$kpiHrefOrders    = pf_admin_url('orders_management.php', $kpiBranchQs);
+$kpiHrefPending   = pf_admin_url('orders_management.php', array_merge($kpiBranchQs, ['status' => 'Pending']));
+$kpiHrefRevenue   = pf_admin_url('reports.php', array_merge($kpiBranchQs, ['trend_metric' => 'revenue']), 'ch-trend');
+
 // Build reusable branch SQL parts
 $bTypes = ''; $bParams = [];
 $bSql = branch_where('o', $branchId, $bTypes, $bParams);
@@ -211,6 +218,60 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
 
+        /* Clickable KPI cards — drill-down navigation */
+        a.kpi-card.kpi-card--link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,35,43,.06);
+            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.2s ease, opacity 0.2s ease;
+            -webkit-tap-highlight-color: rgba(83, 197, 224, 0.25);
+        }
+        a.kpi-card.kpi-card--link:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 28px rgba(0,35,43,.12);
+        }
+        a.kpi-card.kpi-card--link:focus { outline: none; }
+        a.kpi-card.kpi-card--link:focus-visible {
+            outline: 2px solid #53C5E0;
+            outline-offset: 3px;
+        }
+        a.kpi-card.kpi-card--link:active {
+            transform: scale(0.99);
+            box-shadow: 0 4px 14px rgba(0,35,43,.08);
+        }
+        a.kpi-card.kpi-card--link.is-kpi-navigating {
+            pointer-events: none;
+            opacity: 0.92;
+        }
+        .kpi-card--link .kpi-card-inner {
+            position: relative;
+            display: block;
+            padding-bottom: 22px;
+        }
+        .kpi-card--link .kpi-label,
+        .kpi-card--link .kpi-value,
+        .kpi-card--link .kpi-sub { display: block; }
+        .kpi-card-cta {
+            position: absolute;
+            right: 2px;
+            bottom: 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            letter-spacing: 0.02em;
+            transition: opacity 0.25s ease, color 0.25s ease;
+        }
+        @media (hover: hover) {
+            a.kpi-card.kpi-card--link .kpi-card-cta { opacity: 0.4; }
+            a.kpi-card.kpi-card--link:hover .kpi-card-cta,
+            a.kpi-card.kpi-card--link:focus-visible .kpi-card-cta { opacity: 1; color: #00232b; }
+        }
+        @media (hover: none) {
+            a.kpi-card.kpi-card--link .kpi-card-cta { opacity: 0.75; }
+        }
+
         /* Dashboard Grid */
         .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
@@ -278,28 +339,52 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             <!-- Branch context banner -->
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
 
-            <!-- KPI Summary Row -->
+            <!-- KPI Summary Row (entire card is a link; keyboard + screen-reader friendly) -->
             <div class="kpi-row">
-                <div class="kpi-card indigo">
-                    <div class="kpi-label">Total Customers</div>
-                    <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
-                    <div class="kpi-sub">Registered accounts</div>
-                </div>
-                <div class="kpi-card emerald">
-                    <div class="kpi-label">Total Revenue</div>
-                    <div class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></div>
-                    <div class="kpi-sub">From paid orders</div>
-                </div>
-                <div class="kpi-card amber">
-                    <div class="kpi-label">Total Orders</div>
-                    <div class="kpi-value"><?php echo number_format($total_orders); ?></div>
-                    <div class="kpi-sub">All time</div>
-                </div>
-                <div class="kpi-card rose">
-                    <div class="kpi-label">Pending Orders</div>
-                    <div class="kpi-value"><?php echo number_format($pending_orders); ?></div>
-                    <div class="kpi-sub">Awaiting processing</div>
-                </div>
+                <a class="kpi-card indigo kpi-card--link"
+                   href="<?php echo htmlspecialchars($kpiHrefCustomers); ?>"
+                   aria-label="View all customers"
+                   title="View customers">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Total Customers</span>
+                        <span class="kpi-value"><?php echo number_format($total_customers); ?></span>
+                        <span class="kpi-sub">Registered accounts</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details →</span>
+                    </span>
+                </a>
+                <a class="kpi-card emerald kpi-card--link"
+                   href="<?php echo htmlspecialchars($kpiHrefRevenue); ?>"
+                   aria-label="View revenue report and sales analytics"
+                   title="View revenue report">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Total Revenue</span>
+                        <span class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></span>
+                        <span class="kpi-sub">From paid orders</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details →</span>
+                    </span>
+                </a>
+                <a class="kpi-card amber kpi-card--link"
+                   href="<?php echo htmlspecialchars($kpiHrefOrders); ?>"
+                   aria-label="View all orders"
+                   title="View all orders">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Total Orders</span>
+                        <span class="kpi-value"><?php echo number_format($total_orders); ?></span>
+                        <span class="kpi-sub">All time</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details →</span>
+                    </span>
+                </a>
+                <a class="kpi-card rose kpi-card--link"
+                   href="<?php echo htmlspecialchars($kpiHrefPending); ?>"
+                   aria-label="View pending orders"
+                   title="View pending orders">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Pending Orders</span>
+                        <span class="kpi-value"><?php echo number_format($pending_orders); ?></span>
+                        <span class="kpi-sub">Awaiting processing</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details →</span>
+                    </span>
+                </a>
             </div>
 
             <!-- Sales Chart + Order Status -->
@@ -523,6 +608,32 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     </div>
 </div>
 
+<script>
+(function () {
+    var links = document.querySelectorAll('a.kpi-card--link');
+    var clearKpiNav = function (a) {
+        delete a.dataset.kpiNav;
+        a.classList.remove('is-kpi-navigating');
+        a.removeAttribute('aria-busy');
+    };
+    links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            if (a.dataset.kpiNav === '1') {
+                e.preventDefault();
+                return;
+            }
+            a.dataset.kpiNav = '1';
+            a.classList.add('is-kpi-navigating');
+            a.setAttribute('aria-busy', 'true');
+            window.setTimeout(function () { clearKpiNav(a); }, 4000);
+        });
+    });
+    window.addEventListener('pageshow', function (ev) {
+        if (!ev.persisted) return;
+        links.forEach(clearKpiNav);
+    });
+})();
+</script>
 <script>
 (function () {
     var dashCtrl = null;

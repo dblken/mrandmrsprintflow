@@ -172,7 +172,7 @@ if (isset($_GET['ajax'])) {
                             </span>
                         </td>
                         <td class="py-3 text-right">
-                            <button @click="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">View</button>
+                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">View</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -521,7 +521,7 @@ function custom_payment_badge($status) {
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -548,7 +548,7 @@ function custom_payment_badge($status) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                                 </svg>
@@ -719,7 +719,7 @@ function custom_payment_badge($status) {
                                             </span>
                                         </td>
                                         <td class="py-3 text-right">
-                                            <button @click="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">
+                                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">
                                                 View
                                             </button>
                                         </td>
@@ -918,56 +918,6 @@ function custom_payment_badge($status) {
 </div>
 
 <script>
-    // Real-time Search
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('searchInput');
-        const tableRows = document.querySelectorAll('#customizationsTableBody tr:not(#emptyCustomizationsRow)');
-        const emptyRow = document.getElementById('emptyCustomizationsRow');
-        const pagination = document.getElementById('customizationsPagination');
-        
-        if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                const searchTerm = e.target.value.toLowerCase();
-                let visibleCount = 0;
-                
-                tableRows.forEach(row => {
-                    const customerName = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
-                    const customerEmail = row.querySelector('td:nth-child(2) .text-xs')?.textContent.toLowerCase() || '';
-                    const serviceType = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
-                    const orderId = row.querySelector('td:nth-child(1)')?.textContent.toLowerCase() || '';
-                    
-                    if (customerName.includes(searchTerm) || 
-                        customerEmail.includes(searchTerm) || 
-                        serviceType.includes(searchTerm) ||
-                        orderId.includes(searchTerm)) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-                
-                // Handle empty state and pagination
-                if (searchTerm && visibleCount === 0) {
-                    if (emptyRow) {
-                        emptyRow.style.display = '';
-                        emptyRow.querySelector('td').textContent = `No customizations found matching "${searchInput.value}"`;
-                    }
-                    if (pagination) pagination.style.display = 'none';
-                } else if (visibleCount === 0 && !searchTerm) {
-                    if (emptyRow) {
-                        emptyRow.style.display = '';
-                        emptyRow.querySelector('td').textContent = 'No customizations found';
-                    }
-                    if (pagination) pagination.style.display = 'none';
-                } else {
-                    if (emptyRow) emptyRow.style.display = 'none';
-                    if (pagination) pagination.style.display = searchTerm ? 'none' : '';
-                }
-            });
-        }
-    });
-    
 function custModal() {
     return {
         showModal: false,
@@ -1073,8 +1023,6 @@ function custModal() {
 }
 
 // ── Filter + Sort helpers ──────────────────────────────
-let searchDebounceTimer;
-
 function buildFilterURL(overrides = {}, isAjax = false) {
     const params = new URLSearchParams(window.location.search);
 
@@ -1114,9 +1062,14 @@ async function fetchUpdatedTable(overrides = {}) {
             const paginationContainer = document.getElementById('customizationsPagination');
             const filterBadgeContainer = document.getElementById('filterBadgeContainer');
 
-            if (tableContainer) tableContainer.innerHTML = data.table;
+            if (tableContainer) {
+                tableContainer.innerHTML = data.table;
+                if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                    Alpine.initTree(tableContainer);
+                }
+            }
             if (paginationContainer) paginationContainer.innerHTML = data.pagination;
-            
+
             if (filterBadgeContainer) {
                 if (data.badge > 0) {
                     filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
@@ -1168,23 +1121,15 @@ function resetFilterField(fields) {
     fetchUpdatedTable();
 }
 
-// Real-time listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = ['fp_status', 'fp_payment', 'fp_date_from', 'fp_date_to'];
-    inputs.forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
-    });
-
-    const searchInput = document.getElementById('fp_search');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                fetchUpdatedTable();
-            }, 500);
-        });
+window.printflowInitCustomizationsPage = function () {
+    try {
+        var el = document.getElementById('customsTableContainer');
+        if (!el || typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        Alpine.initTree(el);
+    } catch (e) {
+        console.error(e);
     }
-});
+};
 </script>
 
 </body>

@@ -8,13 +8,13 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
-// Load PHPMailer from vendor
+// Load PHPMailer from vendor (do not `return` here — that would skip defining send_otp_email)
 $vendor_autoload = __DIR__ . '/../vendor/autoload.php';
-if (!file_exists($vendor_autoload)) {
+if (is_file($vendor_autoload)) {
+    require_once $vendor_autoload;
+} else {
     error_log('OTP Mailer: vendor/autoload.php not found. Run: composer require phpmailer/phpmailer');
-    return false;
 }
-require_once $vendor_autoload;
 
 /**
  * Send OTP email to a customer.
@@ -25,7 +25,15 @@ require_once $vendor_autoload;
  */
 function send_otp_email(string $to_email, string $otp_code): array
 {
-    $cfg = require __DIR__ . '/smtp_config.php';
+    if (!class_exists(PHPMailer::class)) {
+        return ['success' => false, 'message' => 'PHPMailer is not installed. Run: composer require phpmailer/phpmailer'];
+    }
+
+    $cfgPath = __DIR__ . '/smtp_config.php';
+    if (!is_file($cfgPath)) {
+        return ['success' => false, 'message' => 'Missing includes/smtp_config.php. Copy smtp_config.example.php and add your SMTP credentials.'];
+    }
+    $cfg = require $cfgPath;
 
     $mail = new PHPMailer(true);
 

@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mime = $valid['mime'];
             $ext = pathinfo($original_name, PATHINFO_EXTENSION);
             $new_name = uniqid('tmp_') . '.' . $ext;
-            $tmp_dest = __DIR__ . '/../uploads/temp/' . $new_name;
+            $tmp_dest = service_order_temp_dir() . DIRECTORY_SEPARATOR . $new_name;
 
             if (move_uploaded_file($_FILES['design_file']['tmp_name'], $tmp_dest)) {
                 $w = (float)$width;

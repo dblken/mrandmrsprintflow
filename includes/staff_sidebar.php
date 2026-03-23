@@ -109,7 +109,7 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="display:<?php echo $_staff_unread_notif > 0 ? 'inline-flex' : 'none'; ?>;"><?php echo min($_staff_unread_notif, 99) ?: ''; ?></span>
+                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge nav-badge--sidebar-slot" style="visibility:<?php echo $_staff_unread_notif > 0 ? 'visible' : 'hidden'; ?>;"><?php echo $_staff_unread_notif > 99 ? '99+' : ($_staff_unread_notif > 0 ? (int)$_staff_unread_notif : ''); ?></span>
             </a>
         </div>
         <?php endif; ?>
@@ -182,6 +182,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+
+    var nav = document.querySelector('#printflow-persistent-sidebar .sidebar-nav') || document.querySelector('.sidebar-nav');
+    if (nav && sidebar) {
+        var scrollKey = 'printflow_staff_sidebar_nav_scroll';
+        function clampNavScroll(y) {
+            var max = Math.max(0, nav.scrollHeight - nav.clientHeight);
+            return Math.max(0, Math.min(y, max));
+        }
+        if (!sidebar.classList.contains('collapsed')) {
+            var saved = null;
+            try { saved = sessionStorage.getItem(scrollKey); } catch (e) {}
+            if (saved !== null && saved !== '') {
+                var y = parseInt(saved, 10);
+                if (!isNaN(y)) {
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            nav.scrollTop = clampNavScroll(y);
+                        });
+                    });
+                }
+            } else {
+                var activeItem = nav.querySelector('a.nav-item.active');
+                if (activeItem) {
+                    requestAnimationFrame(function() {
+                        activeItem.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                    });
+                }
+            }
+        }
+        var shell = document.getElementById('printflow-persistent-sidebar');
+        if (shell) {
+            shell.addEventListener('click', function(ev) {
+                var a = ev.target.closest && ev.target.closest('a[href]');
+                if (!a || !shell.contains(a)) return;
+                var href = a.getAttribute('href') || '';
+                if (href === '' || href.charAt(0) === '#') return;
+                try {
+                    sessionStorage.setItem(scrollKey, String(nav.scrollTop));
+                } catch (e) {}
+            }, true);
+        }
     }
 });
 </script>

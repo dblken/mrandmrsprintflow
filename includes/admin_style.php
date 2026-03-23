@@ -1,13 +1,21 @@
 <?php require_once __DIR__ . '/favicon_links.php'; ?>
+<?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>
+<script>(function(){document.documentElement.classList.add('printflow-staff');})();</script>
+<?php include __DIR__ . '/staff_theme.php'; ?>
+<?php endif; ?>
 <script>
 (function () {
     var root = document.documentElement;
+    /* Skip boot-pending when persistent sidebar already exists (Turbo head merge) — avoids full-page hide flash */
+    var shell = document.getElementById('printflow-persistent-sidebar');
     try {
         var v = localStorage.getItem('sidebarCollapsed');
         var collapsed = v === 'true' || v === '1';
         if (collapsed) {
             root.classList.add('sidebar-preload-collapsed');
-            root.classList.add('sidebar-boot-pending');
+            if (!shell) {
+                root.classList.add('sidebar-boot-pending');
+            }
         }
     } catch (e) {}
     setTimeout(function () {
@@ -62,16 +70,47 @@
     }
     
     /* Layout */
-    .dashboard-container { display: flex; min-height: 100vh; }
+    .dashboard-container {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        min-height: 100vh;
+    }
+    /* Turbo permanent wrapper: inner <aside> is position:fixed — no in-flow width.
+       order:-1 keeps layout correct even if Turbo leaves this node after .main-content in the DOM. */
+    #printflow-persistent-sidebar {
+        order: -1;
+        flex: 0 0 0;
+        width: 0;
+        min-width: 0;
+        overflow: visible;
+        position: relative;
+        align-self: stretch;
+    }
+    /* z-index: keeps toolbar/buttons above the #printflow-persistent-sidebar flex shim (width:0; overflow:visible) in odd stacking cases */
     .main-content {
         flex: 1;
         margin-left: var(--sidebar-w-expanded);
         overflow-y: auto;
+        position: relative;
+        z-index: 1;
     }
     /* Keep main in sync with fixed sidebar width (same duration/easing = no “jump”) */
     @media (min-width: 769px) {
         .main-content {
             transition: margin-left var(--sidebar-dur) var(--sidebar-ease);
+        }
+        /* Avoid main column “sliding” on Turbo body swap (sidebar is fixed; only markup changes) */
+        html.pf-turbo-nav .main-content {
+            transition: none !important;
+        }
+        /* No animated nav/width churn on the persistent sidebar while Turbo swaps main */
+        html.pf-turbo-nav #printflow-persistent-sidebar a.nav-item {
+            transition: none !important;
+        }
+        html.pf-turbo-nav aside.sidebar {
+            transition: none !important;
         }
     }
 
@@ -254,6 +293,7 @@
         flex-direction: column;
         position: fixed;
         height: 100vh;
+        height: 100dvh;
         top: 0;
         left: 0;
         z-index: 50;
@@ -262,6 +302,8 @@
         -webkit-backface-visibility: hidden;
         backface-visibility: hidden;
         transform: translateZ(0);
+        overscroll-behavior: contain;
+        contain: layout style;
     }
     /* Desktop: animate width only (no transform) — avoids fighting mobile drawer + extra reflow */
     @media (min-width: 769px) {
@@ -359,7 +401,12 @@
         opacity: 1;
     }
     
-    .sidebar-nav { flex: 1; overflow-y: auto; padding: 16px 0; }
+    .sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 0;
+        overflow-anchor: none;
+    }
     .nav-section { margin-bottom: 24px; }
     .nav-section-title {
         font-size: 11px;
@@ -379,20 +426,22 @@
         border-radius: 10px;
         color: rgba(200, 230, 238, 0.88);
         font-size: 14px;
+        font-weight: 600;
         text-decoration: none;
         transition: background 0.18s, color 0.18s, box-shadow 0.18s;
         position: relative;
         border-right: none;
+        min-height: 40px;
+        box-sizing: border-box;
     }
     .nav-item:hover {
         background: rgba(255, 255, 255, 0.06);
         color: #f0fafc;
     }
-    /* Active: light pill on dark sidebar */
+    /* Active: light pill (same font-weight as inactive — avoids reflow / “blink” when switching) */
     .nav-item.active {
         background: linear-gradient(135deg, #f0fdfa 0%, #e0f2f4 45%, #d8eef2 100%);
         color: #00232b;
-        font-weight: 600;
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.85);
         border-right: none;
     }
@@ -414,6 +463,13 @@
         min-width: 20px; 
         text-align: center;
         line-height: 1.4;
+    }
+    /* Reserve badge space in sidebar so poll / Turbo doesn’t shift the row */
+    #printflow-persistent-sidebar .nav-item .nav-badge[data-notif-badge] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
     }
     
     .sidebar-footer {
@@ -496,6 +552,7 @@
         border-right: none;
         gap: 0;
         font-size: 0;
+        min-height: 0;
     }
     .sidebar.collapsed .nav-item.active {
         border-right: none;

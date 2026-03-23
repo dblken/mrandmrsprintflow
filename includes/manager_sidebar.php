@@ -110,7 +110,7 @@ if (isset($_SESSION['user_id'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 Notifications
-                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="display:<?php echo ($unread_notif_count > 0 ? 'inline-flex' : 'none'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?></span>
+                <span id="sidebar-notif-badge" data-notif-badge class="nav-badge" style="visibility:<?php echo ($unread_notif_count > 0 ? 'visible' : 'hidden'); ?>;"><?php echo $unread_notif_count > 99 ? '99+' : ($unread_notif_count > 0 ? (int)$unread_notif_count : ''); ?></span>
             </a>
         </div>
 
@@ -241,36 +241,57 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Sidebar scroll persistence (no auto-scroll when collapsed — avoids jump on every navigation)
 document.addEventListener('DOMContentLoaded', function() {
-    var nav = document.querySelector('.sidebar-nav');
+    var nav = document.querySelector('#printflow-persistent-sidebar .sidebar-nav') || document.querySelector('.sidebar-nav');
     var sidebar = document.getElementById('adminSidebar');
     if (!nav || !sidebar) return;
-    var isCollapsed = sidebar.classList.contains('collapsed');
 
-    var saved = sessionStorage.getItem('sidebarScroll');
-    if (saved !== null) {
-        requestAnimationFrame(function() {
-            nav.scrollTop = parseInt(saved, 10);
-        });
-    } else if (!isCollapsed) {
-        var activeItem = nav.querySelector('.nav-item.active');
-        if (activeItem) {
-            requestAnimationFrame(function() {
-                activeItem.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-            });
+    var scrollKey = 'printflow_manager_sidebar_nav_scroll';
+    function clampNavScroll(y) {
+        var max = Math.max(0, nav.scrollHeight - nav.clientHeight);
+        return Math.max(0, Math.min(y, max));
+    }
+    if (!sidebar.classList.contains('collapsed')) {
+        var saved = null;
+        try { saved = sessionStorage.getItem(scrollKey); } catch (e) {}
+        if (saved !== null && saved !== '') {
+            var y = parseInt(saved, 10);
+            if (!isNaN(y)) {
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        nav.scrollTop = clampNavScroll(y);
+                    });
+                });
+            }
+        } else {
+            var activeItem = nav.querySelector('a.nav-item.active');
+            if (activeItem) {
+                requestAnimationFrame(function() {
+                    activeItem.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                });
+            }
         }
     }
 
-    // Save scroll position before navigating
+    var shell = document.getElementById('printflow-persistent-sidebar');
+    if (shell) {
+        shell.addEventListener('click', function(ev) {
+            var a = ev.target.closest && ev.target.closest('a[href]');
+            if (!a || !shell.contains(a)) return;
+            var href = a.getAttribute('href') || '';
+            if (href === '' || href.charAt(0) === '#') return;
+            try {
+                sessionStorage.setItem(scrollKey, String(nav.scrollTop));
+            } catch (e) {}
+        }, true);
+    }
     nav.querySelectorAll('a.nav-item').forEach(function(link) {
         link.addEventListener('click', function() {
-            sessionStorage.setItem('sidebarScroll', nav.scrollTop);
             if (window.innerWidth <= 768) {
-                var sidebar = document.getElementById('adminSidebar');
+                var sb = document.getElementById('adminSidebar');
                 var overlay = document.getElementById('sidebarOverlay');
-                if (sidebar && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
+                if (sb && sb.classList.contains('active')) {
+                    sb.classList.remove('active');
                     if (overlay) overlay.classList.remove('active');
                     document.body.style.overflow = '';
                 }

@@ -466,10 +466,10 @@ window.addEventListener('DOMContentLoaded', () => {
     showSuccessModal(
         'Action Completed',
         '<?php echo addslashes($msg); ?>',
-        '#', // primary doesn't matter much here, maybe just refresh
+        'orders.php',
         'services.php',
-        'Close',
-        'Go to Dashboard'
+        'Refresh List',
+        'Back to Services'
     );
     <?php endif; ?>
 });

@@ -4,22 +4,164 @@
  * PrintFlow - Printing Shop PWA
  */
 
-// Database configuration - UPDATE THESE VALUES
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');           // Change to your MySQL username
-define('DB_PASS', '122704');               // Change to your MySQL password
-define('DB_NAME', 'printflow_2');      // Database name
+/**
+ * Read env from getenv / $_ENV / $_SERVER (Apache on Windows often omits getenv).
+ */
+function printflow_env(string $name): string|false {
+    $v = getenv($name);
+    if ($v !== false) {
+        return $v;
+    }
+    if (isset($_ENV[$name])) {
+        return (string) $_ENV[$name];
+    }
+    if (isset($_SERVER[$name])) {
+        return (string) $_SERVER[$name];
+    }
+    return false;
+}
+
+/** Minimal .env loader (project root .env — see .env.example). */
+function printflow_load_dotenv(string $path): array {
+    if (!is_readable($path)) {
+        return [];
+    }
+    $raw = @file($path, FILE_IGNORE_NEW_LINES);
+    if ($raw === false) {
+        return [];
+    }
+    if (isset($raw[0]) && strncmp($raw[0], "\xEF\xBB\xBF", 3) === 0) {
+        $raw[0] = substr($raw[0], 3);
+    }
+    $out = [];
+    foreach ($raw as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') {
+            continue;
+        }
+        if (strpos($line, '=') === false) {
+            continue;
+        }
+        [$k, $v] = explode('=', $line, 2);
+        $k = trim($k);
+        $v = trim($v, " \t\"'");
+        if ($k !== '') {
+            $out[$k] = $v;
+        }
+    }
+    return $out;
+}
+
+/** Obvious .env placeholders — never send these to MySQL as real passwords. */
+function printflow_is_placeholder_db_pass(string $pass): bool {
+    $p = strtolower(trim($pass));
+    $bad = [
+        'your_mysql_password_here',
+        'your_password_here',
+        'changeme',
+        'password',
+        'secret',
+        'example',
+    ];
+    return in_array($p, $bad, true);
+}
+
+// Merge order: defaults → .env file → OS env → includes/db.local.php (local wins).
+$db_config = [
+    'host' => 'localhost',
+    'user' => 'root',
+    'pass' => '122704',
+    'name' => 'printflow_2',
+];
+$envKeys = [
+    'host' => 'PRINTFLOW_DB_HOST',
+    'user' => 'PRINTFLOW_DB_USER',
+    'pass' => 'PRINTFLOW_DB_PASS',
+    'name' => 'PRINTFLOW_DB_NAME',
+];
+$root = dirname(__DIR__);
+$dot = printflow_load_dotenv($root . DIRECTORY_SEPARATOR . '.env');
+foreach ($envKeys as $key => $envName) {
+    if (isset($dot[$envName])) {
+        $db_config[$key] = $dot[$envName];
+    }
+}
+foreach ($envKeys as $key => $envName) {
+    $v = printflow_env($envName);
+    if ($v !== false) {
+        $db_config[$key] = $v;
+    }
+}
+$__db_local = __DIR__ . '/db.local.php';
+if (is_readable($__db_local)) {
+    $__local = require $__db_local;
+    if (is_array($__local)) {
+        foreach ($__local as $k => $v) {
+            if (array_key_exists($k, $db_config)) {
+                $db_config[$k] = $v;
+            }
+        }
+    }
+}
+
+if (printflow_is_placeholder_db_pass((string) $db_config['pass'])) {
+    die(
+        '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:1rem;">'
+        . '<h1 style="font-size:1.1rem;">Database password not configured</h1>'
+        . '<p><code>PRINTFLOW_DB_PASS</code> in <code>.env</code> is still a <strong>placeholder</strong> (e.g. <code>your_mysql_password_here</code>). '
+        . 'Replace it with the real password you use for MySQL in phpMyAdmin, or remove that line to use an empty password (XAMPP default).</p>'
+        . '<p>File: <code>' . htmlspecialchars($root . DIRECTORY_SEPARATOR . '.env', ENT_QUOTES, 'UTF-8') . '</code></p>'
+        . '</div>'
+    );
+}
+
+define('DB_HOST', $db_config['host']);
+define('DB_USER', $db_config['user']);
+define('DB_PASS', $db_config['pass']);
+define('DB_NAME', $db_config['name']);
 
 // Create connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Check connection
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    $msg = htmlspecialchars($conn->connect_error, ENT_QUOTES, 'UTF-8');
+    $hint = '';
+    if (stripos($conn->connect_error, 'Access denied') !== false) {
+        if (DB_PASS === '') {
+            $hint = '<p><strong>MySQL rejected <code>root</code> with no password</strong> (that is what “using password: NO” means). '
+                . 'Set your real password in one place:</p><ul>'
+                . '<li>Create <code>' . htmlspecialchars($root, ENT_QUOTES, 'UTF-8') . DIRECTORY_SEPARATOR . '.env</code> '
+                . '(copy from <code>.env.example</code>) and set <code>PRINTFLOW_DB_PASS=...</code>, <strong>or</strong></li>'
+                . '<li>Edit <code>includes/db.local.php</code> and set <code>\'pass\' => \'your_mysql_password\'</code> (remove any line that sets pass to an empty string).</li>'
+                . '</ul>';
+        } else {
+            $hint = '<p><strong>Wrong password or user.</strong> “using password: YES” means a password was sent but MySQL did not accept it. '
+                . 'Open phpMyAdmin and confirm the password for <code>' . htmlspecialchars(DB_USER, ENT_QUOTES, 'UTF-8') . '</code>, then set the same value in '
+                . '<code>.env</code> as <code>PRINTFLOW_DB_PASS=...</code> (no quotes) or <code>\'pass\' => \'...\'</code> in <code>includes/db.local.php</code>.</p>'
+                . '<p>Also confirm <code>PRINTFLOW_DB_NAME=' . htmlspecialchars(DB_NAME, ENT_QUOTES, 'UTF-8') . '</code> exists in MySQL.</p>';
+        }
+    }
+    die(
+        '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:1rem;">'
+        . '<h1 style="font-size:1.1rem;">Database connection failed</h1>'
+        . '<p>' . $msg . '</p>'
+        . $hint
+        . '</div>'
+    );
 }
 
 // Set charset to UTF-8
 $conn->set_charset("utf8mb4");
+
+require_once __DIR__ . '/ensure_products_schema.php';
+printflow_ensure_products_product_type_column();
+
+require_once __DIR__ . '/ensure_services_table.php';
+ensure_services_table();
+
+require_once __DIR__ . '/ensure_order_messages_schema.php';
+printflow_ensure_order_messages_schema();
 
 /**
  * Prepare and execute a SQL statement safely

@@ -55,9 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p>If you didn't request this, please ignore this email.</p>
             ";
             
-            send_email($email, 'Password Reset Request - PrintFlow', $message);
-            
-            $success = 'If that email exists in our system, you will receive a password reset link shortly.';
+            $sent = send_email($email, 'Password Reset Request - PrintFlow', $message);
+            if (!$sent) {
+                error_log('PrintFlow forgot-password: send_email failed for ' . $email);
+                $error = 'We could not send the email right now. Please try again later or contact support.';
+            } else {
+                $success = 'If that email exists in our system, you will receive a password reset link shortly.';
+            }
         }
     }
 }

@@ -101,6 +101,11 @@ if ($action === 'toggle_status') {
         exit;
     }
 
+    if (contact_phone_in_use_across_accounts($contact_number, null, $user_id)) {
+        echo json_encode(['success' => false, 'error' => 'This phone number is already used by another account.']);
+        exit;
+    }
+
     $status         = in_array($data['status'] ?? '', ['Activated','Pending','Deactivated']) ? $data['status'] : 'Pending';
 
     $ok = db_execute(

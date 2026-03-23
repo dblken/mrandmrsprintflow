@@ -30,13 +30,13 @@ $email = !empty($data['email']) ? sanitize($data['email']) : null;
 $contact = !empty($data['contact_number']) ? sanitize($data['contact_number']) : null;
 
 try {
-    // Check if email already exists if provided
-    if ($email) {
-        $exists = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
-        if ($exists) {
-            echo json_encode(['success' => false, 'message' => 'A customer with this email already exists.']);
-            exit;
-        }
+    if ($email && email_in_use_across_accounts($email)) {
+        echo json_encode(['success' => false, 'message' => 'This email is already in use by a customer or staff account.']);
+        exit;
+    }
+    if ($contact && contact_phone_in_use_across_accounts($contact)) {
+        echo json_encode(['success' => false, 'message' => 'This phone number is already in use on another account.']);
+        exit;
     }
 
     $result = db_execute(

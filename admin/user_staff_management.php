@@ -606,7 +606,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" id="sortBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
                                 </svg>
@@ -633,7 +633,7 @@ if (isset($_GET['ajax'])) {
 
                         <!-- Filter Button -->
                         <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
+                            <button type="button" class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false" id="filterBtn" style="height:38px;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                                 </svg>
@@ -655,7 +655,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Date range</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['date_from','date_to'])">Reset</button>
                                     </div>
                                     <div class="filter-date-row">
                                         <div>
@@ -673,7 +673,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Role</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['role'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['role'])">Reset</button>
                                     </div>
                                     <select id="fp_role" class="filter-select">
                                         <option value="">All roles</option>
@@ -687,7 +687,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Status</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['status'])">Reset</button>
                                     </div>
                                     <select id="fp_status" class="filter-select">
                                         <option value="">All statuses</option>
@@ -700,7 +700,7 @@ if (isset($_GET['ajax'])) {
                                 <div class="filter-section">
                                     <div class="filter-section-head">
                                         <span class="filter-section-label">Keyword search</span>
-                                        <button class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
+                                        <button type="button" class="filter-reset-link" onclick="resetFilterField(['search'])">Reset</button>
                                     </div>
                                     <div class="filter-search-wrap">
                                         <input type="text" id="fp_search" class="filter-search-input" placeholder="Search by name or email..." value="<?php echo htmlspecialchars($search); ?>">
@@ -709,7 +709,7 @@ if (isset($_GET['ajax'])) {
 
                                 <!-- Actions -->
                                 <div class="filter-actions">
-                                    <button class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
+                                    <button type="button" class="filter-btn-reset" style="width: 100%;" onclick="applyFilters(true)">Reset all filters</button>
                                 </div>
                             </div>
                         </div>
@@ -1385,6 +1385,13 @@ async function fetchUpdatedTable(overrides = {}) {
             const container = document.getElementById('usersTableContainer');
             if (container) {
                 container.innerHTML = data.table + '<div id="usersPagination">' + data.pagination + '</div>';
+                if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                    try {
+                        Alpine.initTree(container);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
             }
             
             // Update badge
@@ -1837,6 +1844,60 @@ function userManagement() {
         }
     };
 }
+
+/**
+ * First visit: defer Alpine may leave userManagement() / filterPanel() without _x_dataStack briefly.
+ * After AJAX table replace: reinject Alpine on #usersTableContainer fragment.
+ */
+function ensureUserStaffAlpineBoot() {
+    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+    var root = document.querySelector('[x-data="userManagement()"]');
+    if (root && !root._x_dataStack) {
+        try {
+            Alpine.initTree(root);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    var fp = document.querySelector('[x-data="filterPanel()"]');
+    if (fp && !fp._x_dataStack) {
+        try {
+            Alpine.initTree(fp);
+        } catch (e2) {
+            console.error(e2);
+        }
+    }
+    var tbl = document.getElementById('usersTableContainer');
+    if (tbl) {
+        try {
+            Alpine.initTree(tbl);
+        } catch (e3) {
+            console.error(e3);
+        }
+    }
+}
+
+window.printflowInitUserStaffPage = ensureUserStaffAlpineBoot;
+
+(function scheduleUserStaffAlpineFirstVisit() {
+    function tick() {
+        ensureUserStaffAlpineBoot();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+    function schedule() {
+        tick();
+        queueMicrotask(tick);
+        setTimeout(tick, 0);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(tick);
+        });
+        setTimeout(tick, 150);
+    }
+})();
 
 // Global expose to bridge AJAX table clicks to userManagement Alpine component
 document.addEventListener('alpine:init', () => {

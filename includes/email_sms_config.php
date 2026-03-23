@@ -9,11 +9,13 @@
 // ==========================================
 // EMAIL CONFIGURATION (PHPMailer)
 // ==========================================
+// Primary SMTP: includes/smtp_config.php (used by OTP, password reset, send_email).
+// The constants below are a fallback only when smtp_config.php is missing.
 
 // Email service type: 'smtp', 'mail', or 'sendmail'
 define('EMAIL_SERVICE', 'smtp'); // For local development, use 'mail'. For production, use 'smtp'
 
-// SMTP Settings (for production)
+// SMTP Settings (fallback — prefer smtp_config.php)
 define('SMTP_HOST', 'smtp.gmail.com');          // Gmail: smtp.gmail.com, Outlook: smtp-mail.outlook.com
 define('SMTP_PORT', 587);                        // 587 for TLS, 465 for SSL
 define('SMTP_ENCRYPTION', 'tls');               // 'tls' or 'ssl'

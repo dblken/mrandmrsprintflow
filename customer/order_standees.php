@@ -21,13 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($error)) {
         // Process file for session
-        $tmp_dir = __DIR__ . '/../uploads/temp';
-        if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0755, true);
-        
+        $tmp_dir = service_order_temp_dir();
         $db_data = file_get_contents($_FILES['design_file']['tmp_name']);
         $ext = pathinfo($_FILES['design_file']['name'], PATHINFO_EXTENSION);
         $tmp_filename = uniqid('standee_') . '.' . $ext;
-        $tmp_path = $tmp_dir . '/' . $tmp_filename;
+        $tmp_path = $tmp_dir . DIRECTORY_SEPARATOR . $tmp_filename;
         file_put_contents($tmp_path, $db_data);
         
         $finfo = finfo_open(FILEINFO_MIME_TYPE);

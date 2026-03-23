@@ -86,6 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user && verify_csrf_token($_POST['
             $error = 'ID image must be JPG, PNG, GIF, or WEBP.';
         } elseif ($_FILES['id_image']['size'] > 5 * 1024 * 1024) {
             $error = 'ID image must be under 5MB.';
+        } elseif (contact_phone_in_use_across_accounts($contact_number, null, (int)$user['user_id'])) {
+            $error = 'This phone number is already used by another account.';
         } else {
             $ext = pathinfo($_FILES['id_image']['name'], PATHINFO_EXTENSION) ?: 'jpg';
             $filename = 'id_user_' . $user['user_id'] . '_' . time() . '.' . $ext;

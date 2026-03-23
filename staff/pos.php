@@ -107,7 +107,7 @@ try {
         }
         
         .pos-search-input:focus {
-            border-color: #6366f1;
+            border-color: #06A1A1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         
@@ -149,7 +149,7 @@ try {
         .pos-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border-color: #6366f1;
+            border-color: #06A1A1;
         }
         
         .pos-card.no-stock {
@@ -274,7 +274,7 @@ try {
         .pos-btn-link {
             background: none;
             border: none;
-            color: #6366f1;
+            color: #06A1A1;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
@@ -316,7 +316,7 @@ try {
             transition: all 0.2s;
         }
         .pos-cart-item:hover {
-            border-color: #6366f1;
+            border-color: #06A1A1;
             background: #f8fafc;
         }
         
@@ -431,7 +431,7 @@ try {
             font-size: 16px;
             outline: none;
         }
-        .pos-tender-input:focus { border-color: #6366f1; }
+        .pos-tender-input:focus { border-color: #06A1A1; }
 
 
         
@@ -474,10 +474,9 @@ try {
             position: relative;
         }
         .service-btn:hover {
-            border-color: #6366f1;
-            background: #f5f3ff;
-            color: #4f46e5;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+            transform: translateY(-4px) scale(1.02);
+            border-color: #06A1A1;
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.15), 0 10px 10px -5px rgba(99, 102, 241, 0.1);
         }
         .service-btn.active,
         .service-btn:active {
@@ -494,9 +493,7 @@ try {
         .service-btn.btn-other:hover,
         .service-btn.btn-other.active {
             border-style: solid;
-            border-color: #6366f1;
-            background: #f5f3ff;
-            color: #4f46e5;
+            border-color: #06A1A1;
         }
 
         .pos-services-grid {
@@ -607,7 +604,7 @@ try {
                         
                         <div class="pos-summary-line" id="change-group" style="margin-bottom: 20px; align-items: center;">
                             <span style="font-weight: 600; color: #475569;">Change</span>
-                            <span id="pos-change" style="font-size: 20px; font-weight: 800; color: #10b981;">₱0.00</span>
+                            <span id="pos-change" style="font-size: 20px; font-weight: 800; color: #06A1A1;">₱0.00</span>
                         </div>
                         
                         <button class="pos-btn-checkout" id="pos-checkout-btn" disabled onclick="processCheckout()">
@@ -644,9 +641,9 @@ try {
             <h3 style="margin:0; font-weight:800; color:#0f172a; font-size:20px; letter-spacing:-0.02em;">Add Customer</h3>
             <button onclick="closeCustomerModal()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#94a3b8; padding:4px;" onmouseover="this.style.color='#1e293b'" onmouseout="this.style.color='#94a3b8'">&times;</button>
         </div>
-        <input type="text" id="nc-first" placeholder="First Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
-        <input type="text" id="nc-last" placeholder="Last Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
-        <input type="tel" id="nc-phone" placeholder="Phone Number" style="width:100%; padding:14px; margin-bottom:24px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#6366f1';this.style.background='#fff'">
+        <input type="text" id="nc-first" placeholder="First Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#06A1A1';this.style.background='#fff'">
+        <input type="text" id="nc-last" placeholder="Last Name" style="width:100%; padding:14px; margin-bottom:16px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#06A1A1';this.style.background='#fff'">
+        <input type="tel" id="nc-phone" placeholder="Phone Number" style="width:100%; padding:14px; margin-bottom:24px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#1e293b; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#06A1A1';this.style.background='#fff'">
         <button onclick="saveCustomer()" id="nc-save-btn" style="width:100%; background:#4f46e5; color:white; padding:14px; border:none; border-radius:12px; font-weight:700; cursor:pointer; box-shadow:0 10px 15px -3px rgba(79,70,229,0.3); transition:all 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Save Customer</button>
     </div>
 </div>
@@ -909,7 +906,7 @@ function renderProducts() {
             <div class="pos-card-body">
                 <div class="pos-card-title">${p.product_name}</div>
                 <div class="pos-card-stock">
-                    <i class="fas ${outOfStock ? 'fa-times-circle text-red' : 'fa-check-circle text-green'}" style="color:${outOfStock ? '#ef4444' : '#10b981'}"></i>
+                    <i class="fas ${outOfStock ? 'fa-times-circle text-red' : 'fa-check-circle text-green'}" style="color:${outOfStock ? '#ef4444' : '#06A1A1'}"></i>
                     ${outOfStock ? 'Out of Stock' : p.stock_quantity + ' available'}
                 </div>
             </div>
@@ -1473,7 +1470,7 @@ function calculateChange() {
     const change = tendered - currentTotal;
     const changeEl = document.getElementById('pos-change');
     changeEl.textContent = change >= 0 ? `₱${change.toFixed(2)}` : '₱0.00';
-    changeEl.style.color = (change < 0 && tendered > 0) ? '#ef4444' : '#10b981';
+    changeEl.style.color = (change < 0 && tendered > 0) ? '#ef4444' : '#06A1A1';
     
     updateCheckoutState();
 }
