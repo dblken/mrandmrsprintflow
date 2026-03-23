@@ -39,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $print_placement = trim($_POST['print_placement'] ?? '');
     $lamination = trim($_POST['lamination'] ?? '');
     $quantity = (int)($_POST['quantity'] ?? 1);
+    $needed_date = trim($_POST['needed_date'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
 
     $color_display = ($shirt_color === 'Other') ? $color_other : $shirt_color;
@@ -49,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($shirt_source)) {
         $error = 'Please select whether the shop or customer will provide the shirt.';
     } elseif ($shop_provides) {
-        if (empty($shirt_type_display) || empty($color_display) || empty($size) || empty($print_placement) || empty($lamination) || $quantity < 1) {
-            $error = 'Please fill in Shirt Type, Color, Sizes, Print Placement, Lamination, and Quantity.';
+        if (empty($shirt_type_display) || empty($color_display) || empty($size) || empty($print_placement) || empty($lamination) || empty($needed_date) || $quantity < 1) {
+            $error = 'Please fill in Shirt Type, Color, Sizes, Print Placement, Lamination, Needed Date, and Quantity.';
         } elseif ($shirt_type === 'Others' && empty($shirt_type_other)) {
             $error = 'Please enter your custom shirt type.';
         } elseif ($sizes === 'Others' && empty($sizes_other)) {
@@ -61,8 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $proceed = true;
         }
     } else {
-        if (empty($color_display) || empty($print_placement) || empty($lamination) || $quantity < 1) {
-            $error = 'Please fill in Color, Print Placement, Lamination, and Quantity.';
+        if (empty($color_display) || empty($print_placement) || empty($lamination) || empty($needed_date) || $quantity < 1) {
+            $error = 'Please fill in Color, Print Placement, Lamination, Needed Date, and Quantity.';
         } elseif ($shirt_color === 'Other' && empty($color_other)) {
             $error = 'Please enter your custom shirt color.';
         } else {
@@ -106,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'print_placement' => $print_placement,
                         'lamination' => $lamination,
                         'quantity' => $quantity,
+                        'needed_date' => $needed_date,
                         'notes' => $notes
                     ]
                 ];
@@ -263,6 +265,11 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                 </div>
 
                 <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Needed Date *</label>
+                    <input type="date" name="needed_date" id="needed_date" class="input-field" value="<?php echo htmlspecialchars($_POST['needed_date'] ?? ''); ?>" required min="<?php echo date('Y-m-d'); ?>">
+                </div>
+
+                <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea name="notes" rows="3" class="input-field" placeholder="Any special instructions..."><?php echo htmlspecialchars($_POST['notes'] ?? ''); ?></textarea>
                 </div>
@@ -385,8 +392,9 @@ function checkFormValid() {
     const lamination = document.querySelector('input[name="lamination"]:checked');
     const qty = parseInt(document.getElementById('quantity-input').value) || 0;
     const file = document.getElementById('design_file');
+    const neededDate = document.getElementById('needed_date');
 
-    let ok = !!shirtSource && !!shirtColor && !!placement && !!lamination && qty >= 1 && file.files.length > 0;
+    let ok = !!shirtSource && !!shirtColor && !!placement && !!lamination && qty >= 1 && file.files.length > 0 && neededDate.value.trim() !== '';
     if (shirtColor && shirtColor.value === 'Other') ok = ok && colorOther.value.trim() !== '';
 
     const shopProvides = shirtSource && shirtSource.value === 'Shop will provide the shirt';
@@ -412,6 +420,7 @@ document.getElementById('tshirtForm').addEventListener('change', checkFormValid)
 document.getElementById('tshirtForm').addEventListener('input', checkFormValid);
 document.getElementById('design_file').addEventListener('change', checkFormValid);
 document.getElementById('quantity-input').addEventListener('input', checkFormValid);
+document.getElementById('needed_date').addEventListener('change', checkFormValid);
 
 // Print placement: hover = preview, click = select. Preview persists (never clears).
 const previewImg = document.getElementById('placement-preview-img');
