@@ -136,6 +136,7 @@ $page_title = 'Orders - Staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="turbo-visit-control" content="reload">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
@@ -313,6 +314,342 @@ $page_title = 'Orders - Staff';
         .om-status-toast-icon { font-size: 2rem; }
         .om-status-toast-msg { font-size: 14px; font-weight: 600; line-height: 1.4; }
     </style>
+    <script>
+    /* ═══════════════════════════════════════════════════════
+       Staff Orders Page — All functions defined in <head>
+       so they are available before any onclick fires,
+       regardless of Turbo Drive full vs partial navigation.
+    ═══════════════════════════════════════════════════════ */
+
+    // ── Navigate without Turbo Drive interception ────────
+    function openStaffOrderManage(orderId, status = '') {
+        window.location.href = '/printflow/staff/customizations.php?order_id=' + orderId + '&status=' + encodeURIComponent(status) + '&job_type=ORDER';
+    }
+
+    // ── Status badge helper ──────────────────────────────
+    function statusBadge(val) {
+        var map = {
+            'Completed':             'badge-green',
+            'Pending':               'badge-yellow',
+            'Pending Review':        'badge-yellow',
+            'Approved':              'badge-green',
+            'To Pay':                'badge-blue',
+            'Downpayment Submitted': 'badge-yellow',
+            'Pending Verification':  'badge-yellow',
+            'Processing':            'badge-blue',
+            'In Production':         'badge-blue',
+            'Printing':              'badge-blue',
+            'For Revision':          'badge-red',
+            'Ready for Pickup':      'badge-purple',
+            'Cancelled':             'badge-red',
+            'Paid':                  'badge-green',
+            'Unpaid':                'badge-gray',
+            'Partial':               'badge-yellow',
+        };
+        var cls = map[val] || 'badge-gray';
+        return '<span class="badge ' + cls + '">' + val + '</span>';
+    }
+
+    function esc(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;');
+    }
+
+    function formatCurrency(val) {
+        return '₱' + parseFloat(val).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+
+    // ── Open / close order modal ─────────────────────────
+    var currentOrderId = null;
+
+    function openOrderModal(orderId) {
+        currentOrderId = orderId;
+        var modal = document.getElementById('orderModal');
+        document.getElementById('omTitle').textContent = 'Order #' + orderId;
+        document.getElementById('omSubtitle').textContent = 'Loading…';
+        document.getElementById('omBody').innerHTML =
+            '<div class="om-loader"><div class="om-spinner"></div>' +
+            '<div style="color:#94a3b8;font-size:14px;">Fetching order details…</div></div>';
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+
+        fetch('/printflow/staff/get_order_data.php?id=' + orderId, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) {
+            var ct = r.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                return r.text().then(function(txt) {
+                    console.error('Non-JSON response:', txt);
+                    document.getElementById('omBody').innerHTML =
+                        '<div class="om-alert om-alert-error">Server returned unexpected response (HTTP ' + r.status + '). Check console.</div>';
+                    return null;
+                });
+            }
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data) return;
+            if (data.error) {
+                document.getElementById('omBody').innerHTML =
+                    '<div class="om-alert om-alert-error">Error: ' + data.error + '</div>';
+                return;
+            }
+            try { renderOrderModal(data); }
+            catch (err) {
+                console.error('Render Error:', err);
+                document.getElementById('omBody').innerHTML =
+                    '<div class="om-alert om-alert-error">Rendering Error: ' + err.message + '</div>';
+            }
+        })
+        .catch(function(err) {
+            console.error('Fetch Error:', err);
+            document.getElementById('omBody').innerHTML =
+                '<div class="om-alert om-alert-error">Network Error: ' + err.message + '</div>';
+        });
+    }
+    window.openOrderModal = openOrderModal;
+
+    function closeOrderModal() {
+        var modal = document.getElementById('orderModal');
+        if (modal) modal.classList.remove('open');
+        document.body.style.overflow = '';
+        currentOrderId = null;
+    }
+    window.closeOrderModal = closeOrderModal;
+
+    function showStatusOverlay(icon, msg) {
+        var ov = document.getElementById('omStatusOverlay');
+        if (!ov) return;
+        document.getElementById('omStatusIcon').textContent = icon;
+        document.getElementById('omStatusMsg').textContent = msg;
+        ov.classList.add('active');
+        setTimeout(function() { ov.classList.remove('active'); }, 2200);
+    }
+
+    // ── Revision modal ───────────────────────────────────
+    function openRevisionModal(orderId, csrfToken) {
+        document.getElementById('revOrderId').value = orderId;
+        document.getElementById('revCsrfToken').value = csrfToken;
+        document.getElementById('revisionModal').classList.add('open');
+    }
+    function closeRevisionModal() {
+        document.getElementById('revisionModal').classList.remove('open');
+        document.getElementById('revForm').reset();
+        document.getElementById('revOtherWrapper').style.display = 'none';
+    }
+    function handleReasonChange(select) {
+        var wrap  = document.getElementById('revOtherWrapper');
+        var input = document.getElementById('revOtherInput');
+        if (select.value === 'Other') {
+            wrap.style.display = 'block';
+            input.required = true;
+        } else {
+            wrap.style.display = 'none';
+            input.required = false;
+        }
+    }
+
+    // ── Design review actions ────────────────────────────
+    function approveDesign(orderId, csrfToken) {
+        if (!confirm('Are you sure you want to approve this design?')) return;
+        var fd = new FormData();
+        fd.append('order_id', orderId);
+        fd.append('csrf_token', csrfToken);
+        fetch('/printflow/staff/approve_design_process.php', {
+            method: 'POST', body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showStatusOverlay('✅', res.message);
+                setTimeout(function() { openOrderModal(orderId); }, 1000);
+            } else {
+                alert(res.error || 'Failed to approve design');
+            }
+        })
+        .catch(function() { alert('Network error occurred'); });
+    }
+
+    function verifyPayment(orderId, action) {
+        // Payment verify logic (reuses same AJAX pattern)
+        if (!confirm('Confirm ' + action + ' payment?')) return;
+        var fd = new FormData();
+        fd.append('order_id', orderId);
+        fd.append('action', action);
+        fd.append('csrf_token', document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : '');
+        fetch('/printflow/staff/verify_payment_process.php', {
+            method: 'POST', body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showStatusOverlay('✅', res.message || 'Payment updated!');
+                setTimeout(function() { openOrderModal(orderId); }, 1200);
+            } else {
+                alert(res.error || 'Failed to update payment');
+            }
+        })
+        .catch(function() { alert('Network error'); });
+    }
+
+    // renderOrderModal is defined after DOMContentLoaded since it
+    // just builds HTML strings — safe to define here too:
+    function renderOrderModal(d) {
+        document.getElementById('omSubtitle').textContent = d.order_date;
+
+        var cancelBlock = '';
+        if (d.status === 'Cancelled' && (d.cancelled_by || d.cancel_reason)) {
+            cancelBlock = '<div style="margin-top:12px;padding:12px;background:#fef2f2;border:1px solid #fee2e2;border-radius:10px;">' +
+                '<div style="font-weight:700;color:#ef4444;font-size:12px;margin-bottom:4px;">Cancellation Details</div>' +
+                '<div style="font-size:12px;color:#b91c1c;"><b>By:</b> ' + esc(d.cancelled_by) +
+                '<br><b>Reason:</b> ' + esc(d.cancel_reason) +
+                (d.cancelled_at ? '<br><b>At:</b> ' + esc(d.cancelled_at) : '') + '</div></div>';
+        }
+
+        var itemsHTML = '';
+        (d.items || []).forEach(function(item) {
+            var customHTML = '';
+            if (item.customization && Object.keys(item.customization).length) {
+                var grid = '', large = '';
+                Object.entries(item.customization).forEach(function(e2) {
+                    var k = e2[0], v = e2[1];
+                    if (!v || v === 'No' || v === 'None' || v === 'none') return;
+                    var label = k.replace(/_/g, ' ');
+                    var isLarge = k.toLowerCase().includes('description') || k.toLowerCase() === 'notes';
+                    if (k.toLowerCase() === 'notes' && v === d.notes) return;
+                    if (isLarge) {
+                        large += '<div style="grid-column:1/-1;margin-top:8px;padding:12px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;">' +
+                            '<div style="font-size:12px;font-weight:800;color:#92400e;text-transform:uppercase;margin-bottom:6px;">📝 ' + esc(label) + '</div>' +
+                            '<div style="font-size:14px;color:#b45309;line-height:1.5;">' + esc(String(v)).replace(/\n/g,'<br>') + '</div></div>';
+                    } else {
+                        grid += '<div style="padding:6px 0;"><div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;">' + esc(label) + '</div>' +
+                            '<div style="font-size:15px;font-weight:700;color:#1e293b;">' + esc(String(v)) + '</div></div>';
+                    }
+                });
+                customHTML = '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">' +
+                    '<div style="font-size:13px;font-weight:800;color:#475569;text-transform:uppercase;border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-bottom:12px;">Customization Details</div>' +
+                    '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">' + grid + '</div>' + large + '</div>';
+            }
+
+            var designHTML = '';
+            if (item.has_design) {
+                designHTML += '<div style="width:100%;margin-bottom:12px;">' +
+                    '<div style="font-size:13px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:8px;">Customer Design</div>' +
+                    '<a href="' + item.design_url + '" target="_blank" style="display:block;border-radius:12px;overflow:hidden;border:2px solid #f1f5f9;">' +
+                    '<img src="' + item.design_url + '" alt="Design" style="width:100%;max-height:400px;object-fit:cover;display:block;"></a>' +
+                    '<a href="' + item.design_url + '" target="_blank" style="display:inline-block;font-size:12px;color:#06A1A1;margin-top:8px;font-weight:700;text-decoration:none;background:#e6f7f5;padding:4px 10px;border-radius:6px;">↗ View Full</a></div>';
+            }
+
+            itemsHTML += '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;padding:20px 0;border-bottom:1px solid #e2e8f0;">' +
+                '<div style="flex:1 1 55%;min-width:300px;">' +
+                '<div style="font-weight:800;color:#0f172a;font-size:18px;margin-bottom:4px;">' + esc(item.product_name || 'Custom Product') + '</div>' +
+                '<div style="font-size:13px;color:#64748b;margin-bottom:14px;">Qty: ' + (item.quantity||1) + ' &nbsp;&bull;&nbsp; ₱' + parseFloat(item.unit_price||0).toFixed(2) + ' each</div>' +
+                customHTML + '</div>' +
+                '<div style="flex:0 0 240px;">' + designHTML + '</div></div>';
+        });
+
+        var notesBlock = d.notes ? '<div class="om-notes"><div class="om-notes-title">📝 Customer Notes</div><div class="om-notes-text">' + esc(d.notes).replace(/\n/g,'<br>') + '</div></div>' : '';
+
+        var payBlock = '';
+        if (d.payment_proof) {
+            payBlock = '<div style="margin-top:16px;padding:16px;background:#f0fdf4;border:1px solid #dcfce7;border-radius:12px;">' +
+                '<div style="font-weight:700;color:#15803d;font-size:12px;margin-bottom:8px;">📄 Payment Proof</div>' +
+                '<a href="' + d.payment_proof + '" target="_blank" style="display:block;border-radius:8px;overflow:hidden;">' +
+                '<img src="' + d.payment_proof + '" alt="Payment Proof" style="width:100%;height:auto;display:block;"></a>' +
+                (d.status === 'Downpayment Submitted' ? '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+                    '<button class="btn-primary" onclick="verifyPayment(' + d.order_id + ', \'Approve\')" style="background:#22c55e;font-size:12px;padding:8px;">Approve Payment</button>' +
+                    '<button class="btn-secondary" onclick="verifyPayment(' + d.order_id + ', \'Reject\')" style="color:#ef4444;border-color:#fee2e2;font-size:12px;padding:8px;">Reject Payment</button></div>' : '') +
+                '</div>';
+        }
+
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrf = csrfMeta ? csrfMeta.content : '';
+
+        var actionsHTML = '';
+        if (d.status === 'Pending Review' || d.status === 'Pending Approval') {
+            actionsHTML = '<div style="display:flex;gap:10px;margin-top:20px;">' +
+                '<button class="btn-primary" onclick="approveDesign(' + d.order_id + ', \'' + csrf + '\')" style="flex:1;">✓ Approve Design</button>' +
+                '<button class="btn-secondary" onclick="openRevisionModal(' + d.order_id + ', \'' + csrf + '\')" style="flex:1;color:#ef4444;border-color:#fee2e2;">✎ Request Revision</button>' +
+                '</div>';
+        }
+
+        document.getElementById('omBody').innerHTML =
+            '<div class="om-grid">' +
+            '<div class="om-card"><div class="om-card-title">Order Info</div>' +
+            '<div class="om-row"><span class="om-label">Status</span><span class="om-value">' + statusBadge(d.status) + '</span></div>' +
+            '<div class="om-row"><span class="om-label">Total</span><span class="om-value">' + formatCurrency(d.total_amount) + '</span></div>' +
+            '<div class="om-row"><span class="om-label">Payment</span><span class="om-value">' + statusBadge(d.payment_status || '-') + '</span></div>' +
+            (d.payment_reference ? '<div class="om-row"><span class="om-label">Ref #</span><span class="om-value">' + esc(d.payment_reference) + '</span></div>' : '') +
+            cancelBlock + '</div>' +
+            '<div class="om-card"><div class="om-card-title">Customer</div>' +
+            '<div class="om-cust-header"><div class="om-avatar">' + esc((d.first_name||'?').charAt(0).toUpperCase()) + '</div>' +
+            '<div><div style="font-weight:700;color:#0f172a;">' + esc((d.first_name||'') + ' ' + (d.last_name||'')) + '</div>' +
+            '<div style="font-size:12px;color:#64748b;">' + esc(d.email||'') + '</div></div></div>' +
+            (d.phone ? '<div class="om-row"><span class="om-label">Phone</span><span class="om-value">' + esc(d.phone) + '</span></div>' : '') +
+            '</div></div>' +
+            notesBlock +
+            '<div class="om-items-section"><div class="om-items-title">Order Items</div>' + itemsHTML + '</div>' +
+            payBlock + actionsHTML;
+    }
+
+    // ── DOMContentLoaded: event listeners & auto-open ────
+    document.addEventListener('DOMContentLoaded', function() {
+        // Escape key closes modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeOrderModal();
+        });
+
+        // Status filter auto-submit
+        var statusSelect = document.getElementById('statusFilterSelect');
+        if (statusSelect) {
+            statusSelect.addEventListener('change', function() {
+                var params = new URLSearchParams(window.location.search);
+                var next = statusSelect.value.trim();
+                if (next) { params.set('status', next); } else { params.delete('status'); }
+                params.delete('page');
+                window.location.href = window.location.pathname + '?' + params.toString();
+            });
+        }
+
+        // Revision form: combine reason fields
+        var revForm = document.getElementById('revForm');
+        if (revForm) {
+            revForm.addEventListener('submit', function(e) {
+                var submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    if (submitBtn.disabled) { e.preventDefault(); return false; }
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Sending...';
+                    submitBtn.style.opacity = '0.7';
+                }
+                var sel = this.querySelector('select[name="revision_reason_select"]');
+                var oth = this.querySelector('textarea[name="revision_reason_other"]');
+                var finalReason = sel ? sel.value : '';
+                if (finalReason === 'Other' && oth) finalReason = oth.value;
+                var hidden = this.querySelector('input[name="revision_reason"]');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'revision_reason';
+                    this.appendChild(hidden);
+                }
+                hidden.value = finalReason;
+            });
+        }
+
+        // Auto-open modal if order_id is in URL
+        var urlParams = new URLSearchParams(window.location.search);
+        var orderId = urlParams.get('order_id');
+        if (orderId) { openOrderModal(orderId); }
+    });
+    </script>
 </head>
 <body>
 
@@ -409,7 +746,7 @@ $page_title = 'Orders - Staff';
                                     <td style="padding: 16px 12px; vertical-align: middle; text-align: right;">
                                         <div style="display: flex; justify-content: flex-end; gap: 4px;">
                                             <button
-                                                onclick="openStaffOrderManage(<?php echo $order['order_id']; ?>)"
+                                                onclick="openStaffOrderManage(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['status']); ?>')"
                                                 style="background: #ecfdf5; border: none; color: #059669; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s;"
                                                 onmouseover="this.style.background='#d1fae5'; this.style.transform='translateY(-1px)'"
                                                 onmouseout="this.style.background='#ecfdf5'; this.style.transform='translateY(0)'"
@@ -528,712 +865,6 @@ $page_title = 'Orders - Staff';
         </form>
     </div>
 </div>
-
-<script>
-function openStaffOrderManage(orderId) {
-    window.location.href = `/printflow/staff/customizations.php?order_id=${orderId}`;
-}
-</script>
-
-<script>
-let currentOrderId = null;
-
-// ── Status badge helper ──────────────────────────────────
-function statusBadge(val) {
-    const map = {
-        'Completed':        'badge-green',
-        'Pending':          'badge-yellow',
-        'Pending Review':   'badge-yellow',
-        'Approved':         'badge-green',
-        'To Pay':           'badge-blue',
-        'Downpayment Submitted': 'badge-yellow',
-        'Pending Verification': 'badge-yellow',
-        'Processing':       'badge-blue',
-        'In Production':    'badge-blue',
-        'Printing':         'badge-blue',
-        'For Revision':     'badge-red',
-        'Ready for Pickup': 'badge-purple',
-        'Cancelled':        'badge-red',
-        'Paid':             'badge-green',
-        'Unpaid':           'badge-gray',
-        'Partial':          'badge-yellow',
-    };
-    const cls = map[val] || 'badge-gray';
-    return `<span class="badge ${cls}">${val}</span>`;
-}
-
-// ── Open / close ─────────────────────────────────────────
-function openOrderModal(orderId) {
-    currentOrderId = orderId;
-    const modal = document.getElementById('orderModal');
-    document.getElementById('omTitle').textContent = `Order #${orderId}`;
-    document.getElementById('omSubtitle').textContent = 'Loading…';
-    document.getElementById('omBody').innerHTML = `
-        <div class="om-loader">
-            <div class="om-spinner"></div>
-            <div style="color:#94a3b8;font-size:14px;">Fetching order details…</div>
-        </div>`;
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-
-    fetch(`/printflow/staff/get_order_data.php?id=${orderId}`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => {
-        const contentType = r.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-            // Non-JSON response — show raw text for debugging
-            return r.text().then(txt => {
-                console.error('Non-JSON response from API:', txt);
-                document.getElementById('omBody').innerHTML =
-                    `<div class="om-alert om-alert-error">Server returned unexpected response (HTTP ${r.status}). Check console for details.</div>`;
-                return null;
-            });
-        }
-        return r.json();
-    })
-    .then(data => {
-        if (!data) return; // handled above
-        if (data.error) {
-            document.getElementById('omBody').innerHTML =
-                `<div class="om-alert om-alert-error">Error: ${data.error}</div>`;
-            return;
-        }
-        console.log("Order Data:", data);
-        try {
-            renderOrderModal(data);
-        } catch (err) {
-            console.error("Render Error:", err);
-            document.getElementById('omBody').innerHTML =
-                `<div class="om-alert om-alert-error">Rendering Error: ${err.message}</div>`;
-        }
-    })
-    .catch(err => {
-        console.error("Fetch Error:", err);
-        document.getElementById('omBody').innerHTML =
-            `<div class="om-alert om-alert-error">Network Error: ${err.message}</div>`;
-    });
-}
-
-function closeOrderModal() {
-    const modal = document.getElementById('orderModal');
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    currentOrderId = null;
-}
-
-// Close on Escape
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOrderModal(); });
-
-// ── Render ───────────────────────────────────────────────
-function renderOrderModal(d) {
-    document.getElementById('omSubtitle').textContent = d.order_date;
-
-    let cancelBlock = '';
-    if (d.status === 'Cancelled' && (d.cancelled_by || d.cancel_reason)) {
-        cancelBlock = `
-            <div style="margin-top:12px;padding:12px;background:#fef2f2;border:1px solid #fee2e2;border-radius:10px;">
-                <div style="font-weight:700;color:#ef4444;font-size:12px;margin-bottom:4px;">Cancellation Details</div>
-                <div style="font-size:12px;color:#b91c1c;">
-                    <b>By:</b> ${esc(d.cancelled_by)}<br>
-                    <b>Reason:</b> ${esc(d.cancel_reason)}<br>
-                    ${d.cancelled_at ? `<b>At:</b> ${esc(d.cancelled_at)}` : ''}
-                </div>
-            </div>`;
-    }
-
-    let revisionBlock = '';
-    if (d.status === 'For Revision' && d.revision_reason) {
-        revisionBlock = `
-            <div style="margin-top:12px;padding:12px;background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;">
-                <div style="font-weight:700;color:#2563eb;font-size:12px;margin-bottom:4px;">Revision Requested</div>
-                <div style="font-size:12px;color:#1e40af;">
-                    <b>Reason:</b> ${esc(d.revision_reason)}<br>
-                    <b>Count:</b> ${d.revision_count}
-                </div>
-            </div>`;
-    }
-
-    let notesBlock = '';
-    if (d.notes) {
-        notesBlock = `
-            <div class="om-notes">
-                <div class="om-notes-title">📝 Customer Notes</div>
-                <div class="om-notes-text">${esc(d.notes).replace(/\n/g,'<br>')}</div>
-            </div>`;
-    }
-
-    let downBlock = '';
-    if (d.downpayment_amount > 0) {
-        downBlock = `
-            <div class="om-row">
-                <span class="om-label" style="color:#b45309;font-weight:600;">Mandatory Downpayment</span>
-                <span class="om-value" style="color:#b45309;">PHP ${d.downpayment_amount.toFixed(2)}</span>
-            </div>`;
-    }
-
-    let payRefBlock = '';
-    if (d.payment_reference) {
-        payRefBlock = `
-            <div class="om-row">
-                <span class="om-label">Payment Reference</span>
-                <span class="om-value">${esc(d.payment_reference)}</span>
-            </div>`;
-    }
-
-    let paymentProofBlock = '';
-    if (d.payment_proof) {
-        paymentProofBlock = `
-            <div style="margin-top:16px; padding:16px; background:#f0fdf4; border:1px solid #dcfce7; border-radius:12px;">
-                <div style="font-weight:700; color:#15803d; font-size:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>📄 Payment Proof Content</span>
-                    <span style="font-size:10px; color:#16a34a;">Submitted: ${d.payment_submitted_at}</span>
-                </div>
-                <a href="${d.payment_proof}" target="_blank" style="display:block; border-radius:8px; overflow:hidden; border:2px solid white; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-                    <img src="${d.payment_proof}" alt="Payment Proof" style="width:100%; height:auto; display:block;">
-                </a>
-                ${d.status === 'Downpayment Submitted' ? `
-                <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <button class="btn-primary" onclick="verifyPayment(${d.order_id}, 'Approve')" style="background:#22c55e; font-size:12px; padding:8px;">Approve Payment</button>
-                    <button class="btn-secondary" onclick="verifyPayment(${d.order_id}, 'Reject')" style="color:#ef4444; border-color:#fee2e2; font-size:12px; padding:8px;">Reject Payment</button>
-                </div>
-                ` : ''}
-            </div>`;
-    }
-
-    // Status options
-
-
-
-
-    // Items
-    let itemsHTML = '';
-    d.items.forEach(item => {
-        // Customization UI
-        let customizationHTML = '';
-        if (item.customization && Object.keys(item.customization).length) {
-            let gridItems = '';
-            let largeBlocks = '';
-            
-            Object.entries(item.customization).forEach(([k, v]) => {
-                if (!v || v === 'No' || v === 'None' || v === 'none') return;
-                
-                // Specific exclusions for Reflectorized Temporary Plates
-                const isReflectorized = (item.category || '').toLowerCase().includes('reflectorized') || 
-                                       (item.customization.service_type || '').toLowerCase().includes('reflectorized');
-                const isTempPlate = (item.customization.product_type || '').includes('Temporary Plate');
-                const isGatePass = (item.customization.product_type || '').includes('Gate Pass');
-                const isStreetSignage = (item.customization.product_type || '').includes('Street');
-                const exclusions = ['unit', 'bg_color', 'text_color', 'arrow_direction', 'quantity', 'material_type', 'shape', 'with_border', 'rounded_corners', 'with_numbering', 'install_service', 'need_proof', 'reflective_color', 'inches', 'product_type', 'dimensions', 'service_type'];
-                const gpOnlyExclusions = ['bg_color', 'text_color', 'reflective_color', 'text_content', 'arrow_direction', 'with_numbering', 'install_service', 'need_proof', 'temp_plate_text', 'product_type', 'dimensions', 'unit', 'shape', 'material_type', 'service_type'];
-                const ssOnlyExclusions = ['bg_color', 'text_color', 'reflective_color', 'with_numbering', 'starting_number', 'mounting_option', 'temp_plate_text', 'product_type', 'dimensions', 'unit', 'shape', 'material_type', 'service_type'];
-                
-                if (isReflectorized && isTempPlate && (exclusions.includes(k) || v === 'inches')) return;
-                if (isReflectorized && isGatePass && (gpOnlyExclusions.includes(k) || k === 'quantity_gatepass')) return;
-                if (isReflectorized && isStreetSignage && ssOnlyExclusions.includes(k)) return;
-
-                const label = k.replace(/_/g, ' ');
-                const isLarge = k.toLowerCase().includes('description') || k.toLowerCase() === 'notes';
-                
-                // If it's the same as global order notes, skip rendering it for the item
-                if (k.toLowerCase() === 'notes' && v === d.notes) return;
-                
-                if (isLarge) {
-                    largeBlocks += `
-                        <div style="grid-column: 1 / -1; margin-top: 8px; padding: 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px;">
-                            <div style="font-size: 12px; font-weight: 800; color: #92400e; text-transform: uppercase; margin-bottom: 6px;">📝 ${esc(label)}</div>
-                            <div style="font-size: 14px; color: #b45309; line-height: 1.5; font-weight: 500; max-height: 150px; overflow-y: auto; overflow-wrap: anywhere; word-break: break-word; padding-right: 4px;">
-                                ${esc(String(v)).replace(/\n/g,'<br>')}
-                            </div>
-                        </div>`;
-                } else {
-                    gridItems += `
-                        <div style="padding: 6px 0;">
-                            <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">${esc(label)}</div>
-                            <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${esc(String(v))}</div>
-                        </div>`;
-                }
-            });
-
-            customizationHTML = `
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                    <div style="font-size: 13px; font-weight: 800; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 0.05em;">Customization Details</div>
-                    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
-                        ${gridItems}
-                    </div>
-                    ${largeBlocks}
-                </div>`;
-        }
-
-        // Design & Reference Previews
-        let designPreHTML = '';
-        if (item.has_design || item.has_reference) {
-            let previews = '';
-            
-            if (item.has_design) {
-                previews += `
-                    <div style="width:100%; margin-bottom:12px; text-align: right;">
-                        <div style="font-size: 13px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.025em;">Customer Design</div>
-                        <a href="${item.design_url}" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                            <img src="${item.design_url}" alt="Design" style="width: 100%; max-height: 400px; object-fit: cover; display: block;" onerror="this.outerHTML='<div style=\'padding:20px;font-size:12px;color:#94a3b8;text-align:center;\'>N/A</div>'">
-                        </a>
-                        <a href="${item.design_url}" target="_blank" style="display: inline-block; font-size: 12px; color: #06A1A1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #e6f7f5; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
-                    </div>`;
-            }
-            
-            if (item.has_reference) {
-                previews += `
-                    <div style="width:100%; margin-bottom:12px; text-align: right;">
-                        <div style="font-size: 13px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.025em;">Reference Image</div>
-                        <a href="${item.reference_url}" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                            <img src="${item.reference_url}" alt="Reference" style="width: 100%; max-height: 400px; object-fit: cover; display: block;" onerror="this.outerHTML='<div style=\'padding:20px;font-size:12px;color:#94a3b8;text-align:center;\'>N/A</div>'">
-                        </a>
-                        <a href="${item.reference_url}" target="_blank" style="display: inline-block; font-size: 12px; color: #4f46e5; margin-top: 8px; font-weight: 700; text-decoration: none; background: #f5f3ff; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
-                    </div>`;
-            }
-
-            designPreHTML = `
-                <div style="display: flex; flex-direction: column; gap: 12px; align-items: flex-end;">
-                    ${previews}
-                </div>`;
-        }
-
-        try {
-            itemsHTML += `
-                <div class="notif-item-row" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; padding: 20px 0; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: anywhere;">
-                    <!-- Left Side (60%) -->
-                    <div style="flex: 1 1 55%; min-width: 300px;">
-                        <div style="font-weight: 800; color: #0f172a; font-size: 18px; margin-bottom: 4px; line-height: 1.2;">
-                            ${esc(item.product_name || 'Custom Product')}
-                        </div>
-                        <div style="font-size: 13px; color: #64748b; font-weight: 600; margin-bottom: 16px;">${esc(item.category || 'General')}</div>
-                        
-                        ${customizationHTML || ''}
-                        
-                        <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                            <div>
-                                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Quantity</div>
-                                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${item.quantity || 0}</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Unit Price</div>
-                                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">PHP ${(item.unit_price || 0).toFixed(2)}</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Subtotal</div>
-                                <div style="font-size: 15px; font-weight: 700; color: #06A1A1;">PHP ${(item.subtotal || 0).toFixed(2)}</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Side (40%) -->
-                    <div style="flex: 1 1 35%; min-width: 250px; text-align: right;">
-                        ${designPreHTML || ''}
-                    </div>
-                </div>`;
-        } catch (err) {
-            console.error("Error rendering item row:", err);
-            itemsHTML += `<div style="padding:10px; color:red;">Error rendering item details.</div>`;
-        }
-    });
-
-    document.getElementById('omBody').innerHTML = `
-        <div id="omFlash"></div>
-
-        <div class="om-grid">
-            <!-- Order Info -->
-            <div class="om-card">
-                <div class="om-card-title">Order Information</div>
-                <div class="om-row">
-                    <span class="om-label">Order Date</span>
-                    <span class="om-value">${esc(d.order_date)}</span>
-                </div>
-                <div class="om-row">
-                    <span class="om-label">Total Amount</span>
-                    <span class="om-value" style="color:#06A1A1;font-size:15px;">${esc(d.total_amount)}</span>
-                </div>
-                <div class="om-row">
-                    <span class="om-label">Current Status</span>
-                    <span class="om-value">${statusBadge(d.status)}</span>
-                </div>
-                <div class="om-row">
-                    <span class="om-label">Payment Status</span>
-                    <span class="om-value">${statusBadge(d.payment_status)}</span>
-                </div>
-                <!-- Flex Payment Option Display -->
-                ${d.payment_type !== 'full_payment' ? `
-                <div class="om-row">
-                    <span class="om-label" style="color:#06A1A1;">Payment Option</span>
-                    <span class="om-value" style="color:#06A1A1; font-weight:600;">
-                        ${d.payment_type === '50_percent' ? '50% Downpayment' : 'Pay Upon Pickup'}
-                    </span>
-                </div>
-                ` : ''}
-                ${downBlock}
-                ${payRefBlock}
-                ${paymentProofBlock}
-
-                <!-- Design Review Section -->
-                <div id="omDesignReviewSection" style="margin-top:16px; padding:16px; background:#fff; border:1px solid #e2e8f0; border-radius:12px;">
-                    <div style="font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; margin-bottom:12px;">Design Review Queue</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <span style="font-size:13px; font-weight:600; color:#1e293b;">Design Status:</span>
-                        ${statusBadge(d.design_status || 'Pending')}
-                    </div>
-                    ${(() => {
-                        // Buttons should be visible as long as it's not Approved
-                        // (Allows unlimited revision requests from staff)
-                        const showButtons = (d.design_status !== 'Approved');
-                        const isFinalState = ['Completed', 'Cancelled'].includes(d.status);
-                        
-                        if (showButtons && !isFinalState) {
-                            return `
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                                <button class="btn-primary" onclick="approveDesign(${d.order_id}, '${esc(d.csrf_token)}')" style="background:#22c55e; font-size:12px; padding:8px;">Approve Design</button>
-                                <button class="btn-secondary" onclick="openRevisionModal(${d.order_id}, '${esc(d.csrf_token)}')" style="color:#ef4444; border-color:#fee2e2; font-size:12px; padding:8px;">Request Revision</button>
-                            </div>
-                            `;
-                        }
-                        return '';
-                    })()}
-
-                    ${d.design_status === 'Approved' ? `
-                    <div style="font-size:11px; color:#16a34a; font-weight:600; text-align:center;">
-                        ✅ Design successfully approved${d.reviewed_at ? ' on ' + d.reviewed_at : ''}.
-                    </div>
-                    ${d.items && d.items[0] && d.items[0].has_design ? `
-                        <div style="margin-top:10px; border: 1px solid #dcfce7; border-radius: 8px; overflow: hidden;">
-                             <img src="${d.items[0].design_url}" style="width:100%; height:auto; display:block;">
-                        </div>
-                    ` : ''}
-                    ` : ''}
-                    ${d.design_status === 'Revision Requested' ? `
-                    <div style="font-size:11px; color:#2563eb; font-weight:600; text-align:center;">
-                        ℹ️ Revision requested from customer.
-                    </div>
-                    ` : ''}
-
-                    ${d.revisions && d.revisions.length > 0 ? `
-                        <div style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:16px;">
-                            <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:10px;">🕒 Past Revisions & Rejections</div>
-                            ${d.revisions.map((rev, idx) => `
-                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; margin-bottom:8px;">
-                                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                                        <span style="font-size:11px; font-weight:700; color:#1e293b;">Review ${d.revisions.length - idx}</span>
-                                        <span style="font-size:10px; color:#64748b;">${rev.created_at}</span>
-                                    </div>
-                                    <div style="font-size:11px; color:#b45309; margin-bottom:8px; line-height:1.4;"><strong>Discarded Reason:</strong> ${esc(rev.revision_reason)}</div>
-                                    <div style="display:flex; align-items:center; gap:8px;">
-                                        <a href="${rev.design_url}" target="_blank" style="display:block; border-radius:4px; overflow:hidden; border:1px solid #cbd5e1; width:40px; height:40px; background:#fff;">
-                                            <img src="${rev.design_url}" alt="Rejected Design" style="width:100%; height:100%; object-fit:cover;" onerror="this.outerHTML='<div style=\\'font-size:10px;color:#94a3b8;line-height:40px;text-align:center;\\'>N/A</div>'">
-                                        </a>
-                                        <div style="flex:1;">
-                                            <div style="font-size:10px; font-weight:600; color:#475569;">Rejected Design File</div>
-                                            <div style="font-size:10px; color:#94a3b8;">${esc(rev.product_name)}</div>
-                                            <a href="${rev.design_url}" target="_blank" style="font-size:10px; color:#06A1A1; text-decoration:none; font-weight:600;">↗ View Full Size</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-
-                ${notesBlock}
-                ${cancelBlock}
-                ${revisionBlock}
-
-                <!-- Update Status Form Removed (Managed in Production Sidebar) -->
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:20px;">
-
-                <!-- Customer Info -->
-                <div class="om-card">
-                    <div class="om-card-title">Customer Information</div>
-                <div class="om-cust-header">
-                    <div class="om-avatar">${esc(d.cust_initial)}</div>
-                    <div>
-                        <div style="font-weight:700;font-size:15px;color:#1e293b;">${esc(d.cust_name)}</div>
-                        <div style="font-size:12px;color:#9ca3af;">Customer</div>
-                    </div>
-                </div>
-                <div class="om-row">
-                    <span class="om-label">Email</span>
-                    <span class="om-value">${esc(d.cust_email)}</span>
-                </div>
-                <div class="om-row">
-                    <span class="om-label">Contact Number</span>
-                    <span class="om-value">${esc(d.cust_phone)}</span>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Items -->
-        <div class="om-items-section" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-            <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #f1f5f9;">
-                Order Items (${d.items.length})
-            </div>
-            <div style="display: flex; flex-direction: column;">
-                ${itemsHTML}
-            </div>
-            <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 20px; margin-top: 10px;">
-                <div style="font-size: 16px; font-weight: 700; color: #475569; margin-right: 16px;">Total Amount:</div>
-                <div style="font-size: 20px; font-weight: 800; color: #06A1A1;">${esc(d.total_amount)}</div>
-            </div>
-        </div>
-    `;
-}
-
-// ── Update status via AJAX ───────────────────────────────
-function updateOrderStatus(btn, orderId, csrfToken) {
-    const newStatus = document.getElementById('omStatusSelect').value;
-    // Removed flash div usage here
-
-    const formData = new FormData();
-    formData.append('update_status', '1');
-    formData.append('order_id', orderId);
-    formData.append('status', newStatus);
-    formData.append('csrf_token', csrfToken);
-
-    const originalHtml = btn ? btn.innerHTML : 'Update Status';
-
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="om-spinner" style="width:14px;height:14px;border-width:2px;margin:0 6px 0 0;display:inline-block;vertical-align:middle;"></span> Updating...';
-    }
-
-    fetch('/printflow/staff/orders.php', {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-        if (res.success) {
-            showStatusOverlay('✅', `Status successfully updated to "${res.new_status}"!`);
-            
-            // Update the status badge in the table row immediately
-            const badge = document.querySelector(`button[onclick="openOrderModal(${orderId})"]`)
-                ?.closest('tr')?.querySelector('td:nth-child(5)');
-            if (badge) {
-                badge.innerHTML = statusBadge(res.new_status);
-                // Visual highlight effect
-                badge.style.transition = 'background 0.3s, transform 0.3s';
-                badge.style.background = '#d1fae5';
-                badge.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    badge.style.background = 'transparent';
-                    badge.style.transform = 'scale(1)';
-                }, 1500);
-            }
-
-            // Refresh modal data AFTER a delay so the message can be read
-            setTimeout(() => {
-                fetch(`/printflow/staff/get_order_data.php?id=${orderId}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                .then(r => r.json())
-                .then(data => {
-                    renderOrderModal(data);
-                });
-            }, 1500);
-        } else {
-            showStatusOverlay('❌', `Failed to update status: ${res.error || 'Please try again.'}`, true);
-        }
-    })
-    .catch(() => {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-        showStatusOverlay('⚠️', 'Network error. Please try again.', true);
-    });
-}
-
-function showStatusOverlay(icon, msg, isError = false) {
-    const overlay = document.getElementById('omStatusOverlay');
-    const iconEl = document.getElementById('omStatusIcon');
-    const msgEl = document.getElementById('omStatusMsg');
-    
-    iconEl.textContent = icon;
-    msgEl.textContent = msg;
-    
-    overlay.classList.add('active');
-    
-    // Auto-hide after 2.5 seconds
-    setTimeout(() => {
-        overlay.classList.remove('active');
-    }, 2500);
-}
-
-function verifyPayment(orderId, action) {
-    if (!confirm(`Are you sure you want to ${action.toLowerCase()} this payment?`)) return;
-    
-    showStatusOverlay('⌛', 'Processing Power verification...');
-
-    const fd = new FormData();
-    fd.append('order_id', orderId);
-    fd.append('action', action);
-
-    fetch('/printflow/staff/api_verify_payment.php', {
-        method: 'POST',
-        body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
-            showStatusOverlay('✅', `Payment ${action === 'Approve' ? 'Approved' : 'Rejected'} successfully!`);
-            setTimeout(() => {
-                openOrderModal(orderId); // Refresh modal
-                // Update table badge if it exists
-                const badge = document.querySelector(`button[onclick="openOrderModal(${orderId})"]`)?.closest('tr')?.querySelector('td:nth-child(5)');
-                if (badge) badge.innerHTML = statusBadge(res.new_status);
-            }, 1000);
-        } else {
-            showStatusOverlay('❌', `Error: ${res.error}`, true);
-        }
-    })
-    .catch(() => {
-        showStatusOverlay('⚠️', 'Network error. Please try again.', true);
-    });
-}
-
-// ── Design Review Actions ────────────────────────────────
-function approveDesign(orderId, csrfToken) {
-    if (!confirm('Are you sure you want to approve this design?')) return;
-
-    const fd = new FormData();
-    fd.append('order_id', orderId);
-    fd.append('csrf_token', csrfToken);
-
-    fetch('/printflow/staff/approve_design_process.php', {
-        method: 'POST',
-        body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
-            showStatusOverlay('✅', res.message);
-            setTimeout(() => {
-                openOrderModal(orderId); // Refresh modal
-            }, 1000);
-        } else {
-            alert(res.error || 'Failed to approve design');
-        }
-    })
-    .catch(() => alert('Network error occurred'));
-}
-
-function openRevisionModal(orderId, csrfToken) {
-    document.getElementById('revOrderId').value = orderId;
-    document.getElementById('revCsrfToken').value = csrfToken;
-    document.getElementById('revisionModal').classList.add('open');
-}
-
-function closeRevisionModal() {
-    document.getElementById('revisionModal').classList.remove('open');
-    document.getElementById('revForm').reset();
-    document.getElementById('revOtherWrapper').style.display = 'none';
-}
-
-function handleReasonChange(select) {
-    const otherWrapper = document.getElementById('revOtherWrapper');
-    const otherInput = document.getElementById('revOtherInput');
-    const reasonValue = select.value;
-
-    if (reasonValue === 'Other') {
-        otherWrapper.style.display = 'block';
-        otherInput.required = true;
-    } else {
-        otherWrapper.style.display = 'none';
-        otherInput.required = false;
-    }
-    
-    // Update the actual text being sent if it's a predefined reason
-    // We'll handle this in the process file or by using a hidden input.
-    // For now, let's just make sure the process file can handle both.
-}
-
-// Intercept revision form submission to combine reason
-document.getElementById('revForm')?.addEventListener('submit', function(e) {
-    // Disable submit button to prevent spam/duplicate notifications
-    const submitBtn = this.querySelector('button[type="submit"]');
-    if (submitBtn) {
-        if (submitBtn.disabled) {
-            e.preventDefault();
-            return false;
-        }
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending...';
-        submitBtn.style.opacity = '0.7';
-        submitBtn.style.cursor = 'not-allowed';
-    }
-
-    const select = this.querySelector('select[name="revision_reason_select"]');
-    const other = this.querySelector('textarea[name="revision_reason_other"]');
-    
-    let finalReason = select.value;
-    if (finalReason === 'Other') {
-        finalReason = other.value;
-    }
-    
-    // We can either update a hidden field or just let the PHP handle it.
-    // Let's add a hidden field for convenience.
-    let reasonHidden = this.querySelector('input[name="revision_reason"]');
-    if (!reasonHidden) {
-        reasonHidden = document.createElement('input');
-        reasonHidden.type = 'hidden';
-        reasonHidden.name = 'revision_reason';
-        this.appendChild(reasonHidden);
-    }
-    reasonHidden.value = finalReason;
-});
-
-function esc(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
-}
-
-function formatCurrency(val) {
-    return '₱' + parseFloat(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
-
-// Auto-open modal if order_id is in URL
-window.addEventListener('DOMContentLoaded', () => {
-    const statusSelect = document.getElementById('statusFilterSelect');
-    if (statusSelect) {
-        statusSelect.addEventListener('change', () => {
-            const params = new URLSearchParams(window.location.search);
-            const next = statusSelect.value.trim();
-            if (next) {
-                params.set('status', next);
-            } else {
-                params.delete('status');
-            }
-            params.delete('page');
-            window.location.href = `${window.location.pathname}?${params.toString()}`;
-        });
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const orderId = urlParams.get('order_id');
-    if (orderId) {
-        openOrderModal(orderId);
-    }
-});
-</script>
 
 </body>
 </html>

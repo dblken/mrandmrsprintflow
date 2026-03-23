@@ -23,6 +23,13 @@ if (isset($_GET['action'])) {
         exit;
     }
 
+    if ($action === 'get_unread_count') {
+        $r = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'count' => (int)($r[0]['count'] ?? 0)]);
+        exit;
+    }
+
     if ($action === 'mark_all_read') {
         db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
         redirect('/printflow/staff/notifications.php?success=All notifications marked as read');
@@ -89,6 +96,7 @@ $page_title = 'Notifications - Staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="turbo-visit-control" content="reload">
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
@@ -319,7 +327,12 @@ $page_title = 'Notifications - Staff';
             </div>
         </header>
 
-        <main>
+        <main>        <?php if (empty($notifications)): ?>
+            <div class="card" style="text-align:center; padding:48px 24px;">
+                <div style="font-size:48px; margin-bottom:12px;">🔔</div>
+                <p style="color:#6b7280; font-size:14px;">No notifications yet</p>
+            </div>
+        <?php else: ?>
             <div class="card" style="padding:0;overflow:hidden;">
                 <div class="notif-card-head" x-data="notifFilterPanel()">
                     <div>
@@ -414,7 +427,7 @@ $page_title = 'Notifications - Staff';
                                 <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
                                 <div class="notif-icon-wrap <?php echo htmlspecialchars($type_slug); ?>"><?php echo $iconSvg; ?></div>
                                 <div class="notif-body">
-                                    <a href="<?php echo htmlspecialchars($target_url); ?>" class="notif-msg" style="text-decoration:none;display:block;" onclick="handleNotifClick(event, <?php echo (int)$notif['notification_id']; ?>, <?php echo json_encode($target_url, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>, <?php echo $is_unread ? 'true' : 'false'; ?>)">
+                                    <a href="<?php echo htmlspecialchars($target_url); ?>" class="notif-msg" style="text-decoration:none;display:block;" data-turbo="false" onclick="handleNotifClick(event, <?php echo (int)$notif['notification_id']; ?>, <?php echo json_encode($target_url, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>, <?php echo $is_unread ? 'true' : 'false'; ?>)">
                                         <?php echo htmlspecialchars($notif['message']); ?>
                                     </a>
                                     <div class="notif-time">
@@ -444,6 +457,7 @@ $page_title = 'Notifications - Staff';
                     <?php echo render_pagination($page, $total_pages, $notif_pagination_params); ?>
                 </div>
             </div>
+            <?php endif; ?>
         </main>
     </div>
 </div>
@@ -500,30 +514,62 @@ document.addEventListener('DOMContentLoaded', function () {
 
 let autoRefreshInterval;
 function startAutoRefresh() {
-    autoRefreshInterval = setInterval(checkForNewNotifications, 10000);
+    autoRefreshInterval = setInterval(checkForNewNotifications, 30000);
 }
 function stopAutoRefresh() {
     if (autoRefreshInterval) clearInterval(autoRefreshInterval);
 }
 function checkForNewNotifications() {
-    var currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    var searchInput = document.getElementById('nt_fp_search');
-    if (searchInput && !searchInput.value && (currentFilter === 'all' || currentFilter === 'unread')) {
-        window.location.reload();
-    }
+    // Silently fetch unread count and update badge — do NOT reload the full page
+    fetch('?action=get_unread_count', { credentials: 'include' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (data && typeof data.count !== 'undefined') {
+                // Update badge if PFNotifications is available
+                if (window.PFNotifications && window.PFNotifications.updateBadge) {
+                    window.PFNotifications.updateBadge(data.count);
+                }
+            }
+        })
+        .catch(function() { /* silently ignore network errors */ });
+}
+function refreshNotifications() {
+    window.location.reload();
 }
 function handleNotifClick(e, notifId, url, isUnread) {
     if (isUnread) {
         e.preventDefault();
         markAsRead(notifId, url);
     } else if (url && url !== '#') {
-        /* follow href */
+        // Already read — navigate without Turbo to avoid Alpine double-init
+        e.preventDefault();
+        pfNavigate(url);
     } else {
         e.preventDefault();
     }
 }
-function refreshNotifications() {
-    window.location.reload();
+/**
+ * Navigate to a URL without Turbo Drive interception.
+ * Turbo Drive intercepts window.location.href assignments on same-origin URLs,
+ * causing a partial body swap that leaves Alpine's old instance active and
+ * results in duplicate x-for rendered elements (doubled tabs, doubled lists).
+ * By using a temporary anchor with data-turbo="false" we force a full page load.
+ */
+function pfNavigate(url) {
+    if (!url || url === '#') return;
+    // If Turbo is not present, just navigate normally
+    if (typeof window.Turbo === 'undefined' && typeof window.Turbo === 'undefined') {
+        window.location.href = url;
+        return;
+    }
+    // Create a temporary link with data-turbo="false" to bypass Turbo Drive
+    var a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('data-turbo', 'false');
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() { if (a.parentNode) a.parentNode.removeChild(a); }, 100);
 }
 function markAsRead(notifId, redirectUrl) {
     fetch('?action=mark_read&id=' + encodeURIComponent(notifId))
@@ -531,7 +577,8 @@ function markAsRead(notifId, redirectUrl) {
         .then(function (data) {
             if (data.success) {
                 if (redirectUrl && redirectUrl !== '#') {
-                    window.location.href = redirectUrl;
+                    // Use pfNavigate to avoid Turbo Drive partial swap (which doubles Alpine x-for elements)
+                    pfNavigate(redirectUrl);
                     return;
                 }
                 var item = document.querySelector('[data-id="' + notifId + '"]');

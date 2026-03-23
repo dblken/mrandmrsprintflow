@@ -20,9 +20,9 @@ class NotificationService {
      */
     private static $statusMessages = [
         'APPROVED'     => 'Your customization order has been reviewed and approved.',
-        'TO_PAY'       => 'Your order price has been finalized. Please upload proof of payment.',
-        'VERIFY_PAY'   => 'Your payment proof has been received and is under review.',
-        'IN_PRODUCTION'=> 'Your payment was verified! Your order is now in production.',
+        'TO_PAY'       => 'Your order is ready. Please proceed to payment of ₱{amount}. {order_no}',
+        'VERIFY_PAY'   => 'Your payment has been received and is under verification.',
+        'IN_PRODUCTION'=> 'Payment verified! Your order is now being processed.',
         'TO_RECEIVE'   => 'Great news! Your order is ready for pickup.',
         'COMPLETED'    => 'Thank you! Your order has been marked as completed.',
         'CANCELLED'    => 'Your order has been cancelled. Please contact us for assistance.',
@@ -30,31 +30,44 @@ class NotificationService {
 
     /**
      * Send a notification to a customer about a job order status change.
-     *
-     * @param int    $customerId  Customer's user ID.
-     * @param int    $jobOrderId  Job order ID for linking.
-     * @param string $newStatus   New DB status string.
-     * @param string|null $overrideMessage  Optional custom message.
-     * @return bool
      */
     public static function sendJobOrderNotification(int $customerId, int $jobOrderId, string $newStatus, ?string $overrideMessage = null): bool {
         if (!$customerId) return false;
 
         $message = $overrideMessage ?? (self::$statusMessages[$newStatus] ?? null);
-        if (!$message) return false; // No message for this status (e.g. PENDING = no notification)
+        if (!$message) return false;
 
-        // Append order reference
-        $message = $message . " (Order #JO-" . str_pad($jobOrderId, 5, '0', STR_PAD_LEFT) . ")";
+        // Fetch order details for dynamic placeholders and linking
+        $order = db_query("SELECT id, order_id, estimated_total FROM job_orders WHERE id = ?", 'i', [$jobOrderId]);
+        if (!empty($order)) {
+            $o = $order[0];
+            $amount = Number_Format((float)($o['estimated_total'] ?? 0), 2);
+            $orderNo = "#JO-" . str_pad((int)$o['id'], 5, '0', STR_PAD_LEFT);
 
-        // Use shared helper + type "Order" (always in ENUM); some DBs omit "Job Order" and truncate.
+            // Use standard order ID for linking if it exists, otherwise use job order ID
+            $linkId = $o['order_id'] ?: $o['id'];
+            // If it's a standard order ID, we can use type 'Order' for better join in customer/notifications.php
+            $type = $o['order_id'] ? 'Order' : 'Job Order';
+
+            if (!empty($o['order_id'])) {
+                $orderNo .= " (#ORD-" . str_pad((int)$o['order_id'], 5, '0', STR_PAD_LEFT) . ")";
+            }
+
+            $message = str_replace(['{amount}', '{order_no}'], [$amount, $orderNo], $message);
+        } else {
+            $message = str_replace(['{amount}', '{order_no}'], ['0.00', ''], $message);
+            $linkId = $jobOrderId;
+            $type = 'Job Order';
+        }
+
         return (bool) create_notification(
             $customerId,
             'Customer',
             $message,
-            'Order',
+            $type,
             false,
             false,
-            $jobOrderId
+            $linkId
         );
     }
 

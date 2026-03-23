@@ -249,6 +249,7 @@ function notify_staff_new_order(int $order_id, string $customer_first_name): voi
  */
 function staff_notification_target_url(array $n): string {
     $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+
     $is_rating = (
         (isset($n['type']) && (string)$n['type'] === 'Rating') ||
         (isset($n['message']) && (
@@ -259,9 +260,44 @@ function staff_notification_target_url(array $n): string {
     if ($is_rating) {
         return $base . '/staff/reviews.php';
     }
-    if (!empty($n['data_id']) && isset($n['type']) && (string)$n['type'] === 'Order') {
-        return $base . '/staff/customizations.php?order_id=' . (int)$n['data_id'];
+
+    // Stock / Inventory notification — stay on notifications page
+    if (isset($n['type']) && (string)$n['type'] === 'Stock') {
+        return $base . '/staff/notifications.php';
     }
+
+    // Order / Job / Payment / Design notifications with a data_id
+    if (!empty($n['data_id']) && isset($n['type']) && (string)$n['type'] === 'Order') {
+        $data_id = (int)$n['data_id'];
+
+        // Check if the data_id belongs to job_orders table (custom/specialty jobs)
+        // Job orders are managed in customizations.php
+        $job_row = db_query(
+            "SELECT id FROM job_orders WHERE id = ? LIMIT 1",
+            'i',
+            [$data_id]
+        );
+        if (!empty($job_row)) {
+            // It is a job order — send to customizations with auto-open
+            return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB';
+        }
+
+        // Check if the data_id belongs to store orders table
+        // Store orders are managed in orders.php (NOT customizations.php)
+        $ord_row = db_query(
+            "SELECT order_id FROM orders WHERE order_id = ? LIMIT 1",
+            'i',
+            [$data_id]
+        );
+        if (!empty($ord_row)) {
+            // It is a store order — send to orders management page
+            return $base . '/staff/orders.php';
+        }
+
+        // Fallback: treat as a job order (most common case for staff notifications)
+        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB';
+    }
+
     return $base . '/staff/notifications.php';
 }
 
@@ -1139,7 +1175,10 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     if (!empty($custom['service_type'])) {
         return normalize_service_name($custom['service_type'], $fallback);
     }
-    
+    if (!empty($custom['product_type'])) {
+        return normalize_service_name($custom['product_type'], $fallback);
+    }
+
     // Heuristics based on common customization fields
     if (isset($custom['print_placement']) || isset($custom['tshirt_color']) || isset($custom['tshirt_size'])) {
         return normalize_service_name('T-Shirt Printing', $fallback);

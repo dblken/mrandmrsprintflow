@@ -136,15 +136,16 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 $total_result = db_query($count_sql, $count_types, $count_params);
-$total_items = $total_result[0]['total'] ?? 0;
-$total_pages = ceil($total_items / $items_per_page);
+$total_items = (int)($total_result[0]['total'] ?? 0);
+$total_pages = max(1, (int)ceil($total_items / $items_per_page));
 
-$sql .= " ORDER BY o.order_date DESC LIMIT ? OFFSET ?";
-$params[] = $items_per_page;
-$params[] = $offset;
-$types .= 'ii';
+// Use inline LIMIT/OFFSET (safe: we control as integers) to avoid bind issues with some MySQL drivers
+$limit = (int)$items_per_page;
+$offset_val = (int)$offset;
+$sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
 
-$orders = db_query($sql, $types, $params);
+$orders_raw = db_query($sql, $types, $params);
+$orders = is_array($orders_raw) ? $orders_raw : [];
 
 $page_title = 'My Orders - PrintFlow';
 $use_customer_css = true;
@@ -465,10 +466,10 @@ window.addEventListener('DOMContentLoaded', () => {
     showSuccessModal(
         'Action Completed',
         '<?php echo addslashes($msg); ?>',
-        '#', // primary doesn't matter much here, maybe just refresh
+        'orders.php',
         'services.php',
-        'Close',
-        'Go to Dashboard'
+        'Refresh List',
+        'Back to Services'
     );
     <?php endif; ?>
 });

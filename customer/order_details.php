@@ -530,12 +530,14 @@ require_once __DIR__ . '/../includes/header.php';
                     unset($_SESSION['success']);
                 ?>
                 showSuccessModal(
-                    'Action Completed',
+                    'Order Placed!',
                     '<?php echo addslashes($msg); ?>',
                     'orders.php',
                     'services.php',
                     'View My Orders',
-                    'Go to Dashboard'
+                    'Go to Services',
+                    'services.php',
+                    3500
                 );
                 <?php endif; ?>
             });

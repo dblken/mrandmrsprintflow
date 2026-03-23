@@ -1168,9 +1168,366 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
+<<<<<<< HEAD
+<style>
+    /* Force-hide the "Showing X of Y" text element */
+    .flex.items-center.justify-between.pb-4 > span.text-sm.text-gray-700 {
+        display: none !important;
+    }
+</style>
+
+<script>
+    // ── Filter + Sort helpers ──────────────────────────────
+    let searchDebounceTimer;
+
+    function buildFilterURL(overrides = {}, isAjax = false) {
+        const params = new URLSearchParams(window.location.search);
+
+        const fields = {
+            status:    () => document.getElementById('fp_status')?.value   || '',
+            search:    () => document.getElementById('fp_search')?.value   || '',
+            date_from: () => document.getElementById('fp_date_from')?.value || '',
+            date_to:   () => document.getElementById('fp_date_to')?.value   || '',
+        };
+
+        for (const [key, getter] of Object.entries(fields)) {
+            const val = (overrides[key] !== undefined) ? overrides[key] : getter();
+            if (val) params.set(key, val);
+            else params.delete(key);
+        }
+
+        if (overrides.sort !== undefined) {
+            if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
+            else params.delete('sort');
+        } else if (document.getElementById('sortBtn')) {
+            const activeSortOpt = document.querySelector('.sort-option.selected');
+            if (activeSortOpt && activeSortOpt.getAttribute('x-data') /* hacky check */) {
+                // Alpine handles this now
+            } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('sort') && urlParams.get('sort') !== 'newest') {
+                    params.set('sort', urlParams.get('sort'));
+                }
+            }
+        }
+
+        if (isAjax) params.set('ajax', '1');
+        else params.delete('ajax');
+
+        params.delete('page');
+        return window.location.pathname + '?' + params.toString();
+    }
+
+    async function fetchUpdatedTable(overrides = {}) {
+        const url = buildFilterURL(overrides, true);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.success) {
+                const tableContainer = document.getElementById('ordersTableContainer');
+                const paginationContainer = document.getElementById('ordersPagination');
+                const countBadge = document.querySelector('.card span[style*="6b7280"]');
+                const filterBadgeContainer = document.getElementById('filterBadgeContainer');
+
+                if (tableContainer) {
+                    tableContainer.innerHTML = data.table;
+                    if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
+                        try {
+                            Alpine.initTree(tableContainer);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }
+                if (paginationContainer) paginationContainer.innerHTML = data.pagination;
+                if (countBadge) countBadge.textContent = `(${data.count} records)`;
+                
+                if (filterBadgeContainer) {
+                    if (data.badge > 0) {
+                        filterBadgeContainer.innerHTML = `<span class="filter-badge">${data.badge}</span>`;
+                    } else {
+                        filterBadgeContainer.innerHTML = '';
+                    }
+                }
+
+                // Update Alpine state for filter button background highlight (no _x_dataStack)
+                window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
+                const displayUrl = buildFilterURL(overrides, false);
+                window.history.replaceState({ path: displayUrl }, '', displayUrl);
+            }
+        } catch (e) {
+            console.error('Error updating table:', e);
+        }
+    }
+
+    function applyFilters(resetAll = false) {
+        if (resetAll) {
+            const base = window.location.pathname;
+            const branch = new URLSearchParams(window.location.search).get('branch_id');
+            const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
+            window.location.href = target;
+        } else {
+            fetchUpdatedTable();
+        }
+    }
+
+    function applySortFilter(sortKey) {
+        window.dispatchEvent(new CustomEvent('sort-changed', { detail: { sortKey } }));
+        fetchUpdatedTable({ sort: sortKey });
+    }
+
+    function resetFilterField(fields) {
+        fields.forEach(f => {
+            const el = document.getElementById('fp_' + f);
+            if (el) el.value = '';
+        });
+        fetchUpdatedTable();
+    }
+
+    // Real-time listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = ['fp_status', 'fp_date_from', 'fp_date_to'];
+        inputs.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
+        });
+
+        const searchInput = document.getElementById('fp_search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    fetchUpdatedTable();
+                }, 500);
+            });
+        }
+    });
+
+    function filterPanel() {
+        return {
+            filterOpen: false,
+            sortOpen:   false,
+            activeSort: '<?php echo $sort_by; ?>',
+            hasActiveFilters: <?php echo count(array_filter([$status_filter, $search, $date_from, $date_to])) > 0 ? 'true' : 'false'; ?>,
+        };
+    }
+
+    // ── Alpine.js data for order modal ─────────────────────
+    function orderModal() {
+        return {
+            showModal: false,
+            loading: false,
+            errorMsg: '',
+            order: null,
+            items: [],
+            selectedStatus: 'Pending',
+            updatingStatus: false,
+            statusUpdateMsg: '',
+            statusUpdateError: false,
+
+            init() {
+                window.addEventListener('open-order-modal', e => this.openModal(e.detail.orderId));
+                window.addEventListener('filter-badge-update', e => { this.hasActiveFilters = (e.detail.badge > 0); });
+                window.addEventListener('sort-changed', e => { this.activeSort = e.detail.sortKey; this.sortOpen = false; });
+            },
+
+            openModal(orderId) {
+                this.showModal = true;
+                this.loading = true;
+                this.errorMsg = '';
+                this.statusUpdateMsg = '';
+                this.order = null;
+                this.items = [];
+
+                fetch('/printflow/admin/api_order_details.php?id=' + orderId)
+                    .then(r => r.json())
+                    .then(data => {
+                        this.loading = false;
+                        if (data.success) {
+                            this.order = data.order;
+                            this.items = data.items.map(i => ({
+                                ...i,
+                                editingTarp: false,
+                                savingTarp: false,
+                                tempWidth: i.tarp_details?.width_ft || 0,
+                                tempHeight: i.tarp_details?.height_ft || 0,
+                                tempRollId: i.tarp_details?.roll_id || '',
+                                availableRolls: []
+                            }));
+                            this.selectedStatus = data.order.status;
+                        } else {
+                            this.errorMsg = data.error || 'Failed to load order details.';
+                        }
+                    })
+                    .catch(err => {
+                        this.loading = false;
+                        this.errorMsg = 'Network error. Please try again.';
+                        console.error('Order details fetch error:', err);
+                    });
+            },
+
+            startTarpEdit(item) {
+                item.editingTarp = true;
+                if (item.tempWidth > 0 && item.availableRolls.length === 0) {
+                    this.fetchRolls(item);
+                }
+            },
+
+            fetchRolls(item) {
+                if (!item.tempWidth || item.tempWidth <= 0) return;
+                fetch('/printflow/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) item.availableRolls = data.rolls;
+                    });
+            },
+
+            async saveTarpSpecs(item) {
+                if (!item.tempWidth || !item.tempHeight || !item.tempRollId) {
+                    alert('Please fill all tarpaulin specifications.');
+                    return;
+                }
+                item.savingTarp = true;
+                try {
+                    const resp = await fetch('/printflow/admin/api_save_tarp_specs.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            order_item_id: item.order_item_id,
+                            roll_id: item.tempRollId,
+                            width_ft: item.tempWidth,
+                            height_ft: item.tempHeight,
+                            csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                        })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        item.tarp_details = {
+                            width_ft: item.tempWidth,
+                            height_ft: item.tempHeight,
+                            roll_id: item.tempRollId,
+                            roll_code: item.availableRolls.find(r => r.id == item.tempRollId)?.roll_code || 'Assigned'
+                        };
+                        item.editingTarp = false;
+                    } else {
+                        alert(data.error || 'Failed to save specifications.');
+                    }
+                } catch (e) {
+                    alert('Network error.');
+                }
+                item.savingTarp = false;
+            },
+
+            async updateStatus() {
+                if (!this.order) return;
+                this.updatingStatus = true;
+                this.statusUpdateMsg = '';
+                try {
+                    const resp = await fetch('/printflow/admin/api_update_order_status.php', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            order_id: this.order.order_id,
+                            status: this.selectedStatus,
+                            csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                        })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this.statusUpdateMsg = data.message;
+                        this.statusUpdateError = false;
+                        this.order.status = this.selectedStatus;
+                        setTimeout(() => location.reload(), 1200);
+                    } else {
+                        this.statusUpdateMsg = data.error || 'Update failed.';
+                        this.statusUpdateError = true;
+                    }
+                } catch (e) {
+                    this.statusUpdateMsg = 'Network error.';
+                    this.statusUpdateError = true;
+                }
+                this.updatingStatus = false;
+            },
+
+            statusBadge(status, type) {
+                const colors = {
+                    order: {
+                        'Pending': 'background:#fef3c7;color:#92400e;',
+                        'Processing': 'background:#dbeafe;color:#1e40af;',
+                        'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
+                        'Completed': 'background:#dcfce7;color:#166534;',
+                        'Cancelled': 'background:#fecaca;color:#b91c1c;'
+                    },
+                    payment: {
+                        'Pending': 'background:#fef3c7;color:#92400e;',
+                        'Unpaid': 'background:#fee2e2;color:#991b1b;',
+                        'Paid': 'background:#dcfce7;color:#166534;',
+                        'Refunded': 'background:#f3f4f6;color:#374151;',
+                        'Failed': 'background:#fee2e2;color:#991b1b;'
+                    }
+                };
+                const style = (colors[type] && colors[type][status]) || 'background:#f3f4f6;color:#374151;';
+                return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${status || 'N/A'}</span>`;
+            }
+        };
+    }
+
+    /** Single root component for body x-data (Alpine cannot resolve orderModal()/filterPanel() inside spread in x-data string). */
+    function ordersPage() {
+        return { ...orderModal(), ...filterPanel() };
+    }
+
+    window.printflowInitOrdersPage = function printflowInitOrdersPage() {
+        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
+        var root = document.querySelector('[x-data="ordersPage()"]') || document.body;
+        if (root && !root._x_dataStack) {
+            try {
+                Alpine.initTree(root);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        var tc = document.getElementById('ordersTableContainer');
+        if (tc) {
+            try {
+                Alpine.initTree(tc);
+            } catch (e2) {
+                console.error(e2);
+            }
+        }
+    };
+
+    (function scheduleOrdersAlpineFirstVisit() {
+        function tick() {
+            if (typeof window.printflowInitOrdersPage === 'function') {
+                window.printflowInitOrdersPage();
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', schedule);
+        } else {
+            schedule();
+        }
+        function schedule() {
+            tick();
+            queueMicrotask(tick);
+            setTimeout(tick, 0);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+            setTimeout(tick, 150);
+        }
+    })();
+
+    // Global bridge: dispatches custom event so Alpine receives it (no _x_dataStack)
+    window.openOrderModal = function openOrderModal(orderId) {
+        window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } }));
+    };
+</script>
+=======
         </main>
     </div>
 </div>
+>>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
 
 </body>
 

@@ -35,10 +35,12 @@ $pos_branch_id = (int)($_SESSION['branch_id'] ?? 0);
 
 // Calculate total and verify stock
 $total_amount = 0;
+$products_cache = [];
 foreach ($items as $item) {
     $product_id = (int)$item['id'];
     $qty = (int)$item['qty'];
     
+<<<<<<< HEAD
     $product = db_query("SELECT price, name FROM products WHERE product_id = ?", 'i', [$product_id]);
     if (!$product) {
         echo json_encode(['success' => false, 'message' => 'Product not found: ' . $product_id]);
@@ -47,12 +49,25 @@ foreach ($items as $item) {
     [$effStock] = printflow_product_effective_stock($product_id, $pos_branch_id);
     if ($effStock < $qty) {
         echo json_encode(['success' => false, 'message' => 'Insufficient stock for ' . $product[0]['name']]);
+=======
+    $product = db_query("SELECT product_id, price, stock_quantity, name FROM products WHERE product_id = ?", 'i', [$product_id]);
+    if (empty($product)) {
+        echo json_encode(['success' => false, 'message' => 'Product not found: ' . $product_id]);
+        exit;
+    }
+    $products_cache[$product_id] = $product[0];
+    $p = $product[0];
+    
+    // Only check stock when product has tracked stock (not null = services/custom)
+    if ($p['stock_quantity'] !== null && (int)$p['stock_quantity'] < $qty) {
+        echo json_encode(['success' => false, 'message' => 'Insufficient stock for ' . ($p['name'] ?? 'product')]);
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
         exit;
     }
     
     // For POS walk-ins, we trust the negotiated price sent from the frontend 
     // especially for "Services" or custom jobs.
-    $price = (float)($item['price'] ?? $product[0]['price']);
+    $price = (float)($item['price'] ?? $p['price']);
     $total_amount += $price * $qty;
 }
 
@@ -87,17 +102,24 @@ try {
         $product_id = (int)$item['id'];
         $qty = (int)$item['qty'];
         $price = (float)$item['price'];
+        $p = $products_cache[$product_id] ?? null;
+        $prod_name = $p['name'] ?? 'Custom Product';
 
+<<<<<<< HEAD
         $prow = db_query("SELECT name FROM products WHERE product_id = ?", 'i', [$product_id]);
         $pname = $prow[0]['name'] ?? '';
         $name = $item['name'] ?? $pname;
         $notes = ($name !== $pname) ? $name : null;
+=======
+        $name = $item['name'] ?? $prod_name;
+        $notes = ($name !== $prod_name) ? $name : null;
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
 
         // If customization data exists from the dynamic POS modal
         if (!empty($item['customization'])) {
             $custom_str = [];
             foreach ($item['customization'] as $k => $v) {
-                if (!empty($v)) $custom_str[] = "$k: $v";
+                if ($v !== '' && $v !== null) $custom_str[] = "$k: $v";
             }
             $custom_notes = implode("\n", $custom_str);
             $notes = $notes ? $notes . "\n\n" . $custom_notes : $custom_notes;
@@ -115,11 +137,27 @@ try {
             exit;
         }
 
+<<<<<<< HEAD
         // Deduct stock (branch row when present, else global products)
         if (!printflow_product_deduct_stock_for_branch($product_id, $branch_id, $qty)) {
             $conn->rollback();
             echo json_encode(['success' => false, 'message' => 'Failed to update stock.']);
             exit;
+=======
+        // Deduct stock only when product has tracked stock (not null = services/custom)
+        if ($p && $p['stock_quantity'] !== null) {
+            $stock_result = db_execute(
+                "UPDATE products SET stock_quantity = stock_quantity - ? WHERE product_id = ?",
+                'ii',
+                [$qty, $product_id]
+            );
+
+            if (!$stock_result) {
+                $conn->rollback();
+                echo json_encode(['success' => false, 'message' => 'Failed to update stock.']);
+                exit;
+            }
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
         }
     }
 

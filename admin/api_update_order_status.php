@@ -32,9 +32,8 @@ if (!verify_csrf_token($input['csrf_token'] ?? '')) {
 
 $order_id   = (int)($input['order_id'] ?? 0);
 $new_status = $input['status'] ?? '';
-ensure_order_status_values(['To Rate', 'Rated']);
-
-$allowed = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled', 'To Rate', 'Rated'];
+$allowed = ['Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled', 'To Rate', 'Rated', 'Approved', 'To Pay', 'Pending Review', 'Pending Approval', 'For Revision', 'In Production', 'Printing'];
+ensure_order_status_values($allowed);
 if (!$order_id || !in_array($new_status, $allowed)) {
     echo json_encode(['success' => false, 'error' => 'Invalid order or status']);
     exit;

@@ -86,6 +86,17 @@ if ($action === 'verify_payment') {
                     status = ?
                     WHERE id = ?", 
         'dsisi', [$new_amount_paid, $new_payment_status, $user_id, $new_order_status, $job_id]);
+
+        // If linked to a store order, sync the store order status
+        if ($job['order_id']) {
+            $store_status = 'Paid – In Process';
+            if ($new_order_status === 'IN_PRODUCTION') $store_status = 'Processing';
+            if ($new_order_status === 'TO_RECEIVE') $store_status = 'Ready for Pickup';
+            if ($new_order_status === 'COMPLETED') $store_status = 'Completed';
+            
+            db_execute("UPDATE orders SET status = ?, amount_paid = ?, payment_status = ? WHERE order_id = ?", 
+                'sdsi', [$store_status, $new_amount_paid, ($new_payment_status === 'PAID' ? 'Paid' : 'Partial'), $job['order_id']]);
+        }
         
         // Log activity
         log_activity('job_orders', $job_id, 'Payment Verified', "Verified payment of ₱{$submitted_amount} by {$user_name}");
@@ -126,6 +137,11 @@ elseif ($action === 'reject_payment') {
                     payment_verified_by = ?
                     WHERE id = ?", 
         'sii', [$reason, $user_id, $job_id]);
+
+        // If linked to a store order, revert to 'To Pay' so they can submit again
+        if ($job['order_id']) {
+            db_execute("UPDATE orders SET status = 'To Pay' WHERE order_id = ?", 'i', [$job['order_id']]);
+        }
         
         // Log activity
         log_activity('job_orders', $job_id, 'Payment Rejected', "Payment proof rejected by {$user_name}. Reason: {$reason}");

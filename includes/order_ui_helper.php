@@ -143,9 +143,9 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
                 ?>
-                    <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff;">
+                    <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff; min-width: 0;">
                         <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.9rem; font-weight: 800; color: #000;"><?php echo htmlspecialchars($display_val); ?></div>
+                        <div style="font-size: 0.9rem; font-weight: 800; color: #000; overflow-wrap: break-word; word-break: break-word;"><?php echo htmlspecialchars($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 
@@ -314,9 +314,9 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
                 ?>
-                    <div style="background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: 8px;">
+                    <div style="background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: 8px; min-width: 0;">
                         <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.85rem; font-weight: 600; color: #111827;"><?php echo htmlspecialchars($display_val); ?></div>
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #111827; overflow-wrap: break-word; word-break: break-word;"><?php echo htmlspecialchars($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 

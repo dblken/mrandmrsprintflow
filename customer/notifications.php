@@ -60,8 +60,9 @@ $notifications = db_query("
         (SELECT oi.design_image FROM order_items oi 
          WHERE oi.order_id = n.data_id AND oi.design_image IS NOT NULL ORDER BY oi.order_item_id ASC LIMIT 1) as design_image
     FROM notifications n
-    LEFT JOIN orders o ON n.data_id = o.order_id AND n.type IN ('Order', 'Status', 'Message', 'Rating')
+    LEFT JOIN orders o ON n.data_id = o.order_id AND (n.type = 'Order' OR n.type = 'Payment' OR n.type = 'Status')
     LEFT JOIN job_orders jo ON n.data_id = jo.id AND n.type = 'Job Order'
+    LEFT JOIN users u ON n.user_id = u.user_id
     WHERE n.customer_id = ? 
     ORDER BY n.created_at DESC LIMIT 100
 ", 'i', [$customer_id]);
@@ -304,13 +305,43 @@ require_once __DIR__ . '/../includes/header.php';
                                 stripos((string)$notif['message'], 'rate your experience') !== false ||
                                 stripos((string)$notif['message'], 'rate your order') !== false
                             );
+
+                            // Detect "Payment Required" or "TO_PAY" status
+                            $is_payment_notif = (
+                                (string)$notif['type'] === 'Payment' ||
+                                stripos((string)$notif['message'], 'Payment Required') !== false ||
+                                stripos((string)$notif['message'], 'TO_PAY') !== false ||
+                                stripos((string)$notif['message'], 'To Pay') !== false ||
+                                stripos((string)$notif['message'], 'proceed to payment') !== false ||
+                                stripos((string)$notif['message'], 'ready for payment') !== false ||
+                                stripos((string)$notif['message'], 'submit payment') !== false
+                            );
+
+                            // Extra fallback: Check current DB status if data_id exists
+                            if (!$is_payment_notif && !empty($notif['data_id']) && ($notif['type'] === 'Order' || $notif['type'] === 'Status' || $notif['type'] === 'Job Order')) {
+                                // Check regular orders
+                                $curr_ord = db_query("SELECT status FROM orders WHERE order_id = ? LIMIT 1", 'i', [$notif['data_id']]);
+                                if (!empty($curr_ord) && (stripos($curr_ord[0]['status'], 'To Pay') !== false || stripos($curr_ord[0]['status'], 'TO_PAY') !== false)) {
+                                    $is_payment_notif = true;
+                                } else {
+                                    // Check job orders
+                                    $curr_job = db_query("SELECT status FROM job_orders WHERE id = ? LIMIT 1", 'i', [$notif['data_id']]);
+                                    if (!empty($curr_job) && (stripos($curr_job[0]['status'], 'To Pay') !== false || stripos($curr_job[0]['status'], 'TO_PAY') !== false)) {
+                                        $is_payment_notif = true;
+                                    }
+                                }
+                            }
+
                             if (!empty($notif['data_id'])) {
                                 if ($is_rating_notif) {
                                     $link = "/printflow/customer/rate_order.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
-                                } elseif ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
+                                } elseif ($is_payment_notif) {
+                                    // For payment related notifications, redirect to payment.php
+                                    $link = "/printflow/customer/payment.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                                } elseif ($notif['type'] === 'Order' || $notif['type'] === 'Status' || $notif['type'] === 'Job Order') {
                                     $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 } elseif ($notif['type'] === 'Message') {
-                                    $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&chat=open&mark_read=" . $notif['notification_id'];
+                                    $link = "/printflow/customer/chat.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                                 }
                             }
                         ?>

@@ -7,7 +7,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-require_role(['Admin', 'Staff']);
+if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+require_role(['Admin', 'Staff', 'Manager']);
 $page_title = 'Customizations - PrintFlow';
 
 $branchFilter = printflow_branch_filter_for_user();
@@ -28,6 +29,7 @@ if ($branchFilter !== null) {
 }
 
 // Get statistics for KPIs (include both job_orders and regular orders pending review)
+<<<<<<< HEAD
 $total_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql,
     $joBranchTypes ?: null,
@@ -38,6 +40,24 @@ $total_orders_pending = db_query(
     $ordBranchTypes ?: null,
     $ordBranchParams ?: null
 )[0]['count'];
+=======
+$order_id_from_url = $_GET['order_id'] ?? null;
+if ($order_id_from_url) {
+    // Basic pre-fetch to satisfy "Always fetch order data using order_id from the URL"
+    $pre_fetched = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id_from_url])[0] ?? null;
+    if (!$pre_fetched) {
+        $pre_fetched = db_query("SELECT * FROM job_orders WHERE id = ?", 'i', [$order_id_from_url])[0] ?? null;
+    }
+
+    // MANDATORY FIX: If order_id is provided but not found, stop execution.
+    if (!$pre_fetched) {
+        die("Invalid order.");
+    }
+}
+
+$total_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
+$total_orders_pending = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
 $total_jobs = $total_jobs_jobs + $total_orders_pending;
 
 $pending_jobs_jobs = db_query(
@@ -85,6 +105,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="turbo-visit-control" content="reload">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
@@ -237,10 +258,14 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         .pf-staff-customizations-root { min-width: 0; }
     </style>
 </head>
+<<<<<<< HEAD
+<body x-data="joManager('ALL')" data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
+=======
 <body>
+>>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
 <div class="dashboard-container">
     <?php 
-    if ($_SESSION['user_type'] === 'Staff') {
+    if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'])) {
         include __DIR__ . '/../includes/staff_sidebar.php';
     } else {
         include __DIR__ . '/../includes/admin_sidebar.php';
@@ -475,11 +500,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Quantity</label>
                             <div style="font-size:13px;color:#1f2937;" x-text="currentJo.quantity + ' pcs'"></div>
                         </div>
-                        <div>
+                        <div x-show="!['PENDING', 'Pending Review', 'Pending Approval', 'For Revision'].includes(currentJo.status)">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Estimated Total</label>
                             <div style="font-size:13px;color:#1f2937;font-weight:400;" x-text="'₱' + Number(currentJo.estimated_total || 0).toLocaleString()"></div>
                         </div>
-                        <div>
+                        <div x-show="!['PENDING', 'Pending Review', 'Pending Approval', 'For Revision'].includes(currentJo.status)">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Amount Paid</label>
                             <div style="font-size:13px;color:#1f2937;font-weight:400;" x-text="'₱' + Number(currentJo.amount_paid || 0).toLocaleString()"></div>
                         </div>
@@ -493,60 +518,131 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </div>
 
+                    <!-- Dynamic Order Details (service-specific fields from customization_data) -->
+                    <template x-if="currentJo.items && currentJo.items.length > 0">
+                        <div style="margin-bottom:20px; padding:16px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
+                            <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:12px;">Order Details (Customer Specifications)</label>
+                            <template x-for="(item, idx) in currentJo.items" :key="item.order_item_id || idx">
+                                <div style="margin-bottom:16px; padding:12px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
+                                    <div style="font-size:13px; font-weight:700; color:#1f2937; margin-bottom:10px;" x-text="item.product_name + ' × ' + item.quantity"></div>
+                                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
+                                        <template x-for="([k, v]) in getDisplayableCustom(item.customization)" :key="k">
+                                            <div style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; background:#fff; min-width:0; overflow-wrap:break-word;">
+                                                <div style="font-size:10px; font-weight:600; color:#6b7280; text-transform:uppercase; margin-bottom:2px;" x-text="getCustomLabel(k)"></div>
+                                                <div style="font-size:12px; font-weight:500; color:#1f2937; word-break:break-word; overflow-wrap:break-word;" x-text="typeof v === 'object' ? JSON.stringify(v) : v"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <template x-if="item.design_url">
+                                        <div style="margin-top:12px;">
+                                            <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">Design Preview</div>
+                                            <div style="display:flex; align-items:flex-end; gap:12px;">
+                                                <img :src="item.design_url" 
+                                                     @click="previewFile = item.design_url"
+                                                     style="width:140px; height:auto; border-radius:10px; border:1px solid #e2e8f0; cursor:zoom-in; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);" 
+                                                     onerror="this.src='/printflow/public/assets/img/file_icon.png';">
+                                                <a :href="item.design_url" target="_blank" rel="noopener" style="font-size:11px; color:#4f46e5; text-decoration:none; font-weight:600; padding:6px 10px; background:#f5f3ff; border-radius:6px; transition:all 0.2s;" onmouseover="this.style.background='#ddd6fe'">
+                                                    Open Original →
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+
                     <!-- Notes -->
                     <div style="margin-bottom:20px;">
                         <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:6px;">Production Notes</label>
-                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;font-style:italic;" x-text="currentJo.notes || 'No instructions provided.'"></div>
+                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;font-style:italic;word-break:break-word;overflow-wrap:break-word;" x-text="currentJo.notes || (currentJo.items && currentJo.items[0] && (currentJo.items[0].customization?.notes || currentJo.items[0].customization?.additional_notes)) || 'No instructions provided.'"></div>
                     </div>
 
-                    <!-- Payment Proof Section -->
-                    <template x-if="currentJo.payment_proof_status && currentJo.payment_proof_status !== 'NONE'">
-                        <div style="margin-bottom:20px; padding:16px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
-                            <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:12px;">Payment Proof</label>
+                    <!-- 4. TO_VERIFY (Payment Verification) -->
+                    <template x-if="currentJo.status === 'VERIFY_PAY'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
+                            <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:16px;">Step 4: Verify Payment Proof</label>
                             
-                            <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start;">
-                                <div style="width:120px; flex-shrink:0;">
+                            <div style="display:flex; gap:20px; align-items:flex-start;">
+                                <div style="width:160px; flex-shrink:0;">
                                     <template x-if="currentJo.payment_proof_path">
                                         <img :src="'/printflow/api_view_proof.php?file=' + currentJo.payment_proof_path" 
                                              @click="previewFile = '/printflow/api_view_proof.php?file=' + currentJo.payment_proof_path"
-                                             style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:zoom-in; box-shadow:0 1px 3px rgba(0,0,0,0.1);" 
+                                             style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:zoom-in; box-shadow:0 4px 6px rgba(0,0,0,0.1);" 
                                              alt="Proof">
                                     </template>
                                 </div>
-                                <div style="flex:1; min-width:200px;">
-                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-                                        <div>
-                                            <div style="font-size:10px; color:#6b7280; text-transform:uppercase; font-weight:600;">Status</div>
-                                            <span class="status-pill" :class="{
-                                                'bg-blue-100 text-blue-800': currentJo.payment_proof_status === 'SUBMITTED',
-                                                'bg-green-100 text-green-800': currentJo.payment_proof_status === 'VERIFIED',
-                                                'bg-red-100 text-red-800': currentJo.payment_proof_status === 'REJECTED'
-                                            }" x-text="currentJo.payment_proof_status"></span>
-                                        </div>
-                                        <div>
-                                            <div style="font-size:10px; color:#6b7280; text-transform:uppercase; font-weight:600;">Amount Submitted</div>
-                                            <div style="font-size:14px; font-weight:700; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
-                                        </div>
-                                        <div>
-                                            <div style="font-size:10px; color:#6b7280; text-transform:uppercase; font-weight:600;">Method</div>
-                                            <div style="font-size:13px; font-weight:500; color:#1f2937;" x-text="currentJo.payment_method || '-'"></div>
-                                        </div>
-                                        <div style="grid-column: span 2;">
-                                            <div style="font-size:10px; color:#6b7280; text-transform:uppercase; font-weight:600;">Reference No.</div>
-                                            <div style="font-size:13px; font-weight:500; color:#1f2937; word-break:break-all;" x-text="currentJo.payment_reference || '-'"></div>
-                                        </div>
+                                <div style="flex:1;">
+                                    <div style="margin-bottom:16px;">
+                                        <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Amount Submitted</div>
+                                        <div style="font-size:22px; font-weight:800; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
                                     </div>
-                                    
-                                    <template x-if="currentJo.payment_proof_status === 'SUBMITTED'">
-                                        <div style="display:flex; gap:8px; margin-top:12px;">
-                                            <button @click="verifyPayment()" class="btn-action emerald" style="flex:1;">✓ Accept & Verify</button>
-                                            <button @click="rejectPayment()" class="btn-action red" style="flex:1;">✕ Reject</button>
+                                    <div style="display:flex; gap:10px;">
+                                        <button @click="verifyPayment()" class="btn-action emerald" style="flex:1;">✓ Approve Payment</button>
+                                        <button @click="rejectPayment()" class="btn-action red" style="flex:1;">✕ Reject</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 2. APPROVED (Set Price & Materials) -->
+                    <template x-if="currentJo.status === 'APPROVED'">
+                        <div style="margin-bottom:20px; display:flex; flex-direction:column; gap:20px;">
+                            <!-- Pricing Section -->
+                            <div style="padding:18px; border-radius:12px; border:1px solid #dcfce7; background:#f0fdf4;">
+                                <label style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;display:block;margin-bottom:12px;">Step 2: Pricing & Submission</label>
+                                <div style="display:flex; gap:12px; align-items:flex-end;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:10px; font-weight:700; color:#166534; display:block; margin-bottom:4px;">Grand Total (₱)</label>
+                                        <input type="number" x-model.number="jobPriceInput" style="padding:10px; border:1px solid #bbf7d0; border-radius:8px; width:100%; box-sizing:border-box; font-size:14px; font-weight:600;">
+                                    </div>
+                                    <button @click="submitToPay()" class="btn-action emerald" style="padding:11px 20px; height:42px;">💰 Request Payment</button>
+                                </div>
+                                <p style="font-size:11px; color:#15803d; margin-top:8px;">Setting the price and clicking 'Request Payment' will notify the customer to pay.</p>
+                            </div>
+
+                            <!-- Materials Assignment -->
+                            <div style="padding:18px; border-radius:12px; border:1px solid #ddd6fe; background:#f5f3ff;">
+                                <label style="font-size:11px;font-weight:700;color:#4f46e5;text-transform:uppercase;display:block;margin-bottom:12px;">Production Materials & Inventory</label>
+                                
+                                <div style="display:flex; flex-direction:column; gap:12px;">
+                                    <select x-model="newMaterialId" @change="newMaterialId = $event.target.value; newMaterialRollId = ''; availableRollsList = []; if(isRollTracked(newMaterialId)) loadAvailableRolls(newMaterialId);" style="width:100%; padding:10px; border:1px solid #e0e7ff; border-radius:8px; font-size:13px; background:white;">
+                                        <option value="">-- Select Material to Use --</option>
+                                        <template x-for="item in availableMaterialsForCurrentOrder" :key="item.id">
+                                            <option :value="item.id" x-text="`${item.name} (${item.current_stock} ${item.unit_of_measure} available)`"></option>
+                                        </template>
+                                    </select>
+
+                                    <template x-if="newMaterialId">
+                                        <div style="display:flex; flex-direction:column; gap:12px; padding:12px; background:white; border-radius:8px; border:1px solid #e0e7ff;">
+                                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                                <div>
+                                                    <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Quantity / Length</label>
+                                                    <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
+                                                </div>
+                                                <template x-if="isTarpaulin(newMaterialId)">
+                                                    <div>
+                                                        <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Height (ft)</label>
+                                                        <input type="number" x-model.number="newMaterialHeight" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;">
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <button @click="addMaterialToQueue()" class="btn-action indigo" style="width:100%; padding:8px; font-size:12px;">+ Add Material</button>
                                         </div>
                                     </template>
-                                    
-                                    <template x-if="currentJo.payment_proof_status === 'REJECTED'">
-                                        <div style="margin-top:12px; font-size:12px; color:#b91c1c; background:#fee2e2; padding:8px 12px; rounded-radius:6px;">
-                                            <span style="font-weight:700;">Reason:</span> <span x-text="currentJo.payment_rejection_reason"></span>
+
+                                    <!-- Pending Queue -->
+                                    <template x-if="pendingMaterials.length > 0">
+                                        <div style="margin-top:8px;">
+                                            <template x-for="(pm, idx) in pendingMaterials" :key="idx">
+                                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e0e7ff; border-radius:8px; padding:8px 12px; margin-bottom:4px; font-size:12px;">
+                                                    <span style="font-weight:600;" x-text="pm.name"></span>
+                                                    <span style="color:#6b7280;" x-text="'× ' + pm.qty + ' ' + pm.uom"></span>
+                                                    <button @click="pendingMaterials.splice(idx,1)" style="color:#ef4444; border:none; background:none; cursor:pointer;">✕</button>
+                                                </div>
+                                            </template>
                                         </div>
                                     </template>
                                 </div>
@@ -554,193 +650,60 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </template>
 
-                    <!-- Materials -->
-                    <div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin:0;">Production Materials</label>
-                            <template x-if="currentJo.status === 'APPROVED'">
-                                <span class="text-[10px] font-bold text-indigo-500 uppercase"></span>
-                            </template>
+                    <!-- 3. TO_PAY (Waiting for Payment) -->
+                    <template x-if="currentJo.status === 'TO_PAY'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #dbeafe; background:#f0f9ff;">
+                            <label style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;display:block;margin-bottom:12px;">Step 3: Awaiting Payment</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                                <div style="font-size:14px; font-weight:500; color:#1e40af;">Total Outstanding:</div>
+                                <div style="font-size:20px; font-weight:800; color:#1e40af;" x-text="'₱' + Number(currentJo.estimated_total || 0).toLocaleString()"></div>
+                            </div>
+                            <div style="font-size:13px; color:#1e40af; line-height:1.5;">Waiting for the customer to upload payment proof. Once uploaded, it will appear in the TO VERIFY section.</div>
                         </div>
-                        
-                        <div style="display:flex;flex-direction:column;gap:10px;">
-                            <template x-if="currentJo.status === 'APPROVED'">
-                                <div style="background:#f5f3ff; border:1px solid #ddd6fe; padding:16px; border-radius:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                                    <div style="font-weight:700; font-size:12px; color:#4f46e5; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                                        Assign Production Materials
-                                    </div>
+                    </template>
 
-                                    <!-- Pending Materials Queue -->
-                                    <template x-if="pendingMaterials.length > 0">
-                                        <div style="margin-bottom:12px;">
-                                            <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">To Be Added:</div>
-                                            <template x-for="(pm, idx) in pendingMaterials" :key="idx">
-                                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e0e7ff; border-radius:8px; padding:8px 12px; margin-bottom:4px; font-size:12px;">
-                                                    <span style="font-weight:600; color:#1f2937;" x-text="pm.name"></span>
-                                                    <span style="color:#6b7280;" x-text="'× ' + pm.qty + ' ' + pm.uom"></span>
-                                                    <button @click="pendingMaterials.splice(idx,1)" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">×</button>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </template>
+                    <!-- 5. IN_PRODUCTION -->
+                    <template x-if="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #fbd38d; background:#fffaf0;">
+                            <label style="font-size:11px;font-weight:700;color:#9c4221;text-transform:uppercase;display:block;margin-bottom:12px;">Step 5: Production In Progress</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:14px; color:#9c4221; font-weight:500;">Currently in production phase.</div>
+                                <button @click="jobAction('TO_RECEIVE')" class="btn-action amber">📦 Mark as Ready for Pickup</button>
+                            </div>
+                        </div>
+                    </template>
 
-                                    <div style="display:flex; flex-direction:column; gap:12px;">
-                                        <!-- Item Selection -->
-                                        <div>
-                                            <select x-model="newMaterialId" @change="newMaterialId = $event.target.value; newMaterialRollId = ''; availableRollsList = []; if(isRollTracked(newMaterialId)) loadAvailableRolls(newMaterialId);" style="width:100%; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:white;">
-                                                <option value="">-- Select Material / Item --</option>
-                                                <template x-for="item in allInventoryItems" :key="item.id">
-                                                    <option :value="item.id" x-text="item.name"></option>
-                                                </template>
-                                            </select>
-                                        </div>
+                    <!-- 6. TO_RECEIVE -->
+                    <template x-if="currentJo.status === 'TO_RECEIVE'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #c4b5fd; background:#f5f3ff;">
+                            <label style="font-size:11px;font-weight:700;color:#5b21b6;text-transform:uppercase;display:block;margin-bottom:12px;">Step 6: Ready for Pickup</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:14px; color:#5b21b6; font-weight:500;">Customer has been notified to pick up the order.</div>
+                                <button @click="completeOrder()" class="btn-action emerald">✓ Mark Final Completed</button>
+                            </div>
+                        </div>
+                    </template>
 
-                                        <template x-if="newMaterialId">
-                                            <div style="display:flex; flex-direction:column; gap:12px; animation: slideDown 0.2s ease-out;">
-                                                <!-- Dynamic Fields: Tarpaulin -->
-                                                <template x-if="isTarpaulin(newMaterialId)">
-                                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                                        <div>
-                                                            <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Height (ft)</label>
-                                                            <input type="number" x-model.number="newMaterialHeight" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="Height">
-                                                        </div>
-                                                        <div>
-                                                            <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Quantity (pcs)</label>
-                                                            <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="Qty">
-                                                        </div>
-                                                        <div style="grid-column: span 2;">
-                                                            <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Finishing (Optional)</label>
-                                                            <input type="text" x-model="newMaterialMetadata.finishing" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="e.g. Eyelets, Rope, Hemming">
-                                                        </div>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Dynamic Fields: Printed Sticker -->
-                                                <template x-if="isSticker(newMaterialId)">
-                                                    <div style="display:flex; flex-direction:column; gap:12px;">
-                                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                                            <div>
-                                                                <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Ordered Length (ft)</label>
-                                                                <input type="number" readonly :value="currentJo.height_ft > 0 ? currentJo.height_ft : 1" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:#f9fafb; color:#9ca3af; cursor:not-allowed;">
-                                                            </div>
-                                                            <div>
-                                                                <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Consumed Length (ft) <span style="font-weight:400;color:#ef4444;">*</span></label>
-                                                                <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="Actual used length">
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- Dynamic Waste Display -->
-                                                        <template x-if="newMaterialQty > 0">
-                                                            <div style="font-size:11px; font-weight:600; color:#b45309; background:#fef3c7; padding:8px; border-radius:6px; border:1px solid #fde68a;">
-                                                                Calculated Waste: <span x-text="Math.max(0, newMaterialQty - (currentJo.height_ft > 0 ? currentJo.height_ft : 1)).toFixed(2)"></span> ft
-                                                            </div>
-                                                        </template>
-
-                                                        <div>
-                                                            <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Lamination</label>
-                                                            <select x-model="newMaterialMetadata.lamination" @change="newMaterialMetadata.lamination_roll_id = ''; if(newMaterialMetadata.lamination) loadAvailableLamRolls(newMaterialMetadata.lamination);" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:white;">
-                                                                <option value="">None</option>
-                                                                <template x-for="lam in laminationItemsList" :key="lam.id">
-                                                                    <option :value="lam.id" x-text="lam.name"></option>
-                                                                </template>
-                                                            </select>
-                                                        </div>
-
-                                                        <template x-if="newMaterialMetadata.lamination">
-                                                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:8px; animation: slideDown 0.2s ease-out;">
-                                                                <label style="font-size:10px; font-weight:700; color:#166534; display:block; margin-bottom:4px;">Select Lamination Roll <span style="font-weight:400;color:#86efac;">(optional — auto-picks oldest if skipped)</span></label>
-                                                                <select x-model="newMaterialMetadata.lamination_roll_id" style="width:100%; padding:8px; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; background:white;">
-                                                                    <option value="">— Auto-pick oldest open lamination roll —</option>
-                                                                    <template x-for="roll in availableLamRollsList" :key="roll.id">
-                                                                        <option :value="roll.id" x-text="(roll.roll_code || '#'+roll.id) + ' — ' + roll.remaining_length_ft + ' ft left'"></option>
-                                                                    </template>
-                                                                </select>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Dynamic Fields: Plate / Generic -->
-                                                <template x-if="!isTarpaulin(newMaterialId) && !isSticker(newMaterialId)">
-                                                    <div style="display:flex; gap:10px; align-items:flex-end;">
-                                                        <div style="flex:1;">
-                                                            <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Quantity</label>
-                                                            <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="Qty">
-                                                        </div>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Roll Selector (for roll-tracked items) -->
-                                                <template x-if="isRollTracked(newMaterialId)">
-                                                    <div>
-                                                        <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Select Roll <span style="font-weight:400;color:#9ca3af;">(optional — auto-picks oldest if skipped)</span></label>
-                                                        <select x-model="newMaterialRollId" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:white;">
-                                                            <option value="">— Auto-pick oldest open roll —</option>
-                                                            <template x-for="roll in availableRollsList" :key="roll.id">
-                                                                <option :value="roll.id" x-text="(roll.roll_code || '#'+roll.id) + ' — ' + roll.remaining_length_ft + ' ft left'"></option>
-                                                            </template>
-                                                        </select>
-                                                    </div>
-                                                </template>
-
-                                                <!-- Notes -->
-                                                <div>
-                                                    <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Production Notes</label>
-                                                    <textarea x-model="newMaterialNotes" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:12px; min-height:40px;" placeholder="Notes for this material..."></textarea>
-                                                </div>
-
-                                                <!-- Add to Queue button -->
-                                                <button @click="addMaterialToQueue()" :disabled="!newMaterialId" style="width:100%; padding:9px; background:#4f46e5; color:white; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">+ Add to Material List</button>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <template x-if="currentJo.status === 'APPROVED'">
-                                <div style="background:#fdf4ff; border:1px solid #fbcfe8; padding:16px; border-radius:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top:8px;">
-                                    <div style="font-weight:700; font-size:12px; color:#be185d; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                                        Ink Consumption (Optional)
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <label style="font-size:10px; font-weight:700; color:#9d174d; display:block; margin-bottom:4px;">Ink Family / Machine Type</label>
-                                        <select x-model="inkCategorySelected" style="width:100%; padding:8px 12px; border:1px solid #fbcfe8; border-radius:8px; font-size:13px; background:white;">
-                                            <option value="">-- No Ink Needed --</option>
-                                            <option value="TARP">Tarp Inks</option>
-                                            <option value="L120">L120 Inks</option>
-                                            <option value="L130">L130 Inks</option>
-                                        </select>
-                                    </div>
-
-                                    <template x-if="inkCategorySelected">
-                                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; animation: slideDown 0.2s ease-out;">
-                                            <div>
-                                                <label style="font-size:10px; font-weight:700; color:#be185d; display:block; margin-bottom:4px;">Blue Ink (Bottles)</label>
-                                                <input type="number" step="0.01" min="0" x-model.number="inkBlue" style="width:100%; padding:8px; border:1px solid #fbcfe8; border-radius:8px; font-size:13px;" placeholder="e.g. 0.25">
-                                            </div>
-                                            <div>
-                                                <label style="font-size:10px; font-weight:700; color:#be185d; display:block; margin-bottom:4px;">Red Ink (Bottles)</label>
-                                                <input type="number" step="0.01" min="0" x-model.number="inkRed" style="width:100%; padding:8px; border:1px solid #fbcfe8; border-radius:8px; font-size:13px;" placeholder="e.g. 0.25">
-                                            </div>
-                                            <div>
-                                                <label style="font-size:10px; font-weight:700; color:#be185d; display:block; margin-bottom:4px;">Black Ink (Bottles)</label>
-                                                <input type="number" step="0.01" min="0" x-model.number="inkBlack" style="width:100%; padding:8px; border:1px solid #fbcfe8; border-radius:8px; font-size:13px;" placeholder="e.g. 0.25">
-                                            </div>
-                                            <div>
-                                                <label style="font-size:10px; font-weight:700; color:#be185d; display:block; margin-bottom:4px;">Yellow Ink (Bottles)</label>
-                                                <input type="number" step="0.01" min="0" x-model.number="inkYellow" style="width:100%; padding:8px; border:1px solid #fbcfe8; border-radius:8px; font-size:13px;" placeholder="e.g. 0.25">
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
+                    <!-- 7. COMPLETED -->
+                    <template x-if="currentJo.status === 'COMPLETED'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #bbf7d0; background:#f0fdf4;">
+                            <label style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;display:block;margin-bottom:4px;">Workflow Finished</label>
+                            <div style="font-size:15px; font-weight:700; color:#15803d; display:flex; align-items:center; gap:8px;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                Order Successfully Completed
+                            </div>
+                        </div>
+                    </template>
 
                             <template x-if="currentJo.materials && currentJo.materials.length > 0">
+<<<<<<< HEAD
                                 <div>
                                     <template x-for="m in (currentJo.materials || [])" :key="m.id">
+=======
+                                <div style="margin-top:20px;">
+                                    <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Assigned Production Materials</label>
+                                    <template x-for="m in currentJo.materials" :key="m.id">
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
                                         <div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
                                             <div>
                                                 <div style="font-size:12px; font-weight:600; color:#1f2937;" x-text="m.item_name"></div>
@@ -774,8 +737,6 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                     </template>
                                 </div>
                             </template>
-                        </div>
-                    </div>
 
                     <template x-if="currentJo.ink_usage && currentJo.ink_usage.length > 0">
                         <div style="margin-top:16px;">
@@ -787,19 +748,6 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                         <span x-text="ink.quantity_used + ' bottle'"></span>
                                     </div>
                                 </template>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- Set Price Form -->
-                    <template x-if="currentJo.status === 'APPROVED'">
-                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:16px; border-radius:12px; margin-top:20px;">
-                            <div style="font-weight:700; font-size:12px; color:#166534; margin-bottom:12px;">Finalize Price</div>
-                            <div style="display:flex; gap:10px; align-items:flex-end;">
-                                <div style="flex:1;">
-                                    <label style="font-size:10px; font-weight:700; color:#166534; display:block; margin-bottom:4px;">Total Price (₱)</label>
-                                    <!-- Saved when clicking Submit to Pay -->
-                                    <input type="number" x-model.number="jobPriceInput" style="width:100%; padding:8px; border:1px solid #bbf7d0; border-radius:8px; font-size:13px;" placeholder="0.00">
                             </div>
                         </div>
                     </template>
@@ -822,33 +770,59 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 <!-- Modal Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;gap:8px;">
                     <!-- Left: Status actions -->
-                    <div style="display:flex;gap:8px; flex-wrap:wrap;">
-                        <template x-if="currentJo.status === 'PENDING'">
-                            <button @click="jobAction('APPROVED')" class="btn-action blue">✓ Approve</button>
-                        </template>
-                        <template x-if="currentJo.status === 'APPROVED'">
-                            <button @click="submitToPay()" class="btn-action amber">💰 Set Price & Request Payment</button>
-                        </template>
-                        <template x-if="currentJo.status === 'TO_PAY'">
-                            <div style="font-size:11px; color:#6b7280; font-style:italic; display:flex; align-items:center;">Awaiting customer payment proof…</div>
-                        </template>
-                        <template x-if="currentJo.status === 'VERIFY_PAY'">
-                            <button @click="verifyPayment()" class="btn-action emerald">✓ Verify Payment & Start Production</button>
-                        </template>
-                        <template x-if="currentJo.status === 'IN_PRODUCTION'">
-                            <button @click="jobAction('TO_RECEIVE')" class="btn-action amber">📦 Mark Ready for Pickup</button>
-                        </template>
-                        <template x-if="currentJo.status === 'TO_RECEIVE'">
-                            <button @click="completeOrder()" class="btn-action emerald">✓ Mark Complete</button>
+                    <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
+                        <template x-if="['PENDING', 'Pending Review', 'Pending Approval'].includes(currentJo.status)">
+                            <div style="display:flex; gap:8px;">
+                                <button @click="jobAction('APPROVED')" class="btn-action indigo" style="padding:6px 12px; font-weight:600;">✓ Approve to Set Price</button>
+                                <button @click="openRevisionModal()" class="btn-action" style="padding:6px 12px; color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; font-weight:600;">✕ Request Revision</button>
+                            </div>
                         </template>
 
                         <template x-if="currentJo.status !== 'CANCELLED' && currentJo.status !== 'COMPLETED'">
-                            <button @click="jobAction('CANCELLED')" class="btn-action red">✕ Cancel</button>
+                            <button @click="jobAction('CANCELLED')" class="btn-action red" style="padding:6px 12px;">✕ Cancel</button>
                         </template>
                     </div>
                     <!-- Right: Close -->
                     <button @click="showDetailsModal = false" class="btn-secondary">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVISION MODAL -->
+    <div x-show="showRevisionModal" style="display:none; position:fixed; inset:0; z-index:100; align-items:center; justify-content:center; padding:16px;">
+        <!-- Backdrop -->
+        <div style="position:absolute; inset:0; background:rgba(17, 24, 39, 0.7); backdrop-filter:blur(4px);" @click="closeRevisionModal()"></div>
+        <!-- Modal Panel -->
+        <div style="position:relative; background:white; width:100%; max-width:400px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #fee2e2; overflow:hidden;">
+            <!-- Header -->
+            <div style="padding:16px 20px; border-bottom:1px solid #fee2e2; background:#fef2f2; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size:16px; font-weight:700; color:#b91c1c;">Request Revision</h3>
+                <button @click="closeRevisionModal()" style="background:none; border:none; color:#f87171; cursor:pointer;" onmouseover="this.style.color='#b91c1c'" onmouseout="this.style.color='#f87171'">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- Body -->
+            <div style="padding:20px;">
+                <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">Reason for Revision</label>
+                <select x-model="revisionReasonSelect" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; margin-bottom:16px; outline:none;" onfocus="this.style.borderColor='#f87171'" onblur="this.style.borderColor='#d1d5db'">
+                    <option value="">-- Select a reason --</option>
+                    <option value="Low image quality">Low image quality</option>
+                    <option value="Wrong design uploaded">Wrong design uploaded</option>
+                    <option value="Incorrect details provided">Incorrect details provided</option>
+                    <option value="Not printable / invalid format">Not printable / invalid format</option>
+                    <option value="Others">Others</option>
+                </select>
+
+                <div x-show="revisionReasonSelect === 'Others'" style="transition:all 0.2s;">
+                    <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">Please specify</label>
+                    <textarea x-model="revisionReasonText" rows="3" placeholder="Enter custom reason..." style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; resize:vertical; outline:none;" onfocus="this.style.borderColor='#f87171'" onblur="this.style.borderColor='#d1d5db'"></textarea>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div style="padding:16px 20px; border-top:1px solid #f3f4f6; background:#f9fafb; display:flex; justify-content:flex-end; gap:8px;">
+                <button @click="closeRevisionModal()" class="btn-secondary">Cancel</button>
+                <button @click="submitRevision()" class="btn-action red">Submit Revision</button>
             </div>
         </div>
     </div>
@@ -860,11 +834,18 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 <script>
     function joManager(defaultStatus = 'PENDING') {
         return {
+<<<<<<< HEAD
+            statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'TO_VERIFY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
+=======
+>>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
             activeStatus: defaultStatus || 'ALL',
             orders: [],
             machines: [],
             showDetailsModal: false,
             loadingDetails: false,
+            showRevisionModal: false,
+            revisionReasonSelect: '',
+            revisionReasonText: '',
             previewFile: null,
             currentJo: {},
             availableRolls: {},
@@ -896,43 +877,136 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 'L130': { 'BLUE': 32, 'RED': 33, 'BLACK': 34, 'YELLOW': 35 }
             },
 
+            customFieldLabels: {
+                size: 'Size', color: 'Color', shirt_color: 'Color', print_placement: 'Placement',
+                design_type: 'Design Type', template: 'Template', width: 'Width (ft)', height: 'Height (ft)',
+                finish: 'Finish', with_eyelets: 'Eyelets', shape: 'Shape', waterproof: 'Waterproof',
+                lamination: 'Lamination', laminate_option: 'Lamination Option', layout: 'Layout',
+                dimensions: 'Dimensions', needed_date: 'Needed Date', notes: 'Notes', additional_notes: 'Notes',
+                tshirt_provider: 'T-Shirt Provider', shirt_source: 'Shirt Source', brand: 'Brand',
+                material: 'Material', surface_application: 'Surface', surface_type: 'Surface Type',
+                sintraboard_thickness: 'Thickness', is_standee: 'Standee', sticker_type: 'Sticker Type',
+                cut_type: 'Cut Type', thickness: 'Thickness', installation_fee: 'Installation Fee'
+            },
+            customFieldSkip: ['design_upload','reference_upload','Branch_ID','service_type','product_type','unit','design_upload_path','notes','additional_notes'],
+            getDisplayableCustom(custom) {
+                if (!custom || typeof custom !== 'object') return [];
+                const skip = this.customFieldSkip;
+                return Object.entries(custom).filter(([k, v]) =>
+                    v !== '' && v != null && !skip.includes(k) && !String(k).startsWith('install_')
+                );
+            },
+            getCustomLabel(k) {
+                return this.customFieldLabels[k] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            },
+
+            get availableMaterialsForCurrentOrder() {
+                if (!this.currentJo || !this.allInventoryItems) return [];
+                
+                const service = String(this.currentJo.service_type || this.currentJo.job_title || '').toUpperCase();
+                
+                return this.allInventoryItems.filter(item => {
+                    // MUST HAVE STOCK > 0
+                    const stock = parseFloat(item.current_stock || 0);
+                    if (stock <= 0) return false;
+
+                    const cat = String(item.category_name || '').toUpperCase();
+                    const name = String(item.name || '').toUpperCase();
+
+                    // FILTER BASED ON ORDER TYPE
+                    if (service.includes('T-SHIRT') || service.includes('SHIRT')) {
+                        return cat.includes('VINYL') || cat.includes('INK') || cat.includes('HEAT TRANSFER') || cat.includes('APPAREL') || name.includes('SHIRT');
+                    } else if (service.includes('TARPAULIN')) {
+                        return cat.includes('TARPAULIN') || cat.includes('INK') || cat.includes('EYELET') || name.includes('GLUE') || name.includes('ROPE');
+                    } else if (service.includes('STICKER') || service.includes('DECAL')) {
+                        return cat.includes('STICKER') || cat.includes('VINYL') || cat.includes('INK') || cat.includes('LAMINATE') || name.includes('LAMINATION');
+                    } else if (service.includes('SINTRA') || service.includes('STANDEE')) {
+                        return cat.includes('SINTRA') || cat.includes('FOAM') || cat.includes('STICKER') || cat.includes('INK') || cat.includes('STAND');
+                    } else if (service.includes('REFLECT') || service.includes('SIGN')) {
+                        return cat.includes('REFLECT') || cat.includes('STICKER') || cat.includes('ACRYLIC') || cat.includes('INK') || cat.includes('SINTRA');
+                    } else if (service.includes('GLASS') || service.includes('WALL') || service.includes('FROSTED')) {
+                        return cat.includes('STICKER') || cat.includes('FROSTED') || cat.includes('INK') || cat.includes('INSTALL');
+                    }
+                    
+                    // Fallback to true if no service string matched cleanly, but still filtered strictly by > 0 stock
+                    return true;
+                });
+            },
+
             async init() {
                 await this.loadOrders();
                 await this.loadMachines();
                 await this.loadAllInventoryItems();
+                
+                // Auto-open modal if order_id is in URL
+                const params = new URLSearchParams(window.location.search);
+                const orderId = params.get('order_id');
+                const initialStatus = params.get('status');
+
+                if (initialStatus) {
+                    // Map common statuses to tabs
+                    const statusMap = {
+                        'TO_VERIFY': 'TO_VERIFY',
+                        'PENDING_VERIFICATION': 'TO_VERIFY',
+                        'DOWNPAYMENT_SUBMITTED': 'TO_VERIFY',
+                        'VERIFY_PAY': 'TO_VERIFY',
+                        'TO_PAY': 'TO_PAY',
+                        'PENDING': 'PENDING',
+                        'PENDING_REVIEW': 'PENDING',
+                        'APPROVED': 'APPROVED',
+                        'PROCESSING': 'IN_PRODUCTION'
+                    };
+                    const mapped = statusMap[initialStatus.toUpperCase().replace(/\s+/g, '_')] || initialStatus;
+                    if (this.statuses.includes(mapped)) {
+                        this.activeStatus = mapped;
+                    } else if (orderId) {
+                        // If we have an order_id but the status doesn't match a tab, default to ALL to ensure it's found
+                        this.activeStatus = 'ALL';
+                    }
+                }
+
+                if (orderId) {
+                    const jobType = params.get('job_type') || 'JOB';
+                    await this.viewDetails(parseInt(orderId, 10), jobType);
+                }
             },
 
             async loadOrders() {
                 try {
-                    // Fetch custom/specialty job orders
-                    const joRes = await (await fetch('../admin/job_orders_api.php?action=list_orders&per_page=400')).json();
+                    const [joRes, ordersRes] = await Promise.all([
+                        fetch('../admin/job_orders_api.php?action=list_orders&per_page=200').then(r => r.json()),
+                        fetch('../admin/job_orders_api.php?action=list_pending_orders').then(r => r.json())
+                    ]);
+
                     const jobOrders = joRes.success ? joRes.data : [];
-                    
-                    // Fetch regular product orders with pending status
-                    const ordersRes = await (await fetch('../admin/job_orders_api.php?action=list_pending_orders')).json();
                     if (!ordersRes.success) {
                         console.warn('list_pending_orders failed:', ordersRes.error || ordersRes);
                     }
                     const regularOrders = ordersRes.success ? ordersRes.data : [];
                     
-                    // Merge then sort newest first (avoid job_orders always above store orders)
+                    // Merge then sort newest first
                     const combined = [...jobOrders, ...regularOrders];
                     const sorted = combined.sort((a, b) => {
                         const ta = new Date(a.created_at || a.order_date || 0).getTime();
                         const tb = new Date(b.created_at || b.order_date || 0).getTime();
                         return tb - ta;
                     });
+
                     // Drop duplicate #ORD- rows when a #JO- row exists for the same store order_id
                     const storeIdsWithJob = new Set(
                         jobOrders
                             .filter(j => j.order_id != null && j.order_id !== '')
                             .map(j => String(j.order_id))
                     );
+
                     this.orders = sorted.filter(row => {
                         if (row.order_type !== 'ORDER') return true;
                         const oid = String(row.order_id ?? row.id ?? '');
                         return !storeIdsWithJob.has(oid);
-                    });
+                    }).map(o => ({
+                        ...o,
+                        _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                    }));
                 } catch(err) {
                     console.error('Error loading orders:', err);
                     this.orders = [];
@@ -988,10 +1062,12 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             get filteredOrders() {
                 const filtered = this.orders.filter(jo => {
                     let matchStatus = this.activeStatus === 'ALL' || jo.status === this.activeStatus;
-                    if (this.activeStatus === 'VERIFY_PAY') {
-                        matchStatus = jo.payment_proof_status === 'SUBMITTED';
+                    if (this.activeStatus === 'TO_VERIFY') {
+                        const s = String(jo.status || '').toUpperCase();
+                        matchStatus = s === 'VERIFY_PAY' || s === 'TO_VERIFY' || s === 'PENDING_VERIFICATION' || s === 'DOWNPAYMENT_SUBMITTED' || jo.payment_proof_status === 'SUBMITTED';
                     } else if (this.activeStatus === 'TO_PAY') {
-                        matchStatus = jo.status === 'TO_PAY' && jo.payment_proof_status !== 'SUBMITTED';
+                        const s = String(jo.status || '').toUpperCase();
+                        matchStatus = (s === 'TO_PAY' || s === 'APPROVED') && jo.payment_proof_status !== 'SUBMITTED';
                     }
                     
                     const searchLower = this.search.toLowerCase();
@@ -1002,22 +1078,28 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         (jo.id && jo.id.toString().includes(searchLower));
                     return matchStatus && matchSearch;
                 });
-                return filtered.sort((a, b) => {
-                    const ta = new Date(a.created_at || a.order_date || 0).getTime();
-                    const tb = new Date(b.created_at || b.order_date || 0).getTime();
-                    return tb - ta;
-                });
+                return filtered.sort((a, b) => (b._ts || 0) - (a._ts || 0));
             },
 
             getStatusCount(status) {
                 if (status === 'ALL') return this.orders.length;
-                if (status === 'VERIFY_PAY') return this.orders.filter(o => o.payment_proof_status === 'SUBMITTED').length;
-                if (status === 'TO_PAY') return this.orders.filter(o => o.status === 'TO_PAY' && o.payment_proof_status !== 'SUBMITTED').length;
+                if (status === 'TO_VERIFY') {
+                    return this.orders.filter(o => {
+                        const s = String(o.status || '').toUpperCase();
+                        return s === 'VERIFY_PAY' || s === 'TO_VERIFY' || s === 'PENDING_VERIFICATION' || s === 'DOWNPAYMENT_SUBMITTED' || o.payment_proof_status === 'SUBMITTED';
+                    }).length;
+                }
+                if (status === 'TO_PAY') {
+                    return this.orders.filter(o => {
+                        const s = String(o.status || '').toUpperCase();
+                        return (s === 'TO_PAY' || s === 'APPROVED') && o.payment_proof_status !== 'SUBMITTED';
+                    }).length;
+                }
                 return this.orders.filter(o => o.status === status).length;
             },
 
             async viewDetails(id, orderType = 'JOB') {
-                const order = this.findOrder(id, orderType);
+                let order = this.findOrder(id, orderType);
                 if (orderType === 'SERVICE' || order?.order_type === 'SERVICE') {
                     window.location.href = 'service_order_details.php?id=' + encodeURIComponent(id);
                     return;
@@ -1026,40 +1108,67 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
                 this.currentJo = {};
+                const base = document.body.getAttribute('data-base-url') || '/printflow';
                 
-                let res;
                 if (orderType === 'ORDER') {
-                    if (!order) {
+                    // Always fetch full order details to get `items` array and dynamic fields
+                    try {
+                        const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${id}`)).json();
+                        if (detailRes.success) {
+                            order = detailRes.data;
+                        }
+                    } catch (e) { console.error('Error fetching order detail:', e); }
+                    
+                    if (!order || !order.items) {
                         this.loadingDetails = false;
                         this.showDetailsModal = false;
-                        alert('Order not found.');
+                        alert('Order not found or not accessible.');
                         return;
                     }
-                    // For regular orders, display limited details (no materials/inks for now)
-                    this.loadingDetails = false;
                     this.currentJo = { ...order, order_type: 'ORDER' };
                     this.jobPriceInput = this.currentJo.estimated_total || 0;
                     if (!this.currentJo.job_order_id) {
                         await this.resolveEffectiveJobId();
                     }
-                    // Regular orders don't have materials, so skip loading
-                } else {
-                    // For job orders, fetch full details from API
-                    res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${id}`)).json();
                     this.loadingDetails = false;
-                    if(res.success) {
-                        this.currentJo = { ...res.data, order_type: 'JOB' };
-                        this.jobPriceInput = this.currentJo.estimated_total || 0;
-                        this.resetMaterialForm();
-                        this.resetInkForm();
-                        // Auto-load available rolls for relevant materials
-                        for(const m of this.currentJo.materials || []) {
-                            if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
-                        }
-                    } else {
+                } else {
+                    // JOB ORDER
+                    const jid = id || (order ? order.id : null);
+                    if (!jid) {
+                        this.loadingDetails = false;
                         this.showDetailsModal = false;
-                        alert(res.error || 'Could not load job details.');
+                        return;
                     }
+
+                    try {
+                        const res = await (await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
+                        if (res.success) {
+                            this.currentJo = { ...res.data, order_type: 'JOB' };
+                            this.jobPriceInput = this.currentJo.estimated_total || 0;
+                            this.resetMaterialForm();
+                            this.resetInkForm();
+                            for (const m of this.currentJo.materials || []) {
+                                if (m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
+                            }
+                        } else {
+                            // Fallback: It might be a regular order ID passed with job_type=JOB
+                            const fallbackRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${jid}`)).json();
+                            if (fallbackRes.success) {
+                                this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.jobPriceInput = this.currentJo.estimated_total || 0;
+                                if (!this.currentJo.job_order_id) {
+                                    await this.resolveEffectiveJobId();
+                                }
+                            } else {
+                                alert('Order details could not be loaded.');
+                                this.showDetailsModal = false;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error loading job details', e);
+                        this.showDetailsModal = false;
+                    }
+                    this.loadingDetails = false;
                 }
             },
 
@@ -1109,7 +1218,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 if (ok) this.showDetailsModal = false;
             },
 
-            async updateStatus(id, status, machineId = null) {
+            async updateStatus(id, status, machineId = null, reason = '') {
                 if (id == null || id === '' || Number(id) <= 0) {
                     alert('Invalid job order id.');
                     return false;
@@ -1119,6 +1228,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 fd.append('id', id);
                 fd.append('status', status);
                 if(machineId) fd.append('machine_id', machineId);
+                if(reason) fd.append('reason', reason);
                 
                 const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
                 if(res.success) {
@@ -1301,6 +1411,113 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 const res = await (await fetch(`../admin/inventory_rolls_api.php?action=list&item_id=${itemId}&status=OPEN`)).json();
                 if(res.success) {
                     this.availableLamRollsList = res.data;
+                }
+            },
+
+            async approveOrder() {
+                if (!confirm('Approve this order and request payment?')) return;
+                const id = this.currentJo.id;
+                const jid = this.effectiveJobId();
+                const oid = this.currentJo.order_id || this.currentJo.id;
+                
+                // Set price first
+                if (parseFloat(this.jobPriceInput) > 0) {
+                    await this.updatePrice();
+                }
+
+                if (this.currentJo.order_type === 'ORDER') {
+                    const fd = new FormData();
+                    fd.append('order_id', oid);
+                    fd.append('status', 'To Pay');
+                    fd.append('update_status', '1');
+                    fd.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+                    
+                    const res = await (await fetch('orders.php', { 
+                        method: 'POST', 
+                        body: fd, 
+                        headers: {'X-Requested-With': 'XMLHttpRequest'} 
+                    })).json();
+
+                    if (res.success) {
+                        alert('Order approved and moved to To Pay!');
+                        await this.loadOrders();
+                        this.showDetailsModal = false;
+                    } else {
+                        alert('Error: ' + (res.error || 'Failed to update order status'));
+                    }
+                } else {
+                    // Custom Job Order
+                    await this.updateStatus(id, 'TO_PAY');
+                }
+            },
+
+            async updatePrice() {
+                const jid = this.effectiveJobId();
+                const oid = this.currentJo.order_id || this.currentJo.id;
+                const price = parseFloat(this.jobPriceInput);
+                
+                if (this.currentJo.order_type === 'ORDER') {
+                   const fd = new FormData();
+                   fd.append('action', 'update_order_price');
+                   fd.append('order_id', oid);
+                   fd.append('price', price);
+                   const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                   if (!res.success) alert('Failed to update price: ' + res.error);
+                   else {
+                       this.currentJo.total_amount = price;
+                       this.currentJo.estimated_total = price;
+                       console.log('Price updated successfully');
+                   }
+                } else {
+                    await this.setJobPrice(jid);
+                }
+            },
+
+            async setJobPrice(jid) {
+                if (!jid) return;
+                const price = parseFloat(this.jobPriceInput);
+                const fd = new FormData();
+                fd.append('action', 'set_price');
+                fd.append('id', jid);
+                fd.append('price', price);
+                const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                if (res.success) {
+                    this.currentJo.estimated_total = price;
+                } else {
+                    alert('Error setting price: ' + res.error);
+                }
+            },
+
+            openRevisionModal() {
+                this.revisionReasonSelect = '';
+                this.revisionReasonText = '';
+                this.showRevisionModal = true;
+            },
+
+            closeRevisionModal() {
+                this.showRevisionModal = false;
+            },
+
+            async submitRevision() {
+                const oid = this.effectiveJobId();
+                if (!oid) return;
+                
+                let finalReason = this.revisionReasonSelect;
+                if (finalReason === 'Others' || !finalReason) {
+                    finalReason = this.revisionReasonText.trim();
+                }
+                
+                if (!finalReason) {
+                    alert('Please select or specify a reason for the revision request.');
+                    return;
+                }
+
+                if (!confirm(`Submit revision request?\nReason: ${finalReason}`)) return;
+
+                const ok = await this.updateStatus(oid, 'For Revision', null, finalReason);
+                if (ok) {
+                    this.showRevisionModal = false;
+                    this.showDetailsModal = false; // Optionally close details, or let it refresh automatically
                 }
             },
 

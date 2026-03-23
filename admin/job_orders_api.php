@@ -64,15 +64,14 @@ try {
                 $types .= 'i';
             }
             
-            // Pagination for customer-specific requests
+            // Pagination
             $page = max(1, (int)($_GET['page'] ?? 1));
-            // Staff dashboard needs enough rows to pair with store orders (avoid "orphan" #ORD- rows)
             $per_page = isset($_GET['customer_id'])
                 ? 10
                 : min(500, max(1, (int)($_GET['per_page'] ?? 250)));
             $offset = ($page - 1) * $per_page;
             
-            // Get total count for pagination
+            // Get total count
             $count_sql = str_replace('SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count FROM', 'SELECT COUNT(*) as total FROM', $sql);
             $total_count = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
             
@@ -80,11 +79,82 @@ try {
             $params[] = $per_page; $params[] = $offset; $types .= 'ii';
             $orders = db_query($sql, $types ?: null, $params ?: null) ?: [];
             
-            // Enrich with readiness and cost
-            foreach ($orders as &$jo) {
-                $jo['order_type'] = 'JOB';
-                $jo['readiness'] = JobOrderService::getMaterialReadiness($jo['id']);
-                $jo['estimated_cost'] = JobOrderService::calculateJobCost($jo['id']);
+            if (!empty($orders)) {
+                $orderIds = array_column($orders, 'id');
+                $ids_str = implode(',', array_map('intval', $orderIds));
+
+                // 1. Batch Fetch ALL Materials for these jobs
+                $materials = db_query("SELECT m.*, i.track_by_roll FROM job_order_materials m JOIN inv_items i ON m.item_id = i.id WHERE m.job_order_id IN ($ids_str)") ?: [];
+                $materialsByJob = [];
+                $item_ids_needed = [];
+                foreach ($materials as $m) {
+                    $materialsByJob[$m['job_order_id']][] = $m;
+                    $item_ids_needed[] = $m['item_id'];
+                    $meta = json_decode($m['metadata'] ?? '{}', true);
+                    if (!empty($meta['lamination_item_id'])) $item_ids_needed[] = $meta['lamination_item_id'];
+                }
+
+                // 2. Batch Fetch ALL Inks for these jobs
+                $inks = db_query("SELECT * FROM job_order_ink_usage WHERE job_order_id IN ($ids_str)") ?: [];
+                $inksByJob = [];
+                foreach ($inks as $ink) {
+                    $inksByJob[$ink['job_order_id']][] = $ink;
+                    $item_ids_needed[] = $ink['item_id'];
+                }
+
+                // 3. Batch Fetch SOH for all items needed
+                $stockMap = [];
+                if (!empty($item_ids_needed)) {
+                    $unique_items = array_unique($item_ids_needed);
+                    $items_str = implode(',', array_map('intval', $unique_items));
+                    
+                    // From rolls
+                    $rollStocks = db_query("SELECT item_id, SUM(remaining_length_ft) as soh FROM inv_rolls WHERE item_id IN ($items_str) AND status = 'OPEN' GROUP BY item_id") ?: [];
+                    foreach ($rollStocks as $rs) $stockMap[$rs['item_id']] = (float)$rs['soh'];
+                    
+                    // From transactions (for non-roll items)
+                    $transStocks = db_query("SELECT item_id, SUM(IF(direction='IN', quantity, -quantity)) as soh FROM inventory_transactions WHERE item_id IN ($items_str) GROUP BY item_id") ?: [];
+                    foreach ($transStocks as $ts) {
+                        if (!isset($stockMap[$ts['item_id']])) $stockMap[$ts['item_id']] = (float)$ts['soh'];
+                    }
+                }
+
+                // 4. Enrich orders using the pre-fetched data
+                foreach ($orders as &$jo) {
+                    $jo['order_type'] = 'JOB';
+                    $jobMats = $materialsByJob[$jo['id']] ?? [];
+                    $jobInks = $inksByJob[$jo['id']] ?? [];
+                    
+                    // Calculate readiness
+                    $readiness = 'READY';
+                    $total_cost = 0;
+                    
+                    foreach ($jobMats as $m) {
+                        $qty_needed = ($m['track_by_roll'] == 1) ? (float)($m['computed_required_length_ft'] ?: 0) : (float)$m['quantity'];
+                        $itemStock = $stockMap[$m['item_id']] ?? 0;
+                        
+                        if ($itemStock <= 0) $readiness = 'MISSING';
+                        elseif ($itemStock < $qty_needed && $readiness !== 'MISSING') $readiness = 'LOW';
+                        
+                        $total_cost += $qty_needed * (float)$m['unit_cost_at_assignment'];
+
+                        // Check lamination
+                        $meta = json_decode($m['metadata'] ?? '{}', true);
+                        if (!empty($meta['lamination_item_id']) && !empty($meta['lamination_length_ft'])) {
+                            $lamStock = $stockMap[$meta['lamination_item_id']] ?? 0;
+                            if ($lamStock <= 0) $readiness = 'MISSING';
+                            elseif ($lamStock < (float)$meta['lamination_length_ft'] && $readiness !== 'MISSING') $readiness = 'LOW';
+                        }
+                    }
+                    
+                    foreach ($jobInks as $ink) {
+                        $inkStock = $stockMap[$ink['item_id']] ?? 0;
+                        if ($inkStock < (float)$ink['quantity_used']) $readiness = 'MISSING';
+                    }
+
+                    $jo['readiness'] = $readiness;
+                    $jo['estimated_cost'] = $total_cost;
+                }
             }
             
             $response = ['success' => true, 'data' => $orders];
@@ -134,25 +204,27 @@ try {
                         CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
                         TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) as customer_contact,
                         'ORDER' as order_type,
-                        'Standard Order' as service_type,
+                        COALESCE(MAX(p.category), 'Custom Order') as service_type,
                         GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') as job_title,
                         '1' as width_ft,
                         '1' as height_ft,
                         SUM(oi.quantity) as quantity,
                         CASE 
-                            WHEN o.status = 'Pending' THEN 'PENDING'
-                            WHEN o.status = 'Pending Review' THEN 'PENDING'
-                            WHEN o.status = 'Pending Approval' THEN 'PENDING'
-                            WHEN o.status = 'For Revision' THEN 'PENDING'
-                            WHEN o.status = 'Processing' THEN 'IN_PRODUCTION'
-                            WHEN o.status = 'In Production' THEN 'IN_PRODUCTION'
-                            WHEN o.status = 'Printing' THEN 'IN_PRODUCTION'
+                            WHEN o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision') THEN 'PENDING'
+                            WHEN o.status IN ('Design Approved', 'Approved') THEN 'APPROVED'
+                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'VERIFY_PAY'
+                            WHEN o.status IN ('To Pay', 'Paid – In Process') THEN 'TO_PAY'
+                            WHEN o.status IN ('Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
                             WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
                             WHEN o.status = 'Completed' THEN 'COMPLETED'
                             WHEN o.status = 'Cancelled' THEN 'CANCELLED'
                             ELSE o.status
                         END as status,
-                        'PAID' as payment_proof_status,
+                        CASE 
+                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'SUBMITTED'
+                            WHEN o.status IN ('Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process') THEN 'VERIFIED'
+                            ELSE 'NONE'
+                        END as payment_proof_status,
                         'NO' as payment_status,
                         '' as materials,
                         o.order_date as created_at,
@@ -165,8 +237,12 @@ try {
                     LEFT JOIN order_items oi ON o.order_id = oi.order_id
                     LEFT JOIN products p ON oi.product_id = p.product_id
                     LEFT JOIN customers c ON o.customer_id = c.customer_id
+<<<<<<< HEAD
                     WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Processing', 'In Production', 'Printing', 'Ready for Pickup')"
                     . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
+=======
+                    WHERE 1=1
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
                     GROUP BY o.order_id
                     ORDER BY o.order_date DESC
                     LIMIT 50";
@@ -253,14 +329,139 @@ try {
             echo json_encode(['success' => true, 'data' => $order]);
             break;
 
+        case 'get_regular_order':
+            // Full order details for regular (orders table) - includes items + customization_data
+            if (!in_array($_SESSION['user_type'] ?? '', ['Admin', 'Staff', 'Manager'])) {
+                throw new Exception("Unauthorized");
+            }
+            $order_id = (int)($_GET['id'] ?? 0);
+            if (!$order_id) throw new Exception("Order ID required.");
+            $order_row = db_query("
+                SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,
+                       CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
+                       COALESCE(c.contact_number, c.email, '') as customer_contact
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.customer_id
+                WHERE o.order_id = ?
+            ", 'i', [$order_id]);
+            if (empty($order_row)) throw new Exception("Order not found.");
+            $o = $order_row[0];
+            $status_map = [
+                'Pending' => 'PENDING', 'Pending Review' => 'PENDING', 'Pending Approval' => 'PENDING',
+                'For Revision' => 'PENDING', 'Design Approved' => 'APPROVED', 'Approved' => 'APPROVED',
+                'Pending Verification' => 'VERIFY_PAY', 'Downpayment Submitted' => 'VERIFY_PAY',
+                'To Pay' => 'TO_PAY', 'Paid – In Process' => 'TO_PAY',
+                'Processing' => 'IN_PRODUCTION', 'In Production' => 'IN_PRODUCTION', 'Printing' => 'IN_PRODUCTION',
+                'Ready for Pickup' => 'TO_RECEIVE', 'Completed' => 'COMPLETED', 'Cancelled' => 'CANCELLED'
+            ];
+            $db_status = $o['status'] ?? '';
+            $mapped_status = $status_map[$db_status] ?? $db_status;
+            
+            // Map payment proof status for staff dashboard
+            $payment_proof_status = 'NONE';
+            if (in_array($db_status, ['Pending Verification', 'Downpayment Submitted'])) {
+                $payment_proof_status = 'SUBMITTED';
+            } elseif (in_array($db_status, ['Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process'])) {
+                $payment_proof_status = 'VERIFIED';
+            }
+
+            $items = db_query("
+                SELECT oi.*, p.name as product_name, p.category
+                FROM order_items oi
+                LEFT JOIN products p ON oi.product_id = p.product_id
+                WHERE oi.order_id = ?
+            ", 'i', [$order_id]) ?: [];
+            require_once __DIR__ . '/../includes/order_ui_helper.php';
+            $items_out = [];
+            $first_custom = [];
+            $total_qty = 0;
+            $width_ft = '1';
+            $height_ft = '1';
+            foreach ($items as $item) {
+                $custom = json_decode($item['customization_data'] ?? '{}', true) ?: [];
+                if (empty($first_custom)) $first_custom = $custom;
+                $total_qty += (int)$item['quantity'];
+                if (!empty($custom['width']) && !empty($custom['height'])) {
+                    $width_ft = (string)$custom['width'];
+                    $height_ft = (string)$custom['height'];
+                } elseif (!empty($custom['dimensions'])) {
+                    $d = $custom['dimensions'];
+                    if (is_string($d) && preg_match('/^(\d+)\s*[x×]\s*(\d+)$/i', $d, $m)) {
+                        $width_ft = $m[1];
+                        $height_ft = $m[2];
+                    } else {
+                        $width_ft = (string)$d;
+                        $height_ft = '';
+                    }
+                }
+                $name = $item['product_name'] ?: get_service_name_from_customization($custom, 'Custom Order');
+                $items_out[] = [
+                    'order_item_id'   => $item['order_item_id'],
+                    'product_name'    => $name,
+                    'quantity'        => (int)$item['quantity'],
+                    'customization'   => $custom,
+                    'design_url'     => (!empty($item['design_image']) || !empty($item['design_file']))
+                        ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
+                    'reference_url'  => !empty($item['reference_image_file'])
+                        ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
+                ];
+            }
+            $service_name = get_service_name_from_customization($first_custom, $items_out[0]['product_name'] ?? 'Custom Order');
+            $data = [
+                'id'                   => $o['order_id'],
+                'order_id'             => $o['order_id'],
+                'order_type'           => 'ORDER',
+                'customer_full_name'   => $o['customer_full_name'] ?? trim(($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')),
+                'customer_contact'     => $o['customer_contact'] ?? '',
+                'customer_type'        => ($o['transaction_count'] ?? 0) <= 1 ? 'NEW' : 'RETURNING',
+                'service_type'         => $service_name,
+                'job_title'            => implode(', ', array_map(function($i) { return $i['product_name'] . ' - ' . $i['quantity'] . 'pcs'; }, $items_out)),
+                'width_ft'             => $width_ft,
+                'height_ft'            => $height_ft,
+                'quantity'             => $total_qty,
+                'status'               => $mapped_status,
+                'estimated_total'      => (float)($o['total_amount'] ?? 0),
+                'amount_paid'          => (($o['payment_status'] ?? '') === 'Paid') ? (float)($o['total_amount'] ?? 0) : (float)($o['amount_paid'] ?? 0),
+                'notes'                => $o['notes'] ?? '',
+                'payment_proof_status' => $payment_proof_status,
+                'payment_proof_path'   => $o['payment_proof'] ?? null,
+                'payment_submitted_amount' => (float)($o['downpayment_amount'] ?? 0),
+                'payment_proof_uploaded_at' => $o['payment_submitted_at'] ?? null,
+                'payment_status'       => 'NO',
+                'readiness'            => 'READY',
+                'items'                => $items_out,
+            ];
+            echo json_encode(['success' => true, 'data' => $data]);
+            break;
+
         case 'update_status':
             $id = (int)($_POST['id'] ?? 0);
             $status = sanitize($_POST['status'] ?? '');
             $machineId = isset($_POST['machine_id']) ? (int)$_POST['machine_id'] : null;
+            $reason = sanitize($_POST['reason'] ?? '');
             if (!$id || !$status) throw new Exception("ID and status required.");
             jo_api_require_staff_branch($joStaffBranch, $id);
             
+            if ($status === 'For Revision' && $reason !== '') {
+                db_execute("UPDATE job_orders SET notes = CONCAT(IFNULL(notes, ''), '\n[REVISION REQUEST] ', ?) WHERE id = ?", 'si', [$reason, $id]);
+                $o = db_query("SELECT order_id FROM job_orders WHERE id = ?", 'i', [$id]);
+                if (!empty($o) && !empty($o[0]['order_id'])) {
+                    require_once __DIR__ . '/../includes/functions.php';
+                    add_order_system_message($o[0]['order_id'], "Revision required: " . $reason);
+                    db_execute("UPDATE orders SET revision_reason = ? WHERE order_id = ?", 'si', [$reason, $o[0]['order_id']]);
+                }
+            }
+            
             $res = JobOrderService::updateStatus($id, $status, $machineId);
+            echo json_encode(['success' => $res]);
+            break;
+
+        case 'update_order_price':
+            $order_id = (int)($_POST['order_id'] ?? 0);
+            $price = (float)($_POST['price'] ?? 0);
+            if (!$order_id) throw new Exception("Order ID required.");
+            $sql = "UPDATE orders SET total_amount = ? WHERE order_id = ?";
+            $res = db_execute($sql, 'di', [$price, $order_id]);
             echo json_encode(['success' => $res]);
             break;
 
@@ -352,6 +553,7 @@ try {
 
         case 'add_material':
             $orderId = (int)($_POST['order_id'] ?? 0);
+            $orderType = isset($_POST['order_type']) ? sanitize($_POST['order_type']) : null;
             $itemId = (int)($_POST['item_id'] ?? 0);
             $qty = (float)($_POST['quantity'] ?? 1);
             $uom = sanitize($_POST['uom'] ?? 'pcs');
@@ -360,9 +562,23 @@ try {
             $metadata = isset($_POST['metadata']) ? json_decode($_POST['metadata'], true) : null;
             
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
+<<<<<<< HEAD
             jo_api_require_staff_branch($joStaffBranch, $orderId);
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata);
+=======
+            $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata, $orderType);
+>>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
             echo json_encode(['success' => true, 'id' => $res]);
+            break;
+
+        case 'save_ink_usage':
+            $orderId = (int)($_POST['order_id'] ?? 0);
+            $orderType = isset($_POST['order_type']) ? sanitize($_POST['order_type']) : null;
+            $inkData = isset($_POST['ink_data']) ? json_decode($_POST['ink_data'], true) : [];
+            
+            if (!$orderId) throw new Exception("Order ID required.");
+            $res = JobOrderService::saveInkUsage($orderId, $inkData, $orderType);
+            echo json_encode(['success' => true]);
             break;
 
         case 'preview_impact':
