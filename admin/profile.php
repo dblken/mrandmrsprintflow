@@ -481,6 +481,14 @@ $page_title = 'My Profile - PrintFlow Admin';
             background: #f9fafb;
             color: #9ca3af;
         }
+        .profile-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+            margin-top: 8px;
+        }
         .btn-save {
             display: inline-flex;
             align-items: center;
@@ -818,10 +826,12 @@ $page_title = 'My Profile - PrintFlow Admin';
                             <div class="error-message" id="error_address">Please complete the Philippine address fields.</div>
                         </div>
                         
-                        <button type="submit" class="btn-save" id="btn_save_profile">
-                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            Save Changes
-                        </button>
+                        <div class="profile-form-actions">
+                            <button type="submit" class="btn-save" id="btn_save_profile">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                Save Changes
+                            </button>
+                        </div>
                     </form>
                 </div>
 
@@ -869,10 +879,12 @@ $page_title = 'My Profile - PrintFlow Admin';
                             <div class="error-message" id="error_confirm_password">Passwords do not match.</div>
                         </div>
                         
-                        <button type="submit" class="btn-save" id="btn_update_password">
-                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                            Update Password
-                        </button>
+                        <div class="profile-form-actions">
+                            <button type="submit" class="btn-save" id="btn_update_password">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                Update Password
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -1515,12 +1527,6 @@ $page_title = 'My Profile - PrintFlow Admin';
             event.preventDefault();
             var preferredForm = passwordDirty() ? 'passwordForm' : 'personalInfoForm';
             openUnsavedModal(preferredForm, targetUrl.href);
-        });
-
-        window.addEventListener('beforeunload', function (event) {
-            if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
-            event.preventDefault();
-            event.returnValue = '';
         });
     }
 </script>

@@ -271,6 +271,46 @@ function staff_notification_item_href(array $n): string {
 }
 
 /**
+ * Target URL when an admin/manager opens a notification.
+ */
+function admin_notification_target_url(array $n): string {
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $admin = $base . '/admin';
+    $type = isset($n['type']) ? (string)$n['type'] : '';
+    $msg = isset($n['message']) ? strtolower((string)$n['message']) : '';
+    $dataId = isset($n['data_id']) && $n['data_id'] !== null && $n['data_id'] !== ''
+        ? (int)$n['data_id'] : 0;
+
+    if ($type === 'System' && (
+        strpos($msg, 'chatbot') !== false ||
+        strpos($msg, 'support chat') !== false
+    )) {
+        return $admin . '/faq_chatbot_management.php?tab=inquiries';
+    }
+
+    if ($dataId > 0) {
+        if (in_array($type, ['Order', 'Design', 'Message'], true)) {
+            return $admin . '/orders_management.php?open_order=' . $dataId;
+        }
+        if (in_array($type, ['Job Order', 'Payment Issue'], true)) {
+            return $admin . '/job_orders.php?open_job=' . $dataId;
+        }
+        if ($type === 'Stock') {
+            return $admin . '/inv_transactions_ledger.php?item_id=' . $dataId;
+        }
+        if ($type === 'Payment') {
+            return $admin . '/orders_management.php?open_order=' . $dataId;
+        }
+    }
+
+    if ($type === 'Payment') {
+        return $admin . '/orders_management.php';
+    }
+
+    return $admin . '/dashboard.php';
+}
+
+/**
  * Log user activity
  * @param int $user_id
  * @param string $action Action performed

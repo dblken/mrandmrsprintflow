@@ -499,9 +499,13 @@ class JobOrderService {
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_name,
                        c.email as customer_email,
-                       c.contact_number as customer_contact
+                       c.contact_number as customer_contact,
+                       COALESCE(jo.branch_id, ord.branch_id) AS branch_display_id,
+                       b.branch_name AS branch_name
                 FROM job_orders jo
                 LEFT JOIN customers c ON jo.customer_id = c.customer_id
+                LEFT JOIN orders ord ON ord.order_id = jo.order_id
+                LEFT JOIN branches b ON b.id = COALESCE(jo.branch_id, ord.branch_id)
                 WHERE jo.id = ?";
         
         $order = db_query($sql, 'i', [$id]);

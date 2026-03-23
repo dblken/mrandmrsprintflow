@@ -8,12 +8,20 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Staff');
+require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $user_id = get_user_id();
 $error = '';
 $success = '';
 
-$user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+$urows = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id]);
+$user = $urows[0] ?? null;
+if (!$user) {
+    redirect(AUTH_REDIRECT_BASE . '/');
+    exit;
+}
+// Match session to DB (banner + sidebar use session in some places)
+$_SESSION['user_status'] = $user['status'] ?? ($_SESSION['user_status'] ?? 'Pending');
 $is_pending = ($user['status'] ?? '') === 'Pending';
 $needs_id = $is_pending && empty($user['id_validation_image'] ?? '');
 
@@ -103,6 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     $success = 'Profile updated successfully!';
                     $_SESSION['user_name'] = $first_name . ' ' . $last_name;
                     $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+                    $_SESSION['user_status'] = $user['status'] ?? $_SESSION['user_status'];
+                    $is_pending = ($user['status'] ?? '') === 'Pending';
                     $needs_id = false;
                     if ($is_pending && $id_filename) {
                         $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
@@ -196,7 +206,7 @@ $page_title = 'My Profile - Staff';
         </header>
 
         <main>
-            <?php if (isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending'): ?>
+            <?php if ($is_pending): ?>
                 <div style="background:linear-gradient(135deg, #fef3c7, #fde68a); border:1px solid #f59e0b; border-radius:12px; padding:20px 24px; margin-bottom:20px; display:flex; align-items:center; gap:16px;">
                     <div style="font-size:32px;">⏳</div>
                     <div>

@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/variant_functions.php';
 require_once __DIR__ . '/../includes/TarpaulinService.php';
 
@@ -46,6 +47,8 @@ if (empty($order)) {
     exit;
 }
 $order = $order[0];
+
+printflow_assert_order_branch_access($order_id);
 
 // --- Safeguard: Check if all roll-based items have production specs ---
 if ($new_status === 'Completed' && $order['status'] !== 'Completed') {

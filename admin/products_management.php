@@ -7,10 +7,28 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
+$is_manager = (($current_user['role'] ?? '') === 'Manager');
+$mgr_branch_id = 0;
+if ($is_manager) {
+    init_branch_context(false);
+    $mgr_branch_id = (int)(printflow_branch_filter_for_user() ?? ($_SESSION['branch_id'] ?? 0));
+    if ($mgr_branch_id < 1) {
+        $uid = (int)(get_user_id() ?? 0);
+        if ($uid > 0) {
+            $br = db_query('SELECT branch_id FROM users WHERE user_id = ? LIMIT 1', 'i', [$uid]);
+            if (!empty($br)) {
+                $mgr_branch_id = (int)($br[0]['branch_id'] ?? 0);
+            }
+        }
+    }
+}
+printflow_ensure_product_branch_stock_table();
 
 $error = '';
 $success = '';
@@ -66,6 +84,9 @@ function handle_product_photo_upload($file, $product_id = null) {
 // Handle product creation/update/delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     if (isset($_POST['create_product'])) {
+        if ($is_manager) {
+            $error = 'Only administrators can add new products.';
+        } else {
         $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $sku = trim($_POST['sku'] ?? '');
         $category = sanitize($_POST['category'] ?? '');
@@ -132,7 +153,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 }
             }
         }
+        }
     } elseif (isset($_POST['update_product'])) {
+        if ($is_manager) {
+            $product_id = (int)($_POST['product_id'] ?? 0);
+            $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+            $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
+            if ($low_stock_level < 1) {
+                $low_stock_level = 10;
+            }
+            if ($product_id < 1) {
+                $error = 'Invalid product.';
+            } elseif ($mgr_branch_id < 1) {
+                $error = 'No branch is assigned to your account.';
+            } elseif ($stock_quantity < 0) {
+                $error = 'Quantity must be a non-negative whole number.';
+            } elseif ($low_stock_level > $stock_quantity) {
+                $error = 'Low stock level cannot exceed quantity.';
+            } else {
+                $exists = db_query("SELECT product_id FROM products WHERE product_id = ? AND status != 'Archived' LIMIT 1", 'i', [$product_id]);
+                if ($exists === false) {
+                    $error = 'Database error while verifying product.';
+                } elseif (count($exists) === 0) {
+                    $error = 'Product not found.';
+                } elseif (printflow_product_branch_stock_upsert($product_id, $mgr_branch_id, $stock_quantity, $low_stock_level)) {
+                    $success = 'Stock for your branch was updated successfully.';
+                } else {
+                    global $conn;
+                    $dberr = isset($conn) ? $conn->error : '';
+                    $error = 'Failed to update branch stock.' . ($dberr !== '' ? ' (' . htmlspecialchars($dberr, ENT_QUOTES, 'UTF-8') . ')' : '');
+                }
+            }
+        } else {
         $product_id = (int)$_POST['product_id'];
         $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
         $sku = trim($_POST['sku'] ?? '');
@@ -205,16 +257,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         } catch (Exception $e) {
             $error = "Upload error: " . $e->getMessage();
         }
+        }
     }
 } elseif (isset($_POST['archive_product'])) {
+    if ($is_manager) {
+        $error = 'Only administrators can archive products.';
+    } else {
     $product_id = (int)$_POST['product_id'];
     db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
     $success = 'Product archived successfully!';
+    }
 } elseif (isset($_POST['restore_product'])) {
+    if ($is_manager) {
+        $error = 'Only administrators can restore products.';
+    } else {
     $product_id = (int)$_POST['product_id'];
     db_execute("UPDATE products SET status = 'Activated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
     $success = 'Product restored successfully!';
+    }
 } elseif (isset($_POST['delete_product'])) {
+    if ($is_manager) {
+        $error = 'Only administrators can change product status or delete products.';
+    } else {
     $product_id = (int)$_POST['product_id'];
     $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
     $status = $current[0]['status'] ?? '';
@@ -227,12 +291,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         db_execute("UPDATE products SET status = ?, updated_at = NOW() WHERE product_id = ?", 'si', [$new_status, $product_id]);
         $success = 'Product ' . strtolower($new_status) . ' successfully!';
     }
+    }
 }
 }
 
 // Handle AJAX for Archive Storage Modal
 if (isset($_GET['get_archived'])) {
     header('Content-Type: application/json');
+    if ($is_manager) {
+        echo json_encode(['success' => false, 'html' => '<p style="padding:24px;text-align:center;color:#9ca3af;">Archived items are only available to administrators.</p>']);
+        exit;
+    }
     $archived = db_query("SELECT * FROM products WHERE status = 'Archived' ORDER BY updated_at DESC");
     
     $html = '<table class="orders-table" style="width:100%;">';
@@ -276,57 +345,81 @@ $sort_by       = $_GET['sort'] ?? 'newest';
 $date_from     = $_GET['date_from'] ?? '';
 $date_to       = $_GET['date_to'] ?? '';
 
-$sql    = "SELECT * FROM products WHERE status != 'Archived'";
-$params = []; $types = '';
+$branchJoin = '';
+$stockExpr  = 'p.stock_quantity';
+$lowExpr    = 'COALESCE(p.low_stock_level, 10)';
+$sqlParams  = [];
+$sqlTypes   = '';
+
+if ($is_manager && $mgr_branch_id > 0) {
+    $branchJoin = ' LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ? ';
+    $stockExpr  = 'COALESCE(pbs.stock_quantity, p.stock_quantity)';
+    $lowExpr    = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
+    $sqlParams[] = $mgr_branch_id;
+    $sqlTypes   .= 'i';
+}
+
+$sql    = "SELECT p.*, {$stockExpr} AS eff_stock_qty, {$lowExpr} AS eff_low_stock FROM products p {$branchJoin} WHERE p.status != 'Archived'";
+$params = $sqlParams;
+$types  = $sqlTypes;
 
 if ($search) {
     $like = '%'.$search.'%';
-    $sql .= " AND (name LIKE ? OR sku LIKE ?)";
+    $sql .= " AND (p.name LIKE ? OR p.sku LIKE ?)";
     $params = array_merge($params, [$like, $like]);
     $types .= 'ss';
 }
 if ($cat_filter) {
-    $sql .= " AND category = ?";
+    $sql .= " AND p.category = ?";
     $params[] = $cat_filter;
     $types .= 's';
 }
 if ($status_filter) {
-    $sql .= " AND status = ?";
+    $sql .= " AND p.status = ?";
     $params[] = $status_filter;
     $types .= 's';
 }
 if ($stock_filter === 'out_of_stock') {
-    $sql .= " AND stock_quantity <= 0";
+    $sql .= " AND ({$stockExpr}) <= 0";
 } elseif ($stock_filter === 'low_stock') {
-    $sql .= " AND stock_quantity > 0 AND stock_quantity <= COALESCE(low_stock_level, 10)";
+    $sql .= " AND ({$stockExpr}) > 0 AND ({$stockExpr}) <= ({$lowExpr})";
 } elseif ($stock_filter === 'in_stock') {
-    $sql .= " AND stock_quantity > COALESCE(low_stock_level, 10)";
+    $sql .= " AND ({$stockExpr}) > ({$lowExpr})";
 }
 if (!empty($date_from)) {
-    $sql .= " AND DATE(created_at) >= ?";
+    $sql .= " AND DATE(p.created_at) >= ?";
     $params[] = $date_from;
     $types .= 's';
 }
 if (!empty($date_to)) {
-    $sql .= " AND DATE(created_at) <= ?";
+    $sql .= " AND DATE(p.created_at) <= ?";
     $params[] = $date_to;
     $types .= 's';
 }
 
-$count_sql = str_replace('SELECT *', 'SELECT COUNT(*) as total', $sql);
+$count_sql = preg_replace('/SELECT p\.\*.*FROM/s', 'SELECT COUNT(*) as total FROM', $sql);
 $total_products = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
 $total_pages = max(1, ceil($total_products / $per_page));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
 $order_clause = match($sort_by) {
-    'oldest' => "created_at ASC",
-    'az'     => "name ASC",
-    'za'     => "name DESC",
-    default  => "created_at DESC"
+    'oldest' => "p.created_at ASC",
+    'az'     => "p.name ASC",
+    'za'     => "p.name DESC",
+    default  => "p.created_at DESC"
 };
 $sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $products = db_query($sql, $types ?: null, $params ?: null) ?: [];
+
+foreach ($products as &$pfProduct) {
+    if ($is_manager && $mgr_branch_id > 0) {
+        $pfProduct['stock_quantity'] = (int)($pfProduct['eff_stock_qty'] ?? $pfProduct['stock_quantity']);
+        $pfProduct['low_stock_level'] = (int)($pfProduct['eff_low_stock'] ?? $pfProduct['low_stock_level'] ?? 10);
+    }
+    unset($pfProduct['eff_stock_qty'], $pfProduct['eff_low_stock']);
+}
+unset($pfProduct);
 
 $page_title = 'Products Management - Admin';
 
@@ -334,7 +427,18 @@ $page_title = 'Products Management - Admin';
 $stat_total     = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived'")[0]['c'] ?? 0;
 $stat_active    = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
 $stat_inactive  = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
-$stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived' AND stock_quantity <= COALESCE(low_stock_level, 10)")[0]['c'] ?? 0;
+if ($is_manager && $mgr_branch_id > 0) {
+    $stat_low_stock = db_query(
+        "SELECT COUNT(*) as c FROM products p
+         LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+         WHERE p.status != 'Archived'
+         AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)",
+        'i',
+        [$mgr_branch_id]
+    )[0]['c'] ?? 0;
+} else {
+    $stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived' AND stock_quantity <= COALESCE(low_stock_level, 10)")[0]['c'] ?? 0;
+}
 
 // Distinct categories for filter
 $categories = db_query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' AND status != 'Archived' ORDER BY category ASC") ?: [];
@@ -351,7 +455,7 @@ if (isset($_GET['ajax'])) {
                 <th>Name</th>
                 <th>Category</th>
                 <th>Price</th>
-                <th>Quantity</th>
+                <th><?php echo $is_manager ? 'Branch qty' : 'Quantity'; ?></th>
                 <th>Stock Status</th>
                 <th>Status</th>
                 <th style="text-align:right;">Actions</th>
@@ -390,8 +494,8 @@ if (isset($_GET['ajax'])) {
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo $product['status']; ?></span>
                         </td>
                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
-                            <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
-                            
+                            <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
+                            <?php if (!$is_manager): ?>
                             <?php if ($product['status'] !== 'Archived'): ?>
                                 <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
@@ -418,6 +522,7 @@ if (isset($_GET['ajax'])) {
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
                                 </form>
+                            <?php endif; ?>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -1072,6 +1177,11 @@ if (isset($_GET['ajax'])) {
                     ✗ <?php echo htmlspecialchars($error); ?>
                 </div>
             <?php endif; ?>
+            <?php if ($is_manager): ?>
+                <p style="font-size:13px;color:#4b5563;margin:0 0 16px;padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+                    You can update <strong>stock quantity</strong> and <strong>low-stock alert level</strong> for <strong>your branch only</strong>. Product name, price, photo, and status are controlled by an administrator.
+                </p>
+            <?php endif; ?>
 
             <!-- KPI Summary Cards -->
             <div class="kpi-row">
@@ -1102,6 +1212,7 @@ if (isset($_GET['ajax'])) {
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="productsListHeader">Products List</h3>
 
                     <div style="display:flex; align-items:center; gap:8px;">
+                        <?php if (!$is_manager): ?>
                         <button class="toolbar-btn" type="button" onclick="openProductModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
                         <button class="toolbar-btn" type="button" onclick="window.openArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280; display:flex; align-items:center; gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1109,6 +1220,7 @@ if (isset($_GET['ajax'])) {
                             </svg>
                             Archived Items
                         </button>
+                        <?php endif; ?>
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
@@ -1234,7 +1346,7 @@ if (isset($_GET['ajax'])) {
                                 <th>Name</th>
                                 <th>Category</th>
                                 <th>Price</th>
-                                <th>Quantity</th>
+                                <th><?php echo $is_manager ? 'Branch qty' : 'Quantity'; ?></th>
                                 <th>Stock Status</th>
                                 <th>Status</th>
                                 <th style="text-align:right;">Actions</th>
@@ -1287,8 +1399,8 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
-                                                onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Edit</button>
-                                            
+                                                onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
+                                            <?php if (!$is_manager): ?>
                                             <?php if ($product['status'] !== 'Archived'): ?>
                                                 <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
                                                     <?php echo csrf_field(); ?>
@@ -1315,6 +1427,7 @@ if (isset($_GET['ajax'])) {
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
                                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
                                                 </form>
+                                            <?php endif; ?>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -1371,11 +1484,35 @@ if (isset($_GET['ajax'])) {
             </button>
         </div>
         <div class="modal-body">
-            <form method="POST" id="product-form" enctype="multipart/form-data">
+            <form method="POST" id="product-form" action="" enctype="multipart/form-data" novalidate data-turbo="false">
                 <?php echo csrf_field(); ?>
-                <input type="hidden" id="modal-mode-input" name="create_product" value="1">
+                <?php /* Managers never create products: always POST update_product so server runs branch-stock handler even if JS fails after form.reset() */ ?>
+                <input type="hidden" id="modal-mode-input" name="<?php echo $is_manager ? 'update_product' : 'create_product'; ?>" value="1">
                 <input type="hidden" id="modal-product-id" name="product_id" value="">
 
+                <?php if ($is_manager): ?>
+                <div id="pf-manager-only" style="display:none;">
+                    <div class="form-group" style="margin-bottom:18px;">
+                        <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Product name</label>
+                        <div id="manager-modal-product-name" style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;color:#111827;font-size:15px;">—</div>
+                    </div>
+                    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="form-group" id="fg-stock-mgr">
+                            <label for="modal-stock-mgr">Quantity <span style="color:#dc2626">*</span> <span style="font-weight:500;color:#6b7280;">(your branch)</span></label>
+                            <input type="number" id="modal-stock-mgr" name="stock_quantity" min="0" value="0" step="1" disabled autocomplete="off">
+                            <span id="err-stock-mgr" class="field-error"></span>
+                        </div>
+                        <div class="form-group" id="fg-low-stock-mgr">
+                            <label for="modal-low-mgr">Low stock level <span style="color:#dc2626">*</span> <span style="font-weight:500;color:#6b7280;">(your branch)</span></label>
+                            <input type="number" id="modal-low-mgr" name="low_stock_level" min="0" value="10" step="1" disabled autocomplete="off">
+                            <small style="display:block;margin-top:4px;color:#6b7280;">Warn when stock falls below this. Must be ≤ quantity.</small>
+                            <span id="err-low-mgr" class="field-error"></span>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div id="pf-admin-only">
                 <div class="form-row">
                     <div class="form-group" id="fg-name">
                         <label for="modal-name">Product Name <span style="color:red">*</span></label>
@@ -1437,18 +1574,18 @@ if (isset($_GET['ajax'])) {
                 <div class="form-row-3">
                     <div class="form-group" id="fg-stock">
                         <label for="modal-stock">Quantity <span style="color:#dc2626">*</span></label>
-                        <input type="number" id="modal-stock" name="stock_quantity" min="0" value="0" step="1">
+                        <input type="number" id="modal-stock"<?php echo $is_manager ? '' : ' name="stock_quantity"'; ?> min="0" value="0" step="1">
                         <span id="err-stock" class="field-error"></span>
                     </div>
                     <div class="form-group" id="fg-low-stock">
                         <label for="modal-low-stock">Low Stock Level <span style="color:#dc2626">*</span></label>
-                        <input type="number" id="modal-low-stock" name="low_stock_level" min="0" value="10" step="1">
+                        <input type="number" id="modal-low-stock"<?php echo $is_manager ? '' : ' name="low_stock_level"'; ?> min="0" value="10" step="1">
                         <small>Warn when stock falls below this. Must be ≤ Quantity.</small>
                         <span id="err-low-stock" class="field-error"></span>
                     </div>
                     <div class="form-group">
                         <label for="modal-product-type">Product Type <span style="color:red">*</span></label>
-                        <select id="modal-product-type" name="product_type" required>
+                        <select id="modal-product-type" name="product_type">
                             <option value="custom">Service (Customizable)</option>
                             <option value="fixed">Fixed Product</option>
                         </select>
@@ -1463,10 +1600,12 @@ if (isset($_GET['ajax'])) {
                         <option value="Deactivated">Deactivated</option>
                     </select>
                 </div>
+                </div><!-- #pf-admin-only -->
 
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeProductModal()">Cancel</button>
-                    <button type="submit" id="modal-submit-btn" class="btn-save">Create Product</button>
+                    <?php /* Managers: separate id so shared product-form-validation.js never sets disabled on this button */ ?>
+                    <button type="submit" id="<?php echo $is_manager ? 'modal-submit-products-mgr' : 'modal-submit-btn'; ?>" class="btn-save">Create Product</button>
                 </div>
             </form>
         </div>
@@ -1597,6 +1736,56 @@ if (isset($_GET['ajax'])) {
 </div>
 
 <script>
+window.PF_PRODUCTS_IS_MANAGER = <?php echo $is_manager ? 'true' : 'false'; ?>;
+
+function pfGetProductModalSubmitBtn() {
+    return document.getElementById('modal-submit-products-mgr') || document.getElementById('modal-submit-btn');
+}
+
+/** Manager: show only product name + branch quantity + low stock; hide full catalog form and avoid duplicate POST names. */
+function pfManagerModalSetActive(active, product) {
+    if (!window.PF_PRODUCTS_IS_MANAGER) return;
+    var mgr = document.getElementById('pf-manager-only');
+    var adm = document.getElementById('pf-admin-only');
+    if (!mgr || !adm) return;
+    var stockAdm = document.getElementById('modal-stock');
+    var lowAdm = document.getElementById('modal-low-stock');
+    var sm = document.getElementById('modal-stock-mgr');
+    var lm = document.getElementById('modal-low-mgr');
+    if (active) {
+        mgr.style.display = 'block';
+        adm.style.display = 'none';
+        adm.querySelectorAll('input, select, textarea').forEach(function(el) {
+            if (el.type === 'hidden') return;
+            el.setAttribute('data-pf-prev-disabled', el.disabled ? '1' : '0');
+            el.disabled = true;
+        });
+        if (stockAdm) stockAdm.removeAttribute('name');
+        if (lowAdm) lowAdm.removeAttribute('name');
+        if (sm) { sm.disabled = false; }
+        if (lm) { lm.disabled = false; }
+        var nm = document.getElementById('manager-modal-product-name');
+        if (product && nm) nm.textContent = product.name || '—';
+        if (product && sm) sm.value = product.stock_quantity != null ? String(product.stock_quantity) : '0';
+        if (product && lm) lm.value = product.low_stock_level != null ? String(product.low_stock_level) : '10';
+    } else {
+        mgr.style.display = 'none';
+        adm.style.display = 'block';
+        adm.querySelectorAll('input, select, textarea').forEach(function(el) {
+            if (el.type === 'hidden') return;
+            var p = el.getAttribute('data-pf-prev-disabled');
+            el.disabled = (p === '1');
+            el.removeAttribute('data-pf-prev-disabled');
+        });
+        if (!window.PF_PRODUCTS_IS_MANAGER) {
+            if (stockAdm) stockAdm.setAttribute('name', 'stock_quantity');
+            if (lowAdm) lowAdm.setAttribute('name', 'low_stock_level');
+        }
+        if (sm) { sm.disabled = true; }
+        if (lm) { lm.disabled = true; }
+    }
+}
+
 var _productStatusForm = null;
 var _productStatusButtonName = null;
 
@@ -1621,82 +1810,123 @@ function pfVisibilityStatusStyle(st) {
 }
 
 window.openProductModal = function openProductModal(mode, product) {
+    if (window.PF_PRODUCTS_IS_MANAGER && mode === 'create') {
+        return;
+    }
     var overlay = document.getElementById('product-modal-overlay');
     var form = document.getElementById('product-form');
     if (!overlay || !form) {
         console.warn('openProductModal: product modal markup not in DOM.');
         return;
     }
+    pfManagerModalSetActive(false);
+    var pti = document.getElementById('modal-photo');
+    if (pti) pti.disabled = false;
     form.reset();
     var title = document.getElementById('modal-title');
     var modeInput = document.getElementById('modal-mode-input');
-    var submitBtn = document.getElementById('modal-submit-btn');
+    var submitBtn = pfGetProductModalSubmitBtn();
     var previewImg = document.getElementById('photo-preview-img');
     var previewText = document.getElementById('photo-preview-text');
     var photoInput = document.getElementById('modal-photo');
 
     if (mode === 'edit' && product) {
-        if (title) title.textContent = 'Edit Product';
+        if (title) title.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Branch stock' : 'Edit Product';
         if (modeInput) { modeInput.name = 'update_product'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = 'Save Changes';
+        if (submitBtn) submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
         var pidEl = document.getElementById('modal-product-id');
         if (pidEl) pidEl.value = product.product_id != null ? String(product.product_id) : '';
-        var nameEl = document.getElementById('modal-name');
-        if (nameEl) nameEl.value = product.name || '';
-        var skuEl = document.getElementById('modal-sku');
-        if (skuEl) skuEl.value = product.sku || '';
-        var catEl = document.getElementById('modal-category');
-        if (catEl) catEl.value = product.category || '';
-        var priceEl = document.getElementById('modal-price');
-        if (priceEl) priceEl.value = product.price != null ? String(product.price) : '';
-        var descEl = document.getElementById('modal-description');
-        if (descEl) descEl.value = product.description || '';
-        var stockEl = document.getElementById('modal-stock');
-        if (stockEl) stockEl.value = product.stock_quantity != null ? String(product.stock_quantity) : '0';
-        var lowEl = document.getElementById('modal-low-stock');
-        if (lowEl) lowEl.value = product.low_stock_level != null ? String(product.low_stock_level) : '10';
-        var ptEl = document.getElementById('modal-product-type');
-        if (ptEl) ptEl.value = (product.product_type === 'fixed') ? 'fixed' : 'custom';
-        var stEl = document.getElementById('modal-status');
-        if (stEl) stEl.value = (product.status === 'Deactivated') ? 'Deactivated' : 'Activated';
-        if (photoInput) photoInput.value = '';
-        if (product.photo_path && previewImg && previewText) {
-            previewImg.src = product.photo_path;
-            previewImg.style.display = 'block';
-            previewText.style.display = 'none';
+        if (window.PF_PRODUCTS_IS_MANAGER) {
+            pfManagerModalSetActive(true, product);
         } else {
-            if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
-            if (previewText) previewText.style.display = 'block';
+            var nameEl = document.getElementById('modal-name');
+            if (nameEl) nameEl.value = product.name || '';
+            var skuEl = document.getElementById('modal-sku');
+            if (skuEl) skuEl.value = product.sku || '';
+            var catEl = document.getElementById('modal-category');
+            if (catEl) catEl.value = product.category || '';
+            var priceEl = document.getElementById('modal-price');
+            if (priceEl) priceEl.value = product.price != null ? String(product.price) : '';
+            var descEl = document.getElementById('modal-description');
+            if (descEl) descEl.value = product.description || '';
+            var stockEl = document.getElementById('modal-stock');
+            if (stockEl) stockEl.value = product.stock_quantity != null ? String(product.stock_quantity) : '0';
+            var lowEl = document.getElementById('modal-low-stock');
+            if (lowEl) lowEl.value = product.low_stock_level != null ? String(product.low_stock_level) : '10';
+            var ptEl = document.getElementById('modal-product-type');
+            if (ptEl) ptEl.value = (product.product_type === 'fixed') ? 'fixed' : 'custom';
+            var stEl = document.getElementById('modal-status');
+            if (stEl) stEl.value = (product.status === 'Deactivated') ? 'Deactivated' : 'Activated';
+            if (photoInput) photoInput.value = '';
+            if (product.photo_path && previewImg && previewText) {
+                previewImg.src = product.photo_path;
+                previewImg.style.display = 'block';
+                previewText.style.display = 'none';
+            } else {
+                if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
+                if (previewText) previewText.style.display = 'block';
+            }
         }
     } else {
         if (title) title.textContent = 'Add New Product';
         if (modeInput) { modeInput.name = 'create_product'; modeInput.value = '1'; }
         if (submitBtn) submitBtn.textContent = 'Create Product';
+        pfManagerModalSetActive(false);
         var pidEl2 = document.getElementById('modal-product-id');
         if (pidEl2) pidEl2.value = '';
         if (photoInput) photoInput.value = '';
         if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
         if (previewText) previewText.style.display = 'block';
     }
-    if (submitBtn) submitBtn.disabled = false;
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
-    var nm = document.getElementById('modal-name');
-    if (nm) setTimeout(function() { nm.focus(); }, 10);
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.removeAttribute('disabled');
+    }
+    if (typeof window.printflowProductFormValidationRun === 'function') {
+        window.printflowProductFormValidationRun();
+    }
+    try {
+        document.dispatchEvent(new CustomEvent('pf-product-modal-shown'));
+    } catch (e) { /* ignore */ }
+    if (window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product && submitBtn) {
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                var b = pfGetProductModalSubmitBtn();
+                if (b && document.getElementById('product-modal-overlay')?.classList.contains('active')) {
+                    b.disabled = false;
+                    b.removeAttribute('disabled');
+                }
+            });
+        });
+    }
+    var focusEl = (window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product)
+        ? document.getElementById('modal-stock-mgr')
+        : document.getElementById('modal-name');
+    if (focusEl) setTimeout(function() { focusEl.focus(); }, 10);
 };
 
 function closeProductModal() {
+    pfManagerModalSetActive(false);
+    var pti = document.getElementById('modal-photo');
+    if (pti) pti.disabled = false;
     var overlay = document.getElementById('product-modal-overlay');
     if (overlay) overlay.classList.remove('active');
     if (document.getElementById('archive-storage-overlay')?.style.display !== 'flex' &&
         document.getElementById('productStatusConfirmModal')?.style.display !== 'flex') {
         document.body.style.overflow = '';
     }
-    var submitBtn = document.getElementById('modal-submit-btn');
+    var submitBtn = pfGetProductModalSubmitBtn();
     var modeInput = document.getElementById('modal-mode-input');
     if (submitBtn && modeInput) {
         submitBtn.disabled = false;
-        submitBtn.textContent = modeInput.name === 'update_product' ? 'Save Changes' : 'Create Product';
+        submitBtn.removeAttribute('disabled');
+        if (modeInput.name === 'update_product') {
+            submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+        } else {
+            submitBtn.textContent = 'Create Product';
+        }
     }
 }
 

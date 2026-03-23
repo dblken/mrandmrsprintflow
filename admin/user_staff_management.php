@@ -14,15 +14,41 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
-// Ensure columns exist (safe migration)
-try {
-    $uc = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
-    if (!in_array('middle_name', $uc)) db_execute("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) NULL AFTER first_name");
-    if (!in_array('birthday', $uc)) db_execute("ALTER TABLE users ADD COLUMN birthday DATE NULL AFTER last_name");
-    if (!in_array('profile_completion_token', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_token VARCHAR(64) NULL");
-    if (!in_array('profile_completion_expires', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_expires DATETIME NULL");
-    if (!in_array('id_validation_image', $uc)) db_execute("ALTER TABLE users ADD COLUMN id_validation_image VARCHAR(255) NULL");
-} catch (Throwable $e) { /* ignore */ }
+// Realtime email check (same rules as create_staff: users + customers table)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['check_email'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    $raw = trim((string)($_GET['email'] ?? ''));
+    if ($raw === '') {
+        echo json_encode(['ok' => true, 'available' => null]);
+        exit;
+    }
+    if (!preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', $raw)) {
+        echo json_encode(['ok' => true, 'available' => null, 'invalid_format' => true]);
+        exit;
+    }
+    $email = trim($raw);
+    $existing_user     = db_query('SELECT user_id FROM users WHERE email = ?', 's', [$email]);
+    $existing_customer = db_query('SELECT customer_id FROM customers WHERE email = ?', 's', [$email]);
+    $taken = !empty($existing_user) || !empty($existing_customer);
+    echo json_encode(['ok' => true, 'available' => !$taken, 'taken' => $taken]);
+    exit;
+}
+
+// Ensure columns exist (safe migration) — skip after first successful run (saves SHOW COLUMNS every request)
+$__pfUsersSchemaOk = __DIR__ . '/../tmp/.printflow_users_schema_ok';
+if (!is_file($__pfUsersSchemaOk)) {
+    try {
+        $uc = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
+        if (!in_array('middle_name', $uc)) db_execute("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) NULL AFTER first_name");
+        if (!in_array('birthday', $uc)) db_execute("ALTER TABLE users ADD COLUMN birthday DATE NULL AFTER last_name");
+        if (!in_array('profile_completion_token', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_token VARCHAR(64) NULL");
+        if (!in_array('profile_completion_expires', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_expires DATETIME NULL");
+        if (!in_array('id_validation_image', $uc)) db_execute("ALTER TABLE users ADD COLUMN id_validation_image VARCHAR(255) NULL");
+        @file_put_contents($__pfUsersSchemaOk, '1');
+    } catch (Throwable $e) { /* ignore */ }
+}
+unset($__pfUsersSchemaOk);
 
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -103,13 +129,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
             $complete_link = rtrim($base_url, '/') . '/printflow/public/complete_profile.php?token=' . $token;
 
             require_once __DIR__ . '/../includes/profile_completion_mailer.php';
-            $mail_res = send_profile_completion_email($email, $first_name, $complete_link);
 
-            if ($mail_res['success']) {
-                $success = $role . ' account created! An email with a profile completion link has been sent to ' . htmlspecialchars($email);
-            } else {
-                $success = $role . ' account created! However, the email could not be sent: ' . ($mail_res['message'] ?? 'Unknown error') . '. Share this link manually: ' . $complete_link;
+            $sendInviteMail = function (string $to, string $first, string $link): array {
+                try {
+                    return send_profile_completion_email($to, $first, $link);
+                } catch (Throwable $e) {
+                    error_log('Profile completion email: ' . $e->getMessage());
+                    return ['success' => false, 'message' => $e->getMessage()];
+                }
+            };
+
+            /*
+             * Email delivery:
+             * - PHP-FPM / FastCGI: respond first, then send (fast UI; same process = SMTP still works).
+             * - Apache mod_php / typical XAMPP: background CLI spawn is unreliable (wrong PHP_BINARY, php not in PATH),
+             *   so send synchronously before redirect so the invite actually reaches the inbox.
+             */
+            if (function_exists('fastcgi_finish_request')) {
+                $_SESSION['um_staff_create_success'] = $role . ' account created for ' . htmlspecialchars($email) . '. A profile completion email is being sent to their inbox.';
+                session_write_close();
+                header('Location: user_staff_management.php', true, 303);
+                ignore_user_abort(true);
+                fastcgi_finish_request();
+                $mail_res = $sendInviteMail($email, $first_name, $complete_link);
+                if (empty($mail_res['success'])) {
+                    error_log('Profile completion email (post-response): ' . ($mail_res['message'] ?? 'unknown failure'));
+                }
+                exit;
             }
+
+            $mail_res = $sendInviteMail($email, $first_name, $complete_link);
+            if (!empty($mail_res['success'])) {
+                $_SESSION['um_staff_create_success'] = $role . ' account created! A profile completion link has been sent to ' . htmlspecialchars($email) . '.';
+            } else {
+                $_SESSION['um_staff_create_success'] = $role . ' account created. The invitation email could not be sent'
+                    . (!empty($mail_res['message']) ? ': ' . htmlspecialchars($mail_res['message']) : '')
+                    . '. Share this link with them: ' . htmlspecialchars($complete_link);
+            }
+            session_write_close();
+            header('Location: user_staff_management.php', true, 303);
+            exit;
         }
     }
 }
@@ -188,6 +247,11 @@ $sort_icon = fn(string $col): string => $sort===$col?($dir==='ASC'?' ▲':' ▼'
 // Flash message from process_create_manager.php
 $manager_created = $_SESSION['cm_success'] ?? '';
 unset($_SESSION['cm_success']);
+
+if (!empty($_SESSION['um_staff_create_success'])) {
+    $success = $_SESSION['um_staff_create_success'];
+    unset($_SESSION['um_staff_create_success']);
+}
 
 $max_birthday = date('Y-m-d', strtotime('-18 years'));
 
@@ -1103,6 +1167,7 @@ if (isset($_GET['ajax'])) {
                     <label>Email Address <span style="color:#ef4444">*</span></label>
                     <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com" autocomplete="email">
                     <div id="um-error-email" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                    <div id="um-email-availability-hint" style="display:none; font-size:11px; margin-top:4px; color:#6b7280;">Checking availability…</div>
                 </div>
                 <div class="form-group">
                     <label>Birthday <span style="color:#ef4444">*</span></label>
@@ -1159,15 +1224,83 @@ function printflowInitUserStaffModal() {
     var btnClose = document.getElementById('btn-close-user-modal');
     var btnCloseX = document.getElementById('btn-close-user-modal-x');
     if (!backdrop || !btnOpen) return;
+    if (backdrop.dataset.pfUmModalInit) return;
+    backdrop.dataset.pfUmModalInit = '1';
 
+    var umEmailCheckTimer = null;
+    var umEmailCheckSeq = 0;
+    window._umEmailDbState = 'idle';
+
+    function setEmailAvailabilityHint(visible) {
+        var hint = document.getElementById('um-email-availability-hint');
+        if (hint) hint.style.display = visible ? 'block' : 'none';
+    }
+
+    function scheduleEmailAvailabilityCheck() {
+        var input = document.getElementById('um-email');
+        var group = document.getElementById('um-group-email');
+        var errEl = document.getElementById('um-error-email');
+        if (!input || !group || !errEl) return;
+        var val = (input.value || '').trim().replace(/\s/g, '');
+        if (umEmailCheckTimer) clearTimeout(umEmailCheckTimer);
+        window._umEmailDbState = 'idle';
+        setEmailAvailabilityHint(false);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            return;
+        }
+        window._umEmailDbState = 'checking';
+        setEmailAvailabilityHint(true);
+        umEmailCheckTimer = setTimeout(function () {
+            var seq = ++umEmailCheckSeq;
+            fetch('user_staff_management.php?check_email=1&email=' + encodeURIComponent(val), {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (seq !== umEmailCheckSeq) return;
+                    setEmailAvailabilityHint(false);
+                    if (!data || data.ok !== true) {
+                        window._umEmailDbState = 'idle';
+                        return;
+                    }
+                    if (data.taken) {
+                        window._umEmailDbState = 'taken';
+                        group.classList.add('is-invalid');
+                        errEl.style.color = '#ef4444';
+                        errEl.textContent = 'This email is already used by a staff or manager account, or by a customer.';
+                        errEl.style.display = 'block';
+                    } else if (data.available === true) {
+                        window._umEmailDbState = 'available';
+                        errEl.textContent = '';
+                        errEl.style.display = 'none';
+                        group.classList.remove('is-invalid');
+                    } else {
+                        window._umEmailDbState = 'idle';
+                    }
+                })
+                .catch(function () {
+                    if (seq !== umEmailCheckSeq) return;
+                    setEmailAvailabilityHint(false);
+                    window._umEmailDbState = 'idle';
+                });
+        }, 280);
+    }
 
     function openModal() {
+        if (umEmailCheckTimer) clearTimeout(umEmailCheckTimer);
+        umEmailCheckTimer = null;
+        umEmailCheckSeq++;
+        window._umEmailDbState = 'idle';
+        setEmailAvailabilityHint(false);
         backdrop.style.display = 'flex';
         // Trigger reflow then add class for animation
         void backdrop.offsetWidth;
         backdrop.classList.add('is-open');
         var firstInput = backdrop.querySelector('input[type="text"]');
         if (firstInput) setTimeout(function() { firstInput.focus(); }, 150);
+        var emEl = document.getElementById('um-email');
+        if (emEl && (emEl.value || '').trim()) validateUserCreateField('email');
     }
 
     function closeModal() {
@@ -1222,10 +1355,28 @@ function printflowInitUserStaffModal() {
             else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) err = 'Please enter a valid email address.';
         }
         if (err) {
+            window._umEmailDbState = 'idle';
+            setEmailAvailabilityHint(false);
+            if (umEmailCheckTimer) clearTimeout(umEmailCheckTimer);
             group.classList.add('is-invalid');
+            errEl.style.color = '#ef4444';
             errEl.textContent = err;
             errEl.style.display = 'block';
             return false;
+        }
+        if (id === 'email') {
+            errEl.style.color = '#ef4444';
+            if (window._umEmailDbState === 'taken') {
+                group.classList.add('is-invalid');
+                errEl.textContent = 'This email is already used by a staff or manager account, or by a customer.';
+                errEl.style.display = 'block';
+                return false;
+            }
+            group.classList.remove('is-invalid');
+            errEl.textContent = '';
+            errEl.style.display = 'none';
+            scheduleEmailAvailabilityCheck();
+            return true;
         }
         group.classList.remove('is-invalid');
         errEl.textContent = '';
@@ -1234,9 +1385,17 @@ function printflowInitUserStaffModal() {
     }
     function validateUserCreateForm(e) {
         var ok = validateUserCreateField('first_name') && validateUserCreateField('last_name') && validateUserCreateField('middle_name') && validateUserCreateField('email');
-        if (!ok) e.preventDefault();
-        return ok;
+        if (!ok) {
+            e.preventDefault();
+            return false;
+        }
+        if (window._umEmailDbState === 'taken') {
+            e.preventDefault();
+            return false;
+        }
+        return true;
     }
+    window.validateUserCreateForm = validateUserCreateForm;
     ['first_name', 'last_name', 'middle_name'].forEach(function(id) {
         var el = document.getElementById('um-' + id);
         if (el) {
@@ -1256,6 +1415,7 @@ function printflowInitUserStaffModal() {
         emailEl.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
         emailEl.addEventListener('input', function() {
             this.value = this.value.replace(/\s/g, '');
+            window._umEmailDbState = 'idle';
             validateUserCreateField('email');
         });
         emailEl.addEventListener('blur', function() { validateUserCreateField('email'); });

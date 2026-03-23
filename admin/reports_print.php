@@ -16,42 +16,30 @@ require_role(['Admin', 'Manager']);
 $report   = $_GET['report'] ?? 'orders';
 $from     = $_GET['from'] ?? date('Y-m-01');
 $to       = $_GET['to'] ?? date('Y-m-d');
-$branchId = isset($_GET['branch_id']) ? ($_GET['branch_id'] === 'all' ? 'all' : (int)$_GET['branch_id']) : 'all';
+
+$branchCtx = init_branch_context(false);
+$branchId  = $branchCtx['selected_branch_id'];
+$branchName = $branchCtx['branch_name'];
 
 $from = date('Y-m-d', strtotime($from));
 $to   = date('Y-m-d', strtotime($to));
 $toEnd = $to . ' 23:59:59';
 
 [$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
-$branchName = 'All Branches';
-if ($branchId !== 'all') {
-    $branches = get_all_branches();
-    foreach ($branches as $b) {
-        if ((int)$b['id'] === (int)$branchId) { $branchName = $b['branch_name']; break; }
-    }
-}
 
 $reportTitle = $report === 'customers' ? 'Customers Report' : ($report === 'sales' ? 'Sales Report' : 'Orders Status Report');
 
 $isCustomers = ($report === 'customers');
 
 if ($isCustomers) {
-    $cust_summary = db_query("SELECT COUNT(*) as total, SUM(CASE WHEN status='Activated' THEN 1 ELSE 0 END) as active FROM customers");
-    $cs = $cust_summary[0] ?? [];
-    $totalCust = (int)($cs['total'] ?? 0);
-    $activeCust = (int)($cs['active'] ?? 0);
     if ($branchId !== 'all') {
-        $customers = db_query(
-            "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
-                    COALESCE(c.email,'') as email, COALESCE(c.contact_number,'') as contact_number, c.status, c.created_at,
-                    COUNT(o.order_id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_spent
-             FROM customers c
-             INNER JOIN orders o ON c.customer_id = o.customer_id AND o.branch_id = ?
-             GROUP BY c.customer_id
-             ORDER BY total_spent DESC",
-            'i', [$branchId]
-        ) ?: [];
+        [$totalCust, $activeCust] = branch_customers_summary_for_branch((int)$branchId);
+        $customers = branch_customers_report_list((int)$branchId);
     } else {
+        $cust_summary = db_query("SELECT COUNT(*) as total, SUM(CASE WHEN status='Activated' THEN 1 ELSE 0 END) as active FROM customers");
+        $cs = $cust_summary[0] ?? [];
+        $totalCust = (int)($cs['total'] ?? 0);
+        $activeCust = (int)($cs['active'] ?? 0);
         $customers = db_query(
             "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
                     COALESCE(c.email,'') as email, COALESCE(c.contact_number,'') as contact_number, c.status, c.created_at,

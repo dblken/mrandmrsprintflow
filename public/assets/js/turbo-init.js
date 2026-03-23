@@ -3,6 +3,14 @@
  * Handles re-initializing components after Turbo body swaps.
  */
 (function () {
+    /* Turbo 8 intercepts POST and requires a redirecting response. This app mostly returns 200 + HTML after POST.
+       Opt-in: only forms under an ancestor with data-turbo="true" use Turbo (those endpoints must redirect). */
+    try {
+        if (typeof Turbo !== 'undefined' && Turbo.config && Turbo.config.forms) {
+            Turbo.config.forms.mode = 'optin';
+        }
+    } catch (e) { /* ignore */ }
+
     /* True after a Turbo body swap; skip duplicate Alpine.initTree on first full load (Alpine.start already ran). */
     var printflowAlpineNeedsReinit = false;
 
@@ -76,9 +84,14 @@
         } catch (e) { console.error(e); }
     }
 
-    /* ─── Navigation progress indicator ──────────────────────────────────── */
-    document.addEventListener('turbo:before-visit', function () {
+    /* ─── Navigation progress (layout only; no full-screen loader) ───────── */
+    document.addEventListener('turbo:before-visit', function (ev) {
         document.documentElement.classList.add('pf-turbo-nav');
+        queueMicrotask(function () {
+            if (ev.defaultPrevented) {
+                document.documentElement.classList.remove('pf-turbo-nav');
+            }
+        });
     });
 
     /* ─── turbo:load — main re-init hook ─────────────────────────────────── */

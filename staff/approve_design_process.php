@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 header('Content-Type: application/json');
 
@@ -24,10 +26,10 @@ if (!$order_id) {
     exit;
 }
 
-// Fetch the order to get the customer and verify it exists
+// Fetch the order to get the customer and verify it exists (same branch)
 $order = db_query(
-    "SELECT order_id, customer_id, status FROM orders WHERE order_id = ?",
-    'i', [$order_id]
+    "SELECT order_id, customer_id, status FROM orders WHERE order_id = ? AND branch_id = ?",
+    'ii', [$order_id, $staffBranchId]
 );
 
 if (empty($order)) {

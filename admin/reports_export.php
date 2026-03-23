@@ -18,20 +18,16 @@ require_role(['Admin', 'Manager']);
 $report   = $_GET['report'] ?? '';
 $from     = $_GET['from'] ?? date('Y-m-01');
 $to       = $_GET['to'] ?? date('Y-m-d');
-$branchId = isset($_GET['branch_id']) ? ($_GET['branch_id'] === 'all' ? 'all' : (int)$_GET['branch_id']) : 'all';
+
+$branchCtx = init_branch_context(false);
+$branchId  = $branchCtx['selected_branch_id'];
+$branchName = $branchCtx['branch_name'];
 
 $from = date('Y-m-d', strtotime($from));
 $to   = date('Y-m-d', strtotime($to));
 $toEnd = $to . ' 23:59:59';
 
 [$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
-$branchName = 'All Branches';
-if ($branchId !== 'all') {
-    $branches = get_all_branches();
-    foreach ($branches as $b) {
-        if ((int)$b['id'] === (int)$branchId) { $branchName = $b['branch_name']; break; }
-    }
-}
 
 // UTF-8 BOM for Excel compatibility
 header('Content-Type: text/csv; charset=utf-8');
@@ -100,11 +96,13 @@ switch ($report) {
 
         if ($orders) {
             foreach ($orders as $row) {
+                // Excel-safe date when opening .csv (avoids #### / wrong serial)
+                $dateForCsv = '="' . date('Y-m-d H:i', strtotime($row['order_date'])) . '"';
                 fputcsv($output, [
                     (int)$row['order_id'],
                     csvVal($row['customer_name']),
                     csvVal($row['email']),
-                    date('Y-m-d', strtotime($row['order_date'])),
+                    $dateForCsv,
                     number_format((float)$row['total_amount'], 2, '.', ''),
                     csvVal($row['payment_status']),
                     csvVal($row['status'])
@@ -191,8 +189,13 @@ switch ($report) {
     case 'customers':
         writeReportHeader($output, 'Customers Report', $from, $to, $branchName);
 
-        $cust_summary = db_query("SELECT COUNT(*) as total, SUM(CASE WHEN status='Activated' THEN 1 ELSE 0 END) as active FROM customers");
-        $cs = $cust_summary[0] ?? [];
+        if ($branchId !== 'all') {
+            [$totalCustCsv, $activeCustCsv] = branch_customers_summary_for_branch((int)$branchId);
+            $cs = ['total' => $totalCustCsv, 'active' => $activeCustCsv];
+        } else {
+            $cust_summary = db_query("SELECT COUNT(*) as total, SUM(CASE WHEN status='Activated' THEN 1 ELSE 0 END) as active FROM customers");
+            $cs = $cust_summary[0] ?? [];
+        }
 
         fputcsv($output, ['SUMMARY']);
         fputcsv($output, ['Total Customers', (int)($cs['total'] ?? 0)]);
@@ -202,16 +205,7 @@ switch ($report) {
         fputcsv($output, ['Customer ID', 'Name', 'Email', 'Contact Number', 'Status', 'Registered Date', 'Total Orders', 'Total Spent']);
 
         if ($branchId !== 'all') {
-            $customers = db_query(
-                "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
-                        COALESCE(c.email,'') as email, COALESCE(c.contact_number,'') as contact_number, c.status, c.created_at,
-                        COUNT(o.order_id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_spent
-                 FROM customers c
-                 INNER JOIN orders o ON c.customer_id = o.customer_id AND o.branch_id = ?
-                 GROUP BY c.customer_id
-                 ORDER BY total_spent DESC",
-                'i', [$branchId]
-            ) ?: [];
+            $customers = branch_customers_report_list((int)$branchId);
         } else {
             $customers = db_query(
                 "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as name,
@@ -235,6 +229,161 @@ switch ($report) {
                     date('Y-m-d', strtotime($c['created_at'])),
                     (int)$c['order_count'],
                     number_format((float)$c['total_spent'], 2, '.', '')
+                ]);
+            }
+        }
+        break;
+
+    // ═══════════════════════════════════════════════════════
+    // DAILY SALES (same idea as staff export; branch-aware for admin)
+    // ═══════════════════════════════════════════════════════
+    case 'daily_sales': {
+        $day = $_GET['date'] ?? $to;
+        $day = date('Y-m-d', strtotime($day));
+        writeReportHeader($output, 'Daily Sales Report', $day, $day, $branchName);
+        fputcsv($output, ['Snapshot date', date('F j, Y', strtotime($day))]);
+        fputcsv($output, []);
+
+        fputcsv($output, ['STANDARD ORDERS']);
+        fputcsv($output, ['Order #', 'Customer', 'Time', 'Amount', 'Status', 'Payment']);
+
+        if ($branchId !== 'all') {
+            $orders = db_query(
+                "SELECT o.order_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as customer_name,
+                        o.order_date, o.total_amount, o.status, o.payment_status
+                 FROM orders o
+                 LEFT JOIN customers c ON o.customer_id = c.customer_id
+                 WHERE DATE(o.order_date) = ? AND o.branch_id = ?
+                 ORDER BY o.order_date ASC",
+                'si',
+                [$day, $branchId]
+            );
+        } else {
+            $orders = db_query(
+                "SELECT o.order_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as customer_name,
+                        o.order_date, o.total_amount, o.status, o.payment_status
+                 FROM orders o
+                 LEFT JOIN customers c ON o.customer_id = c.customer_id
+                 WHERE DATE(o.order_date) = ?
+                 ORDER BY o.order_date ASC",
+                's',
+                [$day]
+            );
+        }
+
+        $total_sales = 0.0;
+        if ($orders) {
+            foreach ($orders as $o) {
+                fputcsv($output, [
+                    '#' . (int)$o['order_id'],
+                    csvVal($o['customer_name'] ?? 'Walk-in'),
+                    date('h:i A', strtotime($o['order_date'])),
+                    number_format((float)$o['total_amount'], 2, '.', ''),
+                    csvVal($o['status']),
+                    csvVal($o['payment_status']),
+                ]);
+                if (($o['payment_status'] ?? '') === 'Paid') {
+                    $total_sales += (float)$o['total_amount'];
+                }
+            }
+        } else {
+            fputcsv($output, ['No standard orders for this date.']);
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['SERVICE ORDERS']);
+        fputcsv($output, ['Order #', 'Service', 'Customer', 'Time', 'Amount', 'Status']);
+
+        if ($branchId !== 'all') {
+            $s_orders = db_query(
+                "SELECT so.id, so.service_name, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as customer_name,
+                        so.created_at, so.total_price, so.status
+                 FROM service_orders so
+                 LEFT JOIN customers c ON so.customer_id = c.customer_id
+                 WHERE DATE(so.created_at) = ? AND so.branch_id = ?
+                 ORDER BY so.created_at ASC",
+                'si',
+                [$day, $branchId]
+            );
+        } else {
+            $s_orders = db_query(
+                "SELECT so.id, so.service_name, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as customer_name,
+                        so.created_at, so.total_price, so.status
+                 FROM service_orders so
+                 LEFT JOIN customers c ON so.customer_id = c.customer_id
+                 WHERE DATE(so.created_at) = ?
+                 ORDER BY so.created_at ASC",
+                's',
+                [$day]
+            );
+        }
+
+        if ($s_orders) {
+            foreach ($s_orders as $so) {
+                fputcsv($output, [
+                    '#' . (int)$so['id'],
+                    csvVal($so['service_name']),
+                    csvVal($so['customer_name'] ?? 'N/A'),
+                    date('h:i A', strtotime($so['created_at'])),
+                    number_format((float)$so['total_price'], 2, '.', ''),
+                    csvVal($so['status']),
+                ]);
+                if (($so['status'] ?? '') === 'Completed') {
+                    $total_sales += (float)$so['total_price'];
+                }
+            }
+        } else {
+            fputcsv($output, ['No service orders for this date.']);
+        }
+        fputcsv($output, []);
+        fputcsv($output, ['', '', 'TOTAL (paid standard + completed service):', number_format($total_sales, 2, '.', '')]);
+        break;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SHOP INVENTORY — products + inv_items (matches staff CSV)
+    // ═══════════════════════════════════════════════════════
+    case 'shop_inventory':
+        writeReportHeader($output, 'Products & Materials Inventory', $from, $to, $branchName);
+
+        fputcsv($output, ['PRODUCT CATALOG']);
+        fputcsv($output, ['Product', 'SKU', 'Category', 'Stock', 'Price', 'Status']);
+
+        $products = db_query("SELECT name, sku, category, stock_quantity, price, status FROM products WHERE status = 'Activated' ORDER BY category, name");
+        if ($products) {
+            foreach ($products as $p) {
+                $sq = (int)($p['stock_quantity'] ?? 0);
+                $stock_status = $sq <= 0 ? 'OUT OF STOCK' : ($sq < 20 ? 'LOW STOCK' : 'In Stock');
+                fputcsv($output, [
+                    csvVal($p['name']),
+                    csvVal($p['sku'] ?? ''),
+                    csvVal($p['category'] ?? ''),
+                    $sq,
+                    number_format((float)($p['price'] ?? 0), 2, '.', ''),
+                    $stock_status,
+                ]);
+            }
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['INVENTORY ITEMS (materials / rolls)']);
+        fputcsv($output, ['Item name', 'Category', 'Current stock', 'UOM', 'Roll-based']);
+
+        $inv_items = db_query(
+            "SELECT i.name, ic.name as category_name, i.unit_of_measure, i.track_by_roll,
+                    (SELECT COALESCE(SUM(IF(direction='IN', quantity, -quantity)), 0) FROM inventory_transactions WHERE item_id = i.id) as current_stock
+             FROM inv_items i
+             LEFT JOIN inv_categories ic ON i.category_id = ic.id
+             ORDER BY ic.name, i.name"
+        );
+        if ($inv_items) {
+            foreach ($inv_items as $i) {
+                fputcsv($output, [
+                    csvVal($i['name']),
+                    csvVal($i['category_name'] ?? ''),
+                    number_format((float)($i['current_stock'] ?? 0), 2, '.', ''),
+                    csvVal($i['unit_of_measure'] ?? ''),
+                    !empty($i['track_by_roll']) ? 'Yes' : 'No',
                 ]);
             }
         }

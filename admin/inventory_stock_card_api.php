@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Admin', 'Manager']);
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 $item_id = (int)($_GET['item_id'] ?? 0);
 if (!$item_id) {

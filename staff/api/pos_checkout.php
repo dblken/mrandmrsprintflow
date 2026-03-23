@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/product_branch_stock.php';
 
 // Require staff or admin role
 if (!has_role(['Admin', 'Staff'])) {
@@ -29,19 +30,22 @@ $payment_method = sanitize($data['payment_method'] ?? 'Cash');
 $amount_tendered = (float)($data['amount_tendered'] ?? 0);
 $items = $data['items'];
 
+printflow_ensure_product_branch_stock_table();
+$pos_branch_id = (int)($_SESSION['branch_id'] ?? 0);
+
 // Calculate total and verify stock
 $total_amount = 0;
 foreach ($items as $item) {
     $product_id = (int)$item['id'];
     $qty = (int)$item['qty'];
     
-    $product = db_query("SELECT price, stock_quantity, name FROM products WHERE product_id = ?", 'i', [$product_id]);
+    $product = db_query("SELECT price, name FROM products WHERE product_id = ?", 'i', [$product_id]);
     if (!$product) {
         echo json_encode(['success' => false, 'message' => 'Product not found: ' . $product_id]);
         exit;
     }
-    
-    if ($product[0]['stock_quantity'] < $qty) {
+    [$effStock] = printflow_product_effective_stock($product_id, $pos_branch_id);
+    if ($effStock < $qty) {
         echo json_encode(['success' => false, 'message' => 'Insufficient stock for ' . $product[0]['name']]);
         exit;
     }
@@ -58,7 +62,10 @@ try {
 
     // Create Order
     // For POS walk-ins, we use status 'Completed' and payment_status 'Paid'
-    $branch_id = $_SESSION['branch_id'] ?? 1; // Default to branch 1 if not set
+    $branch_id = (int)($_SESSION['branch_id'] ?? 1);
+    if ($branch_id < 1) {
+        $branch_id = 1;
+    }
     
     $order_result = db_execute(
         "INSERT INTO orders (customer_id, branch_id, total_amount, status, payment_status, payment_method, order_date, created_at, updated_at) 
@@ -81,8 +88,10 @@ try {
         $qty = (int)$item['qty'];
         $price = (float)$item['price'];
 
-        $name = $item['name'] ?? $product[0]['name'];
-        $notes = ($name !== $product[0]['name']) ? $name : null;
+        $prow = db_query("SELECT name FROM products WHERE product_id = ?", 'i', [$product_id]);
+        $pname = $prow[0]['name'] ?? '';
+        $name = $item['name'] ?? $pname;
+        $notes = ($name !== $pname) ? $name : null;
 
         // If customization data exists from the dynamic POS modal
         if (!empty($item['customization'])) {
@@ -106,14 +115,8 @@ try {
             exit;
         }
 
-        // Deduct stock
-        $stock_result = db_execute(
-            "UPDATE products SET stock_quantity = stock_quantity - ? WHERE product_id = ?",
-            'ii',
-            [$qty, $product_id]
-        );
-
-        if (!$stock_result) {
+        // Deduct stock (branch row when present, else global products)
+        if (!printflow_product_deduct_stock_for_branch($product_id, $branch_id, $qty)) {
             $conn->rollback();
             echo json_encode(['success' => false, 'message' => 'Failed to update stock.']);
             exit;

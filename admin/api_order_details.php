@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 
@@ -18,8 +19,22 @@ if (isset($_GET['customer_id'])) {
     $per_page = 10;
     $offset = ($page - 1) * $per_page;
 
-    $total = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$cust_id])[0]['c'] ?? 0;
-    $orders = db_query("SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? ORDER BY order_date DESC LIMIT ? OFFSET ?", "iii", [$cust_id, $per_page, $offset]) ?: [];
+    $mgrBranch = printflow_branch_filter_for_user();
+    if (get_user_type() !== 'Admin' && $mgrBranch) {
+        $total = db_query(
+            "SELECT COUNT(*) as c FROM orders WHERE customer_id = ? AND branch_id = ?",
+            'ii',
+            [$cust_id, $mgrBranch]
+        )[0]['c'] ?? 0;
+        $orders = db_query(
+            "SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? AND branch_id = ? ORDER BY order_date DESC LIMIT ? OFFSET ?",
+            'iiii',
+            [$cust_id, $mgrBranch, $per_page, $offset]
+        ) ?: [];
+    } else {
+        $total = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$cust_id])[0]['c'] ?? 0;
+        $orders = db_query("SELECT order_id, total_amount, status, order_date FROM orders WHERE customer_id = ? ORDER BY order_date DESC LIMIT ? OFFSET ?", "iii", [$cust_id, $per_page, $offset]) ?: [];
+    }
     $total_pages = max(1, (int)ceil($total / $per_page));
 
     echo json_encode([
@@ -57,6 +72,8 @@ if (empty($order_result)) {
 }
 
 $order = $order_result[0];
+
+printflow_assert_order_branch_access($order_id);
 
 // Get order items with variant info
 $items = db_query("

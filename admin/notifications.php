@@ -273,6 +273,8 @@ $page_title = 'Notifications - Admin';
         .type-pill.system { background: #f3f4f6; color: #374151; }
         .notif-actions-wrap {
             display: flex; gap: 6px; flex-shrink: 0; align-items: flex-start; padding-top: 2px;
+            position: relative;
+            z-index: 1;
         }
         .notif-action-btn {
             display: inline-flex; align-items: center; gap: 4px;
@@ -409,25 +411,23 @@ $page_title = 'Notifications - Admin';
                             <?php foreach ($notifs as $notif):
                                 $type     = strtolower($notif['type']);
                                 $is_unread = !$notif['is_read'];
-                                $target_url = '#';
-                                if ($type === 'order' && !empty($notif['data_id'])) {
-                                    $target_url = "order_details.php?id=" . $notif['data_id'];
-                                } elseif ($type === 'system' && strpos(strtolower($notif['message']), 'chatbot inquiry') !== false) {
-                                    $target_url = "faq_chatbot_management.php?tab=inquiries";
-                                }
+                                $target_url = admin_notification_target_url($notif);
                                 $iconSvg = match($type) {
                                     'order'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>',
                                     'stock'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
                                     default  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
                                 };
                             ?>
-                            <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>" data-id="<?php echo $notif['notification_id']; ?>">
+                            <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>"
+                                 role="button"
+                                 tabindex="0"
+                                 data-id="<?php echo (int)$notif['notification_id']; ?>"
+                                 data-unread="<?php echo $is_unread ? '1' : '0'; ?>"
+                                 data-target-url="<?php echo htmlspecialchars($target_url, ENT_QUOTES, 'UTF-8'); ?>">
                                 <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
                                 <div class="notif-icon-wrap <?php echo $type; ?>"><?php echo $iconSvg; ?></div>
                                 <div class="notif-body">
-                                    <a href="<?php echo $target_url; ?>" class="notif-msg" style="text-decoration:none;display:block;" onclick="handleNotifClick(event, <?php echo $notif['notification_id']; ?>, '<?php echo $target_url; ?>', <?php echo $is_unread ? 'true' : 'false'; ?>)">
-                                        <?php echo htmlspecialchars($notif['message']); ?>
-                                    </a>
+                                    <div class="notif-msg"><?php echo htmlspecialchars($notif['message']); ?></div>
                                     <div class="notif-time">
                                         <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <?php echo time_ago($notif['created_at']); ?>
@@ -507,17 +507,6 @@ function checkForNewNotifications() {
     }
 }
 
-function handleNotifClick(e, notifId, url, isUnread) {
-    if (isUnread) {
-        e.preventDefault();
-        markAsRead(notifId, url);
-    } else if (url && url !== '#') {
-        // Just let it navigate
-    } else {
-        e.preventDefault();
-    }
-}
-
 function refreshNotifications() {
     window.location.reload();
 }
@@ -528,7 +517,7 @@ function markAsRead(notifId, redirectUrl) {
         .then(function(response) { return response.json(); })
         .then(function(data) {
             if (data.success) {
-                if (redirectUrl && redirectUrl !== '#') {
+                if (redirectUrl) {
                     window.location.href = redirectUrl;
                     return;
                 }
@@ -570,9 +559,43 @@ function deleteNotification(notifId) {
         .catch(function(error) { console.error('Error:', error); });
 }
 
+function bindNotifRowNavigation() {
+    var c = document.getElementById('notifications-container');
+    if (!c || c._pf_notif_rows) return;
+    c._pf_notif_rows = true;
+    c.addEventListener('click', function (e) {
+        var row = e.target.closest('.notif-item');
+        if (!row || !c.contains(row)) return;
+        if (e.target.closest('.notif-actions-wrap')) return;
+        var url = row.getAttribute('data-target-url') || '';
+        if (!url) return;
+        var id = parseInt(row.getAttribute('data-id'), 10);
+        var unread = row.getAttribute('data-unread') === '1';
+        if (unread) {
+            markAsRead(id, url);
+        } else {
+            window.location.href = url;
+        }
+    });
+    c.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var row = e.target.closest('.notif-item');
+        if (!row || !c.contains(row) || document.activeElement !== row) return;
+        e.preventDefault();
+        var url = row.getAttribute('data-target-url') || '';
+        if (!url) return;
+        var id = parseInt(row.getAttribute('data-id'), 10);
+        var unread = row.getAttribute('data-unread') === '1';
+        if (unread) markAsRead(id, url);
+        else window.location.href = url;
+    });
+}
+
 // Turbo-safe init: called on first load and on every Turbo navigation
 function printflowInitNotificationsPage() {
     if (!document.getElementById('notifications-container')) return;
+
+    bindNotifRowNavigation();
 
     // Re-attach filter input listeners (idempotent)
     var sel = document.getElementById('nt_fp_filter');

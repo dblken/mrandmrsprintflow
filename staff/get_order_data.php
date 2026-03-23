@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 header('Content-Type: application/json');
 
@@ -16,6 +17,8 @@ if (!is_logged_in() || !in_array(get_user_type(), ['Staff', 'Admin', 'Manager'])
     exit;
 }
 
+$branchFilter = printflow_branch_filter_for_user();
+
 $action = $_GET['action'] ?? 'get_order';
 
 if ($action === 'list_orders') {
@@ -25,6 +28,12 @@ if ($action === 'list_orders') {
             FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
     $params = [];
     $types = '';
+
+    if ($branchFilter !== null) {
+        $sql .= " AND o.branch_id = ?";
+        $params[] = $branchFilter;
+        $types .= 'i';
+    }
     
     if (!empty($status)) {
         $sql .= " AND o.status = ?";
@@ -52,15 +61,27 @@ if (!$order_id) {
 }
 
 // Get order with customer info
-$order_result = db_query("
-    SELECT o.*,
-           c.first_name as cust_first, c.last_name as cust_last,
-           c.email as cust_email, c.contact_number as cust_phone,
-           c.customer_id as cust_id
-    FROM orders o
-    LEFT JOIN customers c ON o.customer_id = c.customer_id
-    WHERE o.order_id = ?
-", 'i', [$order_id]);
+if ($branchFilter !== null) {
+    $order_result = db_query("
+        SELECT o.*,
+               c.first_name as cust_first, c.last_name as cust_last,
+               c.email as cust_email, c.contact_number as cust_phone,
+               c.customer_id as cust_id
+        FROM orders o
+        LEFT JOIN customers c ON o.customer_id = c.customer_id
+        WHERE o.order_id = ? AND o.branch_id = ?
+    ", 'ii', [$order_id, $branchFilter]);
+} else {
+    $order_result = db_query("
+        SELECT o.*,
+               c.first_name as cust_first, c.last_name as cust_last,
+               c.email as cust_email, c.contact_number as cust_phone,
+               c.customer_id as cust_id
+        FROM orders o
+        LEFT JOIN customers c ON o.customer_id = c.customer_id
+        WHERE o.order_id = ?
+    ", 'i', [$order_id]);
+}
 
 if (empty($order_result)) {
     echo json_encode(['error' => 'Order not found']);

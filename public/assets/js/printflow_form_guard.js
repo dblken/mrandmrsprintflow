@@ -169,6 +169,19 @@
         }
     }
 
+    /** Row that holds primary actions (Save / Cancel) so the dirty hint can sit on the next line. */
+    function findFormActionsRow(form, submitBtn) {
+        var row = form.querySelector('.section-save');
+        if (row) return row;
+        if (!submitBtn || !submitBtn.parentElement) return null;
+        var p = submitBtn.parentElement;
+        try {
+            var cs = window.getComputedStyle(p);
+            if (cs.display === 'flex' || cs.display === 'inline-flex') return p;
+        } catch (e) { /* ignore */ }
+        return p;
+    }
+
     function ensureDirtyHint(form) {
         if (form.querySelector('.pf-fg-dirty-hint')) return;
         var hint = document.createElement('span');
@@ -176,22 +189,22 @@
         hint.setAttribute('role', 'status');
         hint.textContent = 'You have unsaved changes';
         hint.hidden = true;
-        var row = form.querySelector('.section-save');
+        var sub = pickSubmitButton(form);
+        var row = findFormActionsRow(form, sub);
         if (row) {
-            if (row.style.display !== 'flex') {
-                row.style.display = 'flex';
-                row.style.alignItems = 'center';
-                row.style.flexWrap = 'wrap';
-                row.style.gap = '8px';
+            if (row.classList && row.classList.contains('section-save')) {
+                if (row.style.display !== 'flex') {
+                    row.style.display = 'flex';
+                    row.style.alignItems = 'center';
+                    row.style.gap = '8px';
+                }
             }
-            row.insertBefore(hint, row.firstChild);
+            row.style.flexWrap = 'wrap';
+            row.appendChild(hint);
+        } else if (sub && sub.parentNode) {
+            sub.parentNode.appendChild(hint);
         } else {
-            var sub = form.querySelector('button[type="submit"], input[type="submit"]');
-            if (sub && sub.parentNode) {
-                sub.parentNode.insertBefore(hint, sub);
-            } else {
-                form.appendChild(hint);
-            }
+            form.appendChild(hint);
         }
     }
 
@@ -492,18 +505,10 @@
         markDirty(t.form);
     }
 
-    function watchMutations(form) {
-        if (form.dataset.pfMo) return;
-        var ready = false;
-        requestAnimationFrame(function () {
-            ready = true;
-        });
-        var mo = new MutationObserver(function () {
-            if (!ready || skipGlobal()) return;
-            markDirty(form);
-        });
-        mo.observe(form, { childList: true, subtree: true });
-        form.dataset.pfMo = '1';
+    /** Re-snapshot after Alpine / turbo-init (avoids false "dirty" when frameworks mutate the form after first paint). */
+    function resyncAllGuardedPristine() {
+        if (skipGlobal()) return;
+        getGuardedForms().forEach(capturePristine);
     }
 
     function bindEvents() {
@@ -511,10 +516,12 @@
         document.addEventListener('input', onInput, true);
         document.addEventListener('change', onInput, true);
 
+        /* Bubble phase so client-side validators on the form run first; avoid overlay + disabled submit when they preventDefault. */
         document.addEventListener('submit', function (e) {
             if (skipGlobal()) return;
             var form = e.target;
             if (!isGuardedForm(form)) return;
+            if (e.defaultPrevented) return;
             if (form.dataset.pfSubmitLock === '1') {
                 e.preventDefault();
                 return;
@@ -523,7 +530,7 @@
             var sub = e.submitter || pickSubmitButton(form);
             setSaveOverlay(true);
             setButtonSaving(sub, true);
-        }, true);
+        }, false);
 
         document.addEventListener('turbo:submit-end', function (e) {
             if (skipGlobal()) return;
@@ -588,20 +595,17 @@
             },
             true
         );
-
-        window.addEventListener('beforeunload', function (e) {
-            if (skipGlobal()) return;
-            if (!hasAnyDirty()) return;
-            e.preventDefault();
-            e.returnValue = '';
-        });
     }
 
     function boot() {
         if (skipGlobal()) return;
         bindEvents();
         initForms();
-        getGuardedForms().forEach(watchMutations);
+        queueMicrotask(function () {
+            requestAnimationFrame(function () {
+                resyncAllGuardedPristine();
+            });
+        });
     }
 
     if (document.readyState === 'loading') {
@@ -610,10 +614,20 @@
         boot();
     }
 
+    document.addEventListener('printflow:page-init', function () {
+        resyncAllGuardedPristine();
+    });
+
     document.addEventListener('turbo:load', function () {
         if (skipGlobal()) return;
         initForms();
-        getGuardedForms().forEach(watchMutations);
+        queueMicrotask(function () {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    resyncAllGuardedPristine();
+                });
+            });
+        });
     });
 
     window.printflowFormGuard = {
@@ -623,6 +637,11 @@
         capturePristine: function (form) {
             capturePristine(form);
         },
-        refresh: initForms,
+        refresh: function () {
+            initForms();
+            queueMicrotask(function () {
+                requestAnimationFrame(resyncAllGuardedPristine);
+            });
+        },
     };
 })();

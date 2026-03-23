@@ -28,6 +28,10 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
 <script>(function(){document.documentElement.classList.add('printflow-staff');})();</script>
 <?php include __DIR__ . '/staff_theme.php'; ?>
 <?php endif; ?>
+<?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/manager/') !== false): ?>
+<script>(function(){document.documentElement.classList.add('printflow-manager');})();</script>
+<?php include __DIR__ . '/manager_theme.php'; ?>
+<?php endif; ?>
 <script>
 (function () {
     var root = document.documentElement;
@@ -760,10 +764,19 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
         transition: box-shadow 0.2s ease;
     }
     .pf-fg-dirty-hint {
+        display: block;
         font-size: 12px;
         font-weight: 600;
         color: #b45309;
-        margin-right: auto;
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 8px;
+        text-align: right;
+        box-sizing: border-box;
+    }
+    .pf-fg-dirty-hint[hidden] {
+        display: none !important;
     }
     .pf-fg-nav-modal {
         position: fixed;

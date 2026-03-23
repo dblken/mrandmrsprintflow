@@ -5,26 +5,80 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Staff']);
 $page_title = 'Customizations - PrintFlow';
 
+$branchFilter = printflow_branch_filter_for_user();
+$joBranchSql = '';
+$joBranchTypes = '';
+$joBranchParams = [];
+$ordBranchSql = '';
+$ordBranchTypes = '';
+$ordBranchParams = [];
+if ($branchFilter !== null) {
+    $b = (int) $branchFilter;
+    $joBranchSql = ' AND COALESCE(jo.branch_id, (SELECT o2.branch_id FROM orders o2 WHERE o2.order_id = jo.order_id LIMIT 1)) = ?';
+    $joBranchTypes = 'i';
+    $joBranchParams = [$b];
+    $ordBranchSql = ' AND branch_id = ?';
+    $ordBranchTypes = 'i';
+    $ordBranchParams = [$b];
+}
+
 // Get statistics for KPIs (include both job_orders and regular orders pending review)
-$total_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
-$total_orders_pending = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
+$total_jobs_jobs = db_query(
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql,
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+)[0]['count'];
+$total_orders_pending = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
+    $ordBranchTypes ?: null,
+    $ordBranchParams ?: null
+)[0]['count'];
 $total_jobs = $total_jobs_jobs + $total_orders_pending;
 
-$pending_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'PENDING'")[0]['count'];
-$pending_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
+$pending_jobs_jobs = db_query(
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $joBranchSql,
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+)[0]['count'];
+$pending_orders = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
+    $ordBranchTypes ?: null,
+    $ordBranchParams ?: null
+)[0]['count'];
 $pending_jobs = $pending_jobs_jobs + $pending_orders;
 
-$approval_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'APPROVED'")[0]['count'];
-$in_production_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'IN_PRODUCTION'")[0]['count'];
-$in_production_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing')")[0]['count'];
+$approval_jobs = db_query(
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $joBranchSql,
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+)[0]['count'];
+$in_production_jobs = db_query(
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'IN_PRODUCTION'" . $joBranchSql,
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+)[0]['count'];
+$in_production_orders = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing')" . $ordBranchSql,
+    $ordBranchTypes ?: null,
+    $ordBranchParams ?: null
+)[0]['count'];
 $in_production = $in_production_jobs + $in_production_orders;
 
-$completed_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'COMPLETED'")[0]['count'];
-$completed_orders = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'")[0]['count'];
+$completed_jobs_jobs = db_query(
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $joBranchSql,
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+)[0]['count'];
+$completed_orders = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'" . $ordBranchSql,
+    $ordBranchTypes ?: null,
+    $ordBranchParams ?: null
+)[0]['count'];
 $completed_jobs = $completed_jobs_jobs + $completed_orders;
 ?>
 <!DOCTYPE html>

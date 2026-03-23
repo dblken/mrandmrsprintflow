@@ -6,8 +6,10 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Staff']);
+$staffBranchId = is_staff() ? (printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1)) : null;
 
 header('Content-Type: application/json');
 
@@ -24,8 +26,12 @@ if (!$order_id || !in_array($action, ['Approve', 'Reject'])) {
     exit;
 }
 
-// Get order details
-$order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
+// Get order details (staff: same branch only)
+if ($staffBranchId !== null) {
+    $order_result = db_query("SELECT * FROM orders WHERE order_id = ? AND branch_id = ?", 'ii', [$order_id, $staffBranchId]);
+} else {
+    $order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
+}
 if (empty($order_result)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
     exit;
@@ -41,8 +47,13 @@ if ($action === 'Approve') {
     $payment_status = 'Paid';
     
     // Update order
-    $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ?";
-    $success = db_execute($sql, 'ssi', [$new_status, $payment_status, $order_id]);
+    if ($staffBranchId !== null) {
+        $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ? AND branch_id = ?";
+        $success = db_execute($sql, 'ssii', [$new_status, $payment_status, $order_id, $staffBranchId]);
+    } else {
+        $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ?";
+        $success = db_execute($sql, 'ssi', [$new_status, $payment_status, $order_id]);
+    }
     
     if ($success) {
         $msg = "Your payment has been verified. Your order is now in process!";
@@ -55,8 +66,13 @@ if ($action === 'Approve') {
     $new_status = 'To Pay';
     
     // Clear proof so they can re-upload
-    $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ?";
-    $success = db_execute($sql, 'si', [$new_status, $order_id]);
+    if ($staffBranchId !== null) {
+        $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ? AND branch_id = ?";
+        $success = db_execute($sql, 'sii', [$new_status, $order_id, $staffBranchId]);
+    } else {
+        $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ?";
+        $success = db_execute($sql, 'si', [$new_status, $order_id]);
+    }
     
     if ($success) {
         $msg = "Your payment proof was rejected. Please upload a valid proof of payment.";

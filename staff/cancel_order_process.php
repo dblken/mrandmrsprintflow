@@ -5,8 +5,10 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['staff_cancel'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -23,10 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['staff_cancel'])) {
         redirect("order_details.php?id=$order_id");
     }
 
+    if (!printflow_order_in_branch($order_id, $staffBranchId)) {
+        $_SESSION['error'] = 'You cannot cancel orders from another branch.';
+        redirect("order_details.php?id=$order_id");
+    }
+
     // Use the central update function
     if (update_order_status($order_id, 'Cancelled', get_user_id(), $full_reason)) {
         // Find customer for notification
-        $order_data = db_query("SELECT customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
+        $order_data = db_query(
+            "SELECT customer_id FROM orders WHERE order_id = ? AND branch_id = ?",
+            'ii',
+            [$order_id, $staffBranchId]
+        );
         if (!empty($order_data)) {
             $customer_id = $order_data[0]['customer_id'];
             create_notification(

@@ -6,38 +6,57 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 // Require staff access
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $current_user = get_logged_in_user();
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
-// Get dashboard statistics
-$pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
+// Get dashboard statistics (scoped to this staff member's branch)
+$pending_orders_result = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status = 'Pending' AND branch_id = ?",
+    'i',
+    [$staffBranchId]
+);
 $pending_orders = $pending_orders_result[0]['count'] ?? 0;
 
-$processing_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Processing'");
+$processing_orders_result = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status = 'Processing' AND branch_id = ?",
+    'i',
+    [$staffBranchId]
+);
 $processing_orders = $processing_orders_result[0]['count'] ?? 0;
 
-$ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Ready for Pickup'");
+$ready_orders_result = db_query(
+    "SELECT COUNT(*) as count FROM orders WHERE status = 'Ready for Pickup' AND branch_id = ?",
+    'i',
+    [$staffBranchId]
+);
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
 // Get today's completed orders
-$today_completed_result = db_query("
-    SELECT COUNT(*) as count FROM orders 
-    WHERE status = 'Completed' AND DATE(order_date) = CURDATE()
-");
+$today_completed_result = db_query(
+    "SELECT COUNT(*) as count FROM orders 
+    WHERE status = 'Completed' AND DATE(order_date) = CURDATE() AND branch_id = ?",
+    'i',
+    [$staffBranchId]
+);
 $today_completed = $today_completed_result[0]['count'] ?? 0;
 
 // Get recent orders
-$recent_orders = db_query("
-    SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name 
+$recent_orders = db_query(
+    "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name 
     FROM orders o 
     LEFT JOIN customers c ON o.customer_id = c.customer_id 
+    WHERE o.branch_id = ?
     ORDER BY o.order_date DESC 
-    LIMIT 10
-");
+    LIMIT 10",
+    'i',
+    [$staffBranchId]
+);
 
 // Get low-stock products for inventory alerts (view-only)
 $low_stock = db_query("

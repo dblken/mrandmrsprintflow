@@ -7,9 +7,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 $order_id = (int)($_GET['id'] ?? 0);
 if (!$order_id) {
@@ -31,6 +34,10 @@ if (isset($_SESSION['error'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     if (verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        if (!printflow_order_in_branch($order_id, $staffBranchId)) {
+            $_SESSION['error'] = 'You cannot update orders from another branch.';
+            redirect("order_details.php?id=$order_id");
+        }
         $new_status = $_POST['status'];
         if (update_order_status($order_id, $new_status)) {
             $_SESSION['success'] = "Order status has been successfully updated to '{$new_status}'.";
@@ -45,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     }
 }
 
-// Get order with customer info
+// Get order with customer info (same branch only)
 $order_result = db_query("
     SELECT o.*, 
            c.first_name as cust_first, c.last_name as cust_last, 
@@ -53,8 +60,8 @@ $order_result = db_query("
            c.customer_id as cust_id
     FROM orders o 
     LEFT JOIN customers c ON o.customer_id = c.customer_id 
-    WHERE o.order_id = ?
-", 'i', [$order_id]);
+    WHERE o.order_id = ? AND o.branch_id = ?
+", 'ii', [$order_id, $staffBranchId]);
 
 if (empty($order_result)) {
     redirect('/printflow/staff/orders.php');
@@ -73,9 +80,9 @@ $items = db_query("
 $customer_orders = db_query("
     SELECT order_id, order_date, total_amount, status 
     FROM orders 
-    WHERE customer_id = ? AND order_id != ?
+    WHERE customer_id = ? AND order_id != ? AND branch_id = ?
     ORDER BY order_date DESC LIMIT 5
-", 'ii', [$order['cust_id'], $order_id]);
+", 'iii', [$order['cust_id'], $order_id, $staffBranchId]);
 
 $page_title = "Order #{$order_id} - Staff";
 ?>

@@ -1,6 +1,6 @@
 <?php
 /**
- * FAQ Page â€” PrintFlow
+ * FAQ Page - PrintFlow
  */
 
 require_once __DIR__ . '/../includes/auth.php';
@@ -36,7 +36,7 @@ require_once __DIR__ . '/../includes/header.php';
 </section>
 
 <!-- ============================================================
-     FAQ ACCORDION â€” clean minimal style (Image 2)
+     FAQ ACCORDION - clean minimal style (Image 2)
      ============================================================ --><style>[x-cloak]{display:none!important}</style><section style="background:#fff;padding:4rem 0 5rem;">
     <div style="max-width:760px;margin:0 auto;padding:0 1.5rem;">
 

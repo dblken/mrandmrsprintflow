@@ -5,16 +5,22 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 $page_title = 'Production Workflow - PrintFlow';
 
-// Get statistics for KPIs
-$total_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
-$pending_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'PENDING'")[0]['count'];
-$approval_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'APPROVED'")[0]['count'];
-$in_production = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'IN_PRODUCTION'")[0]['count'];
-$completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders WHERE status = 'COMPLETED'")[0]['count'];
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+$joBranchSql = ' AND COALESCE(jo.branch_id, (SELECT o2.branch_id FROM orders o2 WHERE o2.order_id = jo.order_id LIMIT 1)) = ?';
+$jT = 'i';
+$jP = [$staffBranchId];
+
+// Get statistics for KPIs (this branch only)
+$total_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql, $jT, $jP)[0]['count'];
+$pending_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $joBranchSql, $jT, $jP)[0]['count'];
+$approval_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $joBranchSql, $jT, $jP)[0]['count'];
+$in_production = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'IN_PRODUCTION'" . $joBranchSql, $jT, $jP)[0]['count'];
+$completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $joBranchSql, $jT, $jP)[0]['count'];
 ?>
 <!DOCTYPE html>
 <html lang="en">

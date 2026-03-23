@@ -5,11 +5,39 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 
-require_role(['Admin', 'Staff', 'Customer']); // Allow Admin (read), Staff (manage), Customer (create/track)
+require_role(['Admin', 'Manager', 'Staff', 'Customer']); // Admin/Manager (read/scope), Staff (manage), Customer (create/track)
 header('Content-Type: application/json');
+
+/** Staff / Manager only see/manage job orders for their assigned branch. */
+$joStaffBranch = null;
+if (is_staff() || get_user_type() === 'Manager') {
+    $joStaffBranch = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+    if ($joStaffBranch < 1) {
+        $joStaffBranch = 1;
+    }
+}
+
+/**
+ * Ensure a job_orders row is visible to the current staff/manager branch (Admin/Customer: no-op).
+ */
+function jo_api_require_staff_branch(?int $staffBranch, int $jobId): void {
+    if ($staffBranch === null || $jobId <= 0) {
+        return;
+    }
+    $row = db_query(
+        'SELECT COALESCE(jo.branch_id, o.branch_id) AS b FROM job_orders jo LEFT JOIN orders o ON o.order_id = jo.order_id WHERE jo.id = ? LIMIT 1',
+        'i',
+        [$jobId]
+    );
+    $b = (int)($row[0]['b'] ?? 0);
+    if ($b !== $staffBranch) {
+        throw new Exception('Unauthorized');
+    }
+}
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
@@ -29,6 +57,11 @@ try {
             if (isset($_GET['customer_id'])) {
                 $sql .= " AND jo.customer_id = ?";
                 $params[] = (int)$_GET['customer_id']; $types .= 'i';
+            }
+            if ($joStaffBranch !== null) {
+                $sql .= " AND COALESCE(jo.branch_id, (SELECT o2.branch_id FROM orders o2 WHERE o2.order_id = jo.order_id LIMIT 1)) = ?";
+                $params[] = $joStaffBranch;
+                $types .= 'i';
             }
             
             // Pagination for customer-specific requests
@@ -74,6 +107,9 @@ try {
             $orderId = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
             if (!$orderId) {
                 throw new Exception('order_id required');
+            }
+            if ($joStaffBranch !== null && !printflow_order_in_branch($orderId, $joStaffBranch)) {
+                throw new Exception('Unauthorized');
             }
             $row = db_query('SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1', 'i', [$orderId]);
             $jobId = $row[0]['id'] ?? null;
@@ -129,12 +165,15 @@ try {
                     LEFT JOIN order_items oi ON o.order_id = oi.order_id
                     LEFT JOIN products p ON oi.product_id = p.product_id
                     LEFT JOIN customers c ON o.customer_id = c.customer_id
-                    WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Processing', 'In Production', 'Printing', 'Ready for Pickup')
+                    WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Processing', 'In Production', 'Printing', 'Ready for Pickup')"
+                    . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
                     GROUP BY o.order_id
                     ORDER BY o.order_date DESC
                     LIMIT 50";
             
-            $pending_orders = db_query($sql) ?: [];
+            $pending_orders = $joStaffBranch !== null
+                ? (db_query($sql, 'i', [$joStaffBranch]) ?: [])
+                : (db_query($sql) ?: []);
             
             // Format to match job_orders structure
             foreach ($pending_orders as &$order) {
@@ -207,6 +246,7 @@ try {
 
         case 'get_order':
             $id = (int)($_GET['id'] ?? 0);
+            jo_api_require_staff_branch($joStaffBranch, $id);
             $order = JobOrderService::getOrder($id);
             if (!$order) throw new Exception("Order not found.");
             $order['readiness'] = JobOrderService::getMaterialReadiness($id);
@@ -218,6 +258,7 @@ try {
             $status = sanitize($_POST['status'] ?? '');
             $machineId = isset($_POST['machine_id']) ? (int)$_POST['machine_id'] : null;
             if (!$id || !$status) throw new Exception("ID and status required.");
+            jo_api_require_staff_branch($joStaffBranch, $id);
             
             $res = JobOrderService::updateStatus($id, $status, $machineId);
             echo json_encode(['success' => $res]);
@@ -281,6 +322,10 @@ try {
                 'created_by'      => ($_SESSION['user_type'] !== 'Customer') ? $_SESSION['user_id'] : null
             ], $orderMaterials);
             
+            if ($joStaffBranch !== null && $orderId) {
+                db_execute('UPDATE job_orders SET branch_id = ? WHERE id = ?', 'ii', [$joStaffBranch, (int)$orderId]);
+            }
+            
             echo json_encode(['success' => true, 'id' => $orderId]);
             break;
 
@@ -288,6 +333,8 @@ try {
             $jomId = (int)($_POST['jom_id'] ?? 0);
             $rollId = (int)($_POST['roll_id'] ?? 0);
             if (!$jomId || !$rollId) throw new Exception("Incomplete assignment data.");
+            $jomRow = db_query('SELECT job_order_id FROM job_order_materials WHERE id = ?', 'i', [$jomId]);
+            jo_api_require_staff_branch($joStaffBranch, (int)($jomRow[0]['job_order_id'] ?? 0));
             
             $res = JobOrderService::assignRoll($jomId, $rollId);
             echo json_encode(['success' => $res]);
@@ -297,6 +344,7 @@ try {
             $id = (int)($_POST['id'] ?? 0);
             $price = (float)($_POST['price'] ?? 0);
             if (!$id) throw new Exception("ID required.");
+            jo_api_require_staff_branch($joStaffBranch, $id);
             // Setting the price also means updating the required payment to match exactly
             $res = db_execute("UPDATE job_orders SET estimated_total = ?, required_payment = ? WHERE id = ?", 'ddi', [$price, $price, $id]);
             echo json_encode(['success' => (bool)$res]);
@@ -312,6 +360,7 @@ try {
             $metadata = isset($_POST['metadata']) ? json_decode($_POST['metadata'], true) : null;
             
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
+            jo_api_require_staff_branch($joStaffBranch, $orderId);
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata);
             echo json_encode(['success' => true, 'id' => $res]);
             break;
@@ -329,6 +378,8 @@ try {
         case 'remove_material':
             $jomId = (int)($_POST['id'] ?? 0);
             if (!$jomId) throw new Exception("ID required.");
+            $jomRow = db_query('SELECT job_order_id FROM job_order_materials WHERE id = ?', 'i', [$jomId]);
+            jo_api_require_staff_branch($joStaffBranch, (int)($jomRow[0]['job_order_id'] ?? 0));
             $res = JobOrderService::removeMaterial($jomId);
             echo json_encode(['success' => $res]);
             break;

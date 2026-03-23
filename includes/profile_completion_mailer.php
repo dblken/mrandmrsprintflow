@@ -29,6 +29,7 @@ function send_profile_completion_email(string $to_email, string $first_name, str
 
     try {
         $mail->isSMTP();
+        $mail->Timeout    = isset($cfg['smtp_timeout']) ? (int) $cfg['smtp_timeout'] : 45;
         $mail->Host       = $cfg['smtp_host'];
         $mail->Port       = (int) $cfg['smtp_port'];
         $mail->SMTPAuth   = true;

@@ -1,8 +1,7 @@
 <?php
-// Redirect Admin, Manager, and Staff away from the public landing page
+// Logged-in users always leave the public home (back button / bookmark still hits server → redirect)
 require_once __DIR__ . '/../includes/auth.php';
-redirect_admin_staff_from_public();
-// Customers are allowed to view the landing page — no redirect
+redirect_logged_in_from_landing_page();
 
 $page_title = 'PrintFlow - Your Trusted Printing Shop';
 $use_landing_css = true;

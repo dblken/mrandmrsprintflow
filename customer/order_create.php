@@ -950,8 +950,11 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
 <script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('orderModal', () => ({
+    /* alpine:init runs only once per session; Turbo visits need Alpine.data registered when this script runs. */
+    (function () {
+        function registerOrderModalData() {
+            if (typeof window.Alpine === 'undefined' || typeof Alpine.data !== 'function') return;
+            Alpine.data('orderModal', () => ({
             step: <?php echo !empty($error_msg) ? '4' : '1'; ?>,
             sizeOption: 'OEM Size',
             productCategory: '<?php echo addslashes($product['category'] ?? ''); ?>',
@@ -1054,7 +1057,10 @@ require_once __DIR__ . '/../includes/header.php';
                 }
             }
         }));
-    });
+        }
+        document.addEventListener('alpine:init', registerOrderModalData);
+        registerOrderModalData();
+    })();
 
     // Form submission helper
     document.addEventListener('submit', (e) => {

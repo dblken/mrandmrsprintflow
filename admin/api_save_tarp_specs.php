@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 
@@ -34,11 +35,12 @@ if (!$order_item_id || !$roll_id || $width_ft <= 0 || $height_ft <= 0) {
 }
 
 // Get item quantity to calculate total required length
-$item = db_query("SELECT quantity FROM order_items WHERE order_item_id = ?", 'i', [$order_item_id]);
+$item = db_query("SELECT quantity, order_id FROM order_items WHERE order_item_id = ?", 'i', [$order_item_id]);
 if (empty($item)) {
     echo json_encode(['success' => false, 'error' => 'Order item not found']);
     exit;
 }
+printflow_assert_order_branch_access((int)$item[0]['order_id']);
 $qty = (int)$item[0]['quantity'];
 $required_length = $height_ft * $qty;
 

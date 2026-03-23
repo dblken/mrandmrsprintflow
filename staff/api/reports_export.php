@@ -6,8 +6,11 @@
 
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/branch_context.php';
 
 require_role('Staff');
+
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 $report = $_GET['report'] ?? 'daily_sales';
 $date   = $_GET['date'] ?? date('Y-m-d');
@@ -35,9 +38,9 @@ if ($report === 'daily_sales') {
                o.order_date, o.total_amount, o.status, o.payment_status
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.customer_id
-        WHERE DATE(o.order_date) = ?
+        WHERE DATE(o.order_date) = ? AND o.branch_id = ?
         ORDER BY o.order_date ASC
-    ", 's', [$date]);
+    ", 'si', [$date, $staffBranchId]);
 
     $total_sales = 0;
     if ($orders) {
@@ -68,9 +71,9 @@ if ($report === 'daily_sales') {
                so.created_at, so.total_price, so.status
         FROM service_orders so
         LEFT JOIN customers c ON so.customer_id = c.customer_id
-        WHERE DATE(so.created_at) = ?
+        WHERE DATE(so.created_at) = ? AND so.branch_id = ?
         ORDER BY so.created_at ASC
-    ", 's', [$date]);
+    ", 'si', [$date, $staffBranchId]);
 
     if ($s_orders) {
         foreach ($s_orders as $so) {

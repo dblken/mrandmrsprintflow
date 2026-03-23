@@ -53,9 +53,9 @@ function get_all_branches(): array {
 /** ─────────────────────────────────────────────────────
  *  2. get_user_allowed_branches($user_id, $role)
  *
- *  Admin  → 'all'
- *  Staff  → [branch_id] (single)
- *  Manager → [branch_id, ...]  (multiple)
+ *  Admin   → 'all'
+ *  Staff   → [branch_id] (single)
+ *  Manager → [branch_id] (single; assigned branch in users.branch_id)
  * ──────────────────────────────────────────────────── */
 function get_user_allowed_branches(int $user_id, string $role) {
     if ($role === 'Admin') {
@@ -144,8 +144,8 @@ function init_branch_context(bool $page_requires_branch = false): array {
     $allowed   = get_user_allowed_branches($user_id, $role);
     $branches  = get_all_branches();
 
-    // Handle explicit switch from GET/POST
-    if (isset($_GET['branch_id'])) {
+    // Branch switch via URL — Admins only (Managers/Staff are locked to assignment)
+    if (isset($_GET['branch_id']) && $role === 'Admin') {
         $switch = $_GET['branch_id'] === 'all' ? 'all' : (int)$_GET['branch_id'];
         $_SESSION['selected_branch_id'] = $switch;
     }
@@ -153,6 +153,12 @@ function init_branch_context(bool $page_requires_branch = false): array {
     $raw_selected = $_SESSION['selected_branch_id'] ?? 'all';
     $selected = normalize_selected_branch($raw_selected, $allowed, $page_requires_branch);
     $_SESSION['selected_branch_id'] = $selected;
+
+    // Managers and Staff always use their assigned branch (defense in depth)
+    if (in_array($role, ['Manager', 'Staff'], true) && is_array($allowed) && $allowed !== []) {
+        $selected = (int)$allowed[0];
+        $_SESSION['selected_branch_id'] = $selected;
+    }
 
     // Resolve human-readable name
     if ($selected === 'all') {
@@ -173,6 +179,59 @@ function init_branch_context(bool $page_requires_branch = false): array {
         'branches_list'      => $branches,
         'branch_name'        => $branch_name,
     ];
+}
+
+/**
+ * SQL fragment: customer is tied to a branch via orders or job_orders.
+ *
+ * @return array{0:string,1:string,2:array} [sql_fragment, types, params]
+ */
+function branch_customers_belong_where_sql(int $branchId, string $customerAlias = 'c'): array {
+    $bid = (int)$branchId;
+    if ($bid <= 0) {
+        return ['', '', []];
+    }
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $customerAlias);
+    if ($a === '') {
+        $a = 'c';
+    }
+    $sql = " AND (EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = {$a}.customer_id AND o.branch_id = ?) OR EXISTS (SELECT 1 FROM job_orders jo WHERE jo.customer_id = {$a}.customer_id AND jo.branch_id = ?)) ";
+    return [$sql, 'ii', [$bid, $bid]];
+}
+
+/** Total + activated counts for customers visible at a branch. */
+function branch_customers_summary_for_branch(int $branchId): array {
+    [$w, $t, $p] = branch_customers_belong_where_sql($branchId, 'c');
+    $row = db_query(
+        "SELECT COUNT(*) as total, COALESCE(SUM(CASE WHEN c.status = 'Activated' THEN 1 ELSE 0 END), 0) as active FROM customers c WHERE 1=1" . $w,
+        $t, $p
+    )[0] ?? ['total' => 0, 'active' => 0];
+    return [(int)$row['total'], (int)$row['active']];
+}
+
+/**
+ * Customer rows for branch-scoped reports (orders + customizations at that branch).
+ *
+ * @return list<array<string,mixed>>
+ */
+function branch_customers_report_list(int $branchId): array {
+    $bid = (int)$branchId;
+    if ($bid <= 0) {
+        return [];
+    }
+    $sql = "SELECT c.customer_id, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) AS name,
+            COALESCE(c.email,'') AS email, COALESCE(c.contact_number,'') AS contact_number, c.status, c.created_at,
+            (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.customer_id AND o.branch_id = ?)
+            + (SELECT COUNT(*) FROM job_orders jo WHERE jo.customer_id = c.customer_id AND jo.branch_id = ?) AS order_count,
+            COALESCE((SELECT SUM(o.total_amount) FROM orders o WHERE o.customer_id = c.customer_id AND o.branch_id = ?), 0)
+            + COALESCE((SELECT SUM(jo.amount_paid) FROM job_orders jo WHERE jo.customer_id = c.customer_id AND jo.branch_id = ? AND jo.payment_status = 'PAID'), 0) AS total_spent
+        FROM customers c
+        WHERE (EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id AND o.branch_id = ?)
+            OR EXISTS (SELECT 1 FROM job_orders jo WHERE jo.customer_id = c.customer_id AND jo.branch_id = ?))
+        ORDER BY total_spent DESC";
+    $types = str_repeat('i', 6);
+    $params = [$bid, $bid, $bid, $bid, $bid, $bid];
+    return db_query($sql, $types, $params) ?: [];
 }
 
 /** ─────────────────────────────────────────────────────
@@ -235,4 +294,63 @@ function get_branch_badge_html(?int $branch_id, string $branch_name = ''): strin
  * ──────────────────────────────────────────────────── */
 function render_branch_context_banner(string $branchName): void {
     // Hidden per user request to clean up UI
+}
+
+/**
+ * Branch filter for Staff/Manager operational pages and APIs.
+ * Admin → null (no automatic filter; use init_branch_context + UI).
+ * Staff / Manager → locked assigned branch id (int).
+ */
+function printflow_branch_filter_for_user(): ?int {
+    $t = $_SESSION['user_type'] ?? '';
+    if ($t === 'Admin') {
+        return null;
+    }
+    if (!in_array($t, ['Staff', 'Manager'], true)) {
+        return null;
+    }
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $ctx = init_branch_context(false);
+    $s = $ctx['selected_branch_id'];
+    $cached = ($s === 'all') ? (int)($_SESSION['branch_id'] ?? 1) : (int)$s;
+    return $cached;
+}
+
+/**
+ * True if a store order belongs to the given branch (staff/manager access control).
+ */
+function printflow_order_in_branch(int $order_id, int $branch_id): bool {
+    $row = db_query(
+        'SELECT 1 FROM orders WHERE order_id = ? AND branch_id = ? LIMIT 1',
+        'ii',
+        [$order_id, $branch_id]
+    );
+    return !empty($row);
+}
+
+/**
+ * Non-admin users (Manager/Staff) may only access orders for their branch.
+ * Call after resolving order_id; sends JSON 403 and exits if denied.
+ */
+function printflow_assert_order_branch_access(int $order_id): void {
+    if ($order_id <= 0) {
+        return;
+    }
+    if (get_user_type() === 'Admin') {
+        return;
+    }
+    $bid = printflow_branch_filter_for_user();
+    if ($bid === null || $bid <= 0) {
+        return;
+    }
+    if (printflow_order_in_branch($order_id, $bid)) {
+        return;
+    }
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'error' => 'This order is not in your branch.']);
+    exit;
 }

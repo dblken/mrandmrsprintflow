@@ -5,6 +5,11 @@ $user_name = $_SESSION['user_name'] ?? 'Staff';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending';
 require_once __DIR__ . '/shop_config.php';
+$staff_branch_label = '';
+if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Staff') {
+    require_once __DIR__ . '/branch_context.php';
+    $staff_branch_label = (string) (init_branch_context(false)['branch_name'] ?? '');
+}
 
 // Unread notification count for badge
 if (!function_exists('db_query')) require_once __DIR__ . '/db.php';
@@ -48,6 +53,11 @@ if (isset($_SESSION['user_id'])) {
         </div>
         <?php else: ?>
         <!-- Activated Staff: Full navigation -->
+        <?php if ($staff_branch_label !== '' && $staff_branch_label !== 'All Branches'): ?>
+        <div style="padding: 10px 20px 0; font-size: 11px; color: rgba(255,255,255,0.65);">
+            Branch: <strong style="color: rgba(255,255,255,0.95);"><?php echo htmlspecialchars($staff_branch_label); ?></strong>
+        </div>
+        <?php endif; ?>
         <!-- Operations -->
         <div class="nav-section">
             <div class="nav-section-title">Operations</div>

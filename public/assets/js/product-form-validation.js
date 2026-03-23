@@ -32,22 +32,53 @@
     let touchedFields = new Set();
 
     function el(id) { return document.getElementById(id); }
+
+    /**
+     * Manager branch-stock UI: page has #modal-stock-mgr; admins do not.
+     * Use open product modal + that id — not input.disabled (timing / browser quirks broke Save).
+     */
+    function isBranchStockModalOpen() {
+        if (!el('modal-stock-mgr')) return false;
+        var ov = el('product-modal-overlay');
+        return !!(ov && ov.classList.contains('active'));
+    }
+
+    function resolveFieldUi(fieldId) {
+        if (fieldId === 'stock') {
+            if (isBranchStockModalOpen()) return { inputId: 'modal-stock-mgr', errId: 'err-stock-mgr' };
+            return { inputId: 'modal-stock', errId: 'err-stock' };
+        }
+        if (fieldId === 'low-stock') {
+            if (isBranchStockModalOpen()) return { inputId: 'modal-low-mgr', errId: 'err-low-mgr' };
+            return { inputId: 'modal-low-stock', errId: 'err-low-stock' };
+        }
+        var inputId = fieldId === 'photo' ? 'modal-photo' : 'modal-' + fieldId;
+        return { inputId: inputId, errId: 'err-' + fieldId };
+    }
+
     function showError(fieldId, msg) {
-        const mid = fieldId === 'low-stock' ? 'modal-low-stock' : 'modal-' + fieldId;
-        const err = el('err-' + fieldId);
-        const group = el(mid)?.closest('.form-group');
-        if (err) { 
+        const ui = resolveFieldUi(fieldId);
+        const inp = el(ui.inputId);
+        const err = el(ui.errId);
+        const group = inp?.closest('.form-group');
+        if (err) {
             const isTouched = touchedFields.has(fieldId);
-            err.textContent = msg || ''; 
-            err.style.display = (msg && isTouched) ? 'block' : 'none'; 
+            err.textContent = msg || '';
+            err.style.display = (msg && isTouched) ? 'block' : 'none';
         }
         if (group) {
             const isTouched = touchedFields.has(fieldId);
+            var valForSuccess = '';
+            if (inp && inp.type !== 'file') valForSuccess = (inp.value || '').trim();
             group.classList.toggle('has-error', !!msg && isTouched);
-            group.classList.toggle('has-success', !msg && isTouched && el('modal-' + fieldId)?.value?.trim());
+            group.classList.toggle('has-success', !msg && isTouched && !!valForSuccess);
         }
     }
-    function getVal(fieldId) { return (el('modal-' + fieldId)?.value || '').trim(); }
+    function getVal(fieldId) {
+        if (fieldId === 'stock') return (el(resolveFieldUi('stock').inputId)?.value || '').trim();
+        if (fieldId === 'low-stock') return (el(resolveFieldUi('low-stock').inputId)?.value || '').trim();
+        return (el('modal-' + fieldId)?.value || '').trim();
+    }
     function getPhoto() { return el('modal-photo'); }
     function isCreateMode() { return el('modal-mode-input')?.name === 'create_product'; }
     function hasExistingPhoto() { return el('photo-preview-img')?.style?.display === 'block'; }
@@ -116,7 +147,7 @@
 
     function validateLowStock() {
         const v = getVal('low-stock');
-        const qty = parseInt((el('modal-stock')?.value || '0'), 10);
+        const qty = parseInt((el(resolveFieldUi('stock').inputId)?.value || '0'), 10);
         const num = parseFloat(v);
         if (isNaN(num) || num < 0) return ERRORS.lowStockNegative;
         if (num !== Math.floor(num)) return ERRORS.lowStockWhole;
@@ -125,19 +156,33 @@
     }
 
     function runValidation() {
-        const errors = {
-            name: validateName(),
-            category: validateCategory(),
-            price: validatePrice(),
-            description: validateDescription(),
-            photo: validatePhoto(),
-            stock: validateQuantity(),
-            'low-stock': validateLowStock()
-        };
+        var errors;
+        if (isBranchStockModalOpen()) {
+            errors = {
+                name: '',
+                category: '',
+                price: '',
+                description: '',
+                photo: '',
+                stock: validateQuantity(),
+                'low-stock': validateLowStock()
+            };
+        } else {
+            errors = {
+                name: validateName(),
+                category: validateCategory(),
+                price: validatePrice(),
+                description: validateDescription(),
+                photo: validatePhoto(),
+                stock: validateQuantity(),
+                'low-stock': validateLowStock()
+            };
+        }
         Object.keys(errors).forEach(function(k) { showError(k, errors[k]); });
         const valid = Object.values(errors).every(function(e) { return !e; });
-        const btn = el('modal-submit-btn');
-        if (btn) btn.disabled = !valid;
+        const btn = el('modal-submit-products-mgr') || el('modal-submit-btn');
+        /* Managers must always be able to click Save; invalid POST is blocked in submit handler. */
+        if (btn) btn.disabled = isBranchStockModalOpen() ? false : !valid;
         return valid;
     }
 
@@ -169,16 +214,20 @@
     }
 
     function setupValidation() {
-        ['modal-name', 'modal-category', 'modal-price', 'modal-description', 'modal-stock', 'modal-low-stock'].forEach(function(id) {
+        ['modal-name', 'modal-category', 'modal-price', 'modal-description', 'modal-stock', 'modal-low-stock', 'modal-stock-mgr', 'modal-low-mgr'].forEach(function(id) {
             const elm = el(id);
             if (elm) {
                 elm.addEventListener('input', runValidation);
                 elm.addEventListener('change', function() {
-                    touchedFields.add(id.replace('modal-', ''));
+                    if (id === 'modal-stock-mgr') touchedFields.add('stock');
+                    else if (id === 'modal-low-mgr') touchedFields.add('low-stock');
+                    else touchedFields.add(id.replace('modal-', ''));
                     runValidation();
                 });
                 elm.addEventListener('blur', function() {
-                    touchedFields.add(id.replace('modal-', ''));
+                    if (id === 'modal-stock-mgr') touchedFields.add('stock');
+                    else if (id === 'modal-low-mgr') touchedFields.add('low-stock');
+                    else touchedFields.add(id.replace('modal-', ''));
                     runValidation();
                 });
             }
@@ -190,33 +239,48 @@
 
     function initProductFormValidation() {
         const form = document.getElementById('product-form');
-        if (!form) return;
-        form.addEventListener('submit', function(e) {
-            // Mark all as touched on submit
-            ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(k => touchedFields.add(k));
-            if (!runValidation()) e.preventDefault();
-        });
-        setupValidation();
-        runValidation();
-
-        var origOpen = window.openProductModal;
-        if (origOpen) {
-            window.openProductModal = function(mode, product) {
-                origOpen(mode, product);
-                setTimeout(function() {
-                    touchedFields.clear();
-                    ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(function(k) {
-                        showError(k, '');
-                    });
-                    runValidation();
-                }, 50);
-            };
+        if (!form) {
+            window.printflowProductFormValidationRun = function() {};
+            return;
         }
+
+        if (form.getAttribute('data-pf-product-validation') !== '1') {
+            form.setAttribute('data-pf-product-validation', '1');
+            form.addEventListener('submit', function(e) {
+                if (isBranchStockModalOpen()) {
+                    ['stock', 'low-stock'].forEach(function(k) { touchedFields.add(k); });
+                } else {
+                    ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(function(k) {
+                        touchedFields.add(k);
+                    });
+                }
+                if (!runValidation()) e.preventDefault();
+            });
+            setupValidation();
+        }
+
+        window.printflowProductFormValidationRun = runValidation;
+        runValidation();
+    }
+
+    document.addEventListener('pf-product-modal-shown', function() {
+        setTimeout(function() {
+            touchedFields.clear();
+            ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(function(k) {
+                showError(k, '');
+            });
+            runValidation();
+        }, 50);
+    });
+
+    function bootProductFormValidation() {
+        initProductFormValidation();
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initProductFormValidation);
+        document.addEventListener('DOMContentLoaded', bootProductFormValidation);
     } else {
-        initProductFormValidation();
+        bootProductFormValidation();
     }
+    document.addEventListener('printflow:page-init', bootProductFormValidation);
 })();

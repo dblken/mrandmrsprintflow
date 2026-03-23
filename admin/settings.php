@@ -239,7 +239,7 @@ $page_title = 'Settings - Admin';
         .qr-slot-title { font-size:12px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px; }
         .badge-enabled { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; background:#dcfce7; color:#166534; }
         .badge-disabled { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; background:#fee2e2; color:#991b1b; }
-        .section-save { display:flex; justify-content:flex-end; margin-top:16px; }
+        .section-save { display:flex; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; }
         .btn-save-sm { padding:9px 22px; border:none; border-radius:8px; background:#00232b; color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
         .btn-save-sm:hover { background:#003a47; }
         .logo-preview { max-height:60px; max-width:180px; object-fit:contain; border:1px solid #e5e7eb; border-radius:8px; padding:6px; background:#fafafa; margin-bottom:10px; display:block; }

@@ -9,7 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 
 $current_user = get_logged_in_user();
 
@@ -31,16 +31,20 @@ if ($branchId !== 'all') {
     $branch_filter = (int)$branchId;
 }
 
-// Build query
-$sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.email AS customer_email
+// Build query (branch from job row or linked store order)
+$sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.email AS customer_email,
+               COALESCE(jo.branch_id, jo_ord.branch_id) AS branch_display_id,
+               b.branch_name AS branch_name
         FROM job_orders jo
         LEFT JOIN customers c ON jo.customer_id = c.customer_id
+        LEFT JOIN orders jo_ord ON jo_ord.order_id = jo.order_id
+        LEFT JOIN branches b ON b.id = COALESCE(jo.branch_id, jo_ord.branch_id)
         WHERE 1=1";
 $params = []; $types = '';
 
 // ── Branch filter ──────────────────────────────────
 if ($branch_filter !== '') {
-    $sql .= " AND jo.branch_id = ?";
+    $sql .= " AND COALESCE(jo.branch_id, (SELECT ord2.branch_id FROM orders ord2 WHERE ord2.order_id = jo.order_id LIMIT 1)) = ?";
     $params[] = $branch_filter;
     $types .= 'i';
 }
@@ -106,6 +110,7 @@ if (isset($_GET['ajax'])) {
             <tr style="border-bottom: 1px solid #e5e7eb;">
                 <th class="text-left py-3" style="width:1%;">ID</th>
                 <th class="text-left py-3">Customer</th>
+                <th class="text-left py-3">Branch</th>
                 <th class="text-left py-3">Service</th>
                 <th class="text-center py-3">Date Submitted</th>
                 <th class="text-right py-3">Amount</th>
@@ -116,7 +121,7 @@ if (isset($_GET['ajax'])) {
         </thead>
         <tbody>
             <?php if (empty($jobs)): ?>
-                <tr><td colspan="8" class="py-12 text-center text-gray-400">No customizations found</td></tr>
+                <tr><td colspan="9" class="py-12 text-center text-gray-400">No customizations found</td></tr>
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
                                     <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>)">
@@ -126,6 +131,19 @@ if (isset($_GET['ajax'])) {
                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
                             </div>
                             <div class="text-xs text-gray-400"><?php echo htmlspecialchars($jo['customer_email'] ?: ''); ?></div>
+                        </td>
+                        <td class="py-3" style="max-width:140px;">
+                            <?php
+                            $joBid = (int)($jo['branch_display_id'] ?? 0);
+                            $joBn = trim((string)($jo['branch_name'] ?? ''));
+                            if ($joBid > 0 && $joBn !== '') {
+                                echo get_branch_badge_html($joBid, $joBn);
+                            } elseif ($joBid > 0) {
+                                echo '<span class="text-xs text-gray-600">#' . $joBid . '</span>';
+                            } else {
+                                echo '<span class="text-gray-400 text-xs">Unassigned</span>';
+                            }
+                            ?>
                         </td>
                         <td class="py-3">
                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['service_type']); ?>">
@@ -197,11 +215,19 @@ if (isset($_GET['ajax'])) {
     exit;
 }
 
-// KPIs
-$kpi_total    = db_query("SELECT COUNT(*) as c FROM job_orders")[0]['c'] ?? 0;
-$kpi_pending  = db_query("SELECT COUNT(*) as c FROM job_orders WHERE status IN ('PENDING','APPROVED')")[0]['c'] ?? 0;
-$kpi_active   = db_query("SELECT COUNT(*) as c FROM job_orders WHERE status = 'IN_PRODUCTION'")[0]['c'] ?? 0;
-$kpi_done     = db_query("SELECT COUNT(*) as c FROM job_orders WHERE status = 'COMPLETED'")[0]['c'] ?? 0;
+// KPIs (respect branch context when filtered)
+$kpiBranchSql = '';
+$kpiTypes = '';
+$kpiParams = [];
+if ($branch_filter !== '') {
+    $kpiBranchSql = ' AND COALESCE(jo.branch_id, (SELECT ord2.branch_id FROM orders ord2 WHERE ord2.order_id = jo.order_id LIMIT 1)) = ?';
+    $kpiTypes = 'i';
+    $kpiParams = [(int)$branch_filter];
+}
+$kpi_total   = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE 1=1" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_pending = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status IN ('PENDING','APPROVED')" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_active  = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status = 'IN_PRODUCTION'" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_done    = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status = 'COMPLETED'" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
 
 $page_title = 'Customizations - Admin | PrintFlow';
 
@@ -827,6 +853,7 @@ function custom_payment_badge($status) {
                             <tr style="border-bottom: 1px solid #e5e7eb;">
                                 <th class="text-left py-3" style="width:1%;">ID</th>
                                 <th class="text-left py-3">Customer</th>
+                                <th class="text-left py-3">Branch</th>
                                 <th class="text-left py-3">Service</th>
                                 <th class="text-center py-3">Date Submitted</th>
                                 <th class="text-right py-3">Amount</th>
@@ -837,11 +864,11 @@ function custom_payment_badge($status) {
                         </thead>
                         <tbody id="customizationsTableBody">
                             <?php if (empty($jobs)): ?>
-                                <tr id="emptyCustomizationsRow"><td colspan="8" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
+                                <tr id="emptyCustomizationsRow"><td colspan="9" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
                                     <?php echo $search ? 'No customizations found matching "' . htmlspecialchars($search) . '"' : 'No customizations found'; ?>
                                 </td></tr>
                             <?php else: ?>
-                                <tr id="emptyCustomizationsRow" style="display:none;"><td colspan="8" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
+                                <tr id="emptyCustomizationsRow" style="display:none;"><td colspan="9" class="py-12 text-center text-gray-400" style="border-bottom: 1px solid #f3f4f6;">
                                     No customizations found
                                 </td></tr>
                                 <?php foreach ($jobs as $jo): 
@@ -860,6 +887,19 @@ function custom_payment_badge($status) {
                                             <div class="text-xs text-gray-400" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_email'] ?? ''); ?>">
                                                 <?php echo htmlspecialchars($jo['customer_email'] ?? ''); ?>
                                             </div>
+                                        </td>
+                                        <td class="py-3" style="max-width:140px;">
+                                            <?php
+                                            $joBid = (int)($jo['branch_display_id'] ?? 0);
+                                            $joBn = trim((string)($jo['branch_name'] ?? ''));
+                                            if ($joBid > 0 && $joBn !== '') {
+                                                echo get_branch_badge_html($joBid, $joBn);
+                                            } elseif ($joBid > 0) {
+                                                echo '<span class="text-xs text-gray-600">#' . $joBid . '</span>';
+                                            } else {
+                                                echo '<span class="text-gray-400 text-xs">Unassigned</span>';
+                                            }
+                                            ?>
                                         </td>
                                         <td class="py-3">
                                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['service_type']); ?>">
@@ -969,22 +1009,23 @@ function custom_payment_badge($status) {
                     <!-- Details Grid -->
                     <div class="detail-row">
                         <div class="detail-block">
-                            <label>Service Type</label>
-                            <span style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;" x-text="job?.service_type" :title="job?.service_type"></span>
+                            <label>Branch</label>
+                            <span x-text="job?.branch_name || (job?.branch_display_id ? ('Branch #' + job.branch_display_id) : 'Unassigned')"></span>
                         </div>
                         <div class="detail-block">
-                            <label>Quantity</label>
-                            <span x-text="job?.quantity ?? 1"></span>
+                            <label>Service Type</label>
+                            <span style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;" x-text="job?.service_type" :title="job?.service_type"></span>
                         </div>
                     </div>
                     <div class="detail-row">
                         <div class="detail-block">
-                            <label>Dimensions</label>
-                            <span x-text="job?.width_ft && job?.height_ft ? job.width_ft + ' ft × ' + job.height_ft + ' ft' : '—'"></span>
+                            <label>Quantity</label>
+                            <span x-text="job?.quantity ?? 1"></span>
                         </div>
                         <div class="detail-block">
-                            <label>Sq. Ft.</label>
-                            <span x-text="job?.total_sqft ? job.total_sqft + ' sqft' : '—'"></span>
+                            <label>Dimensions</label>
+                            <span x-text="job?.width_ft && job?.height_ft ? job.width_ft + ' ft × ' + job.height_ft + ' ft' : '—'"></span>
+                            <div style="font-size:12px;color:#6b7280;margin-top:4px;" x-text="job?.total_sqft ? (job.total_sqft + ' sqft') : ''"></div>
                         </div>
                     </div>
                     <div class="detail-row">

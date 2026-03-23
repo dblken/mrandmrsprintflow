@@ -175,7 +175,7 @@ function login_user($email, $password, $remember_me = false) {
     if ($user['role'] === 'Admin') {
         $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
     } elseif ($user['role'] === 'Manager') {
-        $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
+        $redirect = AUTH_REDIRECT_BASE . '/manager/dashboard.php';
     } elseif ($user['status'] === 'Pending') {
         // Pending staff can only see profile to complete their information
         $redirect = AUTH_REDIRECT_BASE . '/staff/profile.php';
@@ -558,13 +558,46 @@ function require_role($roles) {
 function redirect_admin_staff_from_public() {
     if (is_logged_in()) {
         $user_type = get_user_type();
-        if ($user_type === 'Admin' || $user_type === 'Manager') {
+        if ($user_type === 'Admin') {
             header('Location: ' . AUTH_REDIRECT_BASE . '/admin/dashboard.php');
             exit();
-        } elseif ($user_type === 'Staff') {
+        }
+        if ($user_type === 'Manager') {
+            header('Location: ' . AUTH_REDIRECT_BASE . '/manager/dashboard.php');
+            exit();
+        }
+        if ($user_type === 'Staff') {
             header('Location: ' . AUTH_REDIRECT_BASE . '/staff/dashboard.php');
             exit();
         }
+    }
+}
+
+/**
+ * Redirect any logged-in user away from the public home (/printflow/).
+ * Use only on the landing page so customers can still use products, FAQ, etc.
+ */
+function redirect_logged_in_from_landing_page(): void {
+    if (!is_logged_in()) {
+        return;
+    }
+    SessionManager::setNoCacheHeaders();
+    $user_type = get_user_type();
+    if ($user_type === 'Admin') {
+        header('Location: ' . AUTH_REDIRECT_BASE . '/admin/dashboard.php', true, 302);
+        exit();
+    }
+    if ($user_type === 'Manager') {
+        header('Location: ' . AUTH_REDIRECT_BASE . '/manager/dashboard.php', true, 302);
+        exit();
+    }
+    if ($user_type === 'Staff') {
+        header('Location: ' . AUTH_REDIRECT_BASE . '/staff/dashboard.php', true, 302);
+        exit();
+    }
+    if ($user_type === 'Customer') {
+        header('Location: ' . AUTH_REDIRECT_BASE . '/customer/services.php', true, 302);
+        exit();
     }
 }
 

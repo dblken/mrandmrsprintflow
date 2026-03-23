@@ -6,9 +6,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 // Handle status update via AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
@@ -17,8 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         $new_status = $_POST['status'];
         $staff_id = get_user_id();
 
-        // Fetch current status and customer ID
-        $order_info = db_query("SELECT customer_id, status FROM orders WHERE order_id = ?", 'i', [$order_id]);
+        // Fetch current status and customer ID (only if order is in this branch)
+        $order_info = db_query(
+            "SELECT customer_id, status FROM orders WHERE order_id = ? AND branch_id = ?",
+            'ii',
+            [$order_id, $staffBranchId]
+        );
         
         if (!empty($order_info)) {
             $current_status = $order_info[0]['status'];
@@ -85,9 +92,9 @@ $status_filter = $_GET['status'] ?? '';
 $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
         (SELECT GROUP_CONCAT(COALESCE(p.name, 'Custom Product') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names,
         (SELECT oi.customization_data FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_customization
-        FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
-$params = [];
-$types = '';
+        FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE o.branch_id = ?";
+$params = [$staffBranchId];
+$types = 'i';
 
 if (!empty($status_filter)) {
     $sql .= " AND o.status = ?";
@@ -101,9 +108,9 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 // Count total items for pagination
-$count_sql = "SELECT COUNT(*) as total FROM orders o WHERE 1=1";
-$count_params = [];
-$count_types = '';
+$count_sql = "SELECT COUNT(*) as total FROM orders o WHERE o.branch_id = ?";
+$count_params = [$staffBranchId];
+$count_types = 'i';
 
 if (!empty($status_filter)) {
     $count_sql .= " AND o.status = ?";

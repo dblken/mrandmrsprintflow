@@ -10,8 +10,8 @@ require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 
-// Keep session branch in sync when opened with ?branch_id= (e.g. from dashboard KPI links)
-init_branch_context(false);
+$branchCtx = init_branch_context(false);
+$branchId  = $branchCtx['selected_branch_id'];
 
 $current_user = get_logged_in_user();
 
@@ -23,10 +23,14 @@ $sort_by = $_GET['sort']    ?? 'newest';
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
+[$custBranchSql, $custBranchTypes, $custBranchParams] = ($branchId !== 'all')
+    ? branch_customers_belong_where_sql((int)$branchId, 'customers')
+    : ['', '', []];
+
 // Build query
-$sql = "SELECT * FROM customers WHERE 1=1";
-$params = [];
-$types = '';
+$sql = "SELECT * FROM customers WHERE 1=1" . $custBranchSql;
+$params = $custBranchParams;
+$types = $custBranchTypes;
 
 if (!empty($search)) {
     $search_term = '%' . $search . '%';
@@ -132,29 +136,62 @@ if (isset($_GET['ajax'])) {
 
 // ── KPI Queries ──────────────────────────────────────
 
-// 1. Total Customers
-$total_customers = db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0;
+if ($branchId === 'all') {
+    // 1. Total Customers
+    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0);
 
-// 2. New This Month
-$new_this_month = db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0;
+    // 2. New This Month
+    $new_this_month = (int)(db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0);
 
-// 3. Active (Last 30 Days)
-$active_30_days = db_query("
-    SELECT COUNT(DISTINCT customer_id) as count FROM (
-        SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-        UNION
-        SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
-    ) active_customers
-")[0]['count'] ?? 0;
+    // 3. Active (Last 30 Days)
+    $active_30_days = (int)(db_query("
+        SELECT COUNT(DISTINCT customer_id) as count FROM (
+            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+            UNION
+            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
+        ) active_customers
+    ")[0]['count'] ?? 0);
 
-// 4. Average Spent per Customer
-$total_revenue_stats = db_query("
-    SELECT COALESCE(SUM(amount), 0) as total FROM (
-        SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
-        UNION ALL
-        SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
-    ) rev
-")[0]['total'] ?? 0;
+    // 4. Average Spent per Customer
+    $total_revenue_stats = (float)(db_query("
+        SELECT COALESCE(SUM(amount), 0) as total FROM (
+            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
+            UNION ALL
+            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
+        ) rev
+    ")[0]['total'] ?? 0);
+} else {
+    $bid = (int)$branchId;
+    [$w, $t, $p] = branch_customers_belong_where_sql($bid, 'c');
+
+    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers c WHERE 1=1" . $w, $t, $p)[0]['count'] ?? 0);
+
+    $new_this_month = (int)(db_query(
+        "SELECT COUNT(*) as count FROM customers c WHERE MONTH(c.created_at) = MONTH(CURRENT_DATE()) AND YEAR(c.created_at) = YEAR(CURRENT_DATE())" . $w,
+        $t,
+        $p
+    )[0]['count'] ?? 0);
+
+    $active_30_days = (int)(db_query(
+        "SELECT COUNT(DISTINCT customer_id) as count FROM (
+            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND branch_id = ?
+            UNION
+            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL AND branch_id = ?
+        ) active_customers",
+        'ii',
+        [$bid, $bid]
+    )[0]['count'] ?? 0);
+
+    $total_revenue_stats = (float)(db_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM (
+            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid' AND branch_id = ?
+            UNION ALL
+            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL AND branch_id = ?
+        ) rev",
+        'ii',
+        [$bid, $bid]
+    )[0]['total'] ?? 0);
+}
 
 $avg_spent = $total_customers > 0 ? ($total_revenue_stats / $total_customers) : 0;
 

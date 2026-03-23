@@ -10,8 +10,10 @@ require_once __DIR__ . '/../includes/functions.php';
 // Redirect if already logged in
 if (is_logged_in()) {
     $user_type = get_user_type();
-    if ($user_type === 'Admin' || $user_type === 'Manager') {
+    if ($user_type === 'Admin') {
         redirect(AUTH_REDIRECT_BASE . '/admin/dashboard.php');
+    } elseif ($user_type === 'Manager') {
+        redirect(AUTH_REDIRECT_BASE . '/manager/dashboard.php');
     } elseif ($user_type === 'Staff') {
         redirect(AUTH_REDIRECT_BASE . '/staff/dashboard.php');
     } else {

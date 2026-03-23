@@ -7,9 +7,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 // Get selected date (default: today)
 $report_date = $_GET['date'] ?? date('Y-m-d');
@@ -24,8 +27,8 @@ $daily_orders = db_query("
         COALESCE(SUM(total_amount), 0) as total_revenue,
         COALESCE(SUM(CASE WHEN payment_status = 'Paid' THEN total_amount ELSE 0 END), 0) as paid_revenue
     FROM orders 
-    WHERE DATE(order_date) = ?
-", 's', [$report_date]);
+    WHERE DATE(order_date) = ? AND branch_id = ?
+", 'si', [$report_date, $staffBranchId]);
 $summary = $daily_orders[0] ?? [];
 
 // ---- Daily Service Orders Summary ----
@@ -36,8 +39,8 @@ $service_summary_res = db_query("
         SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
         COALESCE(SUM(total_price), 0) as total_val
     FROM service_orders
-    WHERE DATE(created_at) = ?
-", 's', [$report_date]);
+    WHERE DATE(created_at) = ? AND branch_id = ?
+", 'si', [$report_date, $staffBranchId]);
 $s_summary = $service_summary_res[0] ?? [];
 
 // Combine Revenues for Top KPI
@@ -55,22 +58,22 @@ $day_orders = db_query("
            o.order_date as created_at, o.total_amount as amount, o.status, o.payment_status
     FROM orders o
     LEFT JOIN customers c ON o.customer_id = c.customer_id
-    WHERE DATE(o.order_date) = ?)
+    WHERE DATE(o.order_date) = ? AND o.branch_id = ?)
     UNION ALL
     (SELECT 'Service' as type, so.id as id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
            so.created_at as created_at, so.total_price as amount, so.status, 'N/A' as payment_status
     FROM service_orders so
     LEFT JOIN customers c ON so.customer_id = c.customer_id
-    WHERE DATE(so.created_at) = ?)
+    WHERE DATE(so.created_at) = ? AND so.branch_id = ?)
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
-", 'ssii', [$report_date, $report_date, $items_per_page, $offset]);
+", 'sisisi', [$report_date, $staffBranchId, $report_date, $staffBranchId, $items_per_page, $offset]);
 
 $total_items_res = db_query("
     SELECT 
-        (SELECT COUNT(*) FROM orders WHERE DATE(order_date) = ?) + 
-        (SELECT COUNT(*) FROM service_orders WHERE DATE(created_at) = ?) as total
-", 'ss', [$report_date, $report_date]);
+        (SELECT COUNT(*) FROM orders WHERE DATE(order_date) = ? AND branch_id = ?) + 
+        (SELECT COUNT(*) FROM service_orders WHERE DATE(created_at) = ? AND branch_id = ?) as total
+", 'sisi', [$report_date, $staffBranchId, $report_date, $staffBranchId]);
 $total_items = $total_items_res[0]['total'] ?? 0;
 $total_pages = ceil($total_items / $items_per_page);
 

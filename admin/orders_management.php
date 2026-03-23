@@ -15,7 +15,7 @@ require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
 
 // ── Branch Context (operational page) ─────────────────
-$branchCtx = init_branch_context(false); // analytics-style — allow All
+$branchCtx = init_branch_context(false); // Admin: may use All; Manager/Staff locked in branch_context.php
 $branchId  = $branchCtx['selected_branch_id'];
 
 // Get filter parameters
@@ -769,6 +769,16 @@ if (isset($_GET['ajax'])) {
             document.addEventListener('printflow:page-init', printflowInitOrdersPage);
 
             function openOrderModal(orderId) { window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } })); }
+
+            function printflowOpenOrderFromQuery() {
+                var oo = new URLSearchParams(window.location.search).get('open_order');
+                if (!oo) return;
+                var oid = parseInt(oo, 10);
+                if (!(oid > 0)) return;
+                requestAnimationFrame(function () { openOrderModal(oid); });
+            }
+            printflowOpenOrderFromQuery();
+            document.addEventListener('printflow:page-init', printflowOpenOrderFromQuery);
         </script>
         <header>
             <h1 class="page-title">Orders Management</h1>

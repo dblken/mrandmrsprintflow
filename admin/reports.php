@@ -629,6 +629,14 @@ function reportsPrintInPlace(url) {
 .sort-option:hover { background: #f9fafb; }
 .sort-option.selected { color: #0d9488; font-weight: 600; background: #f0fdfa; }
 .sort-option .check { margin-left: auto; color: #0d9488; }
+.export-dropdown-wide { min-width: 280px; max-height: min(70vh, 560px); overflow-y: auto; }
+.export-dd-label { padding: 10px 16px 4px; font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; }
+.export-dd-hr { height: 1px; background: #f3f4f6; margin: 6px 12px; border: 0; }
+a.export-dd-link {
+    display: block; padding: 9px 16px; font-size: 13px; color: #374151; text-decoration: none;
+    transition: background 0.1s; cursor: pointer;
+}
+a.export-dd-link:hover { background: #f9fafb; }
 [x-cloak] { display: none !important; }
 
 /* ── Empty state ────────────────────── */
@@ -1076,28 +1084,65 @@ function reportsPrintInPlace(url) {
                             </form>
                         </div>
                     </div>
-                    <!-- Export (Print only - all data) -->
+                    <!-- Export: print + Excel/CSV (aligned with admin export endpoints & staff-style CSVs) -->
                     <div style="position:relative;" x-data="{exportOpen:false}">
                         <button class="toolbar-btn" @click="exportOpen=!exportOpen" style="height:38px;">
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             Export
                         </button>
-                        <div class="sort-dropdown" x-show="exportOpen" x-cloak @click.outside="exportOpen=false" style="min-width:180px;">
+                        <div class="sort-dropdown export-dropdown-wide" x-show="exportOpen" x-cloak @click.outside="exportOpen=false">
                             <?php
-                            $printUrl = '/printflow/admin/reports_print.php?report=orders&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId);
-                            $printSalesUrl = '/printflow/admin/reports_print.php?report=sales&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId);
-                            $printCustUrl = '/printflow/admin/reports_print.php?report=customers&from='.urlencode($from).'&to='.urlencode($to).'&branch_id='.($branchId === 'all' ? 'all' : (int)$branchId);
+                            $rptQs = [
+                                'from' => $from,
+                                'to' => $to,
+                                'branch_id' => $branchId === 'all' ? 'all' : (int)$branchId,
+                            ];
+                            $pfRptUrl = function (string $file, array $extra = []) use ($rptQs) {
+                                return '/printflow/admin/' . $file . '?' . http_build_query(array_merge($rptQs, $extra));
+                            };
+                            $printOrdersUrl = $pfRptUrl('reports_print.php', ['report' => 'orders']);
+                            $printSalesUrl = $pfRptUrl('reports_print.php', ['report' => 'sales']);
+                            $printCustUrl = $pfRptUrl('reports_print.php', ['report' => 'customers']);
+                            $xlsxOrdersUrl = $pfRptUrl('reports_export_excel.php', ['report' => 'orders']);
+                            $xlsxSalesUrl = $pfRptUrl('reports_export_excel.php', ['report' => 'sales']);
+                            $xlsxCustomersUrl = $pfRptUrl('reports_export_excel.php', ['report' => 'customers']);
+                            $csvSalesUrl = $pfRptUrl('reports_export.php', ['report' => 'sales']);
+                            $csvOrdersUrl = $pfRptUrl('reports_export.php', ['report' => 'orders']);
+                            $csvCustomersUrl = $pfRptUrl('reports_export.php', ['report' => 'customers']);
+                            $csvDailyUrl = $pfRptUrl('reports_export.php', ['report' => 'daily_sales', 'date' => $to]);
+                            $csvShopInvUrl = $pfRptUrl('reports_export.php', ['report' => 'shop_inventory']);
+                            $csvMaterialsUrl = $pfRptUrl('reports_export.php', ['report' => 'inventory']);
+                            $activityLogsPrintUrl = '/printflow/admin/activity_logs.php?' . http_build_query([
+                                'print_all' => '1',
+                                'date_from' => $from,
+                                'date_to' => $to,
+                            ]);
+                            $je = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
                             ?>
-                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace('<?php echo addslashes($printUrl); ?>'); exportOpen=false">Print – Orders (all)</button>
-                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace('<?php echo addslashes($printSalesUrl); ?>'); exportOpen=false">Print – Sales (all)</button>
-                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace('<?php echo addslashes($printCustUrl); ?>'); exportOpen=false">Print – Customers (all)</button>
+                            <div class="export-dd-label">Print</div>
+                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;text-align:left;padding:9px 16px;color:#111827;" @click="reportsPrintInPlace(<?php echo json_encode($printOrdersUrl, $je); ?>); exportOpen=false" title="Orders status (print view)">Print Report</button>
+                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace(<?php echo json_encode($printSalesUrl, $je); ?>); exportOpen=false">Print – Sales</button>
+                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace(<?php echo json_encode($printCustUrl, $je); ?>); exportOpen=false">Print – Customers</button>
+                            <?php if (($current_user['role'] ?? '') === 'Admin'): ?>
+                            <button type="button" class="sort-option" style="width:100%;border:none;background:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:inherit;text-align:left;padding:9px 16px;color:#374151;" @click="reportsPrintInPlace(<?php echo json_encode($activityLogsPrintUrl, $je); ?>); exportOpen=false" title="Uses report date range">Print – Activity logs</button>
+                            <?php endif; ?>
+
+                            <hr class="export-dd-hr">
+                            <div class="export-dd-label">Excel</div>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($xlsxSalesUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false" title="Formatted like print: colors, auto column width">Excel – Sales detail</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($xlsxOrdersUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">Excel – Orders status</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($xlsxCustomersUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">Excel – Customers</a>
+
+                            <hr class="export-dd-hr">
+                            <div class="export-dd-label">CSV</div>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvSalesUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">CSV – Sales detail</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvOrdersUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">CSV – Orders status</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvCustomersUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">CSV – Customers</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvDailyUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false" title="End date of report range">CSV – Daily sales (end date)</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvShopInvUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">CSV – Products &amp; materials stock</a>
+                            <a class="export-dd-link" href="<?php echo htmlspecialchars($csvMaterialsUrl, ENT_QUOTES, 'UTF-8'); ?>" @click="exportOpen=false">CSV – Legacy materials &amp; movements</a>
                         </div>
                     </div>
-                    <!-- Print Report -->
-                    <button type="button" class="toolbar-btn" style="height:38px;display:inline-flex;align-items:center;gap:8px;" @click="reportsPrintInPlace('<?php echo addslashes($printUrl); ?>')" title="Print report (stays on this page)">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                        Print Report
-                    </button>
                 </div>
             </div>
 
