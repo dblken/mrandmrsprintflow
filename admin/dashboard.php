@@ -201,7 +201,6 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
@@ -609,30 +608,33 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 </div>
 
 <script>
-(function () {
-    var links = document.querySelectorAll('a.kpi-card--link');
-    var clearKpiNav = function (a) {
-        delete a.dataset.kpiNav;
-        a.classList.remove('is-kpi-navigating');
-        a.removeAttribute('aria-busy');
-    };
-    links.forEach(function (a) {
-        a.addEventListener('click', function (e) {
-            if (a.dataset.kpiNav === '1') {
-                e.preventDefault();
-                return;
-            }
-            a.dataset.kpiNav = '1';
-            a.classList.add('is-kpi-navigating');
-            a.setAttribute('aria-busy', 'true');
-            window.setTimeout(function () { clearKpiNav(a); }, 4000);
+    function printflowInitDashboardKPIs() {
+        var links = document.querySelectorAll('a.kpi-card--link');
+        var clearKpiNav = function (a) {
+            delete a.dataset.kpiNav;
+            a.classList.remove('is-kpi-navigating');
+            a.removeAttribute('aria-busy');
+        };
+        links.forEach(function (a) {
+            // Remove existing listener to avoid double-binding if it's a re-init
+            a.removeEventListener('click', a._pfKpiHandler);
+            a._pfKpiHandler = function (e) {
+                if (a.dataset.kpiNav === '1') {
+                    e.preventDefault();
+                    return;
+                }
+                a.dataset.kpiNav = '1';
+                a.classList.add('is-kpi-navigating');
+                a.setAttribute('aria-busy', 'true');
+                window.setTimeout(function () { clearKpiNav(a); }, 4000);
+            };
+            a.addEventListener('click', a._pfKpiHandler);
         });
-    });
-    window.addEventListener('pageshow', function (ev) {
-        if (!ev.persisted) return;
-        links.forEach(clearKpiNav);
-    });
-})();
+        window.addEventListener('pageshow', function (ev) {
+            if (!ev.persisted) return;
+            links.forEach(clearKpiNav);
+        });
+    }
 </script>
 <script>
 (function () {
@@ -692,6 +694,9 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     };
     window.printflowInitDashboardCharts = function () {
         if (!document.getElementById('salesChart')) return;
+
+        printflowInitDashboardKPIs();
+
         if (typeof Chart === 'undefined') {
             setTimeout(function () {
                 if (typeof window.printflowInitDashboardCharts === 'function') window.printflowInitDashboardCharts();
@@ -699,6 +704,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             return;
         }
         window.printflowTeardownDashboardCharts();
+
         window.__pfDashRevealIOs = [];
         dashCtrl = new AbortController();
         var sig = { signal: dashCtrl.signal };
@@ -945,6 +951,12 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             }
         })();
     };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.printflowInitDashboardCharts);
+    } else {
+        window.printflowInitDashboardCharts();
+    }
+    document.addEventListener('printflow:page-init', window.printflowInitDashboardCharts);
 })();
 </script>
 </body>

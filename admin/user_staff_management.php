@@ -248,7 +248,6 @@ if (isset($_GET['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }
@@ -544,11 +543,10 @@ if (isset($_GET['ajax'])) {
         @media(max-width:520px) { #user-modal-box .form-row { grid-template-columns:1fr; } }
     </style>
 </head>
-<body x-data="userManagement()" x-init="loadProvinces()">
+<body>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -556,7 +554,7 @@ if (isset($_GET['ajax'])) {
             <h1 class="page-title">User & Staff Management</h1>
         </header>
 
-        <main>
+        <main x-data="userManagement()" x-init="loadProvinces()">
             <!-- KPI Summary Cards (matching dashboard) -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
@@ -786,276 +784,10 @@ if (isset($_GET['ajax'])) {
                 </div>
                 </div><!-- /usersTableContainer -->
             </div><!-- /card -->
-        </main>
-    </div>
-</div>
 
-<!-- Add User/Staff Modal Popup -->
-<div id="user-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
-    <div id="user-modal-box">
-        <div class="modal-header">
-            <h3 class="modal-title" id="user-modal-title">Create New User / Staff</h3>
-            <button type="button" class="modal-close-x" id="btn-close-user-modal-x" aria-label="Close">✕</button>
-        </div>
-        <form method="POST" action="" id="user-create-form" onsubmit="return validateUserCreateForm(event)">
-            <div class="modal-body">
-                <?php echo csrf_field(); ?>
-                <input type="hidden" name="create_staff" value="1">
-                
-                <div class="form-row-3">
-                <div class="form-group" id="um-group-first_name">
-                    <label>First Name <span style="color:#ef4444">*</span></label>
-                    <input type="text" name="first_name" id="um-first_name" required placeholder="e.g. Juan" autocomplete="given-name">
-                    <div id="um-error-first_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
-                </div>
-                <div class="form-group" id="um-group-middle_name">
-                    <label>Middle Name</label>
-                    <input type="text" name="middle_name" id="um-middle_name" placeholder="e.g. Santos" autocomplete="additional-name">
-                    <div id="um-error-middle_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
-                </div>
-                <div class="form-group" id="um-group-last_name">
-                    <label>Last Name <span style="color:#ef4444">*</span></label>
-                    <input type="text" name="last_name" id="um-last_name" required placeholder="e.g. Dela Cruz" autocomplete="family-name">
-                    <div id="um-error-last_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group" id="um-group-email">
-                    <label>Email Address <span style="color:#ef4444">*</span></label>
-                    <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com" autocomplete="email">
-                    <div id="um-error-email" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
-                </div>
-                <div class="form-group">
-                    <label>Birthday <span style="color:#ef4444">*</span></label>
-                    <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
-                    <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Role <span style="color:#ef4444">*</span></label>
-                    <select name="role" id="user-role-select" required>
-                        <option value="Staff">Staff</option>
-                        <option value="Manager">Manager</option>
-                    </select>
-                </div>
-                <div class="form-group" id="branch-select-group">
-                    <label>Branch Assignment <span style="color:#ef4444">*</span></label>
-                    <select name="branch_id" id="user-branch-select">
-                        <option value="">-- Select Branch --</option>
-                        <?php foreach ($branches as $branch): ?>
-                            <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <p class="form-hint">Staff members only see data for their assigned branch.</p>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Default Password</label>
-                <div style="position:relative;">
-                    <input type="text" name="password" id="um-password" minlength="8" readonly
-                           placeholder="Auto-filled from email + birthday"
-                           style="padding-right:80px;background:#f9fafb;color:#374151;">
-                    <span id="um-pw-label"
-                          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#9ca3af;font-weight:600;pointer-events:none;">AUTO</span>
-                </div>
-                <p class="form-hint">Format: <em>email</em> + <em>MMDDYYYY</em> &mdash; e.g. <code>juan@store.com01151990</code></p>
-            </div>
-            </div>
-
-            <div class="modal-actions">
-                <button type="button" class="modal-btn modal-btn-cancel" id="btn-close-user-modal">Cancel</button>
-                <button type="submit" class="modal-btn modal-btn-submit">Create Account</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-(function() {
-    var backdrop = document.getElementById('user-modal-backdrop');
-    var btnOpen = document.getElementById('btn-open-user-modal');
-    var btnClose = document.getElementById('btn-close-user-modal');
-    var btnCloseX = document.getElementById('btn-close-user-modal-x');
-    if (!backdrop || !btnOpen) return;
-
-    function openModal() {
-        backdrop.style.display = 'flex';
-        // Trigger reflow then add class for animation
-        void backdrop.offsetWidth;
-        backdrop.classList.add('is-open');
-        var firstInput = backdrop.querySelector('input[type="text"]');
-        if (firstInput) setTimeout(function() { firstInput.focus(); }, 150);
-    }
-
-    function closeModal() {
-        backdrop.classList.remove('is-open');
-        setTimeout(function() {
-            if (!backdrop.classList.contains('is-open')) {
-                backdrop.style.display = 'none';
-            }
-        }, 260);
-    }
-
-    btnOpen.addEventListener('click', openModal);
-    if (btnClose) btnClose.addEventListener('click', closeModal);
-    if (btnCloseX) btnCloseX.addEventListener('click', closeModal);
-
-    backdrop.addEventListener('click', function(e) {
-        if (e.target === backdrop) closeModal();
-    });
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
-    });
-
-    // Create form validation (profile name + register/branch email)
-    function formatNameInput(el) {
-        var v = el.value;
-        v = v.replace(/\d/g, '');  // block numbers
-        v = v.replace(/\s{2,}/g, ' ');  // collapse 2+ consecutive spaces to 1
-        v = v.split(' ').map(function(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; }).filter(Boolean).join(' ');
-        el.value = v;
-    }
-    function validateUserCreateField(id) {
-        var input = document.getElementById('um-' + id);
-        var group = document.getElementById('um-group-' + id);
-        var errEl = document.getElementById('um-error-' + id);
-        if (!input || !group || !errEl) return true;
-        var val = (input.value || '').trim();
-        var err = '';
-        if (id === 'first_name' || id === 'last_name') {
-            if (!val) err = id === 'first_name' ? 'First name is required.' : 'Last name is required.';
-            else if (/\s{2,}/.test(val)) err = 'Names cannot have more than one space in a row.';
-            else if (/[0-9]/.test(val)) err = 'Names must not contain numbers.';
-            else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Names must contain only letters.';
-            else if (val.length < 2 || val.length > 50) err = 'Names must be between 2 and 50 characters.';
-        } else if (id === 'middle_name') {
-            if (val && /\s{2,}/.test(val)) err = 'Middle name cannot have more than one space in a row.';
-            else if (val && /[0-9]/.test(val)) err = 'Middle name must not contain numbers.';
-            else if (val && !/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Middle name must contain only letters.';
-            else if (val && (val.length < 2 || val.length > 50)) err = 'Middle name must be between 2 and 50 characters.';
-        } else if (id === 'email') {
-            if (!val) err = 'Email is required.';
-            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) err = 'Please enter a valid email address.';
-        }
-        if (err) {
-            group.classList.add('is-invalid');
-            errEl.textContent = err;
-            errEl.style.display = 'block';
-            return false;
-        }
-        group.classList.remove('is-invalid');
-        errEl.textContent = '';
-        errEl.style.display = 'none';
-        return true;
-    }
-    function validateUserCreateForm(e) {
-        var ok = validateUserCreateField('first_name') && validateUserCreateField('last_name') && validateUserCreateField('middle_name') && validateUserCreateField('email');
-        if (!ok) e.preventDefault();
-        return ok;
-    }
-    ['first_name', 'last_name', 'middle_name'].forEach(function(id) {
-        var el = document.getElementById('um-' + id);
-        if (el) {
-            el.addEventListener('blur', function() { validateUserCreateField(id); });
-            el.addEventListener('input', function() {
-                formatNameInput(this);
-                validateUserCreateField(id);
-            });
-            el.addEventListener('keypress', function(e) {
-                if (/\d/.test(e.key)) e.preventDefault();
-                if (e.key === ' ' && (this.value || '').endsWith(' ')) e.preventDefault();
-            });
-        }
-    });
-    var emailEl = document.getElementById('um-email');
-    if (emailEl) {
-        emailEl.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
-        emailEl.addEventListener('input', function() {
-            this.value = this.value.replace(/\s/g, '');
-            validateUserCreateField('email');
-        });
-        emailEl.addEventListener('blur', function() { validateUserCreateField('email'); });
-    }
-
-    // Auto-open modal if there was a validation error
-    <?php if ($error): ?>
-    openModal();
-    <?php endif; ?>
-
-    // Toggle Branch Select based on Role
-    var roleSelect  = document.getElementById('user-role-select');
-    var branchGroup = document.getElementById('branch-select-group');
-    if (roleSelect && branchGroup) {
-        roleSelect.addEventListener('change', function() {
-            var needsBranch = (this.value !== 'Admin');
-            branchGroup.style.display = needsBranch ? 'block' : 'none';
-            document.getElementById('user-branch-select').required = needsBranch;
-        });
-        roleSelect.dispatchEvent(new Event('change'));
-    }
-
-    // Auto-fill default password from email + birthday (MMDDYYYY)
-    var emailInput = document.getElementById('um-email');
-    var bdayInput  = document.getElementById('um-birthday');
-    var pwInput    = document.getElementById('um-password');
-
-    function buildDefaultPassword() {
-        var em = emailInput ? emailInput.value.trim() : '';
-        var bd = bdayInput  ? bdayInput.value : '';
-        if (em && bd) {
-            var parts = bd.split('-'); // [YYYY, MM, DD]
-            if (parts.length === 3) {
-                pwInput.value = em + parts[1] + parts[2] + parts[0];
-            }
-        } else {
-            pwInput.value = '';
-        }
-    }
-
-    if (emailInput) emailInput.addEventListener('input', buildDefaultPassword);
-    if (bdayInput)  bdayInput.addEventListener('change', buildDefaultPassword);
-
-    // Birthday validation for creation
-    if (bdayInput) {
-        bdayInput.addEventListener('change', function() {
-            var val = this.value;
-            var errDiv = document.getElementById('um-birthday-error');
-            var submitBtn = backdrop.querySelector('.modal-btn-submit');
-            if (!val) return;
-            
-            var bday = new Date(val);
-            var today = new Date();
-            var age = today.getFullYear() - bday.getFullYear();
-            var m = today.getMonth() - bday.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
-            
-            if (bday > today) {
-                errDiv.textContent = "Cannot be a future date.";
-                errDiv.style.display = 'block';
-                submitBtn.disabled = true;
-                this.classList.add('is-invalid');
-            } else if (age < 18) {
-                errDiv.textContent = "Must be at least 18 years old.";
-                errDiv.style.display = 'block';
-                submitBtn.disabled = true;
-                this.classList.add('is-invalid');
-            } else {
-                errDiv.style.display = 'none';
-                submitBtn.disabled = false;
-                this.classList.remove('is-invalid');
-            }
-        });
-    }
-})();
-</script>
-
-<!-- View User Modal (Read-only) -->
-<div x-show="viewModal.isOpen" x-cloak class="modal-overlay" :class="{'is-open': viewModal.isOpen}" @click.self="viewModal.isOpen = false">
+            <!-- Modals: inside main so Alpine sees userManagement() scope (view/edit/confirm/resend) -->
+            <!-- View User Modal (Read-only) -->
+            <div x-show="viewModal.isOpen" x-cloak class="modal-overlay" :class="{'is-open': viewModal.isOpen}" @click.self="viewModal.isOpen = false">
     <div class="modal-box" @click.stop>
         <div class="modal-hdr">
             <h2>User Details</h2>
@@ -1332,10 +1064,287 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
+        </main>
+    </div>
+</div>
+
+<!-- Add User/Staff Modal Popup -->
+<div id="user-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+    <div id="user-modal-box">
+        <div class="modal-header">
+            <h3 class="modal-title" id="user-modal-title">Create New User / Staff</h3>
+            <button type="button" class="modal-close-x" id="btn-close-user-modal-x" aria-label="Close">✕</button>
+        </div>
+        <form method="POST" action="" id="user-create-form" onsubmit="return validateUserCreateForm(event)">
+            <div class="modal-body">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="create_staff" value="1">
+                
+                <div class="form-row-3">
+                <div class="form-group" id="um-group-first_name">
+                    <label>First Name <span style="color:#ef4444">*</span></label>
+                    <input type="text" name="first_name" id="um-first_name" required placeholder="e.g. Juan" autocomplete="given-name">
+                    <div id="um-error-first_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+                <div class="form-group" id="um-group-middle_name">
+                    <label>Middle Name</label>
+                    <input type="text" name="middle_name" id="um-middle_name" placeholder="e.g. Santos" autocomplete="additional-name">
+                    <div id="um-error-middle_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+                <div class="form-group" id="um-group-last_name">
+                    <label>Last Name <span style="color:#ef4444">*</span></label>
+                    <input type="text" name="last_name" id="um-last_name" required placeholder="e.g. Dela Cruz" autocomplete="family-name">
+                    <div id="um-error-last_name" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" id="um-group-email">
+                    <label>Email Address <span style="color:#ef4444">*</span></label>
+                    <input type="email" name="email" id="um-email" required placeholder="staff@printflow.com" autocomplete="email">
+                    <div id="um-error-email" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Birthday <span style="color:#ef4444">*</span></label>
+                    <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
+                    <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Role <span style="color:#ef4444">*</span></label>
+                    <select name="role" id="user-role-select" required>
+                        <option value="Staff">Staff</option>
+                        <option value="Manager">Manager</option>
+                    </select>
+                </div>
+                <div class="form-group" id="branch-select-group">
+                    <label>Branch Assignment <span style="color:#ef4444">*</span></label>
+                    <select name="branch_id" id="user-branch-select">
+                        <option value="">-- Select Branch --</option>
+                        <?php foreach ($branches as $branch): ?>
+                            <option value="<?php echo $branch['id']; ?>"><?php echo htmlspecialchars($branch['branch_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="form-hint">Staff members only see data for their assigned branch.</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Default Password</label>
+                <div style="position:relative;">
+                    <input type="text" name="password" id="um-password" minlength="8" readonly
+                           placeholder="Auto-filled from email + birthday"
+                           style="padding-right:80px;background:#f9fafb;color:#374151;">
+                    <span id="um-pw-label"
+                          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#9ca3af;font-weight:600;pointer-events:none;">AUTO</span>
+                </div>
+                <p class="form-hint">Format: <em>email</em> + <em>MMDDYYYY</em> &mdash; e.g. <code>juan@store.com01151990</code></p>
+            </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" id="btn-close-user-modal">Cancel</button>
+                <button type="submit" class="modal-btn modal-btn-submit">Create Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function printflowInitUserStaffModal() {
+    var backdrop = document.getElementById('user-modal-backdrop');
+    var btnOpen = document.getElementById('btn-open-user-modal');
+    var btnClose = document.getElementById('btn-close-user-modal');
+    var btnCloseX = document.getElementById('btn-close-user-modal-x');
+    if (!backdrop || !btnOpen) return;
+
+
+    function openModal() {
+        backdrop.style.display = 'flex';
+        // Trigger reflow then add class for animation
+        void backdrop.offsetWidth;
+        backdrop.classList.add('is-open');
+        var firstInput = backdrop.querySelector('input[type="text"]');
+        if (firstInput) setTimeout(function() { firstInput.focus(); }, 150);
+    }
+
+    function closeModal() {
+        backdrop.classList.remove('is-open');
+        setTimeout(function() {
+            if (!backdrop.classList.contains('is-open')) {
+                backdrop.style.display = 'none';
+            }
+        }, 260);
+    }
+
+    btnOpen.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCloseX) btnCloseX.addEventListener('click', closeModal);
+
+    backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) closeModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
+    });
+
+    // Create form validation (profile name + register/branch email)
+    function formatNameInput(el) {
+        var v = el.value;
+        v = v.replace(/\d/g, '');  // block numbers
+        v = v.replace(/\s{2,}/g, ' ');  // collapse 2+ consecutive spaces to 1
+        v = v.split(' ').map(function(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; }).filter(Boolean).join(' ');
+        el.value = v;
+    }
+    function validateUserCreateField(id) {
+        var input = document.getElementById('um-' + id);
+        var group = document.getElementById('um-group-' + id);
+        var errEl = document.getElementById('um-error-' + id);
+        if (!input || !group || !errEl) return true;
+        var val = (input.value || '').trim();
+        var err = '';
+        if (id === 'first_name' || id === 'last_name') {
+            if (!val) err = id === 'first_name' ? 'First name is required.' : 'Last name is required.';
+            else if (/\s{2,}/.test(val)) err = 'Names cannot have more than one space in a row.';
+            else if (/[0-9]/.test(val)) err = 'Names must not contain numbers.';
+            else if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Names must contain only letters.';
+            else if (val.length < 2 || val.length > 50) err = 'Names must be between 2 and 50 characters.';
+        } else if (id === 'middle_name') {
+            if (val && /\s{2,}/.test(val)) err = 'Middle name cannot have more than one space in a row.';
+            else if (val && /[0-9]/.test(val)) err = 'Middle name must not contain numbers.';
+            else if (val && !/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) err = 'Middle name must contain only letters.';
+            else if (val && (val.length < 2 || val.length > 50)) err = 'Middle name must be between 2 and 50 characters.';
+        } else if (id === 'email') {
+            if (!val) err = 'Email is required.';
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) err = 'Please enter a valid email address.';
+        }
+        if (err) {
+            group.classList.add('is-invalid');
+            errEl.textContent = err;
+            errEl.style.display = 'block';
+            return false;
+        }
+        group.classList.remove('is-invalid');
+        errEl.textContent = '';
+        errEl.style.display = 'none';
+        return true;
+    }
+    function validateUserCreateForm(e) {
+        var ok = validateUserCreateField('first_name') && validateUserCreateField('last_name') && validateUserCreateField('middle_name') && validateUserCreateField('email');
+        if (!ok) e.preventDefault();
+        return ok;
+    }
+    ['first_name', 'last_name', 'middle_name'].forEach(function(id) {
+        var el = document.getElementById('um-' + id);
+        if (el) {
+            el.addEventListener('blur', function() { validateUserCreateField(id); });
+            el.addEventListener('input', function() {
+                formatNameInput(this);
+                validateUserCreateField(id);
+            });
+            el.addEventListener('keypress', function(e) {
+                if (/\d/.test(e.key)) e.preventDefault();
+                if (e.key === ' ' && (this.value || '').endsWith(' ')) e.preventDefault();
+            });
+        }
+    });
+    var emailEl = document.getElementById('um-email');
+    if (emailEl) {
+        emailEl.addEventListener('keydown', function(e) { if (e.key === ' ') e.preventDefault(); });
+        emailEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\s/g, '');
+            validateUserCreateField('email');
+        });
+        emailEl.addEventListener('blur', function() { validateUserCreateField('email'); });
+    }
+
+    // Auto-open modal if there was a validation error
+    <?php if ($error): ?>
+    openModal();
+    <?php endif; ?>
+
+    // Toggle Branch Select based on Role
+    var roleSelect  = document.getElementById('user-role-select');
+    var branchGroup = document.getElementById('branch-select-group');
+    if (roleSelect && branchGroup) {
+        roleSelect.addEventListener('change', function() {
+            var needsBranch = (this.value !== 'Admin');
+            branchGroup.style.display = needsBranch ? 'block' : 'none';
+            document.getElementById('user-branch-select').required = needsBranch;
+        });
+        roleSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Auto-fill default password from email + birthday (MMDDYYYY)
+    var emailInput = document.getElementById('um-email');
+    var bdayInput  = document.getElementById('um-birthday');
+    var pwInput    = document.getElementById('um-password');
+
+    function buildDefaultPassword() {
+        var em = emailInput ? emailInput.value.trim() : '';
+        var bd = bdayInput  ? bdayInput.value : '';
+        if (em && bd) {
+            var parts = bd.split('-'); // [YYYY, MM, DD]
+            if (parts.length === 3) {
+                pwInput.value = em + parts[1] + parts[2] + parts[0];
+            }
+        } else {
+            pwInput.value = '';
+        }
+    }
+
+    if (emailInput) emailInput.addEventListener('input', buildDefaultPassword);
+    if (bdayInput)  bdayInput.addEventListener('change', buildDefaultPassword);
+
+    // Birthday validation for creation
+    if (bdayInput) {
+        bdayInput.addEventListener('change', function() {
+            var val = this.value;
+            var errDiv = document.getElementById('um-birthday-error');
+            var submitBtn = backdrop.querySelector('.modal-btn-submit');
+            if (!val) return;
+            
+            var bday = new Date(val);
+            var today = new Date();
+            var age = today.getFullYear() - bday.getFullYear();
+            var m = today.getMonth() - bday.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
+            
+            if (bday > today) {
+                errDiv.textContent = "Cannot be a future date.";
+                errDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                this.classList.add('is-invalid');
+            } else if (age < 18) {
+                errDiv.textContent = "Must be at least 18 years old.";
+                errDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                this.classList.add('is-invalid');
+            } else {
+                errDiv.style.display = 'none';
+                submitBtn.disabled = false;
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitUserStaffModal);
+} else {
+    printflowInitUserStaffModal();
+}
+document.addEventListener('printflow:page-init', printflowInitUserStaffModal);
+</script>
+
 <script>
 // ── Filter & Sort JS (user_staff_management.php) ────────────────────────────
-let activeSort = '<?php echo $sort ?? "newest"; ?>';
-let searchDebounceTimer = null;
+/* var: Turbo re-runs inline scripts; let would throw "already been declared". */
+var activeSort = '<?php echo $sort ?? "newest"; ?>';
+var searchDebounceTimer = null;
 
 function filterPanel() {
     return {
@@ -1445,23 +1454,6 @@ function resetFilterField(fields) {
     fetchUpdatedTable();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = ['fp_role', 'fp_status', 'fp_date_from', 'fp_date_to'];
-    inputs.forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => fetchUpdatedTable());
-    });
-
-    const searchInput = document.getElementById('fp_search');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                fetchUpdatedTable();
-            }, 500);
-        });
-    }
-});
-
 function userManagement() {
     return {
         viewModal: {
@@ -1504,7 +1496,7 @@ function userManagement() {
         addressBarangays: [],
         loadingCities: false,
         loadingBarangays: false,
-
+        
         get isEditFormValid() {
             if (!this.editModal.user) return false;
             return this.editModal.user.first_name && 
@@ -1844,60 +1836,39 @@ function userManagement() {
         }
     };
 }
+window.userManagement = userManagement;
 
-/**
- * First visit: defer Alpine may leave userManagement() / filterPanel() without _x_dataStack briefly.
- * After AJAX table replace: reinject Alpine on #usersTableContainer fragment.
- */
-function ensureUserStaffAlpineBoot() {
-    if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-    var root = document.querySelector('[x-data="userManagement()"]');
-    if (root && !root._x_dataStack) {
-        try {
-            Alpine.initTree(root);
-        } catch (e) {
-            console.error(e);
+function printflowInitUserStaffPage() {
+    /* #usersTableContainer is inside main[x-data]; turbo-init already walked .main-content. */
+
+    // Filter listeners (idempotent)
+    const inputs = ['fp_role', 'fp_status', 'fp_date_from', 'fp_date_to'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el._pf_bound) {
+            el._pf_bound = true;
+            el.addEventListener('change', () => fetchUpdatedTable());
         }
-    }
-    var fp = document.querySelector('[x-data="filterPanel()"]');
-    if (fp && !fp._x_dataStack) {
-        try {
-            Alpine.initTree(fp);
-        } catch (e2) {
-            console.error(e2);
-        }
-    }
-    var tbl = document.getElementById('usersTableContainer');
-    if (tbl) {
-        try {
-            Alpine.initTree(tbl);
-        } catch (e3) {
-            console.error(e3);
-        }
+    });
+
+    const searchInput = document.getElementById('fp_search');
+    if (searchInput && !searchInput._pf_bound) {
+        searchInput._pf_bound = true;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                fetchUpdatedTable();
+            }, 500);
+        });
     }
 }
 
-window.printflowInitUserStaffPage = ensureUserStaffAlpineBoot;
-
-(function scheduleUserStaffAlpineFirstVisit() {
-    function tick() {
-        ensureUserStaffAlpineBoot();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
-    } else {
-        schedule();
-    }
-    function schedule() {
-        tick();
-        queueMicrotask(tick);
-        setTimeout(tick, 0);
-        requestAnimationFrame(function () {
-            requestAnimationFrame(tick);
-        });
-        setTimeout(tick, 150);
-    }
-})();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitUserStaffPage);
+} else {
+    printflowInitUserStaffPage();
+}
+document.addEventListener('printflow:page-init', printflowInitUserStaffPage);
 
 // Global expose to bridge AJAX table clicks to userManagement Alpine component
 document.addEventListener('alpine:init', () => {

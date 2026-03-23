@@ -9,7 +9,6 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
-
 $current_user = get_logged_in_user();
 
 // Get categories for dropdown
@@ -100,7 +99,7 @@ $page_title = 'Monthly Inventory - Admin';
 <body>
 
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <div class="main-content">
         <header>
@@ -175,11 +174,12 @@ $page_title = 'Monthly Inventory - Admin';
 </div>
 
 <script>
-const API_URL = '/printflow/admin/inventory_api.php';
-const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+/* var: Turbo re-runs this script on visits; let/const would throw "already been declared". */
+var API_URL = '/printflow/admin/inventory_api.php';
+var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-let monthlyData = null;   // cached data from API
-let activeWeek  = 0;      // 0-indexed week tab
+var monthlyData = null;   // cached data from API
+var activeWeek  = 0;      // 0-indexed week tab
 
 // ─── Load Monthly Data ──────────────────────────────────
 async function loadMonthlyData() {
@@ -408,14 +408,23 @@ function escHtml(str) {
     return d.innerHTML;
 }
 
-// Auto-load if only one category
-document.addEventListener('DOMContentLoaded', () => {
+function printflowInitMonthlyInvPage() {
     const catSelect = document.getElementById('filterCategory');
-    if (catSelect.options.length === 2) {
+    if (!catSelect) return;
+    
+    // Auto-load if only one category (and not already loaded)
+    if (catSelect.options.length === 2 && !monthlyData) {
         catSelect.selectedIndex = 1;
         loadMonthlyData();
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitMonthlyInvPage);
+} else {
+    printflowInitMonthlyInvPage();
+}
+document.addEventListener('printflow:page-init', printflowInitMonthlyInvPage);
 </script>
 
 </body>

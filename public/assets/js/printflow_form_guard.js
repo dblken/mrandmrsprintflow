@@ -252,11 +252,26 @@
         root.appendChild(toast);
 
         bindNavModal();
+        syncPortalAriaHidden();
     }
 
     var pendingNavigationUrl = null;
     var navModalOpen = false;
     var savingFromModal = false;
+
+    /** Portal is aria-hidden in markup; when a dialog inside it is focused, ancestors must not stay hidden (a11y + Chrome warning). */
+    function syncPortalAriaHidden() {
+        var p = document.getElementById('pf-fg-portal');
+        if (!p) return;
+        var nav = document.getElementById('pf-fg-nav-modal');
+        var navOpen = nav && nav.classList.contains('pf-fg-nav-modal--open');
+        var ov = document.getElementById('pf-fg-save-overlay');
+        var overlayOn = ov && ov.classList.contains('pf-fg-save-overlay--visible');
+        var t = document.getElementById('pf-fg-toast');
+        var toastOn = t && !t.hidden && t.classList.contains('pf-fg-toast--visible');
+        var any = navOpen || overlayOn || toastOn;
+        p.setAttribute('aria-hidden', any ? 'false' : 'true');
+    }
 
     function openNavModal() {
         ensureShell();
@@ -282,6 +297,7 @@
         modal.classList.add('pf-fg-nav-modal--open');
         modal.setAttribute('aria-hidden', 'false');
         navModalOpen = true;
+        syncPortalAriaHidden();
     }
 
     function closeNavModal() {
@@ -291,6 +307,7 @@
         modal.setAttribute('aria-hidden', 'true');
         navModalOpen = false;
         pendingNavigationUrl = null;
+        syncPortalAriaHidden();
     }
 
     function pickSubmitButton(form) {
@@ -408,6 +425,7 @@
         if (!el) return;
         el.classList.toggle('pf-fg-save-overlay--visible', !!on);
         el.setAttribute('aria-hidden', on ? 'false' : 'true');
+        syncPortalAriaHidden();
     }
 
     function setButtonSaving(btn, saving) {
@@ -448,10 +466,12 @@
         t.textContent = 'Saved successfully';
         t.hidden = false;
         t.classList.add('pf-fg-toast--visible');
+        syncPortalAriaHidden();
         clearTimeout(t._pfTimer);
         t._pfTimer = setTimeout(function () {
             t.classList.remove('pf-fg-toast--visible');
             t.hidden = true;
+            syncPortalAriaHidden();
         }, 2600);
     }
 

@@ -99,7 +99,6 @@ $page_title = 'Notifications - Staff';
     <meta name="turbo-visit-control" content="reload">
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }

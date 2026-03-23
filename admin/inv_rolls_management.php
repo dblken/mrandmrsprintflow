@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
+$current_user = get_logged_in_user();
 $page_title = 'Roll Management - Admin';
 
 // Get items that are roll-tracked
@@ -61,7 +62,7 @@ $rollItems = db_query("SELECT id, name FROM inv_items WHERE track_by_roll = 1 AN
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
     <div class="main-content">
         <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
             <div>
@@ -247,7 +248,17 @@ $rollItems = db_query("SELECT id, name FROM inv_items WHERE track_by_roll = 1 AN
         if((await res.json()).success) loadRolls();
     }
 
-    document.addEventListener('DOMContentLoaded', loadRolls);
+    function printflowInitRollsPage() {
+        if (!document.getElementById('rollGrid')) return;
+        loadRolls();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', printflowInitRollsPage);
+    } else {
+        printflowInitRollsPage();
+    }
+    document.addEventListener('printflow:page-init', printflowInitRollsPage);
 </script>
 </body>
 </html>

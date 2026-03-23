@@ -231,28 +231,28 @@ function toggleSidebar() {
     }
 }
 
-// Restore sidebar state on page load (matches staff)
-document.addEventListener('DOMContentLoaded', function() {
+// Restore sidebar state immediately (re-run on body swap if needed)
+function printflowSyncSidebarState() {
     const sidebar = document.getElementById('adminSidebar');
-    const toggleBtn = document.getElementById('global-sidebar-toggle');
     const toggleIcon = document.getElementById('sidebar-toggle-icon');
+    if (!sidebar) return;
+    
     const collapsed = localStorage.getItem('sidebarCollapsed') === 'true' || localStorage.getItem('sidebarCollapsed') === '1';
     if (collapsed) {
         sidebar.classList.add('collapsed');
         const path = toggleIcon ? (toggleIcon.tagName === 'path' ? toggleIcon : toggleIcon.querySelector('path')) : null;
         if (path) path.setAttribute('d', 'M9 5l7 7-7 7');
-        if (toggleBtn) toggleBtn.title = 'Expand sidebar';
     } else {
         sidebar.classList.remove('collapsed');
+        const path = toggleIcon ? (toggleIcon.tagName === 'path' ? toggleIcon : toggleIcon.querySelector('path')) : null;
+        if (path) path.setAttribute('d', 'M15 19l-7-7 7-7');
     }
     document.body.classList.remove('sidebar-collapsed');
     document.documentElement.classList.remove('sidebar-preload-collapsed');
-    requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-            document.documentElement.classList.add('sidebar-transitions-enabled');
-        });
-    });
-});
+}
+
+document.addEventListener('DOMContentLoaded', printflowSyncSidebarState);
+document.addEventListener('printflow:page-init', printflowSyncSidebarState);
 
 // Mobile burger menu toggle
 function toggleMobileSidebar() {

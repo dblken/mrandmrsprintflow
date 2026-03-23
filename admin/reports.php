@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/branch_ui.php';
 require_once __DIR__ . '/../includes/reports_dashboard_queries.php';
 
 require_role(['Admin', 'Manager']);
+$current_user = get_logged_in_user();
 
 $reports_href_base = rtrim(AUTH_REDIRECT_BASE, '/') . '/admin/reports.php';
 
@@ -537,7 +538,6 @@ if (!$branch_empty && !empty($top_products)) {
 <title><?php echo $page_title; ?></title>
 <?php require_once __DIR__ . '/../includes/favicon_links.php'; ?>
 <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-<script src="/printflow/public/assets/js/alpine.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
 <script>
 function reportsPrintInPlace(url) {
@@ -983,7 +983,7 @@ function reportsPrintInPlace(url) {
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
     <div class="main-content">
         <header>
             <h1 class="page-title">Reports & Analytics</h1>
@@ -1765,54 +1765,61 @@ function reportsPrintInPlace(url) {
     </div>
 </div>
 
-<script>
-    // ══ BRANCH PERFORMANCE LEGEND TOGGLE ═════════════════════════════════
-    document.addEventListener('DOMContentLoaded', () => {
-        const brcLegs = document.querySelectorAll('.pf-brc-leg');
-        brcLegs.forEach(leg => {
-            leg.addEventListener('click', () => {
-                const metric = leg.getAttribute('data-metric');
-                const isHidden = leg.classList.toggle('is-hidden');
-                const bars = document.querySelectorAll(`.pf-brc-bar--${metric}`);
-                
-                bars.forEach(bar => {
-                    if (isHidden) {
-                        bar.classList.add('is-hidden');
-                    } else {
-                        bar.classList.remove('is-hidden');
-                    }
-                });
-            });
-        });
-    // ── CUSTOMER LOCATIONS TOOLTIP ──
-    document.addEventListener('DOMContentLoaded', () => {
-        let tt = document.getElementById('pf-cloc-tt');
-        if (!tt) {
-            tt = document.createElement('div');
-            tt.id = 'pf-cloc-tt';
-            document.body.appendChild(tt);
-        }
-
-        const bars = document.querySelectorAll('.pf-cloc-bar');
-        bars.forEach(bar => {
-            const item = bar.closest('.pf-cloc-item');
-            const titleStr = item ? item.getAttribute('title') : '';
-            
-            bar.addEventListener('mouseenter', () => {
-                tt.innerText = titleStr;
-                tt.style.visibility = 'visible';
-                tt.style.opacity = '1';
-            });
-            bar.addEventListener('mousemove', (e) => {
-                tt.style.left = e.clientX + 'px';
-                tt.style.top = e.clientY + 'px';
-            });
-            bar.addEventListener('mouseleave', () => {
-                tt.style.visibility = 'hidden';
-                tt.style.opacity = '0';
+function printflowInitReportsPage() {
+    // ── BRANCH PERFORMANCE LEGEND TOGGLE ──
+    const brcLegs = document.querySelectorAll('.pf-brc-leg');
+    brcLegs.forEach(leg => {
+        // Use a flag to avoid multiple listeners
+        if (leg.dataset.pfBound === '1') return;
+        leg.dataset.pfBound = '1';
+        leg.addEventListener('click', () => {
+            const metric = leg.getAttribute('data-metric');
+            const isHidden = leg.classList.toggle('is-hidden');
+            const bars = document.querySelectorAll(`.pf-brc-bar--${metric}`);
+            bars.forEach(bar => {
+                if (isHidden) bar.classList.add('is-hidden');
+                else bar.classList.remove('is-hidden');
             });
         });
     });
+
+    // ── CUSTOMER LOCATIONS TOOLTIP ──
+    let tt = document.getElementById('pf-cloc-tt');
+    if (!tt) {
+        tt = document.createElement('div');
+        tt.id = 'pf-cloc-tt';
+        document.body.appendChild(tt);
+    }
+
+    const bars = document.querySelectorAll('.pf-cloc-bar');
+    bars.forEach(bar => {
+        if (bar.dataset.pfBound === '1') return;
+        bar.dataset.pfBound = '1';
+        const item = bar.closest('.pf-cloc-item');
+        const titleStr = item ? item.getAttribute('title') : '';
+        
+        bar.addEventListener('mouseenter', () => {
+            tt.innerText = titleStr;
+            tt.style.visibility = 'visible';
+            tt.style.opacity = '1';
+        });
+        bar.addEventListener('mousemove', (e) => {
+            tt.style.left = e.clientX + 'px';
+            tt.style.top = e.clientY + 'px';
+        });
+        bar.addEventListener('mouseleave', () => {
+            tt.style.visibility = 'hidden';
+            tt.style.opacity = '0';
+        });
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', printflowInitReportsPage);
+} else {
+    printflowInitReportsPage();
+}
+document.addEventListener('printflow:page-init', printflowInitReportsPage);
 </script>
 
 <?php include __DIR__ . '/../includes/reports_analytics_scripts.php'; ?>

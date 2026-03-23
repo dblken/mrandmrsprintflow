@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
 
+$current_user = get_logged_in_user();
+
 // Ensure profile columns exist (safe migration)
 try {
     db_execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100) NULL AFTER first_name");
@@ -112,6 +114,14 @@ if (isset($_GET['address_action'])) {
 $admin_id = get_user_id();
 $error = '';
 $success = '';
+if (!empty($_SESSION['admin_profile_success'])) {
+    $success = (string)$_SESSION['admin_profile_success'];
+    unset($_SESSION['admin_profile_success']);
+}
+if (!empty($_SESSION['admin_profile_error'])) {
+    $error = (string)$_SESSION['admin_profile_error'];
+    unset($_SESSION['admin_profile_error']);
+}
 
 // Get admin data
 $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
@@ -146,9 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture']) && 
         $file = $_FILES['profile_picture'];
         
         if (!in_array($file['type'], $allowed_types)) {
-            $error = 'Invalid file type. Please upload JPG, PNG, GIF, or WEBP.';
+            $_SESSION['admin_profile_error'] = 'Invalid file type. Please upload JPG, PNG, GIF, or WEBP.';
         } elseif ($file['size'] > $max_size) {
-            $error = 'File too large. Maximum size is 5MB.';
+            $_SESSION['admin_profile_error'] = 'File too large. Maximum size is 5MB.';
         } else {
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
             $filename = 'admin_' . $admin_id . '_' . time() . '.' . $ext;
@@ -165,15 +175,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture']) && 
             
             if (move_uploaded_file($file['tmp_name'], $filepath)) {
                 db_execute("UPDATE users SET profile_picture = ?, updated_at = NOW() WHERE user_id = ?", 'si', [$filename, $admin_id]);
-                $success = 'Profile picture updated successfully!';
-                $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
+                $_SESSION['admin_profile_success'] = 'Profile picture updated successfully!';
             } else {
-                $error = 'Failed to upload file. Please try again.';
+                $_SESSION['admin_profile_error'] = 'Failed to upload file. Please try again.';
             }
         }
     } else {
-        $error = 'Please select a file to upload.';
+        $_SESSION['admin_profile_error'] = 'Please select a file to upload.';
     }
+    header('Location: profile.php', true, 303);
+    exit;
 }
 
 // Handle remove picture
@@ -185,13 +196,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_picture']) && 
             unlink($old_file);
         }
         db_execute("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE user_id = ?", 'i', [$admin_id]);
-        $success = 'Profile picture removed.';
-        $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
+        $_SESSION['admin_profile_success'] = 'Profile picture removed.';
     }
+    header('Location: profile.php', true, 303);
+    exit;
 }
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
+    $error = '';
     $first_name = trim($_POST['first_name'] ?? '');
     $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
@@ -262,14 +275,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
         $first_name = ucfirst($first_name);
         $middle_name = $middle_name !== '' ? ucfirst($middle_name) : '';
         $last_name = ucfirst($last_name);
-        
+
         db_execute("UPDATE users SET first_name = ?, middle_name = ?, last_name = ?, birthday = ?, contact_number = ?, address = ?, updated_at = NOW() WHERE user_id = ?",
             'ssssssi', [$first_name, $middle_name, $last_name, $birthday, $contact_number, $address, $admin_id]);
-        
-        $success = 'Personal information updated successfully!';
+
         $_SESSION['user_name'] = trim($first_name . ' ' . $last_name);
-        $admin = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$admin_id])[0];
+        $_SESSION['admin_profile_success'] = 'Personal information updated successfully!';
+    } else {
+        $_SESSION['admin_profile_error'] = $error;
     }
+    header('Location: profile.php', true, 303);
+    exit;
 }
 
 // Handle password change
@@ -277,20 +293,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password']) &&
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
-    
+
+    $pw_error = '';
     if (empty($current_password) || empty($new_password)) {
-        $error = 'All password fields are required.';
+        $pw_error = 'All password fields are required.';
     } elseif (!password_verify($current_password, $admin['password_hash'])) {
-        $error = 'Current password is incorrect.';
+        $pw_error = 'Current password is incorrect.';
     } elseif (strlen($new_password) < 8 || strlen($new_password) > 64 || !preg_match('/[A-Z]/', $new_password) || !preg_match('/[a-z]/', $new_password) || !preg_match('/[0-9]/', $new_password) || !preg_match('/[^A-Za-z0-9]/', $new_password) || strpos($new_password, ' ') !== false) {
-        $error = 'Password must contain at least 8 and at most 64 characters, uppercase, lowercase, number, special character, and no spaces.';
+        $pw_error = 'Password must contain at least 8 and at most 64 characters, uppercase, lowercase, number, special character, and no spaces.';
     } elseif ($new_password !== $confirm_password) {
-        $error = 'New passwords do not match.';
+        $pw_error = 'New passwords do not match.';
     } else {
         $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
         db_execute("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?", 'si', [$password_hash, $admin_id]);
-        $success = 'Password updated successfully!';
+        $_SESSION['admin_profile_success'] = 'Password updated successfully!';
     }
+    if ($pw_error !== '') {
+        $_SESSION['admin_profile_error'] = $pw_error;
+    }
+    header('Location: profile.php', true, 303);
+    exit;
 }
 
 $user_initial = strtoupper(substr($admin['first_name'], 0, 1));
@@ -398,6 +420,13 @@ $page_title = 'My Profile - PrintFlow Admin';
             color: white;
             margin-top: 8px;
         }
+        /* Fill row next to fixed sidebar; avoids empty strip on the right (broken <head> markup previously confused layout). */
+        .dashboard-container > .main-content {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: 100%;
+        }
+
         .section-card {
             background: white;
             border: 1px solid #f3f4f6;
@@ -649,20 +678,9 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
     </style>
 </head>
-<body data-pf-skip-global-guard>
+<body>
 
 <div class="dashboard-container">
-    <!-- Mobile Header -->
-    <div class="mobile-header">
-        <div style="display:flex;align-items:center;gap:12px;">
-            <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('active')">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-            <span style="font-weight:600;font-size:18px;">PrintFlow</span>
-        </div>
-    </div>
-
-    <!-- Sidebar -->
     <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <!-- Main Content -->
@@ -759,22 +777,31 @@ $page_title = 'My Profile - PrintFlow Admin';
                             <label>Province *</label>
                             <select id="address_province" name="address_province" required>
                                 <option value="">Select province</option>
+                                <?php if ($addressProvince !== ''): ?>
+                                <option value="<?php echo htmlspecialchars($addressProvince); ?>" selected data-code=""><?php echo htmlspecialchars($addressProvince); ?></option>
+                                <?php endif; ?>
                             </select>
                             <div class="error-message" id="error_address_province">Province is required.</div>
                         </div>
 
                         <div class="form-group" id="group_address_city">
                             <label>City / Municipality *</label>
-                            <select id="address_city" name="address_city" required disabled>
+                            <select id="address_city" name="address_city" required <?php echo $addressProvince === '' ? 'disabled' : ''; ?>>
                                 <option value="">Select city/municipality</option>
+                                <?php if ($addressCity !== ''): ?>
+                                <option value="<?php echo htmlspecialchars($addressCity); ?>" selected data-code=""><?php echo htmlspecialchars($addressCity); ?></option>
+                                <?php endif; ?>
                             </select>
                             <div class="error-message" id="error_address_city">City / Municipality is required.</div>
                         </div>
 
                         <div class="form-group" id="group_address_barangay">
                             <label>Barangay *</label>
-                            <select id="address_barangay" name="address_barangay" required disabled>
+                            <select id="address_barangay" name="address_barangay" required <?php echo $addressCity === '' ? 'disabled' : ''; ?>>
                                 <option value="">Select barangay</option>
+                                <?php if ($addressBarangay !== ''): ?>
+                                <option value="<?php echo htmlspecialchars($addressBarangay); ?>" selected data-code=""><?php echo htmlspecialchars($addressBarangay); ?></option>
+                                <?php endif; ?>
                             </select>
                             <div class="error-message" id="error_address_barangay">Barangay is required.</div>
                         </div>
@@ -904,53 +931,60 @@ $page_title = 'My Profile - PrintFlow Admin';
 </div>
 
 <script>
-    // File input handling
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const previewArea = document.getElementById('previewArea');
-    const previewImg = document.getElementById('previewImg');
-    const fileName = document.getElementById('fileName');
-    
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#53C5E0'; });
-    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#e5e7eb'; });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#e5e7eb';
-        if (e.dataTransfer.files.length) {
-            fileInput.files = e.dataTransfer.files;
-            showPreview(e.dataTransfer.files[0]);
-        }
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) showPreview(e.target.files[0]);
-    });
+    // File input handling (Turbo-safe: var + bind once)
+    var dropZone = document.getElementById('dropZone');
+    var fileInput = document.getElementById('fileInput');
+    var previewArea = document.getElementById('previewArea');
+    var previewImg = document.getElementById('previewImg');
+    var fileName = document.getElementById('fileName');
+    if (dropZone && fileInput && previewArea && previewImg && fileName && !dropZone._pfUploadBound) {
+        dropZone._pfUploadBound = true;
+        dropZone.addEventListener('click', function () { fileInput.click(); });
+        dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.style.borderColor = '#53C5E0'; });
+        dropZone.addEventListener('dragleave', function () { dropZone.style.borderColor = '#e5e7eb'; });
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#e5e7eb';
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                showPreview(e.dataTransfer.files[0]);
+            }
+        });
+        fileInput.addEventListener('change', function (e) {
+            if (e.target.files.length) showPreview(e.target.files[0]);
+        });
+    }
     
     function showPreview(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            previewImg.src = e.target.result;
-            fileName.textContent = file.name;
-            previewArea.style.display = 'block';
+        var pImg = document.getElementById('previewImg');
+        var pArea = document.getElementById('previewArea');
+        var pName = document.getElementById('fileName');
+        if (!pImg || !pArea || !pName) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            pImg.src = e.target.result;
+            pName.textContent = file.name;
+            pArea.style.display = 'block';
         };
         reader.readAsDataURL(file);
     }
 
-    // --- PSGC-based Address Cascading ---
-    const addressInitial = {
+    // --- PSGC-based Address Cascading (DOM refs refreshed in printflowInitProfilePage for Turbo) ---
+    var addressInitial = {
         province: <?php echo json_encode($addressProvince, JSON_UNESCAPED_UNICODE); ?>,
         city: <?php echo json_encode($addressCity, JSON_UNESCAPED_UNICODE); ?>,
         barangay: <?php echo json_encode($addressBarangay, JSON_UNESCAPED_UNICODE); ?>,
     };
 
-    const provinceSelect = document.getElementById('address_province');
-    const citySelect = document.getElementById('address_city');
-    const barangaySelect = document.getElementById('address_barangay');
-    const addressLineInput = document.getElementById('address_line');
-    const addressPreview = document.getElementById('address');
+    var provinceSelect, citySelect, barangaySelect, addressLineInput, addressPreview;
+
+    /** True while JS is filling province/city/barangay from PSGC (avoids change handlers racing loadProvinces). */
+    var _pfProfileCascadeProgrammatic = false;
+    /** Bumped on each loadProvinces start so stale async work does not touch the DOM or clear the flag. */
+    var _pfProfileAddressLoadToken = 0;
 
     function clearOptions(selectEl, placeholder) {
+        if (!selectEl) return;
         selectEl.innerHTML = '';
         const opt = document.createElement('option');
         opt.value = '';
@@ -959,9 +993,10 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     function setSelectOptions(selectEl, rows, placeholder) {
+        if (!selectEl) return;
         clearOptions(selectEl, placeholder);
         rows.forEach((row) => {
-            const opt = document.createElement('option');
+            var opt = document.createElement('option');
             opt.value = row.name;
             opt.textContent = row.name;
             opt.dataset.code = row.code;
@@ -970,6 +1005,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     function setSelectState(selectEl, disabled) {
+        if (!selectEl) return;
         selectEl.disabled = disabled;
     }
 
@@ -982,16 +1018,20 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     function selectedOptionCode(selectEl) {
-        const selected = selectEl.options[selectEl.selectedIndex];
+        if (!selectEl) return '';
+        var selected = selectEl.options[selectEl.selectedIndex];
         return selected?.dataset?.code || '';
     }
 
     function updateAddressPreview() {
-        const parts = [];
-        const line = addressLineInput.value.trim();
-        const barangay = barangaySelect.value.trim();
-        const city = citySelect.value.trim();
-        const province = provinceSelect.value.trim();
+        if (!addressLineInput || !barangaySelect || !citySelect || !provinceSelect || !addressPreview) return;
+        /* Avoid replacing server-rendered textarea with partial text while PSGC lists are still loading. */
+        if (_pfProfileCascadeProgrammatic) return;
+        var parts = [];
+        var line = addressLineInput.value.trim();
+        var barangay = barangaySelect.value.trim();
+        var city = citySelect.value.trim();
+        var province = provinceSelect.value.trim();
 
         if (line) parts.push(line);
         if (barangay) parts.push('Brgy. ' + barangay);
@@ -1003,33 +1043,55 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     async function loadProvinces(initialProvince = '', initialCity = '', initialBarangay = '') {
-        const provinces = await fetchAddressRows('profile.php?address_action=provinces');
-        setSelectOptions(provinceSelect, provinces, 'Select province');
-        setSelectState(provinceSelect, false);
+        if (!provinceSelect || !citySelect || !barangaySelect) return;
+        var myToken = ++_pfProfileAddressLoadToken;
+        _pfProfileCascadeProgrammatic = true;
+        try {
+            var provinces = await fetchAddressRows('profile.php?address_action=provinces');
+            if (myToken !== _pfProfileAddressLoadToken) return;
+            setSelectOptions(provinceSelect, provinces, 'Select province');
+            setSelectState(provinceSelect, false);
 
-        if (initialProvince) {
-            const target = [...provinceSelect.options].find(o => o.value.toLowerCase() === initialProvince.toLowerCase());
-            if (target) {
-                provinceSelect.value = target.value;
-                await loadCities(target.dataset.code || '', initialCity, initialBarangay);
-                return;
+            if (initialProvince) {
+                var target = [...provinceSelect.options].find(o => o.value.toLowerCase() === initialProvince.toLowerCase());
+                if (target) {
+                    provinceSelect.value = target.value;
+                    await loadCities(target.dataset.code || '', initialCity, initialBarangay, myToken);
+                    return;
+                }
+            }
+        } finally {
+            if (myToken === _pfProfileAddressLoadToken) {
+                _pfProfileCascadeProgrammatic = false;
+                updateAddressPreview();
             }
         }
-        updateAddressPreview();
     }
 
-    async function loadCities(provinceCode, initialCity = '', initialBarangay = '') {
-        clearOptions(citySelect, 'Select city/municipality');
-        clearOptions(barangaySelect, 'Select barangay');
-        setSelectState(citySelect, true);
-        setSelectState(barangaySelect, true);
+    async function loadCities(provinceCode, initialCity = '', initialBarangay = '', syncToken) {
+        if (!citySelect || !barangaySelect) return;
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
 
         if (!provinceCode) {
+            clearOptions(citySelect, 'Select city/municipality');
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(citySelect, true);
+            setSelectState(barangaySelect, true);
             updateAddressPreview();
             return;
         }
 
+        /* User changed province: handler already cleared children. Initial page load: keep PHP-prefilled labels until fetch returns. */
+        var userDriven = syncToken === undefined;
+        if (userDriven) {
+            clearOptions(citySelect, 'Select city/municipality');
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(citySelect, true);
+            setSelectState(barangaySelect, true);
+        }
+
         const cities = await fetchAddressRows('profile.php?address_action=cities&province_code=' + encodeURIComponent(provinceCode));
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
         setSelectOptions(citySelect, cities, 'Select city/municipality');
         setSelectState(citySelect, false);
 
@@ -1037,94 +1099,96 @@ $page_title = 'My Profile - PrintFlow Admin';
             const target = [...citySelect.options].find(o => o.value.toLowerCase() === initialCity.toLowerCase());
             if (target) {
                 citySelect.value = target.value;
-                await loadBarangays(target.dataset.code || '', initialBarangay);
+                await loadBarangays(target.dataset.code || '', initialBarangay, syncToken);
                 return;
             }
         }
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
+        clearOptions(barangaySelect, 'Select barangay');
+        setSelectState(barangaySelect, true);
         updateAddressPreview();
     }
 
-    async function loadBarangays(cityCode, initialBarangay = '') {
-        clearOptions(barangaySelect, 'Select barangay');
-        setSelectState(barangaySelect, true);
+    async function loadBarangays(cityCode, initialBarangay = '', syncToken) {
+        if (!barangaySelect) return;
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
+
         if (!cityCode) {
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(barangaySelect, true);
             updateAddressPreview();
             return;
         }
 
+        var userDriven = syncToken === undefined;
+        if (userDriven) {
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(barangaySelect, true);
+        }
+
         const barangays = await fetchAddressRows('profile.php?address_action=barangays&city_code=' + encodeURIComponent(cityCode));
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
         setSelectOptions(barangaySelect, barangays, 'Select barangay');
         setSelectState(barangaySelect, false);
 
         if (initialBarangay) {
-            const target = [...barangaySelect.options].find(o => o.value.toLowerCase() === initialBarangay.toLowerCase());
-            if (target) barangaySelect.value = target.value;
+            var targetB = [...barangaySelect.options].find(o => o.value.toLowerCase() === initialBarangay.toLowerCase());
+            if (targetB) barangaySelect.value = targetB.value;
         }
+        if (syncToken !== undefined && syncToken !== _pfProfileAddressLoadToken) return;
         updateAddressPreview();
     }
 
-    provinceSelect.addEventListener('change', async () => {
-        clearOptions(citySelect, 'Select city/municipality');
-        clearOptions(barangaySelect, 'Select barangay');
-        setSelectState(citySelect, true);
-        setSelectState(barangaySelect, true);
-        updateAddressPreview();
-        const provinceCode = selectedOptionCode(provinceSelect);
-        if (provinceCode) {
-            await loadCities(provinceCode);
-        }
-        checkPersonalInfo();
-    });
-
-    citySelect.addEventListener('change', async () => {
-        clearOptions(barangaySelect, 'Select barangay');
-        setSelectState(barangaySelect, true);
-        updateAddressPreview();
-        const cityCode = selectedOptionCode(citySelect);
-        if (cityCode) {
-            await loadBarangays(cityCode);
-        }
-        checkPersonalInfo();
-    });
-
-    barangaySelect.addEventListener('change', () => {
-        updateAddressPreview();
-        checkPersonalInfo();
-    });
-
-    addressLineInput.addEventListener('input', () => {
-        updateAddressPreview();
-        checkPersonalInfo();
-    });
-
-    loadProvinces(addressInitial.province, addressInitial.city, addressInitial.barangay)
-        .catch(() => {
-            clearOptions(provinceSelect, 'Unable to load provinces');
-            setSelectState(provinceSelect, true);
+    function bindProfileAddressCascadeListeners() {
+        if (!provinceSelect || !citySelect || !barangaySelect || !addressLineInput || !addressPreview) return;
+        if (provinceSelect._pfCascadeBound) return;
+        provinceSelect._pfCascadeBound = true;
+        provinceSelect.addEventListener('change', async function () {
+            if (_pfProfileCascadeProgrammatic) return;
             clearOptions(citySelect, 'Select city/municipality');
             clearOptions(barangaySelect, 'Select barangay');
             setSelectState(citySelect, true);
             setSelectState(barangaySelect, true);
             updateAddressPreview();
+            var provinceCode = selectedOptionCode(provinceSelect);
+            if (provinceCode) {
+                await loadCities(provinceCode);
+            }
             checkPersonalInfo();
-        })
-        .finally(() => {
-            /* Run after PSGC selects are filled so province/city/barangay are not falsely invalid */
-            if (typeof checkPersonalInfo === 'function') checkPersonalInfo();
-            refreshInitialSnapshots();
         });
+        citySelect.addEventListener('change', async function () {
+            if (_pfProfileCascadeProgrammatic) return;
+            clearOptions(barangaySelect, 'Select barangay');
+            setSelectState(barangaySelect, true);
+            updateAddressPreview();
+            var cityCode = selectedOptionCode(citySelect);
+            if (cityCode) {
+                await loadBarangays(cityCode);
+            }
+            checkPersonalInfo();
+        });
+        barangaySelect.addEventListener('change', function () {
+            if (_pfProfileCascadeProgrammatic) return;
+            updateAddressPreview();
+            checkPersonalInfo();
+        });
+        addressLineInput.addEventListener('input', function () {
+            updateAddressPreview();
+            checkPersonalInfo();
+        });
+    }
 
     // --- Validation Logic ---
-    const birthdayMax = <?php echo json_encode($maxBirthday); ?>;
-    const personalForm = document.getElementById('personalInfoForm');
-    const passwordForm = document.getElementById('passwordForm');
-    const passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
-    const passwordTouched = { current_password: false, new_password: false, confirm_password: false };
-    let suppressUnsavedPrompt = false;
-    let pendingNavigateUrl = null;
-    let pendingSaveForm = null;
+    var birthdayMax = <?php echo json_encode($maxBirthday); ?>;
+    var personalForm = document.getElementById('personalInfoForm');
+    var passwordForm = document.getElementById('passwordForm');
+    var passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
+    var passwordTouched = { current_password: false, new_password: false, confirm_password: false };
+    var suppressUnsavedPrompt = false;
+    var pendingNavigateUrl = null;
+    var pendingSaveForm = null;
 
-    const validators = {
+    var validators = {
         first_name: (val) => {
             if (!val) return "First name is required.";
             if (!/^[A-Za-z]+( [A-Za-z]+)*$/.test(val)) return "First name must contain only letters.";
@@ -1231,6 +1295,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     function checkPersonalInfo() {
+        if (_pfProfileCascadeProgrammatic) return;
         const fValid = validateField('first_name', validators.first_name);
         const mValid = validateField('middle_name', validators.middle_name, { skipEmpty: true });
         const lValid = validateField('last_name', validators.last_name);
@@ -1240,19 +1305,22 @@ $page_title = 'My Profile - PrintFlow Admin';
         const ciValid = validateField('address_city', validators.address_city);
         const bValid = validateField('address_barangay', validators.address_barangay);
         const aValid = validateField('address', validators.address);
-        document.getElementById('btn_save_profile').disabled = !(fValid && mValid && lValid && bdayValid && cValid && pValid && ciValid && bValid && aValid);
+        var btnSave = document.getElementById('btn_save_profile');
+        if (btnSave) btnSave.disabled = !(fValid && mValid && lValid && bdayValid && cValid && pValid && ciValid && bValid && aValid);
     }
 
     function checkPassword(force = false) {
         const current = document.getElementById('current_password');
         const newPass = document.getElementById('new_password');
         const confirm = document.getElementById('confirm_password');
+        if (!current || !newPass || !confirm) return;
         const hasAnyInput = (current.value + newPass.value + confirm.value).trim().length > 0;
         const mustValidate = force || hasAnyInput || Object.values(passwordTouched).some(Boolean);
 
         if (!mustValidate) {
             passwordFieldIds.forEach(clearValidationState);
-            document.getElementById('btn_update_password').disabled = true;
+            var btnUp = document.getElementById('btn_update_password');
+            if (btnUp) btnUp.disabled = true;
             return;
         }
 
@@ -1267,6 +1335,7 @@ $page_title = 'My Profile - PrintFlow Admin';
 
         const cGroup = document.getElementById('group_confirm_password');
         const cError = document.getElementById('error_confirm_password');
+        if (!cGroup || !cError) return;
         let confirmValid = false;
         if (!force && !passwordTouched.confirm_password && confirm.value === '') {
             clearValidationState('confirm_password');
@@ -1284,28 +1353,58 @@ $page_title = 'My Profile - PrintFlow Admin';
             confirmValid = true;
         }
 
-        document.getElementById('btn_update_password').disabled = !(currentValid && nValid && confirmValid);
+        var btnUp2 = document.getElementById('btn_update_password');
+        if (btnUp2) btnUp2.disabled = !(currentValid && nValid && confirmValid);
     }
 
+    function validatePersonalInfoForm(event) {
+        checkPersonalInfo();
+        var btn = document.getElementById('btn_save_profile');
+        var ok = !!(btn && !btn.disabled);
+        if (ok) {
+            suppressUnsavedPrompt = true;
+        } else if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
+        return ok;
+    }
+
+    function validatePasswordForm(event) {
+        checkPassword(true);
+        var btn = document.getElementById('btn_update_password');
+        var ok = !!(btn && !btn.disabled);
+        if (ok) {
+            suppressUnsavedPrompt = true;
+        } else if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
+        return ok;
+    }
+
+    window.validatePersonalInfoForm = validatePersonalInfoForm;
+    window.validatePasswordForm = validatePasswordForm;
+
     function formSnapshot(formEl) {
+        if (!formEl) return '';
         return JSON.stringify([...new FormData(formEl).entries()]);
     }
 
-    let initialPersonalSnapshot = '';
-    let initialPasswordSnapshot = '';
+    var initialPersonalSnapshot = '';
+    var initialPasswordSnapshot = '';
 
     function refreshInitialSnapshots() {
+        if (!personalForm || !passwordForm) return;
         initialPersonalSnapshot = formSnapshot(personalForm);
         initialPasswordSnapshot = formSnapshot(passwordForm);
     }
 
-    refreshInitialSnapshots();
-
     function personalDirty() {
+        if (!personalForm) return false;
         return formSnapshot(personalForm) !== initialPersonalSnapshot;
     }
 
     function passwordDirty() {
+        if (!passwordForm) return false;
         return formSnapshot(passwordForm) !== initialPasswordSnapshot;
     }
 
@@ -1325,116 +1424,105 @@ $page_title = 'My Profile - PrintFlow Admin';
         document.getElementById('unsavedChangesModal').style.display = 'none';
     }
 
-    // Listeners
-    ['first_name', 'middle_name', 'last_name', 'birthday', 'contact_number', 'address', 'address_line'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('input', checkPersonalInfo);
-        el.addEventListener('blur', checkPersonalInfo);
-    });
+    function printflowInitProfilePage() {
+        if (!document.getElementById('personalInfoForm')) return;
 
-    ['address_province', 'address_city', 'address_barangay'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('change', checkPersonalInfo);
-        el.addEventListener('blur', checkPersonalInfo);
-    });
+        personalForm = document.getElementById('personalInfoForm');
+        passwordForm = document.getElementById('passwordForm');
+        provinceSelect = document.getElementById('address_province');
+        citySelect = document.getElementById('address_city');
+        barangaySelect = document.getElementById('address_barangay');
+        addressLineInput = document.getElementById('address_line');
+        addressPreview = document.getElementById('address');
+        bindProfileAddressCascadeListeners();
 
-    passwordFieldIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('input', () => {
-            passwordTouched[id] = true;
-            checkPassword();
+        // Reset touched states
+        Object.keys(passwordTouched).forEach(k => passwordTouched[k] = false);
+        suppressUnsavedPrompt = false;
+
+        loadProvinces(addressInitial.province, addressInitial.city, addressInitial.barangay)
+            .catch(() => {
+                clearOptions(provinceSelect, 'Unable to load provinces');
+                setSelectState(provinceSelect, true);
+                clearOptions(citySelect, 'Select city/municipality');
+                clearOptions(barangaySelect, 'Select barangay');
+                setSelectState(citySelect, true);
+                setSelectState(barangaySelect, true);
+                updateAddressPreview();
+                checkPersonalInfo();
+            })
+            .finally(() => {
+                if (typeof checkPersonalInfo === 'function') checkPersonalInfo();
+                refreshInitialSnapshots();
+            });
+
+        // Re-attach listeners
+        ['first_name', 'middle_name', 'last_name', 'birthday', 'contact_number', 'address', 'address_line'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.removeEventListener('input', checkPersonalInfo);
+            el.addEventListener('input', checkPersonalInfo);
+            el.removeEventListener('blur', checkPersonalInfo);
+            el.addEventListener('blur', checkPersonalInfo);
         });
-        el.addEventListener('blur', () => {
-            passwordTouched[id] = true;
-            checkPassword();
+
+        ['address_province', 'address_city', 'address_barangay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.removeEventListener('change', checkPersonalInfo);
+            el.addEventListener('change', checkPersonalInfo);
+            el.removeEventListener('blur', checkPersonalInfo);
+            el.addEventListener('blur', checkPersonalInfo);
         });
-    });
 
-    /* Personal form: checkPersonalInfo runs in loadProvinces().finally after address cascade */
-    checkPassword(false);
+        passwordFieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.removeEventListener('input', checkPassword);
+            el.addEventListener('input', () => { passwordTouched[id] = true; checkPassword(); });
+            el.removeEventListener('blur', checkPassword);
+            el.addEventListener('blur', () => { passwordTouched[id] = true; checkPassword(); });
+        });
 
-    function validatePersonalInfoForm(e) {
-        checkPersonalInfo();
-        if (document.getElementById('btn_save_profile').disabled) {
-            e.preventDefault();
-            return false;
-        }
-        suppressUnsavedPrompt = true;
-        return true;
+        checkPassword(false);
     }
 
-    function validatePasswordForm(e) {
-        checkPassword(true);
-        if (document.getElementById('btn_update_password').disabled) {
-            e.preventDefault();
-            return false;
-        }
-        suppressUnsavedPrompt = true;
-        return true;
-    }
-
-    function togglePassword(inputId, btn) {
-        const input = document.getElementById(inputId);
-        const icon = btn.querySelector('svg');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>';
+    /* Turbo: turbo-init dispatches once per navigation (no duplicate DOMContentLoaded + page-init). */
+    document.addEventListener('printflow:page-init', printflowInitProfilePage);
+    if (typeof window.Turbo === 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', printflowInitProfilePage, { once: true });
         } else {
-            input.type = 'password';
-            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+            printflowInitProfilePage();
         }
     }
 
-    document.getElementById('btnStayOnPage').addEventListener('click', () => {
-        closeUnsavedModal();
-    });
+    if (!document.documentElement.dataset.pfAdminProfileNavGuard) {
+        document.documentElement.dataset.pfAdminProfileNavGuard = '1';
+        document.addEventListener('click', function (event) {
+            var link = event.target.closest('a[href]');
+            if (!link) return;
+            var href = link.getAttribute('href') || '';
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+            if (link.target && link.target !== '_self') return;
+            if (link.hasAttribute('download')) return;
 
-    document.getElementById('btnDiscardAndLeave').addEventListener('click', () => {
-        const target = pendingNavigateUrl;
-        suppressUnsavedPrompt = true;
-        closeUnsavedModal();
-        if (target) window.location.href = target;
-    });
+            var targetUrl = new URL(link.href, window.location.href);
+            if (targetUrl.origin !== window.location.origin) return;
+            if (targetUrl.href === window.location.href) return;
+            if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
 
-    document.getElementById('btnSaveAndLeave').addEventListener('click', () => {
-        const formId = pendingSaveForm || (personalDirty() ? 'personalInfoForm' : 'passwordForm');
-        if (formId === 'passwordForm') {
-            checkPassword(true);
-            if (document.getElementById('btn_update_password').disabled) return;
-        } else {
-            checkPersonalInfo();
-            if (document.getElementById('btn_save_profile').disabled) return;
-        }
-        suppressUnsavedPrompt = true;
-        document.getElementById(formId).submit();
-    });
+            event.preventDefault();
+            var preferredForm = passwordDirty() ? 'passwordForm' : 'personalInfoForm';
+            openUnsavedModal(preferredForm, targetUrl.href);
+        });
 
-    document.addEventListener('click', (event) => {
-        const link = event.target.closest('a[href]');
-        if (!link) return;
-        const href = link.getAttribute('href') || '';
-        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-        if (link.target && link.target !== '_self') return;
-        if (link.hasAttribute('download')) return;
-
-        const targetUrl = new URL(link.href, window.location.href);
-        if (targetUrl.origin !== window.location.origin) return;
-        if (targetUrl.href === window.location.href) return;
-        if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
-
-        event.preventDefault();
-        const preferredForm = passwordDirty() ? 'passwordForm' : 'personalInfoForm';
-        openUnsavedModal(preferredForm, targetUrl.href);
-    });
-
-    window.addEventListener('beforeunload', (event) => {
-        if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
-        event.preventDefault();
-        event.returnValue = '';
-    });
+        window.addEventListener('beforeunload', function (event) {
+            if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
+            event.preventDefault();
+            event.returnValue = '';
+        });
+    }
 </script>
 
 </body>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Admin', 'Manager']);
+$current_user = get_logged_in_user();
 $page_title = 'Inventory Items - Admin';
 
 // Get parameters
@@ -65,7 +66,7 @@ unset($item);
 // Get categories for filters
 $categories = db_query("SELECT * FROM inv_categories ORDER BY sort_order ASC, name ASC") ?: [];
 
-// Safe JSON for inline <script> (invalid UTF-8 or encode failure must not emit empty → JS syntax error)
+// Safe JSON for inline <script> (invalid UTF-8 or encode failure must not emit empty â†’ JS syntax error)
 $items_js_flags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP;
 if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
     $items_js_flags |= JSON_INVALID_UTF8_SUBSTITUTE;
@@ -102,7 +103,7 @@ if (isset($_GET['ajax'])) {
                 <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
                 <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
                 <td><?php echo $trackBadge; ?></td>
-                <td><span class="font-semibold" style="white-space:nowrap;">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                <td><span class="font-semibold" style="white-space:nowrap;">â‚±<?php echo number_format($item['unit_cost'], 2); ?></span></td>
                 <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                 <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
                 <td class="no-truncate" style="text-align:right;">
@@ -145,7 +146,6 @@ if (isset($_GET['ajax'])) {
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <script src="/printflow/public/assets/js/alpine.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
         :root {
@@ -286,7 +286,7 @@ if (isset($_GET['ajax'])) {
         .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
         .toolbar-btn svg { flex-shrink: 0; }
 
-        /* ── Filter Panel ─── */
+        /* â”€â”€ Filter Panel â”€â”€â”€ */
         .filter-panel {
             position: absolute;
             top: calc(100% + 6px);
@@ -388,7 +388,7 @@ if (isset($_GET['ajax'])) {
         }
         .filter-btn-reset:hover { background: #f9fafb; }
 
-        /* ── Sort Dropdown ─── */
+        /* â”€â”€ Sort Dropdown â”€â”€â”€ */
         .sort-dropdown {
             position: absolute;
             top: calc(100% + 6px);
@@ -435,9 +435,8 @@ if (isset($_GET['ajax'])) {
     </style>
 </head>
 <body>
-
 <div class="dashboard-container">
-    <?php include defined('MANAGER_PANEL') ? __DIR__ . '/../includes/manager_sidebar.php' : __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
 
     <div class="main-content">
         <header>
@@ -457,7 +456,7 @@ if (isset($_GET['ajax'])) {
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Inventory Items List
                         <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
-                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong><span id="invShowingMeta"> of <?php echo number_format($total_rows); ?> items)</span>
+                            (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . 'â€“' . min($offset + $per_page, $total_rows) : '0'; ?></strong><span id="invShowingMeta"> of <?php echo number_format($total_rows); ?> items)</span>
                         </span>
                     </h3>
                     
@@ -480,11 +479,11 @@ if (isset($_GET['ajax'])) {
                                     <svg x-show="activeSort === 'oldest'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <div class="sort-option" :class="{'selected': activeSort === 'az'}" @click="applySortFilter('az')">
-                                    A → Z
+                                    A â†’ Z
                                     <svg x-show="activeSort === 'az'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <div class="sort-option" :class="{'selected': activeSort === 'za'}" @click="applySortFilter('za')">
-                                    Z → A
+                                    Z â†’ A
                                     <svg x-show="activeSort === 'za'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                             </div>
@@ -590,7 +589,7 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td class="truncate" title="<?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?>"><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
                                         <td><?php echo $trackBadge; ?></td>
-                                        <td style="white-space:nowrap;"><span class="font-semibold">₱<?php echo number_format($item['unit_cost'], 2); ?></span></td>
+                                        <td style="white-space:nowrap;"><span class="font-semibold">â‚±<?php echo number_format($item['unit_cost'], 2); ?></span></td>
                                         <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                                         <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
@@ -632,11 +631,11 @@ if (isset($_GET['ajax'])) {
             <div class="form-grid" style="grid-template-columns:1fr;">
                 <div class="filter-group">
                     <label for="addStockQty">Quantity to Add *</label>
-                    <input type="number" step="any" min="0" max="100000" id="addStockQty" placeholder="e.g. 50" autofocus inputmode="decimal">
+                    <input type="number" step="any" min="0" max="100000" id="addStockQty" placeholder="e.g. 50" inputmode="decimal">
                     <div id="addStockQtyError" style="display:none; font-size:12px; color:#dc2626; margin-top:4px;">Please enter a valid quantity</div>
-                    <div id="addStockPreview" style="font-size:13px; font-weight:600; color:#059669; margin-top:6px;">New Stock After Adding: —</div>
+                    <div id="addStockPreview" style="font-size:13px; font-weight:600; color:#059669; margin-top:6px;">New Stock After Adding: â€”</div>
                     <div id="addStockLargeWarning" style="display:none; font-size:13px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; margin-top:8px; border:1px solid #fde68a;">
-                        ⚠️ You are adding a large quantity. Please double check.
+                        âš ï¸ You are adding a large quantity. Please double check.
                     </div>
                 </div>
                 <div class="filter-group" id="addStockRollGroup" style="display:none; background:#f0f7ff; padding:12px; border-radius:10px; border:1px solid #dbeafe;">
@@ -686,7 +685,7 @@ if (isset($_GET['ajax'])) {
     <div class="modal-content" style="max-width: 680px;">
         <div class="modal-header">
             <h3 class="modal-title" id="scName" style="padding-right:30px; word-break:break-all; overflow-wrap:anywhere;">Item Name</h3>
-            <button class="close-btn" onclick="closeStockCard()">×</button>
+            <button class="close-btn" onclick="closeStockCard()">Ã—</button>
         </div>
 
         <!-- Summary Cards -->
@@ -704,7 +703,7 @@ if (isset($_GET['ajax'])) {
             </div>
             <div class="sc-card" id="scStatusCard" style="border:1px solid; display:flex; flex-direction:column; justify-content:center;">
                 <div class="sc-card-label" style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Stock Status</div>
-                <div class="sc-card-value" id="scStatusText" style="font-size:16px; font-weight:700;">—</div>
+                <div class="sc-card-value" id="scStatusText" style="font-size:16px; font-weight:700;">â€”</div>
             </div>
             <div class="sc-card" id="scRollCard" style="background:#fdf2f8; border:1px solid #fbcfe8;">
                 <div class="sc-card-label" style="font-size:11px; font-weight:700; color:#be185d; text-transform:uppercase; letter-spacing:0.05em;">Available Rolls</div>
@@ -733,11 +732,11 @@ if (isset($_GET['ajax'])) {
         <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:20px;">
             <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">Product Details</div>
             <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px 24px; font-size:13px;">
-                <div><span style="color:#6b7280;">Category:</span> <span id="scCategory" style="font-weight:600;">—</span></div>
-                <div><span style="color:#6b7280;">Unit:</span> <span id="scUnitDetail" style="font-weight:600;">—</span></div>
-                <div><span style="color:#6b7280;">Unit Cost:</span> <span id="scUnitCost" style="font-weight:600;">—</span></div>
-                <div><span style="color:#6b7280;">Tracking Type:</span> <span id="scTrackType" style="font-weight:600;">—</span></div>
-                <div style="grid-column:1/-1;"><span style="color:#6b7280;">Last Updated:</span> <span id="scLastUpdated" style="font-weight:600;">—</span></div>
+                <div><span style="color:#6b7280;">Category:</span> <span id="scCategory" style="font-weight:600;">â€”</span></div>
+                <div><span style="color:#6b7280;">Unit:</span> <span id="scUnitDetail" style="font-weight:600;">â€”</span></div>
+                <div><span style="color:#6b7280;">Unit Cost:</span> <span id="scUnitCost" style="font-weight:600;">â€”</span></div>
+                <div><span style="color:#6b7280;">Tracking Type:</span> <span id="scTrackType" style="font-weight:600;">â€”</span></div>
+                <div style="grid-column:1/-1;"><span style="color:#6b7280;">Last Updated:</span> <span id="scLastUpdated" style="font-weight:600;">â€”</span></div>
             </div>
         </div>
 
@@ -745,7 +744,7 @@ if (isset($_GET['ajax'])) {
         <div style="margin-bottom:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <span style="font-size:13px; font-weight:700; color:#374151;">Recent Activity</span>
-                <a id="scSeeAllLedgerLink" href="#" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all →</a>
+                <a id="scSeeAllLedgerLink" href="#" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all â†’</a>
             </div>
             <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
                 <table style="width:100%; font-size:13px; border-collapse:collapse;">
@@ -767,7 +766,7 @@ if (isset($_GET['ajax'])) {
         <!-- Action Buttons -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
             <button onclick="closeStockCard(); if(selectedItemForStockCard) openAddStockModal(selectedItemForStockCard)" class="btn-action teal" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">+ Add Stock</button>
-            <button onclick="closeStockCard(); if(selectedItemForStockCard) openDeductStockModal(selectedItemForStockCard)" class="btn-action red" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">− Deduct Stock</button>
+            <button onclick="closeStockCard(); if(selectedItemForStockCard) openDeductStockModal(selectedItemForStockCard)" class="btn-action red" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">âˆ’ Deduct Stock</button>
             <button onclick="editFromStockCard()" class="btn-action blue" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px;">Edit Settings</button>
             <a id="scLedgerLink" href="inv_transactions_ledger.php" class="btn-action" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px; border:1px solid #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center; text-decoration:none;">View Full Ledger</a>
         </div>
@@ -790,7 +789,7 @@ if (isset($_GET['ajax'])) {
             <div class="form-row-grid">
                 <div>
                     <label for="deductStockQty">Quantity to Deduct *</label>
-                    <input type="number" step="0.01" min="0.01" id="deductStockQty" required placeholder="e.g. 10" autofocus class="w-100">
+                    <input type="number" step="0.01" min="0.01" id="deductStockQty" required placeholder="e.g. 10" class="w-100">
                     <span id="err-deductStockQty" class="field-error"></span>
                 </div>
                 <div>
@@ -811,7 +810,7 @@ if (isset($_GET['ajax'])) {
     <div class="modal-content">
         <div class="modal-header">
             <h3 class="modal-title" id="modalTitle" style="padding-right:30px;">Material Settings</h3>
-            <button class="close-btn" onclick="closeModal()">×</button>
+            <button class="close-btn" onclick="closeModal()">Ã—</button>
         </div>
         <!-- Top Info (Edit mode only) -->
         <!-- Top Info Removed -->
@@ -855,7 +854,7 @@ if (isset($_GET['ajax'])) {
                         <span id="err-itemUnit" class="field-error"></span>
                     </div>
                     <div>
-                        <label for="itemUnitCost">Unit Cost (₱) <span style="color:#ef4444">*</span></label>
+                        <label for="itemUnitCost">Unit Cost (â‚±) <span style="color:#ef4444">*</span></label>
                         <input type="number" step="0.01" min="0" id="itemUnitCost" name="unit_cost" value="0.00" required class="w-100">
                         <span id="err-itemUnitCost" class="field-error"></span>
                     </div>
@@ -884,8 +883,8 @@ if (isset($_GET['ajax'])) {
             <div id="reorderAlertsGroup" class="modal-section" style="margin-top:-24px; margin-bottom: 16px;">
                 <div class="form-col-full">
                     <p style="font-size:11px; color:#6b7280; margin-bottom:4px;">You will be warned when stock reaches the Reorder Level.</p>
-                    <div id="editModalReorderWarnHigh" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">⚠️ This may mark your stock as low immediately</div>
-                    <div id="editModalReorderWarnLow" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">⚠️ You may run out of stock before being warned</div>
+                    <div id="editModalReorderWarnHigh" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">âš ï¸ This may mark your stock as low immediately</div>
+                    <div id="editModalReorderWarnLow" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">âš ï¸ You may run out of stock before being warned</div>
                     <div id="editModalReorderError" style="display:none; font-size:11px; color:#dc2626; margin-top:2px;">Please enter a value between 0.01 and 10,000</div>
                 </div>
             </div>
@@ -938,17 +937,21 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
+
+
+
   <script>
-    const ADMIN_API_BASE = '/printflow/admin/';
-    let currentItems = <?php echo $items_js; ?>;
-    let usageChart = null;
-    let selectedItemForStockCard = null;
-    let editItemOriginalValues = {};
-    let currentPage = <?php echo $page; ?>;
-    let currentSort = '<?php echo $sort; ?>';
-    let currentDir = '<?php echo $dir; ?>';
-    let searchDebounceTimer = null;
-    let addStockPendingSubmit = false;
+    /* var: Turbo re-executes this block; let/const would throw "already been declared". */
+    var ADMIN_API_BASE = '/printflow/admin/';
+    var currentItems = <?php echo $items_js; ?>;
+    var usageChart = null;
+    var selectedItemForStockCard = null;
+    var editItemOriginalValues = {};
+    var currentPage = <?php echo $page; ?>;
+    var currentSort = '<?php echo $sort; ?>';
+    var currentDir = '<?php echo $dir; ?>';
+    var searchDebounceTimer = null;
+    var addStockPendingSubmit = false;
 
     function filterPanel() {
         return {
@@ -962,48 +965,44 @@ if (isset($_GET['ajax'])) {
             }
         };
     }
+    window.filterPanel = filterPanel;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('fp_search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
+    function printflowInitInvItemsBindings() {
+        if (!document.getElementById('inv-filter-toolbar')) return;
+        var searchInput = document.getElementById('fp_search');
+        if (searchInput && !searchInput._pf_bound) {
+            searchInput._pf_bound = true;
+            searchInput.addEventListener('input', function () {
                 clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(() => { 
-                    fetchUpdatedTable({ page: 1 }); 
-                }, 500); 
+                searchDebounceTimer = setTimeout(function () { fetchUpdatedTable({ page: 1 }); }, 500);
             });
         }
-        
-        const catSelect = document.getElementById('fp_category');
-        if (catSelect) {
-            catSelect.addEventListener('change', () => { 
-                fetchUpdatedTable({ page: 1 }); 
-            });
+        var catSelect = document.getElementById('fp_category');
+        if (catSelect && !catSelect._pf_bound) {
+            catSelect._pf_bound = true;
+            catSelect.addEventListener('change', function () { fetchUpdatedTable({ page: 1 }); });
         }
-
-        const trackBySelect = document.getElementById('fp_track_by_roll');
-        if (trackBySelect) {
-            trackBySelect.addEventListener('change', () => {
-                fetchUpdatedTable({ page: 1 });
-            });
+        var trackBySelect = document.getElementById('fp_track_by_roll');
+        if (trackBySelect && !trackBySelect._pf_bound) {
+            trackBySelect._pf_bound = true;
+            trackBySelect.addEventListener('change', function () { fetchUpdatedTable({ page: 1 }); });
         }
-
-        const addStockQty = document.getElementById('addStockQty');
-        if (addStockQty) {
+        var addStockQty = document.getElementById('addStockQty');
+        if (addStockQty && !addStockQty._pf_bound) {
+            addStockQty._pf_bound = true;
             addStockQty.addEventListener('input', updateAddStockUI);
             addStockQty.addEventListener('change', updateAddStockUI);
         }
-        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                const eventType = (el.tagName === 'SELECT') ? 'change' : 'input';
-                el.addEventListener(eventType, () => validateField(id));
-                if (id === 'itemName') {
-                    el.addEventListener('input', handleItemNameInput);
-                }
+        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && !el._pf_bound) {
+                el._pf_bound = true;
+                var eventType = (el.tagName === 'SELECT') ? 'change' : 'input';
+                el.addEventListener(eventType, function () { validateField(id); });
+                if (id === 'itemName') el.addEventListener('input', handleItemNameInput);
             }
         });
-    });
+    }
 
     function handleItemNameInput(e) {
         let val = e.target.value;
@@ -1157,7 +1156,7 @@ if (isset($_GET['ajax'])) {
                 if (pagination) pagination.innerHTML = data.pagination;
                 const showingMeta = document.getElementById('invShowingMeta');
                 if (showingText && showingMeta) {
-                    showingText.textContent = data.startIdx + '–' + data.endIdx;
+                    showingText.textContent = data.startIdx + 'Î“Ã‡Ã´' + data.endIdx;
                     showingMeta.textContent = ' of ' + data.total + ' items)';
                 }
                 
@@ -1221,6 +1220,7 @@ if (isset($_GET['ajax'])) {
     }
 
     async function openStockCard(itemId) {
+        if (!document.getElementById('stockCardModal')) return;
         const item = currentItems.find(i => i.id == itemId);
         if (!item) return;
         selectedItemForStockCard = item;
@@ -1282,9 +1282,9 @@ if (isset($_GET['ajax'])) {
         // Product details
         document.getElementById('scCategory').textContent = item.category_name || 'Uncategorized';
         document.getElementById('scUnitDetail').textContent = uom;
-        document.getElementById('scUnitCost').textContent = '₱' + parseFloat(item.unit_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('scUnitCost').textContent = 'Î“Ã©â–’' + parseFloat(item.unit_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
         document.getElementById('scTrackType').textContent = item.track_by_roll == 1 ? 'Roll-Based' : 'Standard';
-        document.getElementById('scLastUpdated').textContent = item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '—';
+        document.getElementById('scLastUpdated').textContent = item.updated_at ? new Date(item.updated_at).toLocaleDateString() : 'Î“Ã‡Ã¶';
         
         document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?item_id=${item.id}`;
         const ledgerUrl = `inv_transactions_ledger.php?item_id=${item.id}`;
@@ -1481,7 +1481,7 @@ if (isset($_GET['ajax'])) {
             if (reorderWarnLow) reorderWarnLow.style.display = (reorderVal > 0 && reorderVal < 10) ? 'block' : 'none';
         }
         
-        let statusPreview = '—';
+        let statusPreview = 'Î“Ã‡Ã¶';
         let badgeStyle = 'background:#f9fafb; color:#374151;';
         if (reorderVal >= 0) {
             if (isEdit) {
@@ -1528,19 +1528,19 @@ if (isset($_GET['ajax'])) {
             const changes = [];
             const origReorder = parseFloat(editItemOriginalValues.reorder_level || 0);
             if (Math.abs(reorderVal - origReorder) > 0.001) {
-                changes.push('Reorder Level: ' + (origReorder || '0') + ' → ' + (isPcs ? Math.round(reorderVal) : reorderVal.toFixed(2)));
-                if (statusPreview !== '—') changes.push('This will change stock status to ' + statusPreview);
+                changes.push('Reorder Level: ' + (origReorder || '0') + ' Î“Ã¥Ã† ' + (isPcs ? Math.round(reorderVal) : reorderVal.toFixed(2)));
+                if (statusPreview !== 'Î“Ã‡Ã¶') changes.push('This will change stock status to ' + statusPreview);
             }
             const origRoll = parseFloat(editItemOriginalValues.roll_length || 0);
             if (rollSectionVisible && Math.abs(rollVal - origRoll) > 0.001) {
-                changes.push('Standard Roll Length: ' + (editItemOriginalValues.roll_length || '—') + ' → ' + rollVal);
+                changes.push('Standard Roll Length: ' + (editItemOriginalValues.roll_length || 'Î“Ã‡Ã¶') + ' Î“Ã¥Ã† ' + rollVal);
             }
             const sumEl = document.getElementById('editModalChangeSummary');
             const sumContent = document.getElementById('editModalChangeSummaryContent');
             if (sumEl && sumContent) {
                 if (changes.length > 0) {
                     sumEl.style.display = 'block';
-                    sumContent.innerHTML = changes.map(c => '<div style="margin-bottom:4px;">• ' + c + '</div>').join('');
+                    sumContent.innerHTML = changes.map(c => '<div style="margin-bottom:4px;">Î“Ã‡Ã³ ' + c + '</div>').join('');
                 } else {
                     sumEl.style.display = 'none';
                 }
@@ -1605,11 +1605,11 @@ if (isset($_GET['ajax'])) {
         
         if (raw === '') {
             errEl.style.display = 'none';
-            previewEl.textContent = 'New Stock After Adding: —';
+            previewEl.textContent = 'New Stock After Adding: Î“Ã‡Ã¶';
             warnEl.style.display = 'none';
         } else if (isNaN(num) || num <= 0 || num > 100000) {
             errEl.style.display = 'block';
-            previewEl.textContent = 'New Stock After Adding: —';
+            previewEl.textContent = 'New Stock After Adding: Î“Ã‡Ã¶';
             warnEl.style.display = 'none';
         } else {
             valid = true;
@@ -1838,59 +1838,35 @@ if (isset($_GET['ajax'])) {
         return (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    window.addEventListener('click', e => {
-        if (e.target.classList.contains('modal')) e.target.style.display = 'none';
-    });
-
-    window.addEventListener('popstate', (event) => {
-        location.reload(); 
-    });
-
-    /**
-     * First visit: defer Alpine may leave filterPanel() without _x_dataStack briefly.
-     * After AJAX tbody replace: reinject Alpine on new row markup where present.
-     */
-    function ensureInvItemsAlpineBoot() {
-        if (typeof Alpine === 'undefined' || typeof Alpine.initTree !== 'function') return;
-        var fp = document.querySelector('[x-data="filterPanel()"]');
-        if (fp && !fp._x_dataStack) {
-            try {
-                Alpine.initTree(fp);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        var tb = document.getElementById('itemsTableBody');
-        if (tb) {
-            try {
-                Alpine.initTree(tb);
-            } catch (e2) {
-                console.error(e2);
-            }
-        }
+    if (!window._pfInvItemsModalClickBound) {
+        window._pfInvItemsModalClickBound = true;
+        window.addEventListener('click', function (e) {
+            if (e.target.classList.contains('modal')) e.target.style.display = 'none';
+        });
+    }
+    if (!window._pfInvItemsPopstateBound) {
+        window._pfInvItemsPopstateBound = true;
+        window.addEventListener('popstate', function () { location.reload(); });
     }
 
+    /* Toolbar: turbo-init initTree(.main-content). Table rows are plain onclick; fetchUpdatedTable initTree(tbody) after AJAX. */
+    function ensureInvItemsAlpineBoot() {}
     window.printflowInitInvItemsPage = ensureInvItemsAlpineBoot;
 
-    (function scheduleInvItemsAlpineFirstVisit() {
-        function tick() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            printflowInitInvItemsBindings();
             ensureInvItemsAlpineBoot();
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', schedule);
-        } else {
-            schedule();
-        }
-        function schedule() {
-            tick();
-            queueMicrotask(tick);
-            setTimeout(tick, 0);
-            requestAnimationFrame(function () {
-                requestAnimationFrame(tick);
-            });
-            setTimeout(tick, 150);
-        }
-    })();
+        });
+    } else {
+        printflowInitInvItemsBindings();
+        ensureInvItemsAlpineBoot();
+    }
+    document.addEventListener('printflow:page-init', function () {
+        printflowInitInvItemsBindings();
+        ensureInvItemsAlpineBoot();
+    });
 </script>
+
 </body>
 </html>
