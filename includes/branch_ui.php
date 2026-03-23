@@ -37,6 +37,22 @@ function render_branch_css(): void { ?>
 .branch-selector-btn:hover { border-color: #9ca3af; background: #f9fafb; }
 .branch-selector-btn.open { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
 
+.branch-selector-wrap--locked .branch-selector-static {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: default;
+    user-select: none;
+    white-space: nowrap;
+}
+
 .branch-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
@@ -134,6 +150,7 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
     $branches  = $branchCtx['branches_list'];
     $name      = htmlspecialchars($branchCtx['branch_name']);
     $is_admin  = ($allowed === 'all');
+    $single_branch_locked = ($allowed !== 'all' && is_array($allowed) && count($allowed) === 1);
 
     // Build current URL without branch_id param
     if ($base_url === null) {
@@ -147,6 +164,14 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
     // Dot colour
     $dot_color = '#0d9488'; // Fixed teal
     ?>
+    <?php if ($single_branch_locked): ?>
+    <div class="branch-selector-wrap branch-selector-wrap--locked" title="Your assigned branch">
+        <div class="branch-selector-static" aria-readonly="true">
+            <span class="branch-dot"></span>
+            <span><?php echo $name; ?></span>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="branch-selector-wrap" id="branchSelectorWrap">
         <button class="branch-selector-btn"
                 id="branchSelectorBtn"
@@ -218,6 +243,7 @@ function render_branch_selector(array $branchCtx, ?string $base_url = null): voi
         }
     });
     </script>
+    <?php endif; ?>
     <?php
 }
 

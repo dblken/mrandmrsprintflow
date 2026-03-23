@@ -117,9 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     if ($is_pending && $id_filename) {
                         $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
                         $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
-                        $admins = db_query("SELECT user_id FROM users WHERE role = 'Admin' AND status = 'Activated'");
+                        $admins = db_query("SELECT user_id, role FROM users WHERE role = 'Admin' AND status = 'Activated'");
                         foreach ($admins as $a) {
-                            create_notification((int)$a['user_id'], 'User', $msg, 'System', true, false, $user_id);
+                            $recipType = $a['role'] ?? 'Admin';
+                            create_notification((int)$a['user_id'], $recipType, $msg, 'System', true, false, (int)$user_id);
                         }
                     }
                 } else {

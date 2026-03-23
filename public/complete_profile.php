@@ -104,9 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user && verify_csrf_token($_POST['
 
                 $full_name = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
                 $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
-                $admins = db_query("SELECT user_id FROM users WHERE role = 'Admin' AND status = 'Activated'");
+                $admins = db_query("SELECT user_id, role FROM users WHERE role = 'Admin' AND status = 'Activated'");
                 foreach ($admins as $a) {
-                    create_notification((int)$a['user_id'], 'User', $msg, 'System', true, false, $user['user_id']);
+                    $recipType = $a['role'] ?? 'Admin';
+                    create_notification((int)$a['user_id'], $recipType, $msg, 'System', true, false, (int)$user['user_id']);
                 }
 
                 $success = 'Profile submitted successfully! An admin will review your information and activate your account. You will be notified once your account is activated.';

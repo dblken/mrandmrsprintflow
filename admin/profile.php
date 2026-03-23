@@ -627,63 +627,6 @@ $page_title = 'My Profile - PrintFlow Admin';
         .password-toggle:hover {
             color: #53C5E0;
         }
-        .unsaved-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 10050;
-            padding: 16px;
-        }
-        .unsaved-modal {
-            width: 100%;
-            max-width: 460px;
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 20px 48px rgba(0,0,0,0.22);
-            padding: 20px;
-        }
-        .unsaved-title {
-            font-size: 17px;
-            font-weight: 700;
-            color: #111827;
-            margin: 0 0 8px;
-        }
-        .unsaved-desc {
-            font-size: 14px;
-            color: #4b5563;
-            margin: 0 0 18px;
-        }
-        .unsaved-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-        .btn-secondary-flat {
-            height: 38px;
-            border: 1px solid #e5e7eb;
-            background: #fff;
-            color: #374151;
-            border-radius: 8px;
-            padding: 0 14px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .btn-danger-soft {
-            height: 38px;
-            border: 1px solid #ef4444;
-            background: #fff;
-            color: #dc2626;
-            border-radius: 8px;
-            padding: 0 14px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -926,19 +869,6 @@ $page_title = 'My Profile - PrintFlow Admin';
                 <?php endif; ?>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Unsaved Changes Modal -->
-<div id="unsavedChangesModal" class="unsaved-overlay">
-    <div class="unsaved-modal">
-        <h3 class="unsaved-title">You have unsaved changes</h3>
-        <p class="unsaved-desc">Do you want to save your changes before leaving this page?</p>
-        <div class="unsaved-actions">
-            <button type="button" class="btn-secondary-flat" id="btnStayOnPage">Stay</button>
-            <button type="button" class="btn-danger-soft" id="btnDiscardAndLeave">Discard</button>
-            <button type="button" class="btn-save" id="btnSaveAndLeave">Save</button>
-        </div>
     </div>
 </div>
 
@@ -1196,9 +1126,6 @@ $page_title = 'My Profile - PrintFlow Admin';
     var passwordForm = document.getElementById('passwordForm');
     var passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
     var passwordTouched = { current_password: false, new_password: false, confirm_password: false };
-    var suppressUnsavedPrompt = false;
-    var pendingNavigateUrl = null;
-    var pendingSaveForm = null;
 
     var validators = {
         first_name: (val) => {
@@ -1373,9 +1300,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         checkPersonalInfo();
         var btn = document.getElementById('btn_save_profile');
         var ok = !!(btn && !btn.disabled);
-        if (ok) {
-            suppressUnsavedPrompt = true;
-        } else if (event && typeof event.preventDefault === 'function') {
+        if (!ok && event && typeof event.preventDefault === 'function') {
             event.preventDefault();
         }
         return ok;
@@ -1385,9 +1310,7 @@ $page_title = 'My Profile - PrintFlow Admin';
         checkPassword(true);
         var btn = document.getElementById('btn_update_password');
         var ok = !!(btn && !btn.disabled);
-        if (ok) {
-            suppressUnsavedPrompt = true;
-        } else if (event && typeof event.preventDefault === 'function') {
+        if (!ok && event && typeof event.preventDefault === 'function') {
             event.preventDefault();
         }
         return ok;
@@ -1395,46 +1318,6 @@ $page_title = 'My Profile - PrintFlow Admin';
 
     window.validatePersonalInfoForm = validatePersonalInfoForm;
     window.validatePasswordForm = validatePasswordForm;
-
-    function formSnapshot(formEl) {
-        if (!formEl) return '';
-        return JSON.stringify([...new FormData(formEl).entries()]);
-    }
-
-    var initialPersonalSnapshot = '';
-    var initialPasswordSnapshot = '';
-
-    function refreshInitialSnapshots() {
-        if (!personalForm || !passwordForm) return;
-        initialPersonalSnapshot = formSnapshot(personalForm);
-        initialPasswordSnapshot = formSnapshot(passwordForm);
-    }
-
-    function personalDirty() {
-        if (!personalForm) return false;
-        return formSnapshot(personalForm) !== initialPersonalSnapshot;
-    }
-
-    function passwordDirty() {
-        if (!passwordForm) return false;
-        return formSnapshot(passwordForm) !== initialPasswordSnapshot;
-    }
-
-    function hasUnsavedChanges() {
-        return personalDirty() || passwordDirty();
-    }
-
-    function openUnsavedModal(saveFormId, navigateUrl) {
-        pendingSaveForm = saveFormId;
-        pendingNavigateUrl = navigateUrl || null;
-        document.getElementById('unsavedChangesModal').style.display = 'flex';
-    }
-
-    function closeUnsavedModal() {
-        pendingSaveForm = null;
-        pendingNavigateUrl = null;
-        document.getElementById('unsavedChangesModal').style.display = 'none';
-    }
 
     function printflowInitProfilePage() {
         if (!document.getElementById('personalInfoForm')) return;
@@ -1450,7 +1333,6 @@ $page_title = 'My Profile - PrintFlow Admin';
 
         // Reset touched states
         Object.keys(passwordTouched).forEach(k => passwordTouched[k] = false);
-        suppressUnsavedPrompt = false;
 
         loadProvinces(addressInitial.province, addressInitial.city, addressInitial.barangay)
             .catch(() => {
@@ -1465,7 +1347,9 @@ $page_title = 'My Profile - PrintFlow Admin';
             })
             .finally(() => {
                 if (typeof checkPersonalInfo === 'function') checkPersonalInfo();
-                refreshInitialSnapshots();
+                if (window.printflowFormGuard && typeof window.printflowFormGuard.refresh === 'function') {
+                    window.printflowFormGuard.refresh();
+                }
             });
 
         // Re-attach listeners
@@ -1507,27 +1391,6 @@ $page_title = 'My Profile - PrintFlow Admin';
         } else {
             printflowInitProfilePage();
         }
-    }
-
-    if (!document.documentElement.dataset.pfAdminProfileNavGuard) {
-        document.documentElement.dataset.pfAdminProfileNavGuard = '1';
-        document.addEventListener('click', function (event) {
-            var link = event.target.closest('a[href]');
-            if (!link) return;
-            var href = link.getAttribute('href') || '';
-            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-            if (link.target && link.target !== '_self') return;
-            if (link.hasAttribute('download')) return;
-
-            var targetUrl = new URL(link.href, window.location.href);
-            if (targetUrl.origin !== window.location.origin) return;
-            if (targetUrl.href === window.location.href) return;
-            if (suppressUnsavedPrompt || !hasUnsavedChanges()) return;
-
-            event.preventDefault();
-            var preferredForm = passwordDirty() ? 'passwordForm' : 'personalInfoForm';
-            openUnsavedModal(preferredForm, targetUrl.href);
-        });
     }
 </script>
 

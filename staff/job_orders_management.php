@@ -448,7 +448,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                         <div x-show="currentJo.customization && Object.keys(currentJo.customization).length > 0" class="om-card" style="margin-top:20px; border:1px solid #e2e8f0; background:#f8fafc; padding:16px;">
                             <div class="om-card-title" style="font-size:13px; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Customization Details</div>
                             <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px;">
-                                <template x-for="(value, key) in currentJo.customization" :key="key">
+                                <template x-for="(value, key) in (currentJo.customization || {})" :key="key">
                                     <template x-if="!['unit', 'product_type', 'dimensions', 'service_type'].includes(key) && value !== '' && key.toLowerCase() !== 'notes' && !key.toLowerCase().includes('description')">
                                         <div style="padding:6px 0;">
                                             <div style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;" x-text="key.replace(/_/g, ' ')"></div>
@@ -458,7 +458,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                                 </template>
                             </div>
                             <!-- Large Text Blocks for custom descriptions -->
-                            <template x-for="(value, key) in currentJo.customization" :key="key + '_large'">
+                            <template x-for="(value, key) in (currentJo.customization || {})" :key="key + '_large'">
                                 <template x-if="(key.toLowerCase().includes('description') || key.toLowerCase() === 'notes') && value !== '' && value !== currentJo.notes">
                                     <div style="margin-top:8px; padding:12px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px;">
                                         <div style="font-size:12px; font-weight:800; color:#92400e; text-transform:uppercase; margin-bottom:6px;" x-text="'📝 ' + key.replace(/_/g, ' ')"></div>
@@ -593,7 +593,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
 
                             <!-- List assigned materials -->
                             <div style="margin-top:16px;" x-show="currentJo.materials && currentJo.materials.length > 0">
-                                <template x-for="mat in currentJo.materials" :key="mat.id">
+                                <template x-for="mat in (currentJo.materials || [])" :key="mat.id">
                                     <div style="display:flex; justify-content:space-between; align-items:center; border: 1px solid #f1f5f9; padding:10px; border-radius: 8px; margin-bottom:8px; background: #fff;">
                                         <div>
                                             <div style="font-weight:700; font-size:13px;" x-text="mat.item_name"></div>
@@ -646,7 +646,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                         <div class="om-card" x-show="currentJo.files && currentJo.files.length > 0">
                             <div class="om-card-title">Artwork Files</div>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
-                                <template x-for="file in currentJo.files" :key="file.id">
+                                <template x-for="file in (currentJo.files || [])" :key="file.id">
                                     <div style="width:100%; margin-bottom:12px; text-align: center;">
                                         <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                                             <img :src="'/printflow/' + file.file_path.replace(/^\/+/, '')" alt="Design" style="width: 100%; max-height: 250px; object-fit: cover; display: block;">
@@ -778,7 +778,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                     this.selectedInkId = this.currentJo.ink_id || '';
                     this.resetMaterialForm();
                     // Auto-load available rolls for relevant materials
-                    for(const m of this.currentJo.materials) {
+                    for(const m of (this.currentJo.materials || [])) {
                         if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
                     }
                 } else {
@@ -996,7 +996,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                 const res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${this.currentJo.id}`)).json();
                 if(res.success) {
                     this.currentJo = res.data;
-                    for(const m of this.currentJo.materials) {
+                    for(const m of (this.currentJo.materials || [])) {
                         if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
                     }
                 }

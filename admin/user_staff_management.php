@@ -2039,6 +2039,38 @@ document.addEventListener('alpine:init', () => {
     window._viewUser = (id) => { const d = getData(); if (d) d.viewUser(id); };
     window._editUser = (id) => { const d = getData(); if (d) d.editUser(id); };
 });
+
+/** Open user detail modal when arriving from a notification (?open_user=id). */
+function pfConsumeOpenUserFromQuery() {
+    if (!document.querySelector('[x-data="userManagement()"]')) return;
+    var p = new URLSearchParams(window.location.search);
+    var raw = p.get('open_user');
+    if (!raw) return;
+    var uid = parseInt(raw, 10);
+    if (!(uid > 0)) return;
+    var stripParam = function () {
+        p.delete('open_user');
+        var qs = p.toString();
+        window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+    };
+    var attempt = 0;
+    var t = setInterval(function () {
+        attempt++;
+        if (typeof window._viewUser === 'function') {
+            window._viewUser(uid);
+            stripParam();
+            clearInterval(t);
+        } else if (attempt > 50) {
+            clearInterval(t);
+        }
+    }, 50);
+}
+document.addEventListener('printflow:page-init', pfConsumeOpenUserFromQuery);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', pfConsumeOpenUserFromQuery);
+} else {
+    pfConsumeOpenUserFromQuery();
+}
 </script>
 </body>
 </html>

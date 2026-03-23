@@ -203,10 +203,17 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
         if (file_exists($push_helper)) {
             require_once $push_helper;
             if (function_exists('push_notify_user') && function_exists('push_url_for_type')) {
+                $push_url = push_url_for_type($type, $data_id, $user_type);
+                if ($type === 'System' && $data_id !== null && $data_id !== '' && (int)$data_id > 0) {
+                    $ml = strtolower((string)$message);
+                    if (strpos($ml, 'ready for admin review') !== false || strpos($ml, 'completed their profile') !== false) {
+                        $push_url = (defined('BASE_URL') ? BASE_URL : '/printflow') . '/admin/user_staff_management.php?open_user=' . (int)$data_id;
+                    }
+                }
                 push_notify_user((int)$user_id, $user_type, [
                     'body' => $message,
                     'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
-                    'url'  => push_url_for_type($type, $data_id, $user_type),
+                    'url'  => $push_url,
                 ]);
             }
         }
@@ -286,6 +293,14 @@ function admin_notification_target_url(array $n): string {
         strpos($msg, 'support chat') !== false
     )) {
         return $admin . '/faq_chatbot_management.php?tab=inquiries';
+    }
+
+    // Staff submitted profile for activation (data_id = users.user_id)
+    if ($dataId > 0 && $type === 'System' && (
+        strpos($msg, 'ready for admin review') !== false ||
+        strpos($msg, 'completed their profile') !== false
+    )) {
+        return $admin . '/user_staff_management.php?open_user=' . $dataId;
     }
 
     if ($dataId > 0) {

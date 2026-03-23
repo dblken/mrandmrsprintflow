@@ -740,7 +740,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
                             <template x-if="currentJo.materials && currentJo.materials.length > 0">
                                 <div>
-                                    <template x-for="m in currentJo.materials" :key="m.id">
+                                    <template x-for="m in (currentJo.materials || [])" :key="m.id">
                                         <div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
                                             <div>
                                                 <div style="font-size:12px; font-weight:600; color:#1f2937;" x-text="m.item_name"></div>
@@ -781,7 +781,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         <div style="margin-top:16px;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Ink Consumption Recorded</label>
                             <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                                <template x-for="ink in currentJo.ink_usage" :key="ink.id">
+                                <template x-for="ink in (currentJo.ink_usage || [])" :key="ink.id">
                                     <div style="background:#fdf4ff; border:1px solid #fbcfe8; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:600; color:#9d174d;">
                                         <span x-text="ink.item_name + ' → '"></span>
                                         <span x-text="ink.quantity_used + ' bottle'"></span>
@@ -808,7 +808,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     <div x-show="currentJo.files && currentJo.files.length > 0" style="margin-top:16px;">
                         <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Artwork Files</label>
                         <div style="display:flex;flex-direction:column;gap:6px;">
-                            <template x-for="file in currentJo.files" :key="file.id">
+                            <template x-for="file in (currentJo.files || [])" :key="file.id">
                                 <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none;color:#1f2937;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#06A1A1'" onmouseout="this.style.borderColor='#e5e7eb'">
                                     <span style="font-size:12px;font-weight:500;" x-text="file.file_name"></span>
                                     <span style="font-size:11px;color:#06A1A1;font-weight:600;">View ↗</span>
@@ -1402,7 +1402,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 const res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
                 if(res.success) {
                     this.currentJo = { ...res.data, order_type: 'JOB' };
-                    for(const m of this.currentJo.materials) {
+                    for(const m of (this.currentJo.materials || [])) {
                         if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
                     }
                 }

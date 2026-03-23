@@ -13,7 +13,6 @@ $availableServices = ServiceAvailabilityChecker::getAvailableServices();
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php'; 
 ?>
-<script defer src="/printflow/public/assets/js/alpine.min.js"></script>
 
 <div class="py-8" x-data="orderSystem()" x-init="initCustomer()">
     <div class="container mx-auto px-4" style="max-width:1200px;">
@@ -264,7 +263,7 @@ require_once __DIR__ . '/../includes/header.php';
         return {
             customerProfile: null,
             customerSearch: '',
-            availableServices: <?php echo json_encode($availableServices); ?>,
+            availableServices: <?php echo json_encode($availableServices ?? []); ?>,
             dragOver: false,
             artworks: [],
             submitting: false,

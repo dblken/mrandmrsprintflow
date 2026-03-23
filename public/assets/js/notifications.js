@@ -82,10 +82,18 @@
         }
     }
 
-    function getNotifUrl(type, dataId) {
+    function getNotifUrl(type, dataId, message) {
         const base  = '/printflow';
         const t     = (type || '').toLowerCase();
         const isStaff = ['admin', 'staff', 'manager'].includes(USER_TYPE.toLowerCase());
+        const msg = (message || '').toLowerCase();
+        const did = dataId != null && dataId !== '' ? parseInt(dataId, 10) : 0;
+
+        if (isStaff && t === 'system' && did > 0 && (
+            msg.includes('ready for admin review') || msg.includes('completed their profile')
+        )) {
+            return base + '/admin/user_staff_management.php?open_user=' + did;
+        }
 
         if (isStaff) {
             if (t.includes('inventory'))               return base + '/admin/inv_items_management.php';
@@ -213,7 +221,7 @@
                 markSeen(sid);
 
                 // Skip in-tab toast if user is already on the relevant page
-                const targetUrl = getNotifUrl(n.type, n.data_id);
+                const targetUrl = getNotifUrl(n.type, n.data_id, n.message);
                 if (window.location.pathname + window.location.search === targetUrl) return;
 
                 showToast('PrintFlow', n.message, targetUrl);
