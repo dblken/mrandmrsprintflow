@@ -69,6 +69,8 @@ body.lp-page {
 .lp-page #main-header a.nav-link,
 .lp-page #main-header a[href].text-gray-700 {
     color: var(--lp-muted) !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 0.88rem;
 }
 
 .lp-page #main-header a.nav-link:hover,
@@ -363,50 +365,51 @@ body.lp-page {
 
 .lp-section-light {
     padding: 6rem 0;
-    background: #f8fafc;
+    /* softer dark center section (not too black) */
+    background: linear-gradient(180deg, #0f1f29 0%, #132836 100%);
 }
 
 /* Text & component overrides inside light sections */
 .lp-section-light .lp-heading-label {
-    color: var(--lp-accent);
+    color: #7fd3ea;
 }
 .lp-section-light .lp-heading {
-    color: #0f172a;
+    color: #f8fafc;
 }
 .lp-section-light .lp-heading-desc {
-    color: #475569;
+    color: #c7d2e0;
 }
 .lp-section-light .lp-card {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    box-shadow: 0 2px 16px rgba(0,0,0,.06);
+    background: rgba(19, 40, 54, 0.92);
+    border-color: rgba(127, 211, 234, 0.25);
+    box-shadow: 0 6px 20px rgba(0,0,0,.24);
 }
 .lp-section-light .lp-card:hover {
-    box-shadow: 0 10px 32px rgba(0,0,0,.12);
-    border-color: rgba(83,197,224,.4);
+    box-shadow: 0 14px 36px rgba(0,0,0,.35);
+    border-color: rgba(127, 211, 234, .45);
 }
 .lp-section-light .lp-card-icon {
-    background: rgba(83,197,224,.12);
+    background: rgba(127, 211, 234, .18);
 }
 .lp-section-light .lp-card-title {
-    color: #0f172a;
+    color: #f8fafc;
 }
 .lp-section-light .lp-card-text {
-    color: #475569;
+    color: #c7d2e0;
 }
 .lp-section-light .lp-card-link {
-    color: var(--lp-accent);
+    color: #8bdcf0;
 }
 .lp-section-light .lp-feature-box {
-    background: linear-gradient(135deg, rgba(83,197,224,.08), rgba(50,161,196,.04));
-    border-color: rgba(83,197,224,.25);
+    background: linear-gradient(135deg, rgba(127, 211, 234, .14), rgba(60, 120, 145, .12));
+    border-color: rgba(127, 211, 234, .3);
 }
 .lp-section-light .lp-feature-box-title,
 .lp-section-light .lp-list-title {
-    color: #0f172a;
+    color: #f8fafc;
 }
 .lp-section-light .lp-list-desc {
-    color: #475569;
+    color: #c7d2e0;
 }
 
 /* ---------- headings ---------- */

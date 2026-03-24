@@ -145,7 +145,8 @@ body.chat-page #chat-outer { width: 100%; max-width: 960px; margin: 0 auto; min-
 
 <script>
 window.baseUrl = window.baseUrl || '<?php echo BASE_URL; ?>';
-let activeOrderId = <?php echo $order_id ? (int)$order_id : 'null'; ?>;
+var activeOrderId = window.activeOrderId ?? <?php echo $order_id ? (int)$order_id : 'null'; ?>;
+window.activeOrderId = activeOrderId;
 let lastMessageId = 0;
 let pollInterval = null;
 let listPollInterval = null;

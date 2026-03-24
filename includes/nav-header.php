@@ -5,17 +5,205 @@
  */
 $nav_header_class = $nav_header_class ?? 'bg-[#0a2530] backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-white/5';
 require_once __DIR__ . '/shop_config.php';
+$show_header_search = stripos((string)$nav_header_class, 'lp-hero-nav') === false;
+$search_query = trim((string) ($_GET['search'] ?? $_GET['q'] ?? ''));
+$search_action = $url_products;
+$search_placeholder = 'Search products...';
+$search_param = 'search';
+if ($is_logged_in) {
+    if (is_customer()) {
+        $search_action = $base_url . '/customer/products.php';
+        $search_placeholder = 'Search products...';
+    } elseif (is_admin()) {
+        $search_action = $base_url . '/admin/products_management.php';
+        $search_placeholder = 'Search products or SKU...';
+    } elseif (is_staff()) {
+        $search_action = $base_url . '/staff/products.php';
+        $search_placeholder = 'Search products...';
+    } elseif (function_exists('is_manager') && is_manager()) {
+        $search_action = $base_url . '/manager/dashboard.php';
+        $search_placeholder = 'Search...';
+        $search_param = 'q';
+    }
+}
+
+$first = trim((string)($current_user['first_name'] ?? ''));
+$last = trim((string)($current_user['last_name'] ?? ''));
+$initials = '';
+if ($first !== '') {
+    $initials .= mb_strtoupper(mb_substr($first, 0, 1));
+}
+if ($last !== '') {
+    $initials .= mb_strtoupper(mb_substr($last, 0, 1));
+}
+if ($initials === '') {
+    $emailInitial = trim((string)($current_user['email'] ?? 'U'));
+    $initials = mb_strtoupper(mb_substr($emailInitial, 0, 1));
+}
 ?>
 <header class="<?php echo htmlspecialchars($nav_header_class); ?>" id="main-header">
-    <nav class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
+    <style>
+        #main-header .pf-header-shell { display: flex; align-items: center; gap: 1rem; }
+        #main-header .pf-header-left { flex: 0 0 auto; min-width: 0; }
+        #main-header .pf-header-mid { flex: 1 1 auto; min-width: 0; display: none; align-items: center; justify-content: center; gap: 1.25rem; }
+        #main-header .pf-nav-links { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        #main-header .pf-search-wrap { width: min(460px, 100%); }
+        #main-header .pf-search-form { display: flex; align-items: center; gap: .55rem; height: 2.6rem; border-radius: 9999px; border: 1px solid rgba(83,197,224,.28); background: rgba(255,255,255,.06); padding: 0 .9rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); transition: border-color .2s, box-shadow .2s, background .2s; }
+        #main-header .pf-search-form:focus-within { border-color: rgba(83,197,224,.7); box-shadow: 0 0 0 4px rgba(83,197,224,.12); background: rgba(255,255,255,.09); }
+        #main-header .pf-search-icon { width: 1rem; height: 1rem; color: rgba(255,255,255,.72); flex-shrink: 0; }
+        #main-header .pf-search-input { width: 100%; background: transparent; border: none; outline: none; color: #fff; font-size: .88rem; }
+        #main-header .pf-search-input::placeholder { color: rgba(255,255,255,.58); }
+        #main-header .pf-header-right { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: .6rem; }
+        #main-header .pf-icon-btn { position: relative; width: 2.55rem; height: 2.55rem; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,.86); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.11); transition: all .2s ease; }
+        #main-header .pf-icon-btn:hover { color: #53C5E0; border-color: rgba(83,197,224,.5); background: rgba(83,197,224,.12); transform: translateY(-1px); }
+        #main-header .pf-icon-btn svg { width: 1.2rem; height: 1.2rem; stroke-width: 1.9; }
+        #main-header .pf-cart-icon,
+        #main-header .pf-notif-icon { width: 1.2rem; height: 1.2rem; stroke-width: 1.9; }
+        #main-header .pf-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; font-size: .55rem; font-weight: 800; border-radius: 9999px; min-width: 16px; height: 16px; padding: 0 3px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 6px rgba(239,68,68,.55); line-height: 1; }
+        #main-header .pf-avatar { width: 2.55rem; height: 2.55rem; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(83,197,224,.45); background: linear-gradient(135deg, rgba(83,197,224,.24), rgba(50,161,196,.4)); display: inline-flex; align-items: center; justify-content: center; color: #e6f7fc; font-size: .78rem; font-weight: 700; letter-spacing: .02em; }
+        #main-header .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        #main-header .pf-dropdown-menu { display: none; }
+        #main-header .pf-dropdown-menu.open { display: block; }
+        #main-header .pf-dropdown-link,
+        #main-header .pf-dropdown-btn {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+            min-height: 2.2rem;
+            padding: .5rem .85rem;
+            font-size: .88rem;
+            line-height: 1;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: background .15s, color .15s;
+        }
+        #main-header .pf-dropdown-link { color: rgba(255,255,255,.82); }
+        #main-header .pf-dropdown-link:hover { background: rgba(83,197,224,.1); color: #53c5e0; }
+        #main-header .pf-dropdown-btn {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: left;
+            color: rgba(239,68,68,.9);
+            cursor: pointer;
+        }
+        #main-header .pf-dropdown-btn:hover { background: rgba(239,68,68,.1); color: #ef4444; }
+        #main-header .pf-dropdown-icon {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 14px;
+            opacity: .72;
+        }
+        #main-header .pf-burger-btn {
+            width: 2.55rem;
+            height: 2.55rem;
+            border-radius: 9999px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,.13);
+            background: rgba(255,255,255,.06);
+            color: #e5f6fb;
+            cursor: pointer;
+        }
+        #main-header .pf-burger-btn svg { width: 1.25rem; height: 1.25rem; }
+        #main-header .pf-mobile-panel {
+            display: none;
+            border-top: 1px solid rgba(83,197,224,.16);
+            background: rgba(8, 26, 35, .97);
+            backdrop-filter: blur(8px);
+            padding: .75rem 1rem 1rem;
+        }
+        #main-header .pf-mobile-panel.open { display: block; }
+        #main-header .pf-mobile-search {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            height: 2.45rem;
+            border: 1px solid rgba(83,197,224,.28);
+            border-radius: .7rem;
+            background: rgba(255,255,255,.06);
+            padding: 0 .75rem;
+            margin-bottom: .75rem;
+        }
+        #main-header .pf-mobile-search input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: #fff;
+            outline: none;
+            font-size: .88rem;
+        }
+        #main-header .pf-mobile-search input::placeholder { color: rgba(255,255,255,.58); }
+        #main-header .pf-mobile-links {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: .4rem;
+        }
+        #main-header .pf-mobile-link {
+            display: flex;
+            align-items: center;
+            min-height: 2.45rem;
+            border-radius: .65rem;
+            padding: 0 .8rem;
+            color: rgba(255,255,255,.88);
+            text-decoration: none;
+            font-size: .88rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            background: rgba(255,255,255,.04);
+            border: 1px solid rgba(255,255,255,.08);
+        }
+        #main-header .pf-mobile-link:hover { color: #53c5e0; background: rgba(83,197,224,.12); }
+        #main-header .pf-mobile-icon-row { display: contents; }
+        @media (min-width: 1024px) {
+            #main-header .pf-header-mid { display: flex; }
+        }
+        @media (max-width: 1023px) {
+            #main-header .pf-burger-btn { display: inline-flex; }
+            #main-header .pf-header-shell {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                align-items: center;
+                column-gap: .6rem;
+                row-gap: .5rem;
+            }
+            #main-header .pf-header-left { min-width: 0; }
+            #main-header .pf-header-right {
+                display: contents;
+                margin-left: 0;
+            }
+            #main-header .pf-burger-btn {
+                grid-column: 2;
+                grid-row: 1;
+                justify-self: end;
+            }
+            #main-header .pf-mobile-icon-row {
+                grid-column: 1 / -1;
+                grid-row: 2;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: .42rem;
+            }
+            #main-header .pf-header-left .text-xl,
+            #main-header .pf-header-left .text-2xl { font-size: 1.1rem !important; }
+            #main-header .pf-dropdown-menu {
+                right: 0;
+                left: auto;
+            }
+        }
+    </style>
+    <nav class="container mx-auto px-4 py-3">
+        <div class="pf-header-shell">
             <!-- Logo -->
-            <div class="flex items-center space-x-3">
+            <div class="pf-header-left flex items-center space-x-3">
                 <a href="<?php echo $url_index; ?>" class="flex items-center space-x-2 group">
                     <?php if (!empty($shop_logo_url)): ?>
                         <img src="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>"
                              alt="<?php echo $shop_name; ?>"
-                             style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;transition:transform 0.3s;flex-shrink:0;"
+                             style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;transition:transform 0.3s;flex-shrink:0;"
                              class="group-hover:scale-105">
                         <span class="text-xl font-bold bg-gradient-to-r from-primary-600 to-accent-purple bg-clip-text text-transparent"><?php echo $shop_name; ?></span>
                     <?php else: ?>
@@ -29,16 +217,13 @@ require_once __DIR__ . '/shop_config.php';
                 </a>
             </div>
 
-            <!-- Desktop Navigation -->
-            <div class="hidden md:flex items-center space-x-8">
+            <!-- Center: Desktop Navigation + Search -->
+            <div class="pf-header-mid">
+                <div class="pf-nav-links">
                 <?php if ($is_logged_in): ?>
                     <?php if (is_admin()): ?>
                         <a href="<?php echo $base_url; ?>/admin/dashboard.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
                             Dashboard
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
-                        <a href="<?php echo $base_url; ?>/admin/orders_management.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
-                            Orders
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                         <a href="<?php echo $base_url; ?>/admin/products_management.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
@@ -54,16 +239,8 @@ require_once __DIR__ . '/shop_config.php';
                             Dashboard
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
-                        <a href="<?php echo $base_url; ?>/staff/orders.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
-                            Orders
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
                         <a href="<?php echo $base_url; ?>/staff/products.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
                             Products
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
-                        <a href="<?php echo $base_url; ?>/staff/chats.php" class="nav-link text-white/80 hover:text-white font-medium transition-colors duration-200 relative group">
-                            Chats
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php elseif (is_customer()): ?>
@@ -73,14 +250,6 @@ require_once __DIR__ . '/shop_config.php';
                         </a>
                         <a href="<?php echo $base_url; ?>/customer/products.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
                             Products
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
-                        <a href="<?php echo $base_url; ?>/customer/orders.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            My Orders
-                            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
-                        </a>
-                        <a href="<?php echo $base_url; ?>/customer/chat.php" class="nav-link font-medium transition-colors duration-200 relative group" style="color:inherit;">
-                            Messages
                             <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-accent-purple group-hover:w-full transition-all duration-300"></span>
                         </a>
                     <?php endif; ?>
@@ -103,104 +272,146 @@ require_once __DIR__ . '/shop_config.php';
                     </a>
 
                 <?php endif; ?>
+                </div>
+                <?php if ($show_header_search): ?>
+                <div class="pf-search-wrap">
+                    <form class="pf-search-form" action="<?php echo htmlspecialchars($search_action); ?>" method="get" autocomplete="off">
+                        <svg class="pf-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"></path>
+                        </svg>
+                        <input
+                            type="search"
+                            name="<?php echo htmlspecialchars($search_param); ?>"
+                            value="<?php echo htmlspecialchars($search_query); ?>"
+                            class="pf-search-input"
+                            placeholder="<?php echo htmlspecialchars($search_placeholder); ?>"
+                            aria-label="Search">
+                    </form>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Right Side Icons -->
-            <div class="flex items-center space-x-4">
+            <div class="pf-header-right">
                 <?php if ($is_logged_in): ?>
+                    <?php if (is_customer()): ?>
+                    <button type="button" class="pf-burger-btn" data-pf-mobile-toggle aria-label="Open navigation menu">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
+                        </svg>
+                    </button>
+                    <div class="pf-mobile-icon-row">
+                    <?php endif; ?>
                     <!-- Cart icon (customer only) -->
                     <?php if (is_customer()): ?>
-                    <a href="<?php echo $base_url; ?>/customer/cart.php" title="My Cart" class="nav-link w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 text-white hover:text-[#53C5E0]" style="color:white;">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    <a href="<?php echo $base_url; ?>/customer/cart.php" title="My Cart" class="pf-icon-btn nav-link" style="color:white;">
+                        <svg class="pf-cart-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 3 1.5 1.5m0 0 2.07 10.358A2.25 2.25 0 0 0 8.027 16.5h8.946a2.25 2.25 0 0 0 2.206-1.642L21 8.25H6.375m-2.625-3.75H21M9 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm8.25 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/>
                         </svg>
                         <?php
                         $cart_count = isset($_SESSION['cart']) ? array_sum(array_column($_SESSION['cart'], 'quantity')) : 0;
                         $cart_display = $cart_count > 99 ? '99+' : $cart_count;
                         ?>
-                        <span id="cart-count-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:<?php echo ($cart_count > 0 ? 'flex' : 'none'); ?>;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $cart_display; ?></span>
+                        <span id="cart-count-badge" class="pf-badge" style="display:<?php echo ($cart_count > 0 ? 'flex' : 'none'); ?>;"><?php echo $cart_display; ?></span>
                     </a>
                     <?php endif; ?>
                     <!-- Notifications -->
                     <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/notifications.php" 
                        title="Notifications"
-                       class="nav-link w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 group hover:text-[#53C5E0]" 
+                       class="pf-icon-btn nav-link group" 
                        style="color: white; position: relative;">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: inherit;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        <svg class="pf-notif-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: inherit;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.858 17.082a23.85 23.85 0 0 1-5.716 0M15 11.25a3 3 0 1 0-6 0c0 1.913-.394 3.31-.94 4.272a1.48 1.48 0 0 0 1.293 2.228h5.294a1.48 1.48 0 0 0 1.293-2.228c-.546-.963-.94-2.36-.94-4.272Z"></path>
                         </svg>
                         <?php 
                         $notif_display = $unread_count > 99 ? '99+' : $unread_count; 
                         ?>
-                        <span id="nav-notif-badge" data-notif-badge style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:0.55rem;font-weight:800;border-radius:9999px;min-width:16px;height:16px;padding:0 3px;display:<?php echo ($unread_count > 0 ? 'flex' : 'none'); ?>;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(239,68,68,0.55);line-height:1;"><?php echo $notif_display; ?></span>
+                        <span id="nav-notif-badge" data-notif-badge class="pf-badge" style="display:<?php echo ($unread_count > 0 ? 'flex' : 'none'); ?>;"><?php echo $notif_display; ?></span>
                     </a>
 
                     <!-- User Dropdown -->
-                    <div class="relative" x-data="{ open: false, isProfilePage: window.location.pathname.includes('/profile.php') }">
-                        <button @click="open = !open" class="flex items-center transition-colors duration-200 group" style="background:none;border:none;cursor:pointer;padding:0;" title="My Account">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 text-white group-hover:text-[#53C5E0]"
-                                 :style="(open || isProfilePage) ? 'color: #53C5E0;' : ''">
-                                <svg style="width:24px;height:24px;color:inherit;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                                </svg>
+                    <div class="relative" data-pf-profile-wrap>
+                        <button type="button" data-pf-profile-toggle class="flex items-center transition-colors duration-200 group" style="background:none;border:none;cursor:pointer;padding:0;" title="My Account">
+                            <div class="pf-avatar transition-all duration-300 group-hover:text-[#53C5E0]"
+                                 style="<?php echo (stripos($_SERVER['REQUEST_URI'] ?? '', '/profile.php') !== false) ? 'color:#53C5E0;' : ''; ?>">
+                                <?php if (!empty($current_user['profile_picture'])): ?>
+                                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" 
+                                         alt="Profile" 
+                                         class="w-full h-full object-cover">
+                                <?php else: ?>
+                                    <span><?php echo htmlspecialchars($initials); ?></span>
+                                <?php endif; ?>
                             </div>
                         </button>
 
                         <!-- Dropdown Menu -->
-                        <div x-show="open" @click.away="open = false"
-                             x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0 scale-95"
-                             x-transition:enter-end="opacity-100 scale-100"
-                             x-transition:leave="transition ease-in duration-150"
-                             x-transition:leave-start="opacity-100 scale-100"
-                             x-transition:leave-end="opacity-0 scale-95"
-                             class="absolute right-0 mt-2 w-44 rounded-xl py-1 z-50"
+                        <div data-pf-profile-menu
+                             class="pf-dropdown-menu absolute right-0 mt-2 w-52 rounded-xl py-1 z-50"
                              style="background:#0a2530;border:1px solid rgba(83,197,224,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+                            <?php if (is_customer()): ?>
+                            <a href="<?php echo $base_url; ?>/customer/orders.php"
+                               class="pf-dropdown-link">
+                                <svg class="pf-dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v4H3V3zm2 6h14v10H5V9zm2 2v6h10v-6H7z"></path>
+                                </svg>
+                                Orders
+                            </a>
+                            <a href="<?php echo $base_url; ?>/customer/messages.php"
+                               class="pf-dropdown-link">
+                                <svg class="pf-dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8m-8 4h5m-7 6h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"></path>
+                                </svg>
+                                Messages
+                            </a>
+                            <?php endif; ?>
                             <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php"
-                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
-                               onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
-                               onmouseout="this.style.background='';this.style.color='rgba(255,255,255,0.8)'">
-                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               class="pf-dropdown-link">
+                                <svg class="pf-dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
                                 Profile
                             </a>
-                            <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/profile.php#change-password"
-                               style="display:flex;align-items:center;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(255,255,255,0.8);transition:all 0.15s;"
-                               onmouseover="this.style.background='rgba(83,197,224,0.1)';this.style.color='#53c5e0'"
-                               onmouseout="this.style.background='';this.style.color='rgba(255,255,255,0.8)'">
-                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                </svg>
-                                Change Password
-                            </a>
                             <div style="height:1px;background:rgba(83,197,224,0.1);margin:0.25rem 0;"></div>
                             <button onclick="document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
-                               style="display:flex;align-items:center;width:100%;padding:0.5rem 1rem;font-size:0.8125rem;color:rgba(239,68,68,0.85);transition:all 0.15s;background:transparent;border:none;cursor:pointer;text-align:left;"
-                               onmouseover="this.style.background='rgba(239,68,68,0.08)';this.style.color='#ef4444'"
-                               onmouseout="this.style.background='transparent';this.style.color='rgba(239,68,68,0.85)'">
-                                <svg style="width:14px;height:14px;margin-right:8px;opacity:0.7;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               class="pf-dropdown-btn">
+                                <svg class="pf-dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                                 </svg>
                                 Logout
                             </button>
                         </div>
                     </div>
+                    <?php if (is_customer()): ?>
+                    </div>
+                    <?php endif; ?>
                 <?php else: ?>
-                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app"
-                        style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.45rem 1rem;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:0.82rem;font-weight:700;border:none;border-radius:8px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 10px rgba(34,197,94,0.35);white-space:nowrap;"
-                        onmouseover="this.style.boxShadow='0 4px 16px rgba(34,197,94,0.5)';this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.boxShadow='0 2px 10px rgba(34,197,94,0.35)';this.style.transform='translateY(0)'">
+                    <a href="#" data-auth-modal="login" class="font-medium transition-colors duration-200" style="color:inherit;">Login</a>
+                    <a href="#" data-auth-modal="register" class="btn-gradient-primary pf-auth-cta pf-register-cta">Register</a>
+                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app" class="pf-auth-cta" style="display:inline-flex;align-items:center;gap:0.45rem;white-space:nowrap;">
                         <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         Install App
                     </button>
-                    <a href="#" data-auth-modal="login" class="font-medium transition-colors duration-200" style="color:inherit;">Login</a>
-                    <a href="#" data-auth-modal="register" class="btn-gradient-primary px-5 py-2 text-sm">Register</a>
                 <?php endif; ?>
 
             </div>
         </div>
     </nav>
+    <?php if ($is_logged_in && is_customer()): ?>
+    <div class="pf-mobile-panel" data-pf-mobile-panel>
+        <form class="pf-mobile-search" action="<?php echo htmlspecialchars($search_action); ?>" method="get" autocomplete="off">
+            <svg style="width:1rem;height:1rem;color:rgba(255,255,255,.72);" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"></path>
+            </svg>
+            <input type="search" name="<?php echo htmlspecialchars($search_param); ?>" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="<?php echo htmlspecialchars($search_placeholder); ?>" aria-label="Search">
+        </form>
+        <div class="pf-mobile-links">
+            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/services.php">Services</a>
+            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/products.php">Products</a>
+            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/orders.php">Orders</a>
+            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/messages.php">Messages</a>
+        </div>
+    </div>
+    <?php endif; ?>
 </header>
 
 <?php if ($is_logged_in): ?>
@@ -255,5 +466,39 @@ require_once __DIR__ . '/shop_config.php';
         }
     });
     // Notification badge and polling are handled by notifications.js (loaded in footer)
+
+    document.querySelectorAll('[data-pf-profile-wrap]').forEach(function(wrap){
+        var btn = wrap.querySelector('[data-pf-profile-toggle]');
+        var menu = wrap.querySelector('[data-pf-profile-menu]');
+        if (!btn || !menu) return;
+        btn.addEventListener('click', function(ev){
+            ev.preventDefault();
+            ev.stopPropagation();
+            menu.classList.toggle('open');
+        });
+        menu.addEventListener('click', function(ev){
+            ev.stopPropagation();
+        });
+        document.addEventListener('click', function(ev){
+            if (!wrap.contains(ev.target)) {
+                menu.classList.remove('open');
+            }
+        });
+    });
+
+    var mobileToggle = document.querySelector('[data-pf-mobile-toggle]');
+    var mobilePanel = document.querySelector('[data-pf-mobile-panel]');
+    if (mobileToggle && mobilePanel) {
+        mobileToggle.addEventListener('click', function(ev){
+            ev.preventDefault();
+            ev.stopPropagation();
+            mobilePanel.classList.toggle('open');
+        });
+        document.addEventListener('click', function(ev){
+            if (!mobilePanel.contains(ev.target) && !mobileToggle.contains(ev.target)) {
+                mobilePanel.classList.remove('open');
+            }
+        });
+    }
 }());
 </script>

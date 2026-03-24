@@ -37,7 +37,7 @@ $url_reset_password  = $base_url . '/reset-password/';
 $url_google_auth    = $base_url . '/google-auth/';
 ?>
 <!DOCTYPE html>
-<html lang="en"<?php echo !empty($use_landing_css) ? ' class="lp-page"' : ''; ?>>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -52,7 +52,6 @@ $url_google_auth    = $base_url . '/google-auth/';
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
-    
     <!-- Tailwind CSS - path works from both /printflow/ and /printflow/public/ -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">
     <?php if (!empty($use_landing_css)): ?>
@@ -72,12 +71,13 @@ $url_google_auth    = $base_url . '/google-auth/';
         a { color: inherit; text-decoration: none; }
         a:hover { text-decoration: none; }
         body { margin: 0; background: #f9fafb; color: #111827; font-family: Inter, system-ui, sans-serif; }
-        /* Standard dark header for internal (non-landing) pages */
-        body:not(.lp-page) #main-header { background: #0a2530 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(83,197,224,0.1); }
+        /* Internal pages: landing-like transparent header by default */
+        body:not(.lp-page) #main-header { background: transparent !important; box-shadow: none !important; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(255,255,255,0.10); }
         
         /* Transparent hero nav for landing page only */
-        html.lp-page body #main-header.lp-hero-nav:not(.sticky-active) { background: transparent !important; border-bottom-color: rgba(255,255,255,0.1) !important; box-shadow: none !important; }
-        html.lp-page body #main-header.sticky-active { background: #0a2530 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 1px solid rgba(83,197,224,0.1); }
+        body.lp-page #main-header.lp-hero-nav:not(.sticky-active) { background: transparent !important; border-bottom-color: rgba(255,255,255,0.1) !important; box-shadow: none !important; }
+        body.lp-page #main-header.sticky-active { background: #0a2530 !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 1px solid rgba(83,197,224,0.1); }
+        body:not(.lp-page) #main-header.sticky-active { background: rgba(10,37,48,0.92) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.28) !important; border-bottom: 1px solid rgba(83,197,224,0.16) !important; backdrop-filter: blur(6px); }
         
         body #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
         body #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }
@@ -85,17 +85,64 @@ $url_google_auth    = $base_url . '/google-auth/';
         body #main-header a:hover { color: #53C5E0; }
         body #main-header a.nav-link { color: rgba(255,255,255,0.8); }
         body #main-header a.nav-link:hover { color: #53C5E0; }
+        /* Unified header text style (except brand/site name) */
+        body #main-header a.nav-link,
+        body #main-header a[data-auth-modal="login"],
+        body #main-header .btn-gradient-primary,
+        body #main-header #pwa-install-btn {
+            font-size: 0.88rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
         body #main-header .text-2xl.font-bold { color: #53C5E0; }
         body #main-header .btn-gradient-primary { background: var(--lp-accent, #32a1c4) !important; color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; }
+        body #main-header .pf-auth-cta {
+            width: 148px;
+            height: 36px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 0 0.8rem !important;
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-size: 0.82rem !important;
+            font-weight: 500;
+            line-height: 1;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        body #main-header .pf-register-cta {
+            width: 128px;
+        }
+        body #main-header #pwa-install-btn {
+            font-family: inherit;
+            font-size: 0.88rem !important;
+            font-weight: 500;
+            line-height: 1;
+            padding: 0 1rem !important;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255,255,255,.12);
+            background: linear-gradient(135deg,#22c55e,#16a34a) !important;
+            color: #fff !important;
+            cursor: pointer;
+            transition: box-shadow .25s, background .25s, transform .2s;
+        }
+        body #main-header #pwa-install-btn:hover {
+            background: linear-gradient(135deg,#16a34a,#15803d) !important;
+            box-shadow: 0 0 20px rgba(34,197,94,.35);
+            transform: translateY(-1px);
+        }
         /* Active nav link — mirrors hover state (non-hero pages) */
         a.nav-link.nav-active { color: #53C5E0 !important; }
         a.nav-link.nav-active > span:last-child { width: 100% !important; }
         /* Dark hero nav: force white text overriding Tailwind text-gray-700 */
-        html.lp-page #main-header.lp-hero-nav a,
-        html.lp-page #main-header.lp-hero-nav a.nav-link { color: rgba(255,255,255,0.85) !important; }
-        html.lp-page #main-header.lp-hero-nav a.nav-link:hover { color: #53C5E0 !important; }
-        html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active { color: #53C5E0 !important; }
-        html.lp-page #main-header.lp-hero-nav a.nav-link.nav-active > span:last-child { width: 100% !important; }
+        body.lp-page #main-header.lp-hero-nav a,
+        body.lp-page #main-header.lp-hero-nav a.nav-link { color: rgba(255,255,255,0.85) !important; }
+        body.lp-page #main-header.lp-hero-nav a.nav-link:hover { color: #53C5E0 !important; }
+        body.lp-page #main-header.lp-hero-nav a.nav-link.nav-active { color: #53C5E0 !important; }
+        body.lp-page #main-header.lp-hero-nav a.nav-link.nav-active > span:last-child { width: 100% !important; }
         .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.8); background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
         .pwa-install-btn:hover { color: #53C5E0; border-color: #53C5E0; background: rgba(83,197,224,0.05); }
         .pwa-install-btn.hidden { display: none !important; }
@@ -121,13 +168,17 @@ $url_google_auth    = $base_url . '/google-auth/';
     <main id="main-content" class="min-h-screen">
     
     <script>
-    // Handle sticky header background transition on scroll
-    window.addEventListener('scroll', function() {
-        const header = document.getElementById('main-header');
-        if (window.scrollY > 50) {
-            header.classList.add('sticky-active');
-        } else {
-            header.classList.remove('sticky-active');
-        }
-    });
+    // Handle sticky header background transition on scroll (idempotent for Turbo)
+    if (!window.__pfHeaderScrollInit) {
+        window.__pfHeaderScrollInit = true;
+        window.addEventListener('scroll', function() {
+            const header = document.getElementById('main-header');
+            if (!header) return;
+            if (window.scrollY > 50) {
+                header.classList.add('sticky-active');
+            } else {
+                header.classList.remove('sticky-active');
+            }
+        });
+    }
     </script>

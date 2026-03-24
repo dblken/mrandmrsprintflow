@@ -19,6 +19,6 @@ function printflow_default_customer_service_catalog(): array {
         ['name' => 'Reflectorized', 'category' => 'Signage', 'img' => '/printflow/public/images/products/signage.jpg', 'link' => 'order_reflectorized.php'],
         ['name' => 'Sintraboard', 'category' => 'Signage', 'img' => '/printflow/public/images/products/standeeflat.jpg', 'link' => 'order_sintraboard.php'],
         ['name' => 'Standees', 'category' => 'Signage', 'img' => '/printflow/public/services/Sintraboard Standees.jpg', 'link' => 'order_standees.php'],
-        ['name' => 'Souvenirs', 'category' => 'Merchandise', 'img' => '/printflow/public/assets/images/placeholder.jpg', 'link' => 'order_souvenirs.php'],
+        ['name' => 'Souvenirs', 'category' => 'Merchandise', 'img' => '/printflow/public/assets/images/services/default.png', 'link' => 'order_souvenirs.php'],
     ];
 }

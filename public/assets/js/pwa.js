@@ -4,7 +4,8 @@
  */
 
 // Register service worker
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
+    window.__pfPwaRegistered = true;
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/printflow/public/sw.js', {
             updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
@@ -33,60 +34,87 @@ if ('serviceWorker' in navigator) {
 }
 
 // Show update notification
-function showUpdateNotification() {
-    if (confirm('A new version of PrintFlow is available. Reload to update?')) {
-        window.location.reload();
-    }
+if (typeof showUpdateNotification === 'undefined') {
+    window.showUpdateNotification = function() {
+        if (confirm('A new version of PrintFlow is available. Reload to update?')) {
+            window.location.reload();
+        }
+    };
 }
 
 // Install prompt handling
-let deferredPrompt;
-const _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+// This file can be loaded multiple times; keep state on `window` to avoid redeclare errors.
+var deferredPrompt = window.deferredPrompt || null;
+var _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+var _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
 // Capture the install prompt when the browser fires it (prevents default banner; show via Install button)
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-});
+if (!window.__pfPwaBeforeInstallAdded) {
+    window.__pfPwaBeforeInstallAdded = true;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Avoid capturing multiple times.
+        if (window.__pfPwaBeforeInstallCaptured) return;
+        window.__pfPwaBeforeInstallCaptured = true;
 
-function hideInstallButton() {
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.style.display = 'none';
+        // Prevent default browser banner. We will show our install UI (or prompt immediately if needed).
+        e.preventDefault();
+        window.deferredPrompt = e;
+        deferredPrompt = e;
+
+        // If there's no install button on this page, we can't show the prompt automatically (requires user gesture).
+        // We'll just keep the event for when the user might encounter a button later or use the browser's own UI.
+    });
+
+    // Hide button once app is installed
+    window.addEventListener('appinstalled', () => {
+        window.deferredPrompt = null;
+        deferredPrompt = null;
+        window.__pfPwaBeforeInstallCaptured = false;
+        hideInstallButton();
+    });
+}
+
+if (typeof hideInstallButton === 'undefined') {
+    window.hideInstallButton = function() {
+        const btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'none';
+    };
 }
 
 // Wire up click handler once DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('pwa-install-btn');
-    if (!btn) return;
+if (!window.__pfPwaDomBound) {
+    window.__pfPwaDomBound = true;
+    const bindPwaInstall = () => {
+        const btn = document.getElementById('pwa-install-btn');
+        if (!btn) return;
 
-    // Already running as installed PWA → hide button
-    if (_isStandalone) {
-        hideInstallButton();
-        return;
-    }
-
-    btn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            deferredPrompt = null;
-            if (outcome === 'accepted') hideInstallButton();
-        } else if (_isIOS) {
-            // iOS Safari — show manual instruction
-            alert('To install PrintFlow on iOS:\n\n1. Tap the Share button (\uf0e4) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
-        } else {
-            // Fallback for browsers where prompt hasn't fired yet
-            alert('To install PrintFlow:\n\nOpen this page in Chrome or Edge and look for the install icon in the address bar, or revisit this page in a supported browser.');
+        // Already running as installed PWA → hide button
+        if (_isStandalone) {
+            hideInstallButton();
+            return;
         }
-    });
-});
 
-// Hide button once app is installed
-window.addEventListener('appinstalled', () => {
-    deferredPrompt = null;
-    hideInstallButton();
-});
+        // Remove old listeners if any (though Turbo re-executions make this tricky, better to just bind once or use a delegation)
+        btn.onclick = async () => {
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                const { outcome } = await window.deferredPrompt.userChoice;
+                window.deferredPrompt = null;
+                deferredPrompt = null;
+                window.__pfPwaBeforeInstallCaptured = false;
+                if (outcome === 'accepted') hideInstallButton();
+            } else if (_isIOS) {
+                // iOS Safari — show manual instruction
+                alert('To install PrintFlow on iOS:\n\n1. Tap the Share button (\uf0e4) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+            } else {
+                // Fallback for browsers where prompt hasn't fired yet
+                alert('To install PrintFlow:\n\nOpen this page in Chrome or Edge and look for the install icon in the address bar, or revisit this page in a supported browser.');
+            }
+        };
+    };
+    document.addEventListener('DOMContentLoaded', bindPwaInstall);
+    document.addEventListener('turbo:load', bindPwaInstall);
+}
 
 // Push notification subscription (optional)
 async function subscribeToPushNotifications() {

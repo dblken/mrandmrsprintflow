@@ -184,8 +184,9 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
  *
  * @param array $item The item data
  * @param bool $is_cart_item Whether this is from the session cart
+ * @param bool $show_quantity Whether to show quantity in header
  */
-function render_order_item_clean($item, $is_cart_item = false, $show_price = true) {
+function render_order_item_clean($item, $is_cart_item = false, $show_price = true, $show_quantity = true) {
     $name = $item['name'] ?? ($item['product_name'] ?? 'Order Item');
     $category = $item['category'] ?? 'General';
     $unit_price = $is_cart_item ? $item['price'] : $item['unit_price'];
@@ -286,9 +287,11 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                         <div style="font-size: 0.9rem; color: #111827; font-weight: 700;">Unit Price: <?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
+                    <?php if ($show_quantity): ?>
                     <div style="min-width: 90px;">
                         <div style="font-size: 0.9rem; color: #111827; font-weight: 700;">Quantity: <?php echo $quantity; ?></div>
                     </div>
+                    <?php endif; ?>
                     <?php if ($show_price): ?>
                     <div style="min-width: 150px;">
                         <div style="font-size: 0.9rem; color: #4F46E5; font-weight: 700;">Item Total: <?php echo format_currency($subtotal); ?></div>
@@ -299,13 +302,13 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         </div>
 
         <!-- Specifications -->
-        <div style="padding: 1rem; background: #fafafa;">
+        <div style="padding: 1rem; background: transparent;">
             <h4 style="font-size: 0.8rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 6px;">
                 <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 Specifications
             </h4>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem;">
+            <div class="review-spec-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; background: transparent; border: none;">
                 <?php 
                 $has_specs = false;
                 foreach ($custom as $ck => $cv): 
@@ -314,7 +317,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
                 ?>
-                    <div style="background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: 8px; min-width: 0;">
+                    <div class="review-spec-tile" style="background: transparent; border: 1px solid rgba(83, 197, 224, 0.24); padding: 0.5rem 0.75rem; border-radius: 8px; min-width: 0;">
                         <div style="font-size: 0.65rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
                         <div style="font-size: 0.85rem; font-weight: 600; color: #111827; overflow-wrap: break-word; word-break: break-word;"><?php echo htmlspecialchars($display_val); ?></div>
                     </div>
@@ -330,9 +333,9 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
             $notes = $custom['notes'] ?? $custom['additional_notes'] ?? ($custom['design_description'] ?? ($custom['tshirt_design_description'] ?? ($custom['tarp_design_description'] ?? ($custom['design_notes'] ?? null))));
             if ($notes):
             ?>
-                <div style="margin-top: 1.25rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; min-width: 0;">
-                    <div style="font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">📝 Notes</div>
-                    <div style="font-size: 0.9rem; color: #92400e; line-height: 1.5; font-weight: 500; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
+                <div class="review-spec-notes" style="margin-top: 1.25rem; padding: 1rem; background: transparent; border: 1px solid rgba(83, 197, 224, 0.24); border-radius: 12px; min-width: 0;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">Notes</div>
+                    <div style="font-size: 0.85rem; color: #111827; line-height: 1.5; font-weight: 600; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
                 </div>
             <?php endif; ?>
         </div>

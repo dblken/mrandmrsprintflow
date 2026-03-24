@@ -8,8 +8,12 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-require_role(['Admin', 'Staff']);
-$staffBranchId = is_staff() ? (printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1)) : null;
+require_role(['Admin', 'Staff', 'Manager']);
+
+$staffBranchId = null;
+if (is_staff() || is_manager()) {
+    $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+}
 
 header('Content-Type: application/json');
 
@@ -41,6 +45,7 @@ $order = $order_result[0];
 $staff_id = get_user_id();
 $new_status = '';
 $payment_status = $order['payment_status'];
+$success = false;
 
 if ($action === 'Approve') {
     $new_status = 'Paid – In Process';
@@ -57,9 +62,18 @@ if ($action === 'Approve') {
     
     if ($success) {
         $msg = "Your payment has been verified. Your order is now in process!";
-        create_notification($order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        if (!empty($order['customer_id'])) {
+            create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        }
         add_order_system_message($order_id, $msg);
         log_activity($staff_id, 'Payment Approved', "Approved payment for Order #{$order_id}");
+        // Keep linked job_orders in sync (any active job — not only VERIFY_PAY / SUBMITTED)
+        db_execute(
+            "UPDATE job_orders SET payment_proof_status = 'VERIFIED', payment_status = 'PAID', status = 'IN_PRODUCTION'
+             WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')",
+            'i',
+            [$order_id]
+        );
     }
 } else {
     // Rejected - move back to To Pay or Pending
@@ -76,13 +90,30 @@ if ($action === 'Approve') {
     
     if ($success) {
         $msg = "Your payment proof was rejected. Please upload a valid proof of payment.";
-        create_notification($order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        if (!empty($order['customer_id'])) {
+            create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
+        }
         add_order_system_message($order_id, $msg);
         log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}");
-        
+        db_execute(
+            "UPDATE job_orders SET payment_proof_status = 'REJECTED', status = 'TO_PAY',
+             payment_proof_path = NULL, payment_submitted_amount = 0, payment_proof_uploaded_at = NULL
+             WHERE order_id = ? AND status NOT IN ('COMPLETED','CANCELLED')",
+            'i',
+            [$order_id]
+        );
+
         // Delete the file if it exists to save space (optional, but cleaner)
-        if ($order['payment_proof'] && file_exists(__DIR__ . '/../' . $order['payment_proof'])) {
-            @unlink(__DIR__ . '/../' . $order['payment_proof']);
+        $proof = $order['payment_proof'] ?? '';
+        if ($proof !== '') {
+            $rel = ltrim(str_replace('\\', '/', $proof), '/');
+            if (strpos($rel, 'printflow/') === 0) {
+                $rel = substr($rel, strlen('printflow/'));
+            }
+            $abs = __DIR__ . '/../' . $rel;
+            if (is_file($abs)) {
+                @unlink($abs);
+            }
         }
     }
 }

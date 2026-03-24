@@ -832,7 +832,7 @@ const serviceRequirements = {
     ],
     'Souvenirs': [
         getBranchField,
-        { label: 'Type', type: 'select', name: 'souvenir_type', options: ['Mug', 'Keychain', 'Tote Bag', 'Pen', 'Tumbler', 'T-Shirt', 'Other'] },
+        { label: 'Type', type: 'select', name: 'souvenir_type', options: ['Mug', 'Keychain', 'Tote Bag', 'Pen', 'Tumbler', 'T-Shirt', 'Others'] },
         { label: 'Custom Print?', type: 'select', name: 'custom_print', options: ['No', 'Yes – I have a design'] },
         { label: 'Lamination', type: 'select', name: 'lamination', options: ['With Lamination', 'Without Lamination'] },
         { label: 'Needed Date', type: 'date', name: 'needed_date', required: true },
@@ -892,7 +892,7 @@ function renderProducts() {
     
     filtered.forEach(p => {
         const outOfStock = p.stock_quantity <= 0;
-        const img = p.product_image ? '/printflow/' + p.product_image : '/printflow/public/assets/images/placeholder.jpg';
+        const img = p.product_image ? '/printflow/' + p.product_image : '/printflow/public/assets/images/services/default.png';
         
         const card = document.createElement('div');
         card.className = `pos-card ${outOfStock ? 'no-stock' : ''}`;

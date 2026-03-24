@@ -524,8 +524,16 @@ function custom_payment_badge($status) {
                     this.job = null;
 
                     fetch('/printflow/admin/job_orders_api.php?action=get_order&id=' + id)
-                        .then(r => r.json())
-                        .then(data => {
+                        .then(async (r) => {
+                            const text = await r.text();
+                            let data;
+                            try {
+                                data = JSON.parse(text);
+                            } catch (e) {
+                                this.loading = false;
+                                this.errorMsg = 'Invalid response from server (not JSON). Check PHP errors or job_orders_api.php.';
+                                return;
+                            }
                             this.loading = false;
                             if (data.success) {
                                 this.job = data.data;

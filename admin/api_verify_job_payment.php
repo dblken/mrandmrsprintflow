@@ -8,8 +8,8 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-// Only staff or admins can verify
-if (!in_array($_SESSION['user_type'], ['Admin', 'Staff'])) {
+// Staff, Manager, Admin (same as customizations page)
+if (!in_array($_SESSION['user_type'] ?? '', ['Admin', 'Staff', 'Manager'], true)) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
@@ -31,18 +31,38 @@ if (empty($job)) {
 
 $job = $job[0];
 $user_id = $_SESSION['user_id'];
-$user_name = $_SESSION['user_first_name'];
+$user_first = $_SESSION['user_first_name'] ?? '';
+$user_last = $_SESSION['user_last_name'] ?? '';
+$user_name = trim($user_first . ' ' . $user_last);
+if ($user_name === '') $user_name = 'Staff';
 
 // Verify Action
 if ($action === 'verify_payment') {
     
-    // Idempotency check: Ensure we only verify SUBMITTED proofs
-    if ($job['payment_proof_status'] !== 'SUBMITTED') {
-        echo json_encode(['success' => false, 'error' => 'Payment proof is not currently in SUBMITTED state.']);
-        exit;
+    $payment_proof_status = strtoupper((string)($job['payment_proof_status'] ?? ''));
+    $job_status = strtoupper((string)($job['status'] ?? ''));
+    $submitted_amount = (float)($job['payment_submitted_amount'] ?? 0);
+    $has_proof_path = !empty($job['payment_proof_path']) || !empty($job['payment_proof']);
+
+    // Idempotency / readiness check:
+    // Normally we only verify when payment_proof_status is exactly SUBMITTED.
+    // But some rows can be inconsistent (e.g., status=VERIFY_PAY with mismatched proof_status),
+    // so if we clearly have proof + amount, treat it as SUBMITTED for this verification.
+    if ($payment_proof_status !== 'SUBMITTED') {
+        $can_treat_as_submitted =
+            in_array($job_status, ['VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true) &&
+            $submitted_amount > 0 &&
+            $has_proof_path;
+
+        if (!$can_treat_as_submitted) {
+            echo json_encode(['success' => false, 'error' => 'Payment proof is not currently in SUBMITTED state.']);
+            exit;
+        }
+
+        // Normalize proof_status so downstream logic and UI remain consistent.
+        db_execute("UPDATE job_orders SET payment_proof_status = 'SUBMITTED' WHERE id = ?", 'i', [$job_id]);
+        $payment_proof_status = 'SUBMITTED';
     }
-    
-    $submitted_amount = (float)$job['payment_submitted_amount'];
     
     if ($submitted_amount <= 0) {
         echo json_encode(['success' => false, 'error' => 'Cannot verify: Valid submitted amount not found.']);
@@ -68,10 +88,9 @@ if ($action === 'verify_payment') {
         }
     }
     
-    // Determine order status transition
-    // If we are waiting for payment (TO_PAY) and they met the required amount, move to IN_PRODUCTION
+    // Move to production when required payment is met (TO_PAY or VERIFY_PAY after customer proof)
     $new_order_status = $job['status'];
-    if ($new_order_status === 'TO_PAY' && $new_amount_paid >= $required_payment) {
+    if (in_array($new_order_status, ['TO_PAY', 'VERIFY_PAY'], true) && $new_amount_paid >= $required_payment) {
         $new_order_status = 'IN_PRODUCTION';
     }
     
@@ -98,13 +117,19 @@ if ($action === 'verify_payment') {
                 'sdsi', [$store_status, $new_amount_paid, ($new_payment_status === 'PAID' ? 'Paid' : 'Partial'), $job['order_id']]);
         }
         
-        // Log activity
-        log_activity('job_orders', $job_id, 'Payment Verified', "Verified payment of ₱{$submitted_amount} by {$user_name}");
-        create_notification($job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was verified. (₱{$submitted_amount})", 'Job Order', true, true);
-        
-        if ($new_order_status !== $job['status']) {
-            log_activity('job_orders', $job_id, 'Status Update', "Job moved to {$new_order_status} after payment verification.");
-            create_notification($job['customer_id'], 'Customer', "Custom Job #{$job_id} is now in production!", 'Job Order', true, true);
+        // Log activity (user_id must be a valid staff users.user_id)
+        if ($user_id > 0) {
+            log_activity($user_id, 'Job payment verified', "Job #{$job_id}: verified ₱{$submitted_amount} ({$user_name})");
+        }
+        if (!empty($job['customer_id'])) {
+            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was verified. (₱{$submitted_amount})", 'Job Order', true, true);
+        }
+
+        if ($new_order_status !== $job['status'] && $user_id > 0) {
+            log_activity($user_id, 'Job status update', "Job #{$job_id} moved to {$new_order_status} after payment verification.");
+        }
+        if ($new_order_status !== $job['status'] && !empty($job['customer_id'])) {
+            create_notification((int)$job['customer_id'], 'Customer', "Custom Job #{$job_id} is now in production!", 'Job Order', true, true);
         }
         
         echo json_encode(['success' => true]);
@@ -124,7 +149,8 @@ elseif ($action === 'reject_payment') {
     }
     
     // Idempotency check
-    if ($job['payment_proof_status'] !== 'SUBMITTED') {
+    $payment_proof_status = strtoupper((string)($job['payment_proof_status'] ?? ''));
+    if ($payment_proof_status !== 'SUBMITTED') {
         echo json_encode(['success' => false, 'error' => 'Payment proof is not currently in SUBMITTED state.']);
         exit;
     }
@@ -143,11 +169,12 @@ elseif ($action === 'reject_payment') {
             db_execute("UPDATE orders SET status = 'To Pay' WHERE order_id = ?", 'i', [$job['order_id']]);
         }
         
-        // Log activity
-        log_activity('job_orders', $job_id, 'Payment Rejected', "Payment proof rejected by {$user_name}. Reason: {$reason}");
-        
-        // Notify customer
-        create_notification($job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was rejected. Please review and re-upload.", 'Payment Issue', true, true);
+        if ($user_id > 0) {
+            log_activity($user_id, 'Job payment rejected', "Job #{$job_id}: rejected by {$user_name}. {$reason}");
+        }
+        if (!empty($job['customer_id'])) {
+            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was rejected. Please review and re-upload.", 'Payment Issue', true, true);
+        }
         
         echo json_encode(['success' => true]);
     } catch (Exception $e) {

@@ -39,6 +39,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
     } else {
+        $profile_picture = $customer['profile_picture'];
+        
+        // Handle profile picture upload
+        if (!empty($_FILES['profile_picture']['tmp_name']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($_FILES['profile_picture']['tmp_name']);
+            $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+            
+            if (!in_array($mime, $allowed)) {
+                $error = 'Profile picture must be JPG, PNG, or WEBP.';
+            } elseif ($_FILES['profile_picture']['size'] > 2 * 1024 * 1024) {
+                $error = 'Profile picture must be under 2MB.';
+            } else {
+                $ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+                $new_filename = 'customer_' . $customer_id . '_' . time() . '.' . $ext;
+                $upload_dir = __DIR__ . '/../public/assets/uploads/profiles/';
+                
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_filename)) {
+                    // Delete old picture if exists
+                    if (!empty($customer['profile_picture']) && file_exists($upload_dir . $customer['profile_picture'])) {
+                        unlink($upload_dir . $customer['profile_picture']);
+                    }
+                    $profile_picture = $new_filename;
+                    // Update DB immediately or wait
+                } else {
+                    $error = 'Failed to upload profile picture.';
+                }
+            }
+        }
         $first_name = sanitize($_POST['first_name'] ?? '');
         $middle_name = sanitize($_POST['middle_name'] ?? '');
         $last_name = sanitize($_POST['last_name'] ?? '');
@@ -102,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     $gender = sanitize($gender);
                     $gender_val = in_array(trim($gender), ['Male', 'Female', 'Other'], true) ? $gender : null;
                     
-                    $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ? WHERE customer_id = ?",
-                        'ssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender_val, $customer_id]);
+                    $result = db_execute("UPDATE customers SET first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, dob = ?, gender = ?, profile_picture = ? WHERE customer_id = ?",
+                        'sssssssi', [$first_name, $middle_name, $last_name, $contact_number, $dob, $gender_val, $profile_picture, $customer_id]);
                     
                     if ($result) {
                         $success = 'Profile updated successfully!';
@@ -213,9 +244,37 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="card">
                 <h2 class="text-xl font-bold mb-4">Profile Information</h2>
                 
-                <form method="POST" action="">
+                <form method="POST" action="" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="update_profile" value="1">
+
+                    <!-- Profile Picture Upload -->
+                    <div class="mb-8 flex flex-col items-center">
+                        <div class="relative group">
+                            <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-gray-100 flex items-center justify-center">
+                                <?php if (!empty($customer['profile_picture'])): ?>
+                                    <img src="/printflow/public/assets/uploads/profiles/<?php echo htmlspecialchars($customer['profile_picture']); ?>?t=<?php echo time(); ?>" 
+                                         alt="Profile" class="w-full h-full object-cover" id="profile-preview">
+                                <?php else: ?>
+                                    <div class="w-full h-full flex items-center justify-center bg-primary-50 text-primary-600" id="profile-placeholder">
+                                        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                        </svg>
+                                    </div>
+                                    <img src="" alt="Profile" class="w-full h-full object-cover hidden" id="profile-preview">
+                                <?php endif; ?>
+                            </div>
+                            <label for="profile_picture" class="absolute bottom-1 right-1 bg-primary-600 text-white p-2 rounded-full shadow-lg cursor-pointer hover:bg-primary-700 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <input type="file" id="profile_picture" name="profile_picture" class="hidden" accept="image/*" 
+                                       onchange="const file = this.files[0]; if(file){ const reader = new FileReader(); reader.onload = (e) => { document.getElementById('profile-preview').src = e.target.result; document.getElementById('profile-preview').classList.remove('hidden'); if(document.getElementById('profile-placeholder')) document.getElementById('profile-placeholder').classList.add('hidden'); }; reader.readAsDataURL(file); }">
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">JPG, PNG or WEBP. Max 2MB.</p>
+                    </div>
                     
                     <div class="grid grid-cols-3 gap-8 mb-12">
                         <div class="mb-2">

@@ -34,7 +34,7 @@ if (!empty($visible_rows)) {
         $key = strtolower(trim($row['name']));
         $img = trim((string) ($row['hero_image'] ?? ''));
         if ($img === '') {
-            $img = $legacy_by_name[$key]['img'] ?? '/printflow/public/assets/images/placeholder.jpg';
+            $img = $legacy_by_name[$key]['img'] ?? '/printflow/public/assets/images/services/default.png';
         }
         if ($img !== '' && $img[0] !== '/') {
             $img = '/' . ltrim($img, '/');
@@ -70,7 +70,7 @@ require_once __DIR__ . '/../includes/header.php';
 // Reusable card template function
 function render_service_card($name, $category, $img, $link, $is_service = true, $price = null, $stock = null, $modal_text = null) {
     if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img)) {
-        $img = '/printflow/public/assets/images/placeholder.jpg';
+        $img = '/printflow/public/assets/images/services/default.png';
     }
     if ($modal_text === null || trim((string) $modal_text) === '') {
         $modal_text = printflow_default_customer_service_modal_text();
@@ -131,16 +131,6 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
             </div>
         </div>
         
-        <!-- Filters (Search bar) -->
-        <div class="mb-10">
-            <form action="products.php" method="GET" style="display:flex; gap:0.75rem; align-items:center; max-width: 33.33%;">
-                <div style="flex-grow: 1;">
-                    <input type="text" name="search" class="input-field" placeholder="Search services..." style="width: 100%; border-radius: 8px;">
-                </div>
-                <button type="submit" class="btn-primary" style="height:42px; padding: 0 1.5rem; border-radius: 8px;">Search</button>
-            </form>
-        </div>
-
         <?php if (empty($core_services)): ?>
             <div class="ct-empty" style="padding:2rem;text-align:center;color:#6b7280;">
                 <p>No services are available at the moment.</p>
@@ -162,14 +152,14 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
     <div onclick="closeServiceModal()" style="position: absolute; inset: 0; background-color: rgba(0, 0, 0, 0.45);"></div>
     
     <!-- Modal Content (Wider fixed size with internal scroll) -->
-    <div id="service-modal-content" style="position: relative; background-color: #ffffff; border-radius: 1.5rem; width: 750px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); transform: translateY(20px); transition: all 0.3s ease;">
+    <div id="service-modal-content" style="position: relative; background: rgba(10, 37, 48, 0.96); border: 1px solid rgba(83, 197, 224, 0.28); border-radius: 1.25rem; width: 620px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: all 0.3s ease;">
         
         <style>
             /* Modal Internal Scrollbar */
             #service-modal-scroll-body::-webkit-scrollbar { width: 6px; }
             #service-modal-scroll-body::-webkit-scrollbar-track { background: transparent; }
-            #service-modal-scroll-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-            #service-modal-scroll-body::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+            #service-modal-scroll-body::-webkit-scrollbar-thumb { background: rgba(83, 197, 224, 0.7); border-radius: 10px; }
+            #service-modal-scroll-body::-webkit-scrollbar-thumb:hover { background: rgba(83, 197, 224, 0.9); }
             .modal-action-row {
                 display: flex;
                 align-items: stretch;
@@ -178,10 +168,11 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
             .modal-qty-block {
                 display: flex;
                 align-items: center;
-                border: 2px solid #e5e7eb;
+                border: 1px solid rgba(83, 197, 224, 0.32);
                 border-radius: 0.75rem;
                 height: 48px;
                 flex-shrink: 0;
+                background: rgba(12, 43, 56, 0.92);
             }
             .modal-qty-btn {
                 width: 44px;
@@ -193,7 +184,7 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
                 border: none;
                 cursor: pointer;
                 font-size: 1.2rem;
-                color: #111827;
+                color: #e8f4f8;
                 font-weight: 700;
                 transition: all 0.2s;
             }
@@ -218,6 +209,10 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
                 text-transform: uppercase;
                 letter-spacing: 0.02em;
             }
+            .modal-action-btn:hover {
+                transform: translateY(-1px);
+                filter: brightness(1.05);
+            }
             @media (max-width: 640px) {
                 .modal-action-row {
                     flex-direction: column;
@@ -234,8 +229,8 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
         </style>
         
         <!-- Close Button -->
-        <button onclick="closeServiceModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: #ffffff; border-radius: 9999px; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
-            <svg style="width: 1.5rem; height: 1.5rem; color: #1f2937;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <button onclick="closeServiceModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: rgba(10, 37, 48, 0.95); border: 1px solid rgba(83, 197, 224, 0.32); border-radius: 9999px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 1.5rem; height: 1.5rem; color: #d9edf5;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
 
         <!-- Scrollable Body Section (content only - no buttons) -->
@@ -249,33 +244,33 @@ function render_service_card($name, $category, $img, $link, $is_service = true, 
             </div>
 
             <!-- Info Section -->
-            <div style="padding: 1.5rem 2rem; display: flex; flex-direction: column; background: #ffffff;">
-                <h2 id="modal-name" style="font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.75rem 0; line-height: 1.2;">Service Name</h2>
+            <div style="padding: 1.5rem 2rem; display: flex; flex-direction: column; background: rgba(10, 37, 48, 0.92); border-top: 1px solid rgba(83, 197, 224, 0.18);">
+                <h2 id="modal-name" style="font-size: 1.5rem; font-weight: 800; color: #eaf6fb; margin: 0 0 0.75rem 0; line-height: 1.2;">Service Name</h2>
                 
                 <div id="modal-price-container" style="margin-bottom: 1rem; display: none;">
-                    <p id="modal-price" style="font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0;"></p>
+                    <p id="modal-price" style="font-size: 1.25rem; font-weight: 800; color: #eaf6fb; margin: 0;"></p>
                     <div id="modal-stock" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600;"></div>
                 </div>
 
-                <p id="modal-intro-text" style="color: #4b5563; margin: 0; line-height: 1.6; font-size: 0.9rem;"></p>
+                <p id="modal-intro-text" style="color: #b9d4df; margin: 0; line-height: 1.6; font-size: 0.9rem;"></p>
             </div>
         </div>
 
         <!-- Fixed Footer - Always Visible (Buy Now & Add to Cart) -->
-        <div id="modal-cart-section" style="display: none; flex-shrink: 0; padding: 1.25rem 2rem; background: #ffffff; border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05);">
-            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em;">Quantity</label>
+        <div id="modal-cart-section" style="display: none; flex-shrink: 0; padding: 1.25rem 2rem; background: rgba(8, 30, 39, 0.95); border-top: 1px solid rgba(83, 197, 224, 0.24); box-shadow: 0 -4px 10px rgba(0,0,0,0.18);">
+            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #9fc6d9; text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em;">Quantity</label>
             <div class="modal-action-row">
                 <div class="modal-qty-block">
-                    <button type="button" onclick="decreaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">−</button>
-                    <span id="modal-quantity-display" style="width: 50px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; color: #111827;">1</span>
-                    <button type="button" onclick="increaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">+</button>
+                    <button type="button" onclick="decreaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='rgba(83, 197, 224, 0.2)'" onmouseout="this.style.background='transparent'">−</button>
+                    <span id="modal-quantity-display" style="width: 50px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border-left: 1px solid rgba(83, 197, 224, 0.28); border-right: 1px solid rgba(83, 197, 224, 0.28); color: #eaf6fb;">1</span>
+                    <button type="button" onclick="increaseModalQuantity()" class="modal-qty-btn" onmouseover="this.style.background='rgba(83, 197, 224, 0.2)'" onmouseout="this.style.background='transparent'">+</button>
                 </div>
                 <div class="modal-action-buttons">
-                    <button type="button" onclick="addServiceToCart()" class="modal-action-btn" style="background: #111827; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15);">
+                    <button type="button" onclick="addServiceToCart()" class="modal-action-btn" style="background: rgba(255,255,255,0.06); color: #d7ebf4; border: 1px solid rgba(83, 197, 224, 0.3); box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
                         <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                         Add to Cart
                     </button>
-                    <button type="button" onclick="buyNowService()" class="modal-action-btn" style="background: #0a2530; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(10, 37, 48, 0.15);">
+                    <button type="button" onclick="buyNowService()" class="modal-action-btn" style="background: linear-gradient(135deg, #53C5E0, #32a1c4); color: #ffffff; box-shadow: 0 8px 18px rgba(50, 161, 196, 0.35);">
                         <svg style="width: 1.2rem; height: 1.2rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-4m14 6v-3.87a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 17.25 8.75h-7.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A3.375 3.375 0 0 0 4.125 2.75h-1.5A3.375 3.375 0 0 0 -0.75 6.125v7.5A3.375 3.375 0 0 0 2.625 17h15.75A3.375 3.375 0 0 0 21.75 13.625Z"></path></svg>
                         Buy Now
                     </button>

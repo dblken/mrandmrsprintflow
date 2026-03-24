@@ -517,13 +517,76 @@ class JobOrderService {
         }
     }
 
+    /**
+     * Store order line items + design URLs for staff modal (same shape as job_orders_api get_regular_order).
+     */
+    public static function getStoreOrderItemsPayload(int $storeOrderId): array {
+        if ($storeOrderId <= 0) {
+            return ['items' => [], 'width_ft' => '1', 'height_ft' => '1', 'service_type' => ''];
+        }
+        $items = db_query(
+            "SELECT oi.*, p.name as product_name, p.category
+             FROM order_items oi
+             LEFT JOIN products p ON oi.product_id = p.product_id
+             WHERE oi.order_id = ?",
+            'i',
+            [$storeOrderId]
+        ) ?: [];
+        require_once __DIR__ . '/order_ui_helper.php';
+        $items_out = [];
+        $first_custom = [];
+        $total_qty = 0;
+        $width_ft = '1';
+        $height_ft = '1';
+        foreach ($items as $item) {
+            $custom = json_decode($item['customization_data'] ?? '{}', true) ?: [];
+            if (empty($first_custom)) {
+                $first_custom = $custom;
+            }
+            $total_qty += (int)$item['quantity'];
+            if (!empty($custom['width']) && !empty($custom['height'])) {
+                $width_ft = (string)$custom['width'];
+                $height_ft = (string)$custom['height'];
+            } elseif (!empty($custom['dimensions'])) {
+                $d = $custom['dimensions'];
+                if (is_string($d) && preg_match('/^(\d+)\s*[x×]\s*(\d+)$/i', $d, $m)) {
+                    $width_ft = $m[1];
+                    $height_ft = $m[2];
+                } else {
+                    $width_ft = (string)$d;
+                    $height_ft = '';
+                }
+            }
+            $name = $item['product_name'] ?: get_service_name_from_customization($custom, 'Custom Order');
+            $items_out[] = [
+                'order_item_id'   => $item['order_item_id'],
+                'product_name'    => $name,
+                'quantity'        => (int)$item['quantity'],
+                'customization'   => $custom,
+                'design_url'      => (!empty($item['design_image']) || !empty($item['design_file']))
+                    ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
+                'reference_url'   => !empty($item['reference_image_file'])
+                    ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
+            ];
+        }
+        $service_name = get_service_name_from_customization($first_custom, $items_out[0]['product_name'] ?? 'Custom Order');
+        return [
+            'items'        => $items_out,
+            'width_ft'     => $width_ft,
+            'height_ft'    => $height_ft,
+            'service_type' => $service_name,
+            'line_qty'     => $total_qty,
+        ];
+    }
+
     public static function getOrder($id) {
         $sql = "SELECT jo.*, 
                        c.customer_type, c.transaction_count,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_name,
                        c.email as customer_email,
-                       c.contact_number as customer_contact,
+                       COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+                       TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
                        COALESCE(jo.branch_id, ord.branch_id) AS branch_display_id,
                        b.branch_name AS branch_name
                 FROM job_orders jo
@@ -535,6 +598,43 @@ class JobOrderService {
         $order = db_query($sql, 'i', [$id]);
         if (!$order) return null;
         $order = $order[0];
+
+        $storeOid = (int)($order['order_id'] ?? 0);
+        if ($storeOid > 0) {
+            $payload = self::getStoreOrderItemsPayload($storeOid);
+            $order['items'] = $payload['items'];
+            $w = (string)($order['width_ft'] ?? '');
+            $h = (string)($order['height_ft'] ?? '');
+            if (($w === '' || $w === '0' || $w === '1') && ($h === '' || $h === '0' || $h === '1')) {
+                $order['width_ft'] = $payload['width_ft'];
+                $order['height_ft'] = $payload['height_ft'];
+            }
+            if (!empty($payload['service_type']) && (empty($order['service_type']) || $order['service_type'] === 'Custom Order')) {
+                $order['service_type'] = $payload['service_type'];
+            }
+            $st = db_query('SELECT * FROM orders WHERE order_id = ? LIMIT 1', 'i', [$storeOid]);
+            if (!empty($st)) {
+                $row = $st[0];
+                $proof = $row['payment_proof_path'] ?? $row['payment_proof'] ?? '';
+                if ($proof !== '' && $proof !== null) {
+                    $order['payment_proof_path'] = $proof;
+                }
+                $order['payment_submitted_amount'] = (float)($row['downpayment_amount'] ?? 0);
+                $order['payment_proof_uploaded_at'] = $row['payment_submitted_at'] ?? null;
+                $order['store_order_notes'] = (string)($row['notes'] ?? '');
+                $order['revision_reason'] = (string)($row['revision_reason'] ?? '');
+                if (empty($order['estimated_total']) || (float)$order['estimated_total'] <= 0) {
+                    $order['estimated_total'] = (float)($row['total_amount'] ?? 0);
+                }
+                $order['amount_paid'] = (float)($row['amount_paid'] ?? 0);
+                if (strtoupper((string)($row['payment_status'] ?? '')) === 'PAID') {
+                    $order['amount_paid'] = (float)($row['total_amount'] ?? $order['amount_paid']);
+                }
+            }
+        } else {
+            $order['items'] = [];
+        }
+
         $order['materials'] = db_query(
             "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
                     (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock

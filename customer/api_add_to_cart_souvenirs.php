@@ -8,6 +8,8 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 
 header('Content-Type: application/json');
 
+$requiredMsg = 'This field is required';
+
 if (!is_logged_in() || !is_customer()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
     exit;
@@ -19,18 +21,46 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $fields = $_POST;
-$branch_id = trim($fields['branch_id'] ?? '1');
+$branch_id_raw = trim($fields['branch_id'] ?? '');
+$branch_id = $branch_id_raw === '' ? 0 : (int)$branch_id_raw;
 $souvenir_type = trim($fields['souvenir_type'] ?? '');
+$souvenir_type_other = trim($fields['souvenir_type_other'] ?? '');
+$allowed_souvenir_types = ['Mug', 'Keychain', 'Tote Bag', 'Pen', 'Tumbler', 'T-Shirt', 'Others'];
 $needed_date = trim($fields['needed_date'] ?? '');
-$lamination = trim($fields['lamination'] ?? 'Without Lamination');
+$lamination = trim($fields['lamination'] ?? '');
 $quantity = (int)($fields['quantity'] ?? 1);
-$custom_print = trim($fields['custom_print'] ?? 'No');
+$custom_print = trim($fields['custom_print'] ?? '');
 $notes = trim($fields['notes'] ?? '');
 
-if (empty($souvenir_type) || empty($needed_date) || $quantity < 1) {
-    echo json_encode(['success' => false, 'message' => 'Please fill in Type, Needed Date, and Quantity.']);
+if ($branch_id < 1) {
+    echo json_encode(['success' => false, 'message' => $requiredMsg]);
     exit;
 }
+
+if (!in_array($custom_print, ['Yes', 'No'], true)) {
+    echo json_encode(['success' => false, 'message' => $requiredMsg]);
+    exit;
+}
+
+if (!in_array($lamination, ['With Lamination', 'Without Lamination'], true)) {
+    echo json_encode(['success' => false, 'message' => $requiredMsg]);
+    exit;
+}
+
+if (!in_array($souvenir_type, $allowed_souvenir_types, true) || empty($needed_date) || $quantity < 1) {
+    echo json_encode(['success' => false, 'message' => $requiredMsg]);
+    exit;
+}
+
+if ($souvenir_type === 'Others') {
+    $otherLen = function_exists('mb_strlen') ? mb_strlen($souvenir_type_other) : strlen($souvenir_type_other);
+    if ($otherLen < 1 || $otherLen > 50) {
+        echo json_encode(['success' => false, 'message' => $requiredMsg]);
+        exit;
+    }
+}
+
+$souvenir_type_display = ($souvenir_type === 'Others') ? $souvenir_type_other : $souvenir_type;
 
 $design_tmp_path = null;
 $design_name = null;
@@ -38,7 +68,7 @@ $design_mime = null;
 
 if ($custom_print === 'Yes') {
     if (!isset($_FILES['design_file']) || $_FILES['design_file']['error'] !== UPLOAD_ERR_OK) {
-        echo json_encode(['success' => false, 'message' => 'Please upload your design for custom print.']);
+        echo json_encode(['success' => false, 'message' => $requiredMsg]);
         exit;
     }
     
@@ -63,10 +93,11 @@ if ($custom_print === 'Yes') {
 }
 
 $item_key = uniqid('item_');
-$product_name = 'Souvenir: ' . $souvenir_type;
+$product_name = 'Souvenir: ' . $souvenir_type_display;
 
 $cart_item = [
     'product_id' => 0,
+    'source_page' => 'services',
     'branch_id'  => $branch_id,
     'name' => $product_name,
     'category' => 'Souvenirs',
@@ -74,7 +105,7 @@ $cart_item = [
     'quantity' => $quantity,
     'customization' => [
         'service_type' => 'Souvenirs',
-        'souvenir_type' => $souvenir_type,
+        'souvenir_type' => $souvenir_type_display,
         'needed_date' => $needed_date,
         'lamination' => $lamination,
         'custom_print' => $custom_print,

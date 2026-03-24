@@ -65,6 +65,19 @@ function _ft_detect_social(string $url): array {
         .ft-hr { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 2rem 0 1.25rem 0; }
         .ft-bottom { display: flex; flex-direction: column; gap: 0.5rem; text-align: center; font-size: 0.8125rem; color: #94a3b8; }
         @media (min-width: 768px) { .ft-bottom { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; } }
+        @media (max-width: 767px) {
+            .ft-wrap { padding: 2rem 1rem 6rem; }
+            .ft-grid { gap: 1.5rem; }
+            .ft-brand, .ft-title { text-align: left; }
+            .ft-desc, .ft-list-item, .ft-bottom p {
+                text-align: justify;
+                text-justify: inter-word;
+                line-height: 1.65;
+                max-width: none;
+            }
+            .ft-social { margin-top: .85rem; }
+            .ft-list li { margin-bottom: .65rem; }
+        }
     </style>
     <footer class="ft-footer">
         <div class="ft-wrap">

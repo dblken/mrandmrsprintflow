@@ -22,8 +22,9 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-// Must be logged-in customer
-if (!is_logged_in() || get_user_type() !== 'Customer') {
+// Must be logged-in customer (case-insensitive to avoid role-casing mismatches)
+$session_user_type = trim((string)(get_user_type() ?? ''));
+if (!is_logged_in() || strcasecmp($session_user_type, 'Customer') !== 0) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
@@ -87,9 +88,9 @@ if ($action === 'add') {
         exit;
     }
 
-    // Validate product is active and a fixed product
+    // Validate product is active
     $product = db_query(
-        "SELECT product_id, name, price, category FROM products WHERE product_id = ? AND status = 'Activated' AND product_type = 'fixed'",
+        "SELECT product_id, name, price, category, product_type FROM products WHERE product_id = ? AND status = 'Activated'",
         'i', [$product_id]
     );
     if (empty($product)) {
@@ -97,6 +98,12 @@ if ($action === 'add') {
         exit;
     }
     $product = $product[0];
+    $product_type = strtolower(trim((string)($product['product_type'] ?? '')));
+    $is_fixed_product = ($product_type === '' || in_array($product_type, ['fixed', 'fixed product', 'product'], true));
+    if (!$is_fixed_product) {
+        echo json_encode(['success' => false, 'message' => 'This product requires customization. Use Buy Now or View Options.']);
+        exit;
+    }
 
     $price        = (float)$product['price'];
     $variant_name = '';
@@ -115,14 +122,23 @@ if ($action === 'add') {
         $price        = (float)$variant[0]['price'];
         $variant_name = $variant[0]['variant_name'];
     } else {
-        // Product has no variant required? Check if there ARE active variants and force selection
+        // If product has variants but none was provided, auto-pick first active variant
         $has_variants = db_query(
             "SELECT COUNT(*) as cnt FROM product_variants WHERE product_id = ? AND status = 'Active'",
             'i', [$product_id]
         );
         if (!empty($has_variants) && (int)$has_variants[0]['cnt'] > 0) {
-            echo json_encode(['success' => false, 'message' => 'Please select a variant before adding to cart.']);
-            exit;
+            $first_variant = db_query(
+                "SELECT variant_id, variant_name, price FROM product_variants
+                 WHERE product_id = ? AND status = 'Active'
+                 ORDER BY variant_id ASC LIMIT 1",
+                'i', [$product_id]
+            );
+            if (!empty($first_variant)) {
+                $variant_id   = (int)$first_variant[0]['variant_id'];
+                $price        = (float)$first_variant[0]['price'];
+                $variant_name = (string)$first_variant[0]['variant_name'];
+            }
         }
     }
 
@@ -136,6 +152,7 @@ if ($action === 'add') {
             'variant_id'   => $variant_id,
             'name'         => $product['name'],
             'category'     => $product['category'],
+            'source_page'  => 'products',
             'variant_name' => $variant_name,
             'quantity'     => $quantity,
             'price'        => $price,

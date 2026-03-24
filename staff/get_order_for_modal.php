@@ -41,7 +41,9 @@ $status_map = [
     'Pending' => 'PENDING', 'Pending Review' => 'PENDING', 'Pending Approval' => 'PENDING',
     'For Revision' => 'PENDING', 'Design Approved' => 'APPROVED', 'Approved' => 'APPROVED',
     'Pending Verification' => 'PENDING', 'Downpayment Submitted' => 'PENDING',
-    'To Pay' => 'TO_PAY', 'Paid – In Process' => 'TO_PAY',
+    'To Pay' => 'TO_PAY',
+    'Paid – In Process' => 'IN_PRODUCTION',
+    'Paid - In Process' => 'IN_PRODUCTION',
     'Processing' => 'IN_PRODUCTION', 'In Production' => 'IN_PRODUCTION', 'Printing' => 'IN_PRODUCTION',
     'Ready for Pickup' => 'TO_RECEIVE', 'Completed' => 'COMPLETED', 'Cancelled' => 'CANCELLED'
 ];

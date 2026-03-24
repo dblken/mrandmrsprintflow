@@ -51,7 +51,8 @@ if ($is_restricted) {
     $error_msg = "🚫 <strong>Account Restricted:</strong> You are currently blocked from placing new orders due to excessive cancellations (7+). Please contact support.";
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || isset($_POST['buy_now']))) {
+$postedAction = $_POST['action'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($postedAction === 'add_to_cart' || $postedAction === 'buy_now' || isset($_POST['add_to_cart']) || isset($_POST['buy_now']))) {
     // CSRF Check
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error_msg = "Invalid session. Please refresh the page and try again.";
@@ -230,6 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || is
                 'product_id'     => $product_id,
                 'name'           => $product['name'],
                 'category'       => $product['category'] ?? '',
+                'source_page'    => 'products',
                 'branch_id'      => $branch_id,
                 'price'          => $item_price,
                 'quantity'       => $quantity,
@@ -257,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_to_cart']) || is
             ];
             
             // Redirect
-            if (isset($_POST['buy_now'])) {
+            if (($_POST['action'] ?? '') === 'buy_now' || isset($_POST['buy_now'])) {
                 header("Location: order_review.php?item=" . urlencode($item_key));
             } else {
                 header("Location: cart.php");
@@ -272,7 +274,7 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="min-h-screen py-8" x-data="orderModal">
+<div class="min-h-screen py-8 order-create-page" x-data="orderModal">
     <div class="container mx-auto px-4" style="max-width:800px;">
         <a href="products.php" class="back-link" style="display:inline-flex; align-items:center; gap:6px; color:#6b7280; margin-bottom:1rem; text-decoration:none;">← Back to Products</a>
 
@@ -296,9 +298,9 @@ require_once __DIR__ . '/../includes/header.php';
 
 
 
-        <div class="card" style="display:grid; grid-template-columns: 1fr 1fr; gap:2rem; padding:2rem;">
+        <div class="card oc-product-card">
             <!-- Product Image Area -->
-            <div style="background:#f3f4f6; border-radius:12px; display:flex; align-items:center; justify-content:center; min-height:400px; overflow:hidden;">
+            <div class="oc-product-media">
                 <?php 
                 $display_img = "";
                 
@@ -322,21 +324,21 @@ require_once __DIR__ . '/../includes/header.php';
                 }
                 
                 if ($display_img): ?>
-                    <img src="<?php echo htmlspecialchars($display_img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="<?php echo htmlspecialchars($display_img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="oc-product-media-img">
                 <?php else: ?>
                     <span style="font-size:5rem;">📦</span>
                 <?php endif; ?>
             </div>
 
             <!-- Product Details -->
-            <div style="padding: 1rem 0;">
-                <h1 class="ct-page-title" style="margin-top:0.5rem; margin-bottom:1rem;"><?php echo htmlspecialchars($product['name']); ?></h1>
+            <div class="oc-product-info">
+                <h1 class="ct-page-title oc-product-title"><?php echo htmlspecialchars($product['name']); ?></h1>
                 
-                <div style="font-size:2rem; font-weight:700; color:#1f2937; margin-bottom:1.5rem;">
+                <div class="oc-product-price">
                     <?php echo format_currency($product['price']); ?>
                 </div>
 
-                <div style="margin-bottom:2rem; color:#4b5563; line-height:1.6;">
+                <div class="oc-product-desc">
                     <?php echo nl2br(htmlspecialchars($product['description'])); ?>
                 </div>
                 
@@ -921,7 +923,10 @@ require_once __DIR__ . '/../includes/header.php';
                                         </button>
                                         <div x-show="step === 4" style="flex:2; display:flex; gap:0.75rem; width:100%; justify-content:flex-end; align-items:center;">
                                             <a href="<?php echo isset($base_url) ? $base_url : '/printflow'; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none; transition: all 0.2s;">Back to Services</a>
-                                            <button type="submit" name="buy_now" value="1" @click="checkFinalValidation($event)" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">
+                                            <button type="submit" name="action" value="add_to_cart" @click="checkFinalValidation($event)" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; cursor: pointer; transition: all 0.2s;">
+                                                Add to Cart
+                                            </button>
+                                            <button type="submit" name="action" value="buy_now" @click="checkFinalValidation($event)" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">
                                                 Buy Now
                                             </button>
                                         </div>
@@ -946,6 +951,168 @@ require_once __DIR__ . '/../includes/header.php';
         clip: rect(0, 0, 0, 0);
         white-space: nowrap;
         border-width: 0;
+    }
+
+    /* Theme alignment for order create page (UI only, no logic changes) */
+    .order-create-page {
+        color: #d9e6ef;
+    }
+    .order-create-page .oc-product-card {
+        display: grid !important;
+        grid-template-columns: minmax(200px, 40%) minmax(0, 60%);
+        gap: 1.15rem;
+        padding: 1rem !important;
+        align-items: stretch;
+    }
+    .order-create-page .oc-product-media {
+        background: linear-gradient(145deg, rgba(83,197,224,0.08), rgba(0,21,27,0.48));
+        border-radius: 12px;
+        border: 1px solid rgba(83,197,224,0.18);
+        min-height: 220px;
+        max-height: 240px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .order-create-page .oc-product-media-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .order-create-page .oc-product-info {
+        padding: .2rem 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .order-create-page .oc-product-title {
+        margin: 0 0 .55rem 0 !important;
+        font-size: 1.38rem !important;
+        line-height: 1.2;
+    }
+    .order-create-page .oc-product-price {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #9be2f3 !important;
+        margin-bottom: .7rem;
+        line-height: 1.15;
+    }
+    .order-create-page .oc-product-desc {
+        margin: 0;
+        color: #bfd3df !important;
+        line-height: 1.5;
+        font-size: .9rem;
+    }
+    .order-create-page .back-link {
+        color: #a9c6d6 !important;
+        font-weight: 600;
+    }
+    .order-create-page .card {
+        background: linear-gradient(165deg, rgba(10, 37, 48, 0.9), rgba(7, 26, 34, 0.93)) !important;
+        border: 1px solid rgba(83, 197, 224, 0.2) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+    }
+    .order-create-page .ct-page-title {
+        color: #f8fafc !important;
+    }
+    .order-create-page .input-field {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(83, 197, 224, 0.28) !important;
+        border-radius: 10px !important;
+    }
+    .order-create-page .input-field::placeholder {
+        color: #9eb4c3 !important;
+    }
+    .order-create-page .input-field:focus {
+        border-color: rgba(83, 197, 224, 0.75) !important;
+        box-shadow: 0 0 0 3px rgba(83, 197, 224, 0.16) !important;
+    }
+    .order-create-page select.input-field option {
+        background: #0a2530 !important;
+        color: #f8fafc !important;
+    }
+
+    /* Normalize old light inline blocks */
+    .order-create-page [style*="background:#f9fafb"],
+    .order-create-page [style*="background: #f9fafb"],
+    .order-create-page [style*="background:white"],
+    .order-create-page [style*="background: white"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-color: rgba(83, 197, 224, 0.2) !important;
+    }
+    .order-create-page [style*="color:black"],
+    .order-create-page [style*="color: black"],
+    .order-create-page [style*="color:#1f2937"],
+    .order-create-page [style*="color: #1f2937"],
+    .order-create-page [style*="color:#111827"],
+    .order-create-page [style*="color: #111827"],
+    .order-create-page [style*="color:#4b5563"],
+    .order-create-page [style*="color: #4b5563"] {
+        color: #d9e6ef !important;
+    }
+    .order-create-page [style*="color:#6b7280"],
+    .order-create-page [style*="color: #6b7280"],
+    .order-create-page [style*="color:#64748b"],
+    .order-create-page [style*="color: #64748b"] {
+        color: #9eb4c3 !important;
+    }
+    .order-create-page [style*="border:1px solid #d1d5db"],
+    .order-create-page [style*="border: 1px solid #d1d5db"],
+    .order-create-page [style*="border:1px solid #e5e7eb"],
+    .order-create-page [style*="border: 1px solid #e5e7eb"],
+    .order-create-page [style*="border:2px solid #e5e7eb"],
+    .order-create-page [style*="border: 2px solid #e5e7eb"] {
+        border-color: rgba(83, 197, 224, 0.25) !important;
+    }
+
+    .order-create-page [style*="background:#0a2530"],
+    .order-create-page [style*="background: #0a2530"],
+    .order-create-page [style*="background:black"],
+    .order-create-page [style*="background: black"] {
+        background: linear-gradient(135deg, #53c5e0, #32a1c4) !important;
+        border-color: rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
+    }
+    .order-create-page button,
+    .order-create-page [type="submit"],
+    .order-create-page [type="button"] {
+        border-radius: 10px !important;
+    }
+
+    @media (max-width: 900px) {
+        .order-create-page .oc-product-card {
+            grid-template-columns: 1fr !important;
+            gap: .85rem;
+        }
+        .order-create-page .oc-product-media {
+            min-height: 180px;
+            max-height: 220px;
+        }
+        .order-create-page .oc-product-title {
+            font-size: 1.2rem !important;
+        }
+        .order-create-page .oc-product-price {
+            font-size: 1.25rem;
+            margin-bottom: .5rem;
+        }
+        .order-create-page .card[style*="grid-template-columns: 1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+        .order-create-page [style*="display:grid; grid-template-columns:1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+        .order-create-page [style*="display:grid; grid-template-columns:1fr 1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+        .order-create-page [style*="padding:2rem"] {
+            padding: 1rem !important;
+        }
+        .order-create-page [style*="padding:1.5rem 2rem"] {
+            padding: 1rem !important;
+        }
     }
 </style>
 

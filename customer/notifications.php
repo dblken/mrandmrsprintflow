@@ -296,7 +296,7 @@ require_once __DIR__ . '/../includes/header.php';
                             } else {
                                 $final_image_url = get_service_image_url($raw_service_name ?: $display_name);
                             }
-                            $fallback_img = '/printflow/public/assets/images/placeholder.jpg';
+                            $fallback_img = '/printflow/public/assets/images/services/default.png';
 
                             // Determine redirection link
                             $link = "/printflow/customer/notifications.php?mark_read=" . $notif['notification_id'];

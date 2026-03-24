@@ -76,16 +76,6 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="container mx-auto px-4" style="max-width:1100px;">
         <h1 class="ct-page-title">Browse Products</h1>
 
-        <!-- Filters -->
-        <div class="mb-8 mt-4">
-            <form method="GET" style="display:flex; gap:0.75rem; align-items:center; max-width: 33.33%;">
-                <div style="flex-grow: 1;">
-                    <input type="text" name="search" class="input-field" placeholder="Search products..." value="<?php echo htmlspecialchars($search); ?>" style="width: 100%; border-radius: 8px;">
-                </div>
-                <button type="submit" class="btn-primary" style="height:42px; padding: 0 1.5rem; border-radius: 8px;">Search</button>
-            </form>
-        </div>
-
         <!-- Products Grid -->
         <?php if (empty($products)): ?>
             <div class="ct-empty">
@@ -113,7 +103,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $display_img = "/printflow/public/images/products/product_" . $product['product_id'] . ".png";
                         }
                     }
-                    if (!$display_img) $display_img = "/printflow/public/assets/images/placeholder.png";
+                    if (!$display_img) $display_img = "/printflow/public/assets/images/services/default.png";
 
                     $order_link = "order_create.php?product_id=" . $product['product_id'];
                     $esc_name = addslashes($product['name']);
@@ -123,6 +113,9 @@ require_once __DIR__ . '/../includes/header.php';
                     $formatted_price = format_currency($product['price']);
                     $stock_count = (int)$product['stock_quantity'];
                     $has_variants = (int)($product['variant_count'] ?? 0) > 0;
+                    $ptype = strtolower(trim((string)($product['product_type'] ?? '')));
+                    $fixed_types = ['fixed', 'fixed product', 'product'];
+                    $is_fixed_product = ($ptype === '' || in_array($ptype, $fixed_types, true));
                 ?>
                     <div class="ct-product-card" onclick="openProductModal('<?php echo $esc_name; ?>', '<?php echo $esc_cat; ?>', '<?php echo $esc_img; ?>', '<?php echo $esc_link; ?>', <?php echo $product['price']; ?>, <?php echo $stock_count; ?>)" style="cursor: pointer;">
                         <div class="ct-product-img">
@@ -146,13 +139,13 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div style="display:flex; align-items:center;">
                                         <?php if ($product['stock_quantity'] > 0): ?>
                                             <button 
-                                                title="<?php echo $has_variants ? 'View Options' : 'Buy Now'; ?>" 
-                                                onclick="event.stopPropagation(); this.closest('.ct-product-card').click();"
+                                                title="Add to Cart" 
+                                                onclick="event.stopPropagation(); <?php echo !$is_fixed_product ? "this.closest('.ct-product-card').click();" : "window.location.href='cart_add.php?product_id=" . (int)$product['product_id'] . "';"; ?>"
                                                 style="background:none; border:none; padding:8px; cursor:pointer; color:#4F46E5; display:flex; align-items:center; justify-content:center; border-radius:8px; transition:all 0.2s; background: rgba(79, 70, 229, 0.05);"
                                                 onmouseover="this.style.background='rgba(79, 70, 229, 0.1)'; this.style.transform='scale(1.1)'"
                                                 onmouseout="this.style.background='rgba(79, 70, 229, 0.05)'; this.style.transform='scale(1)'"
                                             >
-                                                <?php if ($has_variants): ?>
+                                                <?php if (!$is_fixed_product || $has_variants): ?>
                                                     <svg xmlns="http://www.w3.org/2000/svg" style="width:24px; height:24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                                                     </svg>
@@ -198,7 +191,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div onclick="closeProductModal()" style="position: absolute; inset: 0; background-color: rgba(0, 0, 0, 0.45);"></div>
     
     <!-- Modal Content (Wider fixed size with internal scroll) -->
-    <div id="product-modal-content" style="position: relative; background-color: #ffffff; border-radius: 1.5rem; width: 750px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); transform: translateY(20px); transition: all 0.3s ease;">
+    <div id="product-modal-content" style="position: relative; background: linear-gradient(165deg, rgba(10,37,48,0.96), rgba(7,26,34,0.97)); border: 1px solid rgba(83,197,224,0.22); border-radius: 1.5rem; width: 750px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: all 0.3s ease;">
         
         <style>
             /* Modal Internal Scrollbar */
@@ -209,8 +202,8 @@ require_once __DIR__ . '/../includes/header.php';
         </style>
         
         <!-- Close Button -->
-        <button onclick="closeProductModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: #ffffff; border-radius: 9999px; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
-            <svg style="width: 1.5rem; height: 1.5rem; color: #1f2937;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <button onclick="closeProductModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: rgba(15,34,45,0.95); border-radius: 9999px; border: 1px solid rgba(83,197,224,0.3); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 1.5rem; height: 1.5rem; color: #cdebf5;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
 
         <!-- Scrollable Body Section -->
@@ -224,20 +217,20 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Info Section (Same as Card Body) -->
-            <div style="padding: 2.25rem; display: flex; flex-direction: column; background: #ffffff;">
-                <h2 id="modal-name" style="font-size: 1.75rem; font-weight: 800; color: #111827; margin: 0 0 0.85rem 0; line-height: 1.2;">Product Name</h2>
+            <div style="padding: 2.25rem; display: flex; flex-direction: column; background: rgba(7,26,34,0.78);">
+                <h2 id="modal-name" style="font-size: 1.75rem; font-weight: 800; color: #f8fafc; margin: 0 0 0.85rem 0; line-height: 1.2;">Product Name</h2>
                 
                 <div id="modal-price-container" style="margin-bottom: 1.25rem;">
-                    <p id="modal-price" style="font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0;"></p>
+                    <p id="modal-price" style="font-size: 1.5rem; font-weight: 800; color: #9be2f3; margin: 0;"></p>
                     <div id="modal-stock" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600;"></div>
                 </div>
 
-                <p style="color: #4b5563; margin-bottom: 2rem; line-height: 1.7; font-size: 0.95rem;">
+                <p style="color: #bcd2df; margin-bottom: 2rem; line-height: 1.7; font-size: 0.95rem;">
                     Select this product and proceed to place your order. For custom designs and sizes, visit our Services page.
                 </p>
 
-                <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <a id="modal-action-btn" href="#" style="display: flex; align-items: center; justify-content: center; padding: 1.15rem 2rem; background: #111827; color: #ffffff; font-weight: 700; border-radius: 0.75rem; text-decoration: none; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15); font-size: 1rem;">
+                <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid rgba(83,197,224,0.16);">
+                    <a id="modal-action-btn" href="#" style="display: flex; align-items: center; justify-content: center; padding: 1.15rem 2rem; background: linear-gradient(135deg, #53C5E0, #32a1c4); color: #ffffff; font-weight: 700; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.14); text-decoration: none; transition: all 0.2s; box-shadow: 0 10px 22px rgba(50,161,196,0.30); font-size: 1rem;">
                         BUY NOW
                         <svg style="width: 1.25rem; height: 1.25rem; margin-left: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
                     </a>
@@ -298,9 +291,9 @@ function closeProductModal() {
 </script>
 
 <script>
-const PF_CSRF_TOKEN = '<?php echo generate_csrf_token(); ?>';
+var PF_CSRF_TOKEN = '<?php echo generate_csrf_token(); ?>';
 
-async function addToCart(productId) {
+async function addToCart(productId, fallbackLink) {
     try {
         const response = await fetch('api_cart.php', {
             method: 'POST',
@@ -312,17 +305,54 @@ async function addToCart(productId) {
                 csrf_token: PF_CSRF_TOKEN
             })
         });
-        
-        const data = await response.json();
+
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (e) {
+            const txt = await response.text();
+            throw new Error(txt || 'Invalid API response');
+        }
+
+        if (!response.ok) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + response.status));
+        }
+
         if (data.success) {
             updateCartBadge(data.cart_count);
-            // Optional: Show a small toast notification
-            showToast('Added to cart!');
+            await refreshCartCount();
+            window.location.href = 'cart.php';
         } else {
-            alert(data.message || 'Failed to add to cart');
+            const msg = (data && data.message) ? String(data.message) : '';
+            const needsConfig = msg.toLowerCase().includes('customization') || msg.toLowerCase().includes('variant');
+            if (needsConfig && fallbackLink) {
+                window.location.href = fallbackLink;
+                return;
+            }
+            alert(msg || 'Failed to add to cart');
         }
     } catch (err) {
         console.error('Cart Error:', err);
+        if (fallbackLink) {
+            window.location.href = fallbackLink;
+        }
+    }
+}
+
+async function refreshCartCount() {
+    try {
+        const response = await fetch('api_cart.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'get_count',
+                csrf_token: PF_CSRF_TOKEN
+            })
+        });
+        const data = await response.json();
+        if (data && data.success) updateCartBadge(data.cart_count || 0);
+    } catch (e) {
+        // Keep silent; badge update already attempted from add response.
     }
 }
 

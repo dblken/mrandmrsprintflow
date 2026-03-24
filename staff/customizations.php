@@ -29,7 +29,6 @@ if ($branchFilter !== null) {
 }
 
 // Get statistics for KPIs (include both job_orders and regular orders pending review)
-<<<<<<< HEAD
 $total_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql,
     $joBranchTypes ?: null,
@@ -40,24 +39,6 @@ $total_orders_pending = db_query(
     $ordBranchTypes ?: null,
     $ordBranchParams ?: null
 )[0]['count'];
-=======
-$order_id_from_url = $_GET['order_id'] ?? null;
-if ($order_id_from_url) {
-    // Basic pre-fetch to satisfy "Always fetch order data using order_id from the URL"
-    $pre_fetched = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id_from_url])[0] ?? null;
-    if (!$pre_fetched) {
-        $pre_fetched = db_query("SELECT * FROM job_orders WHERE id = ?", 'i', [$order_id_from_url])[0] ?? null;
-    }
-
-    // MANDATORY FIX: If order_id is provided but not found, stop execution.
-    if (!$pre_fetched) {
-        die("Invalid order.");
-    }
-}
-
-$total_jobs_jobs = db_query("SELECT COUNT(*) as count FROM job_orders")[0]['count'];
-$total_orders_pending = db_query("SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')")[0]['count'];
->>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
 $total_jobs = $total_jobs_jobs + $total_orders_pending;
 
 $pending_jobs_jobs = db_query(
@@ -83,7 +64,7 @@ $in_production_jobs = db_query(
     $joBranchParams ?: null
 )[0]['count'];
 $in_production_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing')" . $ordBranchSql,
+    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process')" . $ordBranchSql,
     $ordBranchTypes ?: null,
     $ordBranchParams ?: null
 )[0]['count'];
@@ -146,6 +127,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         .btn-action.amber:hover { background: #f59e0b; color: white; }
         .btn-action.emerald { color: #059669; border-color: #059669; }
         .btn-action.emerald:hover { background: #059669; color: white; }
+        .btn-action.indigo { color: #4f46e5; border-color: #4f46e5; }
+        .btn-action.indigo:hover { background: #4f46e5; color: white; }
 
         /* Refined Enterprise Table Styles (Uniform with Orders Page) */
         /* Toolbar: tabs wrap + search stays on its own row on narrow screens (no overlap with table) */
@@ -258,11 +241,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         .pf-staff-customizations-root { min-width: 0; }
     </style>
 </head>
-<<<<<<< HEAD
-<body x-data="joManager('ALL')" data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
-=======
-<body>
->>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
+<body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
 <div class="dashboard-container">
     <?php 
     if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'])) {
@@ -272,7 +251,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
     }
     ?>
     <div class="main-content">
-        <div id="staffJoCustomizationsPage" x-data="joManager('ALL')" class="pf-staff-customizations-root">
+        <div id="staffJoCustomizationsPage" x-data="joManager('ALL')" x-init="init()" class="pf-staff-customizations-root" @keydown.escape.window="onSvcEscape()">
         <header>
             <h1 class="page-title">Customizations</h1>
         </header>
@@ -323,10 +302,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <span>TO_PAY</span>
                             <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
                         </button>
-                        <button type="button" @click="activeStatus = 'VERIFY_PAY'" :class="activeStatus === 'VERIFY_PAY' ? 'active' : ''" class="pill-tab" style="position:relative;">
+                        <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab" style="position:relative;">
                             <span>TO VERIFY</span>
-                            <span class="tab-count" x-text="getStatusCount('VERIFY_PAY')"></span>
-                            <span x-show="getStatusCount('VERIFY_PAY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
+                            <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
+                            <span x-show="getStatusCount('TO_VERIFY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
                         </button>
                         <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab" style="position:relative;">
                             <span>IN_PRODUCTION</span>
@@ -397,6 +376,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="table-text-main" x-text="jo.first_name + ' ' + (jo.last_name || '')"></div>
+                                        <div class="table-text-sub" style="margin-top:4px;max-width:220px;word-break:break-word;" x-show="jo.customer_contact" x-text="jo.customer_contact"></div>
                                         <div style="margin-top:4px;">
                                             <span style="font-size:10px; font-weight:500;" class="status-pill" :class="jo.customer_type === 'NEW' ? 'badge-confirmed' : 'badge-fulfilled'" x-text="jo.customer_type"></span>
                                         </div>
@@ -470,10 +450,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#06A1A1,#047676);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:22px;flex-shrink:0;" x-text="currentJo.customer_full_name ? currentJo.customer_full_name[0].toUpperCase() : '?'"></div>
                         <div>
                             <div style="font-size:16px;font-weight:700;color:#1f2937;" x-text="currentJo.customer_full_name"></div>
-                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
                                 <span style="font-size:11px; font-weight:500;" class="status-pill" :class="currentJo.customer_type === 'NEW' ? 'badge-confirmed' : 'badge-fulfilled'" x-text="currentJo.customer_type"></span>
                                 <span style="font-size:12px;color:#6b7280;" x-text="currentJo.customer_contact"></span>
                             </div>
+                            <div x-show="currentJo.customer_address" style="font-size:12px;color:#6b7280;margin-top:8px;max-width:100%;word-break:break-word;" x-text="currentJo.customer_address"></div>
                         </div>
                     </div>
 
@@ -500,11 +481,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Quantity</label>
                             <div style="font-size:13px;color:#1f2937;" x-text="currentJo.quantity + ' pcs'"></div>
                         </div>
-                        <div x-show="!['PENDING', 'Pending Review', 'Pending Approval', 'For Revision'].includes(currentJo.status)">
+                        <div>
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Estimated Total</label>
                             <div style="font-size:13px;color:#1f2937;font-weight:400;" x-text="'₱' + Number(currentJo.estimated_total || 0).toLocaleString()"></div>
                         </div>
-                        <div x-show="!['PENDING', 'Pending Review', 'Pending Approval', 'For Revision'].includes(currentJo.status)">
+                        <div>
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:4px;">Amount Paid</label>
                             <div style="font-size:13px;color:#1f2937;font-weight:400;" x-text="'₱' + Number(currentJo.amount_paid || 0).toLocaleString()"></div>
                         </div>
@@ -518,6 +499,13 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </div>
 
+                    <template x-if="currentJo.revision_reason && String(currentJo.revision_reason).trim()">
+                        <div style="margin-bottom:20px; padding:14px 16px; border-radius:12px; border:1px solid #fecaca; background:#fef2f2;">
+                            <label style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;display:block;margin-bottom:8px;">Revision requested (customer)</label>
+                            <div style="font-size:13px;color:#7f1d1d;white-space:pre-wrap;word-break:break-word;" x-text="currentJo.revision_reason"></div>
+                        </div>
+                    </template>
+
                     <!-- Dynamic Order Details (service-specific fields from customization_data) -->
                     <template x-if="currentJo.items && currentJo.items.length > 0">
                         <div style="margin-bottom:20px; padding:16px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
@@ -529,7 +517,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                         <template x-for="([k, v]) in getDisplayableCustom(item.customization)" :key="k">
                                             <div style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; background:#fff; min-width:0; overflow-wrap:break-word;">
                                                 <div style="font-size:10px; font-weight:600; color:#6b7280; text-transform:uppercase; margin-bottom:2px;" x-text="getCustomLabel(k)"></div>
-                                                <div style="font-size:12px; font-weight:500; color:#1f2937; word-break:break-word; overflow-wrap:break-word;" x-text="typeof v === 'object' ? JSON.stringify(v) : v"></div>
+                                                <div style="font-size:12px; font-weight:500; color:#1f2937; word-break:break-word; overflow-wrap:break-word;" x-text="formatCustomValuePlain(v)"></div>
+                                                <a x-show="isDisplayableLink(v)" :href="sanitizeStaffLink(v)" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#4f46e5;font-weight:600;margin-top:4px;display:inline-block;">Open link →</a>
                                             </div>
                                         </template>
                                     </div>
@@ -540,10 +529,22 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                                 <img :src="item.design_url" 
                                                      @click="previewFile = item.design_url"
                                                      style="width:140px; height:auto; border-radius:10px; border:1px solid #e2e8f0; cursor:zoom-in; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);" 
-                                                     onerror="this.src='/printflow/public/assets/img/file_icon.png';">
+                                                     onerror="this.src='<?php echo htmlspecialchars((defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/images/services/default.png', ENT_QUOTES, 'UTF-8'); ?>'">
                                                 <a :href="item.design_url" target="_blank" rel="noopener" style="font-size:11px; color:#4f46e5; text-decoration:none; font-weight:600; padding:6px 10px; background:#f5f3ff; border-radius:6px; transition:all 0.2s;" onmouseover="this.style.background='#ddd6fe'">
                                                     Open Original →
                                                 </a>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="item.reference_url">
+                                        <div style="margin-top:12px;">
+                                            <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">Reference image</div>
+                                            <div style="display:flex; align-items:flex-end; gap:12px;">
+                                                <img :src="item.reference_url"
+                                                     @click="previewFile = item.reference_url"
+                                                     style="width:140px; height:auto; border-radius:10px; border:1px solid #e2e8f0; cursor:zoom-in; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
+                                                     onerror="this.style.display='none'">
+                                                <a :href="item.reference_url" target="_blank" rel="noopener" style="font-size:11px; color:#4f46e5; text-decoration:none; font-weight:600; padding:6px 10px; background:#f5f3ff; border-radius:6px;">Open reference →</a>
                                             </div>
                                         </div>
                                     </template>
@@ -555,22 +556,25 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
                     <!-- Notes -->
                     <div style="margin-bottom:20px;">
-                        <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:6px;">Production Notes</label>
-                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;font-style:italic;word-break:break-word;overflow-wrap:break-word;" x-text="currentJo.notes || (currentJo.items && currentJo.items[0] && (currentJo.items[0].customization?.notes || currentJo.items[0].customization?.additional_notes)) || 'No instructions provided.'"></div>
+                        <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:6px;">Customer &amp; production notes</label>
+                        <div style="font-size:13px;color:#6b7280;background:#fffbeb;border:1px solid #fef3c7;padding:10px 14px;border-radius:8px;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;" x-text="combinedCustomerNotes()"></div>
                     </div>
 
                     <!-- 4. TO_VERIFY (Payment Verification) -->
-                    <template x-if="currentJo.status === 'VERIFY_PAY'">
+                    <template x-if="isVerifyStageRow(currentJo)">
                         <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
                             <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:16px;">Step 4: Verify Payment Proof</label>
                             
                             <div style="display:flex; gap:20px; align-items:flex-start;">
                                 <div style="width:160px; flex-shrink:0;">
                                     <template x-if="currentJo.payment_proof_path">
-                                        <img :src="'/printflow/api_view_proof.php?file=' + currentJo.payment_proof_path" 
-                                             @click="previewFile = '/printflow/api_view_proof.php?file=' + currentJo.payment_proof_path"
-                                             style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:zoom-in; box-shadow:0 4px 6px rgba(0,0,0,0.1);" 
-                                             alt="Proof">
+                                        <a :href="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                           target="_blank" rel="noopener noreferrer"
+                                           style="display:block;line-height:0;">
+                                            <img :src="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                                 style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1);"
+                                                 alt="Proof — opens full size in new tab">
+                                        </a>
                                     </template>
                                 </div>
                                 <div style="flex:1;">
@@ -695,48 +699,38 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </template>
 
-                            <template x-if="currentJo.materials && currentJo.materials.length > 0">
-<<<<<<< HEAD
+                    <div x-show="currentJo.materials && currentJo.materials.length > 0" style="margin-top:20px;">
+                        <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Assigned Production Materials</label>
+                        <template x-for="m in (currentJo.materials || [])" :key="m.id">
+                            <div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
                                 <div>
-                                    <template x-for="m in (currentJo.materials || [])" :key="m.id">
-=======
-                                <div style="margin-top:20px;">
-                                    <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Assigned Production Materials</label>
-                                    <template x-for="m in currentJo.materials" :key="m.id">
->>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
-                                        <div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                                            <div>
-                                                <div style="font-size:12px; font-weight:600; color:#1f2937;" x-text="m.item_name"></div>
-                                                <div style="font-size:11px; color:#6b7280; margin-top:2px;">
-                                                    <span x-show="m.track_by_roll == 1">
-                                                        Req: <span x-text="m.computed_required_length_ft"></span>'
-                                                        <span x-show="m.roll_code"> (Roll: <span x-text="m.roll_code"></span>)</span>
-                                                        <span x-show="!m.roll_code"> (Auto Pick Roll)</span>
-                                                    </span>
-                                                    <span x-show="m.track_by_roll == 0">Qty: <span x-text="m.quantity"></span></span>
-                                                    
-                                                    <!-- Show Lamination & Waste Metadata safely -->
-                                                    <template x-if="m.metadata && m.metadata.lamination_item_id">
-                                                        <div style="color:#059669; font-weight:600; margin-top:4px;">
-                                                            + Lamination (Auto Pick Roll) — <span x-text="m.metadata.lamination_length_ft"></span>'
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="m.metadata && m.metadata.waste_length_ft !== undefined">
-                                                        <div style="color:#b45309; margin-top:2px;">
-                                                            Recorded Waste: <span x-text="m.metadata.waste_length_ft"></span>'
-                                                        </div>
-                                                    </template>
-
-                                                    <span style="color:#06A1A1; font-weight:600; margin-left:8px;" x-show="m.deducted_at">✓ Deducted</span>
-                                                </div>
+                                    <div style="font-size:12px; font-weight:600; color:#1f2937;" x-text="m.item_name"></div>
+                                    <div style="font-size:11px; color:#6b7280; margin-top:2px;">
+                                        <span x-show="m.track_by_roll == 1">
+                                            Req: <span x-text="m.computed_required_length_ft"></span>'
+                                            <span x-show="m.roll_code"> (Roll: <span x-text="m.roll_code"></span>)</span>
+                                            <span x-show="!m.roll_code"> (Auto Pick Roll)</span>
+                                        </span>
+                                        <span x-show="m.track_by_roll == 0">Qty: <span x-text="m.quantity"></span></span>
+                                        <template x-if="m.metadata && m.metadata.lamination_item_id">
+                                            <div style="color:#059669; font-weight:600; margin-top:4px;">
+                                                + Lamination (Auto Pick Roll) — <span x-text="m.metadata.lamination_length_ft"></span>'
                                             </div>
-                                            <template x-if="!m.deducted_at">
-                                                <button @click="removeMaterial(m.id)" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">Remove</button>
-                                            </template>
-                                        </div>
-                                    </template>
+                                        </template>
+                                        <template x-if="m.metadata && m.metadata.waste_length_ft !== undefined">
+                                            <div style="color:#b45309; margin-top:2px;">
+                                                Recorded Waste: <span x-text="m.metadata.waste_length_ft"></span>'
+                                            </div>
+                                        </template>
+                                        <span style="color:#06A1A1; font-weight:600; margin-left:8px;" x-show="m.deducted_at">✓ Deducted</span>
+                                    </div>
                                 </div>
-                            </template>
+                                <template x-if="!m.deducted_at">
+                                    <button type="button" @click="removeMaterial(m.id)" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">Remove</button>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
 
                     <template x-if="currentJo.ink_usage && currentJo.ink_usage.length > 0">
                         <div style="margin-top:16px;">
@@ -771,16 +765,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;gap:8px;">
                     <!-- Left: Status actions -->
                     <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
-                        <template x-if="['PENDING', 'Pending Review', 'Pending Approval'].includes(currentJo.status)">
-                            <div style="display:flex; gap:8px;">
-                                <button @click="jobAction('APPROVED')" class="btn-action indigo" style="padding:6px 12px; font-weight:600;">✓ Approve to Set Price</button>
-                                <button @click="openRevisionModal()" class="btn-action" style="padding:6px 12px; color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; font-weight:600;">✕ Request Revision</button>
-                            </div>
-                        </template>
-
-                        <template x-if="currentJo.status !== 'CANCELLED' && currentJo.status !== 'COMPLETED'">
-                            <button @click="jobAction('CANCELLED')" class="btn-action red" style="padding:6px 12px;">✕ Cancel</button>
-                        </template>
+                        <div x-show="isPendingReviewStatus(currentJo)" style="display:flex; gap:8px;">
+                            <button type="button" @click="jobAction('APPROVED')" class="btn-action indigo" style="padding:6px 12px; font-weight:600;">✓ Approve to Set Price</button>
+                            <button type="button" @click="openRevisionModal()" class="btn-action" style="padding:6px 12px; color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; font-weight:600;">✕ Request Revision</button>
+                        </div>
+                        <button type="button" x-show="currentJo.status !== 'CANCELLED' && currentJo.status !== 'COMPLETED'" @click="jobAction('CANCELLED')" class="btn-action red" style="padding:6px 12px;">✕ Cancel</button>
                     </div>
                     <!-- Right: Close -->
                     <button @click="showDetailsModal = false" class="btn-secondary">Close</button>
@@ -827,17 +816,19 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         </div>
     </div>
 </div>
+        <?php include __DIR__ . '/partials/service_order_modal.php'; ?>
         </div><!-- /#staffJoCustomizationsPage -->
     </div><!-- /.main-content -->
 </div><!-- /.dashboard-container -->
 
+<script src="<?php echo htmlspecialchars((defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/js/staff_service_order_modal.js'); ?>"></script>
 <script>
     function joManager(defaultStatus = 'PENDING') {
         return {
-<<<<<<< HEAD
+            ...printflowStaffServiceOrderModalMixin({
+                async afterSvcMutation() { await this.loadOrders(); }
+            }),
             statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'TO_VERIFY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
-=======
->>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
             activeStatus: defaultStatus || 'ALL',
             orders: [],
             machines: [],
@@ -850,6 +841,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             currentJo: {},
             availableRolls: {},
             allInventoryItems: [],
+            inventoryPollMs: 20000,
             newMaterialId: '',
             newMaterialQty: 1,
             newMaterialHeight: 0,
@@ -886,18 +878,115 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 tshirt_provider: 'T-Shirt Provider', shirt_source: 'Shirt Source', brand: 'Brand',
                 material: 'Material', surface_application: 'Surface', surface_type: 'Surface Type',
                 sintraboard_thickness: 'Thickness', is_standee: 'Standee', sticker_type: 'Sticker Type',
-                cut_type: 'Cut Type', thickness: 'Thickness', installation_fee: 'Installation Fee'
+                cut_type: 'Cut Type', thickness: 'Thickness', installation_fee: 'Installation Fee',
+                design_upload: 'Design upload', reference_upload: 'Reference upload',
+                design_upload_path: 'Design file path', reference_upload_path: 'Reference file path'
             },
-            customFieldSkip: ['design_upload','reference_upload','Branch_ID','service_type','product_type','unit','design_upload_path','notes','additional_notes'],
+            // Only hide redundant / internal keys; show notes, uploads, install_* so staff sees full customer input.
+            customFieldSkip: ['Branch_ID', 'service_type', 'product_type', 'unit'],
             getDisplayableCustom(custom) {
                 if (!custom || typeof custom !== 'object') return [];
                 const skip = this.customFieldSkip;
-                return Object.entries(custom).filter(([k, v]) =>
-                    v !== '' && v != null && !skip.includes(k) && !String(k).startsWith('install_')
-                );
+                return Object.entries(custom).filter(([k, v]) => {
+                    if (v === '' || v == null) return false;
+                    if (skip.includes(k)) return false;
+                    if (typeof v === 'string' && v.length > 2000) return false;
+                    return true;
+                });
             },
             getCustomLabel(k) {
                 return this.customFieldLabels[k] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            },
+            formatCustomValuePlain(v) {
+                if (v == null) return '';
+                if (typeof v === 'object') return JSON.stringify(v);
+                return String(v);
+            },
+            isDisplayableLink(v) {
+                if (v == null || typeof v === 'object') return false;
+                const s = String(v).trim();
+                if (s.length < 2) return false;
+                if (/^https?:\/\//i.test(s)) return true;
+                return s.startsWith('/');
+            },
+            sanitizeStaffLink(v) {
+                const s = String(v).trim();
+                if (/^https?:\/\//i.test(s)) return s;
+                if (s.startsWith('/')) return s;
+                return '#';
+            },
+            combinedCustomerNotes() {
+                const j = this.currentJo;
+                if (!j) return 'No instructions provided.';
+                const blocks = [];
+                const store = (j.store_order_notes || '').trim();
+                const jobN = (j.notes || '').trim();
+                if (store) blocks.push('Order (checkout) notes:\n' + store);
+                if (jobN && jobN !== store) blocks.push('Production (job record):\n' + jobN);
+                const itemBits = [];
+                if (j.items && j.items.length) {
+                    for (const it of j.items) {
+                        const c = it.customization || {};
+                        const n = (c.notes || c.additional_notes || '').trim();
+                        if (n) itemBits.push((it.product_name || 'Line item') + ': ' + n);
+                    }
+                }
+                if (itemBits.length) blocks.push('Notes on line items:\n' + itemBits.join('\n'));
+                return blocks.length ? blocks.join('\n\n') : 'No instructions provided.';
+            },
+            isPendingReviewStatus(jo) {
+                if (!jo) return false;
+                const s = String(jo.status || '');
+                const u = s.toUpperCase().replace(/\s+/g, '_');
+                if (['PENDING', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'FOR_REVISION'].includes(u)) return true;
+                return ['Pending Review', 'Pending Approval', 'For Revision'].includes(s);
+            },
+
+            /** Row is in payment-verification stage (TO_VERIFY tab + merge dedupe). */
+            isVerifyStageRow(row) {
+                if (!row) return false;
+                const s = String(row.status || '').toUpperCase().replace(/\s+/g, '_');
+                const p = String(row.payment_proof_status || '').toUpperCase();
+                const stage = s === 'VERIFY_PAY' || s === 'TO_VERIFY' || s === 'PENDING_VERIFICATION' || s === 'DOWNPAYMENT_SUBMITTED';
+                const proofPresent = Boolean(row.payment_proof_path || row.payment_proof);
+                const amountSubmitted = Number(row.payment_submitted_amount || 0);
+
+                // If proof already verified/rejected, never show verify action.
+                if (p === 'VERIFIED' || p === 'REJECTED') return false;
+
+                // Normal: status indicates verify stage and proof is marked SUBMITTED.
+                if (stage) return p === 'SUBMITTED';
+
+                // Inconsistent rows: if proof is present with a positive submitted amount,
+                // still treat it as verify-stage so staff can complete verification.
+                if (proofPresent && amountSubmitted > 0) return true;
+
+                // Fallback: if payment_proof_status is SUBMITTED, consider it verify-stage.
+                return p === 'SUBMITTED';
+            },
+
+            /** Store/job row is actively in production (matches IN_PRODUCTION tab). */
+            isInProductionRow(row) {
+                if (!row) return false;
+                const raw = String(row.status || '').trim();
+                const t = raw.toUpperCase().replace(/\s+/g, '_');
+                const p = String(row.payment_proof_status || '').toUpperCase();
+                // Job row lagged after verify but proof is verified on job_orders
+                if (p === 'VERIFIED' && (t === 'TO_PAY' || t === 'APPROVED')) return true;
+                if (t === 'IN_PRODUCTION' || t === 'PROCESSING' || t === 'PRINTING') return true;
+                // orders.status after verify: "Paid – In Process" (en-dash) or "Paid - In Process" (ASCII) if SQL CASE did not normalize
+                if (/PAID[-–_\s]+IN[-–_\s]+PROCESS/i.test(raw)) return true;
+                return false;
+            },
+
+            /** Waiting for customer payment — exclude proof submitted (TO_VERIFY) or already verified (production). */
+            isToPayRow(row) {
+                if (!row) return false;
+                const s = String(row.status || '').toUpperCase().replace(/\s+/g, '_');
+                const p = String(row.payment_proof_status || '').toUpperCase();
+                if (!(s === 'TO_PAY' || s === 'APPROVED')) return false;
+                if (p === 'SUBMITTED' || p === 'VERIFIED') return false;
+                return true;
             },
 
             get availableMaterialsForCurrentOrder() {
@@ -937,6 +1026,24 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 await this.loadOrders();
                 await this.loadMachines();
                 await this.loadAllInventoryItems();
+
+                // Keep stock values in sync with admin-side ledger deductions.
+                // This page otherwise fetches `current_stock` only once on load and would show stale stock.
+                if (!window.pfStaffCustomizationsInventoryPollListenerAttached) {
+                    window.pfStaffCustomizationsInventoryPollListenerAttached = true;
+                    document.addEventListener('turbo:before-cache', function () {
+                        if (window.pfStaffCustomizationsInventoryPoll) {
+                            clearInterval(window.pfStaffCustomizationsInventoryPoll);
+                            window.pfStaffCustomizationsInventoryPoll = null;
+                        }
+                    });
+                }
+                if (window.pfStaffCustomizationsInventoryPoll) {
+                    clearInterval(window.pfStaffCustomizationsInventoryPoll);
+                }
+                window.pfStaffCustomizationsInventoryPoll = setInterval(() => {
+                    this.loadAllInventoryItems().catch(() => {});
+                }, this.inventoryPollMs);
                 
                 // Auto-open modal if order_id is in URL
                 const params = new URLSearchParams(window.location.search);
@@ -992,21 +1099,39 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         return tb - ta;
                     });
 
-                    // Drop duplicate #ORD- rows when a #JO- row exists for the same store order_id
+                    // Merge JOB + ORDER for same store order_id: keep the row that reflects payment verification.
                     const storeIdsWithJob = new Set(
                         jobOrders
                             .filter(j => j.order_id != null && j.order_id !== '')
                             .map(j => String(j.order_id))
                     );
 
-                    this.orders = sorted.filter(row => {
-                        if (row.order_type !== 'ORDER') return true;
-                        const oid = String(row.order_id ?? row.id ?? '');
-                        return !storeIdsWithJob.has(oid);
-                    }).map(o => ({
-                        ...o,
-                        _ts: new Date(o.created_at || o.order_date || 0).getTime()
-                    }));
+                    this.orders = sorted
+                        .filter(row => {
+                            if (row.order_type !== 'ORDER') return true;
+                            const oid = String(row.order_id ?? row.id ?? '');
+                            if (!storeIdsWithJob.has(oid)) return true;
+                            if (!this.isVerifyStageRow(row)) return false;
+                            const jobRow = sorted.find(
+                                r => r.order_type === 'JOB' && r.order_id != null && String(r.order_id) === oid
+                            );
+                            if (jobRow && this.isVerifyStageRow(jobRow)) return false;
+                            return true;
+                        })
+                        .filter(row => {
+                            if (row.order_type !== 'JOB') return true;
+                            if (row.order_id == null || row.order_id === '') return true;
+                            const oid = String(row.order_id);
+                            const orderRow = sorted.find(
+                                r => r.order_type === 'ORDER' && String(r.order_id ?? r.id) === oid
+                            );
+                            if (!orderRow || !this.isVerifyStageRow(orderRow)) return true;
+                            return this.isVerifyStageRow(row);
+                        })
+                        .map(o => ({
+                            ...o,
+                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                        }));
                 } catch(err) {
                     console.error('Error loading orders:', err);
                     this.orders = [];
@@ -1061,13 +1186,17 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
             get filteredOrders() {
                 const filtered = this.orders.filter(jo => {
-                    let matchStatus = this.activeStatus === 'ALL' || jo.status === this.activeStatus;
-                    if (this.activeStatus === 'TO_VERIFY') {
-                        const s = String(jo.status || '').toUpperCase();
-                        matchStatus = s === 'VERIFY_PAY' || s === 'TO_VERIFY' || s === 'PENDING_VERIFICATION' || s === 'DOWNPAYMENT_SUBMITTED' || jo.payment_proof_status === 'SUBMITTED';
+                    let matchStatus = false;
+                    if (this.activeStatus === 'ALL') {
+                        matchStatus = true;
+                    } else if (this.activeStatus === 'TO_VERIFY') {
+                        matchStatus = this.isVerifyStageRow(jo);
                     } else if (this.activeStatus === 'TO_PAY') {
-                        const s = String(jo.status || '').toUpperCase();
-                        matchStatus = (s === 'TO_PAY' || s === 'APPROVED') && jo.payment_proof_status !== 'SUBMITTED';
+                        matchStatus = this.isToPayRow(jo);
+                    } else if (this.activeStatus === 'IN_PRODUCTION') {
+                        matchStatus = this.isInProductionRow(jo);
+                    } else {
+                        matchStatus = jo.status === this.activeStatus;
                     }
                     
                     const searchLower = this.search.toLowerCase();
@@ -1084,16 +1213,13 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             getStatusCount(status) {
                 if (status === 'ALL') return this.orders.length;
                 if (status === 'TO_VERIFY') {
-                    return this.orders.filter(o => {
-                        const s = String(o.status || '').toUpperCase();
-                        return s === 'VERIFY_PAY' || s === 'TO_VERIFY' || s === 'PENDING_VERIFICATION' || s === 'DOWNPAYMENT_SUBMITTED' || o.payment_proof_status === 'SUBMITTED';
-                    }).length;
+                    return this.orders.filter(o => this.isVerifyStageRow(o)).length;
                 }
                 if (status === 'TO_PAY') {
-                    return this.orders.filter(o => {
-                        const s = String(o.status || '').toUpperCase();
-                        return (s === 'TO_PAY' || s === 'APPROVED') && o.payment_proof_status !== 'SUBMITTED';
-                    }).length;
+                    return this.orders.filter(o => this.isToPayRow(o)).length;
+                }
+                if (status === 'IN_PRODUCTION') {
+                    return this.orders.filter(o => this.isInProductionRow(o)).length;
                 }
                 return this.orders.filter(o => o.status === status).length;
             },
@@ -1101,7 +1227,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             async viewDetails(id, orderType = 'JOB') {
                 let order = this.findOrder(id, orderType);
                 if (orderType === 'SERVICE' || order?.order_type === 'SERVICE') {
-                    window.location.href = 'service_order_details.php?id=' + encodeURIComponent(id);
+                    await this.openSvcModal(id);
                     return;
                 }
 
@@ -1242,49 +1368,88 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 return false;
             },
 
+            async parseJsonResponse(r) {
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Non-JSON response', text.slice(0, 500));
+                    return { success: false, error: 'Server returned an invalid response. Check console or PHP error log.' };
+                }
+            },
+
             async verifyPayment() {
                 if(!confirm(`Verify payment of ₱${this.currentJo.payment_submitted_amount}?`)) return;
-                
-                const jid = await this.resolveEffectiveJobId();
-                if (!jid) {
-                    alert('No linked production job for payment verification.');
-                    return;
+
+                const base = document.body.getAttribute('data-base-url') || '/printflow';
+                const ot = this.currentJo.order_type || 'JOB';
+                let res;
+
+                if (ot === 'ORDER') {
+                    const oid = this.currentJo.order_id || this.currentJo.id;
+                    const fd = new FormData();
+                    fd.append('order_id', oid);
+                    fd.append('action', 'Approve');
+                    const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                    res = await this.parseJsonResponse(r);
+                } else {
+                    const jid = await this.resolveEffectiveJobId();
+                    if (!jid) {
+                        alert('No linked production job for payment verification.');
+                        return;
+                    }
+                    const fd = new FormData();
+                    fd.append('action', 'verify_payment');
+                    fd.append('id', jid);
+                    const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                    res = await this.parseJsonResponse(r);
                 }
-                const fd = new FormData();
-                fd.append('action', 'verify_payment');
-                fd.append('id', jid);
-                
-                const res = await (await fetch('../admin/api_verify_job_payment.php', { method: 'POST', body: fd })).json();
+
                 if(res.success) {
+                    this.activeStatus = 'IN_PRODUCTION';
                     await this.loadOrders();
                     await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
                     alert('Payment verified and balance updated.');
                 } else {
-                    alert(res.error);
+                    alert(res.error || 'Verification failed.');
                 }
             },
 
             async rejectPayment() {
                 const reason = prompt("Enter reason for rejection (e.g., Unclear image, Incorrect amount):");
                 if(!reason) return;
-                
-                const jid = await this.resolveEffectiveJobId();
-                if (!jid) {
-                    alert('No linked production job.');
-                    return;
+
+                const base = document.body.getAttribute('data-base-url') || '/printflow';
+                const ot = this.currentJo.order_type || 'JOB';
+                let res;
+
+                if (ot === 'ORDER') {
+                    const oid = this.currentJo.order_id || this.currentJo.id;
+                    const fd = new FormData();
+                    fd.append('order_id', oid);
+                    fd.append('action', 'Reject');
+                    const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                    res = await this.parseJsonResponse(r);
+                } else {
+                    const jid = await this.resolveEffectiveJobId();
+                    if (!jid) {
+                        alert('No linked production job.');
+                        return;
+                    }
+                    const fd = new FormData();
+                    fd.append('action', 'reject_payment');
+                    fd.append('id', jid);
+                    fd.append('reason', reason);
+                    const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                    res = await this.parseJsonResponse(r);
                 }
-                const fd = new FormData();
-                fd.append('action', 'reject_payment');
-                fd.append('id', jid);
-                fd.append('reason', reason);
-                
-                const res = await (await fetch('../admin/api_verify_job_payment.php', { method: 'POST', body: fd })).json();
+
                 if(res.success) {
                     await this.loadOrders();
                     await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
                     alert('Payment proof rejected.');
                 } else {
-                    alert(res.error);
+                    alert(res.error || 'Rejection failed.');
                 }
             },
 
@@ -1401,6 +1566,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             async loadAllInventoryItems() {
                 const res = await (await fetch('../admin/inventory_items_api.php?action=get_items')).json();
                 if(res.success) {
+                    // Drop roll cache so any newly issued/received roll deductions become visible.
+                    this.availableRolls = {};
                     this.allInventoryItems = res.data;
                     this.laminationItemsList = this.allInventoryItems.filter(i => i.name.toUpperCase().includes('LAMINATE'));
                 }
@@ -1633,7 +1800,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     return;
                 }
                 const ok = await this.updateStatus(jid, 'COMPLETED', machineId);
-                if (ok) this.showDetailsModal = false;
+                if (ok) {
+                    await this.loadAllInventoryItems();
+                    this.availableRolls = {};
+                    this.showDetailsModal = false;
+                }
             }
         }
     }

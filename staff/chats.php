@@ -150,7 +150,8 @@ $current_user = get_logged_in_user();
 
 <script>
 window.baseUrl = window.baseUrl || '<?php echo BASE_URL; ?>';
-let activeOrderId = null;
+var activeOrderId = window.activeOrderId ?? null;
+window.activeOrderId = activeOrderId;
 let lastMessageId = 0;
 let staffPollInterval = null;
 let listPollInterval = null;

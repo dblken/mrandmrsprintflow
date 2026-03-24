@@ -70,14 +70,18 @@ function printflow_is_placeholder_db_pass(string $pass): bool {
 $db_config = [
     'host' => 'localhost',
     'user' => 'root',
-    'pass' => '122704',
-    'name' => 'printflow_2',
+    'pass' => '1234',
+    'name' => 'printflow_1',
+    'port' => 3306,
+    'socket' => '',
 ];
 $envKeys = [
     'host' => 'PRINTFLOW_DB_HOST',
     'user' => 'PRINTFLOW_DB_USER',
     'pass' => 'PRINTFLOW_DB_PASS',
     'name' => 'PRINTFLOW_DB_NAME',
+    'port' => 'PRINTFLOW_DB_PORT',
+    'socket' => 'PRINTFLOW_DB_SOCKET',
 ];
 $root = dirname(__DIR__);
 $dot = printflow_load_dotenv($root . DIRECTORY_SEPARATOR . '.env');
@@ -119,15 +123,69 @@ define('DB_HOST', $db_config['host']);
 define('DB_USER', $db_config['user']);
 define('DB_PASS', $db_config['pass']);
 define('DB_NAME', $db_config['name']);
+define('DB_PORT', (int) $db_config['port']);
+define('DB_SOCKET', (string) $db_config['socket']);
 
-// Create connection
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+/**
+ * Create a mysqli connection and gracefully handle mysqli_sql_exception.
+ * Returns null on failure and sets $lastError.
+ */
+function printflow_try_connect(
+    string $host,
+    string $user,
+    string $pass,
+    string $name,
+    int $port,
+    string $socket,
+    string &$lastError
+): ?mysqli {
+    try {
+        $sock = $socket !== '' ? $socket : null;
+        return new mysqli($host, $user, $pass, $name, $port, $sock);
+    } catch (mysqli_sql_exception $e) {
+        $lastError = $e->getMessage();
+        return null;
+    }
+}
+
+$connectError = '';
+$conn = printflow_try_connect(
+    DB_HOST,
+    DB_USER,
+    DB_PASS,
+    DB_NAME,
+    DB_PORT,
+    DB_SOCKET,
+    $connectError
+);
+
+// Windows/XAMPP fallback: localhost can resolve to IPv6 (::1) and be refused.
+if (!$conn && strtolower(DB_HOST) === 'localhost') {
+    $conn = printflow_try_connect(
+        '127.0.0.1',
+        DB_USER,
+        DB_PASS,
+        DB_NAME,
+        DB_PORT,
+        DB_SOCKET,
+        $connectError
+    );
+}
 
 // Check connection
-if ($conn->connect_error) {
-    $msg = htmlspecialchars($conn->connect_error, ENT_QUOTES, 'UTF-8');
+if (!$conn || $conn->connect_error) {
+    $rawError = $conn ? $conn->connect_error : $connectError;
+    $msg = htmlspecialchars($rawError, ENT_QUOTES, 'UTF-8');
     $hint = '';
-    if (stripos($conn->connect_error, 'Access denied') !== false) {
+    if (stripos($rawError, 'No connection could be made') !== false || stripos($rawError, 'Connection refused') !== false) {
+        $hint = '<p><strong>MySQL service is not reachable.</strong> This usually means MySQL is not running, host/port is wrong, or localhost resolves to an unavailable interface.</p>'
+            . '<ul>'
+            . '<li>Start <strong>MySQL</strong> from the XAMPP Control Panel.</li>'
+            . '<li>Check host/port in <code>.env</code>: '
+            . '<code>PRINTFLOW_DB_HOST=127.0.0.1</code>, <code>PRINTFLOW_DB_PORT=3306</code> (or your real port).</li>'
+            . '<li>If your MySQL uses a custom port, update <code>PRINTFLOW_DB_PORT</code> to match.</li>'
+            . '</ul>';
+    } elseif (stripos($rawError, 'Access denied') !== false) {
         if (DB_PASS === '') {
             $hint = '<p><strong>MySQL rejected <code>root</code> with no password</strong> (that is what “using password: NO” means). '
                 . 'Set your real password in one place:</p><ul>'
@@ -146,6 +204,9 @@ if ($conn->connect_error) {
         '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:1rem;">'
         . '<h1 style="font-size:1.1rem;">Database connection failed</h1>'
         . '<p>' . $msg . '</p>'
+        . '<p><strong>Connection target:</strong> <code>'
+        . htmlspecialchars(DB_HOST, ENT_QUOTES, 'UTF-8') . ':' . htmlspecialchars((string) DB_PORT, ENT_QUOTES, 'UTF-8')
+        . '</code> / DB <code>' . htmlspecialchars(DB_NAME, ENT_QUOTES, 'UTF-8') . '</code></p>'
         . $hint
         . '</div>'
     );
@@ -162,6 +223,9 @@ ensure_services_table();
 
 require_once __DIR__ . '/ensure_order_messages_schema.php';
 printflow_ensure_order_messages_schema();
+
+require_once __DIR__ . '/ensure_orders_status_schema.php';
+printflow_ensure_orders_status_schema();
 
 /**
  * Prepare and execute a SQL statement safely

@@ -235,6 +235,25 @@ function service_order_ensure_tables() {
         $conn->query("ALTER TABLE service_orders ADD INDEX idx_branch (branch_id)");
     }
 
+    // ENUM or VARCHAR too narrow causes "Data truncated for column 'status'" on approve (Processing) / reject.
+    $res = $conn->query("SHOW COLUMNS FROM service_orders LIKE 'status'");
+    if ($res && $res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        $type = strtolower((string)($row['Type'] ?? ''));
+        $needs_widen = (strpos($type, 'enum(') === 0);
+        if (preg_match('/^varchar\((\d+)\)/', $type, $m) && (int)$m[1] < 50) {
+            $needs_widen = true;
+        }
+        if (preg_match('/^char\((\d+)\)/', $type, $m) && (int)$m[1] < 50) {
+            $needs_widen = true;
+        }
+        if ($needs_widen) {
+            $conn->query(
+                "ALTER TABLE service_orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Pending Review'"
+            );
+        }
+    }
+
     $conn->query("ALTER TABLE service_order_files MODIFY COLUMN file_path VARCHAR(255) DEFAULT NULL");
 
     $done = true;

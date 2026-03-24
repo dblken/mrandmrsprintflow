@@ -2,7 +2,6 @@
    Customer Theme — Purple-accent e-commerce design
    Applied to all /customer/ pages
    ============================================================ */
-
 :root {
     --ct-purple: #0a2530;       /* dark primary */
     --ct-purple-dark: #071a22;  /* even darker primary */
@@ -10,7 +9,7 @@
     --ct-purple-50: #f0f7f9;
     --ct-purple-100: #e0f0f5;
     --ct-purple-200: #b0e0ee;
-    --ct-bg: #f5f9fa;
+    --ct-bg: #00232b; /* dark top color as fallback */
     --ct-white: #ffffff;
     --ct-text: #1f2937;
     --ct-text-muted: #6b7280;
@@ -19,17 +18,48 @@
 
 /* ===== Global overrides for customer pages ===== */
 body.customer-theme {
-    background: var(--ct-bg);
+    /* Landing-like dark pattern: center glow + subtle grid */
+    background-color: #00151b;
+    background-image:
+        radial-gradient(ellipse at 50% 18%, rgba(83, 197, 224, 0.28) 0%, rgba(83, 197, 224, 0.10) 30%, rgba(0, 21, 27, 0) 62%),
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(180deg, #00151b 0%, #00232b 100%);
+    background-size: auto, 60px 60px, 60px 60px, auto;
+    background-position: center top, top left, top left, top left;
+    background-attachment: fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, repeat, repeat, no-repeat;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--ct-text);
 }
 
-/* ===== Header redesign — dark primary nav with radial glow ===== */
+/* ===== Header redesign — Landing-style (non-floating) ===== */
 body.customer-theme #main-header {
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    top: 0 !important;
     background: transparent !important;
+    backdrop-filter: none !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
     box-shadow: none !important;
-    border-bottom: 1px solid rgba(83,197,224,0.1) !important;
-    position: relative;
-    overflow: visible;
+    z-index: 50 !important;
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+    overflow: visible !important;
+    position: sticky !important;
+}
+
+body.customer-theme #main-header nav {
+    padding-top: 0.85rem !important;
+    padding-bottom: 0.85rem !important;
+}
+
+body.customer-theme #main-header.sticky-active {
+    background: #0a2530 !important;
+    border-bottom-color: rgba(83, 197, 224, 0.18) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Page Hero Section - ensure it pushes behind the transparent header */
@@ -38,18 +68,9 @@ body.customer-theme [style*="background:#00151b"] {
     padding-top: calc(80px + 2.75rem) !important;
 }
 
-/* Radial glow adjustment for transparent header */
+/* Keep content above any decorative layers */
 body.customer-theme #main-header::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px;
-    height: 120px;
-    background: radial-gradient(ellipse at center, rgba(50,161,196,0.18) 0%, rgba(83,197,224,0.06) 50%, transparent 75%);
-    pointer-events: none;
-    z-index: 0;
+    content: none !important;
 }
 
 body.customer-theme #main-header > * {
@@ -62,6 +83,7 @@ body.customer-theme #main-header a.nav-link,
 body.customer-theme #main-header a {
     color: rgba(255,255,255,0.82) !important;
     font-weight: 500;
+    font-size: 0.88rem !important; /* match search placeholder size */
     position: relative;
 }
 
@@ -74,8 +96,11 @@ body.customer-theme #main-header a.nav-link.active {
     color: #53c5e0 !important;
 }
 
+/* Remove active underline marker */
+body.customer-theme #main-header a.nav-link > span:last-child,
 body.customer-theme #main-header a.nav-link.nav-active > span:last-child {
-    width: 100% !important;
+    display: none !important;
+    width: 0 !important;
 }
 
 /* Logo text */
@@ -112,6 +137,12 @@ body.customer-theme #main-header button.group {
 body.customer-theme #main-header .nav-icon-link:hover,
 body.customer-theme #main-header button.group:hover {
     color: #53c5e0 !important;
+}
+
+/* Page content text contrast */
+body.customer-theme h1, 
+body.customer-theme h2 {
+    color: #ffffff !important;
 }
 
 /* Ensure notification text is readable */
@@ -196,8 +227,9 @@ body.customer-theme .ct-btn-outline:hover {
 /* ===== Cards ===== */
 body.customer-theme .card,
 body.customer-theme .ct-card {
-    background: var(--ct-white);
-    border: 1px solid var(--ct-border);
+    background: rgba(10, 37, 48, 0.72);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(83, 197, 224, 0.22);
     border-radius: 1rem;
     padding: 1.5rem;
     transition: box-shadow 0.25s, transform 0.25s;
@@ -230,25 +262,26 @@ body.customer-theme .ct-product-grid {
 
 /* ===== Product Card ===== */
 body.customer-theme .ct-product-card {
-    background: var(--ct-white);
-    border: 1px solid var(--ct-border);
+    background: linear-gradient(165deg, rgba(10, 37, 48, 0.9), rgba(7, 26, 34, 0.92));
+    border: 1px solid rgba(83, 197, 224, 0.2);
     border-radius: 1rem;
     overflow: hidden;
-    transition: box-shadow 0.3s, transform 0.3s;
+    transition: box-shadow 0.3s, transform 0.3s, border-color 0.3s;
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
 body.customer-theme .ct-product-card:hover {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, .08);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
+    border-color: rgba(83, 197, 224, 0.38);
     transform: translateY(-4px);
 }
 
 body.customer-theme .ct-product-img {
     width: 100%;
     height: 180px;
-    background: #f3f4f6;
+    background: linear-gradient(145deg, rgba(83, 197, 224, 0.08), rgba(0, 21, 27, 0.45));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -284,8 +317,9 @@ body.customer-theme .ct-product-category {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    background: var(--ct-purple-50);
-    color: var(--ct-purple);
+    background: rgba(83, 197, 224, 0.16);
+    color: #a6e7f6;
+    border: 1px solid rgba(83, 197, 224, 0.28);
     border-radius: 0.375rem;
     margin-bottom: 0.5rem;
     width: fit-content;
@@ -294,7 +328,7 @@ body.customer-theme .ct-product-category {
 body.customer-theme .ct-product-name {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--ct-text);
+    color: #f8fafc;
     margin-bottom: 0.5rem;
     line-height: 1.3;
 }
@@ -302,13 +336,13 @@ body.customer-theme .ct-product-name {
 body.customer-theme .ct-product-price {
     font-size: 1.25rem;
     font-weight: 800;
-    color: var(--ct-text);
+    color: #9be2f3;
     margin-top: auto;
     margin-bottom: 1rem;
 }
 
 body.customer-theme .ct-view-product-btn {
-    background: var(--ct-purple);
+    background: linear-gradient(135deg, #53C5E0, #32a1c4);
     color: white !important;
     padding: 0.6rem 1rem;
     border-radius: 0.5rem;
@@ -317,12 +351,14 @@ body.customer-theme .ct-view-product-btn {
     transition: all 0.2s;
     text-decoration: none;
     display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 16px rgba(50, 161, 196, 0.26);
 }
 
 body.customer-theme .ct-view-product-btn:hover {
-    background: var(--ct-purple-dark);
+    background: linear-gradient(135deg, #32a1c4, #2788a8);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(50, 161, 196, 0.2);
+    box-shadow: 0 10px 20px rgba(50, 161, 196, 0.34);
 }
 
 body.customer-theme .ct-product-stock {
@@ -344,7 +380,7 @@ body.customer-theme .ct-product-actions {
     justify-content: space-between;
     gap: 0.75rem;
     margin-top: 0.5rem;
-    border-top: 1px solid var(--ct-border);
+    border-top: 1px solid rgba(83, 197, 224, 0.16);
 }
 
 body.customer-theme .ct-more-info {
@@ -649,15 +685,17 @@ body.customer-theme table tbody tr:hover {
 body.customer-theme .ct-section-title {
     font-size: 1.5rem;
     font-weight: 800;
-    color: var(--ct-text);
+    color: #ffffff;
     margin-bottom: 1.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 body.customer-theme .ct-page-title {
     font-size: 1.75rem;
     font-weight: 800;
-    color: var(--ct-text);
+    color: #ffffff;
     margin-bottom: 1.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 /* ===== Empty state ===== */
@@ -707,4 +745,64 @@ body.customer-theme select.input-field {
     background-position: right 0.75rem center;
     background-size: 1rem;
     padding-right: 2.5rem;
+}
+
+/* ===== Responsive hardening for customer pages ===== */
+@media (max-width: 1023px) {
+    body.customer-theme {
+        overflow-x: hidden;
+    }
+    body.customer-theme #main-content {
+        overflow-x: hidden;
+    }
+    body.customer-theme .container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    body.customer-theme .ct-page-title,
+    body.customer-theme .ct-section-title {
+        font-size: 1.35rem;
+        margin-bottom: 1rem;
+    }
+    body.customer-theme .ct-product-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem;
+    }
+    body.customer-theme .ct-product-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    body.customer-theme .ct-view-product-btn,
+    body.customer-theme .btn-primary,
+    body.customer-theme .ct-btn-primary {
+        width: 100%;
+        min-height: 42px;
+    }
+    body.customer-theme .ct-order-meta {
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
+    }
+    body.customer-theme table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@media (max-width: 767px) {
+    body.customer-theme .ct-card,
+    body.customer-theme .card,
+    body.customer-theme .ct-order-card,
+    body.customer-theme .ct-filter {
+        padding: 1rem;
+        border-radius: 0.85rem;
+    }
+    body.customer-theme .input-field {
+        min-height: 42px;
+        font-size: 0.92rem;
+    }
+    body.customer-theme .ct-welcome {
+        padding: 1.25rem 1rem;
+    }
 }

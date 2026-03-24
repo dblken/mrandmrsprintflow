@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 
@@ -98,6 +99,24 @@ if (!$is_job) {
 }
 
 if ($update_success) {
+    // Keep linked production jobs in sync so staff Customizations → TO_VERIFY tab shows this row
+    // (store payment only touched `orders`; merged list often hides ORDER when any JOB exists).
+    if (!$is_job) {
+        JobOrderService::ensureJobsForStoreOrder($order_id);
+        db_execute(
+            "UPDATE job_orders SET
+                status = 'VERIFY_PAY',
+                payment_proof_status = 'SUBMITTED',
+                payment_submitted_amount = ?,
+                payment_proof_path = ?,
+                payment_proof_uploaded_at = NOW()
+             WHERE order_id = ?
+               AND status NOT IN ('COMPLETED','CANCELLED')",
+            'dsi',
+            [$amount, $file_path, $order_id]
+        );
+    }
+
     // Notify staff
     $staff_msg = "Customer submitted payment for {$type_label} #{$order_id} (PHP " . number_format($amount, 2) . ")";
     

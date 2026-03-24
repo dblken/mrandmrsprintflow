@@ -45,7 +45,9 @@ try {
     switch ($action) {
         case 'list_orders':
             $status = sanitize($_GET['status'] ?? '');
-            $sql = "SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count 
+            $sql = "SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count,
+                           TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
+                           COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact
                     FROM job_orders jo 
                     LEFT JOIN customers c ON jo.customer_id = c.customer_id 
                     WHERE 1=1";
@@ -71,8 +73,13 @@ try {
                 : min(500, max(1, (int)($_GET['per_page'] ?? 250)));
             $offset = ($page - 1) * $per_page;
             
-            // Get total count
-            $count_sql = str_replace('SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count FROM', 'SELECT COUNT(*) as total FROM', $sql);
+            // Get total count (match main FROM job_orders only, not subqueries in SELECT)
+            $count_sql = preg_replace(
+                '/^SELECT\s+[\s\S]*?\sFROM\s+job_orders\s+jo\s+/i',
+                'SELECT COUNT(*) as total FROM job_orders jo ',
+                $sql,
+                1
+            );
             $total_count = db_query($count_sql, $types ?: null, $params ?: null)[0]['total'] ?? 0;
             
             $sql .= " ORDER BY jo.priority = 'HIGH' DESC, jo.due_date ASC, jo.created_at DESC LIMIT ? OFFSET ?";
@@ -212,17 +219,17 @@ try {
                         CASE 
                             WHEN o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision') THEN 'PENDING'
                             WHEN o.status IN ('Design Approved', 'Approved') THEN 'APPROVED'
-                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'VERIFY_PAY'
-                            WHEN o.status IN ('To Pay', 'Paid – In Process') THEN 'TO_PAY'
-                            WHEN o.status IN ('Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
+                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
+                            WHEN o.status IN ('To Pay') THEN 'TO_PAY'
+                            WHEN o.status IN ('Paid – In Process', 'Paid - In Process', 'Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
                             WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
                             WHEN o.status = 'Completed' THEN 'COMPLETED'
                             WHEN o.status = 'Cancelled' THEN 'CANCELLED'
                             ELSE o.status
                         END as status,
                         CASE 
-                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'SUBMITTED'
-                            WHEN o.status IN ('Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process') THEN 'VERIFIED'
+                            WHEN o.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'SUBMITTED'
+                            WHEN o.status IN ('Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process') THEN 'VERIFIED'
                             ELSE 'NONE'
                         END as payment_proof_status,
                         'NO' as payment_status,
@@ -237,12 +244,13 @@ try {
                     LEFT JOIN order_items oi ON o.order_id = oi.order_id
                     LEFT JOIN products p ON oi.product_id = p.product_id
                     LEFT JOIN customers c ON o.customer_id = c.customer_id
-<<<<<<< HEAD
-                    WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Processing', 'In Production', 'Printing', 'Ready for Pickup')"
+                    WHERE o.status IN (
+                        'Pending', 'Pending Review', 'Pending Approval', 'For Revision',
+                        'Approved', 'Design Approved',
+                        'To Pay', 'Downpayment Submitted', 'Pending Verification', 'To Verify',
+                        'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process', 'Ready for Pickup'
+                    )"
                     . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
-=======
-                    WHERE 1=1
->>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
                     GROUP BY o.order_id
                     ORDER BY o.order_date DESC
                     LIMIT 50";
@@ -339,7 +347,8 @@ try {
             $order_row = db_query("
                 SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
-                       COALESCE(c.contact_number, c.email, '') as customer_contact
+                       COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) as customer_contact,
+                       TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address
                 FROM orders o
                 LEFT JOIN customers c ON o.customer_id = c.customer_id
                 WHERE o.order_id = ?
@@ -349,8 +358,10 @@ try {
             $status_map = [
                 'Pending' => 'PENDING', 'Pending Review' => 'PENDING', 'Pending Approval' => 'PENDING',
                 'For Revision' => 'PENDING', 'Design Approved' => 'APPROVED', 'Approved' => 'APPROVED',
-                'Pending Verification' => 'VERIFY_PAY', 'Downpayment Submitted' => 'VERIFY_PAY',
-                'To Pay' => 'TO_PAY', 'Paid – In Process' => 'TO_PAY',
+                'Pending Verification' => 'VERIFY_PAY', 'Downpayment Submitted' => 'VERIFY_PAY', 'To Verify' => 'VERIFY_PAY',
+                'To Pay' => 'TO_PAY',
+                'Paid – In Process' => 'IN_PRODUCTION',
+                'Paid - In Process' => 'IN_PRODUCTION',
                 'Processing' => 'IN_PRODUCTION', 'In Production' => 'IN_PRODUCTION', 'Printing' => 'IN_PRODUCTION',
                 'Ready for Pickup' => 'TO_RECEIVE', 'Completed' => 'COMPLETED', 'Cancelled' => 'CANCELLED'
             ];
@@ -359,54 +370,18 @@ try {
             
             // Map payment proof status for staff dashboard
             $payment_proof_status = 'NONE';
-            if (in_array($db_status, ['Pending Verification', 'Downpayment Submitted'])) {
+            if (in_array($db_status, ['Pending Verification', 'Downpayment Submitted', 'To Verify'], true)) {
                 $payment_proof_status = 'SUBMITTED';
-            } elseif (in_array($db_status, ['Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process'])) {
+            } elseif (in_array($db_status, ['Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process'], true)) {
                 $payment_proof_status = 'VERIFIED';
             }
 
-            $items = db_query("
-                SELECT oi.*, p.name as product_name, p.category
-                FROM order_items oi
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE oi.order_id = ?
-            ", 'i', [$order_id]) ?: [];
-            require_once __DIR__ . '/../includes/order_ui_helper.php';
-            $items_out = [];
-            $first_custom = [];
-            $total_qty = 0;
-            $width_ft = '1';
-            $height_ft = '1';
-            foreach ($items as $item) {
-                $custom = json_decode($item['customization_data'] ?? '{}', true) ?: [];
-                if (empty($first_custom)) $first_custom = $custom;
-                $total_qty += (int)$item['quantity'];
-                if (!empty($custom['width']) && !empty($custom['height'])) {
-                    $width_ft = (string)$custom['width'];
-                    $height_ft = (string)$custom['height'];
-                } elseif (!empty($custom['dimensions'])) {
-                    $d = $custom['dimensions'];
-                    if (is_string($d) && preg_match('/^(\d+)\s*[x×]\s*(\d+)$/i', $d, $m)) {
-                        $width_ft = $m[1];
-                        $height_ft = $m[2];
-                    } else {
-                        $width_ft = (string)$d;
-                        $height_ft = '';
-                    }
-                }
-                $name = $item['product_name'] ?: get_service_name_from_customization($custom, 'Custom Order');
-                $items_out[] = [
-                    'order_item_id'   => $item['order_item_id'],
-                    'product_name'    => $name,
-                    'quantity'        => (int)$item['quantity'],
-                    'customization'   => $custom,
-                    'design_url'     => (!empty($item['design_image']) || !empty($item['design_file']))
-                        ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
-                    'reference_url'  => !empty($item['reference_image_file'])
-                        ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
-                ];
-            }
-            $service_name = get_service_name_from_customization($first_custom, $items_out[0]['product_name'] ?? 'Custom Order');
+            $payload = JobOrderService::getStoreOrderItemsPayload($order_id);
+            $items_out = $payload['items'];
+            $width_ft = $payload['width_ft'];
+            $height_ft = $payload['height_ft'];
+            $total_qty = (int)($payload['line_qty'] ?? 0);
+            $service_name = $payload['service_type'] ?: 'Custom Order';
             $data = [
                 'id'                   => $o['order_id'],
                 'order_id'             => $o['order_id'],
@@ -423,8 +398,11 @@ try {
                 'estimated_total'      => (float)($o['total_amount'] ?? 0),
                 'amount_paid'          => (($o['payment_status'] ?? '') === 'Paid') ? (float)($o['total_amount'] ?? 0) : (float)($o['amount_paid'] ?? 0),
                 'notes'                => $o['notes'] ?? '',
+                'store_order_notes'    => $o['notes'] ?? '',
+                'revision_reason'      => $o['revision_reason'] ?? '',
+                'customer_address'     => $o['customer_address'] ?? '',
                 'payment_proof_status' => $payment_proof_status,
-                'payment_proof_path'   => $o['payment_proof'] ?? null,
+                'payment_proof_path'   => $o['payment_proof_path'] ?? $o['payment_proof'] ?? null,
                 'payment_submitted_amount' => (float)($o['downpayment_amount'] ?? 0),
                 'payment_proof_uploaded_at' => $o['payment_submitted_at'] ?? null,
                 'payment_status'       => 'NO',
@@ -562,12 +540,8 @@ try {
             $metadata = isset($_POST['metadata']) ? json_decode($_POST['metadata'], true) : null;
             
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
-<<<<<<< HEAD
             jo_api_require_staff_branch($joStaffBranch, $orderId);
-            $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata);
-=======
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata, $orderType);
->>>>>>> d84ca5ae2d12f1a3809732a3caf25e36f0537ea6
             echo json_encode(['success' => true, 'id' => $res]);
             break;
 

@@ -40,15 +40,17 @@ if ($uploads_pos !== false) {
 
 $filepath = '';
 $uploads_root = realpath(__DIR__ . '/uploads');
+$uploads_root_n = $uploads_root !== false ? str_replace('\\', '/', strtolower($uploads_root)) : false;
 foreach ($candidates as $candidate) {
     if (!is_string($candidate) || $candidate === '' || !file_exists($candidate)) {
         continue;
     }
     $real = realpath($candidate);
-    if ($real === false || $uploads_root === false) {
+    if ($real === false || $uploads_root_n === false) {
         continue;
     }
-    if (strpos($real, $uploads_root) !== 0) {
+    $real_n = str_replace('\\', '/', strtolower($real));
+    if (strpos($real_n, $uploads_root_n) !== 0) {
         continue;
     }
     $filepath = $real;
@@ -61,23 +63,36 @@ if ($filepath === '') {
 }
 
 // Check authorization
-// 1. Is it Admin or Staff?
-$is_staff = isset($_SESSION['user_type']) && in_array($_SESSION['user_type'], ['Admin', 'Staff']);
+// 1. Staff-facing roles (customizations / orders)
+$is_staff = isset($_SESSION['user_type']) && in_array($_SESSION['user_type'], ['Admin', 'Staff', 'Manager'], true);
 
-// 2. If Customer, do they own the customization associated with this file?
+// 2. Customer: job_orders or store orders payment_proof
 $is_owner = false;
 if (!$is_staff && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Customer') {
-    $customer_id = $_SESSION['user_id'];
+    $customer_id = (int)$_SESSION['user_id'];
     $check = db_query(
         "SELECT id FROM job_orders 
          WHERE customer_id = ? 
            AND (payment_proof_path = ? OR payment_proof_path LIKE CONCAT('%', ?, '%'))
          LIMIT 1",
         'iss',
-        [$customer_id, $basename, $basename]
+        [$customer_id, $normalized_file, $basename]
     );
     if (!empty($check)) {
         $is_owner = true;
+    }
+    if (!$is_owner) {
+        $check_o = db_query(
+            "SELECT order_id FROM orders 
+             WHERE customer_id = ? 
+               AND (payment_proof = ? OR payment_proof LIKE CONCAT('%', ?, '%'))
+             LIMIT 1",
+            'iss',
+            [$customer_id, $normalized_file, $basename]
+        );
+        if (!empty($check_o)) {
+            $is_owner = true;
+        }
     }
 }
 

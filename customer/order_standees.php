@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $_SESSION['cart'][$item_key] = [
             'product_id'     => $product_id,
+            'source_page'    => 'services',
             'branch_id'      => $branch_id,
             'name'           => 'Sintraboard Standees',
             'category'       => 'Sintraboard & Standees',
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'reference_name'     => null
         ];
 
-        if (isset($_POST['buy_now'])) {
+        if (($_POST['action'] ?? '') === 'buy_now' || isset($_POST['buy_now'])) {
             redirect(BASE_URL . '/customer/order_review.php?item=' . urlencode($item_key));
         } else {
             redirect(BASE_URL . '/customer/cart.php');
@@ -118,7 +119,8 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
                 </div>
                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
                     <a href="<?php echo BASE_URL; ?>/customer/services.php" style="height: 48px; min-width: 140px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; text-decoration: none; transition: all 0.2s;">Back to Services</a>
-                    <button type="submit" name="buy_now" value="1" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">Buy Now</button>
+                    <button type="submit" name="action" value="add_to_cart" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #f8fafc; color: #0f172a; font-weight: 700; font-size: 0.9rem; border-radius: 10px; border: 1px solid #cbd5e1; cursor: pointer; transition: all 0.2s;">Add to Cart</button>
+                    <button type="submit" name="action" value="buy_now" style="height: 48px; min-width: 140px; padding: 0 1.25rem; background: #0a2530; color: #ffffff; font-weight: 800; font-size: 0.9rem; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.02em;">Buy Now</button>
                 </div>
             </form>
         </div>

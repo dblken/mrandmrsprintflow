@@ -42,7 +42,7 @@ $tab_status_map = [
     'approved'   => ['Approved'],
     'toverify'   => ['To Verify', 'Downpayment Submitted', 'Pending Verification'],
     'topay'      => ['To Pay'],
-    'production' => ['In Production', 'Processing', 'Printing'],
+    'production' => ['In Production', 'Processing', 'Printing', 'Paid – In Process'],
     'pickup'     => ['Ready for Pickup'],
     'torate'     => ['To Rate', 'Rated', 'Completed'],
     'completed'  => ['Completed', 'To Rate', 'Rated'],
@@ -130,19 +130,24 @@ if ($active_tab !== 'all' && isset($tab_status_map[$active_tab])) {
     }
 }
 
-// Pagination settings (restored)
+// Pagination settings
+// "All" tab must always show the complete list (no LIMIT).
 $items_per_page = 10;
-$current_page = max(1, (int)($_GET['page'] ?? 1));
+$current_page = ($active_tab === 'all') ? 1 : max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 $total_result = db_query($count_sql, $count_types, $count_params);
 $total_items = (int)($total_result[0]['total'] ?? 0);
-$total_pages = max(1, (int)ceil($total_items / $items_per_page));
+$total_pages = ($active_tab === 'all') ? 1 : max(1, (int)ceil($total_items / $items_per_page));
 
-// Use inline LIMIT/OFFSET (safe: we control as integers) to avoid bind issues with some MySQL drivers
-$limit = (int)$items_per_page;
-$offset_val = (int)$offset;
-$sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
+// Use inline LIMIT/OFFSET for filtered tabs.
+if ($active_tab === 'all') {
+    $sql .= " ORDER BY o.order_date DESC";
+} else {
+    $limit = (int)$items_per_page;
+    $offset_val = (int)$offset;
+    $sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
+}
 
 $orders_raw = db_query($sql, $types, $params);
 $orders = is_array($orders_raw) ? $orders_raw : [];
@@ -156,26 +161,53 @@ require_once __DIR__ . '/../includes/header.php';
 
 <style>
 /* TikTok Style Orders Nav */
+.orders-theme-page {
+    color: #d9e6ef;
+    background: transparent !important;
+}
+body.customer-theme.orders-page #main-content {
+    min-height: auto !important;
+}
+body.customer-theme.orders-page footer.ft-footer {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 5 !important;
+}
+.orders-theme-page .container {
+    max-width: 1100px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+.orders-theme-page .card,
+.orders-theme-page .ct-order-card {
+    background: rgba(10, 37, 48, 0.55) !important;
+    border: 1px solid rgba(83, 197, 224, 0.22) !important;
+    border-radius: 1.25rem !important;
+    box-shadow: 0 12px 40px rgba(2, 12, 18, 0.35) !important;
+    overflow: visible !important; /* Ensure content is never clipped */
+    display: block !important;
+    opacity: 1 !important;
+    max-height: none !important;
+}
 .tt-tabs-wrapper {
     position: sticky; top: 72px; z-index: 40;
-    background: #fff; border-bottom: 5px solid #f3f4f6;
-    margin: -2rem -1rem 1.5rem -1rem; padding: 0 1rem;
+    background: rgba(8, 30, 39, 0.92); border-bottom: 1px solid rgba(83, 197, 224, 0.22);
+    margin: 0 0 1.5rem 0; padding: 0 1rem;
+    border-radius: 12px;
     overflow: visible;
 }
 .tt-tabs {
     display: flex;
     align-items: center;
-    gap: 1.75rem;
-    padding: 0.5rem 0 0.35rem 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-.tt-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    padding: 0.65rem 0.2rem 0.55rem 0.2rem;
+    overflow: visible;
 }
 .tt-tab {
-    padding: 0.5rem 0; font-size: 0.78rem; color: #64748b; font-weight: 600;
+    padding: 0.45rem 0.55rem; font-size: 0.75rem; color: #9fc6d9; font-weight: 700;
     border-bottom: 2px solid transparent; text-decoration: none; position: relative;
     transition: all 0.2s;
     display: inline-flex;
@@ -184,22 +216,24 @@ require_once __DIR__ . '/../includes/header.php';
     gap: 0.35rem;
     white-space: nowrap;
     flex-shrink: 0;
+    border-radius: 8px;
 }
-.tt-tab:hover { color: #1e293b; }
+.tt-tab:hover { color: #eaf6fb; }
 .tt-tab.active {
-    color: #0a2530; font-weight: 700;
+    color: #eaf6fb; font-weight: 700;
+    background: rgba(83, 197, 224, 0.1);
 }
 .tt-tab.active::after {
-    content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
-    height: 3px; background: #0a2530; border-radius: 3px 3px 0 0;
+    content: ''; position: absolute; bottom: -1px; left: 6px; right: 6px;
+    height: 2px; background: #53c5e0; border-radius: 3px 3px 0 0;
 }
 .tt-tab-count {
     min-width: 15px;
     height: 15px;
     padding: 0 4px;
     border-radius: 999px;
-    background: #e2e8f0;
-    color: #334155;
+    background: rgba(83, 197, 224, 0.2);
+    color: #d9e6ef;
     font-size: 0.62rem;
     font-weight: 700;
     display: inline-flex;
@@ -208,40 +242,14 @@ require_once __DIR__ . '/../includes/header.php';
     line-height: 1;
 }
 .tt-tab.active .tt-tab-count {
-    background: #0a2530;
+    background: #53c5e0;
     color: #fff;
 }
 
 /* Scroll Buttons for Tabs */
 .tt-tabs-container-outer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: block;
     width: 100%;
-}
-.tt-scroll-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-.tt-scroll-btn:hover {
-    background: #f8fafc;
-    color: #0f172a;
-    border-color: #cbd5e1;
-}
-.tt-scroll-btn svg {
-    width: 18px;
-    height: 18px;
 }
 
 /* TikTok Style Empty State */
@@ -253,27 +261,56 @@ require_once __DIR__ . '/../includes/header.php';
     width: 120px; height: 120px; margin-bottom: 1rem; opacity: 0.7;
 }
 .tt-empty-title {
-    font-size: 1.1rem; font-weight: 700; color: #111827; margin-bottom: 0.25rem;
+    font-size: 1.1rem; font-weight: 700; color: #eaf6fb; margin-bottom: 0.25rem;
 }
 .tt-empty-sub {
-    font-size: 0.9rem; color: #6b7280; font-weight: 500;
+    font-size: 0.9rem; color: #9fc6d9; font-weight: 500;
+}
+
+.orders-theme-page .ct-order-card:hover { background: rgba(83, 197, 224, 0.09) !important; }
+.orders-theme-page .ct-order-card [style*="border-bottom:1px solid #f1f5f9"] { border-bottom: 1px solid rgba(83, 197, 224, 0.2) !important; }
+.orders-theme-page .ct-order-card [style*="color:#1e293b"],
+.orders-theme-page .ct-order-card [style*="color:#111827"] { color: #eaf6fb !important; }
+.orders-theme-page .ct-order-card [style*="color:#64748b"],
+.orders-theme-page .ct-order-card [style*="color:#94a3b8"],
+.orders-theme-page .ct-order-card [style*="color:#9ca3af"] { color: #9fc6d9 !important; }
+.orders-theme-page .ct-order-card [style*="background:#f8fafc"],
+.orders-theme-page .ct-order-card [style*="background:#fff"],
+.orders-theme-page .ct-order-card [style*="background:#f0f7f9"] {
+    background: rgba(255,255,255,.05) !important;
+}
+.orders-theme-page .ct-order-card a[href*="chat.php"] {
+    background: linear-gradient(135deg, #53C5E0, #32a1c4) !important;
+    color: #fff !important;
+    border: none !important;
+    box-shadow: 0 10px 22px rgba(50,161,196,0.3) !important;
+}
+.orders-theme-page .ct-order-card .ct-view-link {
+    background: rgba(255,255,255,.05) !important;
+    color: #d9e6ef !important;
+    border: 1px solid rgba(83,197,224,.28) !important;
+}
+.orders-theme-page .ct-order-card .ct-view-link:hover {
+    background: rgba(83,197,224,.14) !important;
+    color: #fff !important;
+}
+.orders-theme-page .ct-order-card .order-status-badge .ct-status-badge {
+    background: rgba(83, 197, 224, 0.18) !important;
+    color: #d9e6ef !important;
+    border: 1px solid rgba(83, 197, 224, 0.35) !important;
 }
 
 @media (min-width: 768px) {
-    .tt-tabs-wrapper { margin: -1rem 0 2rem 0; padding: 0; border-bottom: 1px solid #e5e7eb; }
+    .tt-tabs-wrapper { margin: 0 0 2rem 0; padding: 0; border-bottom: 1px solid rgba(83, 197, 224, 0.24); }
 }
 </style>
 
-<div class="min-h-screen py-4 md:py-8 bg-gray-50 md:bg-transparent">
-    <div class="container mx-auto" style="max-width:1100px;">
+<div class="min-h-screen py-8 orders-theme-page">
+    <div class="container mx-auto">
         <!-- TikTok Tabs -->
-        <div class="tt-tabs-wrapper">
+        <div class="tt-tabs-wrapper card" style="padding: 0.55rem 0.85rem;">
             <div class="tt-tabs-container-outer">
-                <button type="button" class="tt-scroll-btn" onclick="scrollTabs('left')" title="Scroll Left">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                </button>
-
-                <div class="tt-tabs" id="ttTabsScrollContainer" style="scroll-behavior: smooth;">
+                <div class="tt-tabs" id="ttTabsScrollContainer">
                     <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All <span class="tt-tab-count"><?php echo $tab_counts['all']; ?></span></a>
                     <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending <span class="tt-tab-count"><?php echo $tab_counts['pending']; ?></span></a>
                     <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved <span class="tt-tab-count"><?php echo $tab_counts['approved']; ?></span></a>
@@ -284,10 +321,6 @@ require_once __DIR__ . '/../includes/header.php';
                     <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
                     <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
                 </div>
-
-                <button type="button" class="tt-scroll-btn" onclick="scrollTabs('right')" title="Scroll Right">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </button>
             </div>
         </div>
 
@@ -335,7 +368,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $show_design = !empty($order['first_item_has_design']) && !empty($order['first_item_id']);
                             $img_style = 'width:80px; height:80px; object-fit:cover; border-radius:8px;';
                             $img_wrapper = 'width:80px; height:80px; border-radius:8px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc;';
-                            $fallback_img = '/printflow/public/assets/images/placeholder.jpg';
+                            $fallback_img = '/printflow/public/assets/images/services/default.png';
 
                             if ($show_design) {
                                 $order_img_src = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
@@ -437,25 +470,18 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             <?php endforeach; ?>
 
-            <!-- Pagination -->
-            <div class="mt-8">
-                <?php echo get_pagination_links($current_page, $total_pages, ['tab' => $active_tab]); ?>
-            </div>
+            <?php if ($active_tab !== 'all'): ?>
+                <!-- Pagination -->
+                <div class="mt-8">
+                    <?php echo get_pagination_links($current_page, $total_pages, ['tab' => $active_tab]); ?>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
 
 <script>
-function scrollTabs(direction) {
-    const container = document.getElementById('ttTabsScrollContainer');
-    if (!container) return;
-    const scrollAmount = 200;
-    if (direction === 'left') {
-        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    } else {
-        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-}
+document.body.classList.add('orders-page');
 
 // Trigger success modal if success message exists
 window.addEventListener('DOMContentLoaded', () => {
@@ -493,7 +519,7 @@ window.addEventListener('DOMContentLoaded', () => {
 }
 .im-panel {
     position:relative; z-index:1;
-    background:#fff; border-radius:20px;
+    background:rgba(10, 37, 48, 0.97); border-radius:14px;
     width:100%;
     max-width:560px;
     max-height:88vh; 
@@ -514,24 +540,24 @@ window.addEventListener('DOMContentLoaded', () => {
 .im-header {
     display:flex; align-items:center; justify-content:space-between;
     padding:20px 24px 16px;
-    border-bottom:1px solid #f1f5f9;
-    background:#fff;
-    border-radius:20px 20px 0 0; 
+    border-bottom:1px solid rgba(83, 197, 224, 0.24);
+    background:rgba(8, 30, 39, 0.95);
+    border-radius:14px 14px 0 0; 
     z-index:2;
     gap:12px;
     flex-shrink: 0;
 }
-.im-title { font-size:1.1rem; font-weight:800; color:#1e293b; flex:1; min-width:0; }
-.im-subtitle { font-size:0.75rem; color:#94a3b8; margin-top:2px; }
+.im-title { font-size:1.1rem; font-weight:800; color:#eaf6fb; flex:1; min-width:0; }
+.im-subtitle { font-size:0.75rem; color:#9fc6d9; margin-top:2px; }
 
 .im-close {
     width:32px; height:32px; border-radius:50%; flex-shrink:0;
-    border:none; background:#f1f5f9; color:#64748b;
+    border:none; background:rgba(255,255,255,.08); color:#9fc6d9;
     cursor:pointer; font-size:1rem;
     display:flex; align-items:center; justify-content:center;
     transition:background 0.15s;
 }
-.im-close:hover { background:#e2e8f0; }
+.im-close:hover { background:rgba(83,197,224,.2); color:#fff; }
 
 .im-body { 
     padding:20px 24px 24px; 
@@ -559,32 +585,37 @@ window.addEventListener('DOMContentLoaded', () => {
 .im-table th {
     text-align:left; padding:8px 10px;
     font-size:0.65rem; font-weight:700; text-transform:uppercase;
-    letter-spacing:0.06em; color:#94a3b8;
-    border-bottom:2px solid #e2e8f0;
+    letter-spacing:0.06em; color:#9fc6d9;
+    border-bottom:2px solid rgba(83, 197, 224, 0.24);
 }
-.im-table td { padding:11px 10px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+.im-table td { padding:11px 10px; border-bottom:1px solid rgba(83, 197, 224, 0.15); vertical-align:top; color:#d9e6ef; }
 .im-table tbody tr:last-child td { border-bottom:none; }
-.im-total-row { border-top:2px solid #e2e8f0 !important; font-weight:800; }
+.im-total-row { border-top:2px solid rgba(83, 197, 224, 0.24) !important; font-weight:800; }
 
 /* Full details section (always visible) */
-.im-full-details-inner { padding-top:20px; border-top:1px solid #f1f5f9; margin-top:18px; }
+.im-full-details-inner { padding-top:20px; border-top:1px solid rgba(83, 197, 224, 0.22); margin-top:18px; }
 
 /* Info grid */
 .im-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
 @media (max-width:500px) { .im-info-grid { grid-template-columns:1fr; } }
-.im-info-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; }
-.im-info-label { font-size:0.7rem; color:#94a3b8; margin-bottom:4px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
-.im-info-value { font-size:13.5px; font-weight:700; color:#1e293b; }
+.im-info-card { background:rgba(255,255,255,.04); border:1px solid rgba(83, 197, 224, 0.2); border-radius:12px; padding:14px; }
+.im-info-label { font-size:0.7rem; color:#9fc6d9; margin-bottom:4px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.im-info-value { font-size:13.5px; font-weight:700; color:#eaf6fb; }
 
 /* Notes box */
 .im-notes {
     margin-bottom:16px; padding:14px 16px;
-    background:linear-gradient(135deg,#fffbeb,#fef3c7);
-    border:1px solid #fde68a; border-radius:12px;
+    background: rgba(255, 255, 255, 0.04);
+    border:1px solid rgba(83, 197, 224, 0.22); border-radius:12px;
     max-height: 150px; overflow-y: auto;
 }
-.im-notes-title { font-size:12px; font-weight:800; color:#92400e; margin-bottom:6px; }
-.im-notes-text { font-size:13px; color:#b45309; line-height:1.6; overflow-wrap: anywhere; word-break: break-word; }
+.im-notes-title { font-size:12px; font-weight:800; color:#eaf6fb; margin-bottom:6px; }
+.im-notes-text { font-size:13px; color:#b9d4df; line-height:1.6; overflow-wrap: anywhere; word-break: break-word; }
+.im-chip {
+    border: 1px solid rgba(83, 197, 224, 0.35);
+    background: rgba(83, 197, 224, 0.15);
+    color: #d9e6ef;
+}
 
 /* Design thumb */
 .im-design-thumb { max-width:100px; border-radius:8px; border:2px solid #e2e8f0; display:block; margin-top:6px; cursor:zoom-in; transition:transform 0.2s; }
@@ -626,25 +657,25 @@ window.addEventListener('DOMContentLoaded', () => {
 #cancelModal.open { opacity:1; pointer-events:all; }
 .cm-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.45); }
 .cm-panel {
-    position:relative; z-index:1; background:#fff; border-radius:20px;
+    position:relative; z-index:1; background:rgba(10, 37, 48, 0.97); border-radius:20px;
     width:100%; max-width:400px; padding:24px;
     box-shadow:0 20px 50px rgba(0,0,0,0.3);
     transform:scale(0.95); transition:transform 0.2s;
 }
 #cancelModal.open .cm-panel { transform:scale(1); }
-.cm-title { font-size:1.25rem; font-weight:800; color:#0f172a; margin-bottom:8px; }
-.cm-sub { font-size:0.9rem; color:#64748b; margin-bottom:20px; line-height:1.5; }
+.cm-title { font-size:1.25rem; font-weight:800; color:#eaf6fb; margin-bottom:8px; }
+.cm-sub { font-size:0.9rem; color:#9fc6d9; margin-bottom:20px; line-height:1.5; }
 
 .cm-options { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
 .cm-opt {
     display:flex; align-items:center; gap:10px; padding:12px 14px;
-    border:1px solid #e2e8f0; border-radius:12px; cursor:pointer;
+    border:1px solid rgba(83,197,224,.24); border-radius:12px; cursor:pointer;
     transition:background 0.1s, border-color 0.1s;
 }
-.cm-opt:hover { background:#f8fafc; }
-.cm-opt.active { background:#f0f7ff; border-color:#3b82f6; }
+.cm-opt:hover { background:rgba(83,197,224,.12); }
+.cm-opt.active { background:rgba(83,197,224,.18); border-color:#53c5e0; }
 .cm-opt input { display:none; }
-.cm-opt-text { font-size:14px; font-weight:600; color:#1e293b; }
+.cm-opt-text { font-size:14px; font-weight:600; color:#d9e6ef; }
 
 #cmOtherInput {
     width:100%; margin-top:10px; padding:10px;
@@ -653,15 +684,44 @@ window.addEventListener('DOMContentLoaded', () => {
 }
 .cm-btns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .cm-btn-cancel {
-    padding:12px; border-radius:12px; background:#f1f5f9; color:#64748b;
-    font-weight:700; font-size:14px; border:none; cursor:pointer;
+    padding:12px; border-radius:12px; background:rgba(255,255,255,.05); color:#d9e6ef;
+    font-weight:700; font-size:14px; border:1px solid rgba(83,197,224,.28); cursor:pointer;
 }
 .cm-btn-confirm {
-    padding:12px; border-radius:12px; background:#ef4444; color:#fff;
+    padding:12px; border-radius:12px; background:linear-gradient(135deg, #53C5E0, #32a1c4); color:#fff;
     font-weight:700; font-size:14px; border:none; cursor:pointer;
-    box-shadow:0 4px 12px rgba(239,68,68,0.25);
+    box-shadow:0 10px 22px rgba(50,161,196,0.3);
 }
 .cm-btn-confirm:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* force dark surface inside dynamically rendered modal content */
+#imBody [style*="background:#fff"],
+#imBody [style*="background: #fff"],
+#imBody [style*="background:#f8fafc"],
+#imBody [style*="background: #f8fafc"],
+#imBody [style*="background:#fffbeb"],
+#imBody [style*="background: #fffbeb"],
+#imBody [style*="background:#eff6ff"],
+#imBody [style*="background: #eff6ff"] {
+    background: rgba(255,255,255,.04) !important;
+    border-color: rgba(83,197,224,.22) !important;
+}
+#imBody [style*="color:#1e293b"],
+#imBody [style*="color: #1e293b"],
+#imBody [style*="color:#0f172a"],
+#imBody [style*="color: #0f172a"],
+#imBody [style*="color:#92400e"],
+#imBody [style*="color: #92400e"],
+#imBody [style*="color:#b45309"],
+#imBody [style*="color: #b45309"] {
+    color: #d9e6ef !important;
+}
+#imBody [style*="color:#94a3b8"],
+#imBody [style*="color: #94a3b8"],
+#imBody [style*="color:#9ca3af"],
+#imBody [style*="color: #9ca3af"] {
+    color: #9fc6d9 !important;
+}
 </style>
 
 <div id="itemsModal" role="dialog" aria-modal="true">
@@ -1106,6 +1166,14 @@ function escIM(str) {
 
 // ── Real-Time Orders Polling ──────────────────────────────────────────────────
 (function startOrdersPolling() {
+    const activeTab = '<?php echo addslashes($active_tab); ?>';
+    
+    if (activeTab === 'all') {
+        return;
+    }
+    if (window.__ordersPollingInterval) {
+        clearInterval(window.__ordersPollingInterval);
+    }
     // Status → display label map
     const statusLabels = {
         'Pending':          'Pending',
@@ -1153,7 +1221,6 @@ function escIM(str) {
         'Cancelled':        'cancelled',
     };
 
-    const activeTab = '<?php echo addslashes($active_tab); ?>';
 
     function updateNotifBell(count) {
         const bells = document.querySelectorAll('.notif-count, [data-notif-count]');
@@ -1211,24 +1278,8 @@ function escIM(str) {
                         }
                     }
 
-                    // If on a filtered tab and this order no longer belongs here, fade it out
-                    if (activeTab !== 'all') {
-                        const historyStatuses = ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'];
-                        const belongsToTab = activeTab === 'totalorders'
-                            ? historyStatuses.includes(order.status)
-                            : statusToTab[order.status] === activeTab;
-                        if (!belongsToTab) {
-                            card.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, margin 0.5s ease';
-                            card.style.opacity = '0';
-                            card.style.maxHeight = card.offsetHeight + 'px';
-                            setTimeout(() => {
-                                card.style.maxHeight = '0';
-                                card.style.margin = '0';
-                                card.style.overflow = 'hidden';
-                            }, 300);
-                            setTimeout(() => card.remove(), 800);
-                        }
-                    }
+                    // Do not auto-remove cards from DOM during polling.
+                    // Keep server-rendered list stable; status updates only.
 
                     // Flash highlight to signal the update
                     card.style.transition = 'background 0.3s ease';
@@ -1239,8 +1290,8 @@ function escIM(str) {
             .catch(() => {}); // Silently ignore network errors
     }
 
-    // Start polling every 8 seconds
-    setInterval(poll, 8000);
+    // Start polling every 8 seconds (single active interval only)
+    window.__ordersPollingInterval = setInterval(poll, 8000);
 })();
 </script>
 

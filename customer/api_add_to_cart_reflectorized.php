@@ -117,6 +117,7 @@ unset($customization['branch_id']);
 
 $cart_item = [
     'product_id' => 0, // 0 for service/custom items not in products table
+    'source_page' => 'services',
     'branch_id'  => $fields['branch_id'],
     'name' => 'Reflectorized: ' . $product_name,
     'category' => 'Reflectorized Signage',

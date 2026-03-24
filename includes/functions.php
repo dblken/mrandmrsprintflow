@@ -269,6 +269,35 @@ function staff_notification_target_url(array $n): string {
     // Order / Job / Payment / Design notifications with a data_id
     if (!empty($n['data_id']) && isset($n['type']) && (string)$n['type'] === 'Order') {
         $data_id = (int)$n['data_id'];
+        $msg = isset($n['message']) ? (string)$n['message'] : '';
+        $payment_submitted = (stripos($msg, 'submitted payment') !== false || stripos($msg, 'payment proof') !== false);
+
+        if ($payment_submitted) {
+            $job_by_pk = db_query(
+                'SELECT id, order_id FROM job_orders WHERE id = ? LIMIT 1',
+                'i',
+                [$data_id]
+            );
+            if (!empty($job_by_pk)) {
+                $is_job_line = (stripos($msg, 'job order') !== false);
+                if ($is_job_line) {
+                    return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB&status=TO_VERIFY';
+                }
+                $oid = (int)($job_by_pk[0]['order_id'] ?? 0);
+                if ($oid > 0) {
+                    return $base . '/staff/customizations.php?order_id=' . $oid . '&job_type=ORDER&status=TO_VERIFY';
+                }
+                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB&status=TO_VERIFY';
+            }
+            $ord_row = db_query(
+                'SELECT order_id FROM orders WHERE order_id = ? LIMIT 1',
+                'i',
+                [$data_id]
+            );
+            if (!empty($ord_row)) {
+                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=TO_VERIFY';
+            }
+        }
 
         // Check if the data_id belongs to job_orders table (custom/specialty jobs)
         // Job orders are managed in customizations.php
@@ -283,14 +312,12 @@ function staff_notification_target_url(array $n): string {
         }
 
         // Check if the data_id belongs to store orders table
-        // Store orders are managed in orders.php (NOT customizations.php)
         $ord_row = db_query(
             "SELECT order_id FROM orders WHERE order_id = ? LIMIT 1",
             'i',
             [$data_id]
         );
         if (!empty($ord_row)) {
-            // It is a store order — send to orders management page
             return $base . '/staff/orders.php';
         }
 
@@ -444,6 +471,7 @@ function load_customer_cart_into_session($customer_id) {
             'variant_id' => $vid,
             'name' => $product['name'],
             'category' => $product['category'] ?? '',
+            'source_page' => 'products',
             'variant_name' => $variant_name,
             'quantity' => $qty,
             'price' => $price,
@@ -1223,7 +1251,7 @@ function get_services_image_map() {
         'signage'     => $base . '/images/products/signage.jpg',
         'sintraboard' => $base . '/images/products/standeeflat.jpg',
         'standee'     => $base . '/images/services/Sintraboard Standees.jpg',
-        'souvenir'    => $base . '/assets/images/placeholder.jpg',
+        'souvenir'    => $base . '/assets/images/services/default.png',
     ];
 }
 
@@ -1234,7 +1262,7 @@ function get_services_image_map() {
  */
 function get_service_image_url($service_type_or_name) {
     $cat = strtolower(trim(preg_replace('/\s+/', ' ', (string)$service_type_or_name)));
-    if ($cat === '') return '/printflow/public/assets/images/placeholder.jpg';
+    if ($cat === '') return '/printflow/public/assets/images/services/default.png';
 
     $map = get_services_image_map();
     foreach ($map as $keyword => $img) {
@@ -1243,7 +1271,7 @@ function get_service_image_url($service_type_or_name) {
         }
     }
 
-    return '/printflow/public/assets/images/placeholder.jpg';
+    return '/printflow/public/assets/images/services/default.png';
 }
 
 /**

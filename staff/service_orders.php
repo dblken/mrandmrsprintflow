@@ -9,6 +9,10 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
+if (!defined('BASE_URL')) {
+    define('BASE_URL', '/printflow');
+}
+
 service_order_ensure_tables();
 
 $filter = $_GET['status'] ?? '';
@@ -18,7 +22,7 @@ $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number
         ORDER BY so.created_at DESC";
 $params = [];
 $types = '';
-if ($filter && in_array($filter, ['Pending', 'Approved', 'Processing', 'Completed', 'Rejected'])) {
+if ($filter && in_array($filter, ['Pending', 'Pending Review', 'Approved', 'Processing', 'Completed', 'Rejected'], true)) {
     $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number 
             FROM service_orders so 
             LEFT JOIN customers c ON so.customer_id = c.customer_id 
@@ -38,11 +42,48 @@ $page_title = 'Service Orders - Staff';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_URL . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <style>
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .badge-fulfilled { background: #dcfce7; color: #15803d; }
+        .badge-confirmed { background: #e0f2fe; color: #0369a1; }
+        .badge-partial { background: #fef3c7; color: #a16207; }
+        .badge-cancelled { background: #fee2e2; color: #b91c1c; }
+        /* Identical to staff/customizations.php (.modal-overlay / .modal-panel) */
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
+        .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:560px; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 12px;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-action.indigo { color: #4f46e5; border-color: #4f46e5; }
+        .btn-action.indigo:hover { background: #4f46e5; color: #fff; }
+        .btn-action.red { color: #ef4444; border-color: #ef4444; }
+        .btn-action.red:hover { background: #ef4444; color: #fff; }
+    </style>
 </head>
-<body>
-<div class="dashboard-container">
+<body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
+<div class="dashboard-container" x-data="serviceOrderList()" x-init="initSvcUrlOpen()" @keydown.escape.window="onSvcEscape()">
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
     <div class="main-content">
         <header>
@@ -78,7 +119,9 @@ $page_title = 'Service Orders - Staff';
                             <td class="py-3 px-4"><?php echo htmlspecialchars(($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')); ?></td>
                             <td class="py-3 px-4"><?php echo status_badge($o['status'], 'order'); ?></td>
                             <td class="py-3 px-4"><?php echo format_datetime($o['created_at']); ?></td>
-                            <td class="py-3 px-4 text-right"><a href="service_order_details.php?id=<?php echo $o['id']; ?>" class="text-indigo-600 hover:underline">View</a></td>
+                            <td class="py-3 px-4 text-right">
+                                <button type="button" class="text-indigo-600 hover:underline bg-transparent border-none cursor-pointer text-sm font-inherit" @click="openSvcModal(<?php echo (int)$o['id']; ?>)">View</button>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
@@ -87,6 +130,31 @@ $page_title = 'Service Orders - Staff';
             </div>
         </main>
     </div>
+    <?php include __DIR__ . '/partials/service_order_modal.php'; ?>
 </div>
+<script src="<?php echo htmlspecialchars(BASE_URL . '/public/assets/js/staff_service_order_modal.js'); ?>"></script>
+<script>
+function serviceOrderList() {
+    return Object.assign(
+        {},
+        printflowStaffServiceOrderModalMixin({
+            afterSvcMutation: function () { location.reload(); }
+        }),
+        {
+            initSvcUrlOpen: function () {
+                var p = new URLSearchParams(location.search);
+                var oid = p.get('open_id');
+                if (!oid) return;
+                var id = parseInt(oid, 10);
+                if (!id) return;
+                this.openSvcModal(id);
+                p.delete('open_id');
+                var q = p.toString();
+                window.history.replaceState({}, '', location.pathname + (q ? '?' + q : '') + location.hash);
+            }
+        }
+    );
+}
+</script>
 </body>
 </html>
