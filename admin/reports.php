@@ -69,11 +69,11 @@ function pf_forecast3(array $hist): array {
     $last3 = array_slice($hist, -3);
     $avg   = array_sum($last3) / 3.0;
     $slope = ($last3[2] - $last3[0]) / 2.0;
-    return [
-        max(0, (int) round($avg + $slope * 1)),
-        max(0, (int) round($avg + $slope * 2)),
-        max(0, (int) round($avg + $slope * 3)),
-    ];
+    $fore  = [];
+    for ($i = 1; $i <= 3; $i++) {
+        $fore[] = max(0, (int) round($avg + $slope * $i));
+    }
+    return $fore;
 }
 
 /** Single-step linear regression forecast for revenue/orders. */
@@ -312,14 +312,30 @@ if (!$branch_empty) {
         }
         $fore = pf_forecast3($hist);
         $lastHist = $hist[5] ?? 0;
-        $lastFore = $fore[2] ?? 0;
+        $lastFore = $fore[2] ?? 0; // Last forecast month (3 months ahead)
         $demand = 'moderate';
-        if ($lastFore > $lastHist * 1.15) $demand = 'high';
-        elseif ($lastFore < $lastHist * 0.85 && $lastHist > 0) $demand = 'declining';
+        $demandLabel = '⚠️ Moderate';
+        
+        // Compare last forecast to last historical month
+        if ($lastHist > 0) {
+            $changePercent = (($lastFore - $lastHist) / $lastHist) * 100;
+            if ($changePercent > 15) {
+                $demand = 'high';
+                $demandLabel = '🔥 High Demand';
+            } elseif ($changePercent < -15) {
+                $demand = 'declining';
+                $demandLabel = '⬇️ Declining';
+            }
+        } elseif ($lastFore > 10) {
+            $demand = 'high';
+            $demandLabel = '🔥 High Demand';
+        }
+        
         $fc_series_data[$prod] = [
             'hist' => $hist,
             'fore' => $fore,
             'demand' => $demand,
+            'demandLabel' => $demandLabel,
         ];
     }
 }
@@ -425,7 +441,8 @@ if (!$branch_empty && $total_orders > 0) {
         [$b,$bt,$bp] = branch_where_parts('o', $branchId);
         $top_customers = db_query(
             "SELECT CONCAT(c.first_name,' ',c.last_name) as name, c.email,
-                    COUNT(o.order_id) as orders, SUM(o.total_amount) as spent
+                    COUNT(o.order_id) as orders,
+                    SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as spent
              FROM customers c JOIN orders o ON c.customer_id=o.customer_id
              WHERE o.order_date BETWEEN ? AND ?$b
              GROUP BY c.customer_id ORDER BY spent DESC LIMIT 8",
@@ -597,115 +614,153 @@ function reportsPrintInPlace(url) {
 <style>
 /* ── Layout ─────────────────────────── */
 .ana-wrap { display:flex; flex-direction:column; gap:24px; }
-.ana-grid  { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.ana-grid  { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:stretch; }
 .ana-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
 @media(max-width:960px){ .ana-grid,.ana-grid3{ grid-template-columns:1fr; } }
 
 /* ── Card (SaaS-style) ───────────────── */
-.ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:box-shadow .2s; }
+.ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:box-shadow .2s; display:flex; flex-direction:column; }
 .ana-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
-.ana-hd   { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; }
+.ana-hd   { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; flex-shrink:0; }
 .ana-hd h3{ margin:0; font-size:14px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; white-space:nowrap; }
 .ana-hd h3 svg{ width:16px; height:16px; color:#53C5E0; flex-shrink:0; }
-.ana-bd   { padding:20px; }
-.ana-bd-0 { padding:0; }
+.ana-bd   { padding:20px; flex:1; display:flex; flex-direction:column; min-height:0; }
+.ana-bd-0 { padding:0; flex:1; display:flex; flex-direction:column; min-height:0; }
 
 /* Product Demand Forecast — tight padding; chart gets flex space, side column capped */
-.ana-card.pf-forecast-card { overflow: visible; }
-.ana-card.pf-forecast-card .ana-hd { padding: 12px 14px; }
-.ana-card.pf-forecast-card .ana-bd { overflow: visible; padding: 8px 8px 10px; }
+.ana-card.pf-forecast-card { overflow: hidden; }
+.ana-card.pf-forecast-card .ana-hd { padding: 14px 18px; }
+.ana-card.pf-forecast-card .ana-bd { overflow: visible; padding: 20px 24px; }
 .pf-forecast-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(188px, 240px);
-    gap: 6px;
-    align-items: stretch;
-    min-height: 280px;
+    grid-template-columns: 1fr auto;
+    gap: 0;
+    align-items: start;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 .pf-ch-forecast-col {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    min-height: 0;
-    align-self: stretch;
-    overflow: visible;
-}
-.pf-ch-forecast-col > .ch-box.pf-ch-forecast-wrap {
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
+    overflow: hidden;
+    padding-right: 24px;
+    border-right: 1px solid #e5e7eb;
 }
 .pf-ch-forecast-wrap {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    overflow: visible;
-    box-sizing: border-box;
-    padding: 0;
-    border-radius: 6px;
+    width: 100%;
+    height: 380px;
+    overflow: hidden;
+    position: relative;
+}
+#ch-forecast {
+    width: 100% !important;
+    height: 100% !important;
+}
+#ch-forecast > div:not(:first-child) {
+    display: none !important;
 }
 .pf-ch-forecast-mount {
     flex: 1 1 auto;
-    min-height: 288px;
     width: 100%;
-    max-width: 100%;
+    height: 100%;
     position: relative;
-    overflow: visible;
+    overflow: hidden;
 }
-/* Apex defaults clip rotated x-labels and y-ticks at SVG edges */
-.pf-ch-forecast-wrap .apexcharts-svg,
-.pf-ch-forecast-wrap .apexcharts-canvas,
-.pf-ch-forecast-wrap .apexcharts-inner {
-    overflow: visible !important;
-}
-/* Remove common ~4px gap below inline SVG */
-.pf-ch-forecast-wrap .apexcharts-svg {
-    display: block;
-}
-.pf-ch-forecast-wrap .apexcharts-graphical {
-    overflow: visible;
+.pf-ch-forecast-mount > div:not(:first-child) {
+    display: none !important;
 }
 .pf-forecast-side {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    min-width: 0;
-    max-width: 100%;
-    min-height: 0;
-    padding: 0;
+    width: 300px;
+    flex-shrink: 0;
     overflow: hidden;
+    max-height: 380px;
+    padding-left: 24px;
 }
 .pf-forecast-side .pf-fc-side-hd {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: #9ca3af;
-    margin: 0 0 8px 0;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin: 0 0 12px 0;
+    flex-shrink: 0;
 }
 .pf-forecast-side .pf-fc-side-row {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
 }
 .pf-forecast-side .pf-fc-side-row:last-child {
     margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
 }
-@media (max-width: 960px) {
+/* Ellipsis for long names */
+.pf-fc-name-truncate {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+@media (max-width: 1024px) {
     .pf-forecast-grid {
         grid-template-columns: 1fr;
-        min-height: 0;
+        gap: 0;
+    }
+    .pf-ch-forecast-col {
+        padding-right: 0;
+        border-right: none;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e5e7eb;
     }
     .pf-forecast-side {
-        padding-top: 10px;
-        border-top: 1px dashed #e5e7eb;
+        width: 100%;
+        max-height: none;
         padding-left: 0;
+        padding-top: 20px;
     }
 }
 /* Y tick labels: valid SVG anchor only (no CSS translate — that spilled outside the card) */
 .pf-ch-forecast-wrap .apexcharts-yaxis .apexcharts-yaxis-texts-g text.apexcharts-yaxis-label {
     text-anchor: end !important;
     dominant-baseline: middle;
+    fill: #374151 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+/* X-axis labels — enhanced visibility */
+.pf-ch-forecast-wrap .apexcharts-xaxis .apexcharts-xaxis-texts-g text {
+    fill: #1f2937 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+}
+/* Grid lines — subtle but visible */
+.pf-ch-forecast-wrap .apexcharts-grid line {
+    stroke: #e5e7eb !important;
+    stroke-width: 1px !important;
+}
+/* X-axis baseline — stronger */
+.pf-ch-forecast-wrap .apexcharts-xaxis line {
+    stroke: #d1d5db !important;
+    stroke-width: 1.5px !important;
+}
+/* Forecast divider line (vertical) — make it stand out */
+.pf-ch-forecast-wrap .apexcharts-xcrosshairs-hidden {
+    stroke: #94a3b8 !important;
+    stroke-width: 2px !important;
+    stroke-dasharray: 6 4 !important;
+    opacity: 0.6 !important;
 }
 /*
  * ApexCharts still injects an HTML legend layer (max-height set) beside the SVG when legend.show is false,
@@ -745,6 +800,13 @@ function reportsPrintInPlace(url) {
     height: 0 !important;
     overflow: hidden !important;
     pointer-events: none !important;
+}
+/* Hide duplicate ApexCharts renders */
+.pf-ch-forecast-wrap .apexcharts-canvas:not(:first-of-type) {
+    display: none !important;
+}
+.pf-ch-forecast-wrap > div > div:not(:first-child) {
+    display: none !important;
 }
 
 /* ── KPI (modern SaaS) ───────────────── */
@@ -871,7 +933,9 @@ a.export-dd-link:hover { background: #f9fafb; }
 .heatmap-year-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
 .heatmap-year-select { min-width:5.5rem; }
 .pf-heatmap-legend { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 20px; margin:0 0 14px; padding:0; font-size:11px; font-weight:600; color:#475569; }
-.pf-heatmap-legend .pf-hm-legend-item { display:inline-flex; align-items:center; gap:8px; }
+.pf-heatmap-legend .pf-hm-legend-item { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; transition:all 0.2s ease; padding:4px 8px; border-radius:6px; }
+.pf-heatmap-legend .pf-hm-legend-item:hover { background:#f1f5f9; transform:translateY(-1px); }
+.pf-heatmap-legend .pf-hm-legend-item.pf-hm-hidden { opacity:0.3; text-decoration:line-through; }
 .pf-heatmap-legend .pf-hm-legend-item i { width:14px; height:14px; border-radius:4px; flex-shrink:0; border:1px solid rgba(15,23,42,.08); }
 /* HTML heatmap — label column + 12 months, fluid width (no horizontal scroll) */
 .pf-hm-outer { width:100%; max-width:100%; min-width:0; overflow:hidden; }
@@ -947,6 +1011,7 @@ a.export-dd-link:hover { background: #f9fafb; }
 .pf-hm-cell:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.12); filter:brightness(1.03); }
 .pf-hm-cell--future:hover,
 .pf-hm-cell--nodata:hover { transform:none; box-shadow:none; filter:none; }
+.pf-hm-cell.pf-hm-hidden { opacity:0.15 !important; pointer-events:none; }
 .pf-hm-cell--low { background:#a5e3f2; }
 .pf-hm-cell--med { background:#53C5E0; }
 .pf-hm-cell--high { background:#00232b; }
@@ -1019,11 +1084,48 @@ a.export-dd-link:hover { background: #f9fafb; }
 .top-location-pill { font-size:11px; font-weight:600; color:#0F4C5C; background:#E5EEF2; padding:5px 12px; border-radius:8px; border:1px solid #cfe8ef; }
 
 /* ApexCharts — readable tooltips & crosshair (avoid white-on-white) */
-.apexcharts-tooltip { color:#f8fafc !important; background:#1e293b !important; border:1px solid #334155 !important; box-shadow:0 8px 24px rgba(0,0,0,.2) !important; }
-.apexcharts-tooltip-title { color:#e2e8f0 !important; border-bottom:1px solid #334155 !important; }
-.apexcharts-tooltip-series-group { padding:4px 0 !important; }
-.apexcharts-tooltip-y-group { color:#f8fafc !important; }
-.apexcharts-tooltip-marker { color: inherit !important; }
+.apexcharts-tooltip { 
+    color:#f8fafc !important; 
+    background:#1e293b !important; 
+    border:1px solid #334155 !important; 
+    box-shadow:0 10px 30px rgba(0,0,0,.25) !important;
+    border-radius:8px !important;
+    padding:0 !important;
+}
+.apexcharts-tooltip-title { 
+    color:#e2e8f0 !important; 
+    border-bottom:1px solid #334155 !important;
+    background:#0f172a !important;
+    padding:8px 12px !important;
+    margin:0 !important;
+    font-weight:700 !important;
+    font-size:13px !important;
+}
+.apexcharts-tooltip-series-group { 
+    padding:6px 12px !important;
+}
+.apexcharts-tooltip-y-group { 
+    color:#f8fafc !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    gap:12px !important;
+}
+.apexcharts-tooltip-marker { 
+    width:8px !important;
+    height:8px !important;
+    border-radius:50% !important;
+    margin-right:8px !important;
+}
+.apexcharts-tooltip-text-y-label {
+    color:#cbd5e1 !important;
+    font-size:12px !important;
+}
+.apexcharts-tooltip-text-y-value {
+    color:#fff !important;
+    font-weight:700 !important;
+    font-size:12px !important;
+}
 /* Sales trend — strong crosshair + dark toolbar/zoom glyphs (Apex defaults can be near-white) */
 #ch-trend .apexcharts-xcrosshairs,
 #ch-trend .apexcharts-xcrosshairs line { stroke:#001018 !important; stroke-width:2px !important; opacity:1 !important; }
@@ -1045,11 +1147,12 @@ a.export-dd-link:hover { background: #f9fafb; }
 /* ── Tables ─────────────────────────── */
 .rpt-tbl { width:100%; border-collapse:collapse; }
 .rpt-tbl th { padding:8px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; background:#f9fafb; text-align:left; border-bottom:2px solid #e5e7eb; }
+.rpt-tbl th.num { text-align:center; }
 .rpt-tbl td { padding:9px 14px; font-size:13px; border-bottom:1px solid #f3f4f6; color:#374151; }
 .rpt-tbl tr:hover td{ background:#f8fafc; }
 .rpt-tbl-clickable tbody tr{ transition:background .15s; }
 .rpt-tbl-clickable tbody tr:hover{ background:#f1f5f9 !important; }
-.num      { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+.num      { text-align:center; font-variant-numeric:tabular-nums; font-weight:600; }
 
 /* ── Badges ─────────────────────────── */
 .badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
@@ -1090,29 +1193,34 @@ a.export-dd-link:hover { background: #f9fafb; }
 .sk-warn     { background:#f59e0b; }
 .sk-danger   { background:#ef4444; }
 
-/* ── Branch Performance Comparison (Enhanced Unified Chart) ──────────── */
+/* ── Branch Performance Comparison (Enhanced Unified Chart - No Scroll) ──────────── */
 .pf-brc-container { display: flex; align-items: flex-start; gap: 0; position: relative; width: 100%; border: 1px solid #f1f5f9; border-radius: 12px; padding: 16px 12px 24px; background: #fff; }
-.pf-brc-y-left { width: 80px; flex-shrink: 0; height: 320px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; font-weight: 800; color: #00232b; text-align: right; padding-right: 12px; border-right: 2px solid #e2e8f0; margin-top: 20px; margin-bottom: 65px; }
-.pf-brc-y-right { width: 50px; flex-shrink: 0; height: 320px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; font-weight: 800; color: #3b82f6; text-align: left; padding-left: 12px; border-left: 2px solid #e2e8f0; margin-top: 20px; margin-bottom: 65px; }
-.pf-brc-wrap { flex: 1; overflow-x: auto; padding-top: 20px; position: relative; }
-.pf-brc-legend { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; justify-content: center; padding: 0 20px; transition: all 0.3s ease; }
-.pf-brc-leg { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #475569; transition: all 0.2s; cursor: pointer; user-select: none; }
-.pf-brc-leg:hover { transform: translateY(-1px); opacity: 0.8; }
-.pf-brc-leg.is-hidden { opacity: 0.25 !important; filter: grayscale(1); text-decoration: line-through; }
-.pf-brc-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
-.pf-brc-grid { height: 320px; display: flex; align-items: stretch; position: relative; border-bottom: 2px solid #334155; min-width: max-content; }
+.pf-brc-y-left { width: 70px; flex-shrink: 0; height: 320px; display: flex; flex-direction: column; justify-content: space-between; font-size: 9px; font-weight: 800; color: #00232b; text-align: right; padding-right: 10px; border-right: 2px solid #e2e8f0; margin-top: 20px; margin-bottom: 65px; }
+.pf-brc-y-right { width: 45px; flex-shrink: 0; height: 320px; display: flex; flex-direction: column; justify-content: space-between; font-size: 9px; font-weight: 800; color: #3b82f6; text-align: left; padding-left: 10px; border-left: 2px solid #e2e8f0; margin-top: 20px; margin-bottom: 65px; }
+.pf-brc-wrap { flex: 1; overflow: hidden; padding-top: 20px; position: relative; min-width: 0; }
+.pf-brc-legend { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; justify-content: center; padding: 0 20px; transition: all 0.2s ease; margin-bottom: 16px; }
+.pf-brc-leg { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; transition: all 0.2s ease; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #475569; }
+.pf-brc-leg:hover { background: #f1f5f9; transform: translateY(-1px); }
+.pf-brc-leg.is-hidden { opacity: 0.3; text-decoration: line-through; }
+.pf-brc-leg i { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(15,23,42,.08); }
+.pf-brc-grid { height: 320px; display: flex; align-items: stretch; position: relative; border-bottom: 2px solid #334155; width: 100%; }
 .pf-brc-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed #f1f5f9; pointer-events: none; }
-.pf-brc-cluster { flex: 1; min-width: 120px; display: flex; align-items: flex-end; gap: 6px; padding: 0 16px; height: 100%; transition: all 0.2s ease; border-right: 1px solid #f8fafc; position: relative; }
+.pf-brc-cluster { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 4px; padding: 0 8px; height: 100%; transition: all 0.2s ease; border-right: 1px solid #f8fafc; position: relative; }
 .pf-brc-cluster:hover { background: rgba(241, 245, 249, 0.6); z-index: 10; }
-.pf-brc-names { display: flex; padding-left: 1px; margin-top: 8px; min-width: max-content; height: 75px; }
-.pf-brc-name { flex: 1; min-width: 120px; display: flex; justify-content: center; align-items: flex-start; padding-top: 15px; }
-.pf-brc-name-txt { font-size: 10px; font-weight: 800; color: #1e293b; white-space: nowrap; transform: rotate(-40deg); transform-origin: top center; display: inline-block; width: 100px; text-align: right; }
+.pf-brc-names { display: flex; padding-left: 1px; margin-top: 8px; width: 100%; height: 75px; }
+.pf-brc-name { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 15px; }
+.pf-brc-name-txt { font-size: 9px; font-weight: 800; color: #1e293b; white-space: nowrap; transform: rotate(-40deg); transform-origin: top center; display: inline-block; max-width: 80px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
 
 .pf-brc-cluster--empty { opacity: 0.5; }
-.pf-brc-bar { flex: 1; min-width: 12px; max-width: 18px; border-radius: 4px 4px 0 0; min-height: 1px; position: relative; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
-.pf-brc-bar.is-hidden { width: 0 !important; min-width: 0 !important; max-width: 0 !important; opacity: 0 !important; pointer-events: none !important; margin: 0 !important; padding: 0 !important; overflow: hidden; }
-.pf-brc-bar:hover { filter: brightness(1.1); transform: scaleY(1.03); transform-origin: bottom; z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.pf-brc-val { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; white-space: nowrap; color: #475569; line-height: 1; pointer-events: none; }
+.pf-brc-bar { flex: 1; min-width: 8px; max-width: 16px; border-radius: 4px 4px 0 0; min-height: 1px; position: relative; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; transform-origin: bottom; }
+.pf-brc-bar.is-hidden { opacity: 0; transform: scaleY(0); pointer-events: none; }
+.pf-brc-bar:not(.is-hidden):hover { filter: brightness(1.15); transform: scaleY(1.05); z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.pf-brc-val { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; white-space: nowrap; color: #475569; line-height: 1; pointer-events: none; }
+@media (max-width: 1200px) {
+    .pf-brc-cluster { gap: 3px; padding: 0 6px; }
+    .pf-brc-bar { min-width: 6px; max-width: 12px; }
+    .pf-brc-name-txt { font-size: 8px; max-width: 70px; }
+}
 
 /* ── Custom Card Tooltip ──────────────── */
 #pf-brc-card-tooltip {
@@ -1125,23 +1233,123 @@ a.export-dd-link:hover { background: #f9fafb; }
 .pf-tt-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; line-height: 1.6; }
 .pf-tt-lbl { color: #64748b; font-weight: 600; }
 .pf-tt-val { color: #0f172a; font-weight: 700; text-align: right; }
-/* ── Customer Locations (Unified PHP/CSS Chart) ── */
-.pf-cloc-container { display: flex; align-items: flex-start; gap: 0; position: relative; width: 100%; border: 1px solid #f1f5f9; border-radius: 12px; padding: 20px 16px 28px; background: #fff; box-sizing: border-box; overflow: hidden; }
-.pf-cloc-y { width: 50px; flex-shrink: 0; height: 240px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; font-weight: 800; color: #64748b; text-align: right; padding-right: 12px; border-right: 2px solid #e2e8f0; margin-top: 10px; margin-bottom: 60px; box-sizing: border-box; }
-.pf-cloc-wrap { flex: 1; overflow: hidden; padding-top: 10px; position: relative; display: flex; flex-direction: column; }
-.pf-cloc-grid { height: 240px; display: flex; align-items: stretch; justify-content: center; position: relative; border-bottom: 2px solid #334155; width: 100%; box-sizing: border-box; }
-.pf-cloc-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed #f1f5f9; pointer-events: none; }
-.pf-cloc-item { flex: 1; min-width: 0; display: flex; align-items: flex-end; justify-content: center; position: relative; padding: 0 6px; height: 100%; transition: all 0.2s ease; }
-.pf-cloc-item:hover { background: rgba(241, 245, 249, 0.4); }
-.pf-cloc-bar { width: 44px; max-width: 100%; border-radius: 6px 6px 0 0; min-height: 2px; position: relative; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.pf-cloc-bar:hover { filter: brightness(1.1); transform: scaleY(1.05); transform-origin: bottom; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.pf-cloc-val { font-size: 10px; font-weight: 800; color: #fff; z-index: 2; pointer-events: none; }
-.pf-cloc-names { display: flex; padding-left: 0; margin-top: 10px; justify-content: center; height: 60px; width: 100%; }
-.pf-cloc-name { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 12px; }
-.pf-cloc-name-txt { font-size: 10px; font-weight: 800; color: #1e293b; white-space: nowrap; transform: rotate(-35deg); transform-origin: top center; display: inline-block; width: 80px; text-align: right; }
+/* ── Customer Locations (Progress Bar Style - Match Customization Usage) ── */
+.pf-loc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+}
+.pf-loc-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+.pf-loc-row:hover {
+    transform: translateY(-2px);
+    z-index: 10;
+}
+.pf-loc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+.pf-loc-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.pf-loc-rank {
+    font-size: 11px;
+    font-weight: 800;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+.pf-loc-city {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.2s ease;
+}
+.pf-loc-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+}
+.pf-loc-bar-wrap {
+    width: 100%;
+    height: 28px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    overflow: visible;
+    position: relative;
+}
+.pf-loc-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00232b 0%, #0F4C5C 50%, #53C5E0 100%);
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.1);
+}
+.pf-loc-row:hover .pf-loc-bar {
+    filter: brightness(1.15);
+    box-shadow: 0 4px 12px rgba(0,35,43,0.2), inset 0 1px 2px rgba(255,255,255,0.15);
+}
+.pf-loc-row:hover .pf-loc-city {
+    color: #00232b;
+}
+.pf-loc-row:hover .pf-loc-value {
+    color: #00232b;
+}
 
-/* ── Customer Locations Tooltip ── */
-#pf-cloc-tt { position: fixed; z-index: 9999; pointer-events: none; visibility: hidden; opacity: 0; background: #1e293b; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: opacity 0.15s ease; border: 1px solid #334155; transform: translate(-50%, -100%); margin-top: -12px; }
+/* Customer Locations Tooltip (Reused from Customization Usage / ApexCharts Style) */
+#pf-loc-tooltip {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    color: #f8fafc !important;
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25) !important;
+    border-radius: 8px !important;
+    padding: 0 !important;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+    transform: scale(0.95);
+    will-change: transform, opacity;
+    font-family: inherit;
+}
+#pf-loc-tooltip .pf-loc-tt-city {
+    color: #e2e8f0 !important;
+    border-bottom: 1px solid #334155 !important;
+    background: #0f172a !important;
+    padding: 8px 12px !important;
+    margin: 0 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+}
+#pf-loc-tooltip .pf-loc-tt-orders {
+    padding: 6px 12px !important;
+    color: #cbd5e1 !important;
+    font-size: 12px !important;
+}
+#pf-loc-tooltip .pf-loc-tt-orders strong {
+    color: #fff !important;
+    font-weight: 700 !important;
+}
 
 /* ── Print-only elements (hidden on screen) ───────────────────────────────── */
 .print-report-header, .print-report-footer { display:none; }
@@ -1445,10 +1653,10 @@ a.export-dd-link:hover { background: #f9fafb; }
                 <div class="ana-hd">
                     <h3>
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                        Product Demand Forecast — Next 3 Months
+                        Product Demand Forecast — Next 6 Months
                     </h3>
                     <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:#6b7280;">
-                        <span title="Solid lines = actual historical data. Dashed lines = predicted demand based on 6-month trend.">— Solid = Actual · - - Dashed = Forecast</span>
+                        <span title="Solid lines = actual historical data. Dashed lines = predicted demand based on 6-month trend.">— Solid = Actual · - - Dashed = Forecast (6mo)</span>
                     </div>
                 </div>
                 <div class="ana-bd">
@@ -1474,13 +1682,13 @@ a.export-dd-link:hover { background: #f9fafb; }
             foreach ($fc_series_data as $prod => $pd):
                 $pct = $fc_max_side > 0 ? round(max($pd['fore']) / $fc_max_side * 100) : 0;
                 $col = $fc_colors[$fc_i % count($fc_colors)];
-                $badge = $demand_badges[$pd['demand'] ?? 'moderate'] ?? '⚠️ Moderate';
+                $badge = $pd['demandLabel'] ?? $demand_badges[$pd['demand'] ?? 'moderate'] ?? '⚠️ Moderate';
                 $fc_i++;
                 ?>
                                 <div class="pf-fc-side-row">
-                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;gap:4px;">
-                                        <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#374151;word-break:break-word;line-height:1.35;" title="<?php echo htmlspecialchars($prod); ?>"><?php echo htmlspecialchars($prod); ?></span>
-                                        <span style="font-size:10px;color:#6b7280;white-space:nowrap;" title="Demand trend: <?php echo $pd['demand']; ?>"><?php echo $badge; ?></span>
+                                    <div style="display:grid;grid-template-columns:1fr auto;align-items:center;margin-bottom:4px;gap:8px;">
+                                        <span class="pf-fc-name-truncate" style="font-size:12px;font-weight:600;color:#374151;" title="<?php echo htmlspecialchars($prod); ?>"><?php echo htmlspecialchars($prod); ?></span>
+                                        <span style="font-size:10px;font-weight:700;color:#6b7280;white-space:nowrap;background:#f3f4f6;padding:2px 6px;border-radius:4px;flex-shrink:0;" title="Demand trend based on 3-month forecast vs. last historical month: High (+15% or more), Moderate (stable), Declining (-15% or less)"><?php echo $badge; ?></span>
                                     </div>
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <div class="fc-prod-bar" style="flex:1;"><div class="fc-prod-fill" style="width:<?php echo $pct; ?>%;background:<?php echo $col; ?>;"></div></div>
@@ -1497,14 +1705,16 @@ a.export-dd-link:hover { background: #f9fafb; }
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         Product Demand Forecast — Next 3 Months
                     </h3>
-                    <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:#6b7280;">
-                        <span title="Solid lines = actual historical data. Dashed lines = predicted demand based on 6-month trend.">— Solid = Actual · - - Dashed = Forecast</span>
+                    <div style="display:flex;align-items:center;gap:8px;" class="no-print">
+                        <span style="font-size:11px;color:#9ca3af;" title="Solid lines = actual historical data. Dashed lines = predicted demand based on 3-month trend.">· — Solid = Actual · - - Dashed = Forecast (3mo)</span>
                     </div>
                 </div>
                 <div class="ana-bd">
                     <div class="pf-forecast-grid">
                         <div class="pf-ch-forecast-col">
-                            <div class="ch-box pf-ch-forecast-wrap"><div id="ch-forecast" class="pf-ch-forecast-mount"></div></div>
+                            <div class="pf-ch-forecast-wrap">
+                                <div id="ch-forecast" class="pf-ch-forecast-mount"></div>
+                            </div>
                         </div>
                         <div class="pf-forecast-side">
                             <?php echo $pf_fc_forecast_side_html; ?>
@@ -1519,10 +1729,28 @@ a.export-dd-link:hover { background: #f9fafb; }
                 <!-- Best Selling Services -->
                 <div class="ana-card pf-ch-products-card">
                     <div class="ana-hd">
-                        <h3 style="margin:0;">
+                        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
-                            Best Selling Services
+                            <span>Best Selling Services</span>
                         </h3>
+                        <span style="font-size:11px;color:#6b7280;font-weight:600;white-space:nowrap;">
+                            <?php 
+                            $period_label = '';
+                            $days_diff = (strtotime($to) - strtotime($from)) / 86400;
+                            if ($days_diff <= 1) {
+                                $period_label = 'Today';
+                            } elseif ($days_diff <= 7) {
+                                $period_label = 'Last 7 Days';
+                            } elseif ($days_diff <= 30) {
+                                $period_label = 'Last 30 Days';
+                            } elseif ($days_diff <= 90) {
+                                $period_label = 'Last 3 Months';
+                            } else {
+                                $period_label = date('M j', strtotime($from)) . ' – ' . date('M j, Y', strtotime($to));
+                            }
+                            echo htmlspecialchars($period_label);
+                            ?>
+                        </span>
                     </div>
                     <div class="ana-bd">
                         <?php if (!empty($top_products)): ?>
@@ -1602,12 +1830,12 @@ a.export-dd-link:hover { background: #f9fafb; }
                     </div>
                 </div>
                 <div class="ana-bd">
-                    <div class="pf-heatmap-legend" aria-label="Heatmap legend">
-                        <span class="pf-hm-legend-item"><i style="background:repeating-linear-gradient(-45deg,#f8fafc,#f8fafc 3px,#e2e8f0 3px,#e2e8f0 6px);border:1px dashed #cbd5e1;"></i> Not yet</span>
-                        <span class="pf-hm-legend-item"><i style="background:#f8fafc;border:1px dashed #94a3b8;"></i> No transactions</span>
-                        <span class="pf-hm-legend-item"><i style="background:#a5e3f2;"></i> Low</span>
-                        <span class="pf-hm-legend-item"><i style="background:#53C5E0;"></i> Medium</span>
-                        <span class="pf-hm-legend-item"><i style="background:#00232b;"></i> High</span>
+                    <div class="pf-heatmap-legend" aria-label="Heatmap legend" id="pf-heatmap-legend">
+                        <span class="pf-hm-legend-item" data-kind="future" role="button" tabindex="0" title="Click to toggle visibility"><i style="background:repeating-linear-gradient(-45deg,#f8fafc,#f8fafc 3px,#e2e8f0 3px,#e2e8f0 6px);border:1px dashed #cbd5e1;"></i> Not yet</span>
+                        <span class="pf-hm-legend-item" data-kind="nodata" role="button" tabindex="0" title="Click to toggle visibility"><i style="background:#f8fafc;border:1px dashed #94a3b8;"></i> No transactions</span>
+                        <span class="pf-hm-legend-item" data-kind="low" role="button" tabindex="0" title="Click to toggle visibility"><i style="background:#a5e3f2;"></i> Low</span>
+                        <span class="pf-hm-legend-item" data-kind="med" role="button" tabindex="0" title="Click to toggle visibility"><i style="background:#53C5E0;"></i> Medium</span>
+                        <span class="pf-hm-legend-item" data-kind="high" role="button" tabindex="0" title="Click to toggle visibility"><i style="background:#00232b;"></i> High</span>
                     </div>
                     <div class="ch-box pf-heatmap-chbox" id="pf-heatmap-chbox" style="min-height:<?php echo (int)$hm_box_h; ?>px;">
                         <div id="pf-heatmap-ajax-loading" class="chart-loading hidden" aria-hidden="true">
@@ -1636,55 +1864,26 @@ a.export-dd-link:hover { background: #f9fafb; }
                     <div class="ana-bd">
                         <?php if (!empty($customer_locations)): ?>
                             <?php 
-                                $max_loc_orders = 0;
-                                foreach ($customer_locations as $loc) if ($loc['orders'] > $max_loc_orders) $max_loc_orders = $loc['orders'];
-                                if ($max_loc_orders <= 0) $max_loc_orders = 10;
-                                
-                                // Clean tick amounts for Y-axis
-                                if ($max_loc_orders > 100) $tick_step = 50;
-                                elseif ($max_loc_orders > 50) $tick_step = 20;
-                                elseif ($max_loc_orders > 20) $tick_step = 10;
-                                else $tick_step = 5;
-                                
-                                $y_ticks = [];
-                                for ($i = ceil($max_loc_orders / $tick_step) * $tick_step; $i >= 0; $i -= $tick_step) $y_ticks[] = $i;
-                                $actual_max = reset($y_ticks);
+                                $max_orders = max(array_column($customer_locations, 'orders'));
                             ?>
-                            <div class="pf-cloc-container">
-                                <div class="pf-cloc-y">
-                                    <?php foreach ($y_ticks as $tick): ?>
-                                        <span><?php echo $tick; ?></span>
-                                    <?php endforeach; ?>
-                                </div>
-                                <div class="pf-cloc-wrap">
-                                    <div class="pf-cloc-grid">
-                                        <?php 
-                                        $tick_count = count($y_ticks) - 1;
-                                        for ($i = 0; $i <= $tick_count; $i++): 
-                                            $top_pos = ($i / $tick_count) * 100;
-                                        ?>
-                                            <div class="pf-cloc-gridline" style="top: <?php echo $top_pos; ?>%;"></div>
-                                        <?php endfor; ?>
-                                        
-                                        <?php foreach ($customer_locations as $index => $loc): 
-                                            $h_pct = ($loc['orders'] / $actual_max) * 100;
-                                            $bar_color = ['#00232b', '#0F4C5C', '#3A86A8', '#53C5E0', '#6B7C85', '#8ED6E6'][min($index, 5)];
-                                        ?>
-                                            <div class="pf-cloc-item" title="<?php echo htmlspecialchars(trim($loc['city'])); ?>: <?php echo $loc['orders']; ?> orders">
-                                                <div class="pf-cloc-bar" style="height: <?php echo $h_pct; ?>%; background: <?php echo $bar_color; ?>;">
-                                                    <span class="pf-cloc-val"><?php echo $loc['orders']; ?></span>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
+                            <div class="pf-loc-list">
+                                <?php foreach ($customer_locations as $index => $loc): 
+                                    $pct = $max_orders > 0 ? ($loc['orders'] / $max_orders) * 100 : 0;
+                                    $rank = $index + 1;
+                                ?>
+                                <div class="pf-loc-row">
+                                    <div class="pf-loc-header">
+                                        <div class="pf-loc-name">
+                                            <span class="pf-loc-rank">#<?php echo $rank; ?></span>
+                                            <span class="pf-loc-city"><?php echo htmlspecialchars(trim($loc['city'])); ?></span>
+                                        </div>
+                                        <div class="pf-loc-value"><?php echo $loc['orders']; ?></div>
                                     </div>
-                                    <div class="pf-cloc-names">
-                                        <?php foreach ($customer_locations as $loc): ?>
-                                            <div class="pf-cloc-name">
-                                                <span class="pf-cloc-name-txt"><?php echo htmlspecialchars(trim($loc['city'])); ?></span>
-                                            </div>
-                                        <?php endforeach; ?>
+                                    <div class="pf-loc-bar-wrap">
+                                        <div class="pf-loc-bar" style="width: <?php echo $pct; ?>%;"></div>
                                     </div>
                                 </div>
+                                <?php endforeach; ?>
                             </div>
                         <?php else: ?>
                             <div class="ch-empty"><svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>No location data available</div>
@@ -1729,9 +1928,9 @@ a.export-dd-link:hover { background: #f9fafb; }
                 </div>
                 <div class="ana-bd">
                     <div class="pf-brc-legend" style="margin-bottom:20px;">
-                        <span class="pf-brc-leg" data-metric="revenue" title="Click to toggle Revenue"><span class="pf-brc-dot" style="background:#00232b"></span>Revenue (₱)</span>
-                        <span class="pf-brc-leg" data-metric="orders" title="Click to toggle Store Orders"><span class="pf-brc-dot" style="background:#3b82f6"></span>Store Orders</span>
-                        <span class="pf-brc-leg" data-metric="jobs" title="Click to toggle Customization Jobs"><span class="pf-brc-dot" style="background:#14b8a6"></span>Customization Jobs</span>
+                        <span class="pf-brc-leg" data-metric="revenue" role="button" tabindex="0" title="Click to toggle Revenue"><i style="background:#00232b"></i>Revenue (₱)</span>
+                        <span class="pf-brc-leg" data-metric="orders" role="button" tabindex="0" title="Click to toggle Store Orders"><i style="background:#3b82f6"></i>Store Orders</span>
+                        <span class="pf-brc-leg" data-metric="jobs" role="button" tabindex="0" title="Click to toggle Customization Jobs"><i style="background:#14b8a6"></i>Customization Jobs</span>
                     </div>
                     
                     <div class="pf-brc-container">
@@ -1981,7 +2180,7 @@ a.export-dd-link:hover { background: #f9fafb; }
             <?php endif; ?>
 
             <!-- ══ RECENT TRANSACTIONS ════════════════════════════════════ -->
-            <div class="ana-card print-page-break">
+            <div class="ana-card print-page-break" id="recent-transactions">
                 <div class="ana-hd">
                     <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Recent Transactions</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
@@ -1993,7 +2192,7 @@ a.export-dd-link:hover { background: #f9fafb; }
                             $url = '?'.http_build_query($txn_base);
                             $act = $txn_payment_filter === $k ? 'active' : '';
                         ?>
-                        <a href="<?php echo htmlspecialchars($url); ?>" class="toolbar-btn <?php echo $act; ?>" style="height:32px;font-size:12px;padding:0 12px;"><?php echo $l; ?></a>
+                        <a href="<?php echo htmlspecialchars($url); ?>" class="toolbar-btn <?php echo $act; ?>" style="height:32px;font-size:12px;padding:0 12px;" data-txn-filter="<?php echo $k; ?>" onclick="sessionStorage.setItem('scrollToTransactions', 'true');"><?php echo $l; ?></a>
                         <?php endforeach; ?>
                         <span style="font-size:12px;color:#6b7280;margin-left:8px;"><?php echo number_format($txn_count); ?> orders</span>
                     </div>
@@ -2040,51 +2239,97 @@ a.export-dd-link:hover { background: #f9fafb; }
     </div>
 </div>
 
+<script>
 function printflowInitReportsPage() {
-    // ── BRANCH PERFORMANCE LEGEND TOGGLE ──
+    // ── BRANCH PERFORMANCE LEGEND TOGGLE (Interactive Buttons - Matches Heatmap) ──
     const brcLegs = document.querySelectorAll('.pf-brc-leg');
+    
     brcLegs.forEach(leg => {
-        // Use a flag to avoid multiple listeners
         if (leg.dataset.pfBound === '1') return;
         leg.dataset.pfBound = '1';
-        leg.addEventListener('click', () => {
-            const metric = leg.getAttribute('data-metric');
-            const isHidden = leg.classList.toggle('is-hidden');
-            const bars = document.querySelectorAll(`.pf-brc-bar--${metric}`);
+        
+        leg.addEventListener('click', function() {
+            const metric = this.getAttribute('data-metric');
+            if (!metric) return;
+            
+            // Toggle hidden state on legend item
+            this.classList.toggle('is-hidden');
+            const isHidden = this.classList.contains('is-hidden');
+            
+            // Find and toggle bars
+            let barSelector = '';
+            if (metric === 'revenue') barSelector = '.pf-brc-bar--revenue';
+            else if (metric === 'orders') barSelector = '.pf-brc-bar--orders';
+            else if (metric === 'jobs') barSelector = '.pf-brc-bar--jobs';
+            
+            const bars = document.querySelectorAll(barSelector);
             bars.forEach(bar => {
-                if (isHidden) bar.classList.add('is-hidden');
-                else bar.classList.remove('is-hidden');
+                if (isHidden) {
+                    bar.classList.add('is-hidden');
+                } else {
+                    bar.classList.remove('is-hidden');
+                }
             });
+        });
+        
+        // Keyboard support
+        leg.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                leg.click();
+            }
         });
     });
 
-    // ── CUSTOMER LOCATIONS TOOLTIP ──
-    let tt = document.getElementById('pf-cloc-tt');
-    if (!tt) {
-        tt = document.createElement('div');
-        tt.id = 'pf-cloc-tt';
-        document.body.appendChild(tt);
+    // ── CUSTOMER LOCATIONS TOOLTIP (REUSED FROM CUSTOMIZATION USAGE) ──
+    let locTt = document.getElementById('pf-loc-tooltip');
+    if (!locTt) {
+        locTt = document.createElement('div');
+        locTt.id = 'pf-loc-tooltip';
+        locTt.innerHTML = '<div class="pf-loc-tt-city"></div><div class="pf-loc-tt-orders"></div>';
+        document.body.appendChild(locTt);
     }
 
-    const bars = document.querySelectorAll('.pf-cloc-bar');
-    bars.forEach(bar => {
-        if (bar.dataset.pfBound === '1') return;
-        bar.dataset.pfBound = '1';
-        const item = bar.closest('.pf-cloc-item');
-        const titleStr = item ? item.getAttribute('title') : '';
+    const locRows = document.querySelectorAll('.pf-loc-row');
+    locRows.forEach(row => {
+        if (row.dataset.pfBound === '1') return;
+        row.dataset.pfBound = '1';
         
-        bar.addEventListener('mouseenter', () => {
-            tt.innerText = titleStr;
-            tt.style.visibility = 'visible';
-            tt.style.opacity = '1';
+        const cityEl = row.querySelector('.pf-loc-city');
+        const valueEl = row.querySelector('.pf-loc-value');
+        const cityName = cityEl ? cityEl.textContent.trim() : '';
+        const orderCount = valueEl ? valueEl.textContent.trim() : '0';
+        
+        row.addEventListener('mouseenter', (e) => {
+            const ttCity = locTt.querySelector('.pf-loc-tt-city');
+            const ttOrders = locTt.querySelector('.pf-loc-tt-orders');
+            if (ttCity) ttCity.textContent = cityName;
+            if (ttOrders) ttOrders.innerHTML = `Total Orders: <strong>${orderCount}</strong>`;
+            
+            locTt.style.visibility = 'visible';
+            locTt.style.opacity = '1';
+            locTt.style.transform = 'scale(1)';
         });
-        bar.addEventListener('mousemove', (e) => {
-            tt.style.left = e.clientX + 'px';
-            tt.style.top = e.clientY + 'px';
+        
+        row.addEventListener('mousemove', (e) => {
+            let x = e.clientX + 15;
+            let y = e.clientY + 15;
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const ttW = locTt.offsetWidth;
+            const ttH = locTt.offsetHeight;
+
+            if (x + ttW > winW) x = e.clientX - ttW - 15;
+            if (y + ttH > winH) y = e.clientY - ttH - 15;
+
+            locTt.style.left = x + 'px';
+            locTt.style.top = y + 'px';
         });
-        bar.addEventListener('mouseleave', () => {
-            tt.style.visibility = 'hidden';
-            tt.style.opacity = '0';
+        
+        row.addEventListener('mouseleave', () => {
+            locTt.style.visibility = 'hidden';
+            locTt.style.opacity = '0';
+            locTt.style.transform = 'scale(0.95)';
         });
     });
 }
@@ -2095,6 +2340,28 @@ if (document.readyState === 'loading') {
     printflowInitReportsPage();
 }
 document.addEventListener('printflow:page-init', printflowInitReportsPage);
+
+// Handle transaction filter clicks without page reload
+document.addEventListener('click', function(e) {
+    const filterBtn = e.target.closest('[data-txn-filter]');
+    if (filterBtn) {
+        e.preventDefault();
+        // Save that we need to scroll to transactions section
+        sessionStorage.setItem('scrollToTransactions', 'true');
+        window.location.href = filterBtn.href;
+    }
+});
+
+// Scroll to Recent Transactions section after page loads
+if (sessionStorage.getItem('scrollToTransactions')) {
+    sessionStorage.removeItem('scrollToTransactions');
+    window.addEventListener('load', function() {
+        const transactionsSection = document.getElementById('recent-transactions');
+        if (transactionsSection) {
+            transactionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+}
 </script>
 
 <?php include __DIR__ . '/../includes/reports_analytics_scripts.php'; ?>

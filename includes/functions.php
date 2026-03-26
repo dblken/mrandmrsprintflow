@@ -1093,8 +1093,8 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
     // Previous button
     if ($current_page > 1) {
         $params[$page_param] = $current_page - 1;
-        $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+        $url = '?' . http_build_query($params) . '#recent-transactions';
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '" onclick="sessionStorage.setItem(\'scrollToTransactions\', \'true\');"' . $hover . '>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>';
     }
@@ -1107,11 +1107,11 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
         }
 
         $params[$page_param] = $p;
-        $url = '?' . http_build_query($params);
+        $url = '?' . http_build_query($params) . '#recent-transactions';
         if ($p === $current_page) {
-            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $active_btn . '">' . $p . '</a>';
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $active_btn . '" onclick="sessionStorage.setItem(\'scrollToTransactions\', \'true\');">' . $p . '</a>';
         } else {
-            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>' . $p . '</a>';
+            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '" onclick="sessionStorage.setItem(\'scrollToTransactions\', \'true\');"' . $hover . '>' . $p . '</a>';
         }
 
         $prev_page = $p;
@@ -1120,8 +1120,8 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
     // Next button
     if ($current_page < $total_pages) {
         $params[$page_param] = $current_page + 1;
-        $url = '?' . http_build_query($params);
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover . '>
+        $url = '?' . http_build_query($params) . '#recent-transactions';
+        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '" onclick="sessionStorage.setItem(\'scrollToTransactions\', \'true\');"' . $hover . '>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </a>';
     }

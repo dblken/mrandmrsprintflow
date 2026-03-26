@@ -9,7 +9,7 @@ if (!isset($branch_empty)) {
 ?>
 <script>
 window.__pfReportsApexCharts = window.__pfReportsApexCharts || [];
-var __pfReportsChartRootIds = ['ch-forecast','ch-products','ch-donut','ch-locs','ch-custom','ch-status'];
+var __pfReportsChartRootIds = ['ch-forecast','ch-products','ch-donut','ch-custom','ch-status'];
 window.printflowDisconnectReportsChartLayoutHooks = function () {
     if (window.__pfReportsRevealIO) {
         try { window.__pfReportsRevealIO.disconnect(); } catch (e) {}
@@ -332,10 +332,19 @@ window.printflowInitReportsCharts = function () {
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function pfHmValueTier(v) {
+    /**
+     * Calculate tier based on percentage of max value (matches PHP logic).
+     * @param {number} v - Current value
+     * @param {number} maxV - Maximum value in dataset
+     * @returns {string} 'low'|'med'|'high'
+     */
+    function pfHmValueTier(v, maxV) {
         v = Number(v) || 0;
-        if (v <= 5) return 'low';
-        if (v <= 15) return 'med';
+        maxV = Number(maxV) || 0;
+        if (v <= 0 || maxV <= 0) return 'low';
+        var pct = (v / maxV) * 100;
+        if (pct <= 25) return 'low';
+        if (pct <= 65) return 'med';
         return 'high';
     }
 
@@ -353,6 +362,18 @@ window.printflowInitReportsCharts = function () {
         if (!serverMonth) serverMonth = new Date().getMonth() + 1;
         var displayYear = Number(meta.year);
         if (!displayYear) displayYear = serverYear;
+
+        // Calculate global max value for dynamic tier thresholds
+        var maxValue = 0;
+        series.forEach(function(row) {
+            var pts = row.data || [];
+            pts.forEach(function(pt) {
+                if (pt && typeof pt.y !== 'undefined') {
+                    var v = Number(pt.y) || 0;
+                    if (v > maxValue) maxValue = v;
+                }
+            });
+        });
 
         var fallbackM = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         var headMonths = fallbackM;
@@ -424,7 +445,8 @@ window.printflowInitReportsCharts = function () {
                     cell.setAttribute('tabindex', '0');
                     cell.setAttribute('title', svc + ' · ' + moLabel + ' — No transactions');
                 } else {
-                    cell.className = 'pf-hm-cell pf-hm-cell--' + pfHmValueTier(v);
+                    // Pass maxValue to pfHmValueTier for dynamic thresholds
+                    cell.className = 'pf-hm-cell pf-hm-cell--' + pfHmValueTier(v, maxValue);
                     cell.setAttribute('role', 'gridcell');
                     cell.setAttribute('tabindex', '0');
                     cell.setAttribute('title', svc + ' · ' + moLabel + ' · ' + v + ' units');
@@ -749,10 +771,10 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
         fcData.forEach(function(p){
             const cAct = PF_LINE_DARK[idx % PF_LINE_DARK.length];
             const cFore = PF_LINE_FORE[idx % PF_LINE_FORE.length];
-            const histData = [...p.hist, null, null, null];
-            const foreData = [...new Array(5).fill(null), p.hist[p.hist.length-1], ...p.fore];
-            series.push({name: p.name + ' (actual)',   data: histData});
-            series.push({name: p.name + ' (forecast)', data: foreData});
+            const histData = [...p.hist, ...new Array(p.fore.length).fill(null)];
+            const foreData = [...new Array(p.hist.length - 1).fill(null), p.hist[p.hist.length - 1], ...p.fore];
+            series.push({ name: p.name + ' (actual)', data: histData });
+            series.push({ name: p.name + ' (forecast)', data: foreData });
             colors.push(cAct, cFore);
             dashes.push(0, 6);
             idx++;
@@ -761,82 +783,232 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
         function pfFcPushForecastChart() {
             var fcMount = document.getElementById('ch-forecast');
             if (!fcMount || !fcMount.parentElement) return;
+            
+            // Clear any existing content to prevent duplicates
+            fcMount.innerHTML = '';
+            
             var wrap = fcMount.parentElement;
             var h = wrap.clientHeight || wrap.getBoundingClientRect().height;
             if (h < 160) h = 320;
             var fcChartH = Math.max(288, Math.min(480, Math.round(h)));
 
             pfPushApexChart(fcMount, {
-            chart: {...PF_OPT, type:'line', height: fcChartH},
+            chart: {
+                ...PF_OPT, 
+                type: 'line', 
+                height: fcChartH,
+                toolbar: { show: false },
+                parentHeightOffset: 0,
+                animations: { enabled: true, easing: 'easeinout', speed: 800 },
+                zoom: { enabled: false },
+                offsetX: 0,
+                offsetY: 0,
+                width: '100%'
+            },
+            dataLabels: { enabled: false },
             series: series,
             xaxis: {
                 categories: shortCats,
                 tickPlacement: 'on',
+                range: (shortCats.length - 1),
                 labels: {
-                    style: { fontSize: '8px' },
-                    rotate: -52,
+                    style: { 
+                        fontSize: '11px', 
+                        fontWeight: 700,
+                        colors: '#1f2937'
+                    },
+                    rotate: -45,
                     rotateAlways: true,
                     trim: false,
                     hideOverlappingLabels: false,
-                    offsetX: 2,
-                    offsetY: 18,
-                    maxHeight: 110
+                    offsetX: 0,
+                    offsetY: 6
                 },
-                axisBorder: { show: false },
-                axisTicks: { show: true, height: 4, color: '#e5e7eb' }
+                axisBorder: { 
+                    show: true,
+                    color: '#d1d5db',
+                    height: 1.5
+                },
+                axisTicks: { 
+                    show: true,
+                    color: '#e5e7eb',
+                    height: 4
+                }
             },
             yaxis: {
                 show: true,
                 floating: false,
                 labels: {
                     formatter: function (v) { return v != null ? Math.round(v) : ''; },
-                    offsetX: -14,
-                    padding: 4,
-                    style: { fontSize: '10px', colors: '#6b7280' }
+                    offsetX: -8,
+                    style: { 
+                        fontSize: '11px', 
+                        fontWeight: 600,
+                        colors: '#374151'
+                    }
                 },
-                axisBorder: { show: true, color: '#e5e7eb', width: 1, offsetX: 0 },
-                axisTicks: { show: true, color: '#e5e7eb', width: 4 }
+                axisBorder: { 
+                    show: true,
+                    color: '#e5e7eb'
+                },
+                axisTicks: { 
+                    show: true,
+                    color: '#e5e7eb'
+                }
             },
             colors: colors,
-            stroke: {curve:'smooth', width:2, dashArray:dashes},
-            markers:{size:2, hover:{size:4}},
+            stroke: { curve: 'smooth', width: 3, dashArray: dashes },
+            markers: { size: 0 },
             tooltip:{
-                theme:'dark', shared:false, intersect:true, fillSeriesColor:false, style:{fontSize:'12px'},
+                shared: true,
+                intersect: false,
+                followCursor: false,
+                theme: 'dark',
+                style: {
+                    fontSize: '12px',
+                    fontFamily: 'inherit'
+                },
                 x: {
+                    show: true,
                     formatter: function (val, opts) {
                         var i = opts && typeof opts.dataPointIndex === 'number' ? opts.dataPointIndex : -1;
-                        if (i >= 0 && allLabels[i] != null) return allLabels[i];
+                        if (i >= 0 && allLabels[i] != null) {
+                            var label = String(allLabels[i]);
+                            // Add forecast indicator if in forecast range
+                            if (i >= fcHistCount) {
+                                return label + ' (forecast)';
+                            }
+                            return label;
+                        }
                         return val;
                     }
                 },
-                y:{formatter:v=>v!=null?v+' orders':'-'}
+                y: { 
+                    formatter: function(v) { 
+                        return v != null && v !== 0 ? Math.round(v) + ' orders' : null;
+                    },
+                    title: {
+                        formatter: function(seriesName) {
+                            // Remove (actual) and (forecast) suffixes for cleaner display
+                            return seriesName.replace(/\s*\((actual|forecast)\)\s*/gi, '').trim();
+                        }
+                    }
+                },
+                custom: function({ series, seriesIndex, dataPointIndex, w }) {
+                    if (dataPointIndex < 0) return '';
+                    
+                    // Get the month label
+                    var monthLabel = allLabels[dataPointIndex] || '';
+                    var isForecast = dataPointIndex >= fcHistCount;
+                    
+                    // Build a map of unique products with their values
+                    var productMap = {};
+                    var seriesNames = w.config.series || [];
+                    
+                    seriesNames.forEach(function(s, idx) {
+                        if (!s || !s.data || s.data[dataPointIndex] == null) return;
+                        
+                        var value = s.data[dataPointIndex];
+                        if (value === null || value === 0) return; // Skip empty values
+                        
+                        // Extract product name (remove actual/forecast suffix)
+                        var productName = (s.name || '').replace(/\s*\((actual|forecast)\)\s*/gi, '').trim();
+                        if (!productName) return;
+                        
+                        // Determine if this is actual or forecast data
+                        var isActualSeries = /\(actual\)/i.test(s.name);
+                        var isForecastSeries = /\(forecast\)/i.test(s.name);
+                        
+                        // Only show forecast series in forecast range, actual series in historical range
+                        if (isForecast && !isForecastSeries) return;
+                        if (!isForecast && isForecastSeries) return;
+                        
+                        // Store or update the product value
+                        if (!productMap[productName]) {
+                            productMap[productName] = {
+                                value: Math.round(value),
+                                color: w.config.colors[idx] || '#94a3b8',
+                                isForecast: isForecastSeries
+                            };
+                        }
+                    });
+                    
+                    // Build HTML
+                    var html = '<div style="padding:10px 12px;min-width:180px;max-width:280px;">';
+                    
+                    // Title with clear visibility
+                    html += '<div style="font-weight:700;font-size:13px;color:#f1f5f9;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">';
+                    html += pfEscHtml(monthLabel);
+                    if (isForecast) {
+                        html += ' <span style="color:#93c5fd;font-size:11px;font-weight:600;">(forecast)</span>';
+                    }
+                    html += '</div>';
+                    
+                    // Product list
+                    var products = Object.keys(productMap);
+                    if (products.length === 0) {
+                        html += '<div style="color:#94a3b8;font-size:11px;font-style:italic;">No data</div>';
+                    } else {
+                        products.forEach(function(productName, idx) {
+                            var data = productMap[productName];
+                            var isLast = idx === products.length - 1;
+                            
+                            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;' + (!isLast ? 'border-bottom:1px solid rgba(255,255,255,0.05);' : '') + '">';
+                            
+                            // Color indicator
+                            html += '<span style="width:8px;height:8px;border-radius:50%;background:' + data.color + ';flex-shrink:0;"></span>';
+                            
+                            // Product name and value
+                            html += '<div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;">';
+                            
+                            // Truncate long names
+                            var displayName = productName.length > 28 ? productName.substring(0, 28) + '...' : productName;
+                            html += '<span style="color:#e2e8f0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + pfEscHtml(productName) + '">' + pfEscHtml(displayName) + '</span>';
+                            
+                            // Value
+                            html += '<span style="color:#fff;font-weight:700;font-size:12px;white-space:nowrap;">' + data.value.toLocaleString() + '</span>';
+                            
+                            html += '</div></div>';
+                        });
+                    }
+                    
+                    html += '</div>';
+                    return html;
+                }
             },
-            annotations:{xaxis:[{x:fcastStart, borderColor:PF_SECONDARY, strokeDashArray:5,
-                label:{text:'Forecast', offsetY:-6, offsetX:4, style:{color:'#fff',background:PF_PRIMARY,fontSize:'9px'}}}]},
+            annotations: {
+                xaxis: [{
+                    x: fcastStart,
+                    borderColor: '#0ea5e9',
+                    strokeDashArray: 4
+                }]
+            },
             legend: { show: false, floating: true },
             grid: {
-                borderColor: '#f3f4f6',
-                strokeDashArray: 4,
-                padding: { left: 76, right: 2, top: 4, bottom: 44 }
+                borderColor: '#e5e7eb',
+                strokeDashArray: 0,
+                xaxis: { lines: { show: false } },
+                yaxis: { lines: { show: true } },
+                padding: {
+                    left: 20,
+                    right: 20,
+                    top: 15,
+                    bottom: 25
+                }
             },
             responsive: [
                 {
-                    breakpoint: 960,
+                    breakpoint: 1024,
                     options: {
-                        chart: { height: 300 },
+                        chart: { height: 320 },
                         xaxis: {
-                            tickPlacement: 'on',
                             labels: {
-                                rotate: -56,
-                                style: { fontSize: '7px' },
-                                offsetX: 0,
-                                offsetY: 14,
-                                maxHeight: 100,
-                                hideOverlappingLabels: false
+                                rotate: -45,
+                                style: { fontSize: '9px' },
+                                hideOverlappingLabels: true
                             }
                         },
-                        yaxis: { labels: { offsetX: -12, padding: 4 } },
-                        grid: { padding: { left: 68, right: 2, bottom: 40 } }
+                        grid: { padding: { left: 20, right: 10, bottom: 20 } }
                     }
                 }
             ]
@@ -852,10 +1024,6 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
 <?php if (!empty($top_products)): ?>
     (function(){
         const fullNames = <?php echo json_encode(array_map(fn($p) => (string)($p['product_name'] ?? ''), $top_products)); ?>;
-        const shortNames = fullNames.map(function (nm) {
-            var t = String(nm || '').trim();
-            return t.length > 24 ? (t.slice(0, 24) + '...') : t;
-        });
         const mergeKeys = <?php
             $mk = [];
             foreach ($top_products as $p) {
@@ -865,21 +1033,50 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
             ?>;
         const prevMap = <?php echo json_encode($top_products_prev ?? []); ?>;
         const qtys  = <?php echo json_encode(array_map(fn($p) => (int)$p['qty_sold'], $top_products)); ?>;
-        var maxQty = 0;
-        for (var __i = 0; __i < qtys.length; __i++) maxQty = Math.max(maxQty, Number(qtys[__i]) || 0);
-        var xMax = Math.max(100, Math.ceil(maxQty / 100) * 100);
-        const names = shortNames.map(function (nm, i) { return '#' + (i + 1) + ' ' + nm; });
-        const barColors = names.map(function(_, i) { return PF_BAR_RANK[Math.min(i, PF_BAR_RANK.length - 1)]; });
-        const productSeriesData = names.map(function (nm, i) {
-            return { x: nm, y: qtys[i] || 0, fillColor: barColors[i] };
+        const revenues = <?php echo json_encode(array_map(fn($p) => (float)$p['revenue'], $top_products)); ?>;
+        
+        // Limit to top 8 for cleaner display
+        const displayCount = Math.min(8, qtys.length);
+        const displayQtys = qtys.slice(0, displayCount);
+        const displayNames = fullNames.slice(0, displayCount);
+        const displayRevenues = revenues.slice(0, displayCount);
+        
+        var maxQty = Math.max(...displayQtys);
+        var xMax = Math.ceil(maxQty * 1.05); // Only 5% padding for tighter fit
+        
+        // Calculate percentages relative to top seller
+        const topQty = displayQtys[0] || 1;
+        const percentages = displayQtys.map(q => Math.round((q / topQty) * 100));
+        
+        // Truncate names for display
+        const shortNames = displayNames.map(function(nm) {
+            var t = String(nm || '').trim();
+            return t.length > 30 ? (t.substring(0, 30) + '...') : t;
         });
+        
+        // Use empty string as categories to hide Y-axis labels
+        const categories = displayQtys.map(function() { return ''; });
+        
+        // Premium color gradient
+        const barColors = [
+            '#00232b', '#0F4C5C', '#3A86A8', '#2B6CB0', 
+            '#276749', '#2C5282', '#234E52', '#1A365D'
+        ];
+        
+        const productSeriesData = categories.map(function (cat, i) {
+            return { 
+                x: cat, 
+                y: displayQtys[i] || 0, 
+                fillColor: barColors[i]
+            };
+        });
+        
         const productsMount = document.getElementById('ch-products');
         var productsWrap = productsMount ? productsMount.closest('.ch-box') : null;
-        // Use the actual mount height so the chart occupies the whole card.
-        // Avoid forcing a larger height that then gets clipped.
         var productsWrapH = productsWrap
-            ? Math.max(260, Math.round(productsWrap.getBoundingClientRect().height || productsWrap.clientHeight || 0))
-            : 360;
+            ? Math.max(360, Math.round(productsWrap.getBoundingClientRect().height || productsWrap.clientHeight || 0))
+            : 420;
+        
         pfPushApexChart(productsMount, {
             chart:{
                 ...PF_OPT,
@@ -888,42 +1085,80 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
                 type:'bar',
                 height: productsWrapH,
                 width: '100%',
-                offsetX: 0,
-                animations:{enabled:true, easing:'easeinout', speed:520}
+                animations:{
+                    enabled:true, 
+                    easing:'easeinout', 
+                    speed:800,
+                    animateGradually: { enabled: true, delay: 80 },
+                    dynamicAnimation: { enabled: true, speed: 400 }
+                }
             },
             plotOptions:{
                 bar:{
                     horizontal:true,
-                    borderRadius:4,
-                    barHeight:'88%',
-                    distributed:true
+                    borderRadius:6,
+                    barHeight:'70%',
+                    distributed:true,
+                    dataLabels:{ position:'center' }
                 }
             },
             series:[{name:'Units Sold', data:productSeriesData}],
             xaxis:{
                 min: 0,
                 max: xMax,
-                tickAmount: 4,
+                tickAmount: 5,
                 labels:{
-                    style:{fontSize:'10px', fontWeight:600, colors:'#6b7280'},
-                    offsetX: 0,
+                    style:{fontSize:'11px', fontWeight:600, colors:'#64748b'},
                     formatter:function (v) { return Number(v || 0).toLocaleString(); }
-                }
+                },
+                axisBorder: { show: true, color: '#e5e7eb' },
+                axisTicks: { show: true, color: '#e5e7eb' }
             },
             yaxis:{
                 labels:{
-                    style:{fontSize:'11px', colors:'#0f172a', fontWeight:700},
-                    minWidth: 150,
-                    maxWidth: 230,
-                    offsetX: 18
+                    show: false
                 }
             },
-            colors: barColors, legend:{show:false},
+            colors: barColors, 
+            legend:{show:false},
             dataLabels:{
                 enabled:true,
-                offsetX: 6,
-                style:{fontSize:'10px',colors:['#6b7280']},
-                formatter:function (v) { return Number(v || 0).toLocaleString(); }
+                offsetX: 0,
+                textAnchor: 'middle',
+                distributed: false,
+                style:{
+                    fontSize:'12px',
+                    colors:['#ffffff'],
+                    fontWeight: 700
+                },
+                dropShadow: {
+                    enabled: true,
+                    top: 1,
+                    left: 1,
+                    blur: 3,
+                    color: '#000',
+                    opacity: 0.45
+                },
+                formatter:function (v, opts) { 
+                    var idx = opts.dataPointIndex;
+                    var qty = Number(v || 0);
+                    var pct = percentages[idx];
+                    var name = shortNames[idx] || '';
+                    
+                    // Format: Name • Value (Percentage for top 3)
+                    if (idx < 3) {
+                        return name + ' • ' + qty.toLocaleString() + ' (' + pct + '%)';
+                    }
+                    return name + ' • ' + qty.toLocaleString();
+                }
+            },
+            states: {
+                hover: {
+                    filter: { type: 'lighten', value: 0.15 }
+                },
+                active: {
+                    filter: { type: 'darken', value: 0.05 }
+                }
             },
             tooltip:{
                 theme:'dark',
@@ -932,28 +1167,74 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
                 custom:function (ctx) {
                     var i = ctx.dataPointIndex;
                     if (i < 0) return '';
-                    var nm = fullNames[i] || '';
-                    var q = qtys[i];
+                    var nm = displayNames[i] || '';
+                    var q = displayQtys[i];
+                    var rev = displayRevenues[i];
+                    var pct = percentages[i];
                     var k = mergeKeys[i];
                     var prev = prevMap[k];
                     var trend = '';
+                    var trendIcon = '';
+                    var trendColor = '#94a3b8';
+                    
                     if (typeof prev === 'number' && prev > 0) {
                         var chg = Math.round(((q - prev) / prev) * 100);
-                        if (chg !== 0) trend = (chg > 0 ? '+' : '') + chg + '% vs prior month';
+                        if (chg > 0) {
+                            trendIcon = '↑';
+                            trendColor = '#10b981';
+                            trend = trendIcon + ' +' + chg + '% vs prior period';
+                        } else if (chg < 0) {
+                            trendIcon = '↓';
+                            trendColor = '#ef4444';
+                            trend = trendIcon + ' ' + chg + '% vs prior period';
+                        } else {
+                            trendIcon = '→';
+                            trend = trendIcon + ' No change';
+                        }
                     }
-                    return '<div class="pf-bar-tip" style="padding:8px 10px;">' +
-                        '<div style="font-weight:700;color:#e2e8f0;">' + pfEscHtml(nm) + '</div>' +
-                        '<div style="color:#53C5E0;font-weight:700;margin-top:4px;">' + q.toLocaleString() + ' units</div>' +
-                        (trend ? '<div style="color:#94a3b8;font-size:11px;margin-top:4px;">' + pfEscHtml(trend) + '</div>' : '') +
-                        '</div>';
+                    
+                    var html = '<div style="padding:12px 14px;min-width:240px;">';
+                    
+                    // Rank badge + Service name
+                    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+                    html += '<span style="background:' + barColors[i] + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">#' + (i + 1) + '</span>';
+                    html += '<span style="font-weight:700;color:#f1f5f9;font-size:13px;flex:1;">' + pfEscHtml(nm) + '</span>';
+                    html += '</div>';
+                    
+                    // Stats grid
+                    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
+                    html += '<div style="background:rgba(83,197,224,0.1);padding:8px;border-radius:6px;">';
+                    html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Units Sold</div>';
+                    html += '<div style="font-size:16px;font-weight:800;color:#53C5E0;">' + q.toLocaleString() + '</div>';
+                    html += '</div>';
+                    html += '<div style="background:rgba(16,185,129,0.1);padding:8px;border-radius:6px;">';
+                    html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Revenue</div>';
+                    html += '<div style="font-size:16px;font-weight:800;color:#10b981;">₱' + rev.toLocaleString(undefined, {maximumFractionDigits:0}) + '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    // Performance vs top
+                    html += '<div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:6px;margin-bottom:8px;">';
+                    html += '<div style="font-size:11px;color:#cbd5e1;">Performance: <strong style="color:#fff;">' + pct + '%</strong> of top seller</div>';
+                    html += '</div>';
+                    
+                    // Trend
+                    if (trend) {
+                        html += '<div style="padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">';
+                        html += '<div style="font-size:11px;color:' + trendColor + ';font-weight:600;">' + pfEscHtml(trend) + '</div>';
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                    return html;
                 }
             },
             grid:{
                 borderColor:'#f1f5f9',
-                strokeDashArray:2,
-                padding:{left:52,right:8,top:6,bottom:8},
+                strokeDashArray:3,
+                padding:{left:8,right:16,top:8,bottom:8},
                 xaxis:{lines:{show:true}},
-                yaxis:{lines:{show:true}}
+                yaxis:{lines:{show:false}}
             }
         });
     })();
@@ -1011,92 +1292,194 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
         const prods = <?php echo json_encode(array_map(fn($c) => (string)($c['product'] ?? ''), $custom_usage)); ?>;
         const cust  = <?php echo json_encode(array_map(fn($c) => (int)$c['custom_count'], $custom_usage)); ?>;
         const tmpl  = <?php echo json_encode(array_map(fn($c) => (int)$c['template_count'], $custom_usage)); ?>;
-        const chH = Math.max(300, prods.length * 52);
-        pfPushApexChart(document.getElementById('ch-custom'), {
-            chart:{
-                ...PF_OPT,
-                type:'bar',
-                height:chH,
-                stacked:true,
-                selection:{enabled:false},
-                zoom:{enabled:false},
-                offsetX: 0,
-                offsetY: 6
-            },
-            series:[{name:'Custom Upload',data:cust},{name:'Template / No Upload',data:tmpl}],
-            colors:[PF_PRIMARY, PF_SECONDARY],
-            plotOptions:{
-                bar:{
-                    horizontal:true,
-                    borderRadius:5,
-                    barHeight:'72%',
-                    dataLabels:{
-                        position:'center',
-                        hideOverflowingLabels:false
-                    }
-                }
-            },
-            states:{hover:{filter:{type:'none',value:0}},active:{filter:{type:'none',value:0}}},
-            xaxis:{
-                categories:prods,
-                labels:{
-                    style:{fontSize:'11px',fontWeight:600,colors:'#0f172a'},
-                    trim:true,
-                    maxHeight:200,
-                    offsetY:2
-                },
-                axisBorder:{show:true, color:'#e2e8f0'},
-                axisTicks:{show:true, color:'#e2e8f0'}
-            },
-            yaxis:{
-                min:0,
-                forceNiceScale:true,
-                tickAmount:6,
-                decimalsInFloat:0,
-                title:{text:'Units', style:{color:'#64748b', fontSize:'11px', fontWeight:700}, offsetX:-4},
-                labels:{
-                    style:{fontSize:'11px',colors:'#64748b',fontWeight:600},
-                    formatter:function (v) { return Math.round(v).toLocaleString(); },
-                    offsetX:-6
-                }
-            },
-            dataLabels:{
-                enabled:true,
-                textAnchor:'middle',
-                formatter:function (val) {
-                    var n = Math.round(Number(val) || 0);
-                    return n > 0 ? String(n) : '';
-                },
-                style:{fontSize:'10px',fontWeight:800,colors:['#fff','#0f172a']},
-                dropShadow:{enabled:false}
-            },
-            legend:{position:'bottom', fontSize:'11px', fontWeight:600, offsetY:6},
-            tooltip:{
-                theme:'dark',
-                shared:true,
-                intersect:false,
-                fillSeriesColor:false,
-                style:{fontSize:'12px'},
-                custom:function (ctx) {
-                    var i = ctx.dataPointIndex;
-                    if (i < 0 || !prods[i]) return '';
-                    var c = cust[i], t = tmpl[i], tot = c + t;
-                    var pct = function (n) { return tot > 0 ? ((n / tot) * 100).toFixed(1) : '0'; };
-                    return '<div class="pf-cu-tip" style="padding:10px 12px;min-width:200px;">' +
-                        '<div style="font-weight:800;color:#f8fafc;margin-bottom:8px;">' + pfEscHtml(prods[i]) + '</div>' +
-                        '<div style="color:#e2e8f0;">Custom Upload: <strong style="color:#fff;">' + c.toLocaleString() + '</strong> <span style="color:#94a3b8;">(' + pct(c) + '%)</span></div>' +
-                        '<div style="color:#e2e8f0;margin-top:4px;">Template / No Upload: <strong style="color:#fff;">' + t.toLocaleString() + '</strong> <span style="color:#94a3b8;">(' + pct(t) + '%)</span></div>' +
-                        '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;color:#94a3b8;font-size:11px;">Total units: <strong style="color:#53C5E0;">' + tot.toLocaleString() + '</strong></div></div>';
-                }
-            },
-            grid:{
-                borderColor:'#e8ecf1',
-                strokeDashArray:4,
-                padding:{top:12,right:-24,bottom:10,left:4},
-                xaxis:{lines:{show:true}},
-                yaxis:{lines:{show:false}}
+        
+        const mount = document.getElementById('ch-custom');
+        if (!mount) return;
+        
+        const totals = prods.map((p, i) => cust[i] + tmpl[i]);
+        const maxTotal = Math.max(...totals, 1);
+        
+        // Calculate overall statistics
+        const totalCustom = cust.reduce((a, b) => a + b, 0);
+        const totalTemplate = tmpl.reduce((a, b) => a + b, 0);
+        const grandTotal = totalCustom + totalTemplate;
+        const overallCustomPct = grandTotal > 0 ? Math.round((totalCustom / grandTotal) * 100) : 0;
+        const overallTemplatePct = grandTotal > 0 ? Math.round((totalTemplate / grandTotal) * 100) : 0;
+        
+        let html = '<div style="padding:20px;">';
+        
+        // Compact legend + insight summary at top
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:12px;">';
+        
+        // Legend
+        html += '<div style="display:flex;gap:20px;font-size:11px;font-weight:600;color:#6b7280;font-family:inherit;">';
+        html += '<span><span style="display:inline-block;width:10px;height:10px;background:#00232b;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>Custom Upload</span>';
+        html += '<span><span style="display:inline-block;width:10px;height:10px;background:#53C5E0;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>Template / No Upload</span>';
+        html += '</div>';
+        
+        // Smart insight badge
+        html += '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;white-space:nowrap;font-family:inherit;">';
+        if (overallCustomPct === 0) {
+            html += '<span style="color:#0e7490;background:#cffafe;">100% Template Usage</span>';
+        } else if (overallCustomPct === 100) {
+            html += '<span style="color:#0F4C5C;background:#E5EEF2;">100% Custom Upload</span>';
+        } else if (overallCustomPct > 50) {
+            html += '<span style="color:#0F4C5C;background:#E5EEF2;">Custom: ' + overallCustomPct + '%</span>';
+        } else {
+            html += '<span style="color:#0e7490;background:#cffafe;">Template: ' + overallTemplatePct + '%</span>';
+        }
+        html += '</div>';
+        
+        html += '</div>';
+        
+        // Unified layout: ALL labels outside, bars purely visual
+        prods.forEach((prod, idx) => {
+            const c = cust[idx];
+            const t = tmpl[idx];
+            const total = c + t;
+            const custPct = total > 0 ? Math.round((c / total) * 100) : 0;
+            const tmplPct = total > 0 ? Math.round((t / total) * 100) : 0;
+            const barWidthPct = total > 0 ? (total / maxTotal) * 100 : 0;
+            
+            // Determine bar gradient
+            let barBg = '';
+            if (c > 0 && t > 0) {
+                barBg = `linear-gradient(to right, #00232b 0%, #00232b ${custPct}%, #53C5E0 ${custPct}%, #53C5E0 100%)`;
+            } else if (c > 0) {
+                barBg = '#00232b';
+            } else if (t > 0) {
+                barBg = '#53C5E0';
+            } else {
+                barBg = '#e5e7eb';
             }
+            
+            // Truncate long names
+            const displayName = prod.length > 36 ? prod.substring(0, 36) + '...' : prod;
+            
+            html += '<div style="margin-bottom:14px;" class="pf-cu-row" data-idx="' + idx + '">';
+            
+            // Labels OUTSIDE (consistent with other dashboard cards)
+            html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">';
+            html += '<span style="font-size:13px;font-weight:600;color:#374151;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;">' + pfEscHtml(displayName) + '</span>';
+            html += '<span style="font-size:13px;font-weight:700;color:#111827;font-family:inherit;white-space:nowrap;margin-left:12px;font-variant-numeric:tabular-nums;">' + total.toLocaleString() + '</span>';
+            html += '</div>';
+            
+            // Bar ONLY (purely visual, no text inside)
+            html += '<div style="position:relative;width:100%;height:28px;background:#f3f4f6;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;transition:all 0.2s ease;cursor:pointer;" class="pf-cu-bar">';
+            
+            if (total > 0) {
+                html += '<div style="position:absolute;left:0;top:0;height:100%;width:' + barWidthPct + '%;background:' + barBg + ';transition:width 0.8s cubic-bezier(0.4, 0, 0.2, 1);border-radius:5px;">';
+                html += '</div>';
+            } else {
+                // Empty state indicator
+                html += '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;color:#9ca3af;font-style:italic;font-family:inherit;">No usage</span>';
+            }
+            
+            html += '</div>';
+            html += '</div>';
         });
+        
+        html += '</div>';
+        
+        mount.innerHTML = html;
+        
+        // Create hover tooltip element
+        let tooltip = document.getElementById('pf-cu-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'pf-cu-tooltip';
+            tooltip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;visibility:hidden;opacity:0;background:#1e293b;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 10px 25px rgba(0,0,0,0.2);transition:opacity 0.15s ease,visibility 0.15s ease;border:1px solid #334155;min-width:220px;max-width:320px;font-family:inherit;';
+            document.body.appendChild(tooltip);
+        }
+        
+        // Add hover interactions
+        const rows = mount.querySelectorAll('.pf-cu-row');
+        rows.forEach((row, idx) => {
+            const bar = row.querySelector('.pf-cu-bar');
+            
+            row.addEventListener('mouseenter', function(e) {
+                // Highlight bar
+                if (bar) {
+                    bar.style.transform = 'translateY(-1px)';
+                    bar.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    bar.style.filter = 'brightness(1.05)';
+                }
+                
+                // Build tooltip content
+                const c = cust[idx];
+                const t = tmpl[idx];
+                const total = c + t;
+                const custPct = total > 0 ? ((c / total) * 100).toFixed(1) : '0.0';
+                const tmplPct = total > 0 ? ((t / total) * 100).toFixed(1) : '0.0';
+                
+                let tooltipHTML = '<div style="font-weight:800;color:#f8fafc;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);font-family:inherit;">' + pfEscHtml(prods[idx]) + '</div>';
+                
+                if (total > 0) {
+                    tooltipHTML += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-family:inherit;">';
+                    tooltipHTML += '<span style="color:#cbd5e1;">Custom Upload:</span>';
+                    tooltipHTML += '<span style="color:#fff;font-weight:700;">' + c.toLocaleString() + ' <span style="color:#94a3b8;">(' + custPct + '%)</span></span>';
+                    tooltipHTML += '</div>';
+                    
+                    tooltipHTML += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-family:inherit;">';
+                    tooltipHTML += '<span style="color:#cbd5e1;">Template / No Upload:</span>';
+                    tooltipHTML += '<span style="color:#fff;font-weight:700;">' + t.toLocaleString() + ' <span style="color:#94a3b8;">(' + tmplPct + '%)</span></span>';
+                    tooltipHTML += '</div>';
+                    
+                    tooltipHTML += '<div style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;font-family:inherit;">';
+                    tooltipHTML += '<span style="color:#94a3b8;font-size:11px;">Total Units:</span>';
+                    tooltipHTML += '<span style="color:#53C5E0;font-weight:800;">' + total.toLocaleString() + '</span>';
+                    tooltipHTML += '</div>';
+                } else {
+                    tooltipHTML += '<div style="color:#94a3b8;font-style:italic;font-size:11px;font-family:inherit;">No customization usage data yet</div>';
+                }
+                
+                tooltip.innerHTML = tooltipHTML;
+                tooltip.style.visibility = 'visible';
+                tooltip.style.opacity = '1';
+            });
+            
+            row.addEventListener('mousemove', function(e) {
+                // Position tooltip near cursor
+                let x = e.clientX + 15;
+                let y = e.clientY + 15;
+                
+                const tooltipRect = tooltip.getBoundingClientRect();
+                const winW = window.innerWidth;
+                const winH = window.innerHeight;
+                
+                // Keep tooltip in viewport
+                if (x + tooltipRect.width > winW) {
+                    x = e.clientX - tooltipRect.width - 15;
+                }
+                if (y + tooltipRect.height > winH) {
+                    y = e.clientY - tooltipRect.height - 15;
+                }
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                // Remove highlight
+                if (bar) {
+                    bar.style.transform = 'translateY(0)';
+                    bar.style.boxShadow = 'none';
+                    bar.style.filter = 'brightness(1)';
+                }
+                
+                // Hide tooltip
+                tooltip.style.visibility = 'hidden';
+                tooltip.style.opacity = '0';
+            });
+        });
+        
+        // Remove loading state
+        const box = mount.closest('.ch-box');
+        if (box) {
+            box.classList.remove('pf-chart-loading');
+            box.removeAttribute('aria-busy');
+            box.classList.add('pf-chart-reveal-done');
+        }
     })();
 <?php endif; ?>
 
@@ -1168,6 +1551,47 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
         var box = document.getElementById('pf-heatmap-chbox');
         var loadEl = document.getElementById('pf-heatmap-ajax-loading');
         var yearChip = document.getElementById('pf-heatmap-year-display');
+        
+        // Legend toggle functionality
+        function initHeatmapLegendToggle() {
+            var legend = document.getElementById('pf-heatmap-legend');
+            if (!legend || legend.dataset.pfBound === '1') return;
+            legend.dataset.pfBound = '1';
+            
+            var items = legend.querySelectorAll('.pf-hm-legend-item');
+            items.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var kind = this.getAttribute('data-kind');
+                    if (!kind) return;
+                    
+                    // Toggle hidden state on legend item
+                    this.classList.toggle('pf-hm-hidden');
+                    var isHidden = this.classList.contains('pf-hm-hidden');
+                    
+                    // Toggle all cells of this kind
+                    var cells = document.querySelectorAll('.pf-hm-cell--' + kind);
+                    cells.forEach(function(cell) {
+                        if (isHidden) {
+                            cell.classList.add('pf-hm-hidden');
+                        } else {
+                            cell.classList.remove('pf-hm-hidden');
+                        }
+                    });
+                });
+                
+                // Keyboard support
+                item.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.click();
+                    }
+                });
+            });
+        }
+        
+        // Initialize legend toggle on page load
+        initHeatmapLegendToggle();
+        
         function showLoading(on) {
             if (loadEl) loadEl.classList.toggle('hidden', !on);
             if (box) {
@@ -1183,15 +1607,30 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
         }
         sel.addEventListener('change', function () {
             var year = this.value;
+            if (!year) return;
+            
             if (yearChip) yearChip.textContent = year;
             showLoading(true);
-            fetch(PF_HEATMAP_API + '?year=' + encodeURIComponent(year), {
+            
+            // Build URL with current branch context
+            var url = PF_HEATMAP_API + '?year=' + encodeURIComponent(year);
+            var branchId = '<?php echo $branchId === "all" ? "all" : (int)$branchId; ?>';
+            if (branchId && branchId !== 'all') {
+                url += '&branch_id=' + encodeURIComponent(branchId);
+            }
+            
+            fetch(url, {
                 credentials: 'same-origin',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             })
-                .then(function (r) { return r.json(); })
+                .then(function (r) { 
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json(); 
+                })
                 .then(function (data) {
-                    if (!data || !data.ok) throw new Error('heatmap');
+                    if (!data || !data.ok) {
+                        throw new Error(data && data.message ? data.message : 'Invalid response');
+                    }
                     if (!data.yearValid || data.empty || !data.series || !data.series.length) {
                         showHeatmapEmpty(data.year || year, data.message);
                         showLoading(false);
@@ -1208,8 +1647,17 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
                     });
                     showLoading(false);
                     if (box) box.classList.add('pf-chart-reveal-done');
+                    
+                    // Re-initialize legend toggle after new content is loaded
+                    setTimeout(function() {
+                        var legend = document.getElementById('pf-heatmap-legend');
+                        if (legend) legend.dataset.pfBound = '';
+                        initHeatmapLegendToggle();
+                    }, 100);
                 })
-                .catch(function () {
+                .catch(function (err) {
+                    console.error('Heatmap fetch error:', err);
+                    showHeatmapEmpty(year, 'Failed to load heatmap data. Please try again.');
                     showLoading(false);
                 });
         });

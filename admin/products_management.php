@@ -259,13 +259,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         }
         }
     }
+} elseif (isset($_POST['activate_product'])) {
+    if ($is_manager) {
+        $error = 'Only administrators can change product status.';
+    } else {
+        $product_id = (int)($_POST['product_id'] ?? 0);
+        $cur = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+        $curSt = $cur[0]['status'] ?? '';
+        if ($curSt !== 'Deactivated') {
+            $error = 'Activate is only available for deactivated products.';
+        } else {
+            db_execute("UPDATE products SET status = 'Activated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+            $success = 'Product activated successfully!';
+        }
+    }
 } elseif (isset($_POST['archive_product'])) {
     if ($is_manager) {
         $error = 'Only administrators can archive products.';
     } else {
-    $product_id = (int)$_POST['product_id'];
-    db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
-    $success = 'Product archived successfully!';
+        $product_id = (int)$_POST['product_id'];
+        $cur = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+        $curSt = $cur[0]['status'] ?? '';
+        if ($curSt !== 'Deactivated') {
+            $error = 'Only deactivated products can be archived. Deactivate the product first.';
+        } else {
+            db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+            $success = 'Product archived successfully!';
+        }
     }
 } elseif (isset($_POST['restore_product'])) {
     if ($is_manager) {
@@ -286,13 +306,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
     if ($status === 'Archived') {
         db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
         $success = 'Product deleted permanently!';
+    } elseif ($status === 'Activated') {
+        db_execute("UPDATE products SET status = 'Deactivated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+        $success = 'Product deactivated successfully!';
     } else {
-        $new_status = ($status === 'Activated') ? 'Deactivated' : 'Activated';
-        db_execute("UPDATE products SET status = ?, updated_at = NOW() WHERE product_id = ?", 'si', [$new_status, $product_id]);
-        $success = 'Product ' . strtolower($new_status) . ' successfully!';
+        $error = 'This action is only available for active products. Use Activate to re-enable or Archive to move inactive products.';
     }
     }
 }
+}
+
+/** Category labels in Add Product modal → SKU prefix (must stay in sync with #modal-category options). */
+function printflow_product_category_sku_prefixes(): array {
+    return [
+        'Tarpaulin'   => 'TARP',
+        'T-Shirt'     => 'TSH',
+        'Stickers'    => 'STK',
+        'Sintraboard' => 'SNB',
+        'Apparel'     => 'APP',
+        'Signage'     => 'SGN',
+        'Merchandise' => 'MER',
+        'Print'       => 'PRT',
+    ];
+}
+
+// Next SKU for Add New Product (admin only)
+if (isset($_GET['ajax_next_sku']) && $_GET['ajax_next_sku'] === '1') {
+    header('Content-Type: application/json');
+    if ($is_manager) {
+        echo json_encode(['success' => false, 'message' => 'Only administrators can create products.']);
+        exit;
+    }
+    $category = trim((string)($_GET['category'] ?? ''));
+    $map = printflow_product_category_sku_prefixes();
+    if ($category === '' || !isset($map[$category])) {
+        echo json_encode(['success' => false, 'message' => 'Invalid category.']);
+        exit;
+    }
+    $prefix = $map[$category] . '-';
+    $rows = db_query('SELECT sku FROM products WHERE sku IS NOT NULL AND sku != \'\' AND sku LIKE ?', 's', [$prefix . '%']) ?: [];
+    $maxNum = 0;
+    $quotedPrefix = preg_quote($prefix, '/');
+    foreach ($rows as $row) {
+        $sku = (string)($row['sku'] ?? '');
+        if (preg_match('/^' . $quotedPrefix . '(\d+)$/i', $sku, $m)) {
+            $maxNum = max($maxNum, (int)$m[1]);
+        }
+    }
+    $next = $maxNum + 1;
+    $sku = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
+    echo json_encode(['success' => true, 'sku' => $sku]);
+    exit;
 }
 
 // Handle AJAX for Archive Storage Modal
@@ -317,14 +381,14 @@ if (isset($_GET['get_archived'])) {
             $html .= '<td style="font-weight:500; max-width:300px; word-break: break-word; overflow-wrap: anywhere;">' . htmlspecialchars($p['name']) . '</td>';
             $html .= '<td>' . htmlspecialchars($p['category'] ?? '—') . '</td>';
             $html .= '<td style="text-align:right;white-space:nowrap;">';
-            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard style="display:inline-block;margin-right:4px;" data-action="Restore" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="restore_product" style="display:inline-block;margin-right:4px;" data-action="Restore" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
-            $html .= '<button type="submit" name="restore_product" class="btn-action teal">Restore</button></form>';
-            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard style="display:inline-block;" data-action="Delete Permanently" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="showProductStatusModal(event, this);return false;">';
+            $html .= '<button type="button" class="btn-action teal" onclick="showProductStatusModal(event, this.closest(\'form\'))">Restore</button></form>';
+            $html .= '<form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="delete_product" style="display:inline-block;" data-action="Delete Permanently" data-product-name="' . htmlspecialchars($p['name'], ENT_QUOTES) . '" onsubmit="return false;">';
             $html .= csrf_field();
             $html .= '<input type="hidden" name="product_id" value="' . $p['product_id'] . '">';
-            $html .= '<button type="submit" name="delete_product" class="btn-action red">Delete</button></form>';
+            $html .= '<button type="button" class="btn-action red" onclick="showProductStatusModal(event, this.closest(\'form\'))">Delete</button></form>';
             $html .= '</td></tr>';
         }
     }
@@ -497,30 +561,38 @@ if (isset($_GET['ajax'])) {
                             <button class="btn-action blue" onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
                             <?php if (!$is_manager): ?>
                             <?php if ($product['status'] !== 'Archived'): ?>
-                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                    <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
-                                        <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
-                                    </button>
-                                </form>
-                                <?php if ($product['status'] === 'Deactivated'): ?>
-                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <?php if ($product['status'] === 'Activated'): ?>
+                                    <button type="button" class="btn-action teal" disabled style="opacity:0.5;cursor:not-allowed;" aria-disabled="true" title="Already active">Activate</button>
+                                <?php else: ?>
+                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="activate_product" data-action="Activate" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                        <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
+                                        <button type="button" class="btn-action teal" onclick="showProductStatusModal(event, this.closest('form'))">Activate</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($product['status'] === 'Activated'): ?>
+                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="delete_product" data-action="Deactivate" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
+                                        <?php echo csrf_field(); ?>
+                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                        <button type="button" class="btn-action red product-deactivate-archive-slot" onclick="showProductStatusModal(event, this.closest('form'))">Deactivate</button>
+                                    </form>
+                                <?php elseif ($product['status'] === 'Deactivated'): ?>
+                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="archive_product" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
+                                        <?php echo csrf_field(); ?>
+                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                        <button type="button" class="btn-action red product-deactivate-archive-slot" onclick="showProductStatusModal(event, this.closest('form'))">Archive</button>
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="restore_product" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                    <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
+                                    <button type="button" class="btn-action teal" onclick="showProductStatusModal(event, this.closest('form'))">Restore</button>
                                 </form>
-                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="delete_product" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                    <button type="submit" name="delete_product" class="btn-action red">Delete</button>
+                                    <button type="button" class="btn-action red" onclick="showProductStatusModal(event, this.closest('form'))">Delete</button>
                                 </form>
                             <?php endif; ?>
                             <?php endif; ?>
@@ -577,6 +649,7 @@ if (isset($_GET['ajax'])) {
         .btn-action.blue:hover { background: #3b82f6; color: white; }
         .btn-action.red { color: #ef4444; border-color: #ef4444; }
         .btn-action.red:hover { background: #ef4444; color: white; }
+        .btn-action.red.product-deactivate-archive-slot { width: 6.875rem; min-width: 6.875rem; max-width: 6.875rem; box-sizing: border-box; flex-shrink: 0; }
         .btn-action.gray { color: #6b7280; border-color: #d1d5db; }
         .btn-action.gray:hover { background: #6b7280; color: white; }
 
@@ -1402,30 +1475,38 @@ if (isset($_GET['ajax'])) {
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
                                             <?php if (!$is_manager): ?>
                                             <?php if ($product['status'] !== 'Archived'): ?>
-                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
-                                                    <?php echo csrf_field(); ?>
-                                                    <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                                    <button type="submit" name="delete_product" class="btn-action <?php echo $product['status'] === 'Activated' ? 'red' : 'teal'; ?>">
-                                                        <?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
-                                                    </button>
-                                                </form>
-                                                <?php if ($product['status'] === 'Deactivated'): ?>
-                                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <?php if ($product['status'] === 'Activated'): ?>
+                                                    <button type="button" class="btn-action teal" disabled style="opacity:0.5;cursor:not-allowed;" aria-disabled="true" title="Already active">Activate</button>
+                                                <?php else: ?>
+                                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="activate_product" data-action="Activate" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                                         <?php echo csrf_field(); ?>
                                                         <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                                        <button type="submit" name="archive_product" class="btn-action gray">Archive</button>
+                                                        <button type="button" class="btn-action teal" onclick="showProductStatusModal(event, this.closest('form'))">Activate</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if ($product['status'] === 'Activated'): ?>
+                                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="delete_product" data-action="Deactivate" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
+                                                        <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                        <button type="button" class="btn-action red product-deactivate-archive-slot" onclick="showProductStatusModal(event, this.closest('form'))">Deactivate</button>
+                                                    </form>
+                                                <?php elseif ($product['status'] === 'Deactivated'): ?>
+                                                    <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="archive_product" data-action="Archive" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
+                                                        <?php echo csrf_field(); ?>
+                                                        <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
+                                                        <button type="button" class="btn-action red product-deactivate-archive-slot" onclick="showProductStatusModal(event, this.closest('form'))">Archive</button>
                                                     </form>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="restore_product" data-action="Restore" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                                     <?php echo csrf_field(); ?>
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                                    <button type="submit" name="restore_product" class="btn-action teal">Restore</button>
+                                                    <button type="button" class="btn-action teal" onclick="showProductStatusModal(event, this.closest('form'))">Restore</button>
                                                 </form>
-                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
+                                                <form method="POST" class="inline product-status-form" data-pf-skip-guard data-confirm-submit-name="delete_product" data-action="Delete Permanently" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="return false;">
                                                     <?php echo csrf_field(); ?>
                                                     <input type="hidden" name="product_id" value="<?php echo $product['product_id']; ?>">
-                                                    <button type="submit" name="delete_product" class="btn-action red">Delete</button>
+                                                    <button type="button" class="btn-action red" onclick="showProductStatusModal(event, this.closest('form'))">Delete</button>
                                                 </form>
                                             <?php endif; ?>
                                             <?php endif; ?>
@@ -1448,26 +1529,22 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<!-- Product Status Confirmation Modal -->
-<div id="productStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10100;align-items:center;justify-content:center;padding:16px;flex-direction:column;pointer-events:auto;">
-    <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">
-        <div id="productStatusConfirmIcon" style="width:48px;height:48px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#6b7280;">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+<!-- Product status confirm — same shell as Archived Products / services -->
+<div id="productStatusConfirmModal" role="dialog" aria-modal="true" aria-labelledby="productStatusConfirmTitle" onclick="if (event.target === this) closeProductStatusModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10100;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
+    <div onclick="event.stopPropagation()" style="background:white;border-radius:16px;width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;pointer-events:auto;">
+        <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <h3 id="productStatusConfirmTitle" style="font-size:18px;font-weight:700;margin:0;">Confirm</h3>
+            <button type="button" onclick="closeProductStatusModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:22px;line-height:1;padding:0 4px;" aria-label="Close">✕</button>
         </div>
-        <h3 id="productStatusConfirmTitle" style="font-size:18px;font-weight:700;color:#1f2937;margin:0 0 8px;">Confirm Action</h3>
-        <p id="productStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;word-break:break-word;overflow-wrap:anywhere;">Are you sure you want to proceed?</p>
-        
-        <div id="productStatusInfoBox" style="font-size:12px;color:#6b7280;background:#f9fafb;padding:12px;border-radius:10px;margin-bottom:24px;text-align:left;border:1px solid #e5e7eb;line-height:1.5;">
-            <div style="font-weight:700;margin-bottom:4px;color:#374151;display:flex;align-items:center;gap:5px;">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                What happens next?
+        <div style="padding:20px 24px;overflow-y:auto;flex:1;">
+            <p id="productStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;word-break:break-word;overflow-wrap:anywhere;"></p>
+            <div id="productStatusInfoBox" style="font-size:12px;color:#6b7280;background:#f9fafb;padding:12px;border-radius:10px;text-align:left;border:1px solid #e5e7eb;line-height:1.5;">
+                <div id="productStatusInfoText"></div>
             </div>
-            <div id="productStatusInfoText">Action details will appear here.</div>
         </div>
-
-        <div style="display:flex;gap:12px;justify-content:center;">
-            <button type="button" id="productStatusConfirmCancel" style="flex:1;padding:12px 16px;border:1px solid #e5e7eb;background:white;border-radius:10px;font-size:14px;font-weight:600;color:#4b5563;cursor:pointer;transition:all 0.2s;">Cancel</button>
-            <button type="button" id="productStatusConfirmOk" style="flex:1;padding:12px 16px;border:none;background:#3b82f6;border-radius:10px;font-size:14px;font-weight:600;color:white;cursor:pointer;transition:all 0.2s;">Confirm</button>
+        <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;">
+            <button type="button" id="productStatusConfirmCancel" style="padding:10px 20px;border:1px solid #e5e7eb;background:white;border-radius:10px;font-weight:600;cursor:pointer;">Cancel</button>
+            <button type="button" id="productStatusConfirmOk" style="padding:10px 20px;border:none;background:#3b82f6;border-radius:10px;font-weight:600;color:white;cursor:pointer;">Confirm</button>
         </div>
     </div>
 </div>
@@ -1520,8 +1597,8 @@ if (isset($_GET['ajax'])) {
                         <span id="err-name" class="field-error"></span>
                     </div>
                     <div class="form-group">
-                        <label for="modal-sku">SKU</label>
-                        <input type="text" id="modal-sku" name="sku" placeholder="e.g. TARP001 (optional)" readonly style="background-color:#f3f4f6; cursor:not-allowed;">
+                        <label for="modal-sku">SKU <span style="color:#6b7280;font-weight:400;">(auto from category)</span></label>
+                        <input type="text" id="modal-sku" name="sku" placeholder="Choose a category…" readonly style="background-color:#f3f4f6; cursor:not-allowed;">
                     </div>
                 </div>
 
@@ -1877,6 +1954,12 @@ window.openProductModal = function openProductModal(mode, product) {
         if (photoInput) photoInput.value = '';
         if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
         if (previewText) previewText.style.display = 'block';
+        var skuCreate = document.getElementById('modal-sku');
+        if (skuCreate && !window.PF_PRODUCTS_IS_MANAGER) skuCreate.value = '';
+        var catCreate = document.getElementById('modal-category');
+        if (catCreate && catCreate.value && !window.PF_PRODUCTS_IS_MANAGER && typeof pfFetchNextProductSku === 'function') {
+            pfFetchNextProductSku(catCreate.value.trim());
+        }
     }
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -1997,11 +2080,12 @@ function handleViewOverlayClick(e) {
 
 function showProductStatusModal(event, form) {
     if (event) event.preventDefault();
+    if (!form) return;
     var action = form.getAttribute('data-action') || 'proceed';
     var prodName = form.getAttribute('data-product-name') || 'this product';
     _productStatusForm = form;
-    var btn = form.querySelector('button[type="submit"]');
-    _productStatusButtonName = btn ? btn.getAttribute('name') : null;
+    var submitBtn = form.querySelector('button[type="submit"]');
+    _productStatusButtonName = form.getAttribute('data-confirm-submit-name') || (submitBtn && submitBtn.getAttribute('name')) || null;
 
     if (typeof window.closeArchiveModal === 'function') window.closeArchiveModal();
     closeProductModal();
@@ -2010,7 +2094,7 @@ function showProductStatusModal(event, form) {
     var titleEl = document.getElementById('productStatusConfirmTitle');
     var textEl = document.getElementById('productStatusConfirmText');
     var infoEl = document.getElementById('productStatusInfoText');
-    if (titleEl) titleEl.textContent = 'Confirm ' + action;
+    if (titleEl) titleEl.textContent = action === 'Delete Permanently' ? 'Confirm delete' : ('Confirm ' + action);
     if (textEl) {
         textEl.innerHTML = 'Are you sure you want to <strong>' + action.toLowerCase() + '</strong> <strong style="color:#111827;">' + String(prodName).replace(/</g, '&lt;') + '</strong>?';
     }
@@ -2023,10 +2107,9 @@ function showProductStatusModal(event, form) {
     if (infoEl) infoEl.textContent = msg;
 
     var m = document.getElementById('productStatusConfirmModal');
-    if (m) {
-        m.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
+    if (!m) return;
+    m.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 }
 
 function closeProductStatusModal() {
@@ -2085,6 +2168,26 @@ function fetchArchivedProducts() {
         });
 }
 
+function pfFetchNextProductSku(category) {
+    var skuEl = document.getElementById('modal-sku');
+    var modeInput = document.getElementById('modal-mode-input');
+    if (!skuEl || !modeInput || modeInput.name !== 'create_product' || window.PF_PRODUCTS_IS_MANAGER) return;
+    if (!category) {
+        skuEl.value = '';
+        return;
+    }
+    var url = location.pathname + '?ajax_next_sku=1&category=' + encodeURIComponent(category);
+    fetch(url, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.success && data.sku) skuEl.value = data.sku;
+        })
+        .catch(function () { /* keep previous sku on failure */ });
+}
+
 function printflowInitProductsPage() {
     /* Alpine tree: Alpine.start / turbo-init initTree(.main-content). Never initTree nested #productsTableContainer or filterPanel here. */
     // Real-time filters (idempotent)
@@ -2128,6 +2231,14 @@ function printflowInitProductsPage() {
         });
     }
 
+    var modalCat = document.getElementById('modal-category');
+    if (modalCat && !modalCat._pfSkuGenBound) {
+        modalCat._pfSkuGenBound = true;
+        modalCat.addEventListener('change', function () {
+            pfFetchNextProductSku((this.value || '').trim());
+        });
+    }
+
     // Status modal buttons (idempotent)
     var cancelBtn = document.getElementById('productStatusConfirmCancel');
     var okBtn = document.getElementById('productStatusConfirmOk');
@@ -2151,10 +2262,6 @@ function printflowInitProductsPage() {
             }
             closeProductStatusModal();
         });
-    }
-    if (modal && !modal._pf_bound) {
-        modal._pf_bound = true;
-        modal.addEventListener('click', function(e) { if (e.target === modal) closeProductStatusModal(); });
     }
 }
 
