@@ -9,7 +9,7 @@ if (!isset($branch_empty)) {
 ?>
 <script>
 window.__pfReportsApexCharts = window.__pfReportsApexCharts || [];
-var __pfReportsChartRootIds = ['ch-trend','ch-forecast','ch-products','ch-donut','ch-locs','ch-custom','ch-status'];
+var __pfReportsChartRootIds = ['ch-forecast','ch-products','ch-donut','ch-locs','ch-custom','ch-status'];
 window.printflowDisconnectReportsChartLayoutHooks = function () {
     if (window.__pfReportsRevealIO) {
         try { window.__pfReportsRevealIO.disconnect(); } catch (e) {}
@@ -42,6 +42,10 @@ window.printflowDisconnectReportsChartLayoutHooks = function () {
         try { clearTimeout(window.__pfReportsScrollSettleTimer); } catch (e) {}
         window.__pfReportsScrollSettleTimer = null;
     }
+    if (window.__pfReportsProductsRO) {
+        try { window.__pfReportsProductsRO.disconnect(); } catch (e) {}
+        window.__pfReportsProductsRO = null;
+    }
 };
 window.printflowResizeAllReportsCharts = function () {
     (window.__pfReportsApexCharts || []).forEach(function (c) {
@@ -73,6 +77,10 @@ window.printflowAttachReportsChartLayoutHooks = function () {
 };
 window.printflowTeardownReportsCharts = function () {
     window.printflowDisconnectReportsChartLayoutHooks();
+    if (window.__pfReportsTrendChart) {
+        try { window.__pfReportsTrendChart.destroy(); } catch (e) {}
+        window.__pfReportsTrendChart = null;
+    }
     window.__pfReportsChartQueue = [];
     document.querySelectorAll('.ch-box[data-pf-chart-revealed]').forEach(function (b) {
         b.removeAttribute('data-pf-chart-revealed');
@@ -104,23 +112,47 @@ function pfNormalizeApexChartOptions(opts) {
 }
 function pfExecuteApexReveal(entry, delayMs) {
     if (!entry || entry.rendered) return;
-    entry.rendered = true;
     var host = entry.host;
     var el = entry.el;
     var options = pfNormalizeApexChartOptions(entry.options);
     var run = function () {
-        var ch = new ApexCharts(el, options);
+        if (!el || !el.isConnected) {
+            if (host && host.isConnected) {
+                host.removeAttribute('data-pf-chart-revealed');
+                host.classList.remove('pf-chart-loading');
+                host.removeAttribute('aria-busy');
+            }
+            return;
+        }
+        var ch;
+        try {
+            ch = new ApexCharts(el, options);
+        } catch (e) {
+            if (host && host.isConnected) {
+                host.removeAttribute('data-pf-chart-revealed');
+                host.classList.remove('pf-chart-loading');
+                host.removeAttribute('aria-busy');
+            }
+            return;
+        }
+        entry.rendered = true;
         window.__pfReportsApexCharts.push(ch);
         var done = function () {
-            if (host) {
+            if (!el.isConnected) {
+                try {
+                    if (ch && typeof ch.destroy === 'function') ch.destroy();
+                } catch (e2) {}
+                return;
+            }
+            if (host && host.isConnected) {
                 host.classList.remove('pf-chart-loading');
                 host.removeAttribute('aria-busy');
                 host.classList.add('pf-chart-reveal-done');
             }
             requestAnimationFrame(function () {
                 try {
-                    if (ch && typeof ch.resize === 'function') ch.resize();
-                } catch (e) {}
+                    if (el.isConnected && ch && typeof ch.resize === 'function') ch.resize();
+                } catch (e3) {}
             });
         };
         try {
@@ -177,13 +209,13 @@ function pfWireReportsScrollReveal() {
         entries.forEach(function (entry) {
             if (!entry.isIntersecting) return;
             var host = entry.target;
+            if (!host || !host.isConnected) return;
             if (host.getAttribute('data-pf-chart-revealed') === '1') return;
-            host.setAttribute('data-pf-chart-revealed', '1');
             var item = pendingByHost.get(host);
-            if (item && !item.rendered) {
-                pfExecuteApexReveal(item, local * 135);
-                local += 1;
-            }
+            if (!item || item.rendered || !item.el || !item.el.isConnected) return;
+            host.setAttribute('data-pf-chart-revealed', '1');
+            pfExecuteApexReveal(item, local * 135);
+            local += 1;
         });
     }, { root: scrollRoot || null, threshold: 0, rootMargin: '0px 0px -6% 0px' });
     pendingByHost.forEach(function (item, host) {
@@ -191,7 +223,7 @@ function pfWireReportsScrollReveal() {
     });
 }
 function pfPushApexChart(el, options) {
-    if (!el) return;
+    if (!el || !el.isConnected) return;
     var host = el.closest('.ch-box');
     if (host) {
         host.classList.add('pf-chart-loading');
@@ -416,65 +448,289 @@ window.printflowInitReportsCharts = function () {
 
     (function(){
         const labels   = <?php echo json_encode(array_merge($trend12_labels, [$next_month_label])); ?>;
-        const fcast    = <?php echo json_encode($next_month_label); ?>;
-        const curMon   = <?php echo json_encode($trend_annotation_current_month ?? ''); ?>;
+        /** Last index of 12-month history; next index is the forecast point. */
+        var PF_TREND_LAST_HIST_IDX = 11;
+        var PF_TREND_FORECAST_IDX = 12;
+        function pfTrendForecastDatasetStyle() {
+            return {
+                segment: {
+                    borderDash: function (ctx) {
+                        if (ctx.p0DataIndex === PF_TREND_LAST_HIST_IDX && ctx.p1DataIndex === PF_TREND_FORECAST_IDX) {
+                            return [6, 4];
+                        }
+                        return undefined;
+                    }
+                },
+                pointRadius: function (ctx) {
+                    return ctx.dataIndex === PF_TREND_FORECAST_IDX ? 4 : 3;
+                },
+                pointHoverRadius: function (ctx) {
+                    return ctx.dataIndex === PF_TREND_FORECAST_IDX ? 7 : 6;
+                }
+            };
+        }
+        var pfTrendForecastBoundaryPlugin = {
+            id: 'pfTrendForecastBoundary',
+            beforeDatasetsDraw: function (chart) {
+                var labels = chart.data.labels || [];
+                if (labels.length <= PF_TREND_FORECAST_IDX) return;
+                var xScale = chart.scales.x;
+                if (!xScale) return;
+                var mid;
+                if (typeof xScale.getPixelForTick === 'function') {
+                    var t1 = xScale.getPixelForTick(PF_TREND_LAST_HIST_IDX);
+                    var t2 = xScale.getPixelForTick(PF_TREND_FORECAST_IDX);
+                    if (t1 == null || t2 == null) return;
+                    mid = (t1 + t2) / 2;
+                } else {
+                    var m0 = chart.getDatasetMeta(0);
+                    if (!m0 || !m0.data || !m0.data[PF_TREND_LAST_HIST_IDX] || !m0.data[PF_TREND_FORECAST_IDX]) return;
+                    mid = (m0.data[PF_TREND_LAST_HIST_IDX].x + m0.data[PF_TREND_FORECAST_IDX].x) / 2;
+                }
+                var ctx2 = chart.ctx;
+                var top = chart.chartArea.top;
+                var bot = chart.chartArea.bottom;
+                ctx2.save();
+                ctx2.fillStyle = 'rgba(99, 102, 241, 0.07)';
+                ctx2.fillRect(mid, top, chart.chartArea.right - mid, bot - top);
+                ctx2.restore();
+            },
+            afterDatasetsDraw: function (chart) {
+                var labels = chart.data.labels || [];
+                if (labels.length <= PF_TREND_FORECAST_IDX) return;
+                var xScale = chart.scales.x;
+                if (!xScale) return;
+                var mid;
+                if (typeof xScale.getPixelForTick === 'function') {
+                    var a = xScale.getPixelForTick(PF_TREND_LAST_HIST_IDX);
+                    var b = xScale.getPixelForTick(PF_TREND_FORECAST_IDX);
+                    if (a == null || b == null) return;
+                    mid = (a + b) / 2;
+                } else {
+                    var m0 = chart.getDatasetMeta(0);
+                    if (!m0 || !m0.data || !m0.data[PF_TREND_LAST_HIST_IDX] || !m0.data[PF_TREND_FORECAST_IDX]) return;
+                    mid = (m0.data[PF_TREND_LAST_HIST_IDX].x + m0.data[PF_TREND_FORECAST_IDX].x) / 2;
+                }
+                var ctx2 = chart.ctx;
+                var top = chart.chartArea.top;
+                var bot = chart.chartArea.bottom;
+                var right = chart.chartArea.right;
+                ctx2.save();
+                ctx2.strokeStyle = 'rgba(71, 85, 105, 0.55)';
+                ctx2.lineWidth = 1.25;
+                ctx2.setLineDash([5, 5]);
+                ctx2.beginPath();
+                ctx2.moveTo(mid, top);
+                ctx2.lineTo(mid, bot);
+                ctx2.stroke();
+                ctx2.setLineDash([]);
+                var cx = (mid + right) / 2;
+                ctx2.fillStyle = 'rgba(71, 85, 105, 0.92)';
+                ctx2.font = '600 11px system-ui, -apple-system, Segoe UI, sans-serif';
+                ctx2.textAlign = 'center';
+                ctx2.textBaseline = 'top';
+                ctx2.fillText('Forecast', cx, top + 4);
+                ctx2.restore();
+            }
+        };
 <?php if ($trend_metric === 'revenue'): ?>
-        const trendSeries = [{ name:'Revenue (₱)', data: <?php echo json_encode(array_merge($trend12_revenues, [$forecast_revenue])); ?>, type:'area' }];
-        const trendColors = [PF_PRIMARY];
+        const trendStore = <?php echo json_encode(array_merge($trend12_revenue_store, [$forecast_revenue_store])); ?>;
+        const trendCustom = <?php echo json_encode(array_merge($trend12_revenue_custom, [$forecast_revenue_custom])); ?>;
         const trendYAxisFmt = function (v) { return '₱' + Number(v).toLocaleString(); };
-        const trendTipFmt = function (v) { return '₱' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 0 }); };
-        const trendForeStroke = PF_SECONDARY;
+        const trendDatasets = [
+            {
+                label: 'Store revenue (₱)',
+                data: trendStore,
+                borderColor: '#00232b',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.35,
+                pointBackgroundColor: '#00232b',
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                yAxisID: 'y'
+            },
+            {
+                label: 'Customization revenue (₱)',
+                data: trendCustom,
+                borderColor: '#6366F1',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.35,
+                pointBackgroundColor: '#6366F1',
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                yAxisID: 'y'
+            }
+        ];
+        const trendLegend = true;
+        const trendScales = {
+            y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: function(v) { return trendYAxisFmt(v); } }, grid: { color: '#f3f4f6' } },
+            x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+        };
 <?php else: ?>
-        const trendSeries = [{ name:'Orders', data: <?php echo json_encode(array_merge($trend12_orders, [$forecast_orders])); ?>, type:'area' }];
-        const trendColors = ['#0F4C5C'];
+<?php if ($trend_metric === 'orders'): ?>
+        const trendData = <?php echo json_encode(array_merge($trend12_orders, [$forecast_orders])); ?>;
+        const trendLabel = 'Orders';
+        const trendColor = '#0F4C5C';
         const trendYAxisFmt = function (v) { return Math.round(v); };
         const trendTipFmt = function (v) { return Math.round(v) + ' orders'; };
-        const trendForeStroke = '#3A86A8';
+        const trendDatasets = [{
+            label: trendLabel,
+            data: trendData,
+            borderColor: trendColor,
+            backgroundColor: 'transparent',
+            borderWidth: 3,
+            tension: 0.35,
+            pointBackgroundColor: trendColor,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            yAxisID: 'y'
+        }];
+        const trendLegend = false;
+        const trendScales = {
+            y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: function(v) { return trendYAxisFmt(v); } }, grid: { color: '#f3f4f6' } },
+            x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+        };
+<?php else: ?>
+        // Default view: store + customization revenue (₱) + total orders — aligned with admin/manager dashboard chart.
+        const trendStore = <?php echo json_encode(array_merge($trend12_revenue_store, [$forecast_revenue_store])); ?>;
+        const trendCustom = <?php echo json_encode(array_merge($trend12_revenue_custom, [$forecast_revenue_custom])); ?>;
+        const trendOrders = <?php echo json_encode(array_merge($trend12_orders, [$forecast_orders])); ?>;
+        const trendDatasets = [
+            {
+                label: 'Store revenue (₱)',
+                data: trendStore,
+                borderColor: '#00232b',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.35,
+                pointBackgroundColor: '#00232b',
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                yAxisID: 'yRevenue'
+            },
+            {
+                label: 'Customization revenue (₱)',
+                data: trendCustom,
+                borderColor: '#6366F1',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.35,
+                pointBackgroundColor: '#6366F1',
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                yAxisID: 'yRevenue'
+            },
+            {
+                label: 'Orders (total)',
+                data: trendOrders,
+                borderColor: '#53C5E0',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.35,
+                pointBackgroundColor: '#53C5E0',
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                yAxisID: 'yOrders'
+            }
+        ];
+        const trendLegend = true;
+        const trendScales = {
+            yRevenue: {
+                type: 'linear',
+                position: 'left',
+                beginAtZero: true,
+                ticks: { font: { size: 11 }, callback: function(v) { return '₱' + Number(v).toLocaleString(); } },
+                grid: { color: '#f3f4f6' }
+            },
+            yOrders: {
+                type: 'linear',
+                position: 'right',
+                beginAtZero: true,
+                ticks: { font: { size: 11 }, callback: function(v) { return Math.round(v); } },
+                grid: { display: false }
+            },
+            x: { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+        };
 <?php endif; ?>
-
-        pfPushApexChart(document.getElementById('ch-trend'), {
-            chart: {
-                ...PF_OPT,
-                id:'pf-reports-trend-<?php echo htmlspecialchars($trend_metric, ENT_QUOTES, 'UTF-8'); ?>',
-                type:'area',
-                height:300,
-                zoom:{enabled:false},
-                selection:{enabled:false},
-                toolbar:{show:false, tools:{download:false, selection:false, zoom:false, zoomin:false, zoomout:false, pan:false, reset:false}}
+<?php endif; ?>
+        trendDatasets.forEach(function (ds) {
+            Object.assign(ds, pfTrendForecastDatasetStyle());
+        });
+        const ctx = document.getElementById('salesChart');
+        if (!ctx || typeof Chart === 'undefined') return;
+        if (window.__pfReportsTrendChart) {
+            try { window.__pfReportsTrendChart.destroy(); } catch (e) {}
+            window.__pfReportsTrendChart = null;
+        }
+        window.__pfReportsTrendChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: trendDatasets
             },
-            series: trendSeries,
-            xaxis:{
-                categories:labels,
-                labels:{rotate:-30, style:{fontSize:'11px'}},
-                crosshairs:{show:true, position:'front', stroke:{color:'#001018', width:2, dashArray:0}}
-            },
-            yaxis:{labels:{formatter:trendYAxisFmt}},
-            colors: trendColors,
-            fill:{type:'gradient', gradient:{shadeIntensity:.55, opacityFrom:.32, opacityTo:.04}},
-            stroke:{curve:'smooth', width:3},
-            markers:{size:0, hover:{size:7, fillColor:'#00232b', strokeColor:'#53C5E0', strokeWidth:3}},
-            dataLabels:{enabled:false},
-            tooltip:{
-                theme:'dark',
-                shared:true,
-                intersect:false,
-                style:{fontSize:'12px'},
-                fillSeriesColor:false,
-                y:{formatter:trendTipFmt}
-            },
-            annotations:{xaxis:[].concat(
-                curMon ? [{x:curMon, borderColor:'#6B7C85', strokeDashArray:4, label:{text:'Current Month',style:{color:'#374151',background:'#E5EEF2',fontSize:'10px'}}}] : [],
-                [{x:fcast, borderColor:trendForeStroke, strokeDashArray:5, label:{text:'Forecast',style:{color:'#fff',background:PF_PRIMARY,fontSize:'10px'}}}]
-            )},
-            legend:{show:false},
-            grid:{borderColor:'#f1f5f9', strokeDashArray:2, xaxis:{lines:{show:true}}, yaxis:{lines:{show:true}}}
+            plugins: [pfTrendForecastBoundaryPlugin],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 1200, easing: 'easeOutQuart' },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: trendLegend, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        animation: { duration: 180 },
+                        padding: 10,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            title: function (items) {
+                                if (!items || !items.length) return '';
+                                var it = items[0];
+                                var t = it.label != null ? String(it.label) : '';
+                                if (it.dataIndex === PF_TREND_FORECAST_IDX) {
+                                    return t + ' (forecast)';
+                                }
+                                return t;
+                            },
+                            label: function(ctx0) {
+                                var lab = ctx0.dataset && ctx0.dataset.label ? String(ctx0.dataset.label) : '';
+                                if (lab.indexOf('Orders') !== -1) {
+                                    return lab.replace(/\s*\(total\)\s*/i, '').trim() + ': ' + Math.round(ctx0.parsed.y);
+                                }
+                                if (lab.indexOf('revenue') !== -1 || lab.indexOf('₱') !== -1) {
+                                    return lab + ': ₱' + Number(ctx0.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                                }
+                                return (lab ? lab + ': ' : '') + String(ctx0.parsed.y ?? '');
+                            }
+                        }
+                    }
+                },
+                scales: trendScales
+            }
         });
     })();
 
 <?php if ($can_forecast && !empty($fc_series_data)): ?>
     (function(){
         const allLabels = <?php echo json_encode($fc_all_labels); ?>;
-        const fcastStart = <?php echo json_encode(reset($fc_fore_labels)); ?>;
+        const fcHistCount = <?php echo (int) count($fc_hist_labels); ?>;
+        /** Compact month labels for the axis (e.g. Oct'25) so every month can show without skipping. */
+        function pfFcShortLabel(lb) {
+            var t = String(lb == null ? '' : lb).trim();
+            var parts = t.split(/\s+/).filter(Boolean);
+            if (parts.length >= 2) {
+                var mo = parts[0];
+                if (mo.length > 3) mo = mo.slice(0, 3);
+                var y = String(parts[parts.length - 1]).replace(/[^0-9]/g, '');
+                if (y.length >= 2) y = y.slice(-2);
+                return mo + "'" + y;
+            }
+            return t.length > 9 ? t.slice(0, 9) : t;
+        }
+        const shortCats = allLabels.map(function (lb) { return pfFcShortLabel(lb); });
+        /** Vertical line + label must use same category strings as xaxis (shortCats). */
+        const fcastStart = shortCats[fcHistCount] || shortCats[0];
         const series = [];
         const colors = [];
         const dashes = [];
@@ -502,26 +758,104 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
             idx++;
         });
 
-        pfPushApexChart(document.getElementById('ch-forecast'), {
-            chart: {...PF_OPT, type:'line', height:290},
+        function pfFcPushForecastChart() {
+            var fcMount = document.getElementById('ch-forecast');
+            if (!fcMount || !fcMount.parentElement) return;
+            var wrap = fcMount.parentElement;
+            var h = wrap.clientHeight || wrap.getBoundingClientRect().height;
+            if (h < 160) h = 320;
+            var fcChartH = Math.max(288, Math.min(480, Math.round(h)));
+
+            pfPushApexChart(fcMount, {
+            chart: {...PF_OPT, type:'line', height: fcChartH},
             series: series,
-            xaxis: {categories: allLabels, labels:{style:{fontSize:'10px'}, rotate:-30}},
-            yaxis: {labels:{formatter:v=>v!=null?Math.round(v):''}},
+            xaxis: {
+                categories: shortCats,
+                tickPlacement: 'on',
+                labels: {
+                    style: { fontSize: '8px' },
+                    rotate: -52,
+                    rotateAlways: true,
+                    trim: false,
+                    hideOverlappingLabels: false,
+                    offsetX: 2,
+                    offsetY: 18,
+                    maxHeight: 110
+                },
+                axisBorder: { show: false },
+                axisTicks: { show: true, height: 4, color: '#e5e7eb' }
+            },
+            yaxis: {
+                show: true,
+                floating: false,
+                labels: {
+                    formatter: function (v) { return v != null ? Math.round(v) : ''; },
+                    offsetX: -14,
+                    padding: 4,
+                    style: { fontSize: '10px', colors: '#6b7280' }
+                },
+                axisBorder: { show: true, color: '#e5e7eb', width: 1, offsetX: 0 },
+                axisTicks: { show: true, color: '#e5e7eb', width: 4 }
+            },
             colors: colors,
             stroke: {curve:'smooth', width:2, dashArray:dashes},
             markers:{size:2, hover:{size:4}},
-            tooltip:{theme:'dark', shared:false, intersect:true, fillSeriesColor:false, style:{fontSize:'12px'}, y:{formatter:v=>v!=null?v+' orders':'-'}},
+            tooltip:{
+                theme:'dark', shared:false, intersect:true, fillSeriesColor:false, style:{fontSize:'12px'},
+                x: {
+                    formatter: function (val, opts) {
+                        var i = opts && typeof opts.dataPointIndex === 'number' ? opts.dataPointIndex : -1;
+                        if (i >= 0 && allLabels[i] != null) return allLabels[i];
+                        return val;
+                    }
+                },
+                y:{formatter:v=>v!=null?v+' orders':'-'}
+            },
             annotations:{xaxis:[{x:fcastStart, borderColor:PF_SECONDARY, strokeDashArray:5,
-                label:{text:'Forecast →',style:{color:'#fff',background:PF_PRIMARY,fontSize:'10px'}}}]},
-            legend:{show:false},
-            grid:{borderColor:'#f3f4f6',strokeDashArray:4}
+                label:{text:'Forecast', offsetY:-6, offsetX:4, style:{color:'#fff',background:PF_PRIMARY,fontSize:'9px'}}}]},
+            legend: { show: false, floating: true },
+            grid: {
+                borderColor: '#f3f4f6',
+                strokeDashArray: 4,
+                padding: { left: 76, right: 2, top: 4, bottom: 44 }
+            },
+            responsive: [
+                {
+                    breakpoint: 960,
+                    options: {
+                        chart: { height: 300 },
+                        xaxis: {
+                            tickPlacement: 'on',
+                            labels: {
+                                rotate: -56,
+                                style: { fontSize: '7px' },
+                                offsetX: 0,
+                                offsetY: 14,
+                                maxHeight: 100,
+                                hideOverlappingLabels: false
+                            }
+                        },
+                        yaxis: { labels: { offsetX: -12, padding: 4 } },
+                        grid: { padding: { left: 68, right: 2, bottom: 40 } }
+                    }
+                }
+            ]
         });
+        }
+
+        /* Must run before printflowAttachReportsChartLayoutHooks() so pfWireReportsScrollReveal sees this chart.
+           (Deferred rAF previously queued the push after the observer was wired — chart never revealed.) */
+        pfFcPushForecastChart();
     })();
 <?php endif; ?>
 
 <?php if (!empty($top_products)): ?>
     (function(){
         const fullNames = <?php echo json_encode(array_map(fn($p) => (string)($p['product_name'] ?? ''), $top_products)); ?>;
+        const shortNames = fullNames.map(function (nm) {
+            var t = String(nm || '').trim();
+            return t.length > 24 ? (t.slice(0, 24) + '...') : t;
+        });
         const mergeKeys = <?php
             $mk = [];
             foreach ($top_products as $p) {
@@ -531,23 +865,66 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
             ?>;
         const prevMap = <?php echo json_encode($top_products_prev ?? []); ?>;
         const qtys  = <?php echo json_encode(array_map(fn($p) => (int)$p['qty_sold'], $top_products)); ?>;
-        const names = fullNames.map(function (nm, i) { return '#' + (i + 1) + ' ' + nm; });
-        const barH = Math.max(360, names.length * 44);
+        var maxQty = 0;
+        for (var __i = 0; __i < qtys.length; __i++) maxQty = Math.max(maxQty, Number(qtys[__i]) || 0);
+        var xMax = Math.max(100, Math.ceil(maxQty / 100) * 100);
+        const names = shortNames.map(function (nm, i) { return '#' + (i + 1) + ' ' + nm; });
         const barColors = names.map(function(_, i) { return PF_BAR_RANK[Math.min(i, PF_BAR_RANK.length - 1)]; });
-        pfPushApexChart(document.getElementById('ch-products'), {
-            chart:{...PF_OPT, type:'bar', height:barH, animations:{enabled:true, easing:'easeinout', speed:520}},
-            plotOptions:{bar:{horizontal:true, borderRadius:8, barHeight:'68%', distributed:true}},
-            series:[{name:'Units Sold', data:qtys}],
+        const productSeriesData = names.map(function (nm, i) {
+            return { x: nm, y: qtys[i] || 0, fillColor: barColors[i] };
+        });
+        const productsMount = document.getElementById('ch-products');
+        var productsWrap = productsMount ? productsMount.closest('.ch-box') : null;
+        // Use the actual mount height so the chart occupies the whole card.
+        // Avoid forcing a larger height that then gets clipped.
+        var productsWrapH = productsWrap
+            ? Math.max(260, Math.round(productsWrap.getBoundingClientRect().height || productsWrap.clientHeight || 0))
+            : 360;
+        pfPushApexChart(productsMount, {
+            chart:{
+                ...PF_OPT,
+                id:'pf-ch-products-bar',
+                redrawOnParentResize:true,
+                type:'bar',
+                height: productsWrapH,
+                width: '100%',
+                offsetX: 0,
+                animations:{enabled:true, easing:'easeinout', speed:520}
+            },
+            plotOptions:{
+                bar:{
+                    horizontal:true,
+                    borderRadius:4,
+                    barHeight:'88%',
+                    distributed:true
+                }
+            },
+            series:[{name:'Units Sold', data:productSeriesData}],
             xaxis:{
-                categories:names,
+                min: 0,
+                max: xMax,
+                tickAmount: 4,
                 labels:{
-                    style:{fontSize:'11px', fontWeight:600, colors:'#0f172a'},
-                    maxHeight: 280,
-                    trim: false
+                    style:{fontSize:'10px', fontWeight:600, colors:'#6b7280'},
+                    offsetX: 0,
+                    formatter:function (v) { return Number(v || 0).toLocaleString(); }
+                }
+            },
+            yaxis:{
+                labels:{
+                    style:{fontSize:'11px', colors:'#0f172a', fontWeight:700},
+                    minWidth: 150,
+                    maxWidth: 230,
+                    offsetX: 18
                 }
             },
             colors: barColors, legend:{show:false},
-            dataLabels:{enabled:true, offsetX:6, style:{fontSize:'10px',colors:['#fff']}, formatter:function (v) { return v; }},
+            dataLabels:{
+                enabled:true,
+                offsetX: 6,
+                style:{fontSize:'10px',colors:['#6b7280']},
+                formatter:function (v) { return Number(v || 0).toLocaleString(); }
+            },
             tooltip:{
                 theme:'dark',
                 fillSeriesColor:false,
@@ -571,7 +948,13 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
                         '</div>';
                 }
             },
-            grid:{borderColor:'#f1f5f9', strokeDashArray:2, padding:{left:8, right:12}, xaxis:{lines:{show:true}}}
+            grid:{
+                borderColor:'#f1f5f9',
+                strokeDashArray:2,
+                padding:{left:52,right:8,top:6,bottom:8},
+                xaxis:{lines:{show:true}},
+                yaxis:{lines:{show:true}}
+            }
         });
     })();
 <?php endif; ?>
@@ -637,8 +1020,8 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
                 stacked:true,
                 selection:{enabled:false},
                 zoom:{enabled:false},
-                offsetX:44,
-                offsetY:6
+                offsetX: 0,
+                offsetY: 6
             },
             series:[{name:'Custom Upload',data:cust},{name:'Template / No Upload',data:tmpl}],
             colors:[PF_PRIMARY, PF_SECONDARY],
@@ -709,7 +1092,7 @@ echo '        const fcData = '.json_encode($fc_js_data).";\n";
             grid:{
                 borderColor:'#e8ecf1',
                 strokeDashArray:4,
-                padding:{top:12,right:24,bottom:10,left:4},
+                padding:{top:12,right:-24,bottom:10,left:4},
                 xaxis:{lines:{show:true}},
                 yaxis:{lines:{show:false}}
             }

@@ -96,10 +96,18 @@ try {
                 $notes = trim($notes . ($notes ? ' | ' : '') . 'Ref: ' . $ref_id_raw);
             }
 
+            // Optional: unit cost used for weighted-average updates on IN transactions
+            $unit_cost_new = null;
+            if (array_key_exists('unit_cost', $_POST)) {
+                $unit_cost_raw = trim((string)($_POST['unit_cost'] ?? ''));
+                if ($unit_cost_raw !== '') $unit_cost_new = (float)$unit_cost_raw;
+            }
+
             $errors = [];
             if (!$item_id) $errors['item_id'] = "Item is required.";
             if (empty($type)) $errors['transaction_type'] = "Transaction type is required.";
             if ($quantity <= 0) $errors['quantity'] = "Quantity must be greater than zero.";
+            if ($unit_cost_new !== null && $unit_cost_new <= 0) $errors['unit_cost'] = "Unit cost must be greater than zero.";
 
             if (!empty($errors)) {
                 http_response_code(400);
@@ -123,10 +131,31 @@ try {
                     ];
                 }
 
+                // Weighted-average cost update (optional; only runs when unit_cost is provided)
+                $q_old = null;
+                $c_old = null;
+                if ($unit_cost_new !== null && $unit_cost_new > 0) {
+                    $q_old = InventoryManager::getStockOnHand($item_id);
+                    $itemForCost = InventoryManager::getItem($item_id);
+                    $c_old = (float)($itemForCost['unit_cost'] ?? 0);
+                    $notes = trim($notes . ($notes ? ' | ' : '') . 'Unit cost used: ' . number_format($unit_cost_new, 2, '.', ''));
+                }
+
                 // For IN transactions, use receiveStock to handle roll tracking logic
                 $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $refType, $ref_id, $notes, $transaction_date);
                 $transactionId = 0; 
                 $fifoResult = null;
+
+                if ($success && $unit_cost_new !== null && $unit_cost_new > 0) {
+                    $q_total = ($q_old ?? 0) + $quantity;
+                    if ($q_total > 0) {
+                        $c_updated = ((($q_old ?? 0) * ($c_old ?? 0)) + ($quantity * $unit_cost_new)) / $q_total;
+                    } else {
+                        // First stock entry safeguard
+                        $c_updated = $unit_cost_new;
+                    }
+                    db_execute("UPDATE inv_items SET unit_cost = ? WHERE id = ?", 'di', [$c_updated, (int)$item_id]);
+                }
             } else {
                 // For OUT transactions, use issueStock which handles FIFO for roll items
                 $result = InventoryManager::issueStock(

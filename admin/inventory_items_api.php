@@ -128,8 +128,46 @@ try {
                 $itemId = $stmt->insert_id;
                 $stmt->close();
                 $starting_stock = max(0, (float)($_POST['starting_stock'] ?? 0));
-                if ($starting_stock > 0 && !$track_by_roll) {
-                    InventoryManager::receiveStock($itemId, $starting_stock, $unit, null, 'opening_balance', null, 'Initial stock entry');
+
+                // Opening balance behavior:
+                // - Standard items: one IN ledger entry (no roll record).
+                // - Roll-tracked items: create roll(s) using receiveStock (no DB changes; uses existing inv_rolls + ledger).
+                if ($starting_stock > 0) {
+                    if (!$track_by_roll) {
+                        InventoryManager::receiveStock($itemId, $starting_stock, $unit, null, 'opening_balance', null, 'Initial stock entry');
+                    } else {
+                        $method = sanitize($_POST['stock_input_method'] ?? '');
+                        $starting_rolls = (int)($_POST['starting_rolls'] ?? 0);
+
+                        // For roll items, quantity must be in feet.
+                        $uomForRoll = ($unit === 'ft') ? 'ft' : $unit;
+
+                        if ($method === 'rolls' && $starting_rolls > 0 && $roll_length !== null && $roll_length > 0) {
+                            // Create N rolls, each of length roll_length.
+                            for ($i = 1; $i <= $starting_rolls; $i++) {
+                                InventoryManager::receiveStock(
+                                    $itemId,
+                                    (float)$roll_length,
+                                    $uomForRoll,
+                                    ['roll_code' => 'OPEN-' . $itemId . '-' . $i],
+                                    'opening_balance',
+                                    null,
+                                    'Initial stock entry'
+                                );
+                            }
+                        } else {
+                            // Default: treat starting_stock as total feet and create a single roll.
+                            InventoryManager::receiveStock(
+                                $itemId,
+                                $starting_stock,
+                                $uomForRoll,
+                                null,
+                                'opening_balance',
+                                null,
+                                'Initial stock entry'
+                            );
+                        }
+                    }
                 }
                 echo json_encode(['success' => true, 'item_id' => $itemId]);
             }

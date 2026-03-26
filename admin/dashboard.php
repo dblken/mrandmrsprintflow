@@ -758,12 +758,18 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 }
                 if (data.error) console.warn('Chart API error:', data.error, data.message || '');
                 var labels = data.labels || [];
-                var revenue = data.revenue || [];
+                var revStore = data.revenue_store;
+                var revCustom = data.revenue_custom;
+                if (!Array.isArray(revStore) || !Array.isArray(revCustom)) {
+                    revStore = data.revenue || [];
+                    revCustom = revStore.map(function () { return 0; });
+                }
                 var orders = data.orders || [];
                 if (!window.__pfDashSalesChart) return;
                 window.__pfDashSalesChart.data.labels = labels;
-                window.__pfDashSalesChart.data.datasets[0].data = revenue;
-                window.__pfDashSalesChart.data.datasets[1].data = orders;
+                window.__pfDashSalesChart.data.datasets[0].data = revStore;
+                window.__pfDashSalesChart.data.datasets[1].data = revCustom;
+                window.__pfDashSalesChart.data.datasets[2].data = orders;
                 var dur = salesFirstFetch ? dashAnimLong : dashAnimShort;
                 salesFirstFetch = false;
                 if (window.__pfDashSalesChart.options && window.__pfDashSalesChart.options.animation) {
@@ -820,7 +826,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 type: 'line',
                 data: { labels: [], datasets: [
                     {
-                        label: 'Revenue (₱)',
+                        label: 'Store revenue (₱)',
                         data: [],
                         borderColor: '#00232b',
                         backgroundColor: 'rgba(0,35,43,.08)',
@@ -833,7 +839,20 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         yAxisID: 'y'
                     },
                     {
-                        label: 'Orders',
+                        label: 'Customization revenue (₱)',
+                        data: [],
+                        borderColor: '#6366F1',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5,
+                        fill: false,
+                        tension: 0.35,
+                        pointBackgroundColor: '#6366F1',
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Orders (total)',
                         data: [],
                         borderColor: '#53C5E0',
                         backgroundColor: 'transparent',

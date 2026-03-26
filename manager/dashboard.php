@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 // Only Managers allowed here
 require_role('Manager');
@@ -33,9 +34,21 @@ try {
 
 // ── KPI: Total Revenue (branch-filtered) ──────────────────────
 try {
-    [$bSqlFrag, $bT2, $bP2] = branch_where_parts('o', $branchId);
-    $rev_sql    = "SELECT COALESCE(SUM(o.total_amount),0) as total FROM orders o WHERE o.payment_status = 'Paid'" . $bSqlFrag;
-    $total_revenue = db_query($rev_sql, $bT2 ?: null, $bP2 ?: null)[0]['total'] ?? 0;
+    [$bSqlO, $bTO, $bPO] = branch_where_parts('o', $branchId);
+    [$bSqlJ, $bTJ, $bPJ] = branch_where_parts('j', $branchId);
+    $store_revenue = db_query(
+        "SELECT COALESCE(SUM(o.total_amount),0) as total FROM orders o WHERE (o.payment_status = 'Paid' OR o.status = 'Completed') {$bSqlO}",
+        $bTO ?: null,
+        $bPO ?: null
+    )[0]['total'] ?? 0;
+    $custom_revenue = db_query(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(j.amount_paid,0), j.estimated_total, 0)),0) as total
+         FROM job_orders j
+         WHERE (j.payment_status = 'PAID' OR j.status = 'COMPLETED') {$bSqlJ}",
+        $bTJ ?: null,
+        $bPJ ?: null
+    )[0]['total'] ?? 0;
+    $total_revenue = (float)$store_revenue + (float)$custom_revenue;
 } catch (Exception $e) { $total_revenue = 0; }
 
 // ── KPI: Total Orders (branch-filtered) ───────────────────────
@@ -76,12 +89,15 @@ try {
 } catch (Exception $e) { $order_status = []; }
 
 $statusColors = [
-    'Pending'          => '#F39C12',
-    'Processing'       => '#3498DB',
-    'Ready for Pickup' => '#53C5E0',
-    'Completed'        => '#2ECC71',
-    'Cancelled'        => '#E74C3C',
-    'Design Approved'  => '#6C5CE7',
+    // Keep this in sync with Admin Reports status donut palette.
+    'Completed'            => '#22c55e',
+    'Processing'           => '#3b82f6',
+    'Ready for Pickup'     => '#06b6d4',
+    'Pending'              => '#f59e0b',
+    'Pending Review'       => '#6b7280',
+    'Downpayment Submitted'=> '#8b5cf6',
+    'Cancelled'            => '#ef4444',
+    'Design Approved'      => '#6366f1',
 ];
 
 // ── Recent Orders (last 5, branch-filtered) ──────────────────
@@ -101,20 +117,30 @@ try {
 
 // ── Low Stock Alerts ──────────────────────────────────────────
 try {
-    require_once __DIR__ . '/../includes/InventoryManager.php';
+    // Use branch stock table so manager sees only assigned-branch product stock.
+    printflow_ensure_product_branch_stock_table();
     $all_items = db_query(
-        "SELECT i.id, i.name as material_name, i.reorder_level as low_limit, i.unit_of_measure as unit,
-                ic.name as category_name
-         FROM inv_items i
-         LEFT JOIN inv_categories ic ON i.category_id = ic.id
-         WHERE i.status = 'ACTIVE' AND i.reorder_level > 0"
+        "SELECT
+            p.product_id,
+            p.name AS material_name,
+            COALESCE(p.category, 'General') AS category_name,
+            COALESCE(pbs.low_stock_level, 0) AS low_limit,
+            COALESCE(pbs.stock_quantity, 0) AS current_stock
+         FROM products p
+         INNER JOIN product_branch_stock pbs
+                 ON pbs.product_id = p.product_id
+                AND pbs.branch_id = ?
+         WHERE p.status = 'Activated'
+           AND COALESCE(pbs.low_stock_level, 0) > 0",
+        'i',
+        [(int)$branchId]
     ) ?: [];
     $low_stock = [];
     foreach ($all_items as $item) {
-        $soh = InventoryManager::getStockOnHand($item['id']);
+        $soh = (float)($item['current_stock'] ?? 0);
         if ($soh <= $item['low_limit']) {
-            $item['current_stock'] = $soh;
-            $item['ratio'] = $soh / $item['low_limit'];
+            $item['unit'] = 'pcs';
+            $item['ratio'] = ((float)$item['low_limit'] > 0) ? ($soh / (float)$item['low_limit']) : 0;
             $low_stock[] = $item;
         }
     }
@@ -420,6 +446,8 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         dashCtrl = new AbortController();
         var sig = { signal: dashCtrl.signal };
         var DASH_BRANCH_ID = <?php echo (int)$branchId; ?>;
+        // Keep this palette aligned with Admin Reports "Revenue Distribution" chart.
+        var ADMIN_REVENUE_DISTRIBUTION_PALETTE = ['#00232b', '#53C5E0', '#0F4C5C', '#3498DB', '#6C5CE7', '#3A86A8', '#8ED6E6', '#6B7C85', '#F39C12', '#2ECC71'];
 
         var dashAnimLong = 1750;
         var dashAnimShort = 680;
@@ -467,12 +495,18 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                     return;
                 }
                 var labels = data.labels || [];
-                var revenue = data.revenue || [];
+                var revStore = data.revenue_store;
+                var revCustom = data.revenue_custom;
+                if (!Array.isArray(revStore) || !Array.isArray(revCustom)) {
+                    revStore = data.revenue || [];
+                    revCustom = revStore.map(function () { return 0; });
+                }
                 var orders = data.orders || [];
                 if (!window.__pfDashSalesChart) return;
                 window.__pfDashSalesChart.data.labels = labels;
-                window.__pfDashSalesChart.data.datasets[0].data = revenue;
-                window.__pfDashSalesChart.data.datasets[1].data = orders;
+                window.__pfDashSalesChart.data.datasets[0].data = revStore;
+                window.__pfDashSalesChart.data.datasets[1].data = revCustom;
+                window.__pfDashSalesChart.data.datasets[2].data = orders;
                 var dur = salesFirstFetch ? dashAnimLong : dashAnimShort;
                 salesFirstFetch = false;
                 if (window.__pfDashSalesChart.options && window.__pfDashSalesChart.options.animation) {
@@ -528,18 +562,25 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 type: 'line',
                 data: { labels: [], datasets: [
                     {
-                        label: 'Revenue (₱)', data: [],
-                        borderColor: '#00232b',
-                        backgroundColor: 'rgba(0,35,43,.08)',
+                        label: 'Store revenue (₱)', data: [],
+                        borderColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[0],
+                        backgroundColor: 'rgba(0,35,43,.10)',
                         borderWidth: 2.5, fill: true, tension: 0.35,
-                        pointBackgroundColor: '#00232b', pointRadius: 3, pointHoverRadius: 6, yAxisID: 'y'
+                        pointBackgroundColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[0], pointRadius: 3, pointHoverRadius: 6, yAxisID: 'y'
                     },
                     {
-                        label: 'Orders', data: [],
-                        borderColor: '#53C5E0',
+                        label: 'Customization revenue (₱)', data: [],
+                        borderColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[4],
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0.35,
+                        pointBackgroundColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[4], pointRadius: 3, pointHoverRadius: 6, yAxisID: 'y'
+                    },
+                    {
+                        label: 'Orders (total)', data: [],
+                        borderColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[1],
                         backgroundColor: 'transparent',
                         borderWidth: 2, borderDash: [6, 4], tension: 0.35,
-                        pointBackgroundColor: '#3A86A8', pointRadius: 2, pointHoverRadius: 5, yAxisID: 'y1'
+                        pointBackgroundColor: ADMIN_REVENUE_DISTRIBUTION_PALETTE[5], pointRadius: 2, pointHoverRadius: 5, yAxisID: 'y1'
                     }
                 ]},
                 options: {
@@ -564,13 +605,48 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         (function () {
             var w = document.getElementById('statusChart') && document.getElementById('statusChart').closest('.chart-wrap');
             bindWhenVisible(w, function () {
+                var statusLabels = <?php echo json_encode(array_map(fn($d) => $d['status'], $order_status)); ?>;
+                var statusValues = <?php echo json_encode(array_map(fn($d) => (int)$d['cnt'], $order_status)); ?>;
+                // Match Admin Reports palette, but normalize status text to avoid fallback-gray on variants.
+                var adminStatusPalette = {
+                    'completed': '#22c55e',
+                    'processing': '#3b82f6',
+                    'in production': '#3b82f6',
+                    'printing': '#3b82f6',
+                    'ready for pickup': '#06b6d4',
+                    'ready for pick up': '#06b6d4',
+                    'pending': '#f59e0b',
+                    'pending review': '#6b7280',
+                    'pending approval': '#6b7280',
+                    'for revision': '#6b7280',
+                    'downpayment submitted': '#8b5cf6',
+                    'pending verification': '#8b5cf6',
+                    'to verify': '#8b5cf6',
+                    'cancelled': '#ef4444',
+                    'rejected': '#ef4444',
+                    'design approved': '#6366f1',
+                    'approved': '#6366f1',
+                    'to pay': '#6366f1'
+                };
+                function normalizeStatusKey(v) {
+                    return String(v || '')
+                        .toLowerCase()
+                        .replace(/[–—]/g, '-')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                }
+                var statusColorsResolved = statusLabels.map(function (label) {
+                    var k = normalizeStatusKey(label);
+                    return adminStatusPalette[k] || '#6B7C85';
+                });
+
                 window.__pfDashStatusChart = new Chart(document.getElementById('statusChart').getContext('2d'), {
                     type: 'doughnut',
                     data: {
-                        labels: <?php echo json_encode(array_map(fn($d) => $d['status'], $order_status)); ?>,
+                        labels: statusLabels,
                         datasets: [{
-                            data: <?php echo json_encode(array_map(fn($d) => (int)$d['cnt'], $order_status)); ?>,
-                            backgroundColor: <?php echo json_encode(array_map(fn($d) => $statusColors[$d['status']] ?? '#6B7C85', $order_status)); ?>,
+                            data: statusValues,
+                            backgroundColor: statusColorsResolved,
                             borderWidth: 2, borderColor: '#fff', hoverOffset: 8
                         }]
                     },

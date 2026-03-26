@@ -295,7 +295,7 @@ $page_title = 'Reports - Staff';
                                     </td>
                                     <td style="text-align:right;">
                                         <span style="color:#ef4444; font-weight:700;"><?php echo number_format($m['current_stock'], 1); ?></span>
-                                        <span style="font-size:10px; color:#9ca3af;"><?php echo $m['unit_of_measure']; ?></span>
+                                        <span style="font-size:10px; color:#9ca3af;"><?php echo (($m['unit_of_measure'] ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($m['unit_of_measure'] ?? ''); ?></span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>

@@ -36,11 +36,20 @@ $user_last = $_SESSION['user_last_name'] ?? '';
 $user_name = trim($user_first . ' ' . $user_last);
 if ($user_name === '') $user_name = 'Staff';
 
+// Normalize workflow status so variants like "To Verify" / "to-verify"
+// are treated the same as enum-style keys.
+$normalize_workflow_status = static function ($s): string {
+    $s = strtoupper((string)$s);
+    $s = str_replace(['–', '-'], '_', $s);
+    $s = preg_replace('/\s+/', '_', $s);
+    return trim((string)$s, '_');
+};
+
 // Verify Action
 if ($action === 'verify_payment') {
     
     $payment_proof_status = strtoupper((string)($job['payment_proof_status'] ?? ''));
-    $job_status = strtoupper((string)($job['status'] ?? ''));
+    $job_status = $normalize_workflow_status($job['status'] ?? '');
     $submitted_amount = (float)($job['payment_submitted_amount'] ?? 0);
     $has_proof_path = !empty($job['payment_proof_path']) || !empty($job['payment_proof']);
 
@@ -89,8 +98,9 @@ if ($action === 'verify_payment') {
     }
     
     // Move to production when required payment is met (TO_PAY or VERIFY_PAY after customer proof)
-    $new_order_status = $job['status'];
-    if (in_array($new_order_status, ['TO_PAY', 'VERIFY_PAY'], true) && $new_amount_paid >= $required_payment) {
+    $new_order_status = (string)$job['status'];
+    $new_order_status_norm = $normalize_workflow_status($new_order_status);
+    if (in_array($new_order_status_norm, ['TO_PAY', 'VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true) && $new_amount_paid >= $required_payment) {
         $new_order_status = 'IN_PRODUCTION';
     }
     

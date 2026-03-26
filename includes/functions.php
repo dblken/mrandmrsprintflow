@@ -491,9 +491,15 @@ function sync_cart_to_db($customer_id) {
     foreach ($_SESSION['cart'] as $key => $item) {
         $qty = (int)($item['quantity'] ?? 0);
         if ($qty <= 0) continue;
+        // Persist only true catalog products in customer_cart.
+        // Service/custom entries may carry non-catalog IDs and would violate FK.
+        $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
+        if ($source_page === 'services') continue;
         $pid = (int)($item['product_id'] ?? 0);
         $vid = isset($item['variant_id']) && $item['variant_id'] !== null ? (int)$item['variant_id'] : 0;
         if ($pid <= 0) continue;
+        $exists = db_query("SELECT product_id FROM products WHERE product_id = ? LIMIT 1", 'i', [$pid]);
+        if (empty($exists)) continue;
         db_execute("INSERT INTO customer_cart (customer_id, product_id, variant_id, quantity, updated_at) VALUES (?, ?, ?, ?, NOW())", 'iiii', [$customer_id, $pid, $vid, $qty]);
     }
 }

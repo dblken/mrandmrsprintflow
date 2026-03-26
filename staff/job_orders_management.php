@@ -486,7 +486,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                                                 <template x-for="(pm, idx) in pendingMaterials" :key="idx">
                                                     <div style="display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e0e7ff; border-radius:8px; padding:8px 12px; margin-bottom:4px; font-size:12px;">
                                                         <span style="font-weight:600; color:#1f2937;" x-text="pm.name"></span>
-                                                        <span style="color:#6b7280;" x-text="'× ' + pm.qty + ' ' + pm.uom"></span>
+                                                        <span style="color:#6b7280;" x-text="'× ' + pm.qty + ' ' + (pm.uom === 'l' ? 'Liter (L)' : pm.uom)"></span>
                                                         <button @click="pendingMaterials.splice(idx,1)" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">×</button>
                                                     </div>
                                                 </template>
@@ -528,8 +528,8 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                                                     <template x-if="isSticker(newMaterialId)">
                                                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                                                             <div>
-                                                                <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Consumed Length (ft)</label>
-                                                                <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="Length">
+                                                                <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Quantity (pcs)</label>
+                                                                <input type="number" x-model.number="newMaterialQty" min="1" step="1" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px;" placeholder="e.g. 10 pcs">
                                                             </div>
                                                             <div>
                                                                 <label style="font-size:10px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px;">Lamination</label>
@@ -871,7 +871,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                     item_id: this.newMaterialId,
                     name: item.name,
                     qty: this.newMaterialQty,
-                    uom: item.unit_of_measure || 'pcs',
+                    uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
                     roll_id: this.newMaterialRollId || '',
                     notes: this.newMaterialNotes,
                     metadata: meta
@@ -920,7 +920,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
             },
 
             async loadAllInventoryItems() {
-                const res = await (await fetch('../admin/inventory_items_api.php?action=get_items')).json();
+                const res = await (await fetch('../admin/inventory_items_api.php?action=get_items&active_only=1')).json();
                 if(res.success) this.allInventoryItems = res.data;
             },
 
@@ -932,7 +932,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                 fd.append('order_id', this.currentJo.id);
                 fd.append('item_id', this.newMaterialId);
                 fd.append('quantity', this.newMaterialQty);
-                fd.append('uom', item.unit_of_measure || 'pcs');
+                fd.append('uom', this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'));
                 fd.append('roll_id', this.newMaterialRollId);
                 fd.append('notes', this.newMaterialNotes);
                 

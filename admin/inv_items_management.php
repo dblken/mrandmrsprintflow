@@ -16,11 +16,72 @@ $page     = max(1, (int)($_GET['page'] ?? 1));
 $track_by = isset($_GET['track_by_roll']) && $_GET['track_by_roll'] !== '' ? (int)$_GET['track_by_roll'] : null;
 $per_page = 15;
 
+// Inventory Archive/Restore (AJAX)
+if (isset($_POST['archive_item']) || isset($_POST['restore_item'])) {
+    header('Content-Type: application/json');
+    $item_id = (int)($_POST['item_id'] ?? 0);
+    if (!$item_id) {
+        echo json_encode(['success' => false, 'error' => 'Invalid item_id']);
+        exit;
+    }
+
+    $targetStatus = isset($_POST['archive_item']) ? 'INACTIVE' : 'ACTIVE';
+    db_execute(
+        "UPDATE inv_items SET status = ?, updated_at = NOW() WHERE id = ?",
+        'si',
+        [$targetStatus, $item_id]
+    );
+
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// Archived Items overlay data (AJAX)
+if (isset($_GET['get_archived_items'])) {
+    header('Content-Type: application/json');
+    $archived = db_query(
+        "SELECT i.*, c.name as category_name
+         FROM inv_items i
+         LEFT JOIN inv_categories c ON i.category_id = c.id
+         WHERE i.status = 'INACTIVE'
+         ORDER BY i.updated_at DESC, i.id DESC"
+    ) ?: [];
+
+    $html = '<div class="overflow-x-auto"><table class="inv-table" style="width:100%;border-collapse:collapse;font-size:13px;">';
+    $html .= '<thead><tr><th>Material Name</th><th>Category</th><th style="text-align:right;">Actions</th></tr></thead><tbody>';
+
+    if (empty($archived)) {
+        $html .= '<tr><td colspan="3" style="padding:40px;text-align:center;color:#9ca3af;">No archived materials found.</td></tr>';
+    } else {
+        foreach ($archived as $it) {
+            $name = htmlspecialchars($it['name'] ?? '', ENT_QUOTES);
+            $cat = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', (string)($it['category_name'] ?? '')) ?: ($it['category_name'] ?? 'Uncategorized');
+            $cat = htmlspecialchars($cat, ENT_QUOTES);
+            $id = (int)$it['id'];
+            $html .= '<tr>';
+            $html .= '<td class="truncate" style="font-weight:500;text-transform:capitalize;" title="' . $name . '">' . $name . '</td>';
+            $html .= '<td class="truncate" style="color:#6b7280;font-size:12px;" title="' . $cat . '">' . $cat . '</td>';
+            $html .= '<td style="text-align:right; white-space:nowrap;">';
+            // Use single-quoted JS literals to avoid breaking the HTML onclick attribute.
+            $html .= '<button type="button" class="btn-action teal" onclick="event.stopPropagation(); openItemStatusConfirm(' . $id . ', \'ACTIVE\')">Restore</button>';
+            $html .= '</td>';
+            $html .= '</tr>';
+        }
+    }
+
+    $html .= '</tbody></table></div>';
+    echo json_encode(['success' => true, 'html' => $html]);
+    exit;
+}
+
 // Build Query
 $sql = "SELECT i.*, c.name as category_name 
         FROM inv_items i 
         LEFT JOIN inv_categories c ON i.category_id = c.id 
-        WHERE 1=1";
+        WHERE 1=1
+          AND i.status = 'ACTIVE'
+          AND i.name NOT LIKE '%(Archived)%'
+          AND i.name NOT LIKE '%(Legacy)%'";
 $params = [];
 $types = '';
 
@@ -101,11 +162,15 @@ if (isset($_GET['ajax'])) {
     ?>
             <tr class="<?php echo ($isOut || $isLow) ? 'low-stock-row' : ''; ?>" style="cursor:pointer;" onclick="openStockCard(<?php echo $item['id']; ?>)">
                 <td style="font-weight:500;text-transform:capitalize;"><?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?></td>
-                <td><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
+                <?php
+                    $catDispRaw = (string)($item['category_name'] ?? '');
+                    $catDisp = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', $catDispRaw) ?: $catDispRaw;
+                ?>
+                <td><?php echo htmlspecialchars($catDisp ?: 'Uncategorized'); ?></td>
                 <td><?php echo $trackBadge; ?></td>
                 <td><span class="font-semibold" style="white-space:nowrap;">&#8369;<?php echo number_format($item['unit_cost'], 2); ?></span></td>
                 <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
-                <td style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                <td style="color:#6b7280;font-size:12px;"><?php echo (($item['unit_of_measure'] ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($item['unit_of_measure'] ?? ''); ?></td>
                 <td class="no-truncate" style="text-align:right;">
                     <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                     <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
@@ -185,6 +250,13 @@ if (isset($_GET['ajax'])) {
             color: #374151;
             opacity: 1;
         }
+        /* When enabled (e.g., Tarpaulin UOM override), show dropdown arrow. */
+        .locked-select:not(:disabled) {
+            appearance: auto;
+            -webkit-appearance: auto;
+            -moz-appearance: auto;
+            cursor: pointer;
+        }
         .btn-action {
             display: inline-flex; align-items: center; justify-content: center;
             padding: 5px 12px; min-width: 80px; border: 1px solid transparent;
@@ -242,6 +314,7 @@ if (isset($_GET['ajax'])) {
         .input-error { border-color: #dc2626 !important; background-color: #fffafb !important; }
         .input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important; }
         .input-success { border-color: #10b981 !important; }
+        .input-warning { border-color: #f59e0b !important; box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important; }
         
         #saveBtn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
         .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
@@ -462,6 +535,10 @@ if (isset($_GET['ajax'])) {
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
                         <button type="button" class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
+
+                        <button type="button" class="toolbar-btn" onclick="openItemsArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280;">
+                            Archived Items
+                        </button>
                         
                         <!-- Sort Button -->
                         <div style="position:relative;">
@@ -515,7 +592,12 @@ if (isset($_GET['ajax'])) {
                                     <select id="fp_category" class="filter-select">
                                         <option value="">All Categories</option>
                                         <?php foreach ($categories as $cat): ?>
-                                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                                            <?php
+                                                $catNameRaw = (string)($cat['name'] ?? '');
+                                                // UI-only: strip trailing unit suffix like "(FT)" or "(pcs)".
+                                                $catNameDisp = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', $catNameRaw) ?: $catNameRaw;
+                                            ?>
+                                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($catNameDisp); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -556,7 +638,7 @@ if (isset($_GET['ajax'])) {
                                 <th>Material Name</th>
                                 <th>Category</th>
                                 <th>Tracking</th>
-                                <th>Unit Cost</th>
+                                <th>Average Cost</th>
                                 <th>Stock Level</th>
                                 <th>UOM</th>
                                 <th style="text-align:right;">Actions</th>
@@ -572,11 +654,17 @@ if (isset($_GET['ajax'])) {
                                     $isOut = $stock <= 0;
                                     $isLow = !$isOut && $stock <= $minStock;
                                     
+                                    $catNameRaw = (string)($item['category_name'] ?? '');
+                                    $catNameUpper = strtoupper($catNameRaw);
+                                    $isPrintedSticker = str_contains($catNameUpper, 'PRINTED') && (str_contains($catNameUpper, 'STKR') || str_contains($catNameUpper, 'STICKER'));
+                                    $effectiveUom = $isPrintedSticker ? 'pcs' : ($item['unit_of_measure'] ?? '');
+                                    $effectiveTrackByRoll = $isPrintedSticker ? 0 : (int)($item['track_by_roll'] ?? 0);
+                                    
                                     $stockColor = '#1f2937';
                                     if ($isOut) $stockColor = '#991b1b';
                                     else if ($isLow) $stockColor = '#d97706';
                                     
-                                    $trackBadge = $item['track_by_roll'] == 1
+                                    $trackBadge = $effectiveTrackByRoll == 1
                                         ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
                                         : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
                                     
@@ -587,11 +675,15 @@ if (isset($_GET['ajax'])) {
                                         <td class="truncate" style="font-weight:500;text-transform:capitalize;" title="<?php echo htmlspecialchars($item['name']); ?>">
                                             <?php echo htmlspecialchars($item['name']); ?><?php echo $statusBadge . $inactiveBadge; ?>
                                         </td>
-                                        <td class="truncate" title="<?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?>"><?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?></td>
+                                        <?php
+                                            $catDispRaw2 = (string)($item['category_name'] ?? '');
+                                            $catDisp2 = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', $catDispRaw2) ?: $catDispRaw2;
+                                        ?>
+                                        <td class="truncate" title="<?php echo htmlspecialchars($catDisp2 ?: 'Uncategorized'); ?>"><?php echo htmlspecialchars($catDisp2 ?: 'Uncategorized'); ?></td>
                                         <td><?php echo $trackBadge; ?></td>
                                         <td style="white-space:nowrap;"><span class="font-semibold">&#8369;<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                                        <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
-                                        <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo htmlspecialchars($item['unit_of_measure']); ?></td>
+                                        <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($effectiveUom ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
+                                        <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo (strtolower($effectiveUom ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($effectiveUom ?? ''); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
                                             <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                                             <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
@@ -628,12 +720,28 @@ if (isset($_GET['ajax'])) {
             <input type="hidden" id="addStockIsRoll">
             <input type="hidden" id="addStockUom">
             <input type="hidden" id="addStockCurrentStock" value="0">
+            <input type="hidden" id="addStockCurrentUnitCost" value="0">
             <div class="form-grid" style="grid-template-columns:1fr;">
                 <div class="filter-group">
-                    <label for="addStockQty">Quantity to Add *</label>
-                    <input type="number" step="any" min="0" max="100000" id="addStockQty" placeholder="e.g. 50" inputmode="decimal">
+                    <label for="addStockQty">Quantity to Add (<span id="addStockQtyUomLabel">—</span>) *</label>
+                    <input type="number"
+                           step="any"
+                           min="0"
+                           max="100000"
+                           id="addStockQty"
+                           placeholder="e.g. 10 pcs"
+                           inputmode="decimal"
+                           autocomplete="off"
+                           onkeydown="handleAddStockQtyKeyDown(event)"
+                           onpaste="handleAddStockQtyPaste(event)">
                     <div id="addStockQtyError" style="display:none; font-size:12px; color:#dc2626; margin-top:4px;">Please enter a valid quantity</div>
                     <div id="addStockPreview" style="font-size:13px; font-weight:600; color:#059669; margin-top:6px;">New Stock After Adding: &mdash;</div>
+                    
+                    <label for="addStockUnitCost" style="margin-top:12px;">Unit Cost (&#8369;) *</label>
+                    <input type="number" step="0.01" min="0" id="addStockUnitCost" placeholder="e.g. 500.00" inputmode="decimal">
+                    <div id="err-addStockUnitCost" class="field-error" style="display:none;"></div>
+                    <div id="addStockUnitCostPreview" style="font-size:12px; color:#6b7280; font-weight:600; margin-top:6px;">New Estimated Unit Cost: &mdash;</div>
+
                     <div id="addStockLargeWarning" style="display:none; font-size:13px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; margin-top:8px; border:1px solid #fde68a;">
                         &#9888;&#65039; You are adding a large quantity. Please double check.
                     </div>
@@ -676,6 +784,41 @@ if (isset($_GET['ajax'])) {
         <div style="display:flex; gap:12px; justify-content:flex-end;">
             <button type="button" onclick="closeAddStockConfirmModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
             <button type="button" id="addStockConfirmBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#059669;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Archive Item Confirmation Modal -->
+<div id="itemArchiveConfirmModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:420px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="itemStatusConfirmTitle">Confirm Archive</h3>
+            <button class="close-btn" onclick="closeItemArchiveConfirmModal()">&times;</button>
+        </div>
+        <div style="padding:0 0 20px; font-size:14px; color:#374151;">
+            <p style="margin-bottom:12px;">You are about to <strong id="itemStatusConfirmAction">archive</strong>: <strong id="itemArchiveConfirmName">—</strong></p>
+            <p id="itemStatusConfirmInfoText" style="margin-top:16px; color:#6b7280;">Archived materials are hidden from new orders and POS.</p>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+            <button type="button" onclick="closeItemArchiveConfirmModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
+            <button type="button" id="itemArchiveConfirmBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#6b7280;border:none;">Archive</button>
+        </div>
+    </div>
+</div>
+
+<!-- Archived Items Overlay -->
+<div id="items-archive-storage-overlay" role="dialog" aria-modal="true" aria-labelledby="items-archive-title"
+     onclick="if (event.target === this) window.closeItemsArchiveModal()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10090;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
+    <div id="items-archive-storage-modal"
+         onclick="event.stopPropagation()"
+         style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);pointer-events:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e5e7eb;">
+            <h3 id="items-archive-title" style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Archived Items</h3>
+            <button class="close-btn" onclick="window.closeItemsArchiveModal()">&times;</button>
+        </div>
+        <div id="items-archived-items-container" style="padding:20px;overflow:auto;">
+            <div style="padding:40px;text-align:center;color:#9ca3af;">Loading archived materials...</div>
         </div>
     </div>
 </div>
@@ -734,7 +877,7 @@ if (isset($_GET['ajax'])) {
             <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px 24px; font-size:13px;">
                 <div><span style="color:#6b7280;">Category:</span> <span id="scCategory" style="font-weight:600;">&mdash;</span></div>
                 <div><span style="color:#6b7280;">Unit:</span> <span id="scUnitDetail" style="font-weight:600;">&mdash;</span></div>
-                <div><span style="color:#6b7280;">Unit Cost:</span> <span id="scUnitCost" style="font-weight:600;">&mdash;</span></div>
+                <div><span style="color:#6b7280;">Average Cost:</span> <span id="scUnitCost" style="font-weight:600;">&mdash;</span></div>
                 <div><span style="color:#6b7280;">Tracking Type:</span> <span id="scTrackType" style="font-weight:600;">&mdash;</span></div>
                 <div style="grid-column:1/-1;"><span style="color:#6b7280;">Last Updated:</span> <span id="scLastUpdated" style="font-weight:600;">&mdash;</span></div>
             </div>
@@ -832,10 +975,14 @@ if (isset($_GET['ajax'])) {
                         <select id="itemCategory" name="category_id" class="w-100" onchange="handleCategoryChange()">
                             <option value="">Select Category</option>
                             <?php foreach ($categories as $cat): ?>
+                                <?php
+                                    $catNameRaw = (string)($cat['name'] ?? '');
+                                    $catNameDisp = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', $catNameRaw) ?: $catNameRaw;
+                                ?>
                                 <option value="<?php echo $cat['id']; ?>" 
                                         data-uom="<?php echo htmlspecialchars($cat['default_uom'] ?? ''); ?>"
                                         data-roll="<?php echo $cat['default_track_by_roll'] ?? 0; ?>">
-                                    <?php echo htmlspecialchars($cat['name']); ?>
+                                    <?php echo htmlspecialchars($catNameDisp); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -844,12 +991,12 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div class="form-row-grid">
                     <div>
-                        <label for="itemUnit">Unit of Measure (UOM) <span style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
+                        <label for="itemUnit">Unit of Measure (UOM) <span id="autoTagUom" style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
                         <select id="itemUnit" name="unit" required onchange="handleUomChange()" class="w-100 locked-select">
                             <option value="">Select Category First</option>
                             <option value="pcs">Pieces (pcs)</option>
                             <option value="ft">Feet (ft)</option>
-                            <option value="btl">Bottles (btl)</option>
+                            <option value="l">Liters (L)</option>
                         </select>
                         <span id="err-itemUnit" class="field-error"></span>
                     </div>
@@ -861,7 +1008,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div class="form-row-grid" style="grid-template-columns: 1.2fr 1fr 1fr; gap:16px;">
                     <div>
-                        <label for="itemTrackByRoll">Tracking Mode <span style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
+                        <label for="itemTrackByRoll">Tracking Mode <span id="autoTagTrack" style="font-size:10px; color:#9ca3af; font-weight:normal;">(Auto-generated)</span></label>
                         <select id="itemTrackByRoll" name="track_by_roll" class="w-100 locked-select">
                             <option value="0">Standard (Ledger)</option>
                             <option value="1">Roll-Based (Individual)</option>
@@ -872,7 +1019,7 @@ if (isset($_GET['ajax'])) {
                         <input type="number" step="0.01" min="0" id="itemMinStock" name="min_stock_level" value="0.00" required class="w-100">
                         <span id="err-itemMinStock" class="field-error"></span>
                     </div>
-                    <div>
+                    <div id="previewStatusSection">
                         <label>Preview Status</label>
                         <div id="editModalReorderPreview" class="preview-badge" style="height:38px; display:flex; align-items:center; justify-content:center; padding:0 12px; font-weight:600;">In Stock</div>
                     </div>
@@ -885,6 +1032,7 @@ if (isset($_GET['ajax'])) {
                     <p style="font-size:11px; color:#6b7280; margin-bottom:4px;">You will be warned when stock reaches the Reorder Level.</p>
                     <div id="editModalReorderWarnHigh" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">&#9888;&#65039; This may mark your stock as low immediately</div>
                     <div id="editModalReorderWarnLow" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">&#9888;&#65039; You may run out of stock before being warned</div>
+                    <div id="editModalReorderWarnInitialBelow" style="display:none; font-size:11px; color:#854d0e; background:#fef9c3; padding:8px 12px; border-radius:8px; border:1px solid #fde68a;">&#9888;&#65039; Current stock is below the reorder level.</div>
                     <div id="editModalReorderError" style="display:none; font-size:11px; color:#dc2626; margin-top:2px;">Please enter a value between 0.01 and 10,000</div>
                 </div>
             </div>
@@ -895,15 +1043,59 @@ if (isset($_GET['ajax'])) {
                 <div id="startingStockGroup" style="display:none; background:#fcfcfd; border:1px solid #f3f4f6; padding:16px; border-radius:12px;">
                     <p class="section-header" style="margin-top:0;">Initial Balance</p>
                     <label for="itemStartingStock">Initial Stock Quantity</label>
-                    <input type="number" step="0.01" min="0" id="itemStartingStock" name="starting_stock" value="0.00" class="w-100">
-                    <p style="font-size:10px; color:#9ca3af; margin-top:8px; line-height: 1.4;">Opening balance for new item record</p>
+                    <input type="number" step="1" min="0" id="itemStartingStock" name="starting_stock" value="0" class="w-100" inputmode="numeric"
+                        onkeydown="handlePcsInitialStockKeyDown(event)"
+                        onpaste="handlePcsInitialStockPaste(event)">
+                    <p id="startingStockHelper" style="font-size:10px; color:#9ca3af; margin-top:8px; line-height: 1.4;">Opening balance for new item record</p>
+                    <span id="err-itemStartingStock" class="field-error"></span>
+                </div>
+
+                <!-- Column 1b: Dual Input (Feet/Rolls) - UOM: ft Only -->
+                <div id="ftDualInputGroup" style="display:none; background:#fcfcfd; border:1px solid #f3f4f6; padding:16px; border-radius:12px;">
+                    <p class="section-header" style="margin-top:0;">Initial Balance (Feet)</p>
+
+                    <input type="hidden" id="stockInputMethodHidden" name="stock_input_method" value="">
+                    <input type="hidden" id="startingRollsHidden" name="starting_rolls" value="">
+
+                    <label style="display:block; margin-bottom:8px;">Stock Input Method</label>
+                    <div style="display:flex; gap:14px; align-items:center; margin-bottom:12px;">
+                        <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:#374151;">
+                            <input type="radio" name="stock_input_method_radio" id="stockByRolls" value="rolls" onchange="handleStockInputMethodChange()">
+                            By Rolls
+                        </label>
+                        <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:#374151;">
+                            <input type="radio" name="stock_input_method_radio" id="stockByFeet" value="feet" onchange="handleStockInputMethodChange()">
+                            By Feet
+                        </label>
+                    </div>
+
+                    <div id="stockByRollsFields" style="display:none;">
+                        <label for="startingRolls">Number of Rolls</label>
+                        <input type="number" step="1" min="1" id="startingRolls" value="" class="w-100" oninput="handleDualInputChange()">
+                        <p style="font-size:10px; color:#9ca3af; margin-top:6px; line-height: 1.4;">Use rolls for bulk input. Whole numbers only. Total feet will be calculated as Rolls × Roll Length.</p>
+                        <span id="err-startingRolls" class="field-error"></span>
+                    </div>
+
+                    <div id="stockByFeetFields" style="display:none;">
+                        <label for="startingFeet">Total Feet</label>
+                        <input type="number" step="0.01" min="0.01" id="startingFeet" value="" class="w-100" oninput="handleDualInputChange()">
+                        <p style="font-size:10px; color:#9ca3af; margin-top:6px; line-height: 1.4;">Use feet for exact measurement. Decimals allowed (e.g. 164.5).</p>
+                        <span id="err-startingFeet" class="field-error"></span>
+                    </div>
+
+                    <div id="dualComputedTotal" style="display:none; margin-top:10px; font-size:12px; color:#065f46; font-weight:700;">
+                        Total Feet: &mdash;
+                    </div>
+                    <div id="dualComputedRollEq" style="display:none; margin-top:4px; font-size:11px; color:#6b7280;">
+                        Equivalent to ~&mdash; rolls
+                    </div>
                 </div>
 
                 <!-- Column 2: Roll Settings (UOM: ft Only) -->
                 <div id="rollSettingsSection" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:16px;">
                     <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0369a1;margin-bottom:14px;border-bottom:1px solid #bae6fd;padding-bottom:8px;">Roll Settings</p>
                     <label for="itemRollLength">Roll Length (ft) <span style="color:#ef4444" id="rollLengthRequired">*</span></label>
-                    <input type="number" step="0.01" min="1" max="1000" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00" class="w-100">
+                    <input type="number" step="0.01" min="1" max="1000" id="itemRollLength" name="roll_length_ft" placeholder="e.g. 164.00" class="w-100" oninput="handleDualInputChange()">
                     <span id="err-itemRollLength" class="field-error"></span>
                 </div>
 
@@ -931,6 +1123,7 @@ if (isset($_GET['ajax'])) {
             
             <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top:16px; border-top:1px solid #f3f4f6;">
                 <button type="button" onclick="closeModal()" class="btn-secondary" style="border-radius: 10px; height: 44px; padding: 0 24px;">Cancel</button>
+                <button type="button" id="archiveItemBtn" onclick="openItemArchiveConfirm()" class="btn-secondary" style="border-radius: 10px; height: 44px; padding: 0 24px; display:none;">Archive</button>
                 <button type="submit" class="btn-primary" id="saveBtn" style="border-radius: 10px; height: 44px; padding: 0 24px; background: #10b981; border:none; transition: background 0.2s;">Save Changes</button>
             </div>
         </form>
@@ -948,6 +1141,7 @@ if (isset($_GET['ajax'])) {
     var selectedItemForStockCard = null;
     var editItemOriginalValues = {};
     var currentPage = <?php echo $page; ?>;
+    var currentIsTarpaulinCategory = false;
     var currentSort = '<?php echo $sort; ?>';
     var currentDir = '<?php echo $dir; ?>';
     var searchDebounceTimer = null;
@@ -993,7 +1187,7 @@ if (isset($_GET['ajax'])) {
             addStockQty.addEventListener('input', updateAddStockUI);
             addStockQty.addEventListener('change', updateAddStockUI);
         }
-        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus'].forEach(function (id) {
+        ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus', 'itemStartingStock', 'startingRolls', 'startingFeet', 'itemRollLength'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el && !el._pf_bound) {
                 el._pf_bound = true;
@@ -1015,13 +1209,92 @@ if (isset($_GET['ajax'])) {
         validateField('itemName');
     }
 
+    function handlePcsInitialStockKeyDown(e) {
+        const uom = (document.getElementById('itemUnit')?.value || '').toLowerCase();
+        if (uom !== 'pcs') return;
+
+        const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter'];
+        if (allowed.includes(e.key)) return;
+
+        // Block decimal point and scientific notation entry.
+        if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '-' || e.key === '+') {
+            e.preventDefault();
+            return;
+        }
+
+        const input = e.target;
+        const curVal = String(input.value || '').trim();
+        const selStart = input.selectionStart ?? 0;
+        const selEnd = input.selectionEnd ?? 0;
+        const hasSelection = selStart !== selEnd;
+
+        // If current value is "0" and user types a digit, replace the "0" with that digit.
+        // This prevents "03" and matches your desired admin behavior.
+        if (/^\d$/.test(e.key) && !hasSelection && parseFloat(curVal) === 0) {
+            if (e.key === '0') {
+                // Disallow resulting value being 0.
+                e.preventDefault();
+                return;
+            }
+            e.preventDefault();
+            input.value = e.key;
+            validateField('itemStartingStock');
+            updateSaveButtonState();
+            return;
+        }
+
+        // Allow digits only.
+        if (!/^\d$/.test(e.key)) e.preventDefault();
+    }
+
+    function handlePcsInitialStockPaste(e) {
+        const uom = (document.getElementById('itemUnit')?.value || '').toLowerCase();
+        if (uom !== 'pcs') return;
+
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        // For pcs, only whole-number paste is allowed.
+        if (!/^\d+$/.test(text.trim())) { e.preventDefault(); return; }
+        // Disallow 0 as initial stock for pcs.
+        if (parseInt(text.trim(), 10) === 0) { e.preventDefault(); return; }
+    }
+
+    function getRawInput(id) {
+        return (document.getElementById(id)?.value ?? '').trim();
+    }
+
+    // Strict numeric validators for UI (prevents things like "--777" and special chars).
+    function isWholeNumberLike(s) {
+        // Strict whole number (no decimals). e.g. 0, 1, 2 ...
+        return /^(0|[1-9]\d*)$/.test(s);
+    }
+
+    function isDecimalWithMaxPlaces(s, maxPlaces) {
+        // No negatives; optional fractional part up to maxPlaces; no scientific notation.
+        const mp = Math.max(0, Math.floor(maxPlaces));
+        return new RegExp('^([0-9]+)(\\.[0-9]{1,' + mp + '})?$').test(s);
+    }
+
+    function isFeetPositive(s) {
+        if (!isDecimalWithMaxPlaces(s, 3)) return false;
+        const n = Number(s);
+        return Number.isFinite(n) && n > 0;
+    }
+
+    function isRollLengthValid(s) {
+        if (!isDecimalWithMaxPlaces(s, 3)) return false;
+        const n = Number(s);
+        return Number.isFinite(n) && n >= 1 && n <= 1000;
+    }
+
     function validateField(id) {
         const el = document.getElementById(id);
         const errEl = document.getElementById('err-' + id);
         let isValid = true;
         let msg = '';
 
-        const val = el.value.trim();
+        const val = el?.value != null ? String(el.value).trim() : '';
+        const itemUnit = (document.getElementById('itemUnit')?.value || '').toLowerCase();
+        const uom = itemUnit === 'btl' ? 'l' : itemUnit;
 
         switch(id) {
             case 'itemName':
@@ -1046,11 +1319,52 @@ if (isset($_GET['ajax'])) {
                 if (isNaN(min)) { msg = 'Reorder level is required.'; isValid = false; }
                 else if (min < 0) { msg = 'Reorder level cannot be negative.'; isValid = false; }
                 break;
+            case 'itemStartingStock':
+                if (!val) { msg = 'Initial stock is required.'; isValid = false; }
+                else if (uom === 'pcs') {
+                    if (!isWholeNumberLike(val)) { msg = 'Whole numbers only (pcs).'; isValid = false; }
+                    else {
+                        const n = Number(val);
+                        if (!Number.isFinite(n) || n <= 0) { msg = 'Initial stock must be greater than 0 for pcs.'; isValid = false; }
+                    }
+                } else if (uom === 'l') {
+                    if (!isDecimalWithMaxPlaces(val, 3)) { msg = 'Decimals allowed (e.g., 0.25 L), up to 3 decimals.'; isValid = false; }
+                    else {
+                        const n = Number(val);
+                        if (!Number.isFinite(n) || n < 0) { msg = 'Initial stock cannot be negative.'; isValid = false; }
+                    }
+                } else if (uom === 'ft') {
+                    // In ft mode the real input comes from rolls/feet; but keep a safe check.
+                    if (!isDecimalWithMaxPlaces(val, 3)) { msg = 'Invalid number format.'; isValid = false; }
+                    else {
+                        const n = Number(val);
+                        if (!Number.isFinite(n) || n < 0) { msg = 'Initial stock cannot be negative.'; isValid = false; }
+                    }
+                }
+                break;
+            case 'startingRolls':
+                if (!val) { msg = 'Number of rolls is required.'; isValid = false; }
+                else if (!/^(0|[1-9]\d*)$/.test(val)) { msg = 'Whole numbers only (rolls).'; isValid = false; }
+                else {
+                    const r = Number(val);
+                    if (!Number.isFinite(r) || r < 1) { msg = 'Rolls must be at least 1.'; isValid = false; }
+                }
+                break;
+            case 'startingFeet':
+                if (!val) { msg = 'Total feet is required.'; isValid = false; }
+                else if (!isFeetPositive(val)) { msg = 'Feet must be > 0 and decimals allowed (up to 3).' ; isValid = false; }
+                break;
+            case 'itemRollLength':
+                if (!val) { msg = 'Roll Length is required for Feet (ft).'; isValid = false; }
+                else if (!isRollLengthValid(val)) { msg = 'Roll Length must be between 1 and 1000 ft (up to 3 decimals).'; isValid = false; }
+                break;
         }
 
         updateValidationUI(id, isValid, msg);
         updateSaveButtonState();
-        if (id === 'itemMinStock' || id === 'itemName') updateEditModalUI();
+        if (id === 'itemMinStock' || id === 'itemName' || id === 'itemStatus' || id === 'itemStartingStock' || id === 'startingRolls' || id === 'startingFeet') {
+            updateEditModalUI();
+        }
         return isValid;
     }
 
@@ -1073,22 +1387,51 @@ if (isset($_GET['ajax'])) {
     }
 
     function updateSaveButtonState() {
-        const fields = ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock'];
+        const baseFields = ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock'];
         let allValid = true;
-        
-        fields.forEach(id => {
+
+        baseFields.forEach(id => {
             const el = document.getElementById(id);
-            const val = el.value.trim();
+            const val = el?.value != null ? String(el.value).trim() : '';
             if (!val) allValid = false;
-            if (el.classList.contains('input-error')) allValid = false;
+            if (el?.classList?.contains('input-error')) allValid = false;
         });
 
-        // Special check for Roll Length if UOM is ft
-        const uom = document.getElementById('itemUnit').value;
-        if (uom === 'ft') {
-            const rl = document.getElementById('itemRollLength').value;
-            const rlVal = parseFloat(rl);
-            if (isNaN(rlVal) || rlVal < 1 || rlVal > 1000) allValid = false;
+        const uomRaw = document.getElementById('itemUnit')?.value || '';
+        let uom = String(uomRaw).toLowerCase();
+        if (uom === 'btl') uom = 'l'; // legacy safety
+
+        const isCreate = document.getElementById('actionType')?.value === 'create_item';
+
+        if (isCreate) {
+            if (uom === 'pcs') {
+                const raw = getRawInput('itemStartingStock');
+                if (!raw || !isWholeNumberLike(raw) || Number(raw) <= 0) allValid = false;
+            } else if (uom === 'l') {
+                const raw = getRawInput('itemStartingStock');
+                if (!raw || !isDecimalWithMaxPlaces(raw, 3) || Number(raw) < 0) allValid = false;
+            } else if (uom === 'ft') {
+                const rlRaw = getRawInput('itemRollLength');
+                const rlOk = isRollLengthValid(rlRaw);
+                if (!rlOk) allValid = false;
+
+                const method = getStockInputMethod();
+                if (!method) allValid = false;
+
+                if (method === 'rolls') {
+                    const rollsRaw = getRawInput('startingRolls');
+                    if (!rollsRaw || !/^(0|[1-9]\d*)$/.test(rollsRaw) || Number(rollsRaw) < 1) allValid = false;
+                } else if (method === 'feet') {
+                    const feetRaw = getRawInput('startingFeet');
+                    if (!feetRaw || !isFeetPositive(feetRaw)) allValid = false;
+                }
+            }
+        } else {
+            // Edit mode: keep existing roll length validity gate for ft.
+            if (uom === 'ft') {
+                const rlRaw = getRawInput('itemRollLength');
+                if (!isRollLengthValid(rlRaw)) allValid = false;
+            }
         }
 
         document.getElementById('saveBtn').disabled = !allValid;
@@ -1336,24 +1679,38 @@ if (isset($_GET['ajax'])) {
         if (!selectedOpt || !selectedOpt.value) return;
 
         const uom = selectedOpt.getAttribute('data-uom');
-        const isRoll = selectedOpt.getAttribute('data-roll');
+        const catLabel = (selectedOpt.textContent || '').toUpperCase();
+        // Tarpaulin should be flexible: allow manual override of UOM.
+        const isTarpaulin = catLabel.includes('TARPAULIN');
+        // Printed stickers must be stored as Pieces (pcs), not Feet (ft).
+        const isPrintedSticker = catLabel.includes('PRINTED') && (catLabel.includes('STKR') || catLabel.includes('STICKER'));
+        currentIsTarpaulinCategory = !!isTarpaulin;
 
         // Only auto-fill if it's a NEW item (mode check)
         const isCreate = document.getElementById('actionType').value === 'create_item';
         if (isCreate) {
             if (uom) {
-                document.getElementById('itemUnit').value = uom;
-                handleUomChange();
-                // Lock them
-                document.getElementById('itemUnit').disabled = true;
-                document.getElementById('itemUnit').style.background = '#fcfcfd';
-                document.getElementById('itemTrackByRoll').disabled = true;
-                document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
+                const normalized = String(uom || '').toLowerCase();
+                // Bottles (btl) is no longer a selectable UOM; map to Liters instead.
+                const mappedUom = normalized === 'btl' ? 'l' : normalized;
+                document.getElementById('itemUnit').value = mappedUom;
             }
-            if (isRoll !== null) {
-                document.getElementById('itemTrackByRoll').value = isRoll;
+            if (isPrintedSticker) {
+                document.getElementById('itemUnit').value = 'pcs';
             }
         }
+
+        // Lock UOM unless Tarpaulin.
+        if (!isTarpaulin) {
+            document.getElementById('itemUnit').disabled = true;
+            document.getElementById('itemUnit').style.background = '#fcfcfd';
+        } else {
+            document.getElementById('itemUnit').disabled = false;
+            document.getElementById('itemUnit').style.background = '';
+        }
+
+        // Always apply smart rules (tracking auto).
+        applySmartUomRules();
     }
 
     function editFromStockCard() {
@@ -1364,27 +1721,215 @@ if (isset($_GET['ajax'])) {
     }
 
     function handleUomChange() {
-        const uom = document.getElementById('itemUnit').value;
-        const rollSec = document.getElementById('rollSettingsSection');
-        const lengthInput = document.getElementById('itemRollLength');
-        const lengthReq = document.getElementById('rollLengthRequired');
-        
-        if (uom === 'ft') {
-            rollSec.style.display = 'block';
-            lengthInput.required = true;
-            lengthReq.style.display = 'inline';
-            document.getElementById('itemTrackByRoll').value = '1';
-        } else {
-            rollSec.style.display = 'none';
-            lengthInput.required = false;
-            lengthReq.style.display = 'none';
+        applySmartUomRules();
+    }
+
+    function setAutoGeneratedTags() {
+        // Smart mode: tracking is auto-generated & locked based on UOM.
+        const uomTag = document.getElementById('autoTagUom');
+        const trackTag = document.getElementById('autoTagTrack');
+        // Tarpaulin category allows UOM overrides, so don't label UOM as auto-generated there.
+        if (uomTag) uomTag.style.display = currentIsTarpaulinCategory ? 'none' : 'inline';
+        if (trackTag) trackTag.style.display = 'inline';
+    }
+
+    function getStockInputMethod() {
+        if (document.getElementById('stockByRolls')?.checked) return 'rolls';
+        if (document.getElementById('stockByFeet')?.checked) return 'feet';
+        return '';
+    }
+
+    function handleStockInputMethodChange() {
+        const method = getStockInputMethod();
+        const byRolls = document.getElementById('stockByRollsFields');
+        const byFeet = document.getElementById('stockByFeetFields');
+        if (byRolls) byRolls.style.display = method === 'rolls' ? 'block' : 'none';
+        if (byFeet) byFeet.style.display = method === 'feet' ? 'block' : 'none';
+        document.getElementById('stockInputMethodHidden').value = method;
+
+        // Reset irrelevant inputs to avoid conflicts.
+        if (method === 'rolls') {
+            const ftEl = document.getElementById('startingFeet');
+            if (ftEl) ftEl.value = '';
+            validateField('startingFeet');
+        } else if (method === 'feet') {
+            const rollsEl = document.getElementById('startingRolls');
+            if (rollsEl) rollsEl.value = '';
+            document.getElementById('startingRollsHidden').value = '';
+            validateField('startingRolls');
         }
+
+        handleDualInputChange();
+        updateSaveButtonState();
+    }
+
+    function handleDualInputChange() {
+        const method = getStockInputMethod();
+        const uom = (document.getElementById('itemUnit')?.value || '').toLowerCase();
+        const isCreate = document.getElementById('actionType')?.value === 'create_item';
+
+        // Only meaningful for ft create mode
+        const computedTotalEl = document.getElementById('dualComputedTotal');
+        const eqEl = document.getElementById('dualComputedRollEq');
+        const rollSec = document.getElementById('rollSettingsSection');
+        if (!isCreate || uom !== 'ft') {
+            if (computedTotalEl) computedTotalEl.style.display = 'none';
+            if (eqEl) eqEl.style.display = 'none';
+            if (rollSec) rollSec.style.display = (uom === 'ft') ? 'block' : 'none';
+            return;
+        }
+
+        // Conditional visibility:
+        // - By Rolls: show Roll Length + computed total
+        // - By Feet: hide Roll Length + computed total (clean UI)
+        if (rollSec) rollSec.style.display = (method === 'rolls') ? 'block' : 'none';
+
+        const rollLen = parseFloat(document.getElementById('itemRollLength')?.value || 0);
+        const startingStockEl = document.getElementById('itemStartingStock');
+
+        let totalFeet = 0;
+        let rollEq = 0;
+        let rollsCount = '';
+
+        if (method === 'rolls') {
+            const r = parseInt(document.getElementById('startingRolls')?.value || '0', 10);
+            rollsCount = isNaN(r) ? '' : String(Math.max(0, r));
+            if (!isNaN(r) && r > 0 && !isNaN(rollLen) && rollLen > 0) {
+                totalFeet = r * rollLen;
+                rollEq = r;
+            }
+        } else if (method === 'feet') {
+            const ft = parseFloat(document.getElementById('startingFeet')?.value || '0');
+            if (!isNaN(ft) && ft > 0) {
+                totalFeet = ft;
+                if (!isNaN(rollLen) && rollLen > 0) {
+                    rollEq = ft / rollLen;
+                }
+            }
+        }
+
+        // Always store total feet in the real field used by backend.
+        if (startingStockEl) startingStockEl.value = totalFeet ? String(totalFeet.toFixed(2)) : '0.00';
+        document.getElementById('startingRollsHidden').value = rollsCount;
+
+        if (computedTotalEl) {
+            computedTotalEl.style.display = (method === 'rolls' && totalFeet > 0) ? 'block' : 'none';
+            computedTotalEl.textContent = 'Total Feet: ' + (totalFeet > 0 ? totalFeet.toFixed(2) + ' ft' : '—');
+        }
+        if (eqEl) {
+            const showEq = (method === 'feet' && totalFeet > 0 && !isNaN(rollLen) && rollLen > 0);
+            eqEl.style.display = showEq ? 'block' : 'none';
+            if (showEq) eqEl.textContent = 'Equivalent to ~' + (rollEq ? rollEq.toFixed(2) : '—') + ' rolls (1 roll = ' + rollLen.toFixed(2) + ' ft)';
+        }
+
+        // Real-time: keep Save button state accurate while typing.
+        updateSaveButtonState();
+    }
+
+    function applySmartUomRules() {
+        setAutoGeneratedTags();
+
+        const uomEl = document.getElementById('itemUnit');
+        let uom = (uomEl?.value || '').toLowerCase();
+        // Safety: never let the UI carry legacy btl value.
+        if (uom === 'btl') uom = 'l';
+        const isCreate = document.getElementById('actionType')?.value === 'create_item';
+
+        // Auto-control Tracking Mode based on UOM (locked always)
+        const trackEl = document.getElementById('itemTrackByRoll');
+        if (trackEl) {
+            trackEl.value = (uom === 'ft') ? '1' : '0';
+            trackEl.disabled = true;
+            trackEl.style.background = '#fcfcfd';
+        }
+
+        // Roll settings visible for Feet only
+        const rollSec = document.getElementById('rollSettingsSection');
+        const rollLenEl = document.getElementById('itemRollLength');
+        const rollLenReq = document.getElementById('rollLengthRequired');
+        const isFeet = (uom === 'ft');
+        // Note: when ft + dual input, roll section visibility depends on input method.
+        if (rollSec) rollSec.style.display = isFeet ? 'block' : 'none';
+        if (rollLenEl) rollLenEl.required = !!isFeet;
+        if (rollLenReq) rollLenReq.style.display = isFeet ? 'inline' : 'none';
+
+        // Initial stock inputs
+        const startGroup = document.getElementById('startingStockGroup');
+        const ftGroup = document.getElementById('ftDualInputGroup');
+        const startingStockEl = document.getElementById('itemStartingStock');
+
+        if (isCreate) {
+            if (startGroup) startGroup.style.display = (!isFeet) ? 'block' : 'none';
+            if (ftGroup) ftGroup.style.display = (isFeet) ? 'block' : 'none';
+
+            // Validation/input behavior by UOM
+            if (startingStockEl) {
+                if (uom === 'pcs') {
+                    startingStockEl.step = '1';
+                    startingStockEl.min = '0'; // Use JS validation for "no zero" rule.
+                    // Normalize legacy/default "0.00" to a strict whole number string.
+                    const startingRaw = String(startingStockEl.value || '').trim();
+                    if (!startingRaw || startingRaw === '0.00' || parseFloat(startingRaw) === 0) {
+                        startingStockEl.value = '0';
+                    } else if (startingRaw.match(/^([0-9]+)\\.0+$/)) {
+                        startingStockEl.value = String(parseInt(startingRaw, 10));
+                    }
+                } else if (uom === 'l') {
+                    startingStockEl.step = '0.01';
+                    startingStockEl.min = '0';
+                } else if (isFeet) {
+                    startingStockEl.step = '0.01';
+                    startingStockEl.min = '0';
+                }
+            }
+
+            const helper = document.getElementById('startingStockHelper');
+            if (helper) {
+                if (uom === 'pcs') helper.textContent = 'Whole numbers only (pcs).';
+                else if (uom === 'l') helper.textContent = 'Decimals allowed (e.g., 0.25 L).';
+                else helper.textContent = 'Opening balance for new item record';
+            }
+
+            // Default dual input method for ft
+            if (isFeet) {
+                // Ensure a sensible default roll length for calculations/back-end validation.
+                if (rollLenEl && (!rollLenEl.value || parseFloat(rollLenEl.value) <= 0)) {
+                    rollLenEl.value = '164.00';
+                }
+                if (!getStockInputMethod()) {
+                    const byFeet = document.getElementById('stockByFeet');
+                    if (byFeet) byFeet.checked = true;
+                    handleStockInputMethodChange();
+                } else {
+                    handleStockInputMethodChange();
+                }
+                handleDualInputChange();
+            } else {
+                // Clear dual inputs when leaving ft
+                const byRolls = document.getElementById('stockByRolls');
+                const byFeet = document.getElementById('stockByFeet');
+                if (byRolls) byRolls.checked = false;
+                if (byFeet) byFeet.checked = false;
+                document.getElementById('stockInputMethodHidden').value = '';
+                document.getElementById('startingRollsHidden').value = '';
+                const computedTotalEl = document.getElementById('dualComputedTotal');
+                const eqEl = document.getElementById('dualComputedRollEq');
+                if (computedTotalEl) computedTotalEl.style.display = 'none';
+                if (eqEl) eqEl.style.display = 'none';
+            }
+        } else {
+            if (startGroup) startGroup.style.display = 'none';
+            if (ftGroup) ftGroup.style.display = 'none';
+        }
+
+        updateSaveButtonState();
     }
 
     function openModal(mode, item = null) {
         const modal = document.getElementById('itemModal');
-        modal.style.display = 'flex';
         const form = document.getElementById('itemForm');
+        if (!modal || !form) return;
+        modal.style.display = 'flex';
         form.reset();
         
         // Top info removed
@@ -1399,49 +1944,110 @@ if (isset($_GET['ajax'])) {
                 if (err) { err.style.display = 'none'; err.textContent = ''; }
             }
         });
-        document.getElementById('saveBtn').disabled = true;
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) saveBtn.disabled = true;
         
-        handleUomChange();
+        // Ensure smart rules run after reset.
+        applySmartUomRules();
 
         if (mode === 'create') {
-            document.getElementById('modalTitle').textContent = 'Add New Material';
-            document.getElementById('actionType').value = 'create_item';
-            document.getElementById('itemId').value = '';
-            document.getElementById('itemUnitCost').value = '0.00';
-            document.getElementById('itemMinStock').value = '1';
-            document.getElementById('startingStockGroup').style.display = 'block';
-            document.getElementById('itemStatus').value = 'ACTIVE';
+            const modalTitle = document.getElementById('modalTitle');
+            const actionType = document.getElementById('actionType');
+            const itemId = document.getElementById('itemId');
+            const itemUnitCost = document.getElementById('itemUnitCost');
+            const itemMinStock = document.getElementById('itemMinStock');
+            if (modalTitle) modalTitle.textContent = 'Add New Material';
+            if (actionType) actionType.value = 'create_item';
+            if (itemId) itemId.value = '';
+            if (itemUnitCost) itemUnitCost.value = '0.00';
+            if (itemMinStock) itemMinStock.value = '1';
+            // Smart UOM decides which stock group is visible.
+            const startingStockGroup = document.getElementById('startingStockGroup');
+            if (startingStockGroup) startingStockGroup.style.display = 'none';
+            const ftGrp = document.getElementById('ftDualInputGroup');
+            if (ftGrp) ftGrp.style.display = 'none';
+            const itemStatus = document.getElementById('itemStatus');
+            if (itemStatus) itemStatus.value = 'ACTIVE';
+            const previewSection = document.getElementById('previewStatusSection');
+            if (previewSection) previewSection.style.display = 'none';
             
             // Lock them by default for new items until category is selected
-            document.getElementById('itemUnit').disabled = true;
-            document.getElementById('itemUnit').style.background = '#fcfcfd';
-            document.getElementById('itemTrackByRoll').disabled = true;
-            document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
+            const itemUnitEl = document.getElementById('itemUnit');
+            const trackElCreate = document.getElementById('itemTrackByRoll');
+            if (itemUnitEl) { itemUnitEl.disabled = true; itemUnitEl.style.background = '#fcfcfd'; }
+            if (trackElCreate) { trackElCreate.disabled = true; trackElCreate.style.background = '#fcfcfd'; }
+            const archiveBtn = document.getElementById('archiveItemBtn');
+            if (archiveBtn) archiveBtn.style.display = 'none';
 
             selectedItemForStockCard = null;
-            setTimeout(updateEditModalUI, 0);
+            setTimeout(function () {
+                applySmartUomRules();
+                updateEditModalUI();
+            }, 0);
         } else {
-            document.getElementById('modalTitle').textContent = 'Edit Material Settings';
-            document.getElementById('actionType').value = 'update_item';
-            document.getElementById('itemId').value = item.id;
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemCategory').value = item.category_id || '';
-            document.getElementById('itemUnit').value = item.unit_of_measure;
-            document.getElementById('itemUnitCost').value = item.unit_cost || '0.00';
-            document.getElementById('itemTrackByRoll').value = item.track_by_roll;
-            document.getElementById('itemMinStock').value = item.reorder_level || '1';
-            document.getElementById('itemStatus').value = item.status;
-            document.getElementById('startingStockGroup').style.display = 'none';
+            const modalTitle2 = document.getElementById('modalTitle');
+            const actionType2 = document.getElementById('actionType');
+            const itemId2 = document.getElementById('itemId');
+            const itemName2 = document.getElementById('itemName');
+            const itemCategory2 = document.getElementById('itemCategory');
+            const itemUnit2 = document.getElementById('itemUnit');
+            const itemUnitCost2 = document.getElementById('itemUnitCost');
+            if (modalTitle2) modalTitle2.textContent = 'Edit Material Settings';
+            if (actionType2) actionType2.value = 'update_item';
+            if (itemId2) itemId2.value = item.id;
+            if (itemName2) itemName2.value = item.name;
+            if (itemCategory2) itemCategory2.value = item.category_id || '';
+            if (itemUnit2) itemUnit2.value = item.unit_of_measure;
+            if (itemUnitCost2) itemUnitCost2.value = item.unit_cost || '0.00';
+            // Tracking is auto-generated from UOM; keep UI consistent.
+            const track2 = document.getElementById('itemTrackByRoll');
+            const minStock2 = document.getElementById('itemMinStock');
+            const status2 = document.getElementById('itemStatus');
+            if (track2) track2.value = item.track_by_roll;
+            if (minStock2) minStock2.value = item.reorder_level || '1';
+            if (status2) status2.value = item.status;
+            const startingStockGroup2 = document.getElementById('startingStockGroup');
+            if (startingStockGroup2) startingStockGroup2.style.display = 'none';
+            const ftGrp2 = document.getElementById('ftDualInputGroup');
+            if (ftGrp2) ftGrp2.style.display = 'none';
+            const previewSection2 = document.getElementById('previewStatusSection');
+            if (previewSection2) previewSection2.style.display = 'block';
+            const archiveBtn2 = document.getElementById('archiveItemBtn');
+            if (archiveBtn2) {
+                archiveBtn2.style.display = (item.status && item.status === 'INACTIVE') ? 'inline-flex' : 'none';
+                archiveBtn2.textContent = 'Archive';
+            }
 
-            // Lock them in Edit mode
-            document.getElementById('itemUnit').disabled = true;
-            document.getElementById('itemUnit').style.background = '#fcfcfd';
-            document.getElementById('itemTrackByRoll').disabled = true;
-            document.getElementById('itemTrackByRoll').style.background = '#fcfcfd';
+            // Lock them in Edit mode unless Tarpaulin (allow override even when editing).
+            const catOpt = document.getElementById('itemCategory')?.selectedOptions?.[0];
+            const catEditLabel = (catOpt?.textContent || '').toUpperCase();
+            const editIsTarpaulin = catEditLabel.includes('TARPAULIN');
+            const editIsPrintedSticker = catEditLabel.includes('PRINTED') && (catEditLabel.includes('STKR') || catEditLabel.includes('STICKER'));
+            currentIsTarpaulinCategory = !!editIsTarpaulin;
+
+            // UOM lock rules for edit; tracking is always auto-generated + locked.
+            if (!editIsTarpaulin) {
+                const itemUnit3 = document.getElementById('itemUnit');
+                if (itemUnit3) { itemUnit3.disabled = true; itemUnit3.style.background = '#fcfcfd'; }
+            } else {
+                const itemUnit3b = document.getElementById('itemUnit');
+                if (itemUnit3b) { itemUnit3b.disabled = false; itemUnit3b.style.background = ''; }
+            }
+
+            // Printed stickers must be stored as Pieces (pcs), not Feet (ft).
+            if (editIsPrintedSticker) {
+                const itemUnit3c = document.getElementById('itemUnit');
+                if (itemUnit3c) itemUnit3c.value = 'pcs';
+            }
+            const track3 = document.getElementById('itemTrackByRoll');
+            if (track3) { track3.disabled = true; track3.style.background = '#fcfcfd'; }
+
             if (item.unit_of_measure === 'ft') {
                 document.getElementById('itemRollLength').value = item.default_roll_length_ft || '';
-                setTimeout(handleUomChange, 0);
             }
+            // Ensure roll/stock sections match current UOM.
+            setTimeout(applySmartUomRules, 0);
+
             editItemOriginalValues = {
                 reorder_level: String(item.reorder_level || '0'),
                 roll_length: String(item.default_roll_length_ft || '')
@@ -1456,6 +2062,20 @@ if (isset($_GET['ajax'])) {
         const actionTypeEl = document.getElementById('actionType');
         if (!actionTypeEl) return;
         const isEdit = actionTypeEl.value === 'update_item';
+        const archiveBtn = document.getElementById('archiveItemBtn');
+        if (archiveBtn) {
+            if (!isEdit) {
+                archiveBtn.style.display = 'none';
+            } else {
+                const st = document.getElementById('itemStatus')?.value;
+                if (st === 'INACTIVE') {
+                    archiveBtn.style.display = 'inline-flex';
+                    archiveBtn.textContent = 'Archive';
+                } else {
+                    archiveBtn.style.display = 'none';
+                }
+            }
+        }
         const minStock = document.getElementById('itemMinStock');
         const rollLength = document.getElementById('itemRollLength');
         const reorderVal = parseFloat(minStock?.value || 0);
@@ -1469,16 +2089,51 @@ if (isset($_GET['ajax'])) {
         const reorderErr = document.getElementById('err-itemMinStock');
         const reorderWarnHigh = document.getElementById('editModalReorderWarnHigh');
         const reorderWarnLow = document.getElementById('editModalReorderWarnLow');
+        const reorderWarnInitialBelow = document.getElementById('editModalReorderWarnInitialBelow');
         
         if (reorderVal <= 0 || reorderVal > 10000) {
             reorderValid = false;
             if (reorderErr) reorderErr.style.display = 'block';
             if (reorderWarnHigh) reorderWarnHigh.style.display = 'none';
             if (reorderWarnLow) reorderWarnLow.style.display = 'none';
+            if (reorderWarnInitialBelow) reorderWarnInitialBelow.style.display = 'none';
         } else {
             if (reorderErr) reorderErr.style.display = 'none';
             if (reorderWarnHigh) reorderWarnHigh.style.display = (isEdit && currentStock > 0 && reorderVal > currentStock) ? 'block' : 'none';
-            if (reorderWarnLow) reorderWarnLow.style.display = (reorderVal > 0 && reorderVal < 10) ? 'block' : 'none';
+            // Avoid showing "run out soon" warnings in create mode (it can be misleading).
+            if (reorderWarnLow) reorderWarnLow.style.display = (isEdit && reorderVal > 0 && reorderVal < 10) ? 'block' : 'none';
+        }
+
+        // Create-mode only warning: if initial stock is below reorder level, warn + highlight, but do NOT block submission.
+        // We compare against itemStartingStock (ft dual input writes the computed total into this hidden field).
+        const initialStockRaw = document.getElementById('itemStartingStock')?.value || '0';
+        const initialStock = parseFloat(initialStockRaw);
+        const showInitialBelow = (!isEdit && Number.isFinite(initialStock) && initialStock >= 0 && reorderVal > initialStock);
+
+        if (reorderWarnInitialBelow) reorderWarnInitialBelow.style.display = showInitialBelow ? 'block' : 'none';
+
+        const startingStockEl = document.getElementById('itemStartingStock');
+        const startingRollsEl = document.getElementById('startingRolls');
+        const startingFeetEl = document.getElementById('startingFeet');
+        const uomLower = String(uom || '').toLowerCase();
+        const stockInputMethod = getStockInputMethod();
+
+        // Clear previous warning highlights
+        if (minStock) minStock.classList.remove('input-warning');
+        if (startingStockEl) startingStockEl.classList.remove('input-warning');
+        if (startingRollsEl) startingRollsEl.classList.remove('input-warning');
+        if (startingFeetEl) startingFeetEl.classList.remove('input-warning');
+
+        if (showInitialBelow) {
+            if (minStock) minStock.classList.add('input-warning');
+            if (uomLower === 'ft') {
+                // Highlight the active ft input for clearer guidance.
+                if (stockInputMethod === 'rolls' && startingRollsEl) startingRollsEl.classList.add('input-warning');
+                else if (stockInputMethod === 'feet' && startingFeetEl) startingFeetEl.classList.add('input-warning');
+                else if (startingRollsEl) startingRollsEl.classList.add('input-warning');
+            } else if (startingStockEl) {
+                startingStockEl.classList.add('input-warning');
+            }
         }
         
         let statusPreview = '';
@@ -1517,12 +2172,17 @@ if (isset($_GET['ajax'])) {
         const rollSectionVisible = document.getElementById('itemUnit')?.value === 'ft';
         let rollValid = true;
         if (rollSectionVisible) {
-            rollValid = !isNaN(rollVal) && rollVal >= 1 && rollVal <= 1000;
-            if (rollErr) rollErr.style.display = (!rollValid && String(rollLength?.value || '').trim() !== '') ? 'block' : 'none';
+            const rollRaw = String(rollLength?.value || '').trim();
+            rollValid = isRollLengthValid(rollRaw);
+            if (rollErr) rollErr.style.display = (!rollValid && rollRaw !== '') ? 'block' : 'none';
         }
         
         const saveBtn = document.getElementById('saveBtn');
-        if (saveBtn) saveBtn.disabled = !reorderValid || (rollSectionVisible && !rollValid);
+        if (saveBtn) {
+            // Let smart numeric validation drive the button, then apply reorder/roll section gating.
+            updateSaveButtonState();
+            if (!reorderValid || (rollSectionVisible && !rollValid)) saveBtn.disabled = true;
+        }
         
         if (isEdit && editItemOriginalValues && Object.keys(editItemOriginalValues).length) {
             const changes = [];
@@ -1567,13 +2227,45 @@ if (isset($_GET['ajax'])) {
         document.getElementById('addStockItemName').textContent = item.name;
         document.getElementById('addStockItemId').value = item.id;
         document.getElementById('addStockIsRoll').value = item.track_by_roll;
-        document.getElementById('addStockUom').value = item.unit_of_measure || 'pcs';
+        const catLabel = String(item.category_name || '').toUpperCase();
+        const isPrintedSticker = catLabel.includes('PRINTED') && (catLabel.includes('STKR') || catLabel.includes('STICKER'));
+        // Printed stickers must be handled in PCS in the Stock Intake modal.
+        document.getElementById('addStockUom').value = isPrintedSticker ? 'pcs' : (item.unit_of_measure || 'pcs');
         document.getElementById('addStockCurrentStock').value = currentStock;
+        const uom = String(item.unit_of_measure || 'pcs').toLowerCase();
+        const qtyUomLabelEl = document.getElementById('addStockQtyUomLabel');
+        if (qtyUomLabelEl) {
+            const effectiveUom = isPrintedSticker ? 'pcs' : uom;
+            const label = (effectiveUom === 'l') ? 'Liter (L)' : ((effectiveUom === 'ft') ? 'ft' : 'pcs');
+            qtyUomLabelEl.textContent = label;
+        }
+        const qtyInputEl = document.getElementById('addStockQty');
+        if (qtyInputEl) {
+            // Keep HTML constraints aligned with strict JS validation.
+            if (isPrintedSticker || uom === 'pcs') {
+                qtyInputEl.step = '1';
+                qtyInputEl.min = '1';
+                qtyInputEl.placeholder = 'e.g. 10 pcs';
+            } else {
+                qtyInputEl.step = '0.01';
+                qtyInputEl.min = '0';
+                qtyInputEl.placeholder = (uom === 'l') ? 'e.g. 1.50 L' : 'e.g. 12.25 ft';
+            }
+        }
+        const currentUnitCost = parseFloat(item.unit_cost || 0);
+        document.getElementById('addStockCurrentUnitCost').value = currentUnitCost;
+        const unitCostInput = document.getElementById('addStockUnitCost');
+        if (unitCostInput) unitCostInput.value = (isNaN(currentUnitCost) || currentUnitCost <= 0) ? '0.00' : currentUnitCost.toFixed(2);
         document.getElementById('addStockQty').value = '';
         document.getElementById('addStockRollCode').value = '';
         document.getElementById('addStockWidth').value = item.default_roll_width_ft || '1'; // Default to 1 if no width specified
         document.getElementById('addStockNotes').value = '';
         document.getElementById('addStockQtyError').style.display = 'none';
+        const errCostEl = document.getElementById('err-addStockUnitCost');
+        if (errCostEl) {
+            errCostEl.textContent = '';
+            errCostEl.style.display = 'none';
+        }
         document.getElementById('addStockLargeWarning').style.display = 'none';
         
         const isRoll = item.track_by_roll == 1;
@@ -1589,42 +2281,326 @@ if (isset($_GET['ajax'])) {
         }, 150);
     }
 
+    function normalizeAddStockUom() {
+        const uom = String(document.getElementById('addStockUom')?.value || 'pcs').toLowerCase();
+        if (uom === 'l') return 'l';
+        if (uom === 'ft') return 'ft';
+        return 'pcs';
+    }
+
+    function getMaxDecimalPlacesForUom(uomType) {
+        return (uomType === 'pcs') ? 0 : 2;
+    }
+
+    function validateAddStockQtyString(qtyStr, uomType) {
+        const msgBase = {
+            pcs: 'Whole numbers only (pcs). No decimals or spaces allowed.',
+            l: 'Enter a valid number (decimals allowed, no spaces).',
+            ft: 'Enter a valid length (decimals allowed, no spaces).'
+        };
+
+        const cleaned = String(qtyStr ?? '').trim();
+        if (cleaned === '') return { ok: false, msg: msgBase[uomType] };
+
+        if (uomType === 'pcs') {
+            if (!/^\d+$/.test(cleaned)) return { ok: false, msg: msgBase.pcs };
+            const n = Number(cleaned);
+            if (!Number.isFinite(n) || n < 1 || n > 100000) return { ok: false, msg: msgBase.pcs };
+            return { ok: true, qtyNum: Math.trunc(n), msg: '' };
+        }
+
+        // l/ft: digits with optional single decimal, up to 2 decimals.
+        if (!/^\d+(\.\d+)?$/.test(cleaned) && !/^\d*\.\d+$/.test(cleaned)) {
+            return { ok: false, msg: msgBase[uomType] };
+        }
+
+        if (cleaned.includes('.')) {
+            const parts = cleaned.split('.');
+            const dec = parts[1] ?? '';
+            const maxDec = getMaxDecimalPlacesForUom(uomType);
+            if (dec.length > maxDec) return { ok: false, msg: msgBase[uomType] };
+        }
+
+        const n = Number(cleaned);
+        if (!Number.isFinite(n) || n <= 0 || n > 100000) return { ok: false, msg: msgBase[uomType] };
+        return { ok: true, qtyNum: n, msg: '' };
+    }
+
+    function handleAddStockQtyKeyDown(e) {
+        const qtyInput = e.target;
+        const uomType = normalizeAddStockUom();
+
+        const allowedControlKeys = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+        if (allowedControlKeys.includes(e.key)) return;
+        if (e.ctrlKey || e.metaKey) return;
+
+        if (e.key === ' ' || e.key === '-' || e.key === 'e' || e.key === 'E') {
+            e.preventDefault();
+            return;
+        }
+        if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+            e.preventDefault();
+            return;
+        }
+
+        if (e.key.length === 1 && /\d/.test(e.key)) return;
+
+        if (e.key === '.') {
+            if (uomType === 'pcs') {
+                e.preventDefault();
+                return;
+            }
+            const currentVal = qtyInput.value || '';
+            if (currentVal.includes('.')) e.preventDefault();
+            return;
+        }
+
+        // Block any special character input at typing level.
+        if (e.key.length === 1) e.preventDefault();
+    }
+
+    function handleAddStockQtyPaste(e) {
+        e.preventDefault();
+        const uomType = normalizeAddStockUom();
+        const qtyInput = document.getElementById('addStockQty');
+
+        const rawText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        let t = String(rawText);
+
+        // Remove spaces always
+        t = t.replace(/\s+/g, '');
+
+        if (t.includes('-')) {
+            qtyInput.value = '';
+            updateAddStockUI();
+            return;
+        }
+
+        if (uomType === 'pcs') {
+            // Reject decimals for pcs.
+            if (t.includes('.')) {
+                qtyInput.value = '';
+            } else {
+                qtyInput.value = t.replace(/[^\d]/g, '');
+            }
+            updateAddStockUI();
+            return;
+        }
+
+        // l/ft: keep only digits and dots; then collapse to a single dot.
+        let cleaned = t.replace(/[^\d.]/g, '');
+        const firstDot = cleaned.indexOf('.');
+        if (firstDot !== -1) {
+            cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+        }
+        qtyInput.value = cleaned;
+        updateAddStockUI();
+    }
+
     function updateAddStockUI() {
         const qtyInput = document.getElementById('addStockQty');
         const currentStock = parseFloat(document.getElementById('addStockCurrentStock').value || 0);
         const raw = (qtyInput && qtyInput.value) ? String(qtyInput.value).trim() : '';
-        const num = parseFloat(raw);
-        const uom = document.getElementById('addStockUom').value || 'pcs';
-        const isPcs = (uom || '').toLowerCase() === 'pcs';
+        const uomType = normalizeAddStockUom();
+        const costInput = document.getElementById('addStockUnitCost');
+        const costRaw = (costInput && costInput.value) ? String(costInput.value).trim() : '';
+        const cNew = parseFloat(costRaw);
         
-        let valid = false;
         const errEl = document.getElementById('addStockQtyError');
         const previewEl = document.getElementById('addStockPreview');
+        const costPreviewEl = document.getElementById('addStockUnitCostPreview');
         const warnEl = document.getElementById('addStockLargeWarning');
+        const errCostEl = document.getElementById('err-addStockUnitCost');
         const btn = document.getElementById('addStockBtn');
+        const costValid = !isNaN(cNew) && cNew > 0;
         
         if (raw === '') {
             errEl.style.display = 'none';
             previewEl.textContent = 'New Stock After Adding: \u2014';
             warnEl.style.display = 'none';
-        } else if (isNaN(num) || num <= 0 || num > 100000) {
+            if (costPreviewEl) costPreviewEl.textContent = 'New Estimated Unit Cost: \u2014';
+            if (errCostEl) errCostEl.style.display = 'none';
+            if (btn) btn.disabled = true;
+            return;
+        }
+
+        const qtyCheck = validateAddStockQtyString(raw, uomType);
+        if (!qtyCheck.ok) {
+            errEl.textContent = qtyCheck.msg || 'Please enter a valid quantity';
             errEl.style.display = 'block';
             previewEl.textContent = 'New Stock After Adding: \u2014';
             warnEl.style.display = 'none';
-        } else {
-            valid = true;
-            errEl.style.display = 'none';
-            const newTotal = currentStock + num;
-            const disp = isPcs ? Math.round(newTotal) : newTotal.toFixed(2);
-            previewEl.textContent = 'New Stock After Adding: ' + disp;
-            warnEl.style.display = (num > currentStock * 2) ? 'block' : 'none';
+            if (costPreviewEl) costPreviewEl.textContent = 'New Estimated Unit Cost: \u2014';
+            if (errCostEl) errCostEl.style.display = 'none';
+            if (btn) btn.disabled = true;
+            return;
         }
-        if (btn) btn.disabled = !valid;
+
+        // Quantity is valid
+        errEl.style.display = 'none';
+        const qNew = qtyCheck.qtyNum;
+        const newTotal = currentStock + qNew;
+        const disp = (uomType === 'pcs') ? Math.round(newTotal) : newTotal.toFixed(2);
+        previewEl.textContent = 'New Stock After Adding: ' + disp;
+        warnEl.style.display = (qNew > currentStock * 2) ? 'block' : 'none';
+
+        if (!costValid) {
+            if (costPreviewEl) costPreviewEl.textContent = 'New Estimated Unit Cost: \u2014';
+            if (errCostEl) {
+                errCostEl.textContent = 'Unit cost must be greater than 0.';
+                errCostEl.style.display = 'block';
+            }
+            if (btn) btn.disabled = true;
+            return;
+        }
+
+        if (errCostEl) errCostEl.style.display = 'none';
+        if (costPreviewEl) {
+            const cOld = parseFloat(document.getElementById('addStockCurrentUnitCost')?.value || 0);
+            const qOld = currentStock;
+            let cUpdated;
+            if (qOld > 0 && (qOld + qNew) > 0) {
+                cUpdated = ((qOld * cOld) + (qNew * cNew)) / (qOld + qNew);
+            } else {
+                // First stock entry: use C_new as the baseline
+                cUpdated = cNew;
+            }
+            costPreviewEl.textContent = 'New Estimated Unit Cost: \u20B1' + cUpdated.toFixed(2);
+        }
+
+        if (btn) btn.disabled = false;
     }
 
     function closeAddStockConfirmModal() {
         document.getElementById('addStockConfirmModal').style.display = 'none';
         addStockPendingSubmit = false;
+    }
+
+    // Turbo may re-render this page without full JS teardown; keep state on window
+    // to avoid redeclaration errors.
+    window.pendingItemStatus = window.pendingItemStatus ?? null; // { itemId, targetStatus, itemName }
+
+    function openItemStatusConfirm(itemId, targetStatus, itemName = null) {
+        const idNum = parseInt(itemId, 10);
+        if (!idNum) return;
+
+        window.pendingItemStatus = { itemId: idNum, targetStatus, itemName: itemName || null };
+
+        const titleEl = document.getElementById('itemStatusConfirmTitle');
+        const actionEl = document.getElementById('itemStatusConfirmAction');
+        const nameEl = document.getElementById('itemArchiveConfirmName');
+        const infoEl = document.getElementById('itemStatusConfirmInfoText');
+        const okBtn = document.getElementById('itemArchiveConfirmBtn');
+
+        const statusIsInactive = targetStatus === 'INACTIVE';
+        const actionWord = statusIsInactive ? 'archive' : 'restore';
+        const titleWord = statusIsInactive ? 'Archive' : 'Restore';
+
+        if (titleEl) titleEl.textContent = 'Confirm ' + titleWord;
+        if (actionEl) actionEl.textContent = actionWord;
+
+        const fallbackName = (window.currentItems || []).find(i => String(i.id) === String(idNum))?.name || 'this material';
+        if (nameEl) nameEl.textContent = itemName || fallbackName;
+
+        if (infoEl) {
+            infoEl.textContent = statusIsInactive
+                ? 'Archived materials are hidden from new orders and POS.'
+                : 'Restored materials will appear as active again.';
+        }
+
+        if (okBtn) {
+            okBtn.textContent = statusIsInactive ? 'Archive' : 'Restore';
+            okBtn.style.background = statusIsInactive ? '#6b7280' : '#14b8a6';
+        }
+
+        const m = document.getElementById('itemArchiveConfirmModal');
+        const editModal = document.getElementById('itemModal');
+        if (editModal) editModal.style.zIndex = '120000';
+        if (m) {
+            m.style.zIndex = '120001';
+            m.style.display = 'flex';
+        }
+
+        if (okBtn) {
+            okBtn.onclick = async () => {
+                const pending = window.pendingItemStatus;
+                if (!pending) return;
+
+                okBtn.disabled = true;
+                const originalOkText = okBtn.textContent;
+                okBtn.textContent = 'Please wait...';
+
+                try {
+                    const fd = new FormData();
+                    fd.set('item_id', String(pending.itemId));
+                    if (pending.targetStatus === 'INACTIVE') fd.set('archive_item', '1');
+                    else fd.set('restore_item', '1');
+
+                    const res = await fetch(window.location.pathname, { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (data.success) {
+                        closeItemArchiveConfirmModal();
+                        await fetchUpdatedTable();
+                        // Refresh archived overlay if open
+                        const overlay = document.getElementById('items-archive-storage-overlay');
+                        if (overlay && overlay.style.display === 'flex') fetchArchivedItems();
+                    } else {
+                        alert('Failed: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Network error while updating status.');
+                } finally {
+                    okBtn.disabled = false;
+                    okBtn.textContent = originalOkText;
+                }
+            };
+        }
+    }
+
+    // Backward compatibility for old edit-modal Archive button (if it still calls this).
+    function openItemArchiveConfirm() {
+        const itemId = document.getElementById('itemId')?.value;
+        const itemName = document.getElementById('itemName')?.value || null;
+        openItemStatusConfirm(itemId, 'INACTIVE', itemName);
+    }
+
+    function closeItemArchiveConfirmModal() {
+        const m = document.getElementById('itemArchiveConfirmModal');
+        if (m) m.style.display = 'none';
+        window.pendingItemStatus = null;
+        // User request: closing archive confirm should also close edit modal.
+        const editModal = document.getElementById('itemModal');
+        if (editModal) editModal.style.display = 'none';
+    }
+
+    window.openItemsArchiveModal = function openItemsArchiveModal() {
+        const overlay = document.getElementById('items-archive-storage-overlay');
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        fetchArchivedItems();
+    };
+
+    window.closeItemsArchiveModal = function closeItemsArchiveModal() {
+        const overlay = document.getElementById('items-archive-storage-overlay');
+        if (overlay) overlay.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+
+    async function fetchArchivedItems() {
+        const container = document.getElementById('items-archived-items-container');
+        if (!container) return;
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">Loading archived materials...</div>';
+        try {
+            const resp = await fetch('?get_archived_items=1');
+            const data = await resp.json();
+            if (data.success) container.innerHTML = data.html;
+            else container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Failed to load archived materials.</div>';
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Error loading archived materials.</div>';
+        }
     }
 
     function closeAddStockModal() {
@@ -1691,16 +2667,37 @@ if (isset($_GET['ajax'])) {
         if (addStockPendingSubmit) return;
         const qtyInput = document.getElementById('addStockQty');
         const currentStock = parseFloat(document.getElementById('addStockCurrentStock').value || 0);
-        const qty = parseFloat(qtyInput?.value || 0);
-        const uom = document.getElementById('addStockUom').value || 'pcs';
-        const isPcs = (uom || '').toLowerCase() === 'pcs';
+        const qtyStr = qtyInput?.value ? String(qtyInput.value).trim() : '';
+        const uomType = normalizeAddStockUom();
+        const qtyCheck = validateAddStockQtyString(qtyStr, uomType);
+        const qty = qtyCheck.ok ? qtyCheck.qtyNum : NaN;
+        const unitCostInput = document.getElementById('addStockUnitCost');
+        const unitCost = parseFloat(unitCostInput?.value || 0);
+        const errCostEl = document.getElementById('err-addStockUnitCost');
         
-        if (isNaN(qty) || qty <= 0 || qty > 100000) return;
+        if (!qtyCheck.ok) {
+            const errEl = document.getElementById('addStockQtyError');
+            if (errEl) {
+                errEl.textContent = qtyCheck.msg || 'Please enter a valid quantity.';
+                errEl.style.display = 'block';
+            }
+            return;
+        }
+        if (isNaN(unitCost) || unitCost <= 0) {
+            if (errCostEl) {
+                errCostEl.textContent = 'Unit cost must be greater than 0.';
+                errCostEl.style.display = 'block';
+            }
+            return;
+        }
+        if (errCostEl) errCostEl.style.display = 'none';
         
         const isLarge = qty > currentStock * 2;
         if (isLarge) {
-            document.getElementById('addStockConfirmQty').textContent = isPcs ? Math.round(qty) : qty.toFixed(2);
-            document.getElementById('addStockConfirmTotal').textContent = isPcs ? Math.round(currentStock + qty) : (currentStock + qty).toFixed(2);
+            const dispQty = (uomType === 'pcs') ? Math.round(qty) : qty.toFixed(2);
+            const dispTotal = (uomType === 'pcs') ? Math.round(currentStock + qty) : (currentStock + qty).toFixed(2);
+            document.getElementById('addStockConfirmQty').textContent = dispQty;
+            document.getElementById('addStockConfirmTotal').textContent = dispTotal;
             document.getElementById('addStockConfirmModal').style.display = 'flex';
             addStockPendingSubmit = true;
             document.getElementById('addStockConfirmBtn').onclick = async () => {
@@ -1723,7 +2720,32 @@ if (isset($_GET['ajax'])) {
         const itemId = document.getElementById('addStockItemId').value;
         const isRoll = document.getElementById('addStockIsRoll').value == 1;
         const uom = document.getElementById('addStockUom').value;
-        const qty = document.getElementById('addStockQty').value;
+        const qtyStr = document.getElementById('addStockQty').value ? String(document.getElementById('addStockQty').value).trim() : '';
+        const uomType = normalizeAddStockUom();
+        const qtyCheck = validateAddStockQtyString(qtyStr, uomType);
+        const unitCost = parseFloat(document.getElementById('addStockUnitCost')?.value || '0');
+
+        if (!qtyCheck.ok) {
+            const errEl = document.getElementById('addStockQtyError');
+            if (errEl) {
+                errEl.textContent = qtyCheck.msg || 'Please enter a valid quantity.';
+                errEl.style.display = 'block';
+            }
+            btn.disabled = false; btn.textContent = 'Add Stock';
+            updateAddStockUI();
+            return;
+        }
+
+        if (isNaN(unitCost) || unitCost <= 0) {
+            const errCostEl = document.getElementById('err-addStockUnitCost');
+            if (errCostEl) {
+                errCostEl.textContent = 'Unit cost must be greater than 0.';
+                errCostEl.style.display = 'block';
+            }
+            btn.disabled = false; btn.textContent = 'Add Stock';
+            updateAddStockUI();
+            return;
+        }
         const rollCode = document.getElementById('addStockRollCode').value;
         const notes = document.getElementById('addStockNotes').value;
         
@@ -1731,8 +2753,10 @@ if (isset($_GET['ajax'])) {
         fd.set('action', 'record_transaction');
         fd.set('item_id', itemId);
         fd.set('transaction_type', 'purchase');
-        fd.set('quantity', qty);
+        const qtyNum = qtyCheck.qtyNum;
+        fd.set('quantity', (uomType === 'pcs') ? String(Math.trunc(qtyNum)) : qtyNum.toFixed(2));
         fd.set('uom', uom);
+        fd.set('unit_cost', unitCost.toFixed(2));
         fd.set('notes', notes || 'Manual stock entry');
         if (isRoll) {
             fd.set('roll_code', rollCode);
@@ -1755,7 +2779,11 @@ if (isset($_GET['ajax'])) {
             } else { 
                 if (data.errors) {
                     for (let key in data.errors) {
-                        const errEl = document.getElementById('err-' + key) || document.getElementById('addStockQtyError');
+                            let errEl = null;
+                            if (key === 'unit_cost') errEl = document.getElementById('err-addStockUnitCost');
+                            else if (key === 'quantity') errEl = document.getElementById('addStockQtyError');
+                            else errEl = document.getElementById('err-' + key);
+                            if (!errEl) errEl = document.getElementById('addStockQtyError');
                         if (errEl) {
                             errEl.textContent = data.errors[key];
                             errEl.style.display = 'block';
@@ -1785,6 +2813,27 @@ if (isset($_GET['ajax'])) {
 
         updateEditModalUI();
         if (document.getElementById('saveBtn').disabled) return;
+
+        // Hard guard: For create mode + pcs, starting_stock must be > 0.
+        // Prevents accidental submission if UI state got out of sync.
+        const actionType = document.getElementById('actionType')?.value || '';
+        const uom = String(document.getElementById('itemUnit')?.value || '').toLowerCase();
+        const startingStockEl = document.getElementById('itemStartingStock');
+        if (actionType === 'create_item' && uom === 'pcs' && startingStockEl) {
+            const raw = String(startingStockEl.value || '').trim();
+            const ok = raw && /^\d+$/.test(raw) && Number(raw) > 0;
+            if (!ok) {
+                startingStockEl.classList.add('input-error');
+                const err = document.getElementById('err-itemStartingStock');
+                if (err) {
+                    err.textContent = 'Initial stock must be greater than 0 for pcs.';
+                    err.style.display = 'block';
+                }
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) saveBtn.disabled = true;
+                return;
+            }
+        }
         
         const btn = document.getElementById('saveBtn');
         const originalText = btn.innerHTML;
@@ -1805,6 +2854,9 @@ if (isset($_GET['ajax'])) {
             const res = await fetch(ADMIN_API_BASE + 'inventory_items_api.php', { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
+                // Restore button UI state before closing modal (prevents "Saving..." sticking).
+                btn.disabled = false;
+                btn.innerHTML = originalText;
                 closeModal();
                 fetchUpdatedTable();
             } else { 
