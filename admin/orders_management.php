@@ -1168,7 +1168,7 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<<<<<<< HEAD
+
 <style>
     /* Force-hide the "Showing X of Y" text element */
     .flex.items-center.justify-between.pb-4 > span.text-sm.text-gray-700 {
@@ -1523,11 +1523,9 @@ if (isset($_GET['ajax'])) {
         window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } }));
     };
 </script>
-=======
         </main>
     </div>
 </div>
->>>>>>> 1d610692b6051bc69bfc301d358a7ad23fdab53c
 
 </body>
 
