@@ -108,7 +108,7 @@ $sql = "SELECT o.*,
         (SELECT oi.order_item_id FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_id,
         (SELECT IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_has_design,
         (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.order_id) as total_quantity,
-        (SELECT r.rating FROM ratings r WHERE r.order_id = o.order_id LIMIT 1) as rating_value
+        (SELECT r.rating FROM reviews r WHERE r.order_id = o.order_id LIMIT 1) as rating_value
         FROM orders o WHERE o.customer_id = ?";
 $count_sql = "SELECT COUNT(*) as total FROM orders o WHERE o.customer_id = ?";
 $params = [$customer_id];

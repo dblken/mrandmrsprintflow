@@ -13,10 +13,12 @@ $service_name = sanitize($_GET['service'] ?? '');
 $order_id = (int)($_GET['order_id'] ?? 0);
 
 $sql = "
-    SELECT r.id, r.order_id, r.rating, r.message, r.video_path, r.created_at, r.service_type,
-           c.first_name, c.last_name
+    SELECT r.id, r.order_id, r.rating, r.comment as message, r.video_path, r.created_at, r.service_type,
+           COALESCE(c.first_name, u.first_name) as first_name,
+           COALESCE(c.last_name, u.last_name) as last_name
     FROM reviews r
-    INNER JOIN customers c ON c.customer_id = r.customer_id
+    LEFT JOIN customers c ON c.customer_id = r.user_id
+    LEFT JOIN users u ON u.user_id = r.user_id
     WHERE 1=1
 ";
 $params = [];

@@ -199,17 +199,24 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
     $customer_id = $user_type === 'Customer' ? $user_id : null;
     $staff_user_id = $user_type !== 'Customer' ? $user_id : null;
     
-    $sql = "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms) 
-            VALUES (?, ?, ?, ?, ?, 0, ?, ?)";
+    $order_type = null;
+    if ($type === 'Order' && $data_id !== null) {
+        $o = db_query("SELECT order_type FROM orders WHERE order_id = ? LIMIT 1", 'i', [$data_id]);
+        if (!empty($o)) $order_type = $o[0]['order_type'];
+    }
     
-    $result = db_execute($sql, 'iissiii', [
+    $sql = "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms, order_type) 
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)";
+    
+    $result = db_execute($sql, 'iissiiis', [
         $staff_user_id,
         $customer_id,
         $message,
         $type,
         $data_id,
         $send_email ? 1 : 0,
-        $send_sms ? 1 : 0
+        $send_sms ? 1 : 0,
+        $order_type
     ]);
     
     if ($result && $send_email) {
@@ -356,11 +363,15 @@ function staff_notification_target_url(array $n): string {
 
         // Check if the data_id belongs to store orders table
         $ord_row = db_query(
-            "SELECT order_id FROM orders WHERE order_id = ? LIMIT 1",
+            "SELECT order_id, order_type FROM orders WHERE order_id = ? LIMIT 1",
             'i',
             [$data_id]
         );
         if (!empty($ord_row)) {
+            $o_type = $n['order_type'] ?? $ord_row[0]['order_type'];
+            if ($o_type === 'custom') {
+                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+            }
             return $base . '/staff/orders.php';
         }
 
@@ -636,16 +647,16 @@ function validate_file_upload($file, $allowed_types = [], $max_size = 10485760) 
  * @param string|null $new_name Optional new filename
  * @return array ['success' => bool, 'message' => string, 'error' => string, 'file_path' => string]
  */
-function upload_file($file, $allowed_extensions = [], $destination = 'uploads', $new_name = null) {
+function upload_file($file, $allowed_extensions = [], $destination = 'uploads', $new_name = null, $max_bytes = 5242880) {
     // Check for upload errors  
     if ($file['error'] !== UPLOAD_ERR_OK) {
         return ['success' => false, 'error' => 'File upload error'];
     }
     
-    // Check file size (5MB default)
-    $max_size = 5 * 1024 * 1024; // 5MB
-    if ($file['size'] > $max_size) {
-        return ['success' => false, 'error' => 'File too large. Maximum size is 5MB'];
+    // Check file size
+    if ($file['size'] > $max_bytes) {
+        $mb = round($max_bytes / 1048576);
+        return ['success' => false, 'error' => "File too large. Maximum size is {$mb}MB"];
     }
     
     // Check extension
