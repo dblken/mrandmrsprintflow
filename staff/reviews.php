@@ -13,6 +13,18 @@ require_once __DIR__ . '/../includes/staff_pending_check.php';
 $search = sanitize($_GET['search'] ?? '');
 $review_type = sanitize($_GET['review_type'] ?? '');
 $rating = (int)($_GET['rating'] ?? 0);
+$service = sanitize($_GET['service'] ?? '');
+
+// Get distinct services for the filter from reviews, services, and products table
+$available_services = db_query("
+    SELECT DISTINCT name FROM (
+        SELECT service_type COLLATE utf8mb4_general_ci as name FROM reviews WHERE service_type != '' AND service_type IS NOT NULL
+        UNION
+        SELECT name COLLATE utf8mb4_general_ci FROM services
+        UNION
+        SELECT name COLLATE utf8mb4_general_ci FROM products
+    ) as combined_services WHERE name IS NOT NULL AND name != '' ORDER BY name ASC
+") ?: [];
 
 // Pagination
 $items_per_page = 15;
@@ -45,6 +57,23 @@ if ($rating > 0 && $rating <= 5) {
     $params[] = $rating;
     $types .= 'i';
 }
+if (!empty($service)) {
+    // Robust filtering by name (legacy) or by ID mapping (modern)
+    $sql_base .= " AND (
+        r.service_type = ? 
+        OR r.service_type LIKE ? 
+        OR (r.review_type = 'custom' AND r.reference_id IN (SELECT service_id FROM services WHERE name = ? OR name LIKE ?))
+        OR (r.review_type = 'product' AND r.reference_id IN (SELECT product_id FROM products WHERE name = ? OR name LIKE ?))
+    )";
+    $like = $service . '%';
+    $params[] = $service;
+    $params[] = $like;
+    $params[] = $service;
+    $params[] = $like;
+    $params[] = $service;
+    $params[] = $like;
+    $types .= 'ssssss';
+}
 
 $count_sql = "SELECT COUNT(*) as total" . $sql_base;
 $total_result = db_query($count_sql, $types ?: null, $params ?: null);
@@ -76,7 +105,10 @@ $query_sql = "
 
 $fetch_params = array_merge($params, [$items_per_page, $offset]);
 $fetch_types = $types . 'ii';
-$reviews_raw = db_query($query_sql, $fetch_types ?: null, $fetch_params ?: null) ?: [];
+$reviews = db_query($query_sql, $fetch_types ?: null, $fetch_params ?: null) ?: [];
+
+// Map services for reset/links
+$page_query_params = ['search'=>$search, 'review_type'=>$review_type, 'rating'=>$rating, 'service'=>$service];
 
 // Fetch images and replies for each review
 $reviews = [];
@@ -177,7 +209,16 @@ $page_title = 'Review Management - Staff';
             <form method="GET" class="rv-toolbar">
                 <div class="rv-group" style="flex: 1; min-width: 250px;">
                     <label class="rv-label">Search Customer or Order</label>
-                    <input name="search" class="rv-input" type="text" value="<?php echo htmlspecialchars($search); ?>" placeholder="E.g. John Doe, 2261">
+                    <input name="search" class="rv-input" type="text" value="<?php echo htmlspecialchars($search); ?>" placeholder="E.g. John Doe, 2261" onchange="this.form.submit()">
+                </div>
+                <div class="rv-group">
+                    <label class="rv-label">Service</label>
+                    <select name="service" class="rv-select" onchange="this.form.submit()">
+                        <option value="">All Services</option>
+                        <?php foreach($available_services as $as): ?>
+                            <option value="<?php echo htmlspecialchars($as['name']); ?>" <?php echo $service === $as['name'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($as['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="rv-group">
                     <label class="rv-label">Type</label>
@@ -196,7 +237,7 @@ $page_title = 'Review Management - Staff';
                         <?php endfor; ?>
                     </select>
                 </div>
-                <button type="submit" class="rv-btn primary">Filter</button>
+                <!-- Filter button removed for automatic onchange updates -->
                 <a href="reviews.php" class="rv-btn light">Reset</a>
             </form>
 
@@ -279,7 +320,7 @@ $page_title = 'Review Management - Staff';
                     </div>
 
                     <div class="rv-pager">
-                        <?php echo get_pagination_links($current_page, $total_pages, ['search'=>$search, 'review_type'=>$review_type, 'rating'=>$rating]); ?>
+                        <?php echo get_pagination_links($current_page, $total_pages, $page_query_params); ?>
                     </div>
                 <?php endif; ?>
             </div>

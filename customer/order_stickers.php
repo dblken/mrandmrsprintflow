@@ -150,7 +150,7 @@ if ($stickers_lam_val !== '' && !in_array($stickers_lam_val, ['With Laminate', '
                         <?php endfor; ?>
                         
                         <?php if ($review_count > 0): ?>
-                            <a href="reviews.php?service=<?php echo urlencode($_s_name); ?>" class="text-sm text-gray-500 hover:text-blue-500 hover:underline ml-1 cursor-pointer">(<?php echo number_format($review_count); ?> Reviews)</a>
+                            <a href="reviews.php?service_id=<?php echo $stats['service_id']; ?>" class="text-sm text-gray-500 hover:text-blue-500 hover:underline ml-1 cursor-pointer">(<?php echo number_format($review_count); ?> Reviews)</a>
                         <?php endif; ?>
                     </div>
                     <div class="h-4 w-px bg-gray-200"></div>
@@ -247,7 +247,7 @@ if ($stickers_lam_val !== '' && !in_array($stickers_lam_val, ['With Laminate', '
                     <div style="width: 130px;"></div> <!-- Spacer for label alignment -->
                     <div class="flex gap-4 flex-1">
                         <a href="<?php echo BASE_URL; ?>/customer/services.php" class="shopee-btn-outline" style="flex: 1;">Back</a>
-                        <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="flex: 1;">Add to Cart</button>
+                        <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;" title="Add to Cart"><svg style="width:1.25rem;height:1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></button>
                         <button type="submit" name="action" value="buy_now" id="stickersBuyNowBtn" class="shopee-btn-primary" style="flex: 1.5;">Buy Now</button>
                     </div>
                 </div>

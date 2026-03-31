@@ -314,10 +314,17 @@ $current_user = get_logged_in_user();
         .dropdown-menu.show { display: flex; }
         .dropdown-item { 
             padding: 0.75rem 1.25rem; font-size: 0.9rem; font-weight: 600; color: #334155; 
-            cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.2s;
+            cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
         }
         .dropdown-item:hover { background: #f5f5f5; color: #0d6efd; }
-        .dropdown-item i { font-size: 1.1rem; }
+        .dropdown-item i { 
+            font-size: 1.1rem; 
+            width: 24px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0;
+        }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -338,7 +345,7 @@ $current_user = get_logged_in_user();
         #msgInput { border: none !important; background: transparent !important; }
 
         /* Icon Override for bootstrap icons */
-        .bi { font-size: 1.1rem; vertical-align: middle; }
+        .bi { font-size: 1.1rem; }
     </style>
 </head>
 <body class="bg-slate-50" data-turbo="false">
@@ -400,8 +407,8 @@ $current_user = get_logged_in_user();
                                      <div class="dropdown-item" onclick="toggleMediaGallery(true)">
                                          <i class="bi bi-images"></i> Shared Media
                                      </div>
-                                     <div class="dropdown-item" onclick="if(activeId) toggleArchStatus(activeId, !currentArchivedState)">
-                                         <span id="archiveLabel"><i class="bi bi-archive"></i> Archive</span>
+                                     <div class="dropdown-item" id="archiveLabel" onclick="if(activeId) toggleArchStatus(activeId, !currentArchivedState)">
+                                         <i class="bi bi-archive"></i> Archive
                                      </div>
                                      <div class="dropdown-item" onclick="if(activeId) openDetails(activeId)">
                                          <i class="bi bi-info-circle"></i> Order Details

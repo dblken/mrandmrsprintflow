@@ -284,5 +284,7 @@ function service_order_get_page_stats($keyword) {
         (SELECT COUNT(*) FROM reviews r WHERE r.reference_id = ? AND r.review_type = 'custom') as review_count
     ", 'ssii', [$s_name, $s_name, $s_id, $s_id]);
     
-    return $stats[0] ?? ['sold_count' => 0, 'avg_rating' => 0, 'review_count' => 0];
+    $res = $stats[0] ?? ['sold_count' => 0, 'avg_rating' => 0, 'review_count' => 0];
+    $res['service_id'] = $s_id;
+    return $res;
 }

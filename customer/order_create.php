@@ -929,9 +929,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                                         <div x-show="step === 4" style="flex:2; display:flex; gap:0.75rem; width:100%; justify-content:flex-end;">
                                             <a href="<?php echo isset($base_url) ? $base_url : '/printflow'; ?>/customer/products.php" class="shopee-btn-outline flex-1 text-center decoration-none">Back to Products</a>
-                                            <button type="submit" name="action" value="add_to_cart" @click="checkFinalValidation($event)" class="shopee-btn-outline flex-1">
-                                                Add to Cart
-                                            </button>
+                                            <button type="submit" name="action" value="add_to_cart" @click="checkFinalValidation($event)" class="shopee-btn-outline" style="width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;" title="Add to Cart"><svg style="width:1.25rem;height:1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></button>
                                             <button type="submit" name="action" value="buy_now" @click="checkFinalValidation($event)" class="shopee-btn-primary flex-1">
                                                 Buy Now
                                             </button>

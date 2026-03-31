@@ -705,17 +705,18 @@ function ensure_ratings_table_exists() {
         CREATE TABLE IF NOT EXISTS reviews (
             id INT AUTO_INCREMENT PRIMARY KEY,
             order_id INT NOT NULL,
-            customer_id INT NOT NULL,
+            user_id INT NOT NULL,
+            reference_id INT DEFAULT NULL,
+            review_type ENUM('product', 'custom') DEFAULT 'custom',
             service_type VARCHAR(150) DEFAULT NULL,
             rating TINYINT NOT NULL,
-            message TEXT DEFAULT NULL,
+            comment TEXT DEFAULT NULL,
             video_path VARCHAR(255) DEFAULT NULL,
             created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_review_order (order_id),
-            KEY idx_review_customer (customer_id),
+            KEY idx_review_user (user_id),
             KEY idx_review_rating (rating),
             CONSTRAINT fk_reviews_order FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
-            CONSTRAINT fk_reviews_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
             CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");

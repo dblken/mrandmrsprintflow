@@ -63,8 +63,10 @@ function render_service_card($srv) {
     $ravg = $srv['avg_rating'];
     $rcount = $srv['review_count'];
     $sold = $srv['sold_count'];
+    // If sold is 0 but there are reviews, use review_count as minimum sold
+    $display_sold = ($sold <= 0 && $rcount > 0) ? $rcount : $sold;
     ?>
-    <div class="ct-product-card cursor-pointer group" onclick="openServiceModal(<?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_img; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
+    <div class="ct-product-card cursor-pointer group" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_img; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
         <div class="ct-product-img overflow-hidden">
             <div class="ct-product-img-inner transition-transform duration-500 group-hover:scale-110">
                 <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" style="width:100%; height:100%; object-fit:cover; border-radius:0.5rem;">
@@ -85,15 +87,15 @@ function render_service_card($srv) {
                 </div>
                 
                 <?php if ($rcount > 0): ?>
-                    <a href="reviews.php?service=<?php echo urlencode($srv['name']); ?>" onclick="event.stopPropagation();" style="font-size: 0.75rem; color: #9ca3af; margin-left: 2px; text-decoration: none;" class="hover:underline hover:text-[#53C5E0]">(<?php echo $rcount; ?>) Reviews</a>
+                    <a href="reviews.php?service_id=<?php echo $srv['id']; ?>" onclick="event.stopPropagation();" style="font-size: 0.75rem; color: #9ca3af; margin-left: 2px; text-decoration: none;" class="hover:underline hover:text-[#53C5E0]">(<?php echo $rcount; ?>) Reviews</a>
                 <?php endif; ?>
                 
-                <span style="font-size: 0.75rem; color: #64748b; margin-left: auto;"><?php echo $sold; ?> sold</span>
+                <span style="font-size: 0.75rem; color: #64748b; margin-left: auto;"><?php echo $display_sold; ?> sold</span>
             </div>
 
-                <span class="ct-view-product-btn" style="flex: 1; text-align: center; pointer-events: none;">
-                    ORDER NOW
-                </span>
+            <span class="ct-view-product-btn" style="flex: 1; text-align: center; pointer-events: none;">
+                ORDER NOW
+            </span>
         </div>
     </div>
     <?php
@@ -129,6 +131,31 @@ function render_service_card($srv) {
         background: #f8fafc !important;
         border-top-color: #e2e8f0 !important;
     }
+    .ct-card-footer {
+        display: flex;
+        gap: 8px;
+        padding: 0;
+        margin-top: 0.5rem;
+    }
+    .ct-cart-icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 0.5rem;
+        border: 1px solid #0a2530;
+        background: rgba(10, 37, 48, 0.08);
+        color: #0a2530;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+    .ct-cart-icon-btn:hover {
+        background: #53C5E0;
+        border-color: #53C5E0;
+        color: #ffffff;
+    }
     .ct-view-product-btn { 
         background: #0a2530 !important; 
         color: #ffffff !important; 
@@ -139,6 +166,7 @@ function render_service_card($srv) {
         padding: 0.6rem 1rem;
         font-weight: 600;
         font-size: 0.8125rem;
+        flex: 1;
     }
     .ct-product-card:hover .ct-view-product-btn {
         background: #53C5E0 !important;
@@ -149,12 +177,7 @@ function render_service_card($srv) {
 <div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
 
-        <div class="flex justify-between items-end mb-8 mt-4">
-            <div>
-                <h1 class="ct-page-title" style="margin-bottom: 0;">Custom Printing Services</h1>
-                <p style="color: #64748b; margin-top: 0.5rem;">Select a service below to start your custom order.</p>
-            </div>
-        </div>
+        <div class="mb-8 mt-4"></div>
         
         <?php if (empty($core_services)): ?>
             <div class="ct-empty" style="padding:4rem;text-align:center;color:#6b7280; background: rgba(15, 23, 42, 0.5); border-radius: 1rem;">
@@ -234,7 +257,7 @@ function render_service_card($srv) {
 <script>
 let currentModalData = {};
 
-function openServiceModal(name, category, img, link, is_service, price, stock, modalIntro, avgRating, reviewCount) {
+function openServiceModal(id, name, category, img, link, is_service, price, stock, modalIntro, avgRating, reviewCount) {
     document.getElementById('modal-name').textContent = name;
     document.getElementById('modal-category').textContent = category;
     document.getElementById('modal-img').src = img;
@@ -242,9 +265,9 @@ function openServiceModal(name, category, img, link, is_service, price, stock, m
     
     const ratingVal = parseFloat(avgRating || 0).toFixed(1);
     document.getElementById('modal-rating-val').textContent = ratingVal;
-    document.getElementById('modal-reviews-link').href = 'reviews.php?service=' + encodeURIComponent(name);
+    document.getElementById('modal-reviews-link').href = 'reviews.php?service_id=' + id;
     
-    currentModalData = { name, link };
+    currentModalData = { id, name, link };
     
     const modal = document.getElementById('service-modal');
     const content = document.getElementById('service-modal-content');

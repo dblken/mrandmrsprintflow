@@ -158,7 +158,7 @@ if ($display_img !== '' && strpos($display_img, 'http') === false && $display_im
                         <?php endfor; ?>
                         
                         <?php if ($review_count > 0): ?>
-                            <a href="reviews.php?service=<?php echo urlencode($_s_name); ?>" class="text-sm text-gray-500 hover:text-blue-500 hover:underline ml-1 cursor-pointer">(<?php echo number_format($review_count); ?> Reviews)</a>
+                            <a href="reviews.php?service_id=<?php echo $stats['service_id']; ?>" class="text-sm text-gray-500 hover:text-blue-500 hover:underline ml-1 cursor-pointer">(<?php echo number_format($review_count); ?> Reviews)</a>
                         <?php endif; ?>
                     </div>
                     <div class="h-4 w-px bg-gray-200"></div>
@@ -182,26 +182,28 @@ if ($display_img !== '' && strpos($display_img, 'http') === false && $display_im
                 <!-- Dimensions -->
                 <div class="shopee-form-row">
                     <label class="shopee-form-label pt-2">Dimensions (ft) * <span class="text-xs text-gray-400 font-normal">(All values are in feet)</span></label>
-                    <div class="shopee-opt-group shopee-form-field">
-                        <button type="button" class="shopee-opt-btn" data-width="2" data-height="3" onclick="selectDimension(2, 3, event)">2×3</button>
-                        <button type="button" class="shopee-opt-btn" data-width="4" data-height="6" onclick="selectDimension(4, 6, event)">4×6</button>
-                        <button type="button" class="shopee-opt-btn" data-width="6" data-height="8" onclick="selectDimension(6, 8, event)">6×8</button>
-                        <button type="button" class="shopee-opt-btn" id="dim-others-btn" onclick="selectDimensionOthers(event)">Others</button>
-                    </div>
-                    <input type="hidden" name="width" id="width_hidden">
-                    <input type="hidden" name="height" id="height_hidden">
-                    <input type="hidden" name="unit" value="ft">
-                    
-                    <div id="dim-others-inputs" style="display: none; margin-top: 1rem;">
-                        <div class="flex gap-4 items-center pl-[130px]">
-                            <div class="flex-1">
-                                <label class="text-xs font-bold text-gray-400 mb-1 block">WIDTH (FT)</label>
-                                <input type="number" step="0.01" id="custom_width" class="input-field shopee-form-field" placeholder="e.g. 5">
-                            </div>
-                            <div class="text-gray-400 font-bold mt-4">×</div>
-                            <div class="flex-1">
-                                <label class="text-xs font-bold text-gray-400 mb-1 block">HEIGHT (FT)</label>
-                                <input type="number" step="0.01" id="custom_height" class="input-field shopee-form-field" placeholder="e.g. 10">
+                    <div class="shopee-form-field">
+                        <div class="shopee-opt-group">
+                            <button type="button" class="shopee-opt-btn" data-width="2" data-height="3" onclick="selectDimension(2, 3, event)">2×3</button>
+                            <button type="button" class="shopee-opt-btn" data-width="4" data-height="6" onclick="selectDimension(4, 6, event)">4×6</button>
+                            <button type="button" class="shopee-opt-btn" data-width="6" data-height="8" onclick="selectDimension(6, 8, event)">6×8</button>
+                            <button type="button" class="shopee-opt-btn" id="dim-others-btn" onclick="selectDimensionOthers(event)">Others</button>
+                        </div>
+                        <input type="hidden" name="width" id="width_hidden">
+                        <input type="hidden" name="height" id="height_hidden">
+                        <input type="hidden" name="unit" value="ft">
+                        
+                        <div id="dim-others-inputs" style="display: none; margin-top: 1rem;">
+                            <div class="flex gap-4 items-center">
+                                <div class="flex-1">
+                                    <label class="text-xs font-bold text-gray-400 mb-1 block">WIDTH (FT)</label>
+                                    <input type="number" step="0.01" id="custom_width" class="input-field" placeholder="e.g. 5">
+                                </div>
+                                <div class="text-gray-400 font-bold mt-4">×</div>
+                                <div class="flex-1">
+                                    <label class="text-xs font-bold text-gray-400 mb-1 block">HEIGHT (FT)</label>
+                                    <input type="number" step="0.01" id="custom_height" class="input-field" placeholder="e.g. 10">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -210,18 +212,18 @@ if ($display_img !== '' && strpos($display_img, 'http') === false && $display_im
                 <!-- Surface Type -->
                 <div class="shopee-form-row">
                     <label class="shopee-form-label pt-2">Surface Type *</label>
-                    <div class="shopee-opt-group shopee-form-field" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr));">
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Glass (Window/Door/Storefront)" required style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Glass</span></label>
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Wall (Painted/Concrete)" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Wall</span></label>
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Frosted Glass" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Frosted Glass</span></label>
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Mirror" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Mirror</span></label>
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Acrylic/Panel" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Acrylic/Panel</span></label>
-                        <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Others" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Others</span></label>
-                    </div>
-                    
-                    <div id="surface-other-wrap" style="display: none; margin-top: 0.75rem;">
-                        <div class="pl-[130px]">
-                            <input type="text" name="surface_type_other" id="surface_type_other" class="input-field shopee-form-field" placeholder="Specify surface type...">
+                    <div class="shopee-form-field">
+                        <div class="shopee-opt-group" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr));">
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Glass (Window/Door/Storefront)" required style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Glass</span></label>
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Wall (Painted/Concrete)" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Wall</span></label>
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Frosted Glass" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Frosted Glass</span></label>
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Mirror" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Mirror</span></label>
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Acrylic/Panel" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Acrylic/Panel</span></label>
+                            <label class="shopee-opt-btn"><input type="radio" name="surface_type" value="Others" style="display:none;" onchange="updateOpt(this); toggleSurfaceOther();"> <span>Others</span></label>
+                        </div>
+                        
+                        <div id="surface-other-wrap" style="display: none; margin-top: 0.75rem;">
+                            <input type="text" name="surface_type_other" id="surface_type_other" class="input-field" placeholder="Specify surface type...">
                         </div>
                     </div>
                 </div>
@@ -310,7 +312,7 @@ if ($display_img !== '' && strpos($display_img, 'http') === false && $display_im
                     <div style="width: 130px;"></div>
                     <div class="flex gap-4 flex-1">
                         <a href="<?php echo BASE_URL; ?>/customer/services.php" class="shopee-btn-outline" style="flex: 1; text-align: center; line-height: 2.2;">Back</a>
-                        <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="flex: 1;">Add to Cart</button>
+                        <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;" title="Add to Cart"><svg style="width:1.25rem;height:1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></button>
                         <button type="submit" name="action" value="buy_now" class="shopee-btn-primary" style="flex: 1.5;">Buy Now</button>
                     </div>
                 </div>
