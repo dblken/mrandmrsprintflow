@@ -117,13 +117,25 @@ $conn->set_charset("utf8mb4");
  * ==========================
  */
 
-function db_query($sql) {
+function db_query($sql, $types = '', $params = []) {
     global $conn;
-    $result = $conn->query($sql);
+    
+    if (empty($types) || empty($params)) {
+        $result = $conn->query($sql);
+    } else {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("DB Prepare Error: " . $conn->error);
+            return [];
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    }
 
     if (!$result) {
         error_log("DB Query Error: " . $conn->error);
-        return false;
+        return [];
     }
 
     $data = [];
@@ -134,15 +146,30 @@ function db_query($sql) {
     return $data;
 }
 
-function db_execute($sql) {
+function db_execute($sql, $types = '', $params = []) {
     global $conn;
 
-    if (!$conn->query($sql)) {
-        error_log("DB Execute Error: " . $conn->error);
+    if (empty($types) || empty($params)) {
+        if (!$conn->query($sql)) {
+            error_log("DB Execute Error: " . $conn->error);
+            return false;
+        }
+        return $conn->insert_id ?: true;
+    }
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log("DB Prepare Error: " . $conn->error);
         return false;
     }
-
-    return $conn->insert_id ?: true;
+    
+    $stmt->bind_param($types, ...$params);
+    if (!$stmt->execute()) {
+        error_log("DB Execute Error: " . $stmt->error);
+        return false;
+    }
+    
+    return $stmt->insert_id ?: true;
 }
 
 function db_escape($str) {

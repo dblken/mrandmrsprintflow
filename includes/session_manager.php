@@ -21,6 +21,14 @@ if (!defined('SESSION_HMAC_SECRET')) {
     define('SESSION_HMAC_SECRET', 'PrintFlow-Session-HMAC-Secret-Change-In-Production-2024');
 }
 
+if (!defined('REMEMBER_ME_STAFF_DAYS')) {
+    define('REMEMBER_ME_STAFF_DAYS', 30);
+}
+
+if (!defined('REMEMBER_ME_CUSTOMER_DAYS')) {
+    define('REMEMBER_ME_CUSTOMER_DAYS', 90);
+}
+
 class SessionManager
 {
     /** True when this request destroyed a session due to inactivity timeout. */
@@ -146,6 +154,25 @@ class SessionManager
     public static function wasTimedOut(): bool
     {
         return self::$timed_out;
+    }
+
+    /**
+     * Extend session cookie lifetime for "Remember Me" functionality.
+     * @param int $days Number of days to keep the session alive
+     */
+    public static function applyRememberMe(int $days): void
+    {
+        $lifetime = $days * 86400; // Convert days to seconds
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            session_id(),
+            time() + $lifetime,
+            $params['path'],
+            $params['domain'],
+            $params['secure'],
+            $params['httponly']
+        );
     }
 
     // -------------------------------------------------------------------------

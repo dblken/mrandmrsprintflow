@@ -39,6 +39,25 @@ if (!function_exists('log_activity')) {
     }
 }
 
+// Helper functions for checking duplicate emails/phones
+if (!function_exists('email_in_use_across_accounts')) {
+    function email_in_use_across_accounts($email) {
+        if (empty($email)) return false;
+        $users = db_query("SELECT user_id FROM users WHERE email = ?", 's', [$email]);
+        $customers = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
+        return !empty($users) || !empty($customers);
+    }
+}
+
+if (!function_exists('contact_phone_in_use_across_accounts')) {
+    function contact_phone_in_use_across_accounts($phone) {
+        if (empty($phone)) return false;
+        $users = db_query("SELECT user_id FROM users WHERE contact_number = ?", 's', [$phone]);
+        $customers = db_query("SELECT customer_id FROM customers WHERE contact_number = ?", 's', [$phone]);
+        return !empty($users) || !empty($customers);
+    }
+}
+
 /**
  * Check if user is logged in
  * @return bool
