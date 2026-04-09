@@ -810,9 +810,9 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img) && $prod_id > 0) {
                                                 $img_base = "../public/images/products/product_" . $prod_id;
                                                 if (file_exists($img_base . ".jpg")) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".jpg";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".jpg";
                                                 } elseif (file_exists($img_base . ".png")) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".png";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".png";
                                                 }
                                             }
                                             
@@ -820,21 +820,21 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img)) {
                                                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
                                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/signage.jpg";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/signage.jpg";
                                                 } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_41.jpg";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_41.jpg";
                                                 } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/services/Sintraboard Standees.jpg";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/services/Sintraboard Standees.jpg";
                                                 } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_31.jpg";
+                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_31.jpg";
                                                 } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
                                                     if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
-                                                        $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
+                                                        $product_img = "<?php echo $base_path; ?>/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
                                                     } else {
-                                                        $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_21.jpg";
+                                                        $product_img = "<?php echo $base_path; ?>/public/images/products/product_21.jpg";
                                                     }
                                                 } elseif (strpos($cat_lower, 'souvenir') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>//printflow/public/assets/images/icon-192.png";
+                                                    $product_img = "<?php echo $base_path; ?>/public/assets/images/icon-192.png";
                                                 }
                                             }
                                             ?>
@@ -1305,7 +1305,7 @@ function handleCartRowClick(row, event) {
     
     if (itemOrigin === 'Service') {
         if (serviceId && serviceId !== '' && serviceId !== '0') {
-            const url = '<?php echo $base_path; ?>//printflow/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
+            const url = '<?php echo $base_path; ?>/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
             console.log('✓ Redirecting to:', url);
             window.location.href = url;
         } else {
@@ -1313,7 +1313,7 @@ function handleCartRowClick(row, event) {
             const match = cartKey.match(/^service_(\d+)_/);
             if (match && match[1]) {
                 const extractedId = match[1];
-                const url = '<?php echo $base_path; ?>//printflow/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
+                const url = '<?php echo $base_path; ?>/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
                 console.log('✓ Extracted service_id:', extractedId, '- Redirecting to:', url);
                 window.location.href = url;
             } else {

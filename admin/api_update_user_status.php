@@ -168,7 +168,7 @@ if ($action === 'toggle_status') {
 
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $complete_link = $protocol . '://' . $host . '<?php echo $base_path; ?>//printflow/public/complete_profile.php?token=' . $token;
+    $complete_link = $protocol . '://' . $host . '<?php echo $base_path; ?>/public/complete_profile.php?token=' . $token;
 
     require_once __DIR__ . '/../includes/profile_completion_mailer.php';
     $mail_res = send_profile_completion_resend_email($u['email'], $u['first_name'], $complete_link, $admin_notes);

@@ -41,7 +41,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 window.baseUrl = window.baseUrl || '<?php echo BASE_URL; ?>';
 
-fetch('<?php echo $base_path; ?>//printflow/public/api/chat/list_conversations.php', {
+fetch('<?php echo $base_path; ?>/public/api/chat/list_conversations.php', {
     credentials: 'same-origin',
     headers: {
         'Accept': 'application/json'

@@ -223,7 +223,7 @@ function jo_payment_badge($status) {
                     this.errorMsg = '';
                     this.job = null;
                     this.items = [];
-                    fetch('<?php echo $base_path; ?>//printflow/admin/job_orders_api.php?action=get_order&id=' + id, { credentials: 'same-origin' })
+                    fetch('<?php echo $base_path; ?>/admin/job_orders_api.php?action=get_order&id=' + id, { credentials: 'same-origin' })
                         .then(r => r.json())
                         .then(data => {
                             this.loading = false;

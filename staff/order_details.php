@@ -16,7 +16,7 @@ $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_i
 
 $order_id = (int)($_GET['id'] ?? 0);
 if (!$order_id) {
-    redirect('<?php echo $base_path; ?>//printflow/staff/orders.php');
+    redirect('<?php echo $base_path; ?>/staff/orders.php');
 }
 
 // Handle status update
@@ -64,7 +64,7 @@ $order_result = db_query("
 ", 'ii', [$order_id, $staffBranchId]);
 
 if (empty($order_result)) {
-    redirect('<?php echo $base_path; ?>//printflow/staff/orders.php');
+    redirect('<?php echo $base_path; ?>/staff/orders.php');
 }
 $order = $order_result[0];
 
@@ -413,7 +413,7 @@ $page_title = "Order #{$order_id} - Staff";
                                                         <?php if (!empty($item['design_image']) || !empty($item['design_file'])): ?>
                                                             <div>
                                                                 <div style="font-weight:800; color:#475569; margin-bottom:0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.025em;">Customer Design</div>
-                                                                <?php $design_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id']; ?>
+                                                                <?php $design_url = "<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id']; ?>
                                                                 <a href="<?php echo $design_url; ?>" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 3px solid white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
                                                                     <img src="<?php echo $design_url; ?>" style="width:100%; height:auto; display: block;" alt="Customer Design">
                                                                 </a>
@@ -424,7 +424,7 @@ $page_title = "Order #{$order_id} - Staff";
                                                         <?php if (!empty($item['reference_image_file'])): ?>
                                                             <div>
                                                                 <div style="font-weight:800; color:#475569; margin-bottom:0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.025em;">Reference Image</div>
-                                                                <?php $ref_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference"; ?>
+                                                                <?php $ref_url = "<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference"; ?>
                                                                 <a href="<?php echo $ref_url; ?>" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 3px solid white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
                                                                     <img src="<?php echo $ref_url; ?>" style="width:100%; height:auto; display: block;" alt="Reference Image">
                                                                 </a>

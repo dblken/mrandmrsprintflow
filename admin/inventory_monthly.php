@@ -175,7 +175,7 @@ $page_title = 'Monthly Inventory - Admin';
 
 <script>
 /* var: Turbo re-runs this script on visits; let/const would throw "already been declared". */
-var API_URL = '<?php echo $base_path; ?>//printflow/admin/inventory_api.php';
+var API_URL = '<?php echo $base_path; ?>/admin/inventory_api.php';
 var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 var monthlyData = null;   // cached data from API

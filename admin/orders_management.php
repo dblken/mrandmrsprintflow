@@ -666,7 +666,7 @@ if (isset($_GET['ajax'])) {
 
                     fetchRolls(item) {
                         if (!item.tempWidth || item.tempWidth <= 0) return;
-                        fetch('<?php echo $base_path; ?>//printflow/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
+                        fetch('<?php echo $base_path; ?>/admin/api_tarp_rolls.php?action=list_available&width=' + item.tempWidth)
                             .then(r => r.json())
                             .then(data => { if (data.success) item.availableRolls = data.rolls; });
                     },
@@ -675,7 +675,7 @@ if (isset($_GET['ajax'])) {
                         if (!item.tempWidth || !item.tempHeight || !item.tempRollId) { alert('Please fill all tarpaulin specifications.'); return; }
                         item.savingTarp = true;
                         try {
-                            const resp = await fetch('<?php echo $base_path; ?>//printflow/admin/api_save_tarp_specs.php', {
+                            const resp = await fetch('<?php echo $base_path; ?>/admin/api_save_tarp_specs.php', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({
@@ -705,7 +705,7 @@ if (isset($_GET['ajax'])) {
                         this.updatingStatus = true;
                         this.statusUpdateMsg = '';
                         try {
-                            const resp = await fetch('<?php echo $base_path; ?>//printflow/admin/api_update_order_status.php', {
+                            const resp = await fetch('<?php echo $base_path; ?>/admin/api_update_order_status.php', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({
@@ -753,7 +753,7 @@ if (isset($_GET['ajax'])) {
                         this.statusUpdateMsg = '';
                         this.order = null;
                         this.items = [];
-                        fetch('<?php echo $base_path; ?>//printflow/admin/api_order_details.php?id=' + orderId)
+                        fetch('<?php echo $base_path; ?>/admin/api_order_details.php?id=' + orderId)
                             .then(r => {
                                 if (!r.ok) throw new Error('HTTP ' + r.status);
                                 const contentType = r.headers.get('content-type');

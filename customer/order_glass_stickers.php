@@ -135,7 +135,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
 // Fetch actual service image
 $service_info = db_query("SELECT hero_image FROM services WHERE customer_link LIKE '%order_glass_stickers%' LIMIT 1");
-$display_img = (!empty($service_info) && !empty($service_info[0]['hero_image'])) ? $service_info[0]['hero_image'] : '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+$display_img = (!empty($service_info) && !empty($service_info[0]['hero_image'])) ? $service_info[0]['hero_image'] : '<?php echo $base_path; ?>/public/assets/images/services/default.png';
 if ($display_img !== '' && strpos($display_img, 'http') === false && $display_img[0] !== '/') {
     $display_img = '/' . ltrim($display_img, '/');
 }

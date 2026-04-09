@@ -619,7 +619,7 @@ require_once __DIR__ . '/../includes/header.php';
 // Inline helper for this specific page theme
 function get_preview_image_for_order_ui($order, $display_name) {
     if (!empty($order['first_item_has_design']) && !empty($order['first_item_id'])) {
-        return "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+        return "<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
     }
     $product_img = "";
     $pn = trim($order['first_product_name'] ?? '');
@@ -628,7 +628,7 @@ function get_preview_image_for_order_ui($order, $display_name) {
             $img = $order['first_product_image'];
             if ($img[0] !== '/' && strpos($img, 'http') === false) {
                 if (file_exists(__DIR__ . '/../uploads/products/' . $img)) {
-                    return '<?php echo $base_path; ?>//printflow/uploads/products/' . $img;
+                    return '<?php echo $base_path; ?>/uploads/products/' . $img;
                 }
             } else {
                 return $img;
@@ -637,8 +637,8 @@ function get_preview_image_for_order_ui($order, $display_name) {
         $prod_id = (int)($order['first_product_id'] ?? 0);
         if ($prod_id > 0) {
             $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
-            if (file_exists($img_base . ".jpg")) return "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".jpg";
-            if (file_exists($img_base . ".png")) return "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".png";
+            if (file_exists($img_base . ".jpg")) return "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".jpg";
+            if (file_exists($img_base . ".png")) return "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".png";
         }
     }
     return get_service_image_url($display_name);
@@ -914,7 +914,7 @@ function submitOrderCancellation() {
     fd.append('ajax', '1'); fd.append('order_id', cancelOrderId);
     fd.append('csrf_token', cancelCsrfToken); fd.append('reason', reason); fd.append('details', details);
 
-    fetch('<?php echo $base_path; ?>//printflow/customer/cancel_order.php', { method: 'POST', body: fd })
+    fetch('<?php echo $base_path; ?>/customer/cancel_order.php', { method: 'POST', body: fd })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
@@ -936,7 +936,7 @@ function handleDesignReupload(input, orderId, csrfToken) {
     const fd = new FormData();
     fd.append('order_id', orderId); fd.append('csrf_token', csrfToken); fd.append('design_file', file);
     
-    fetch('<?php echo $base_path; ?>//printflow/customer/reupload_design_process.php', { method: 'POST', body: fd })
+    fetch('<?php echo $base_path; ?>/customer/reupload_design_process.php', { method: 'POST', body: fd })
     .then(r => r.json())
     .then(res => {
         if (res.success) window.location.reload();
@@ -982,7 +982,7 @@ function escIM(str) {
     };
 
     function poll() {
-        fetch('<?php echo $base_path; ?>//printflow/customer/api_customer_orders.php')
+        fetch('<?php echo $base_path; ?>/customer/api_customer_orders.php')
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;

@@ -32,7 +32,7 @@ if (isset($_GET['action'])) {
 
     if ($action === 'mark_all_read') {
         db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
-        redirect('<?php echo $base_path; ?>//printflow/staff/notifications.php?success=All notifications marked as read');
+        redirect('<?php echo $base_path; ?>/staff/notifications.php?success=All notifications marked as read');
     }
 
     if ($action === 'delete' && isset($_GET['id'])) {

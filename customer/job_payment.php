@@ -20,14 +20,14 @@ $customer_id = get_customer_id();
 $job = db_query("SELECT * FROM job_orders WHERE id = ? AND customer_id = ?", 'ii', [$job_id, $customer_id]);
 
 if (empty($job)) {
-    redirect('<?php echo $base_path; ?>//printflow/customer/services.php');
+    redirect('<?php echo $base_path; ?>/customer/services.php');
 }
 
 $job = $job[0];
 
 // Only allow payment if UNPAID or PARTIAL, and not fully completed
 if (in_array($job['payment_proof_status'], ['VERIFIED']) && $job['payment_status'] === 'PAID') {
-    redirect('<?php echo $base_path; ?>//printflow/customer/services.php');
+    redirect('<?php echo $base_path; ?>/customer/services.php');
 }
 
 $success = '';

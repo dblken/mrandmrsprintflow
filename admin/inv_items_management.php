@@ -1191,7 +1191,7 @@ if (isset($_GET['ajax'])) {
 
   <script>
     /* var: Turbo re-executes this block; let/const would throw "already been declared". */
-    var ADMIN_API_BASE = '<?php echo $base_path; ?>//printflow/admin/';
+    var ADMIN_API_BASE = '<?php echo $base_path; ?>/admin/';
     var currentItems = <?php echo $items_js; ?>;
     var usageChart = null;
     var selectedItemForStockCard = null;

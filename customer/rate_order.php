@@ -26,7 +26,7 @@ if (isset($_GET['mark_read'])) {
 
 if ($order_id <= 0) {
     $_SESSION['error'] = 'Invalid order selected for rating.';
-    redirect('<?php echo $base_path; ?>//printflow/customer/orders.php?tab=completed');
+    redirect('<?php echo $base_path; ?>/customer/orders.php?tab=completed');
 }
 
 $order_rows = db_query("
@@ -41,13 +41,13 @@ $order_rows = db_query("
 
 if (empty($order_rows)) {
     $_SESSION['error'] = 'Order not found.';
-    redirect('<?php echo $base_path; ?>//printflow/customer/orders.php?tab=completed');
+    redirect('<?php echo $base_path; ?>/customer/orders.php?tab=completed');
 }
 
 $order = $order_rows[0];
 if (!in_array((string)$order['status'], ['Completed', 'To Rate', 'Rated'], true)) {
     $_SESSION['error'] = 'You can only rate completed orders.';
-    redirect('<?php echo $base_path; ?>//printflow/customer/orders.php');
+    redirect('<?php echo $base_path; ?>/customer/orders.php');
 }
 
 // Check if already rated in the new reviews table
@@ -185,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $_SESSION['success'] = 'Thank you! Your review has been submitted.';
-                    redirect('<?php echo $base_path; ?>//printflow/customer/reviews.php?order_id=' . $order_id);
+                    redirect('<?php echo $base_path; ?>/customer/reviews.php?order_id=' . $order_id);
                 } catch (Throwable $e) {
                     $error = 'Could not submit your review: ' . $e->getMessage();
                 }

@@ -97,7 +97,7 @@ header('Expires: 0');
     }
     
     function openIncognito() {
-        alert('To test in Incognito mode:\n\n1. Press Ctrl+Shift+N (or Cmd+Shift+N on Mac)\n2. Copy this URL: ' + window.location.origin + '<?php echo $base_path; ?>//printflow/admin/service_field_config.php?service_id=27\n3. Paste and press Enter\n4. Check if the errors are gone');
+        alert('To test in Incognito mode:\n\n1. Press Ctrl+Shift+N (or Cmd+Shift+N on Mac)\n2. Copy this URL: ' + window.location.origin + '<?php echo $base_path; ?>/admin/service_field_config.php?service_id=27\n3. Paste and press Enter\n4. Check if the errors are gone');
     }
     
     function checkCurrentStatus() {

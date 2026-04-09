@@ -94,7 +94,7 @@ try {
         
         // Send password setup email
         $token = base64_encode($customer_id);
-        $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "<?php echo $base_path; ?>//printflow/public/set-password.php?token=" . $token;
+        $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "<?php echo $base_path; ?>/public/set-password.php?token=" . $token;
         
         $email_subject = "Welcome to PrintFlow - Set Your Password";
         $email_body = "

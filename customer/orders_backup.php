@@ -394,10 +394,10 @@ body.customer-theme.orders-page footer.ft-footer {
                             $show_design = !empty($order['first_item_has_design']) && !empty($order['first_item_id']);
                             $img_style = 'width:80px; height:80px; object-fit:cover; border-radius:8px;';
                             $img_wrapper = 'width:80px; height:80px; border-radius:8px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc;';
-                            $fallback_img = '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+                            $fallback_img = '<?php echo $base_path; ?>/public/assets/images/services/default.png';
 
                             if ($show_design) {
-                                $order_img_src = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+                                $order_img_src = "<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
                             } else {
                                 $product_img = "";
                                 $pn = trim($order['first_product_name'] ?? '');
@@ -407,8 +407,8 @@ body.customer-theme.orders-page footer.ft-footer {
                                     }
                                     if (empty($product_img) && ($prod_id = (int)($order['first_product_id'] ?? 0)) > 0) {
                                         $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
-                                        if (file_exists($img_base . ".jpg")) $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".jpg";
-                                        elseif (file_exists($img_base . ".png")) $product_img = "<?php echo $base_path; ?>//printflow/public/images/products/product_" . $prod_id . ".png";
+                                        if (file_exists($img_base . ".jpg")) $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".jpg";
+                                        elseif (file_exists($img_base . ".png")) $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".png";
                                     }
                                 }
                                 $order_img_src = !empty($product_img) ? $product_img : get_service_image_url($service_category ?: $display_name);
@@ -1128,7 +1128,7 @@ function submitOrderCancellation() {
     fd.append('reason', reason);
     fd.append('details', details);
 
-    fetch('<?php echo $base_path; ?>//printflow/customer/cancel_order.php', {
+    fetch('<?php echo $base_path; ?>/customer/cancel_order.php', {
         method: 'POST',
         body: fd
     })
@@ -1185,7 +1185,7 @@ function handleDesignReupload(input, orderId, csrfToken) {
     btn.disabled = true;
     btn.innerHTML = '<span>Uploading...</span>';
 
-    fetch('<?php echo $base_path; ?>//printflow/customer/reupload_design_process.php', {
+    fetch('<?php echo $base_path; ?>/customer/reupload_design_process.php', {
         method: 'POST',
         body: fd
     })
@@ -1291,7 +1291,7 @@ function escIM(str) {
     }
 
     function poll() {
-        fetch('<?php echo $base_path; ?>//printflow/customer/api_customer_orders.php')
+        fetch('<?php echo $base_path; ?>/customer/api_customer_orders.php')
             .then(r => r.json())
             .then(data => {
                 if (!data.success) return;

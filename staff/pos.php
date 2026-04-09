@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function syncedCartAction(action, payload = {}) {
     console.log('syncedCartAction:', action, payload);
     try {
-        const response = await fetch('<?php echo $base_path; ?>//printflow/staff/api/pos_cart_handler.php', {
+        const response = await fetch('<?php echo $base_path; ?>/staff/api/pos_cart_handler.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, ...payload })
@@ -975,7 +975,7 @@ async function fetchProducts() {
         grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;"><i class="fas fa-spinner fa-spin" style="font-size:32px; margin-bottom:16px;"></i><br>Loading products...</div>';
     }
     try {
-        const res = await fetch('<?php echo $base_path; ?>//printflow/staff/api/get_products.php');
+        const res = await fetch('<?php echo $base_path; ?>/staff/api/get_products.php');
         const data = await res.json();
         console.log('Products API Response:', data);
         if(data.success) {
@@ -1016,7 +1016,7 @@ async function openServiceModal(serviceId, serviceName) {
     overlay.dataset.serviceName = serviceName;
 
     try {
-        const res  = await fetch('<?php echo $base_path; ?>//printflow/staff/api/pos_service_fields.php?service_id=' + serviceId);
+        const res  = await fetch('<?php echo $base_path; ?>/staff/api/pos_service_fields.php?service_id=' + serviceId);
         const data = await res.json();
         console.log('Service fields response:', data);
         if (!data.success) {
@@ -2008,7 +2008,7 @@ async function processCheckout() {
     };
     
     try {
-        const res = await fetch('<?php echo $base_path; ?>//printflow/staff/api/pos_checkout.php', {
+        const res = await fetch('<?php echo $base_path; ?>/staff/api/pos_checkout.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
@@ -2085,7 +2085,7 @@ async function saveCustomer() {
     btn.disabled = true;
     
     try {
-        const res = await fetch('<?php echo $base_path; ?>//printflow/staff/api/pos_add_customer.php', {
+        const res = await fetch('<?php echo $base_path; ?>/staff/api/pos_add_customer.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -2169,7 +2169,7 @@ async function redirectToSetPrice(index) {
     };
     
     try {
-        const res = await fetch('<?php echo $base_path; ?>//printflow/staff/api/pos_checkout.php', {
+        const res = await fetch('<?php echo $base_path; ?>/staff/api/pos_checkout.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
@@ -2177,7 +2177,7 @@ async function redirectToSetPrice(index) {
         const data = await res.json();
         if (data.success && data.customization_id) {
             // Redirect to customizations page
-            window.location.href = '<?php echo $base_path; ?>//printflow/staff/customizations.php?status=PENDING&order_id=' + data.customization_id + '&job_type=CUSTOMIZATION&return_to_pos=1';
+            window.location.href = '<?php echo $base_path; ?>/staff/customizations.php?status=PENDING&order_id=' + data.customization_id + '&job_type=CUSTOMIZATION&return_to_pos=1';
         } else {
             alert('Failed to create customization: ' + (data.message || 'Unknown error'));
         }

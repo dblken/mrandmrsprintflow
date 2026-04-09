@@ -629,7 +629,7 @@ $page_title = 'Customers Management - Admin';
                         this.errorMsg = '';
                         this.customer = null;
                         this.idRejectReason = '';
-                        fetch('<?php echo $base_path; ?>//printflow/admin/api_customer_details.php?id=' + customerId, { credentials: 'same-origin' })
+                        fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + customerId, { credentials: 'same-origin' })
                             .then(r => r.json())
                             .then(data => {
                                 this.loading = false;
@@ -651,13 +651,13 @@ $page_title = 'Customers Management - Admin';
                         fd.append('reject_reason', this.idRejectReason.trim());
                         fd.append('csrf_token', '<?php echo generate_csrf_token(); ?>');
                         try {
-                            const res = await fetch('<?php echo $base_path; ?>//printflow/admin/customers_management.php', { method: 'POST', body: fd, credentials: 'same-origin' });
+                            const res = await fetch('<?php echo $base_path; ?>/admin/customers_management.php', { method: 'POST', body: fd, credentials: 'same-origin' });
                             const data = await res.json();
                             if (data.success) {
                                 // Refresh customer data in modal
                                 const cid = this.customer.customer_id;
                                 this.idRejectReason = '';
-                                fetch('<?php echo $base_path; ?>//printflow/admin/api_customer_details.php?id=' + cid, { credentials: 'same-origin' })
+                                fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + cid, { credentials: 'same-origin' })
                                     .then(r => r.json())
                                     .then(d => { if (d.success) this.customer = d.customer; });
                                 // Refresh table without resetting filters
@@ -673,7 +673,7 @@ $page_title = 'Customers Management - Admin';
                         this.customerName = '';
                         this.orders = [];
                         this.customizations = [];
-                        fetch('<?php echo $base_path; ?>//printflow/admin/api_customer_details.php?id=' + id, { credentials: 'same-origin' })
+                        fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + id, { credentials: 'same-origin' })
                             .then(r => r.json())
                             .then(data => {
                                 this.transLoading = false;

@@ -529,7 +529,7 @@ function custom_payment_badge($status) {
                     this.errorMsg = '';
                     this.job = null;
 
-                    fetch('<?php echo $base_path; ?>//printflow/admin/job_orders_api.php?action=get_order&id=' + id)
+                    fetch('<?php echo $base_path; ?>/admin/job_orders_api.php?action=get_order&id=' + id)
                         .then(async (r) => {
                             const text = await r.text();
                             let data;
@@ -563,8 +563,8 @@ function custom_payment_badge($status) {
 
                     try {
                         const [ordersRes, customsRes] = await Promise.all([
-                            fetch(`/printflow/admin/api_order_details.php?customer_id=${customerId}`),
-                            fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`)
+                            fetch(`<?php echo $base_path; ?>/admin/api_order_details.php?customer_id=${customerId}`),
+                            fetch(`<?php echo $base_path; ?>/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`)
                         ]);
                         
                         const ordersData = await ordersRes.json();
@@ -1143,15 +1143,17 @@ function custom_payment_badge($status) {
                             <div x-show="job?.payment_proof_path" style="flex:0 0 auto;min-width:200px;">
                                 <p style="font-size:11px;font-weight:600;color:#10b981;text-transform:uppercase;margin-bottom:8px;">Payment Proof</p>
                                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                                    <div style="position:relative;width:120px;height:120px;border-radius:8px;overflow:hidden;border:2px solid #10b981;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,0.15);" @click="viewImage(job.payment_proof_path)">
-                                        <img :src="job.payment_proof_path" style="width:100%;height:100%;object-fit:cover;" alt="Payment Proof">
-                                        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(16,185,129,0.95);color:white;font-size:10px;padding:4px;text-align:center;font-weight:600;">
-                                            <svg style="width:12px;height:12px;display:inline-block;margin-right:3px;vertical-align:middle;" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                            </svg>
-                                            Payment Proof
+                                    <template x-if="job?.payment_proof_path">
+                                        <div style="position:relative;width:120px;height:120px;border-radius:8px;overflow:hidden;border:2px solid #10b981;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,0.15);" @click="viewImage(job.payment_proof_path)">
+                                            <img :src="job.payment_proof_path" style="width:100%;height:100%;object-fit:cover;" alt="Payment Proof">
+                                            <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(16,185,129,0.95);color:white;font-size:10px;padding:4px;text-align:center;font-weight:600;">
+                                                <svg style="width:12px;height:12px;display:inline-block;margin-right:3px;vertical-align:middle;" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                </svg>
+                                                Payment Proof
+                                            </div>
                                         </div>
-                                    </div>
+                                    </template>
                                 </div>
                             </div>
                         </div>

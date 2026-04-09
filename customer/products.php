@@ -304,7 +304,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="shopee-grid">
                 <?php foreach ($products as $product): 
-                    $display_img = $product['photo_path'] ?: $product['product_image'] ?: "<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png";
+                    $display_img = $product['photo_path'] ?: $product['product_image'] ?: "<?php echo $base_path; ?>/public/assets/images/services/default.png";
                     if ($display_img[0] !== '/' && strpos($display_img, 'http') === false) $display_img = '/' . $display_img;
                     
                     $sold_count = (int)$product['sold_count'];

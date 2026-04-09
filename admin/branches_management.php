@@ -241,7 +241,7 @@ if (isset($_GET['ajax'])) {
                 if (!email) return;
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.errors.email = 'Invalid email'; return; }
                 try {
-                    const resp = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const resp = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'check_email', email, exclude_id: this.form.branch_id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
                     });
@@ -252,7 +252,7 @@ if (isset($_GET['ajax'])) {
 
             async loadProvinces() {
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=provinces');
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=provinces');
                     const d = await r.json();
                     if (d.success) this.addressProvinces = d.data;
                 } catch (e) {}
@@ -264,7 +264,7 @@ if (isset($_GET['ajax'])) {
                 if (!p?.code) return;
                 this.loadingCities = true;
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(p.code));
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(p.code));
                     const d = await r.json();
                     if (d.success) {
                         this.addressCities = d.data;
@@ -283,7 +283,7 @@ if (isset($_GET['ajax'])) {
                 if (!c?.code) return;
                 this.loadingBarangays = true;
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(c.code));
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(c.code));
                     const d = await r.json();
                     if (d.success) {
                         this.addressBarangays = d.data;
@@ -339,7 +339,7 @@ if (isset($_GET['ajax'])) {
                 await this.validateEmail(); if (this.errors.email) return;
                 this.modal.isSubmitting = true; this.modal.error = '';
                 try {
-                    const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const res = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: this.modal.mode, ...this.form, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
@@ -354,7 +354,7 @@ if (isset($_GET['ajax'])) {
             async openArchiveModal(page = 1) {
                 this.archiveModal.isOpen = true; this.archiveModal.loading = true;
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'get_archived', page, per_page: 7, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
                     });
@@ -370,7 +370,7 @@ if (isset($_GET['ajax'])) {
             },
             async restoreBranch(id) {
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'restore', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
                     });
@@ -385,7 +385,7 @@ if (isset($_GET['ajax'])) {
             },
             async archiveBranch(id) {
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'archive', branch_id: id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
                     });
@@ -396,7 +396,7 @@ if (isset($_GET['ajax'])) {
             showDeleteConfirmModal(id, name) { this.deleteConfirmModal = { id, name, isOpen: true }; },
             async confirmDeleteBranch() {
                 try {
-                    const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_branch.php', {
+                    const r = await fetch('<?php echo $base_path; ?>/admin/api_branch.php', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'delete_permanent', branch_id: this.deleteConfirmModal.id, csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>' })
                     });

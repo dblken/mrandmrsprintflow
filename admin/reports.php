@@ -578,7 +578,7 @@ try { $cust_total = (int)(db_query("SELECT COUNT(*) as cnt FROM customers")[0]['
 
 // ── Variables required by footer.php ──────────────────────────────────────────
 $base_url = '/printflow';
-$url_products = '<?php echo $base_path; ?>//printflow/public/products.php';
+$url_products = '<?php echo $base_path; ?>/public/products.php';
 $is_logged_in = true;
 
 // ── 17. Seasonal event insights ───────────────────────────────────────────────
@@ -626,7 +626,7 @@ $last_updated = date('M j, Y g:i A');
 
 // Required variables for footer.php
 $base_url = '/printflow';
-$url_products = '<?php echo $base_path; ?>//printflow/public/products.php';
+$url_products = '<?php echo $base_path; ?>/public/products.php';
 $is_logged_in = true;
 
 // ── Period empty (branch has orders but none in date range) ─────────────────
@@ -1642,7 +1642,7 @@ a.export-dd-link:hover { background: #f9fafb; }
                                 'branch_id' => $branchId === 'all' ? 'all' : (int)$branchId,
                             ];
                             $pfRptUrl = function (string $file, array $extra = []) use ($rptQs) {
-                                return '<?php echo $base_path; ?>//printflow/admin/' . $file . '?' . http_build_query(array_merge($rptQs, $extra));
+                                return '<?php echo $base_path; ?>/admin/' . $file . '?' . http_build_query(array_merge($rptQs, $extra));
                             };
                             $printOrdersUrl = $pfRptUrl('reports_print.php', ['report' => 'orders']);
                             $printSalesUrl = $pfRptUrl('reports_print.php', ['report' => 'sales']);
@@ -1656,7 +1656,7 @@ a.export-dd-link:hover { background: #f9fafb; }
                             $csvDailyUrl = $pfRptUrl('reports_export.php', ['report' => 'daily_sales', 'date' => $to]);
                             $csvShopInvUrl = $pfRptUrl('reports_export.php', ['report' => 'shop_inventory']);
                             $csvMaterialsUrl = $pfRptUrl('reports_export.php', ['report' => 'inventory']);
-                            $activityLogsPrintUrl = '<?php echo $base_path; ?>//printflow/admin/activity_logs.php?' . http_build_query([
+                            $activityLogsPrintUrl = '<?php echo $base_path; ?>/admin/activity_logs.php?' . http_build_query([
                                 'print_all' => '1',
                                 'date_from' => $from,
                                 'date_to' => $to,
@@ -2540,7 +2540,7 @@ $dashData = [
                             <?php foreach ($recent_orders as $ro):
                                 $pb = match($ro['payment_status']) { 'Paid'=>'b-green','Pending'=>'b-yellow', default=>'b-red' };
                                 $sb = match($ro['status']) { 'Completed'=>'b-green','Processing'=>'b-blue','Pending'=>'b-yellow','Ready for Pickup'=>'b-cyan','Cancelled'=>'b-red','Design Approved'=>'b-purple', default=>'b-gray' };
-                                $orderUrl = '<?php echo $base_path; ?>//printflow/admin/orders_management.php?order_id='.(int)$ro['order_id'];
+                                $orderUrl = '<?php echo $base_path; ?>/admin/orders_management.php?order_id='.(int)$ro['order_id'];
                             ?>
                             <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
                                 <td style="font-weight:700;color:#00232b;">#<?php echo $ro['order_id']; ?></td>

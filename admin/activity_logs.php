@@ -122,7 +122,7 @@ $page_title = 'Activity Logs - Admin';
 
 // Define variables needed by footer
 $base_url = '/printflow';
-$url_products = '<?php echo $base_path; ?>//printflow/public/products.php';
+$url_products = '<?php echo $base_path; ?>/public/products.php';
 $is_logged_in = true;
 
 $print_date_range = 'All dates';

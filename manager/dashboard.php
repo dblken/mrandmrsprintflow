@@ -483,7 +483,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             if (noDataEl) noDataEl.classList.remove('visible');
             var year = yearEl ? yearEl.value : new Date().getFullYear();
             var month = monthEl ? monthEl.value : new Date().getMonth() + 1;
-            var url = '<?php echo $base_path; ?>//printflow/admin/api_revenue_chart.php?period=' + encodeURIComponent(period) + '&year=' + encodeURIComponent(year);
+            var url = '<?php echo $base_path; ?>/admin/api_revenue_chart.php?period=' + encodeURIComponent(period) + '&year=' + encodeURIComponent(year);
             if (period === 'monthly') url += '&month=' + encodeURIComponent(month);
             if (DASH_BRANCH_ID) url += '&branch_id=' + DASH_BRANCH_ID;
             try {

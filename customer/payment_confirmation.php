@@ -20,7 +20,7 @@ $customer_id = get_customer_id();
 $order = db_query("SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", 'ii', [$order_id, $customer_id]);
 
 if (empty($order)) {
-    redirect('<?php echo $base_path; ?>//printflow/customer/orders.php');
+    redirect('<?php echo $base_path; ?>/customer/orders.php');
 }
 
 $order = $order[0];

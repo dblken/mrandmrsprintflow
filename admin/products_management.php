@@ -78,7 +78,7 @@ function handle_product_photo_upload($file, $product_id = null) {
         throw new Exception('Failed to upload file to server');
     }
     
-    return '<?php echo $base_path; ?>//printflow/uploads/products/' . $filename;
+    return '<?php echo $base_path; ?>/uploads/products/' . $filename;
 }
 
 // Handle product creation/update/delete

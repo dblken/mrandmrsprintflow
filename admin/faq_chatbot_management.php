@@ -188,7 +188,7 @@ $inq_conversations = db_query(
 $inq_total_pages = (int)ceil(max(1, $inq_total_count) / $inq_per_page);
 }
 $page_title = 'Support Chat Management - Admin';
-$inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '<?php echo $base_path; ?>//printflow/admin/api_chatbot_conversations.php';
+$inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '<?php echo $base_path; ?>/admin/api_chatbot_conversations.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -359,7 +359,7 @@ $page_title = 'Settings - Admin';
                                     <input type="hidden" name="pm_existing_file[]" value="<?php echo htmlspecialchars($pm['file'] ?? ''); ?>">
                                     <input type="hidden" name="pm_cropped_img[]" value="">
                                     <div style="margin-top:8px;">
-                                        <img src="<?php echo !empty($pm['file']) ? '<?php echo $base_path; ?>//printflow/public/assets/uploads/qr/' . htmlspecialchars($pm['file']) . '?t=' . time() : ''; ?>" 
+                                        <img src="<?php echo !empty($pm['file']) ? '<?php echo $base_path; ?>/public/assets/uploads/qr/' . htmlspecialchars($pm['file']) . '?t=' . time() : ''; ?>" 
                                              class="pm-preview-img" 
                                              style="height:80px; width:80px; object-fit:cover; border-radius:8px; border:2px solid #e5e7eb; background:#fff; display:<?php echo !empty($pm['file']) ? 'block' : 'none'; ?>;" alt="QR">
                                     </div>

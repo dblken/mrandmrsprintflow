@@ -95,10 +95,10 @@ foreach ($items as $item) {
         'has_design'    => !empty($item['design_image']) || !empty($item['design_file']),
         'has_reference' => !empty($item['reference_image_file']),
         'design_url'    => (!empty($item['design_image']) || !empty($item['design_file']))
-                            ? '<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
+                            ? '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
                             : null,
         'reference_url' => !empty($item['reference_image_file'])
-                            ? '<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
+                            ? '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
                             : null,
     ];
 }

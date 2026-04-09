@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_images[] = '<?php echo $base_path; ?>//printflow/public/assets/images/services/' . $new_filename;
+                        $uploaded_images[] = '<?php echo $base_path; ?>/public/assets/images/services/' . $new_filename;
                         error_log('Image uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move image file');
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_video = '<?php echo $base_path; ?>//printflow/public/assets/videos/services/' . $new_filename;
+                        $uploaded_video = '<?php echo $base_path; ?>/public/assets/videos/services/' . $new_filename;
                         error_log('Video uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move video file');

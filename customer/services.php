@@ -35,7 +35,7 @@ foreach ($visible_rows as $row) {
     }
     
     if ($img === '') {
-        $img = '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+        $img = '<?php echo $base_path; ?>/public/assets/images/services/default.png';
     }
     if ($img !== '' && $img[0] !== '/') {
         $img = '/' . ltrim($img, '/');
@@ -65,7 +65,7 @@ require_once __DIR__ . '/../includes/header.php';
 function render_service_card($srv) {
     $img = $srv['img'];
     if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img) && strpos($img, 'http') === false) {
-        $img = '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+        $img = '<?php echo $base_path; ?>/public/assets/images/services/default.png';
     }
     
     $json_name = htmlspecialchars(json_encode($srv['name']), ENT_QUOTES, 'UTF-8');
@@ -488,7 +488,7 @@ function loadModalReviews(serviceId) {
     const container = document.getElementById('modal-ratings-section');
     container.innerHTML = '';
 
-    fetch('<?php echo $base_path; ?>//printflow/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
+    fetch('<?php echo $base_path; ?>/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
         .then(r => r.json())
         .then(data => {
             const reviews = data.reviews || [];

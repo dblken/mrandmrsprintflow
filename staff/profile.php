@@ -418,7 +418,7 @@ $page_title = 'My Profile - Staff';
 
 <script>
 (function() {
-    const addrApi = '<?php echo $base_path; ?>//printflow/public/api_address_public.php';
+    const addrApi = '<?php echo $base_path; ?>/public/api_address_public.php';
     const prov = document.getElementById('profile_province');
     const city = document.getElementById('profile_city');
     const brgy = document.getElementById('profile_barangay');

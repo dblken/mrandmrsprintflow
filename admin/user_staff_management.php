@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
             );
 
             $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-            $complete_link = rtrim($base_url, '/') . '<?php echo $base_path; ?>//printflow/public/complete_profile.php?token=' . $token;
+            $complete_link = rtrim($base_url, '/') . '<?php echo $base_path; ?>/public/complete_profile.php?token=' . $token;
 
             require_once __DIR__ . '/../includes/profile_completion_mailer.php';
 
@@ -961,7 +961,7 @@ if (isset($_GET['ajax'])) {
                         <img src="<?php echo $base_path; ?>/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%; height:auto; border-radius:6px; margin-bottom:8px;">
                         <template x-if="viewModal.user?.id_validation_image">
                             <div>
-                                <img :src="'<?php echo $base_path; ?>//printflow/uploads/ids/' + viewModal.user.id_validation_image" alt="Uploaded ID" style="max-width:100%; height:auto; border-radius:6px; border:1px solid #e5e7eb;">
+                                <img :src="'<?php echo $base_path; ?>/uploads/ids/' + viewModal.user.id_validation_image" alt="Uploaded ID" style="max-width:100%; height:auto; border-radius:6px; border:1px solid #e5e7eb;">
                             </div>
                         </template>
                     </div>
@@ -1872,7 +1872,7 @@ function userManagement() {
 
         async loadProvinces() {
             try {
-                const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=provinces');
+                const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=provinces');
                 const d = await r.json();
                 if (d.success && d.data) this.addressProvinces = d.data;
                 return d.data || [];
@@ -1885,7 +1885,7 @@ function userManagement() {
             if (!code) { this.addressCities = []; this.addressBarangays = []; return; }
             this.loadingCities = true;
             try {
-                const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(code));
+                const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=cities&province_code=' + encodeURIComponent(code));
                 const d = await r.json();
                 if (d.success && d.data) this.addressCities = d.data;
                 this.addressBarangays = [];
@@ -1900,7 +1900,7 @@ function userManagement() {
             if (!code) { this.addressBarangays = []; if (!skipBuildAddress) this.buildAddress(); return; }
             this.loadingBarangays = true;
             try {
-                const r = await fetch('<?php echo $base_path; ?>//printflow/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(code));
+                const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(code));
                 const d = await r.json();
                 if (d.success && d.data) this.addressBarangays = d.data;
                 if (!skipBuildAddress) this.buildAddress();
@@ -1934,7 +1934,7 @@ function userManagement() {
             this.editModal.isOpen = false;
 
             try {
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_user_details.php?id=' + userId);
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_user_details.php?id=' + userId);
                 const data = await res.json();
                 if (data.success) {
                     this.viewModal.user = data.user;
@@ -1957,7 +1957,7 @@ function userManagement() {
 
             try {
                 if (!this.addressProvinces.length) await this.loadProvinces();
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_user_details.php?id=' + userId);
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_user_details.php?id=' + userId);
                 const data = await res.json();
                 if (data.success) {
                     const u = data.user;
@@ -2003,7 +2003,7 @@ function userManagement() {
             if (!userId) return;
             this.activateConfirm.isOpen = false;
             try {
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_update_user_status.php', {
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2028,7 +2028,7 @@ function userManagement() {
             if (!userId) return;
             this.deactivateConfirm.isOpen = false;
             try {
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_update_user_status.php', {
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2074,7 +2074,7 @@ function userManagement() {
             if (n.other && n.otherText.trim()) admin_notes.push('Other: ' + n.otherText.trim());
             else if (n.other) admin_notes.push('Other');
             try {
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_update_user_status.php', {
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2128,7 +2128,7 @@ function userManagement() {
                     csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
                 };
 
-                const res = await fetch('<?php echo $base_path; ?>//printflow/admin/api_update_user_status.php', {
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)

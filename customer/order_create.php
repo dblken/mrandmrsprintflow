@@ -285,7 +285,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php foreach ($reviews_paged as $review):
                     $reviewer_name = htmlspecialchars(trim(($review['first_name'] ?? '') . ' ' . ($review['last_name'] ?? '')));
                     $profile_pic = !empty($review['profile_picture'])
-                        ? '<?php echo $base_path; ?>//printflow/public/assets/uploads/profiles/' . htmlspecialchars($review['profile_picture'])
+                        ? '<?php echo $base_path; ?>/public/assets/uploads/profiles/' . htmlspecialchars($review['profile_picture'])
                         : '';
                     $rating      = (int)$review['rating'];
                     $comment     = htmlspecialchars($review['message'] ?? '');
@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function markHelpful(reviewId, btn) {
     const voted = btn.dataset.voted === '1';
     try {
-        const res = await fetch('<?php echo $base_path; ?>//printflow/public/api/review_helpful.php', {
+        const res = await fetch('<?php echo $base_path; ?>/public/api/review_helpful.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: 'review_id=' + reviewId
