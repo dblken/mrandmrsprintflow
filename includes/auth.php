@@ -589,8 +589,64 @@ function require_role($roles) {
     $user_type = get_user_type();
     
     if (!in_array($user_type, $roles)) {
-        http_response_code(403);
-        die('<h1>403 Forbidden</h1><p>You do not have permission to access this page.</p>');
+        // Redirect to appropriate dashboard instead of showing error
+        redirect_to_dashboard();
+        exit();
+    }
+}
+
+/**
+ * Redirect user to their appropriate dashboard based on role
+ */
+function redirect_to_dashboard() {
+    if (!is_logged_in()) {
+        header('Location: ' . AUTH_REDIRECT_BASE . '/');
+        exit();
+    }
+    
+    $user_type = get_user_type();
+    
+    switch ($user_type) {
+        case 'Admin':
+            header('Location: ' . AUTH_REDIRECT_BASE . '/admin/dashboard.php');
+            break;
+        case 'Manager':
+            header('Location: ' . AUTH_REDIRECT_BASE . '/manager/dashboard.php');
+            break;
+        case 'Staff':
+            header('Location: ' . AUTH_REDIRECT_BASE . '/staff/dashboard.php');
+            break;
+        case 'Customer':
+            header('Location: ' . AUTH_REDIRECT_BASE . '/customer/services.php');
+            break;
+        default:
+            header('Location: ' . AUTH_REDIRECT_BASE . '/');
+    }
+    exit();
+}
+
+/**
+ * Require customer access (customers only, block admin/staff)
+ */
+function require_customer() {
+    require_auth();
+    
+    if (!is_customer()) {
+        redirect_to_dashboard();
+        exit();
+    }
+}
+
+/**
+ * Require admin/staff access (block customers)
+ */
+function require_admin_or_staff() {
+    require_auth();
+    
+    $user_type = get_user_type();
+    if (!in_array($user_type, ['Admin', 'Manager', 'Staff'])) {
+        redirect_to_dashboard();
+        exit();
     }
 }
 

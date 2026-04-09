@@ -9,6 +9,9 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/customer_service_catalog.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
+// Require customer access only
+require_customer();
+
 // Fetch services from DB
 $visible_rows = db_query(
     "SELECT s.*, 

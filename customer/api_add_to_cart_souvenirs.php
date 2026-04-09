@@ -3,6 +3,7 @@
  * AJAX API to Add Souvenirs Order to Cart/Session for Review
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_customer();
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 

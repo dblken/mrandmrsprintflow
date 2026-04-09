@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_customer();
 require_once __DIR__ . '/../includes/functions.php';
 
 $session_user_type = trim((string)(get_user_type() ?? ''));
