@@ -6,9 +6,14 @@
  * Role redirects: change REDIRECT_BASE if the app is not at /printflow (e.g. on production).
  */
 
+// Load config for environment detection
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+
 // Base path for redirects (no trailing slash). Change this if app lives at a different path.
 if (!defined('AUTH_REDIRECT_BASE')) {
-    define('AUTH_REDIRECT_BASE', '/printflow');
+    define('AUTH_REDIRECT_BASE', defined('BASE_URL') ? BASE_URL : '/printflow');
 }
 
 require_once __DIR__ . '/session_manager.php';

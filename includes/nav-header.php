@@ -128,6 +128,189 @@ if ($initials === '') {
             cursor: pointer;
         }
         #main-header .pf-burger-btn svg { width: 1.25rem; height: 1.25rem; }
+        
+        /* Burger Menu Overlay */
+        #main-header .pf-burger-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #main-header .pf-burger-overlay.open {
+            display: block;
+            opacity: 1;
+        }
+        
+        /* Burger Menu Panel */
+        #main-header .pf-burger-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 320px;
+            max-width: 85vw;
+            height: 100vh;
+            background: #0a2530;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        #main-header .pf-burger-menu.open {
+            display: flex;
+            flex-direction: column;
+            transform: translateX(0);
+        }
+        
+        /* Burger Menu Header */
+        #main-header .pf-burger-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(83, 197, 224, 0.15);
+        }
+        #main-header .pf-burger-logo {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #53c5e0;
+        }
+        #main-header .pf-burger-close {
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #main-header .pf-burger-close:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            transform: rotate(90deg);
+        }
+        #main-header .pf-burger-close svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        
+        /* Burger Menu Sections */
+        #main-header .pf-burger-section {
+            margin-bottom: 2rem;
+        }
+        #main-header .pf-burger-section-title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: rgba(83, 197, 224, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+        }
+        #main-header .pf-burger-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        #main-header .pf-burger-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            background: transparent;
+        }
+        #main-header .pf-burger-link:hover {
+            background: rgba(83, 197, 224, 0.1);
+            color: #53c5e0;
+            transform: translateX(4px);
+        }
+        #main-header .pf-burger-link.active {
+            background: rgba(83, 197, 224, 0.15);
+            color: #53c5e0;
+        }
+        
+        /* Burger Menu Buttons */
+        #main-header .pf-burger-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(83, 197, 224, 0.15);
+        }
+        #main-header .pf-burger-btn-login {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.85);
+        }
+        #main-header .pf-burger-btn-login:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+        #main-header .pf-burger-btn-register {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+            background: #32a1c4;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+        #main-header .pf-burger-btn-register:hover {
+            background: #2a82a3;
+            box-shadow: 0 0 20px rgba(83, 197, 224, 0.3);
+        }
+        #main-header .pf-burger-btn-install {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        #main-header .pf-burger-btn-install:hover {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.35);
+        }
+        #main-header .pf-burger-btn-install svg {
+            width: 1.1rem;
+            height: 1.1rem;
+        }
         #main-header .pf-mobile-panel {
             display: none;
             border-top: 1px solid rgba(83,197,224,.16);
@@ -262,12 +445,22 @@ if ($initials === '') {
                 font-size: 1.1rem !important;
                 white-space: nowrap;
             }
+            /* Hide desktop navigation on mobile */
+            #main-header .pf-header-mid {
+                display: none !important;
+            }
             #main-header .pf-header-right {
                 display: flex;
                 align-items: center;
                 gap: 0.5rem;
                 flex: 0 0 auto;
                 margin-left: auto;
+            }
+            /* Hide auth buttons on mobile - they go in burger menu */
+            #main-header .pf-header-right a[data-auth-modal],
+            #main-header .pf-header-right .btn-gradient-primary,
+            #main-header .pf-header-right #pwa-install-btn {
+                display: none !important;
             }
             #main-header .pf-header-right [data-pf-profile-wrap] {
                 display: none !important;
@@ -331,7 +524,11 @@ if ($initials === '') {
                         <img src="<?php echo htmlspecialchars($shop_logo_url); ?>?t=<?php echo time(); ?>"
                              alt="<?php echo $shop_name; ?>"
                              style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;transition:transform 0.3s;flex-shrink:0;"
-                             class="group-hover:scale-105">
+                             class="group-hover:scale-105"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:none;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0;">
+                            <?php echo strtoupper(substr($shop_name, 0, 1)); ?>
+                        </div>
                         <span class="text-xl font-bold bg-gradient-to-r from-primary-600 to-accent-purple bg-clip-text text-transparent"><?php echo $shop_name; ?></span>
                     <?php else: ?>
                         <div class="relative">
@@ -425,13 +622,15 @@ if ($initials === '') {
 
             <!-- Right Side Icons -->
             <div class="pf-header-right">
+                <!-- Burger Menu Button (Mobile - All Users) -->
+                <button type="button" class="pf-burger-btn" data-pf-mobile-toggle aria-label="Open navigation menu">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
+                    </svg>
+                </button>
+                
                 <?php if ($is_logged_in): ?>
                     <?php if (is_customer()): ?>
-                    <button type="button" class="pf-burger-btn" data-pf-mobile-toggle aria-label="Open navigation menu">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
-                        </svg>
-                    </button>
                     <div class="pf-mobile-icon-row">
                     <?php endif; ?>
                     <!-- Cart icon (customer only) -->
@@ -555,6 +754,46 @@ if ($initials === '') {
             </div>
         </div>
     </nav>
+    
+    <!-- Burger Menu Overlay (Mobile Only) -->
+    <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
+    
+    <!-- Burger Menu Panel (Mobile Only) -->
+    <div class="pf-burger-menu" data-pf-burger-menu>
+        <div class="pf-burger-header">
+            <div class="pf-burger-logo">PrintFlow</div>
+            <button class="pf-burger-close" onclick="closeBurgerMenu()" aria-label="Close menu">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <?php if (!$is_logged_in): ?>
+        <!-- Navigation Section -->
+        <div class="pf-burger-section">
+            <div class="pf-burger-section-title">Navigation</div>
+            <nav class="pf-burger-nav">
+                <a href="<?php echo $url_index; ?>" class="pf-burger-link">Home</a>
+                <a href="<?php echo $base_url; ?>/public/about.php" class="pf-burger-link">About</a>
+                <a href="<?php echo $base_url; ?>/public/services.php" class="pf-burger-link">Services</a>
+                <a href="<?php echo $url_products; ?>" class="pf-burger-link">Products</a>
+            </nav>
+        </div>
+        
+        <!-- Account Actions -->
+        <div class="pf-burger-actions">
+            <a href="#" data-auth-modal="login" class="pf-burger-btn-login" onclick="closeBurgerMenu()">Login</a>
+            <a href="#" data-auth-modal="register" class="pf-burger-btn-register" onclick="closeBurgerMenu()">Register</a>
+            <button type="button" id="pwa-install-btn-mobile" class="pf-burger-btn-install" aria-label="Install PrintFlow app">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Install App
+            </button>
+        </div>
+        <?php endif; ?>
+    </div>
     <?php if ($is_logged_in && is_customer()): ?>
     <div class="pf-mobile-panel" data-pf-mobile-panel>
         <!-- Profile Section -->
@@ -637,9 +876,76 @@ if ($initials === '') {
 
 <script>
 (function(){
+    // ── Burger Menu Toggle ──────────────────────────────────
+    window.openBurgerMenu = function() {
+        var overlay = document.querySelector('[data-pf-burger-overlay]');
+        var menu = document.querySelector('[data-pf-burger-menu]');
+        if (overlay && menu) {
+            overlay.classList.add('open');
+            menu.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+    };
+    
+    window.closeBurgerMenu = function() {
+        var overlay = document.querySelector('[data-pf-burger-overlay]');
+        var menu = document.querySelector('[data-pf-burger-menu]');
+        if (overlay && menu) {
+            overlay.classList.remove('open');
+            menu.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    };
+    
+    // Burger button click handler
+    var burgerBtn = document.querySelector('[data-pf-mobile-toggle]');
+    if (burgerBtn) {
+        burgerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openBurgerMenu();
+        });
+    }
+    
+    // Close on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeBurgerMenu();
+        }
+    });
+    
+    // PWA Install button in burger menu
+    var pwaInstallMobile = document.getElementById('pwa-install-btn-mobile');
+    if (pwaInstallMobile) {
+        // Show by default
+        pwaInstallMobile.style.display = 'flex';
+        
+        // Show when PWA is installable
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            pwaInstallMobile.style.display = 'flex';
+        });
+        
+        pwaInstallMobile.addEventListener('click', function() {
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                window.deferredPrompt.userChoice.then(function(choiceResult) {
+                    if (choiceResult.outcome === 'accepted') {
+                        pwaInstallMobile.style.display = 'none';
+                    }
+                    window.deferredPrompt = null;
+                });
+            } else {
+                // If no prompt available, show a message
+                alert('To install this app:\n\n1. On Chrome/Edge: Look for the install icon in the address bar\n2. On Safari (iOS): Tap Share > Add to Home Screen\n3. On Firefox: Tap Menu > Install');
+            }
+        });
+    }
+    
     // ── Active nav link ──────────────────────────────────────────
     var p = window.location.pathname.toLowerCase().replace(/\/$/, '');
-    var navLinks = document.querySelectorAll('a.nav-link');
+    var navLinks = document.querySelectorAll('a.nav-link, a.pf-burger-link');
     for (var i = 0; i < navLinks.length; i++) {
         var a = navLinks[i];
         var h = (a.getAttribute('href') || '').toLowerCase().replace(/\/$/, '');
@@ -647,10 +953,14 @@ if ($initials === '') {
         var isHomePage = (p === '/printflow/public' || p === '/printflow' || p === '' || p.endsWith('/index.php'));
         if (isHomeLink && isHomePage) {
             a.classList.add('nav-active');
+            if (a.classList.contains('pf-burger-link')) a.classList.add('active');
         } else if (!isHomeLink) {
             var hFile = h.split('/').pop().replace('.php', '');
             var pFile = p.split('/').pop().replace('.php', '');
-            if (hFile && pFile && hFile === pFile) a.classList.add('nav-active');
+            if (hFile && pFile && hFile === pFile) {
+                a.classList.add('nav-active');
+                if (a.classList.contains('pf-burger-link')) a.classList.add('active');
+            }
         }
     }
 

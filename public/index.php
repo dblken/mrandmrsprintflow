@@ -154,17 +154,17 @@ $featured_products = db_query(
                     <div class="lp-showcase-glow"></div>
 
                     <div class="lp-sc-card lp-sc-a">
-                        <img src="/printflow/public/images/products/signage1.jpg" alt="Tarpaulin & Signage">
+                        <img src="<?php echo $asset_base; ?>/images/products/signage1.jpg" alt="Tarpaulin & Signage">
                         <div class="lp-sc-label">Tarpaulin & Signage</div>
                     </div>
 
                     <div class="lp-sc-card lp-sc-b">
-                        <img src="/printflow/public/images/tshirt_replacement/Front Center Print.webp" alt="T-shirt Printing">
+                        <img src="<?php echo $asset_base; ?>/images/tshirt_replacement/Front Center Print.webp" alt="T-shirt Printing">
                         <div class="lp-sc-label">T-shirt Printing</div>
                     </div>
 
                     <div class="lp-sc-card lp-sc-c">
-                        <img src="/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png" alt="Stickers & Decals">
+                        <img src="<?php echo $asset_base; ?>/images/products/Glass Stickers  Wall  Frosted Stickers.png" alt="Stickers & Decals">
                         <div class="lp-sc-label">Stickers & Decals</div>
                     </div>
                 </div>
@@ -266,7 +266,7 @@ $featured_products = db_query(
                 <div class="lp-carousel-item">
                     <div class="lp-prod-img">
                         <?php if (!empty($fp['product_image'])): ?>
-                            <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
+                            <img src="<?php echo $asset_base; ?>/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
                                  alt="<?php echo htmlspecialchars($fp['name']); ?>"
                                  style="width:100%; height:100%; object-fit:cover;">
                         <?php else: ?>
@@ -314,7 +314,7 @@ $featured_products = db_query(
         <div class="lp-two-col">
             <div class="lp-order-2">
                 <div class="lp-feature-box">
-                    <img src="/printflow/public/assets/uploads/shop_logo_1774059623.jpg" alt="PrintFlow store" class="lp-feature-box-image">
+                    <img src="<?php echo $asset_base; ?>/assets/uploads/shop_logo_1774059623.jpg" alt="PrintFlow store" class="lp-feature-box-image">
                 </div>
             </div>
             <div class="lp-order-1">

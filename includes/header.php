@@ -14,15 +14,18 @@ $unread_count = $is_logged_in ? get_unread_notification_count(get_user_id(), $us
 
 require_once __DIR__ . '/shop_config.php';
 
-// Determine base URL and asset path (works for /printflow/ and /printflow/public/)
-$base_url = '/printflow';
-$script_name = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-$script_dir = dirname($script_name);
-// Is this script running from within the public directory?
-$is_public = (strpos($script_name, '/public/') !== false);
-// Asset base: if we are in public, use current dir, else point to public
-// normalize $asset_base to ensure valid URL
-$asset_base = '/printflow/public';
+// Load config for environment detection
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+} else {
+    // Fallback if config.php doesn't exist
+    define('BASE_PATH', '/printflow');
+    define('BASE_URL', '/printflow');
+}
+
+// Determine base URL and asset path
+$base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
+$asset_base = $base_url . '/public';
 
 // Timestamp for cache busting
 $ver = time();
@@ -51,8 +54,8 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <?php endif; ?>
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="<?php echo $base_url; ?>/public/manifest.json">
-    <!-- Tailwind CSS - path works from both /printflow/ and /printflow/public/ -->
+    <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.json">
+    <!-- Tailwind CSS -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">
     <?php if (!empty($use_landing_css)): ?>
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/landing.css?v=<?php echo $ver; ?>">

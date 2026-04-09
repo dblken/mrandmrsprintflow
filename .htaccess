@@ -1,8 +1,31 @@
-# PrintFlow - Apache Configuration for Hostinger
+# PrintFlow - Apache Configuration
+# Force correct MIME types for PWA files
+<FilesMatch "\.(js|json)$">
+    <IfModule mod_php.c>
+        php_flag engine off
+    </IfModule>
+</FilesMatch>
+
+AddType application/javascript .js
+AddType application/json .json
+
 # Enable rewrite engine
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
+
+    # Serve service worker and manifest with correct MIME types
+    RewriteCond %{REQUEST_URI} (sw\.js|manifest\.json)$
+    RewriteRule ^(.*)$ /public/$1 [L]
+
+    # Handle login/register POST requests
+    RewriteCond %{REQUEST_METHOD} POST
+    RewriteCond %{REQUEST_URI} ^/login/?$
+    RewriteRule ^(.*)$ /public/api_login.php [L,QSA]
+
+    RewriteCond %{REQUEST_METHOD} POST
+    RewriteCond %{REQUEST_URI} ^/register/?$
+    RewriteRule ^(.*)$ /public/process_register.php [L,QSA]
 
     # Redirect to public/index.php if accessing root
     RewriteCond %{REQUEST_URI} ^/$

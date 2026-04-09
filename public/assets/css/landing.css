@@ -36,8 +36,14 @@ body.lp-page {
 .lp-wrap {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 1rem;
     position: relative;
+}
+
+@media (min-width: 640px) {
+    .lp-wrap {
+        padding: 0 1.5rem;
+    }
 }
 
 /* ==========================================================
@@ -148,8 +154,8 @@ body.lp-page {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 3rem;
-    padding-top: 5rem;
+    gap: 2rem;
+    padding-top: 3rem;
     position: relative;
     z-index: 1;
 }
@@ -159,12 +165,27 @@ body.lp-page {
         flex-direction: row;
         text-align: left;
         justify-content: space-between;
+        gap: 3rem;
+        padding-top: 5rem;
     }
 }
 
 .lp-hero-content {
     flex: 1;
-    max-width: 600px;
+    max-width: 100%;
+    padding: 0 0.5rem;
+}
+
+@media (min-width: 768px) {
+    .lp-hero-content {
+        padding: 0;
+    }
+}
+
+@media (min-width: 1024px) {
+    .lp-hero-content {
+        max-width: 600px;
+    }
 }
 
 /* small tag */
@@ -189,38 +210,65 @@ body.lp-page {
 
 /* title */
 .lp-hero-title {
-    font-size: 2.75rem;
-    line-height: 1.08;
+    font-size: 2rem;
+    line-height: 1.15;
     font-weight: 800;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     color: var(--lp-heading);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
 }
 
 .lp-hero-title span {
     color: var(--lp-accent-l);
 }
 
+@media (min-width: 640px) {
+    .lp-hero-title {
+        font-size: 2.5rem;
+    }
+}
+
 @media (min-width: 768px) {
     .lp-hero-title {
         font-size: 3.75rem;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        margin-bottom: 1.25rem;
     }
 }
 
 /* description */
 .lp-hero-desc {
-    font-size: 1.0625rem;
+    font-size: 0.9rem;
     color: var(--lp-muted);
-    margin-bottom: 2.25rem;
-    line-height: 1.65;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+    .lp-hero-desc {
+        font-size: 1.0625rem;
+        margin-bottom: 2.25rem;
+        line-height: 1.65;
+    }
 }
 
 /* button row */
 .lp-hero-btns {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
     justify-content: center;
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .lp-hero-btns {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 1rem;
+        width: auto;
+    }
 }
 
 @media (min-width: 1024px) {
@@ -229,12 +277,23 @@ body.lp-page {
     }
 }
 
+.lp-hero-btns .lp-btn {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .lp-hero-btns .lp-btn {
+        width: auto;
+    }
+}
+
 /* stats */
 .lp-stats {
-    display: flex;
-    gap: 2.5rem;
-    margin-top: 3.5rem;
-    padding-top: 2rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
     border-top: 1px solid var(--lp-border);
     justify-content: center;
     align-items: flex-start;
@@ -246,8 +305,18 @@ body.lp-page {
     align-items: center;
 }
 
+@media (min-width: 640px) {
+    .lp-stats {
+        gap: 2rem;
+        margin-top: 2.5rem;
+    }
+}
+
 @media (min-width: 1024px) {
     .lp-stats {
+        gap: 2.5rem;
+        margin-top: 3.5rem;
+        padding-top: 2rem;
         justify-content: flex-start;
     }
     .lp-stats > div {
@@ -255,20 +324,20 @@ body.lp-page {
     }
 }
 
-@media (min-width: 1024px) {
-    .lp-stats {
-        justify-content: flex-start;
-    }
-}
-
 .lp-stat-num {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 800;
     color: #fff;
     line-height: 1.2;
     margin-bottom: 0.2rem;
     display: block;
     white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    .lp-stat-num {
+        font-size: 1.5rem;
+    }
 }
 
 .lp-stat-label {
@@ -283,12 +352,60 @@ body.lp-page {
     justify-content: center;
     position: relative;
     color: var(--lp-accent-l);
+    width: 100%;
+    margin-top: 1rem;
+}
+
+@media (min-width: 1024px) {
+    .lp-hero-visual {
+        margin-top: 0;
+    }
 }
 
 .lp-hero-visual svg {
     width: 100%;
     max-width: 420px;
     filter: drop-shadow(0 0 40px var(--lp-glow));
+}
+
+/* Mobile: Disable absolute positioning for showcase cards */
+@media (max-width: 767px) {
+    .lp-showcase {
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1rem !important;
+        padding: 0 1rem !important;
+    }
+    
+    .lp-showcase-glow {
+        display: none !important;
+    }
+    
+    .lp-sc-card {
+        position: relative !important;
+        width: 100% !important;
+        height: 180px !important;
+        top: auto !important;
+        left: auto !important;
+        transform: none !important;
+        animation: lp-fadeUp .7s forwards !important;
+        opacity: 1 !important;
+    }
+    
+    .lp-sc-card:hover {
+        transform: scale(1.02) !important;
+    }
+    
+    .lp-sc-a,
+    .lp-sc-b,
+    .lp-sc-c {
+        animation: lp-fadeUp .7s forwards !important;
+    }
 }
 
 /* ==========================================================
