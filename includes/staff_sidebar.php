@@ -4,7 +4,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Staff';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending';
-require_once __DIR__ . '/shop_config.php';`r`n`r`n// Load config for BASE_PATH`r`nif (file_exists(__DIR__ . '/../config.php')) {`r`n    require_once __DIR__ . '/../config.php';`r`n}`r`n$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';`r`n$logout_url = $base_path . '/logout';
+require_once __DIR__ . '/shop_config.php';
+
+// Load config for BASE_PATH
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}`r`n$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';`r`n$logout_url = $base_path . '/logout';
 $staff_branch_label = '';
 if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Staff') {
     require_once __DIR__ . '/branch_context.php';

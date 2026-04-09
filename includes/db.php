@@ -37,17 +37,38 @@ function printflow_load_dotenv(string $path): array {
 
 /**
  * ==========================
- * DEFAULT CONFIG (HOSTINGER)
+ * DEFAULT CONFIG (ENVIRONMENT DETECTION)
  * ==========================
  */
-$db_config = [
-    'host' => 'localhost',
-    'user' => 'u618446170_user',
-    'pass' => 'Mrandmrsprintflow@123',
-    'name' => 'u618446170_printflow',
-    'port' => 3306,
-    'socket' => '',
-];
+
+// Detect if running on production
+$is_production = (
+    isset($_SERVER['HTTP_HOST']) && 
+    (strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false ||
+     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false)
+);
+
+if ($is_production) {
+    // Production (Hostinger)
+    $db_config = [
+        'host' => 'localhost',
+        'user' => 'u618446170_user',
+        'pass' => 'Mrandmrsprintflow@123',
+        'name' => 'u618446170_printflow',
+        'port' => 3306,
+        'socket' => '',
+    ];
+} else {
+    // Local Development (XAMPP)
+    $db_config = [
+        'host' => 'localhost',
+        'user' => 'root',
+        'pass' => '',
+        'name' => 'printflow',
+        'port' => 3306,
+        'socket' => '',
+    ];
+}
 
 /**
  * ==========================
