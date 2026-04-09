@@ -12,7 +12,24 @@
     }
     
     function initMobileMenu() {
-        if (!isMobile()) return;
+        if (!isMobile()) {
+            // Clean up mobile elements on desktop
+            const burger = document.getElementById('mobileBurger');
+            const overlay = document.getElementById('sidebarOverlay');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (burger) burger.style.display = 'none';
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.style.display = 'none';
+            }
+            if (sidebar) {
+                sidebar.classList.remove('active');
+                sidebar.style.transform = '';
+            }
+            document.body.style.overflow = '';
+            return;
+        }
         
         // Create burger button if it doesn't exist
         let burger = document.getElementById('mobileBurger');
@@ -21,7 +38,10 @@
             burger.id = 'mobileBurger';
             burger.innerHTML = '<svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>';
             burger.setAttribute('aria-label', 'Toggle menu');
+            burger.style.display = 'flex';
             document.body.appendChild(burger);
+        } else {
+            burger.style.display = 'flex';
         }
         
         // Create overlay if it doesn't exist
@@ -31,16 +51,42 @@
             overlay.id = 'sidebarOverlay';
             document.body.appendChild(overlay);
         }
+        overlay.style.display = 'block';
         
         const sidebar = document.querySelector('.sidebar');
         
         if (!sidebar) return;
         
+        // Create close button inside sidebar if it doesn't exist
+        let closeBtn = sidebar.querySelector('.sidebar-close-btn');
+        if (!closeBtn) {
+            closeBtn = document.createElement('button');
+            closeBtn.className = 'sidebar-close-btn';
+            closeBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+            closeBtn.setAttribute('aria-label', 'Close menu');
+            closeBtn.style.display = 'flex';
+            sidebar.insertBefore(closeBtn, sidebar.firstChild);
+        } else {
+            closeBtn.style.display = 'flex';
+        }
+        
         // Toggle sidebar
-        function toggleSidebar() {
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+        function toggleSidebar(e) {
+            if (e) e.stopPropagation();
+            const isActive = sidebar.classList.contains('active');
+            
+            if (isActive) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        }
+        
+        // Open sidebar
+        function openSidebar() {
+            sidebar.classList.add('active');
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
         
         // Close sidebar
@@ -50,11 +96,27 @@
             document.body.style.overflow = '';
         }
         
+        // Remove old event listeners by cloning
+        const newBurger = burger.cloneNode(true);
+        burger.parentNode.replaceChild(newBurger, burger);
+        burger = newBurger;
+        
+        const newOverlay = overlay.cloneNode(true);
+        overlay.parentNode.replaceChild(newOverlay, overlay);
+        overlay = newOverlay;
+        
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        closeBtn = newCloseBtn;
+        
         // Burger click
         burger.addEventListener('click', toggleSidebar);
         
         // Overlay click
         overlay.addEventListener('click', closeSidebar);
+        
+        // Close button click
+        closeBtn.addEventListener('click', closeSidebar);
         
         // Close on navigation
         const navLinks = sidebar.querySelectorAll('a');

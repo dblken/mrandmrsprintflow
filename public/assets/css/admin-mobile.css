@@ -18,7 +18,7 @@
         position: fixed;
         top: 16px;
         left: 16px;
-        z-index: 101;
+        z-index: 60;
         width: 44px;
         height: 44px;
         border-radius: 12px;
@@ -39,39 +39,80 @@
     
     /* Mobile Sidebar Overlay */
     #sidebarOverlay {
-        display: none;
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 90;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 40;
         opacity: 0;
-        transition: opacity 0.3s;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
     }
     
     #sidebarOverlay.active {
-        display: block;
         opacity: 1;
+        visibility: visible;
     }
     
     /* Sidebar Mobile Behavior */
     .sidebar {
-        transform: translateX(-100%);
+        position: fixed;
+        top: 0;
+        left: 0;
         width: 280px !important;
-        z-index: 100;
+        height: 100vh;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
     }
     
     .sidebar.active {
         transform: translateX(0);
-        box-shadow: 4px 0 15px rgba(0, 0, 0, 0.3);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Close button inside sidebar */
+    .sidebar-close-btn {
+        display: flex !important;
+        position: absolute;
+        top: 20px;
+        right: 16px;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(83, 197, 224, 0.2);
+        color: #e8f4f8;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        z-index: 10;
+    }
+    
+    .sidebar-close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(83, 197, 224, 0.4);
+    }
+    
+    /* Adjust sidebar header to accommodate close button */
+    .sidebar .sidebar-header {
+        padding-right: 56px !important;
+    }
+    
+    /* Hide desktop sidebar toggle on mobile */
+    .sidebar #global-sidebar-toggle {
+        display: none !important;
     }
     
     /* Main Content Mobile Adjustments */
     .main-content {
         margin-left: 0 !important;
         padding-top: 70px; /* Space for burger menu */
+        width: 100%;
     }
     
     /* Mobile Page Header */
@@ -91,13 +132,22 @@
    KPI CARDS MOBILE
    ============================================ */
 @media (max-width: 768px) {
-    /* Stats Grid - Single Column */
+    /* Stats Grid - 2 Columns on Mobile */
     .stats-grid,
-    .kpi-row,
+    .kpi-row {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+    
+    /* Other grids - Single Column */
     .grid-cols-4,
-    .grid-cols-3,
-    .grid-cols-2 {
+    .grid-cols-3 {
         grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 12px !important;
     }
     
