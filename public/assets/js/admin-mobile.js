@@ -1,22 +1,27 @@
 /**
  * Admin Mobile Menu Handler
  * PrintFlow - Mobile burger menu and sidebar toggle
- * ONLY runs on admin/staff/manager pages
+ * ONLY runs on admin/staff/manager pages with .dashboard-container
  */
 
 (function() {
     'use strict';
     
-    // Check if this is an admin page
+    // Check if this is an admin page with dashboard container
     function isAdminPage() {
+        const hasDashboardContainer = document.querySelector('.dashboard-container') !== null;
         const path = window.location.pathname;
-        return path.includes('/admin/') || path.includes('/staff/') || path.includes('/manager/');
+        const isAdminPath = path.includes('/admin/') || path.includes('/staff/') || path.includes('/manager/');
+        return hasDashboardContainer && isAdminPath;
     }
     
     // Only run on admin pages
     if (!isAdminPage()) {
+        console.log('[Admin Mobile] Not an admin page, skipping initialization');
         return;
     }
+    
+    console.log('[Admin Mobile] Initializing admin mobile menu');
     
     // Only run on mobile
     function isMobile() {
@@ -40,6 +45,13 @@
                 sidebar.style.transform = '';
             }
             document.body.style.overflow = '';
+            return;
+        }
+        
+        // Don't interfere with customer burger menu
+        const customerBurger = document.querySelector('[data-pf-mobile-toggle]');
+        if (customerBurger) {
+            console.log('[Admin Mobile] Customer burger menu detected, skipping');
             return;
         }
         
