@@ -6,6 +6,9 @@
  * Used as fallback when the tab is open (in-tab toasts); the service worker
  * handles background push when the tab is closed.
  */
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
 
