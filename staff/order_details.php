@@ -10,6 +10,13 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);

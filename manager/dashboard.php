@@ -14,6 +14,13 @@ require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 // Only Managers allowed here
 require_role('Manager');
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 
 // ── Branch Context (Manager is always locked to their branch) ────
 $branchCtx = init_branch_context(false);

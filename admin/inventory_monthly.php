@@ -9,6 +9,13 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Admin', 'Manager']);
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 $current_user = get_logged_in_user();
 
 // Get categories for dropdown

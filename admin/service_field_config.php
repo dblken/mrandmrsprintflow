@@ -8,6 +8,13 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
 require_role(['Admin', 'Manager']);
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 
 $service_id = (int)($_GET['service_id'] ?? $_GET['service-id'] ?? 0);
 $error = '';

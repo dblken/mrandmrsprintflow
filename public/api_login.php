@@ -36,7 +36,7 @@ $result = login($email, $password, false);
 if ($result['success']) {
     echo json_encode([
         'success' => true,
-        'redirect' => $result['redirect'] ?? '<?php echo $base_path; ?>/'
+        'redirect' => $result['redirect'] ?? '/printflow/'
     ]);
 } else {
     echo json_encode([

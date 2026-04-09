@@ -9,6 +9,13 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 
 // Handle ID verification approval/rejection
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {

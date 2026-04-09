@@ -9,6 +9,13 @@ require_once __DIR__ . '/../includes/branch_context.php';
 
 if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
 require_role(['Admin', 'Staff', 'Manager']);
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
 $page_title = 'Customizations - PrintFlow';
 
 $branchFilter = printflow_branch_filter_for_user();
