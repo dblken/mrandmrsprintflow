@@ -3,6 +3,10 @@
  * Job Orders API
  * Admin/Staff CRUD for job orders and material assignment.
  */
+
+// Prevent any output before JSON
+ob_start();
+
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
@@ -10,6 +14,10 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 
 require_role(['Admin', 'Manager', 'Staff', 'Customer']); // Admin/Manager (read/scope), Staff (manage), Customer (create/track)
+
+// Clear any buffered output from includes
+ob_end_clean();
+
 header('Content-Type: application/json');
 
 /** Staff / Manager only see/manage job orders for their assigned branch. */
