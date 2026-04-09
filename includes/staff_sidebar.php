@@ -4,7 +4,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $user_name = $_SESSION['user_name'] ?? 'Staff';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 $is_pending = isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending';
-require_once __DIR__ . '/shop_config.php';
+require_once __DIR__ . '/shop_config.php';`r`n`r`n// Load config for BASE_PATH`r`nif (file_exists(__DIR__ . '/../config.php')) {`r`n    require_once __DIR__ . '/../config.php';`r`n}`r`n$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';`r`n$logout_url = $base_path . '/logout';
 $staff_branch_label = '';
 if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Staff') {
     require_once __DIR__ . '/branch_context.php';
@@ -156,7 +156,7 @@ if (isset($_SESSION['user_id'])) {
         <p style="font-size:14px; color:#6b7280; margin:0 0 24px;">Are you sure you want to log out of your staff account?</p>
         <div style="display:flex; gap:10px;">
             <button type="button" onclick="document.getElementById('staffLogoutModal').style.display='none'" style="flex:1; padding:10px; border:1px solid #e5e7eb; background:white; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">Cancel</button>
-            <a href="/printflow/logout/" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
+            <a href="<?php echo htmlspecialchars($logout_url); ?>" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
         </div>
     </div>
 </div>

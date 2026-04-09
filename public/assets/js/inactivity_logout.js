@@ -8,7 +8,8 @@
 
     var INACTIVITY_MS = 60 * 60 * 1000;      // 1 hour
     var WARNING_MS    = 55 * 60 * 1000;      // Show warning at 55 min
-    var logoutUrl    = '/printflow/logout/';
+    var logoutUrl    = (window.PFConfig && window.PFConfig.logoutUrl) || '/logout';
+    var loginUrl     = (window.PFConfig && window.PFConfig.loginUrl) || '/?auth_modal=login';
 
     var lastActivity = Date.now();
     var timerId      = null;
@@ -54,9 +55,9 @@
         modalEl.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:center;justify-content:center;padding:16px;';
         modalEl.innerHTML = '<div style="background:white;border-radius:16px;padding:32px;max-width:380px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">' +
             '<p style="font-size:16px;color:#374151;margin:0 0 20px;">You have been logged out due to inactivity.</p>' +
-            '<a href="/printflow/public/login.php" style="display:inline-block;padding:12px 24px;background:#3b82f6;color:white;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Return to Login</a></div>';
+            '<a href="' + loginUrl + '" style="display:inline-block;padding:12px 24px;background:#3b82f6;color:white;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Return to Login</a></div>';
         document.body.appendChild(modalEl);
-        window.location.href = '/printflow/public/login.php?timeout=1';
+        window.location.href = loginUrl + (loginUrl.indexOf('?') > -1 ? '&' : '?') + 'timeout=1';
     }
 
     function checkInactivity() {
@@ -91,9 +92,10 @@
     });
 
     // Ping server periodically to refresh session (optional - backend handles this on requests)
+    var apiCartUrl = (window.PFConfig && window.PFConfig.apiCartUrl) || '/public/api_cart.php';
     setInterval(function() {
         if (document.visibilityState === 'visible' && Date.now() - lastActivity < WARNING_MS) {
-            fetch('/printflow/public/api_cart.php', {
+            fetch(apiCartUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'get_count', csrf_token: (document.querySelector('[name="csrf_token"]') || {}).value || '' }),

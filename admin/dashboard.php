@@ -8,6 +8,7 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/admin_path_helper.php'; // Dynamic paths
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
 require_once __DIR__ . '/../includes/reports_dashboard_queries.php';
@@ -270,7 +271,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo pf_url('public/assets/css/output.css'); ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>

@@ -5,6 +5,13 @@ $user_name = $_SESSION['user_name'] ?? 'Admin';
 $user_initial = strtoupper(substr($user_name, 0, 1));
 require_once __DIR__ . '/shop_config.php';
 
+// Load config for BASE_PATH
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+$logout_url = $base_path . '/logout';
+
 // Get profile picture for sidebar
 $sidebar_profile_pic = '';
 if (isset($_SESSION['user_id'])) {
@@ -204,7 +211,7 @@ if (isset($_SESSION['user_id'])) {
         <p style="font-size:14px; color:#6b7280; margin:0 0 24px;">Are you sure you want to log out of your admin account?</p>
         <div style="display:flex; gap:10px;">
             <button onclick="document.getElementById('logoutModal').style.display='none'" style="flex:1; padding:10px; border:1px solid #e5e7eb; background:white; border-radius:8px; font-size:14px; font-weight:600; color:#374151; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">Cancel</button>
-            <a href="/printflow/logout/" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
+            <a href="<?php echo htmlspecialchars($logout_url); ?>" data-turbo="false" style="flex:1; padding:10px; background:#ef4444; border:none; border-radius:8px; font-size:14px; font-weight:600; color:white; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Log Out</a>
         </div>
     </div>
 </div>
@@ -348,7 +355,30 @@ document.addEventListener('click', function(event) {
 $_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
 $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Admin';
 ?>
-<script>window.PFConfig = { userId: <?php echo json_encode($_pf_uid); ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
+<script>
+// Global PrintFlow Configuration - Available to all pages
+window.PFConfig = { 
+    userId: <?php echo json_encode($_pf_uid); ?>, 
+    userType: <?php echo json_encode($_pf_utype); ?>,
+    basePath: <?php echo json_encode($base_path); ?>,
+    logoutUrl: <?php echo json_encode($logout_url); ?>,
+    loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>,
+    apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>,
+    // Admin API endpoints
+    adminBase: <?php echo json_encode($base_path . '/admin'); ?>,
+    publicBase: <?php echo json_encode($base_path . '/public'); ?>,
+    uploadsBase: <?php echo json_encode($base_path . '/uploads'); ?>
+};
+
+// Helper function to build URLs dynamically
+window.pfUrl = function(path) {
+    if (!path) return window.PFConfig.basePath || '';
+    // Remove leading slash if present to avoid double slashes
+    path = path.replace(/^\/+/, '');
+    var base = window.PFConfig.basePath || '';
+    return base + '/' + path;
+};
+</script>
 <script src="/printflow/public/assets/js/notifications.js" defer></script>
 <script src="/printflow/public/assets/js/inactivity_logout.js" defer></script>
 </div>
