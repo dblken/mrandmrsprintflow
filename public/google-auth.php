@@ -2,10 +2,11 @@
 /**
  * Google OAuth: redirect to Google for login, then callback to find/create customer and log in.
  */
+require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/google-oauth-config.php';
 require_once __DIR__ . '/../includes/auth.php';
 
-$base_url = '/printflow';
+$base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
 $redirect_uri = $base_url . '/google-auth/';
 $client_id = defined('GOOGLE_CLIENT_ID') ? GOOGLE_CLIENT_ID : '';
 $client_secret = defined('GOOGLE_CLIENT_SECRET') ? GOOGLE_CLIENT_SECRET : '';
