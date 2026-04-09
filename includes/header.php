@@ -54,7 +54,7 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <?php endif; ?>
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.json">
+    <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.php">
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">
     <?php if (!empty($use_landing_css)): ?>

@@ -27,7 +27,7 @@ const APP_SHELL = [
     BASE_PATH + '/public/assets/js/pwa.js',
     BASE_PATH + '/public/assets/images/icon-192.png',
     BASE_PATH + '/public/assets/images/icon-512.png',
-    BASE_PATH + '/manifest.json',
+    BASE_PATH + '/manifest.php',
 ];
 
 // Pages to pre-cache
