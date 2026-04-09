@@ -1,6 +1,7 @@
-# PrintFlow - Apache Configuration // heaallo
+# PrintFlow - Apache Configuration
 # Force correct MIME types for PWA files
 AddType application/javascript .js
+AddType text/css .css
 
 # Allow PHP to process manifest.json (it's a dynamic PHP file)
 <Files "manifest.json">
@@ -12,31 +13,37 @@ AddType application/javascript .js
 # Enable rewrite engine
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
+    RewriteBase /printflow/
+
+    # Serve static assets directly (CSS, JS, images, fonts)
+    RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)$ [NC]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
 
     # Serve service worker and manifest with correct MIME types
     RewriteCond %{REQUEST_URI} (sw\.js|manifest\.json)$
-    RewriteRule ^(.*)$ /public/$1 [L]
+    RewriteRule ^(.*)$ public/$1 [L]
 
     # Handle login/register POST requests
     RewriteCond %{REQUEST_METHOD} POST
-    RewriteCond %{REQUEST_URI} ^/login/?$
-    RewriteRule ^(.*)$ /public/api_login.php [L,QSA]
+    RewriteCond %{REQUEST_URI} ^/printflow/login/?$
+    RewriteRule ^(.*)$ public/api_login.php [L,QSA]
 
     RewriteCond %{REQUEST_METHOD} POST
-    RewriteCond %{REQUEST_URI} ^/register/?$
-    RewriteRule ^(.*)$ /public/process_register.php [L,QSA]
+    RewriteCond %{REQUEST_URI} ^/printflow/register/?$
+    RewriteRule ^(.*)$ public/process_register.php [L,QSA]
 
     # Redirect to public/index.php if accessing root
-    RewriteCond %{REQUEST_URI} ^/$
-    RewriteRule ^(.*)$ /public/index.php [L]
+    RewriteCond %{REQUEST_URI} ^/printflow/?$
+    RewriteRule ^(.*)$ public/index.php [L]
 
     # If the request is for a real file or directory, serve it
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
 
     # Otherwise, route through public directory
-    RewriteRule ^(.*)$ /public/$1 [L,QSA]
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
 
 # Security: Prevent directory browsing
