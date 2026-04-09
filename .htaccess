@@ -1,13 +1,13 @@
-# PrintFlow - Apache Configuration // hello
+# PrintFlow - Apache Configuration
 # Force correct MIME types for PWA files
-<FilesMatch "\.(js|json)$">
-    <IfModule mod_php.c>
-        php_flag engine off
-    </IfModule>
-</FilesMatch>
-
 AddType application/javascript .js
-AddType application/json .json
+
+# Allow PHP to process manifest.json (it's a dynamic PHP file)
+<Files "manifest.json">
+    <IfModule mod_php.c>
+        php_flag engine on
+    </IfModule>
+</Files>
 
 # Enable rewrite engine
 <IfModule mod_rewrite.c>
