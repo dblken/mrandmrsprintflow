@@ -18,6 +18,9 @@ require_role(['Admin', 'Manager', 'Staff', 'Customer']); // Admin/Manager (read/
 // Clear any buffered output from includes
 ob_end_clean();
 
+// Start fresh buffer for JSON output only
+ob_start();
+
 header('Content-Type: application/json');
 
 /** Staff / Manager only see/manage job orders for their assigned branch. */
@@ -844,6 +847,10 @@ try {
             throw new Exception("Unknown action: $action");
     }
 } catch (Throwable $e) {
+    ob_clean(); // Clear any partial output
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
+
+// Flush clean JSON output
+ob_end_flush();
