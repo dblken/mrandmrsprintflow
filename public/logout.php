@@ -14,7 +14,7 @@ if (isset($_SESSION['user_id'])) {
     $uid = (int)$_SESSION['user_id'];
     $utype = $_SESSION['user_type'] ?? 'Unknown';
     try {
-        $conn->query("INSERT INTO activity_logs (user_id, action, details, created_at) VALUES ({$uid}, 'Logout', 'User logged out', NOW())");
+        db_execute("INSERT INTO activity_logs (user_id, action, details, created_at) VALUES (?, 'Logout', 'User logged out', NOW())", 'i', [$uid]);
     } catch (Throwable $e) {
         // Logging failure must never block logout
     }
