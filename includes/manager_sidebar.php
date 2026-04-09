@@ -10,7 +10,7 @@ $sidebar_profile_pic = '';
 if (isset($_SESSION['user_id'])) {
     $sidebar_user = db_query("SELECT profile_picture FROM users WHERE user_id = ?", 'i', [$_SESSION['user_id']]);
     if (!empty($sidebar_user) && !empty($sidebar_user[0]['profile_picture'])) {
-        $sidebar_profile_pic = '<?php echo $base_path; ?>//printflow/public/assets/uploads/profiles/' . $sidebar_user[0]['profile_picture'];
+        $sidebar_profile_pic = BASE_PATH . '/public/assets/uploads/profiles/' . $sidebar_user[0]['profile_picture'];
     }
 
     // Get unread notification count

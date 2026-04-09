@@ -13,11 +13,11 @@ require_once __DIR__ . '/../includes/functions.php';
 // ================================================================
 // GOOGLE OAUTH CONFIGURATION
 // Create credentials at https://console.cloud.google.com/apis/credentials
-// Set Authorized redirect URI to: http://localhost/printflow/public/google_auth.php?action=callback
+// Set Authorized redirect URI to: http://localhost<?php echo BASE_PATH; ?>/public/google_auth.php?action=callback
 // ================================================================
 define('GOOGLE_CLIENT_ID',     'YOUR_GOOGLE_CLIENT_ID');
 define('GOOGLE_CLIENT_SECRET', 'YOUR_GOOGLE_CLIENT_SECRET');
-define('GOOGLE_REDIRECT_URI',  'http://localhost/printflow/public/google_auth.php?action=callback');
+define('GOOGLE_REDIRECT_URI',  'http://localhost<?php echo BASE_PATH; ?>/public/google_auth.php?action=callback');
 
 $action = $_GET['action'] ?? '';
 
@@ -42,19 +42,19 @@ switch ($action) {
     case 'callback':
         $code = $_GET['code'] ?? '';
         if (!$code) {
-            redirect('<?php echo $base_path; ?>//printflow/public/login.php?error=' . urlencode('Google authentication cancelled.'));
+            redirect(BASE_PATH . '/public/login.php?error=' . urlencode('Google authentication cancelled.'));
         }
         
         // Exchange code for access token
         $tokenData = exchangeCodeForToken($code);
         if (!$tokenData) {
-            redirect('<?php echo $base_path; ?>//printflow/public/login.php?error=' . urlencode('Google authentication failed.'));
+            redirect(BASE_PATH . '/public/login.php?error=' . urlencode('Google authentication failed.'));
         }
         
         // Get user info from Google
         $googleUser = getGoogleUserInfo($tokenData['access_token']);
         if (!$googleUser || empty($googleUser['email'])) {
-            redirect('<?php echo $base_path; ?>//printflow/public/login.php?error=' . urlencode('Could not retrieve Google profile.'));
+            redirect(BASE_PATH . '/public/login.php?error=' . urlencode('Could not retrieve Google profile.'));
         }
         
         $email = $googleUser['email'];
@@ -76,7 +76,7 @@ switch ($action) {
             $_SESSION['user_type']  = 'Customer';
             $_SESSION['user_name']  = $customer['first_name'] . ' ' . ($customer['last_name'] ?? '');
             $_SESSION['user_email'] = $customer['email'];
-            redirect('<?php echo $base_path; ?>//printflow/customer/services.php');
+            redirect(BASE_PATH . '/customer/services.php');
         } else {
             // Also check users table (Admin/Staff)
             $existingUser = db_query("SELECT * FROM users WHERE email = ?", 's', [$email]);
@@ -88,9 +88,9 @@ switch ($action) {
                 $_SESSION['user_email'] = $user['email'];
                 
                 if ($user['user_type'] === 'Admin') {
-                    redirect('<?php echo $base_path; ?>//printflow/admin/dashboard.php');
+                    redirect(BASE_PATH . '/admin/dashboard.php');
                 } else {
-                    redirect('<?php echo $base_path; ?>//printflow/staff/dashboard.php');
+                    redirect(BASE_PATH . '/staff/dashboard.php');
                 }
             }
             
@@ -109,15 +109,15 @@ switch ($action) {
                 $_SESSION['user_type']  = 'Customer';
                 $_SESSION['user_name']  = $firstName . ' ' . $lastName;
                 $_SESSION['user_email'] = $email;
-                redirect('<?php echo $base_path; ?>//printflow/customer/services.php');
+                redirect(BASE_PATH . '/customer/services.php');
             } else {
-                redirect('<?php echo $base_path; ?>//printflow/public/register.php?error=' . urlencode('Registration failed. Please try again.'));
+                redirect(BASE_PATH . '/public/register.php?error=' . urlencode('Registration failed. Please try again.'));
             }
         }
         break;
 
     default:
-        redirect('<?php echo $base_path; ?>//printflow/public/login.php');
+        redirect(BASE_PATH . '/public/login.php');
 }
 
 // ================================================================

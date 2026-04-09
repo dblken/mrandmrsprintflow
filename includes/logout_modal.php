@@ -3,7 +3,7 @@
  * Logout confirmation modal. Include once per layout (header/footer or sidebar).
  * Logout links with data-logout-confirm will open this modal instead of navigating directly.
  */
-$logout_modal_logout_url = isset($url_logout) ? $url_logout : (defined('BASE_URL') ? BASE_URL . '/public/logout.php' : '<?php echo $base_path; ?>//printflow/public/logout.php');
+$logout_modal_logout_url = isset($url_logout) ? $url_logout : (defined('BASE_URL') ? BASE_URL . '/public/logout.php' : BASE_PATH . '/public/logout.php');
 ?>
 <div id="logout-modal-backdrop" class="logout-modal-backdrop" aria-hidden="true"></div>
 <div id="logout-modal" class="logout-modal" role="dialog" aria-labelledby="logout-modal-title" aria-modal="true" aria-hidden="true">

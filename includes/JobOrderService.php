@@ -616,9 +616,9 @@ class JobOrderService {
                 'quantity'        => (int)$item['quantity'],
                 'customization'   => $custom,
                 'design_url'      => (!empty($item['design_image']) || !empty($item['design_file']))
-                    ? '<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
+                    ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
                 'reference_url'   => !empty($item['reference_image_file'])
-                    ? '<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
+                    ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
             ];
         }
         $service_name = get_service_name_from_customization($first_custom, $items_out[0]['product_name'] ?? 'Custom Order');
@@ -654,7 +654,7 @@ class JobOrderService {
         
         // Format customer picture with full path
         if (!empty($order['profile_picture'])) {
-            $order['customer_picture'] = '<?php echo $base_path; ?>//printflow/public/assets/uploads/profiles/' . $order['profile_picture'];
+            $order['customer_picture'] = BASE_PATH . '/public/assets/uploads/profiles/' . $order['profile_picture'];
         } else {
             $order['customer_picture'] = '';
         }

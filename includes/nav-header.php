@@ -949,8 +949,8 @@ if ($initials === '') {
     for (var i = 0; i < navLinks.length; i++) {
         var a = navLinks[i];
         var h = (a.getAttribute('href') || '').toLowerCase().replace(/\/$/, '');
-        var isHomeLink = (h === '<?php echo $base_path; ?>//printflow/public' || h === '/printflow' || h === '' || h.endsWith('/index.php'));
-        var isHomePage = (p === '<?php echo $base_path; ?>//printflow/public' || p === '/printflow' || p === '' || p.endsWith('/index.php'));
+        var isHomeLink = (h === BASE_PATH . '/public' || h === '/printflow' || h === '' || h.endsWith('/index.php'));
+        var isHomePage = (p === BASE_PATH . '/public' || p === '/printflow' || p === '' || p.endsWith('/index.php'));
         if (isHomeLink && isHomePage) {
             a.classList.add('nav-active');
             if (a.classList.contains('pf-burger-link')) a.classList.add('active');
@@ -1045,7 +1045,7 @@ if ($initials === '') {
     // Poll cart count on load and every 5s
     <?php if ($is_logged_in && is_customer()): ?>
     (function pollCart() {
-        fetch('<?php echo $base_path; ?>//printflow/customer/api_cart.php', {
+        fetch(BASE_PATH . '/customer/api_cart.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'get_count', csrf_token: '<?php echo generate_csrf_token(); ?>'})
@@ -1094,8 +1094,8 @@ if ($initials === '') {
         function doSearch(q) {
             console.log('Search triggered for:', q);
             if (!q.trim()) { dropdown.style.display = 'none'; return; }
-            console.log('Fetching:', '<?php echo $base_path; ?>//printflow/public/api/search.php?q=' + encodeURIComponent(q));
-            fetch('<?php echo $base_path; ?>//printflow/public/api/search.php?q=' + encodeURIComponent(q))
+            console.log('Fetching:', BASE_PATH . '/public/api/search.php?q=' + encodeURIComponent(q));
+            fetch(BASE_PATH . '/public/api/search.php?q=' + encodeURIComponent(q))
             .then(function(r){ 
                 console.log('Response status:', r.status);
                 return r.json(); 

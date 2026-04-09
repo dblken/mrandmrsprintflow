@@ -255,7 +255,7 @@ function resendOtp(e) {
     fd.append('email', <?php echo json_encode($pending_email); ?>);
     fd.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
 
-    fetch('<?php echo $base_path; ?>//printflow/public/resend_otp.php', { method: 'POST', body: fd })
+    fetch(BASE_PATH . '/public/resend_otp.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
             btnResend.textContent = 'Resend Code';

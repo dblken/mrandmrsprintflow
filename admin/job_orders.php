@@ -246,8 +246,8 @@ function jo_payment_badge($status) {
                     this.historyCustoms = [];
                     try {
                         const [ordersRes, customsRes] = await Promise.all([
-                            fetch(`/printflow/admin/api_order_details.php?customer_id=${customerId}`, { credentials: 'same-origin' }),
-                            fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`, { credentials: 'same-origin' })
+                            fetch(`<?php echo BASE_PATH; ?>/admin/api_order_details.php?customer_id=${customerId}`, { credentials: 'same-origin' }),
+                            fetch(`<?php echo BASE_PATH; ?>/admin/job_orders_api.php?action=list_orders&customer_id=${customerId}`, { credentials: 'same-origin' })
                         ]);
                         const ordersData = await ordersRes.json();
                         const customsData = await customsRes.json();

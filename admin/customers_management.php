@@ -691,12 +691,12 @@ $page_title = 'Customers Management - Admin';
                         this.tabLoading = true;
                         try {
                             if (tab === 'orders') {
-                                const res = await fetch(`/printflow/admin/api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
+                                const res = await fetch(`<?php echo BASE_PATH; ?>/admin/api_order_details.php?customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                                 const data = await res.json();
                                 this.orders = data.data || [];
                                 this.ordersPagination = data.pagination || { current_page: 1, total_pages: 1 };
                             } else if (tab === 'customizations') {
-                                const res = await fetch(`/printflow/admin/job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
+                                const res = await fetch(`<?php echo BASE_PATH; ?>/admin/job_orders_api.php?action=list_orders&customer_id=${this.customer.customer_id}&page=${page}`, { credentials: 'same-origin' });
                                 const data = await res.json();
                                 this.customizations = data.data || [];
                                 this.customizationsPagination = data.pagination || { current_page: 1, total_pages: 1 };

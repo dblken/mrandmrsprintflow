@@ -355,7 +355,7 @@ $page_title = 'Complete Your Profile - PrintFlow';
 <?php if ($user): ?>
 <script>
 (function() {
-    const addrApi = '<?php echo $base_path; ?>//printflow/public/api_address_public.php';
+    const addrApi = BASE_PATH . '/public/api_address_public.php';
     const prov = document.getElementById('address_province');
     const city = document.getElementById('address_city');
     const brgy = document.getElementById('address_barangay');

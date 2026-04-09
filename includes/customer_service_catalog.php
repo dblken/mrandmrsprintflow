@@ -11,13 +11,13 @@ function printflow_default_customer_service_modal_text(): string {
  */
 function printflow_default_customer_service_catalog(): array {
     return [
-        ['name' => 'Tarpaulin', 'category' => 'Signage', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/product_42.jpg', 'link' => 'order_tarpaulin.php'],
-        ['name' => 'T-Shirt', 'category' => 'Apparel', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/product_31.jpg', 'link' => 'order_tshirt.php'],
-        ['name' => 'Stickers', 'category' => 'Decals', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/product_21.jpg', 'link' => 'order_stickers.php'],
-        ['name' => 'Glass/Wall', 'category' => 'Decals', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png', 'link' => 'order_glass_stickers.php'],
-        ['name' => 'Transparent', 'category' => 'Decals', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/product_26.jpg', 'link' => 'order_transparent.php'],
-        ['name' => 'Reflectorized', 'category' => 'Signage', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/signage.jpg', 'link' => 'order_reflectorized.php'],
-        ['name' => 'Sintraboard Standees', 'category' => 'Signage', 'img' => '<?php echo $base_path; ?>//printflow/public/images/products/standeeflat.jpg', 'link' => 'order_sintraboard.php'],
-        ['name' => 'Souvenirs', 'category' => 'Merchandise', 'img' => '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png', 'link' => 'order_souvenirs.php'],
+        ['name' => 'Tarpaulin', 'category' => 'Signage', 'img' => BASE_PATH . '/public/images/products/product_42.jpg', 'link' => 'order_tarpaulin.php'],
+        ['name' => 'T-Shirt', 'category' => 'Apparel', 'img' => BASE_PATH . '/public/images/products/product_31.jpg', 'link' => 'order_tshirt.php'],
+        ['name' => 'Stickers', 'category' => 'Decals', 'img' => BASE_PATH . '/public/images/products/product_21.jpg', 'link' => 'order_stickers.php'],
+        ['name' => 'Glass/Wall', 'category' => 'Decals', 'img' => BASE_PATH . '/public/images/products/Glass Stickers  Wall  Frosted Stickers.png', 'link' => 'order_glass_stickers.php'],
+        ['name' => 'Transparent', 'category' => 'Decals', 'img' => BASE_PATH . '/public/images/products/product_26.jpg', 'link' => 'order_transparent.php'],
+        ['name' => 'Reflectorized', 'category' => 'Signage', 'img' => BASE_PATH . '/public/images/products/signage.jpg', 'link' => 'order_reflectorized.php'],
+        ['name' => 'Sintraboard Standees', 'category' => 'Signage', 'img' => BASE_PATH . '/public/images/products/standeeflat.jpg', 'link' => 'order_sintraboard.php'],
+        ['name' => 'Souvenirs', 'category' => 'Merchandise', 'img' => BASE_PATH . '/public/assets/images/services/default.png', 'link' => 'order_souvenirs.php'],
     ];
 }

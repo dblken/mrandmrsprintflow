@@ -451,8 +451,8 @@ function _ft_detect_social(string $url): array {
         function loadFAQs() {
             loaded = true;
             Promise.all([
-                fetch('<?php echo $base_path; ?>//printflow/public/api/get_faqs.php').then(r => r.json()),
-                fetch('<?php echo $base_path; ?>//printflow/public/api/get_chatbot_info.php').then(r => r.json())
+                fetch(BASE_PATH . '/public/api/get_faqs.php').then(r => r.json()),
+                fetch(BASE_PATH . '/public/api/get_chatbot_info.php').then(r => r.json())
             ])
             .then(([faqData, infoData]) => {
                 var allQuestions = [];
@@ -616,7 +616,7 @@ function _ft_detect_social(string $url): array {
                 else payload.guest_id = guestId;
 
                 // Send to API
-                fetch('<?php echo $base_path; ?>//printflow/public/api/chatbot_inquiry.php', {
+                fetch(BASE_PATH . '/public/api/chatbot_inquiry.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -678,7 +678,7 @@ function _ft_detect_social(string $url): array {
             if (ids.length === 0) return;
             
             ids.forEach(function(id) {
-                fetch('<?php echo $base_path; ?>//printflow/public/api/chatbot_inquiry.php?id=' + id)
+                fetch(BASE_PATH . '/public/api/chatbot_inquiry.php?id=' + id)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data.success && data.data && data.data.status === 'answered' && data.data.admin_reply) {

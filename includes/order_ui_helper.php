@@ -44,13 +44,13 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     } else {
         $has_design = !empty($item['design_image']) || !empty($item['design_file']);
         if ($has_design) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+            $design_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
             $design_url = $item['product_image'];
         }
 
         if (!empty($item['reference_image_file'])) {
-            $ref_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
+            $ref_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
     }
 
@@ -58,11 +58,11 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     if (!$design_url) {
         $cat_comb = strtolower(($item['category'] ?? '') . ' ' . ($name ?? ''));
         if (strpos($cat_comb, 't-shirt') !== false || strpos($cat_comb, 'tshirt') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_31.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_31.jpg";
         } else if (strpos($cat_comb, 'tarpaulin') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_42.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_42.jpg";
         } else if (strpos($cat_comb, 'reflectorized') !== false || strpos($cat_comb, 'signage') !== false || strpos($cat_comb, 'sticker') !== false || strpos($cat_comb, 'decal') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_21.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_21.jpg";
         }
     }
 
@@ -222,13 +222,13 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     } else {
         $has_design = !empty($item['design_image']) || !empty($item['design_file']);
         if ($has_design) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+            $design_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
             $design_url = $item['product_image'];
         }
 
         if (!empty($item['reference_image_file'])) {
-            $ref_url = "<?php echo $base_path; ?>//printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
+            $ref_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
     }
 
@@ -236,11 +236,11 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     if (!$design_url) {
         $cat_comb = strtolower(($item['category'] ?? '') . ' ' . ($name ?? ''));
         if (strpos($cat_comb, 't-shirt') !== false || strpos($cat_comb, 'tshirt') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_31.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_31.jpg";
         } else if (strpos($cat_comb, 'tarpaulin') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_42.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_42.jpg";
         } else if (strpos($cat_comb, 'reflectorized') !== false || strpos($cat_comb, 'signage') !== false || strpos($cat_comb, 'sticker') !== false || strpos($cat_comb, 'decal') !== false) {
-            $design_url = "<?php echo $base_path; ?>//printflow/public/images/products/product_21.jpg";
+            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_21.jpg";
         }
     }
 
