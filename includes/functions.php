@@ -680,7 +680,8 @@ function upload_file($file, $allowed_extensions = [], $destination = 'uploads', 
     }
     
     $target_path = $upload_dir . '/' . $new_name;
-    $relative_path = '<?php echo $base_path; ?>//printflow/uploads/' . $destination . '/' . $new_name;
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
+    $relative_path = $base . '/uploads/' . $destination . '/' . $new_name;
     
     if (move_uploaded_file($file['tmp_name'], $target_path)) {
         return [
@@ -1367,22 +1368,22 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
  * Source of truth: /customer/services.php
  */
 function get_services_image_map() {
-    $base = '<?php echo $base_path; ?>//printflow/public';
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
     return [
-        'tarpaulin'   => $base . '/images/products/product_42.jpg',
-        't-shirt'     => $base . '/images/products/product_31.jpg',
-        'shirt'       => $base . '/images/products/product_31.jpg',
-        'stickers'    => $base . '/images/products/product_21.jpg',
-        'sticker'     => $base . '/images/products/product_21.jpg',
-        'decal'       => $base . '/images/products/product_21.jpg',
-        'glass'       => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
-        'frosted'     => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
-        'wall'        => $base . '/images/products/Glass Stickers  Wall  Frosted Stickers.png',
-        'transparent' => $base . '/images/products/product_26.jpg',
-        'reflectorized' => $base . '/images/products/signage.jpg',
-        'signage'     => $base . '/images/products/signage.jpg',
-        'sintraboard' => $base . '/images/products/standeeflat.jpg',
-        'standee'     => $base . '/images/products/standeeflat.jpg',
+        'tarpaulin'   => $base . '/public/images/products/product_42.jpg',
+        't-shirt'     => $base . '/public/images/products/product_31.jpg',
+        'shirt'       => $base . '/public/images/products/product_31.jpg',
+        'stickers'    => $base . '/public/images/products/product_21.jpg',
+        'sticker'     => $base . '/public/images/products/product_21.jpg',
+        'decal'       => $base . '/public/images/products/product_21.jpg',
+        'glass'       => $base . '/public/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'frosted'     => $base . '/public/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'wall'        => $base . '/public/images/products/Glass Stickers  Wall  Frosted Stickers.png',
+        'transparent' => $base . '/public/images/products/product_26.jpg',
+        'reflectorized' => $base . '/public/images/products/signage.jpg',
+        'signage'     => $base . '/public/images/products/signage.jpg',
+        'sintraboard' => $base . '/public/images/products/standeeflat.jpg',
+        'standee'     => $base . '/public/images/products/standeeflat.jpg',
         'souvenir'    => $base . '/assets/images/services/default.png',
     ];
 }
@@ -1394,7 +1395,8 @@ function get_services_image_map() {
  */
 function get_service_image_url($service_type_or_name) {
     $cat = strtolower(trim(preg_replace('/\s+/', ' ', (string)$service_type_or_name)));
-    if ($cat === '') return '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
+    if ($cat === '') return $base . '/public/assets/images/services/default.png';
 
     $map = get_services_image_map();
     foreach ($map as $keyword => $img) {
@@ -1403,7 +1405,7 @@ function get_service_image_url($service_type_or_name) {
         }
     }
 
-    return '<?php echo $base_path; ?>//printflow/public/assets/images/services/default.png';
+    return $base . '/public/assets/images/services/default.png';
 }
 
 /**

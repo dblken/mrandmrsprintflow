@@ -24,6 +24,7 @@ if ($user_id) {
 
 $on_profile = basename($_SERVER['PHP_SELF'] ?? '') === 'profile.php';
 if (isset($_SESSION['user_status']) && $_SESSION['user_status'] === 'Pending' && !$on_profile) {
-    redirect('<?php echo $base_path; ?>//printflow/staff/profile.php');
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
+    redirect($base . '/staff/profile.php');
     exit;
 }
