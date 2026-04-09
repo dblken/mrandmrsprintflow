@@ -70,8 +70,14 @@ Options -Indexes
     Deny from all
 </FilesMatch>
 
-# Protect config and includes
-<FilesMatch "(config\.php|db\.php|auth\.php|\.env)$">
+# Protect config and includes (only in includes/ directory)
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} /includes/(config\.php|db\.php|auth\.php) [NC]
+    RewriteRule ^ - [F,L]
+</IfModule>
+
+# Protect .env files everywhere
+<FilesMatch "\.env$">
     Order allow,deny
     Deny from all
 </FilesMatch>
