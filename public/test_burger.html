@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burger Menu Test</title>
+</head>
+<body>
+    <h1>Customer Burger Menu Test</h1>
+    
+    <script>
+        // Test if functions exist
+        console.log('Testing burger menu functions...');
+        console.log('openBurgerMenu exists:', typeof window.openBurgerMenu);
+        console.log('closeBurgerMenu exists:', typeof window.closeBurgerMenu);
+        
+        // Test if button exists
+        const burgerBtn = document.querySelector('[data-pf-mobile-toggle]');
+        console.log('Burger button found:', burgerBtn);
+        
+        // Test if overlay exists
+        const overlay = document.querySelector('[data-pf-burger-overlay]');
+        console.log('Overlay found:', overlay);
+        
+        // Test if menu exists
+        const menu = document.querySelector('[data-pf-burger-menu]');
+        console.log('Menu found:', menu);
+        
+        // Check if admin mobile JS is interfering
+        const adminBurger = document.getElementById('mobileBurger');
+        console.log('Admin burger found (should be null):', adminBurger);
+    </script>
+</body>
+</html>

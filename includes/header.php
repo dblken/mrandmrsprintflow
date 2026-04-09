@@ -70,6 +70,9 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <script src="<?php echo $asset_base; ?>/assets/js/alpine-init-helper.js"></script>
     <script src="<?php echo $asset_base; ?>/assets/js/turbo-init.js" defer></script>
     
+    <!-- Customer Burger Menu (Landing & Customer Pages) -->
+    <script src="<?php echo $asset_base; ?>/assets/js/customer-burger.js" defer></script>
+    
     <!-- Critical: base link/layout so page is never unstyled -->
     <style>
         a { color: inherit; text-decoration: none; }
