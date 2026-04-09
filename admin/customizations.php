@@ -537,7 +537,8 @@ function custom_payment_badge($status) {
                                 data = JSON.parse(text);
                             } catch (e) {
                                 this.loading = false;
-                                this.errorMsg = 'Invalid response from server (not JSON). Check PHP errors or job_orders_api.php.';
+                                this.errorMsg = 'Invalid response from server. Check console for details.';
+                                console.error('JSON parse error:', e, 'Response:', text);
                                 return;
                             }
                             this.loading = false;
