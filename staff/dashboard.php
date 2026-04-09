@@ -12,14 +12,6 @@ require_once __DIR__ . '/../includes/branch_context.php';
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
-// Ensure $base_path is defined
-if (!isset($base_path)) {
-    if (file_exists(__DIR__ . '/../config.php')) {
-        require_once __DIR__ . '/../config.php';
-    }
-    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
-}
-
 $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
 $branch_name = $staffCtx['branch_name'];
@@ -174,7 +166,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* Full-Width Executive Layout Extensions */
