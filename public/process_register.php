@@ -16,22 +16,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     unset($_SESSION['otp_success']);
 
     // 1. Validate form inputs
-    $first_name = trim($_POST['first_name'] ?? '');
-    $last_name  = trim($_POST['last_name'] ?? '');
-    $email      = sanitize($_POST['email'] ?? '');
+    $email      = sanitize($_POST['email'] ?? $_POST['identifier'] ?? '');
     $password   = $_POST['password'] ?? '';
     $role       = $_POST['role'] ?? 'Staff';
-
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
-        redirect('register.php?error=All fields are required');
+    
+    // Extract first and last name from email if not provided
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name  = trim($_POST['last_name'] ?? '');
+    
+    if (empty($first_name) || empty($last_name)) {
+        // Generate names from email
+        $email_parts = explode('@', $email);
+        $username = $email_parts[0] ?? 'User';
+        $first_name = ucfirst($username);
+        $last_name = 'Account';
     }
 
-    // Name validation
-    if (!preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $first_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $last_name)) {
-        redirect('register.php?error=' . urlencode('Names must contain only letters.'));
+    if (empty($email) || empty($password)) {
+        redirect('index.php?auth_modal=register&error=All fields are required');
     }
-    if (strlen($first_name) < 2 || strlen($first_name) > 50 || strlen($last_name) < 2 || strlen($last_name) > 50) {
-        redirect('register.php?error=' . urlencode('Names must be between 2 and 50 characters.'));
+
+    // Name validation (skip if auto-generated)
+    if (!empty($_POST['first_name']) && !empty($_POST['last_name'])) {
+        if (!preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $first_name) || !preg_match("/^[A-Za-z]+( [A-Za-z]+)*$/", $last_name)) {
+            redirect('index.php?auth_modal=register&error=' . urlencode('Names must contain only letters.'));
+        }
+        if (strlen($first_name) < 2 || strlen($first_name) > 50 || strlen($last_name) < 2 || strlen($last_name) > 50) {
+            redirect('index.php?auth_modal=register&error=' . urlencode('Names must be between 2 and 50 characters.'));
+        }
     }
 
     // Auto-capitalize
@@ -40,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 2. Validate email
     if (strlen($email) > 254 || strpos($email, ' ') !== false || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        redirect('register.php?error=' . urlencode('Invalid email address.'));
+        redirect('index.php?auth_modal=register&error=' . urlencode('Invalid email address.'));
     }
     // Require at least 2 characters after the last dot in domain
     if (!preg_match('/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/', $email)) {
-        redirect('register.php?error=' . urlencode('Email domain extension must be at least 2 characters (e.g., .com, .org).'));
+        redirect('index.php?auth_modal=register&error=' . urlencode('Email domain extension must be at least 2 characters (e.g., .com, .org).'));
     }
 
     // 3. Server-side password complexity validation
@@ -57,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!preg_match('/[^A-Za-z0-9]/', $password)) $pw_errors[] = 'a special character';
     if (strpos($password, ' ') !== false) $pw_errors[] = 'no spaces';
     if (!empty($pw_errors)) {
-        redirect('register.php?error=' . urlencode('Password must contain: ' . implode(', ', $pw_errors) . '.'));
+        redirect('index.php?auth_modal=register&error=' . urlencode('Password must contain: ' . implode(', ', $pw_errors) . '.'));
     }
 
     // 4. Hash password
@@ -70,13 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Delete incomplete registration to allow re-registration
             db_execute("DELETE FROM users WHERE user_id = ?", 'i', [$existing[0]['user_id']]);
         } else {
-            redirect('register.php?error=Email already exists');
+            redirect('index.php?auth_modal=register&error=Email already exists');
         }
     }
 
     // Same email cannot be a customer account
     if (email_in_use_across_accounts($email, null, null)) {
-        redirect('register.php?error=' . urlencode('This email is already registered as a customer. Please sign in with that account or use a different email.'));
+        redirect('index.php?auth_modal=register&error=' . urlencode('This email is already registered as a customer. Please sign in with that account or use a different email.'));
     }
 
     // 3. Insert user record with email_verified = 0
@@ -104,11 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Revert pending user if mail fails
             db_execute("DELETE FROM users WHERE user_id = ?", 'i', [$user_id]);
-            redirect('register.php?error=' . urlencode('Failed to send verification email. ' . ($mail_result['message'] ?? 'Please try again.')));
+            redirect('index.php?auth_modal=register&error=' . urlencode('Failed to send verification email. ' . ($mail_result['message'] ?? 'Please try again.')));
         }
     } else {
-        redirect('register.php?error=Registration failed');
+        redirect('index.php?auth_modal=register&error=Registration failed');
     }
 } else {
-    redirect('register.php');
+    redirect('index.php');
 }

@@ -429,7 +429,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 <!-- Identifier input (email only) -->
                 <div class="auth-field">
                     <label id="reg-id-label" for="reg-identifier">Email Address</label>
-                    <input type="text" id="reg-identifier" name="identifier" class="input-field"
+                    <input type="email" id="reg-identifier" name="identifier" class="input-field"
                            placeholder="Email address"
                            maxlength="150"
                            autocomplete="email">
