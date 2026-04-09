@@ -1,4 +1,5 @@
 <?php require_once __DIR__ . '/favicon_links.php'; ?>
+<link rel="stylesheet" href="<?php echo (defined('BASE_PATH') ? BASE_PATH : '/printflow'); ?>/public/assets/css/admin-mobile.css">
 <?php
 /**
  * Alpine.js Core Loading (admin / manager / staff shell).
@@ -19,6 +20,7 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
     ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo $__pf_asset_js; ?>/alpine.min.js" defer></script>
+<script src="<?php echo $__pf_asset_js; ?>/admin-mobile.js" defer></script>
 <?php
     unset($__pf_asset_js);
 }
