@@ -1,4 +1,4 @@
-# PrintFlow - Apache Configuration
+# PrintFlow - Apache Configuration // hello
 # Force correct MIME types for PWA files
 <FilesMatch "\.(js|json)$">
     <IfModule mod_php.c>
