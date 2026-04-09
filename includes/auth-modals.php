@@ -376,7 +376,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             </div>
             <p class="auth-divider"><span>or</span></p>
             <?php endif; ?>
-            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/public/api_login.php">
+            <form method="POST" action="<?php echo htmlspecialchars($base_url); ?>/login">
                 <?php echo csrf_field(); ?>
                 <div class="auth-field">
                     <label for="auth-email">Email Address</label>
