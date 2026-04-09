@@ -3,11 +3,11 @@
  * Staff: Customizations Management
  * Production tracking & material assignment.
  */
+require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
 require_role(['Admin', 'Staff', 'Manager']);
 // Ensure $base_path is defined
 if (!isset($base_path)) {
