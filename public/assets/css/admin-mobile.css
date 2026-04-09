@@ -2,11 +2,27 @@
  * Admin Mobile Responsiveness System
  * PrintFlow - Global mobile styles for admin/staff/manager portals
  * 
+ * IMPORTANT: These styles only apply to admin/staff/manager pages
+ * Customer and landing pages have their own mobile styles
+ * 
  * BREAKPOINTS:
  * - Mobile: max-width: 768px
  * - Tablet: 769px - 1024px
  * - Desktop: 1025px+
  */
+
+/* Only apply to admin pages */
+body[class*="admin"] #mobileBurger,
+body[class*="staff"] #mobileBurger,
+body[class*="manager"] #mobileBurger,
+.dashboard-container #mobileBurger {
+    /* Admin burger styles will apply */
+}
+
+/* Prevent conflicts with customer pages */
+body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]) #mobileBurger {
+    display: none !important;
+}
 
 /* ============================================
    MOBILE HEADER SYSTEM

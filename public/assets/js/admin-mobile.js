@@ -1,10 +1,22 @@
 /**
  * Admin Mobile Menu Handler
  * PrintFlow - Mobile burger menu and sidebar toggle
+ * ONLY runs on admin/staff/manager pages
  */
 
 (function() {
     'use strict';
+    
+    // Check if this is an admin page
+    function isAdminPage() {
+        const path = window.location.pathname;
+        return path.includes('/admin/') || path.includes('/staff/') || path.includes('/manager/');
+    }
+    
+    // Only run on admin pages
+    if (!isAdminPage()) {
+        return;
+    }
     
     // Only run on mobile
     function isMobile() {
