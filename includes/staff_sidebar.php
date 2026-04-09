@@ -9,7 +9,9 @@ require_once __DIR__ . '/shop_config.php';
 // Load config for BASE_PATH
 if (file_exists(__DIR__ . '/../config.php')) {
     require_once __DIR__ . '/../config.php';
-}`r`n$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';`r`n$logout_url = $base_path . '/logout';
+}
+$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+$logout_url = $base_path . '/logout';
 $staff_branch_label = '';
 if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Staff') {
     require_once __DIR__ . '/branch_context.php';
