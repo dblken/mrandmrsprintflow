@@ -29,12 +29,12 @@ $asset_base = $base_url . '/public';
 
 // Timestamp for cache busting
 $ver = time();
-$url_index    = $base_url . '/public/';
+$url_index    = $base_url . '/';
 $url_products = $base_url . '/public/products.php';
 
-$url_login    = $base_url . '/public/?auth_modal=login';
-$url_register = $base_url . '/public/?auth_modal=register';
-$url_logout   = $base_url . '/public/logout.php';
+$url_login    = $base_url . '/?auth_modal=login';
+$url_register = $base_url . '/?auth_modal=register';
+$url_logout   = $base_url . '/logout';
 $url_forgot_password = $base_url . '/public/forgot-password.php';
 $url_reset_password  = $base_url . '/public/reset-password.php';
 $url_google_auth    = $base_url . '/public/google-auth.php';

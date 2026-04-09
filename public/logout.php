@@ -22,5 +22,12 @@ if (isset($_SESSION['user_id'])) {
 
 SessionManager::destroy();
 SessionManager::setNoCacheHeaders();
-header('Location: /printflow/');
+
+// Load config for correct redirect path
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+$base_path = defined('BASE_PATH') ? BASE_PATH : '';
+
+header('Location: ' . $base_path . '/');
 exit();
