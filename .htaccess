@@ -1,4 +1,4 @@
-# PrintFlow - Apache Configuration
+# PrintFlow - Apache Configuration // heaallo
 # Force correct MIME types for PWA files
 AddType application/javascript .js
 
