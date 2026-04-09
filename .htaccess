@@ -42,6 +42,12 @@ AddType text/css .css
     RewriteCond %{REQUEST_URI} ^/logout/?$
     RewriteRule ^(.*)$ public/logout.php [L]
 
+    # Admin and Staff directories - serve directly (not through public)
+    RewriteCond %{REQUEST_URI} ^/(admin|staff|customer)/
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
     # Redirect to public/index.php if accessing root
     RewriteCond %{REQUEST_URI} ^/?$
     RewriteRule ^(.*)$ public/index.php [L]
