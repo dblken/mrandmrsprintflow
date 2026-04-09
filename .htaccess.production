@@ -23,11 +23,8 @@ AddType text/css .css
     RewriteRule ^ - [L]
 
     # Serve service worker and manifest
-    RewriteCond %{REQUEST_URI} sw\.js$
-    RewriteRule ^(.*)$ public/sw.php [L]
-    
-    RewriteCond %{REQUEST_URI} manifest\.json$
-    RewriteRule ^(.*)$ public/manifest.json [L]
+    RewriteCond %{REQUEST_URI} (sw\.js|manifest\.json)$
+    RewriteRule ^(.*)$ public/$1 [L]
 
     # Handle login/register POST requests
     RewriteCond %{REQUEST_METHOD} POST
