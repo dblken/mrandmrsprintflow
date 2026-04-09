@@ -492,7 +492,7 @@ async function refreshDashboard(page = 1) {
         updateMetric('stat-completed', data.stats.completed);
         
         const subtitleEl = document.getElementById('kpi-subtitle');
-        if (subtitleEl) subtitleEl.textContent = `Metrics for ${data.timeframe_label} at <?php echo addslashes($branch_name); ?>`;
+        if (subtitleEl) subtitleEl.textContent = `Metrics for ${data.timeframe_label} at ` + <?php echo json_encode($branch_name); ?>;
 
         // Top Services list update
         const servicesList = document.getElementById('top-services-list');
@@ -641,7 +641,9 @@ function updateSalesChart(labels, values) {
 }
 
 function initDashboardInteractions() {
-    updateSalesChart(<?php echo json_encode($trend_labels); ?>, <?php echo json_encode($trend_values); ?>);
+    const trendLabels = <?php echo json_encode($trend_labels); ?>;
+    const trendValues = <?php echo json_encode($trend_values); ?>;
+    updateSalesChart(trendLabels, trendValues);
     
     const sEl = document.getElementById('filter-status');
     const tEl = document.getElementById('filter-timeframe');
