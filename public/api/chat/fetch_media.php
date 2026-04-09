@@ -59,7 +59,7 @@ $results = [];
 foreach ($media as $item) {
     $path = (string)$item['message_file'];
     if ($path !== '' && !preg_match('#^https?://#i', $path)) {
-        if (strpos($path, '/printflow/') !== 0) $path = '/printflow/' . ltrim($path, '/');
+        if (strpos($path, '<?php echo $base_path; ?>/') !== 0) $path = '<?php echo $base_path; ?>/' . ltrim($path, '/');
     }
     $results[] = [
         'message_file' => $path,

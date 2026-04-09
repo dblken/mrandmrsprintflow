@@ -76,7 +76,7 @@ if ($messages_raw) {
 
         $image_path = (string)($msg['image_path'] ?? '');
         if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
-            if (strpos($image_path, '/printflow/') !== 0) $image_path = '/printflow/' . ltrim($image_path, '/');
+            if (strpos($image_path, '<?php echo $base_path; ?>/') !== 0) $image_path = '<?php echo $base_path; ?>/' . ltrim($image_path, '/');
         }
 
         $sender_avatar = $msg['sender_avatar'] ?? null;

@@ -34,7 +34,7 @@ foreach ($products as $p) {
         'type' => 'product',
         'title' => $p['name'],
         'meta' => $p['category'] ?: 'Product',
-        'url' => '/printflow/' . (is_customer() ? 'customer/products.php' : 'products/') . '?search=' . rawurlencode($q),
+        'url' => '<?php echo $base_path; ?>/' . (is_customer() ? 'customer/products.php' : 'products/') . '?search=' . rawurlencode($q),
     ];
 }
 
@@ -56,7 +56,7 @@ foreach ($services as $s) {
         'type' => 'service',
         'title' => $s['name'],
         'meta' => $s['category'] ?: 'Service',
-        'url' => '/printflow/' . (is_customer() ? 'customer/services.php' : 'public/services.php'),
+        'url' => '<?php echo $base_path; ?>/' . (is_customer() ? 'customer/services.php' : 'public/services.php'),
     ];
 }
 
@@ -94,7 +94,7 @@ if (is_logged_in() && is_customer()) {
             'type' => 'order',
             'title' => 'Order #' . (int)$o['order_id'] . ' - ' . ($o['display_name'] ?: 'Order'),
             'meta' => $o['status'] ?: 'Order',
-            'url' => '/printflow/customer/chat.php?order_id=' . (int)$o['order_id'],
+            'url' => '<?php echo $base_path; ?>/customer/chat.php?order_id=' . (int)$o['order_id'],
         ];
     }
 }

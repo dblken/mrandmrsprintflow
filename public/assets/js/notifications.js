@@ -4,12 +4,12 @@
     /* ── Config ──────────────────────────────────────────────────────────── */
     var POLL_INTERVAL_MS       = 15000;
     var POLL_INTERVAL_HIDDEN   = 60000;
-    var SW_PATH                = '/printflow/public/sw.js';
-    var SW_SCOPE               = '/printflow/public/';
-    var API_VAPID_PUB          = '/printflow/public/api/push/vapid_public_key.php';
-    var API_SUBSCRIBE          = '/printflow/public/api/push/subscribe.php';
-    var API_POLL               = '/printflow/public/api/push/poll.php';
-    var API_LIST               = '/printflow/public/api/notifications/list.php';
+    var SW_PATH                = (window.PFConfig?.basePath || '') + '/public/sw.js';
+    var SW_SCOPE               = (window.PFConfig?.basePath || '') + '/public/';
+    var API_VAPID_PUB          = (window.PFConfig?.basePath || '') + '/public/api/push/vapid_public_key.php';
+    var API_SUBSCRIBE          = (window.PFConfig?.basePath || '') + '/public/api/push/subscribe.php';
+    var API_POLL               = (window.PFConfig?.basePath || '') + '/public/api/push/poll.php';
+    var API_LIST               = (window.PFConfig?.basePath || '') + '/public/api/notifications/list.php';
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
@@ -144,7 +144,7 @@
     }
 
     function getNotifUrl(type, dataId, message, notifId, orderType) {
-        var base = '/printflow';
+        var base = (window.PFConfig?.basePath || '');
         var t = (type || '').toLowerCase();
         var isStaff = (USER_TYPE.toLowerCase() === 'admin' || USER_TYPE.toLowerCase() === 'staff' || USER_TYPE.toLowerCase() === 'manager');
         var msg = (message || '').toLowerCase();
@@ -241,7 +241,7 @@
         toast.style.gap = '10px';
 
         var icon = document.createElement('img');
-        icon.src = '/printflow/public/assets/images/icon-72.png';
+        icon.src = (window.PFConfig?.basePath || '') + '/public/assets/images/icon-72.png';
         icon.style.width = '32px';
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';

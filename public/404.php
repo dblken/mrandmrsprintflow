@@ -18,7 +18,7 @@ require_once __DIR__ . '/../includes/header.php';
         <p class="text-gray-600 mb-8">The page you're looking for doesn't exist or has been moved.</p>
         
         <div class="flex justify-center gap-4">
-            <a href="<?php echo $url_index ?? '/printflow/'; ?>" class="btn-primary">Go Home</a>
+            <a href="<?php echo $url_index ?? '<?php echo $base_path; ?>/'; ?>" class="btn-primary">Go Home</a>
             <a href="javascript:history.back()" class="btn-secondary">Go Back</a>
         </div>
     </div>

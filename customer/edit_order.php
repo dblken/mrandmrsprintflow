@@ -274,7 +274,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div style="display:flex; align-items:center; gap:1rem;">
                                         <?php if (!empty($item['design_image'])): ?>
                                             <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #e5e7eb;">
-                                                <img src="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$item['order_item_id']; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Old Design">
+                                                <img src="<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=<?php echo (int)$item['order_item_id']; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Old Design">
                                                 <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.6); color:white; font-size:0.6rem; text-align:center; padding:2px;">Current</div>
                                             </div>
                                         <?php endif; ?>

@@ -100,7 +100,7 @@ $page_title = htmlspecialchars($display_title) . " - PrintFlow";
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
-<link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
+<link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/chat.css">
 
 <div class="min-h-screen py-8" style="background: #ffffff;">
     <div class="container mx-auto px-4" style="max-width: 1080px;">
@@ -279,7 +279,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
                                     <div id="pm-details-<?php echo $index; ?>" style="display: <?php echo $first ? 'block' : 'none'; ?>; width: 100%;">
                                         <?php if (!empty($pm['file'])): ?>
-                                            <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" style="width: 120px; height: 120px; object-fit: contain; border-radius: 12px; border: 2px solid #e2e8f0; margin: 0 auto 10px auto; display: block; background: white;" alt="QR Code">
+                                            <img src="<?php echo $base_path; ?>/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" style="width: 120px; height: 120px; object-fit: contain; border-radius: 12px; border: 2px solid #e2e8f0; margin: 0 auto 10px auto; display: block; background: white;" alt="QR Code">
                                         <?php endif; ?>
                                         <div style="font-size: 1.1rem; font-weight: 800; color: #1e293b; margin-bottom: 4px;"><?php echo htmlspecialchars($pm['provider']); ?></div>
                                         <?php if (!empty($pm['label'])): ?>

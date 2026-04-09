@@ -4,9 +4,18 @@
  * Alpine.js Core Loading (admin / manager / staff shell).
  * Turbo Drive removed for stability - using standard page navigation.
  */
+
+// Ensure $base_path is defined
+if (!isset($base_path)) {
+    if (file_exists(__DIR__ . '/../config.php')) {
+        require_once __DIR__ . '/../config.php';
+    }
+    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+}
+
 if (empty($GLOBALS['__printflow_shell_core_js'])) {
     $GLOBALS['__printflow_shell_core_js'] = true;
-    $__pf_asset_js = '/printflow/public/assets/js';
+    $__pf_asset_js = $base_path . '/public/assets/js';
     ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo $__pf_asset_js; ?>/alpine.min.js" defer></script>

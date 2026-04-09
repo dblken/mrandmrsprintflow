@@ -24,9 +24,9 @@ if (get_user_type() === 'Customer' && !is_customer_id_verified()) {
     echo '<h2 style="font-size:1.4rem;font-weight:800;color:#0f172a;margin-bottom:.75rem;">ID Verification Required</h2>';
     echo '<p style="color:#64748b;font-size:.95rem;line-height:1.6;margin-bottom:2rem;">' . htmlspecialchars($msg) . '</p>';
     if ($id_status !== 'Pending') {
-        echo '<a href="/printflow/customer/profile.php#section-id" style="display:inline-block;background:#0a2530;color:#fff;font-weight:700;padding:.85rem 2rem;border-radius:.75rem;text-decoration:none;margin-bottom:1rem;">Verify My ID</a><br>';
+        echo '<a href="<?php echo $base_path; ?>/customer/profile.php#section-id" style="display:inline-block;background:#0a2530;color:#fff;font-weight:700;padding:.85rem 2rem;border-radius:.75rem;text-decoration:none;margin-bottom:1rem;">Verify My ID</a><br>';
     }
-    echo '<a href="/printflow/customer/services.php" style="color:#64748b;font-size:.875rem;text-decoration:none;">← Back to Services</a>';
+    echo '<a href="<?php echo $base_path; ?>/customer/services.php" style="color:#64748b;font-size:.875rem;text-decoration:none;">← Back to Services</a>';
     echo '</div></div>';
     require_once __DIR__ . '/footer.php';
     exit;

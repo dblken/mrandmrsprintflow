@@ -340,7 +340,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div style="padding: 1.25rem; display: flex; gap: 1.25rem; align-items: flex-start; border-bottom: 1px solid rgba(83, 197, 224, 0.15); background: rgba(255,255,255,0.02);">
                                     <div style="width: 130px; height: 130px; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.35); border: 1px solid rgba(83, 197, 224, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);">
                                         <?php if (!empty($order['artwork_path'])): ?>
-                                            <img src="/printflow/<?php echo htmlspecialchars($order['artwork_path']); ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease-in-out;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                                            <img src="<?php echo $base_path; ?>/<?php echo htmlspecialchars($order['artwork_path']); ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease-in-out;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
                                         <?php else: ?>
                                             <span style="font-size: 2.2rem; color: rgba(255,255,255,0.15);">🛠️</span>
                                         <?php endif; ?>
@@ -445,7 +445,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
                                     <div id="pm-info-<?php echo $index; ?>" style="display: <?php echo $first ? 'block' : 'none'; ?>;">
                                         <?php if (!empty($pm['file'])): ?>
-                                            <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>" style="width: 170px; height: 170px; object-fit: contain; margin: 0 auto 1.25rem; display: block; border-radius: 12px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                            <img src="<?php echo $base_path; ?>/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>" style="width: 170px; height: 170px; object-fit: contain; margin: 0 auto 1.25rem; display: block; border-radius: 12px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
                                         <?php endif; ?>
                                         <div style="font-weight: 800; color: #1f2937; font-size: 1.1rem; letter-spacing: 0.01em;"><?php echo htmlspecialchars($pm['provider']); ?></div>
                                         <div style="color: #6b7280; font-size: 0.9rem; font-weight: 600; margin-top: 6px;"><?php echo htmlspecialchars($pm['label']); ?></div>

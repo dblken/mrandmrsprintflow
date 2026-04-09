@@ -306,14 +306,14 @@ if ($stickers_lam_val !== '' && !in_array($stickers_lam_val, ['With Laminate', '
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0.9rem;">
             <div style="border:1px solid rgba(83,197,224,0.24); border-radius:12px; padding:0.8rem; background:rgba(13,43,56,0.6);">
                 <div style="font-weight:800; margin-bottom:0.5rem; color:#eaf6fb;">Matte Finish</div>
-                <img src="/printflow/public/images/products/product_21.jpg" alt="Matte sample" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:0.6rem;">
+                <img src="<?php echo $base_path; ?>/public/images/products/product_21.jpg" alt="Matte sample" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:0.6rem;">
                 <ul style="margin:0; padding-left:1.05rem; font-size:0.86rem; color:#c2deea; line-height:1.5;">
                     <li>Non-shiny surface</li><li>Smooth and elegant appearance</li><li>Reduces glare and reflections</li><li>Ideal for minimalist, professional, or premium designs</li><li>Easier to read under strong lighting</li>
                 </ul>
             </div>
             <div style="border:1px solid rgba(83,197,224,0.24); border-radius:12px; padding:0.8rem; background:rgba(13,43,56,0.6);">
                 <div style="font-weight:800; margin-bottom:0.5rem; color:#eaf6fb;">Glossy Finish</div>
-                <img src="/printflow/public/images/products/product_26.jpg" alt="Glossy sample" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:0.6rem;">
+                <img src="<?php echo $base_path; ?>/public/images/products/product_26.jpg" alt="Glossy sample" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:0.6rem;">
                 <ul style="margin:0; padding-left:1.05rem; font-size:0.86rem; color:#c2deea; line-height:1.5;">
                     <li>Shiny and reflective surface</li><li>Colors appear more vibrant and bright</li><li>Eye-catching and smooth texture</li><li>Best for colorful designs, logos, and photos</li><li>Reflects light and gives a polished look</li>
                 </ul>

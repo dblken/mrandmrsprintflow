@@ -1,0 +1,518 @@
+<?php
+/**
+ * Staff Profile Page
+ * PrintFlow - Printing Shop PWA
+ */
+
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+require_role('Staff');
+require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+$user_id = get_user_id();
+$error = '';
+$success = '';
+
+$urows = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id]);
+$user = $urows[0] ?? null;
+if (!$user) {
+    redirect(AUTH_REDIRECT_BASE . '/');
+    exit;
+}
+// Match session to DB (banner + sidebar use session in some places)
+$_SESSION['user_status'] = $user['status'] ?? ($_SESSION['user_status'] ?? 'Pending');
+$is_pending = ($user['status'] ?? '') === 'Pending';
+$needs_id = $is_pending && empty($user['id_validation_image'] ?? '');
+
+// Parse address for province/city/barangay
+$addressProvince = $addressCity = $addressBarangay = $addressLine = '';
+if (!empty($user['address'])) {
+    $parts = array_values(array_filter(array_map('trim', explode(',', $user['address'])), static fn($p) => $p !== ''));
+    if (count($parts) >= 4 && strcasecmp(end($parts), 'Philippines') === 0) {
+        $addressProvince = $parts[count($parts) - 2] ?? '';
+        $addressCity = $parts[count($parts) - 3] ?? '';
+        $addressBarangay = preg_replace('/^Brgy\.?\s*/i', '', (string)($parts[count($parts) - 4] ?? ''));
+        $addressLine = implode(', ', array_slice($parts, 0, -4));
+    } else {
+        $addressLine = $user['address'];
+    }
+}
+
+function is_valid_name_value($value) {
+    return (bool)preg_match('/^[a-zA-Z\s\.\'-]{2,60}$/', $value);
+}
+
+function is_valid_contact_value($value) {
+    if ($value === '') return true;
+    return (bool)preg_match('/^(\+63|0)?9\d{9}$/', preg_replace('/\s+/', '', $value));
+}
+
+// Handle profile update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+    if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid request. Please try again.';
+    } else {
+        $first_name = sanitize($_POST['first_name'] ?? '');
+        $middle_name = sanitize($_POST['middle_name'] ?? '');
+        $last_name = sanitize($_POST['last_name'] ?? '');
+        $contact_number = preg_replace('/[^0-9]/', '', trim($_POST['contact_number'] ?? ''));
+        $address_province = trim($_POST['address_province'] ?? '');
+        $address_city = trim($_POST['address_city'] ?? '');
+        $address_barangay = trim($_POST['address_barangay'] ?? '');
+        $address_line = trim($_POST['address_line'] ?? '');
+        $gender = trim($_POST['gender'] ?? '');
+        $profile_picture = $user['profile_picture'];
+
+        // Handle profile picture upload
+        if (!empty($_FILES['profile_picture']['tmp_name']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($_FILES['profile_picture']['tmp_name']);
+            $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+            
+            if (!in_array($mime, $allowed)) {
+                $error = 'Profile picture must be JPG, PNG, or WEBP.';
+            } elseif ($_FILES['profile_picture']['size'] > 2 * 1024 * 1024) {
+                $error = 'Profile picture must be under 2MB.';
+            } else {
+                $ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+                $new_filename = 'staff_' . $user_id . '_' . time() . '.' . $ext;
+                $upload_dir = __DIR__ . '/../public/assets/uploads/profiles/';
+                
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_filename)) {
+                    // Delete old picture if exists
+                    if (!empty($user['profile_picture']) && file_exists($upload_dir . $user['profile_picture'])) {
+                        unlink($upload_dir . $user['profile_picture']);
+                    }
+                    $profile_picture = $new_filename;
+                } else {
+                    $error = 'Failed to upload profile picture.';
+                }
+            }
+        }
+
+        $addressParts = [];
+        if ($address_line !== '') $addressParts[] = $address_line;
+        if ($address_barangay !== '') $addressParts[] = 'Brgy. ' . $address_barangay;
+        if ($address_city !== '') $addressParts[] = $address_city;
+        if ($address_province !== '') $addressParts[] = $address_province;
+        $addressParts[] = 'Philippines';
+        $address = implode(', ', $addressParts);
+
+        if (empty($first_name) || empty($last_name)) {
+            $error = 'First name and last name are required';
+        } elseif (empty($contact_number) || !preg_match('/^09\d{9}$/', $contact_number)) {
+            $error = 'Valid contact number required (09XXXXXXXXX).';
+        } elseif (strlen($address) < 10) {
+            $error = 'Please complete the address (province, city, barangay).';
+        } elseif ($needs_id && (empty($_FILES['id_image']['tmp_name']) || $_FILES['id_image']['error'] !== UPLOAD_ERR_OK)) {
+            $error = 'Please upload a clear, valid ID image.';
+        } else {
+            $id_filename = $user['id_validation_image'] ?? null;
+            if (!empty($_FILES['id_image']['tmp_name']) && $_FILES['id_image']['error'] === UPLOAD_ERR_OK) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($_FILES['id_image']['tmp_name']);
+                $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                if (!in_array($mime, $allowed)) {
+                    $error = 'ID image must be JPG, PNG, GIF, or WEBP.';
+                } elseif ($_FILES['id_image']['size'] > 5 * 1024 * 1024) {
+                    $error = 'ID image must be under 5MB.';
+                } else {
+                    $ext = pathinfo($_FILES['id_image']['name'], PATHINFO_EXTENSION) ?: 'jpg';
+                    $id_filename = 'id_user_' . $user_id . '_' . time() . '.' . $ext;
+                    $upload_dir = __DIR__ . '/../uploads/ids/';
+                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                    if (!move_uploaded_file($_FILES['id_image']['tmp_name'], $upload_dir . $id_filename)) {
+                        $error = 'Failed to save ID image. Please try again.';
+                        $id_filename = null;
+                    }
+                }
+            }
+            if (!$error) {
+                $id_to_save = $id_filename ?? $user['id_validation_image'] ?? null;
+                $result = db_execute(
+                    "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?, gender=?, id_validation_image=?, profile_picture=?, updated_at=NOW() WHERE user_id=?",
+                    'ssssssssi',
+                    [$first_name, $middle_name, $last_name, $contact_number, $address, $gender, $id_to_save, $profile_picture, $user_id]
+                );
+                if ($result) {
+                    $success = 'Profile updated successfully!';
+                    $_SESSION['user_name'] = $first_name . ' ' . $last_name;
+                    $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+                    $_SESSION['user_status'] = $user['status'] ?? $_SESSION['user_status'];
+                    $is_pending = ($user['status'] ?? '') === 'Pending';
+                    $needs_id = false;
+                    if ($is_pending && $id_filename) {
+                        $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
+                        $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
+                        $admins = db_query("SELECT user_id, role FROM users WHERE role = 'Admin' AND status = 'Activated'");
+                        foreach ($admins as $a) {
+                            $recipType = $a['role'] ?? 'Admin';
+                            create_notification((int)$a['user_id'], $recipType, $msg, 'System', true, false, (int)$user_id);
+                        }
+                    }
+                } else {
+                    $error = 'Failed to update profile';
+                }
+            }
+        }
+    }
+}
+
+// Handle password change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid request. Please try again.';
+    } else {
+        $current_password = $_POST['current_password'] ?? '';
+        $new_password = $_POST['new_password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+        
+        if (!password_verify($current_password, $user['password_hash'])) {
+            $error = 'Current password is incorrect';
+        } elseif (strlen($new_password) < 8 || !preg_match('/[A-Z]/', $new_password) || !preg_match('/[a-z]/', $new_password) || !preg_match('/\d/', $new_password)) {
+            $error = 'New password must be at least 8 characters and include uppercase, lowercase, and a number';
+        } elseif ($new_password !== $confirm_password) {
+            $error = 'New passwords do not match';
+        } else {
+            $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+            $result = db_execute("UPDATE users SET password_hash = ? WHERE user_id = ?", 'si', [$password_hash, $user_id]);
+            
+            if ($result !== false) {
+                $success = 'Password changed successfully!';
+                log_activity($user_id, 'Password Change', 'Staff member changed password');
+            } else {
+                $error = 'Failed to change password';
+            }
+        }
+    }
+}
+
+$page_title = 'My Profile - Staff';
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?></title>
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <style>
+        .alert-error { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .alert-success { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+        @media (max-width: 900px) { .profile-grid { grid-template-columns:1fr; } }
+        .info-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+        @media (max-width: 768px) { .info-grid { grid-template-columns:1fr; } }
+        .info-item p:first-child { font-size:12px; color:#9ca3af; margin-bottom:4px; }
+        .info-item p:last-child { font-size:14px; font-weight:600; color:#1f2937; }
+        textarea.input-field { resize: vertical; min-height: 80px; }
+        .required-asterisk { color:#dc2626; font-weight:700; }
+        .field-hint { font-size:11px; margin-top:4px; min-height:16px; color:#9ca3af; }
+        .field-hint.error { color:#dc2626; }
+
+        /* Cascading Address Selector */
+        .addr-select-wrap { position: relative; display: flex; align-items: center; }
+        .addr-select-wrap select.input-field { padding-right: 2.8rem; }
+        .addr-select-wrap select:disabled { background: #f3f7f9; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
+        .addr-spinner { display: none; position: absolute; right: 2.2rem; width: 14px; height: 14px; border: 2px solid #d1d5db; border-top-color: #0a2530; border-radius: 50%; animation: addr-spin 0.7s linear infinite; pointer-events: none; }
+        .addr-spinner.spinning { display: block; }
+        @keyframes addr-spin { to { transform: rotate(360deg); } }
+        .addr-select-wrap select:disabled + .addr-spinner { display: none !important; }
+    </style>
+</head>
+<body data-turbo="false">
+
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1 class="page-title">My Profile</h1>
+        </header>
+
+        <main>
+            <?php if ($is_pending): ?>
+                <div style="background:linear-gradient(135deg, #fef3c7, #fde68a); border:1px solid #f59e0b; border-radius:12px; padding:20px 24px; margin-bottom:20px; display:flex; align-items:center; gap:16px;">
+                    <div style="font-size:32px;">⏳</div>
+                    <div>
+                        <h3 style="font-weight:700; color:#92400e; margin-bottom:4px; font-size:16px;">Account Pending Approval</h3>
+                        <p style="font-size:13px; color:#92400e; line-height:1.5;">Please complete your profile information below. Once submitted, an administrator will review and approve your account. You'll then have full access to the staff panel.</p>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($error): ?>
+                <div class="alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+
+            <?php if ($success): ?>
+                <div class="alert-success"><?php echo htmlspecialchars($success); ?></div>
+            <?php endif; ?>
+
+            <div class="profile-grid">
+                <!-- Profile Information -->
+                <div class="card">
+                    <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Profile Information</h2>
+                    
+                    <form method="POST" action="" enctype="multipart/form-data" id="profileForm">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="update_profile" value="1">
+
+                        <!-- Profile Picture Upload -->
+                        <div class="mb-8 flex flex-col items-center">
+                            <div class="relative group">
+                                <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-gray-100 flex items-center justify-center">
+                                    <?php if (!empty($user['profile_picture'])): ?>
+                                        <img src="/printflow/public/assets/uploads/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>?t=<?php echo time(); ?>" 
+                                             alt="Profile" class="w-full h-full object-cover" id="profile-preview">
+                                    <?php else: ?>
+                                        <div class="w-full h-full flex items-center justify-center bg-primary-50 text-primary-600" id="profile-placeholder">
+                                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                            </svg>
+                                        </div>
+                                        <img src="" alt="Profile" class="w-full h-full object-cover hidden" id="profile-preview">
+                                    <?php endif; ?>
+                                </div>
+                                <label for="profile_picture" class="absolute bottom-1 right-1 bg-primary-600 text-white p-2 rounded-full shadow-lg cursor-pointer hover:bg-primary-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    <input type="file" id="profile_picture" name="profile_picture" class="hidden" accept="image/*" 
+                                           onchange="const file = this.files[0]; if(file){ const reader = new FileReader(); reader.onload = (e) => { document.getElementById('profile-preview').src = e.target.result; document.getElementById('profile-preview').classList.remove('hidden'); if(document.getElementById('profile-placeholder')) document.getElementById('profile-placeholder').classList.add('hidden'); }; reader.readAsDataURL(file); }">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">JPG, PNG or WEBP. Max 2MB.</p>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
+                            <div>
+                                <label>First Name <span class="required-asterisk">*</span></label>
+                                <input type="text" name="first_name" id="first_name" class="input-field" required value="<?php echo htmlspecialchars($user['first_name']); ?>">
+                                <div id="first_name_hint" class="field-hint"></div>
+                            </div>
+                            <div>
+                                <label>Middle Name</label>
+                                <input type="text" name="middle_name" id="middle_name" class="input-field" value="<?php echo htmlspecialchars($user['middle_name'] ?? ''); ?>">
+                                <div id="middle_name_hint" class="field-hint"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>Last Name <span class="required-asterisk">*</span></label>
+                            <input type="text" name="last_name" id="last_name" class="input-field" required value="<?php echo htmlspecialchars($user['last_name']); ?>">
+                            <div id="last_name_hint" class="field-hint"></div>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>Email</label>
+                            <input type="email" class="input-field" value="<?php echo htmlspecialchars($user['email']); ?>" disabled style="background:#f3f4f6; cursor:not-allowed;">
+                            <p style="font-size:11px; color:#9ca3af; margin-top:4px;">Email cannot be changed</p>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>Contact Number *</label>
+                            <input type="tel" name="contact_number" id="profile_contact" class="input-field" placeholder="e.g. 09171234567" maxlength="11" value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>">
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>Province *</label>
+                            <select name="address_province" id="profile_province" class="input-field" required>
+                                <option value="">Select province</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>City / Municipality *</label>
+                            <select name="address_city" id="profile_city" class="input-field" required disabled>
+                                <option value="">Select city/municipality</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Barangay *</label>
+                            <select name="address_barangay" id="profile_barangay" class="input-field" required disabled>
+                                <option value="">Select barangay</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label>Street / House No. (Optional)</label>
+                            <input type="text" name="address_line" id="profile_address_line" class="input-field" maxlength="120" placeholder="e.g. 123 Rizal St." value="<?php echo htmlspecialchars($addressLine); ?>">
+                        </div>
+                        <input type="hidden" name="address" id="profile_address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
+
+                        <div style="margin-bottom:16px;">
+                            <label>Gender</label>
+                            <select name="gender" class="input-field">
+                                <option value="">-- Select --</option>
+                                <option value="Male" <?php echo ($user['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
+                                <option value="Female" <?php echo ($user['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
+                                <option value="Other" <?php echo ($user['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                            </select>
+                        </div>
+
+                        <?php if ($needs_id): ?>
+                        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-bottom:16px;">
+                            <h3 style="font-size:13px; font-weight:600; color:#374151; margin:0 0 8px 0;">ID Photo Reference</h3>
+                            <img src="/printflow/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%; height:auto; border-radius:6px; margin-bottom:12px;">
+                            <label>Upload Valid ID *</label>
+                            <label style="display:block; border:2px dashed #e5e7eb; border-radius:8px; padding:24px; text-align:center; cursor:pointer;">
+                                <input type="file" name="id_image" accept="image/*" required>
+                                <span class="profile-id-file-hint" data-default="Click to select ID image (JPG, PNG, max 5MB)">Click to select ID image (JPG, PNG, max 5MB)</span>
+                            </label>
+                        </div>
+                        <?php elseif (!empty($user['id_validation_image'])): ?>
+                        <div style="margin-bottom:16px;">
+                            <label>Uploaded ID</label>
+                            <div><a href="/printflow/uploads/ids/<?php echo htmlspecialchars($user['id_validation_image']); ?>" target="_blank" rel="noopener" style="color:#0d9488; font-weight:600;">View ID Image</a></div>
+                            <label style="display:block; margin-top:8px; border:2px dashed #e5e7eb; border-radius:8px; padding:16px; text-align:center; cursor:pointer;">
+                                <input type="file" name="id_image" accept="image/*">
+                                <span class="profile-id-file-hint" data-default="Replace ID image (optional)">Replace ID image (optional)</span>
+                            </label>
+                        </div>
+                        <?php endif; ?>
+
+                        <button type="submit" class="btn-primary">Update Profile</button>
+                    </form>
+                </div>
+
+                <!-- Change Password -->
+                <div class="card">
+                    <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Change Password</h2>
+                    
+                    <form method="POST" action="">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="change_password" value="1">
+                        
+                        <div style="margin-bottom:16px;">
+                            <label>Current Password <span class="required-asterisk">*</span></label>
+                            <input type="password" name="current_password" class="input-field" required>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label>New Password <span class="required-asterisk">*</span></label>
+                            <input type="password" name="new_password" id="new_password" class="input-field" required minlength="8">
+                            <p style="font-size:11px; color:#9ca3af; margin-top:4px;">Min 8 chars, include upper/lowercase and number</p>
+                            <div id="new_password_hint" class="field-hint"></div>
+                        </div>
+
+                        <div style="margin-bottom:20px;">
+                            <label>Confirm New Password *</label>
+                            <input type="password" name="confirm_password" class="input-field" required minlength="8">
+                        </div>
+
+                        <button type="submit" class="btn-primary">Change Password</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Staff Information Hidden -->
+        </main>
+    </div>
+</div>
+
+<script>
+(function() {
+    const addrApi = '/printflow/public/api_address_public.php';
+    const prov = document.getElementById('profile_province');
+    const city = document.getElementById('profile_city');
+    const brgy = document.getElementById('profile_barangay');
+    const line = document.getElementById('profile_address_line');
+    const addrHidden = document.getElementById('profile_address');
+    if (!prov) return;
+
+    function buildAddress() {
+        const p = [line?.value?.trim(), brgy?.value ? 'Brgy. ' + brgy.value : '', city?.value, prov?.value].filter(Boolean);
+        if (addrHidden) addrHidden.value = p.length ? p.join(', ') + ', Philippines' : '';
+    }
+
+    const selProv = '<?php echo addslashes($addressProvince); ?>';
+    const selCity = '<?php echo addslashes($addressCity); ?>';
+    const selBrgy = '<?php echo addslashes($addressBarangay); ?>';
+
+    async function loadProvinces() {
+        const r = await fetch(addrApi + '?address_action=provinces');
+        const d = await r.json();
+        if (d.success && d.data) {
+            prov.innerHTML = '<option value="">Select province</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
+            if (selProv) {
+                prov.value = selProv;
+                const opt = prov.options[prov.selectedIndex];
+                await loadCities(opt ? opt.getAttribute('data-code') || '' : '');
+            }
+        }
+    }
+    async function loadCities(provinceCode) {
+        if (!provinceCode) { city.innerHTML = '<option value="">Select city/municipality</option>'; city.disabled = true; brgy.innerHTML = '<option value="">Select barangay</option>'; brgy.disabled = true; buildAddress(); return; }
+        const r = await fetch(addrApi + '?address_action=cities&province_code=' + encodeURIComponent(provinceCode));
+        const d = await r.json();
+        if (d.success && d.data) {
+            city.innerHTML = '<option value="">Select city/municipality</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
+            city.disabled = false;
+            brgy.innerHTML = '<option value="">Select barangay</option>';
+            brgy.disabled = true;
+            if (selCity) {
+                city.value = selCity;
+                const cOpt = city.options[city.selectedIndex];
+                await loadBarangays(cOpt ? cOpt.getAttribute('data-code') || '' : '');
+            }
+        }
+        buildAddress();
+    }
+    async function loadBarangays(cityCode) {
+        if (!cityCode) { brgy.innerHTML = '<option value="">Select barangay</option>'; brgy.disabled = true; buildAddress(); return; }
+        const r = await fetch(addrApi + '?address_action=barangays&city_code=' + encodeURIComponent(cityCode));
+        const d = await r.json();
+        if (d.success && d.data) {
+            brgy.innerHTML = '<option value="">Select barangay</option>' + d.data.map(x => '<option value="' + x.name + '">' + x.name + '</option>').join('');
+            brgy.disabled = false;
+            if (selBrgy) brgy.value = selBrgy;
+        }
+        buildAddress();
+    }
+
+    loadProvinces();
+    prov.addEventListener('change', function() {
+        const opt = prov.options[prov.selectedIndex];
+        loadCities(opt?.value ? opt.getAttribute('data-code') : '');
+    });
+    city.addEventListener('change', function() {
+        const opt = city.options[city.selectedIndex];
+        loadBarangays(opt?.value ? opt.getAttribute('data-code') : '');
+    });
+    brgy.addEventListener('change', buildAddress);
+    if (line) line.addEventListener('input', buildAddress);
+
+    const contactInput = document.getElementById('profile_contact');
+    if (contactInput) {
+        contactInput.addEventListener('input', function() {
+            let v = this.value.replace(/\D/g, '');
+            if (v.length > 0 && !v.startsWith('09')) v = '09' + v.replace(/^0+/, '');
+            this.value = v.slice(0, 11);
+        });
+    }
+
+    document.querySelectorAll('input[name="id_image"]').forEach(function (idInput) {
+        idInput.addEventListener('change', function () {
+            const lbl = this.closest('label')?.querySelector('.profile-id-file-hint');
+            if (!lbl) return;
+            const def = lbl.getAttribute('data-default') || '';
+            lbl.textContent = this.files[0] ? this.files[0].name : def;
+        });
+    });
+
+    const form = document.getElementById('profileForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            buildAddress();
+        });
+    }
+})();
+</script>
+</body>
+</html>

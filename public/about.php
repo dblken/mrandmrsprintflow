@@ -63,8 +63,8 @@ function about_icon(string $icon): string {
                 <?php echo $hero_subtitle; ?>
             </p>
             <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
-                <a href="/printflow/public/products.php" class="lp-btn lp-btn-primary">Browse Our Products</a>
-                <a href="/printflow/public/services.php" class="lp-btn lp-btn-outline">View Our Services</a>
+                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse Our Products</a>
+                <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-outline">View Our Services</a>
             </div>
         </div>
     </div>
@@ -183,7 +183,7 @@ function about_icon(string $icon): string {
             <?php foreach ($team_members as $tm): ?>
             <div style="text-align:center; max-width:240px; width:100%; margin:0 auto;">
                 <?php if (!empty($tm['photo'])): ?>
-                    <img src="/printflow/public/assets/uploads/team/<?php echo htmlspecialchars($tm['photo']); ?>"
+                    <img src="<?php echo $base_path; ?>/public/assets/uploads/team/<?php echo htmlspecialchars($tm['photo']); ?>"
                          style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--lp-accent); margin:0 auto 1rem; display:block;">
                 <?php else: ?>
                     <div style="width:100px; height:100px; border-radius:50%; background:var(--lp-surface); border:3px solid var(--lp-accent); margin:0 auto 1rem; display:flex; align-items:center; justify-content:center;">
@@ -214,8 +214,8 @@ function about_icon(string $icon): string {
                     We're not just a printing shop — we're your creative partner. From concept to completion, we ensure every detail meets your expectations and exceeds industry standards.
                 </p>
                 <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-primary">Explore Services</a>
-                    <a href="/printflow/public/products.php" class="lp-btn lp-btn-outline">View Products</a>
+                    <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-primary">Explore Services</a>
+                    <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-outline">View Products</a>
                 </div>
             </div>
             <div style="display:flex; flex-direction:column; gap:1rem;">
@@ -254,9 +254,9 @@ function about_icon(string $icon): string {
             <div class="lp-cta-btns">
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
-                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-outline">Our Services</a>
+                    <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-outline">Our Services</a>
                 <?php else: ?>
-                    <a href="/printflow/public/products.php" class="lp-btn lp-btn-primary">Browse Products</a>
+                    <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse Products</a>
                 <?php endif; ?>
             </div>
         </div>

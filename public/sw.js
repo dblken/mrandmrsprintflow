@@ -10,19 +10,19 @@ const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
 
 // App shell — cached immediately on install so the app opens instantly
 const APP_SHELL = [
-    '/printflow/public/offline.html',
-    '/printflow/public/assets/css/output.css',
-    '/printflow/public/assets/js/pwa.js',
-    '/printflow/public/assets/images/icon-192.png',
-    '/printflow/public/assets/images/icon-512.png',
-    '/printflow/public/manifest.json',
+    ' + (window.PFConfig?.basePath || '') + '/public/offline.html',
+    ' + (window.PFConfig?.basePath || '') + '/public/assets/css/output.css',
+    ' + (window.PFConfig?.basePath || '') + '/public/assets/js/pwa.js',
+    ' + (window.PFConfig?.basePath || '') + '/public/assets/images/icon-192.png',
+    ' + (window.PFConfig?.basePath || '') + '/public/assets/images/icon-512.png',
+    ' + (window.PFConfig?.basePath || '') + '/public/manifest.json',
 ];
 
 // Pages to pre-cache so they open instantly (served from cache, updated in bg)
 const PRE_CACHE_PAGES = [
-    '/printflow/',
-    '/printflow/public/index.php',
-    '/printflow/public/products.php',
+    ' + (window.PFConfig?.basePath || '') + '/',
+    ' + (window.PFConfig?.basePath || '') + '/public/index.php',
+    ' + (window.PFConfig?.basePath || '') + '/public/products.php',
 ];
 
 // ── Install: cache shell + pages immediately ─────────────────────────────────
@@ -149,7 +149,7 @@ async function staleWhileRevalidate(request, cacheName) {
     if (networkResponse) return networkResponse;
 
     // Both failed — show offline page
-    const offline = await caches.match('/printflow/public/offline.html');
+    const offline = await caches.match(' + (window.PFConfig?.basePath || '') + '/public/offline.html');
     return offline || new Response('<h1>Offline</h1>', {
         headers: { 'Content-Type': 'text/html' }
     });
@@ -186,10 +186,10 @@ self.addEventListener('push', (event) => {
     const defaults = {
         title: 'PrintFlow',
         body:  'You have a new update',
-        icon:  '/printflow/public/assets/images/icon-192.png',
-        badge: '/printflow/public/assets/images/icon-72.png',
+        icon:  ' + (window.PFConfig?.basePath || '') + '/public/assets/images/icon-192.png',
+        badge: ' + (window.PFConfig?.basePath || '') + '/public/assets/images/icon-72.png',
         tag:   'pf-general',
-        url:   '/printflow/',
+        url:   ' + (window.PFConfig?.basePath || '') + '/',
     };
 
     let payload = { ...defaults };
@@ -232,7 +232,7 @@ self.addEventListener('push', (event) => {
  */
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const target = event.notification.data?.url || '/printflow/';
+    const target = event.notification.data?.url || ' + (window.PFConfig?.basePath || '') + '/';
 
     event.waitUntil(
         (async () => {

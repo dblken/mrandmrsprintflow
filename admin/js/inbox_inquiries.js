@@ -2,7 +2,7 @@
  * Customer Inquiries Inbox - API-driven table + modal
  */
 (function() {
-    const API = '/printflow/admin/api_chatbot_conversations.php';
+    const API = ' + (window.PFConfig?.basePath || '') + '/admin/api_chatbot_conversations.php';
     let currentFilter = 'all';
     let currentPage = 1;
     let currentSearch = '';

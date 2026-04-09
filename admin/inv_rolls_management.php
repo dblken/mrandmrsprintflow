@@ -18,7 +18,7 @@ $rollItems = db_query("SELECT id, name FROM inv_items WHERE track_by_roll = 1 AN
 <head>
     <meta charset="UTF-8">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .roll-summary { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }

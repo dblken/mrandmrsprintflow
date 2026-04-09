@@ -33,7 +33,7 @@ require_once __DIR__ . '/../includes/db.php';
                 From bold tarpaulins to crisp business cards — we handle every order with precision, speed, and craftsmanship you can trust.
             </p>
             <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
-                <a href="/printflow/public/products.php" class="lp-btn lp-btn-primary">Browse All Products</a>
+                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse All Products</a>
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-outline">Get Started Free</a>
                 <?php endif; ?>
@@ -92,7 +92,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#818cf8;">✓</span> Bulk discounts available</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#818cf8;">✓</span> Full-color &amp; spot color</li>
                 </ul>
-                <a href="/printflow/public/products.php?category=Apparel" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto;">
+                <a href="<?php echo $base_path; ?>/public/products.php?category=Apparel" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto;">
                     Explore Apparel <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -114,7 +114,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#38bdf8;">✓</span> Custom sizes &amp; dimensions</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#38bdf8;">✓</span> With or without grommets</li>
                 </ul>
-                <a href="/printflow/public/products.php?category=Tarpaulin" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#38bdf8;">
+                <a href="<?php echo $base_path; ?>/public/products.php?category=Tarpaulin" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#38bdf8;">
                     Explore Signage <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -136,7 +136,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#34d399;">✓</span> Waterproof &amp; smudge-proof</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#34d399;">✓</span> Gloss, matte &amp; clear options</li>
                 </ul>
-                <a href="/printflow/public/products.php?category=Stickers" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#34d399;">
+                <a href="<?php echo $base_path; ?>/public/products.php?category=Stickers" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#34d399;">
                     Explore Stickers <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -158,7 +158,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#c084fc;">✓</span> Custom logo &amp; branding</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#c084fc;">✓</span> Gift packaging available</li>
                 </ul>
-                <a href="/printflow/public/products.php?category=Merchandise" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#c084fc;">
+                <a href="<?php echo $base_path; ?>/public/products.php?category=Merchandise" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#c084fc;">
                     Explore Merch <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -180,7 +180,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#fbbf24;">✓</span> Binding &amp; finishing</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#fbbf24;">✓</span> A4, A3 &amp; custom paper sizes</li>
                 </ul>
-                <a href="/printflow/public/products.php" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#fbbf24;">
+                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#fbbf24;">
                     Explore Documents <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -202,7 +202,7 @@ require_once __DIR__ . '/../includes/db.php';
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Revisions included</li>
                     <li style="font-size:.875rem; color:var(--lp-muted); display:flex; align-items:center; gap:.5rem;"><span style="color:#f472b6;">✓</span> Print-ready file handoff</li>
                 </ul>
-                <a href="/printflow/public/products.php" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#f472b6;">
+                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-card-link" style="display:inline-flex; align-items:center; gap:.4rem; margin-top:auto; color:#f472b6;">
                     Learn More <svg style="width:1rem;height:1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>
@@ -330,7 +330,7 @@ require_once __DIR__ . '/../includes/db.php';
                     </li>
                 </ul>
 
-                <a href="/printflow/public/products.php" class="lp-btn lp-btn-primary lp-mt" style="display:inline-flex;">
+                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary lp-mt" style="display:inline-flex;">
                     Start Your Order
                     <svg style="width:1.1rem;height:1.1rem; margin-left:.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
@@ -383,12 +383,12 @@ require_once __DIR__ . '/../includes/db.php';
             <div class="lp-cta-btns" style="flex-wrap:wrap;">
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
-                    <a href="/printflow/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
+                    <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
                 <?php else: ?>
                     <?php $dash_link = ($user_type === 'Customer') ? 'services.php' : 'dashboard.php'; ?>
                     <?php $dash_text = ($user_type === 'Customer') ? 'Go to Services' : 'Go to Dashboard'; ?>
                     <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/<?php echo $dash_link; ?>" class="lp-btn lp-btn-primary"><?php echo $dash_text; ?></a>
-                    <a href="/printflow/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
+                    <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
                 <?php endif; ?>
             </div>
         </div>

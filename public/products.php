@@ -130,7 +130,7 @@ foreach ($products_by_category as $cat_name => $cat_products):
                 <!-- Image -->
                 <?php if (!empty($product['product_image'])): ?>
                 <div style="width:100%;aspect-ratio:4/3;overflow:hidden;position:relative;background:#1a2535;">
-                    <img src="/printflow/public/assets/uploads/products/<?php echo htmlspecialchars($product['product_image']); ?>"
+                    <img src="<?php echo $base_path; ?>/public/assets/uploads/products/<?php echo htmlspecialchars($product['product_image']); ?>"
                          alt="<?php echo htmlspecialchars($product['name']); ?>"
                          style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
                          onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
@@ -162,7 +162,7 @@ foreach ($products_by_category as $cat_name => $cat_products):
                             <div style="font-size:.75rem;color:<?php echo $desc_col; ?>;margin-top:2px;">Starting price</div>
                         </div>
                         <?php if (is_logged_in() && is_customer()): ?>
-                            <a href="/printflow/customer/order.php?product_id=<?php echo $product['product_id']; ?>"
+                            <a href="<?php echo $base_path; ?>/customer/order.php?product_id=<?php echo $product['product_id']; ?>"
                                style="display:inline-flex;align-items:center;gap:.4rem;background:var(--lp-accent);color:#fff;padding:.55rem 1.125rem;border-radius:.625rem;font-size:.875rem;font-weight:700;transition:background .2s;"
                                onmouseover="this.style.background='#2a82a3'" onmouseout="this.style.background='var(--lp-accent)'">
                                 Order
@@ -195,9 +195,9 @@ foreach ($products_by_category as $cat_name => $cat_products):
             <div class="lp-cta-btns">
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
-                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-outline">View Services</a>
+                    <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-outline">View Services</a>
                 <?php else: ?>
-                    <a href="/printflow/public/services.php" class="lp-btn lp-btn-primary">View All Services</a>
+                    <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-primary">View All Services</a>
                 <?php endif; ?>
             </div>
         </div>

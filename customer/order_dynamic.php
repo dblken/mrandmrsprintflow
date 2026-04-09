@@ -73,7 +73,7 @@ require_once __DIR__ . '/../includes/header.php';
                         if (!empty($product['photo_path'])) {
                             $display_img = $product['photo_path'];
                         } elseif (!empty($product['product_image'])) {
-                            $display_img = "/printflow/" . ltrim($product['product_image'], '/');
+                            $display_img = "<?php echo $base_path; ?>/" . ltrim($product['product_image'], '/');
                         }
                         
                         if ($display_img): ?>

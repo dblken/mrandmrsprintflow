@@ -105,7 +105,7 @@ foreach ($migrations as $table => $sql) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Migration - PrintFlow</title>
-    <link href="/printflow/public/assets/css/output.css" rel="stylesheet">
+    <link href="<?php echo $base_path; ?>/public/assets/css/output.css" rel="stylesheet">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #f3f4f6; padding: 2rem; }
         .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }

@@ -7,7 +7,7 @@
 if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
     window.__pfPwaRegistered = true;
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/printflow/public/sw.js', {
+        navigator.serviceWorker.register(' + (window.PFConfig?.basePath || '') + '/public/sw.js', {
             updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
         })
             .then((registration) => {
@@ -169,7 +169,7 @@ function urlBase64ToUint8Array(base64String) {
 // Send subscription to server
 async function sendSubscriptionToServer(subscription) {
     try {
-        const response = await fetch('/printflow/api/push-subscribe.php', {
+        const response = await fetch(' + (window.PFConfig?.basePath || '') + '/api/push-subscribe.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

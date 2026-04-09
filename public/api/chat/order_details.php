@@ -106,12 +106,12 @@ foreach ($items ?: [] as $item) {
     $design_url = null;
     $ref_url = null;
     if (!empty($item['design_image']) || !empty($item['design_file'])) {
-        $design_url = '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'];
+        $design_url = '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'];
     } elseif (!empty($item['product_image'])) {
-        $design_url = (strpos($item['product_image'], '/') === 0) ? $item['product_image'] : '/printflow/' . ltrim($item['product_image'], '/');
+        $design_url = (strpos($item['product_image'], '/') === 0) ? $item['product_image'] : '<?php echo $base_path; ?>/' . ltrim($item['product_image'], '/');
     }
     if (!empty($item['reference_image_file'])) {
-        $ref_url = '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference';
+        $ref_url = '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference';
     }
 
     $items_out[] = [

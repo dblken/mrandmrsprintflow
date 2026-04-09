@@ -20,13 +20,13 @@ if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
     db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND customer_id = ?", 'ii', [$notification_id, $customer_id]);
     $back_filter = isset($_GET['filter']) ? '?filter=' . urlencode($_GET['filter']) : '';
-    redirect('/printflow/customer/notifications.php' . $back_filter);
+    redirect('<?php echo $base_path; ?>/customer/notifications.php' . $back_filter);
 }
 
 // Mark all as read
 if (isset($_GET['mark_all_read'])) {
     db_execute("UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND is_read = 0", 'i', [$customer_id]);
-    redirect('/printflow/customer/notifications.php');
+    redirect('<?php echo $base_path; ?>/customer/notifications.php');
 }
 
 // Pagination settings
@@ -343,19 +343,19 @@ require_once __DIR__ . '/../includes/header.php';
                     // Determine image
                     $final_image_url = "";
                     if (!empty($notif['design_image'])) {
-                        $final_image_url = "/printflow/staff/get_design_image.php?id=" . $notif['first_item_id'];
+                        $final_image_url = "<?php echo $base_path; ?>/staff/get_design_image.php?id=" . $notif['first_item_id'];
                     } elseif (!empty($notif['product_image']) && strtolower(trim($display_name)) === strtolower(trim($notif['service_name'] ?? ''))) {
                         $final_image_url = $notif['product_image'];
                         if (strpos($final_image_url, 'uploads/') === 0) {
-                            $final_image_url = '/printflow/' . $final_image_url;
+                            $final_image_url = '<?php echo $base_path; ?>/' . $final_image_url;
                         }
                     } else {
                         $final_image_url = get_service_image_url($raw_service_name ?: $display_name);
                     }
-                    $fallback_img = '/printflow/public/assets/images/services/default.png';
+                    $fallback_img = '<?php echo $base_path; ?>/public/assets/images/services/default.png';
 
                     // Determine link
-                    $link = "/printflow/customer/notifications.php?mark_read=" . $notif['notification_id'];
+                    $link = "<?php echo $base_path; ?>/customer/notifications.php?mark_read=" . $notif['notification_id'];
                     $is_rating_notif = (
                         (string)$notif['type'] === 'Rating' ||
                         stripos((string)$notif['message'], 'rate your experience') !== false ||
@@ -401,16 +401,16 @@ require_once __DIR__ . '/../includes/header.php';
 
                     if (!empty($notif['data_id'])) {
                         if ($is_rating_notif) {
-                            $link = "/printflow/customer/rate_order.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                            $link = "<?php echo $base_path; ?>/customer/rate_order.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                         } elseif ($is_payment_notif) {
-                            $link = "/printflow/customer/payment.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                            $link = "<?php echo $base_path; ?>/customer/payment.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                         } elseif ($notif['type'] === 'Order' || $notif['type'] === 'Status') {
                             $tab = $current_order_status ? map_status_to_tab($current_order_status) : 'all';
-                            $link = "/printflow/customer/orders.php?tab=" . $tab . "&highlight=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                            $link = "<?php echo $base_path; ?>/customer/orders.php?tab=" . $tab . "&highlight=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                         } elseif ($notif['type'] === 'Job Order') {
-                            $link = "/printflow/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                            $link = "<?php echo $base_path; ?>/customer/order_details.php?id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                         } elseif ($notif['type'] === 'Message') {
-                            $link = "/printflow/customer/chat.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
+                            $link = "<?php echo $base_path; ?>/customer/chat.php?order_id=" . $notif['data_id'] . "&mark_read=" . $notif['notification_id'];
                         }
                     }
 

@@ -329,7 +329,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         >
                             Manage
                         </button>
-                        <a href="/printflow/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
+                        <a href="<?php echo $base_path; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                             onclick="event.stopPropagation();"
                             class="btn-staff-action btn-staff-action-indigo"
                         >
@@ -359,9 +359,9 @@ $page_title = 'Orders - Staff';
     <meta name="turbo-visit-control" content="reload">
     <meta name="csrf-token" content="<?php echo htmlspecialchars($csrf_token); ?>">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
+    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/chat.css">
     <style>
         /* ── Order Detail Modal ─────────────────────────────────── */
         #orderModal {
@@ -572,7 +572,7 @@ $page_title = 'Orders - Staff';
 
     // ── Navigate without Turbo Drive interception ────────
     function openStaffOrderManage(orderId, status = '') {
-        window.location.href = '/printflow/staff/customizations.php?order_id=' + orderId + '&status=' + encodeURIComponent(status) + '&job_type=ORDER';
+        window.location.href = '<?php echo $base_path; ?>/staff/customizations.php?order_id=' + orderId + '&status=' + encodeURIComponent(status) + '&job_type=ORDER';
     }
 
     // ── Status badge helper ──────────────────────────────
@@ -675,7 +675,7 @@ $page_title = 'Orders - Staff';
         modal.classList.add('open');
         document.body.style.overflow = 'hidden';
 
-        fetch('/printflow/staff/get_order_data.php?id=' + orderId, {
+        fetch('<?php echo $base_path; ?>/staff/get_order_data.php?id=' + orderId, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function(r) {
@@ -774,7 +774,7 @@ $page_title = 'Orders - Staff';
         var fd = new FormData();
         fd.append('order_id', orderId);
         fd.append('csrf_token', csrfToken);
-        fetch('/printflow/staff/approve_design_process.php', {
+        fetch('<?php echo $base_path; ?>/staff/approve_design_process.php', {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -799,7 +799,7 @@ $page_title = 'Orders - Staff';
         var csrfMeta = document.querySelector('meta[name="csrf-token"]');
         if (csrfMeta) fd.append('csrf_token', csrfMeta.content);
         
-        fetch('/printflow/staff/api_verify_payment.php', {
+        fetch('<?php echo $base_path; ?>/staff/api_verify_payment.php', {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -829,7 +829,7 @@ $page_title = 'Orders - Staff';
         fd.append('csrf_token', csrfToken);
         fd.append('update_status', '1');
         
-        fetch('/printflow/staff/orders.php', {
+        fetch('<?php echo $base_path; ?>/staff/orders.php', {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -842,7 +842,7 @@ $page_title = 'Orders - Staff';
                 showStatusOverlay('🎉', 'Order marked as completed!');
                 setTimeout(function() { 
                     closeOrderModal();
-                    window.location.href = '/printflow/staff/orders.php?status=Completed';
+                    window.location.href = '<?php echo $base_path; ?>/staff/orders.php?status=Completed';
                 }, 1500);
             } else {
                 alert(res.error || 'Failed to update status');
@@ -904,7 +904,7 @@ $page_title = 'Orders - Staff';
                 var designUrl = item.design_url || '';
                 // Fix the URL if it doesn't have the base path
                 if (designUrl && !designUrl.startsWith('http') && !designUrl.startsWith('/printflow')) {
-                    designUrl = '/printflow/' + designUrl.replace(/^\/+/, '');
+                    designUrl = '<?php echo $base_path; ?>/' + designUrl.replace(/^\/+/, '');
                 }
                 designHTML += '<div style="width:100%;margin-bottom:12px;">' +
                     '<div style="font-size:13px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:8px;">Customer Design</div>' +
@@ -927,12 +927,12 @@ $page_title = 'Orders - Staff';
         if (d.payment_proof) {
             var paymentUrl = d.payment_proof || '';
             // Fix double /printflow/ in URL
-            if (paymentUrl.includes('/printflow/printflow/')) {
-                paymentUrl = paymentUrl.replace('/printflow/printflow/', '/printflow/');
+            if (paymentUrl.includes('<?php echo $base_path; ?>/printflow/')) {
+                paymentUrl = paymentUrl.replace('<?php echo $base_path; ?>/printflow/', '<?php echo $base_path; ?>/');
             }
             // Ensure it starts with /printflow if it's a relative path
             if (paymentUrl && !paymentUrl.startsWith('http') && !paymentUrl.startsWith('/printflow')) {
-                paymentUrl = '/printflow/' + paymentUrl.replace(/^\/+/, '');
+                paymentUrl = '<?php echo $base_path; ?>/' + paymentUrl.replace(/^\/+/, '');
             }
             payBlock = '<div style="margin-top:16px;padding:16px;background:#f0fdf4;border:1px solid #dcfce7;border-radius:12px;">' +
                 '<div style="font-weight:700;color:#15803d;font-size:12px;margin-bottom:8px;">📄 Payment Proof</div>' +
@@ -1237,7 +1237,7 @@ $page_title = 'Orders - Staff';
                                                     class="btn-staff-action btn-staff-action-emerald">
                                                 Manage
                                             </button>
-                                            <a href="/printflow/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
+                                            <a href="<?php echo $base_path; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                                                onclick="event.stopPropagation();"
                                                class="btn-staff-action btn-staff-action-indigo">
                                                 Message

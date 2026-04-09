@@ -104,9 +104,9 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
     // Defaults
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '/printflow/public/assets/images/icon-192.png',
-        'badge' => '/printflow/public/assets/images/icon-72.png',
-        'url'   => '/printflow/',
+        'icon'  => '<?php echo $base_path; ?>/public/assets/images/icon-192.png',
+        'badge' => '<?php echo $base_path; ?>/public/assets/images/icon-72.png',
+        'url'   => '<?php echo $base_path; ?>/',
     ];
 
     $sent = 0;
@@ -153,9 +153,9 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
 
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '/printflow/public/assets/images/icon-192.png',
-        'badge' => '/printflow/public/assets/images/icon-72.png',
-        'url'   => '/printflow/',
+        'icon'  => '<?php echo $base_path; ?>/public/assets/images/icon-192.png',
+        'badge' => '<?php echo $base_path; ?>/public/assets/images/icon-72.png',
+        'url'   => '<?php echo $base_path; ?>/',
     ];
 
     $sent = 0;

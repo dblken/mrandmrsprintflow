@@ -60,7 +60,7 @@ try {
         <?php endif; ?>
         
         <p style="margin-top: 20px;">
-            <a href="/printflow/admin/user_staff_management.php" class="btn">Go to User Management</a>
+            <a href="<?php echo $base_path; ?>/admin/user_staff_management.php" class="btn">Go to User Management</a>
         </p>
     </div>
 </body>

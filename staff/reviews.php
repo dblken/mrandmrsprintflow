@@ -107,7 +107,7 @@ $page_title = 'Review Management - Staff';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .rv-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -230,7 +230,7 @@ $page_title = 'Review Management - Staff';
                                 <div class="review-media">
                                     <?php foreach ($review['images'] as $img): 
                                         $ipath = $img['image_path'];
-                                        if (strpos($ipath, 'http') === false && $ipath[0] !== '/') $ipath = '/printflow/'.$ipath;
+                                        if (strpos($ipath, 'http') === false && $ipath[0] !== '/') $ipath = '<?php echo $base_path; ?>/'.$ipath;
                                     ?>
                                         <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
                                     <?php endforeach; ?>

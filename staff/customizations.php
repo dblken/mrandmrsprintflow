@@ -88,7 +88,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
     <meta charset="UTF-8">
     <meta name="turbo-visit-control" content="reload">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* PREMIUM KPI SECTION (Fluid Layout) */
@@ -681,10 +681,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <div style="display:flex; gap:20px; align-items:flex-start;">
                                 <div style="width:160px; flex-shrink:0;">
                                     <template x-if="currentJo.payment_proof_path">
-                                        <a :href="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                        <a :href="'<?php echo $base_path; ?>/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
                                            target="_blank" rel="noopener noreferrer"
                                            style="display:block;line-height:0;">
-                                            <img :src="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                            <img :src="'<?php echo $base_path; ?>/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
                                                  style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1);"
                                                  alt="Proof — opens full size in new tab">
                                         </a>
@@ -950,7 +950,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Artwork Files</label>
                         <div style="display:flex;flex-direction:column;gap:6px;">
                             <template x-for="file in (currentJo.files || [])" :key="file.id">
-                                <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none;color:#1f2937;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#06A1A1'" onmouseout="this.style.borderColor='#e5e7eb'">
+                                <a :href="' + (window.PFConfig?.basePath || '') + '/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none;color:#1f2937;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#06A1A1'" onmouseout="this.style.borderColor='#e5e7eb'">
                                     <span style="font-size:12px;font-weight:500;" x-text="file.file_name"></span>
                                     <span style="font-size:11px;color:#06A1A1;font-weight:600;">View ↗</span>
                                 </a>
