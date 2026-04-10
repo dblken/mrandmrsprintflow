@@ -1289,9 +1289,12 @@ body.lp-page {
         margin-bottom: 1rem;
     }
 
-    /* Restore desktop block layout for Core Values card headers */
+    /* Desktop: align icon and title side by side for Core Values */
     .cv-card-header {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
     }
 }
 
