@@ -713,6 +713,12 @@ body.lp-page {
     gap: 1rem;
 }
 
+@media (min-width: 768px) {
+    .lp-list li {
+        align-items: center;
+    }
+}
+
 .lp-list-icon {
     width: 2.5rem;
     height: 2.5rem;
@@ -1492,10 +1498,10 @@ body.lp-page {
         text-align: center !important;
     }
 
-    /* List items: icon and title side-by-side, top-aligned like image */
+    /* List items: icon and title side-by-side, title vertically centered to icon */
     .lp-list li {
         flex-direction: row !important;
-        align-items: flex-start !important;
+        align-items: center !important;
         gap: 1rem !important;
     }
 
