@@ -1423,6 +1423,29 @@ body.lp-page {
         line-height: 1.2 !important;
     }
     
+    /* Center hero content on mobile */
+    .lp-hero-content {
+        text-align: center !important;
+    }
+
+    .lp-hero-content .lp-hero-tag {
+        text-align: center !important;
+    }
+
+    .lp-hero-content .lp-hero-title {
+        text-align: center !important;
+    }
+
+    .lp-hero-content .lp-hero-desc {
+        text-align: center !important;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .lp-hero-content .lp-hero-btns {
+        justify-content: center !important;
+    }
+    
     /* Section padding mobile */
     .lp-section,
     .lp-section-light,
