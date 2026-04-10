@@ -1382,7 +1382,7 @@ body.lp-page {
     
     /* Mini hero padding */
     .lp-mini-hero {
-        padding: 2.5rem 0 2.5rem 0 !important;
+        padding: 0 0 2rem 0 !important;
     }
     
     .lp-mini-hero-inner {
