@@ -38,13 +38,13 @@ foreach ($visible_rows as $row) {
     $img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $img);
     $img = trim($img);
     
-    // Transform path: /uploads/... -> /public/assets/uploads/...
+    // Transform path to correct location: /public/assets/images/services/
     if ($img !== '' && strpos($img, 'http') === false) {
         $img = '/' . ltrim($img, '/');
         if (strpos($img, '/public/') === false) {
-            // Check if it already has /uploads/services/ prefix
-            if (strpos($img, '/uploads/services/') === false) {
-                $img = '/public/assets/uploads/services/' . basename($img);
+            // Check if it already has /images/services/ prefix (admin upload location)
+            if (strpos($img, '/images/services/') === false && strpos($img, '/uploads/services/') === false) {
+                $img = '/public/assets/images/services/' . basename($img);
             } else {
                 $img = '/public/assets' . $img;
             }
@@ -101,13 +101,13 @@ function render_service_card($srv) {
                 $imgPath = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $imgPath);
                 $imgPath = trim($imgPath);
                 
-                // Transform path: /uploads/... -> /public/assets/uploads/...
+                // Transform path to correct location: /public/assets/images/services/
                 if (strpos($imgPath, 'http') === false) {
                     $imgPath = '/' . ltrim($imgPath, '/');
                     if (strpos($imgPath, '/public/') === false) {
-                        // Check if it already has /uploads/services/ prefix
-                        if (strpos($imgPath, '/uploads/services/') === false) {
-                            $imgPath = '/public/assets/uploads/services/' . basename($imgPath);
+                        // Check if it already has /images/services/ prefix (admin upload location)
+                        if (strpos($imgPath, '/images/services/') === false && strpos($imgPath, '/uploads/services/') === false) {
+                            $imgPath = '/public/assets/images/services/' . basename($imgPath);
                         } else {
                             $imgPath = '/public/assets' . $imgPath;
                         }

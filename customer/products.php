@@ -309,17 +309,12 @@ require_once __DIR__ . '/../includes/header.php';
                     $raw_img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $raw_img);
                     $raw_img = trim($raw_img);
                     
-                    // Transform image paths to /public/assets/uploads/products/
+                    // Transform image paths - products are in /uploads/products/ (not in public/assets/)
                     if ($raw_img !== '' && strpos($raw_img, 'http') === false) {
                         $raw_img = '/' . ltrim($raw_img, '/');
-                        // If path doesn't start with /public/, add the full products path
-                        if (strpos($raw_img, '/public/') === false) {
-                            // Check if it already has /uploads/products/ prefix
-                            if (strpos($raw_img, '/uploads/products/') === false) {
-                                $raw_img = '/public/assets/uploads/products/' . basename($raw_img);
-                            } else {
-                                $raw_img = '/public/assets' . $raw_img;
-                            }
+                        // Ensure it has /uploads/products/ prefix
+                        if (strpos($raw_img, '/uploads/products/') === false) {
+                            $raw_img = '/uploads/products/' . basename($raw_img);
                         }
                     }
                     $display_img = $raw_img ?: '/public/assets/images/services/default.png';
