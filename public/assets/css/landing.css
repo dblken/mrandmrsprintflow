@@ -1484,39 +1484,34 @@ body.lp-page {
         grid-template-columns: 1fr !important;
         gap: 2rem !important;
     }
-    
-    /* Why Choose Us section mobile - center content */
+
+    /* Why Choose Us section mobile - center heading content */
     .lp-order-1 .lp-heading-label,
     .lp-order-1 .lp-heading,
     .lp-order-1 .lp-heading-desc {
         text-align: center !important;
     }
 
-    /* Center the list items and align icon with title */
+    /* List items: icon and title side-by-side, title vertically centered */
     .lp-list li {
-        flex-direction: column !important;
+        flex-direction: row !important;
         align-items: center !important;
-        text-align: center !important;
-        gap: 0.75rem !important;
-    }
-
-    .lp-list-icon {
-        margin-bottom: 0.5rem !important;
+        gap: 1rem !important;
     }
 
     .lp-list-title {
-        text-align: center !important;
+        text-align: left !important;
     }
 
     .lp-list-desc {
-        text-align: center !important;
+        text-align: left !important;
     }
 
     /* Center the Get Started button */
     .lp-order-1 .lp-mt {
         text-align: center !important;
     }
-    
+
     /* Align icon and title in one line for Core Values cards on mobile - consistent spacing */
     .cv-card-header {
         display: flex !important;
@@ -1531,7 +1526,7 @@ body.lp-page {
         align-items: center !important;
         gap: 2rem !important;
     }
-    
+
     /* Hero buttons mobile */
     .lp-hero-btns {
         flex-direction: column !important;
@@ -1558,16 +1553,16 @@ body.lp-page {
         width: 100% !important;
         max-width: 280px !important;
     }
-    
+
     /* Mini hero padding */
     .lp-mini-hero {
         padding: 0 0 2rem 0 !important;
     }
-    
+
     .lp-mini-hero-inner {
         padding-top: 0 !important;
     }
-    
+
     /* Wrap padding */
     .lp-wrap {
         padding: 0 1rem !important;
