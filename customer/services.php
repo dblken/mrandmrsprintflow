@@ -38,7 +38,12 @@ foreach ($visible_rows as $row) {
     if ($img !== '' && strpos($img, 'http') === false) {
         $img = '/' . ltrim($img, '/');
         if (strpos($img, '/public/') === false) {
-            $img = '/public/assets' . $img;
+            // Check if it already has /uploads/services/ prefix
+            if (strpos($img, '/uploads/services/') === false) {
+                $img = '/public/assets/uploads/services/' . basename($img);
+            } else {
+                $img = '/public/assets' . $img;
+            }
         }
     }
     

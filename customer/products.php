@@ -305,11 +305,17 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="shopee-grid">
                 <?php foreach ($products as $product): 
                     $raw_img = $product['photo_path'] ?: $product['product_image'] ?: '';
-                    // photo_path stored as /uploads/products/... but files live at /public/assets/uploads/products/
+                    // Transform image paths to /public/assets/uploads/products/
                     if ($raw_img !== '' && strpos($raw_img, 'http') === false) {
                         $raw_img = '/' . ltrim($raw_img, '/');
+                        // If path doesn't start with /public/, add the full products path
                         if (strpos($raw_img, '/public/') === false) {
-                            $raw_img = '/public/assets' . $raw_img;
+                            // Check if it already has /uploads/products/ prefix
+                            if (strpos($raw_img, '/uploads/products/') === false) {
+                                $raw_img = '/public/assets/uploads/products/' . basename($raw_img);
+                            } else {
+                                $raw_img = '/public/assets' . $raw_img;
+                            }
                         }
                     }
                     $display_img = $raw_img ?: '/public/assets/images/services/default.png';
