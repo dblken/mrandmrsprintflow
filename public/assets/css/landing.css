@@ -1299,18 +1299,35 @@ body.lp-page {
         margin: 0;
     }
 
-    /* Desktop: consistent icon size across all cards */
-    .mv-card-header > div:first-child,
+    /* Desktop: smaller icon for Core Values to show full title */
     .cv-card-header > div:first-child {
+        width: 28px !important;
+        height: 28px !important;
+        border-radius: 6px !important;
+        flex-shrink: 0;
+    }
+
+    .cv-card-header > div:first-child svg {
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+    /* Desktop: Mission/Vision keep slightly larger icon */
+    .mv-card-header > div:first-child {
         width: 36px !important;
         height: 36px !important;
         border-radius: 8px !important;
+        flex-shrink: 0;
     }
 
-    .mv-card-header > div:first-child svg,
-    .cv-card-header > div:first-child svg {
+    .mv-card-header > div:first-child svg {
         width: 18px !important;
         height: 18px !important;
+    }
+
+    /* Desktop: adjust Core Values title alignment with smaller icon */
+    .cv-card-header h3 {
+        line-height: 28px;
     }
 }
 
