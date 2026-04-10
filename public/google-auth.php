@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/google-oauth-config.php';
 require_once __DIR__ . '/../includes/auth.php';
 
 $base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
-$redirect_uri = $base_url . '/google-auth/';
+$redirect_uri = $base_url . '/public/google-auth.php';
 $client_id = defined('GOOGLE_CLIENT_ID') ? GOOGLE_CLIENT_ID : '';
 $client_secret = defined('GOOGLE_CLIENT_SECRET') ? GOOGLE_CLIENT_SECRET : '';
 
