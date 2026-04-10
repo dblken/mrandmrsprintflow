@@ -678,7 +678,7 @@ if ($initials === '') {
                         </button>
 
                         <!-- Notification Dropdown -->
-                        <div data-pf-notif-menu class="pf-notif-dropdown">
+                        <div data-pf-notif-menu class="pf-notif-dropdown" style="position: absolute; top: calc(100% + 10px); right: 0; width: 320px; max-height: 480px; background: #0a2530; border: 1px solid rgba(83,197,224,0.3); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: none; flex-direction: column; overflow: hidden; z-index: 100;">
                             <div class="pf-notif-header">
                                 <span>Notifications</span>
                                 <a href="?mark_all_read=1" style="font-size:0.7rem !important; color:#53c5e0; text-decoration:none; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Mark all read</a>
