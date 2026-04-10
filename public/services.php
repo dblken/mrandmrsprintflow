@@ -40,20 +40,20 @@ require_once __DIR__ . '/../includes/db.php';
             </div>
 
             <!-- Quick stats bar -->
-            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:0; margin-top:3.5rem; border-top:1px solid var(--lp-border); padding-top:2.5rem;">
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1.5rem; margin-top:3.5rem; border-top:1px solid var(--lp-border); padding-top:2.5rem;">
+                <div style="text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">500+</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Happy Clients</p>
                 </div>
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
+                <div style="text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">10K+</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Orders Completed</p>
                 </div>
-                <div style="padding:0 2.5rem; border-right:1px solid var(--lp-border); text-align:center;">
+                <div style="text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">6</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Service Categories</p>
                 </div>
-                <div style="padding:0 2.5rem; text-align:center;">
+                <div style="text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">Trusted</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Customer Support</p>
                 </div>
@@ -73,7 +73,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-desc">Six dedicated service categories — each handled by specialists using the right technology for the job.</p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:1.75rem;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1.75rem;">
 
             <!-- Apparel -->
             <div class="lp-card" style="display:flex; flex-direction:column;">
@@ -222,7 +222,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-desc">Getting your prints has never been easier. Follow these four steps from inquiry to pickup.</p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:2rem; position:relative;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:2rem; position:relative;">
 
             <!-- Step 1 -->
             <div style="text-align:center; position:relative;">
@@ -349,7 +349,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-label">Our Technology</p>
             <h2 class="lp-heading" style="font-size:1.875rem;">Powered by Professional Print Tech</h2>
         </div>
-        <div style="display:flex; flex-wrap:wrap; gap:1rem; justify-content:center;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1rem;">
             <?php
             $techs = [
                 ['label'=>'DTF Printing',        'desc'=>'Direct-to-Film',          'color'=>'rgba(99,102,241,.15)',  'text'=>'#818cf8'],
@@ -362,7 +362,7 @@ require_once __DIR__ . '/../includes/db.php';
                 ['label'=>'Embroidery',           'desc'=>'Apparel Detailing',       'color'=>'rgba(251,146,60,.15)', 'text'=>'#fb923c'],
             ];
             foreach ($techs as $tech): ?>
-            <div style="background:<?= $tech['color'] ?>; border:1px solid #e2e8f0; border-radius:.75rem; padding:.85rem 1.4rem; display:flex; flex-direction:column; align-items:center; min-width:130px; text-align:center; transition:transform .2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
+            <div style="background:<?= $tech['color'] ?>; border:1px solid #e2e8f0; border-radius:.75rem; padding:.85rem 1rem; display:flex; flex-direction:column; align-items:center; text-align:center; transition:transform .2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
                 <p style="font-size:.9375rem; font-weight:700; color:<?= $tech['text'] ?>; margin-bottom:.2rem;"><?= $tech['label'] ?></p>
                 <p style="font-size:.75rem; color:#64748b;"><?= $tech['desc'] ?></p>
             </div>
@@ -380,7 +380,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-hero-tag" style="margin-bottom:1.5rem; display:inline-flex;">✦ Ready to Print?</p>
             <h2 class="lp-cta-title">Need a Custom Printing Job?</h2>
             <p class="lp-cta-desc">Can't find exactly what you're looking for? Reach out for bulk orders, specialized materials, unique dimensions, or a full design consultation.</p>
-            <div class="lp-cta-btns" style="flex-wrap:wrap;">
+            <div class="lp-cta-btns" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>
                     <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-outline">Browse Products</a>
