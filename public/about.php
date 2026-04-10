@@ -75,22 +75,22 @@ function about_icon(string $icon): string {
      ============================================================ -->
 <section class="overflow-x-hidden py-12 md:py-20" style="background:var(--lp-bg2); border-bottom:1px solid var(--lp-border);">
     <div class="lp-wrap px-4 sm:px-6 max-w-full">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-center">
             <div>
-                <div class="text-xl md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $founding_year; ?></div>
-                <div class="text-xs md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Est. Year</div>
+                <div class="text-lg md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $founding_year; ?></div>
+                <div class="text-[10px] md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Est. Year</div>
             </div>
             <div>
-                <div class="text-xl md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $team_size; ?></div>
-                <div class="text-xs md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Team Members</div>
+                <div class="text-lg md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $team_size; ?></div>
+                <div class="text-[10px] md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Team Members</div>
             </div>
             <div>
-                <div class="text-xl md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $projects_done; ?></div>
-                <div class="text-xs md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Projects Done</div>
+                <div class="text-lg md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $projects_done; ?></div>
+                <div class="text-[10px] md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Projects Done</div>
             </div>
             <div>
-                <div class="text-xl md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $happy_clients; ?></div>
-                <div class="text-xs md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Happy Clients</div>
+                <div class="text-lg md:text-3xl" style="font-weight:800; color:var(--lp-accent); line-height:1;"><?php echo $happy_clients; ?></div>
+                <div class="text-[10px] md:text-sm" style="color:var(--lp-muted); margin-top:0.5rem; text-transform:uppercase; letter-spacing:.06em;">Happy Clients</div>
             </div>
         </div>
     </div>
