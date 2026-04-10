@@ -130,7 +130,7 @@ if ($initials === '') {
         #main-header .pf-burger-btn svg { width: 1.25rem; height: 1.25rem; }
         
         /* Burger Menu Overlay */
-        #main-header .pf-burger-overlay {
+        .pf-burger-overlay {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.6);
@@ -141,14 +141,14 @@ if ($initials === '') {
             pointer-events: none;
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
-        #main-header .pf-burger-overlay.open {
+        .pf-burger-overlay.open {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
         }
         
         /* Burger Menu Panel */
-        #main-header .pf-burger-menu {
+        .pf-burger-menu {
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -169,13 +169,13 @@ if ($initials === '') {
             margin: 0;
             border-radius: 0;
         }
-        #main-header .pf-burger-menu.open {
+        .pf-burger-menu.open {
             transform: translateX(0);
             visibility: visible;
         }
         
         /* Burger Menu Header */
-        #main-header .pf-burger-header {
+        .pf-burger-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -183,12 +183,12 @@ if ($initials === '') {
             padding-bottom: 1rem;
             border-bottom: 1px solid rgba(83, 197, 224, 0.15);
         }
-        #main-header .pf-burger-logo {
+        .pf-burger-logo {
             font-size: 1.25rem;
             font-weight: 800;
             color: #53c5e0;
         }
-        #main-header .pf-burger-close {
+        .pf-burger-close {
             width: 2.25rem;
             height: 2.25rem;
             border-radius: 50%;
@@ -201,22 +201,22 @@ if ($initials === '') {
             cursor: pointer;
             transition: all 0.2s;
         }
-        #main-header .pf-burger-close:hover {
+        .pf-burger-close:hover {
             background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.3);
             color: #ef4444;
             transform: rotate(90deg);
         }
-        #main-header .pf-burger-close svg {
+        .pf-burger-close svg {
             width: 1.25rem;
             height: 1.25rem;
         }
         
         /* Burger Menu Sections */
-        #main-header .pf-burger-section {
+        .pf-burger-section {
             margin-bottom: 2rem;
         }
-        #main-header .pf-burger-section-title {
+        .pf-burger-section-title {
             font-size: 0.7rem;
             font-weight: 800;
             color: rgba(83, 197, 224, 0.6);
@@ -224,12 +224,12 @@ if ($initials === '') {
             letter-spacing: 0.1em;
             margin-bottom: 0.75rem;
         }
-        #main-header .pf-burger-nav {
+        .pf-burger-nav {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
         }
-        #main-header .pf-burger-link {
+        .pf-burger-link {
             display: flex;
             align-items: center;
             padding: 0.75rem 1rem;
@@ -241,18 +241,18 @@ if ($initials === '') {
             transition: all 0.2s;
             background: transparent;
         }
-        #main-header .pf-burger-link:hover {
+        .pf-burger-link:hover {
             background: rgba(83, 197, 224, 0.1);
             color: #53c5e0;
             transform: translateX(4px);
         }
-        #main-header .pf-burger-link.active {
+        .pf-burger-link.active {
             background: rgba(83, 197, 224, 0.15);
             color: #53c5e0;
         }
         
         /* Burger Menu Buttons */
-        #main-header .pf-burger-actions {
+        .pf-burger-actions {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
@@ -260,7 +260,7 @@ if ($initials === '') {
             padding-top: 1.5rem;
             border-top: 1px solid rgba(83, 197, 224, 0.15);
         }
-        #main-header .pf-burger-btn-login {
+        .pf-burger-btn-login {
             padding: 0.75rem 1rem;
             border-radius: 0.5rem;
             font-size: 0.9rem;
@@ -272,12 +272,12 @@ if ($initials === '') {
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: rgba(255, 255, 255, 0.85);
         }
-        #main-header .pf-burger-btn-login:hover {
+        .pf-burger-btn-login:hover {
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.3);
             color: #fff;
         }
-        #main-header .pf-burger-btn-register {
+        .pf-burger-btn-register {
             padding: 0.75rem 1rem;
             border-radius: 0.5rem;
             font-size: 0.9rem;
@@ -289,11 +289,11 @@ if ($initials === '') {
             border: 1px solid rgba(255, 255, 255, 0.12);
             color: #fff;
         }
-        #main-header .pf-burger-btn-register:hover {
+        .pf-burger-btn-register:hover {
             background: #2a82a3;
             box-shadow: 0 0 20px rgba(83, 197, 224, 0.3);
         }
-        #main-header .pf-burger-btn-install {
+        .pf-burger-btn-install {
             padding: 0.75rem 1rem;
             border-radius: 0.5rem;
             font-size: 0.9rem;
@@ -309,11 +309,11 @@ if ($initials === '') {
             justify-content: center;
             gap: 0.5rem;
         }
-        #main-header .pf-burger-btn-install:hover {
+        .pf-burger-btn-install:hover {
             background: linear-gradient(135deg, #16a34a, #15803d);
             box-shadow: 0 0 20px rgba(34, 197, 94, 0.35);
         }
-        #main-header .pf-burger-btn-install svg {
+        .pf-burger-btn-install svg {
             width: 1.1rem;
             height: 1.1rem;
         }
@@ -759,79 +759,78 @@ if ($initials === '') {
             </div>
         </div>
     </nav>
-    
-    <!-- Burger Menu Overlay (Mobile Only) -->
-    <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
-    
-    <!-- Burger Menu Panel (Mobile Only) -->
-    <div class="pf-burger-menu" data-pf-burger-menu>
-        <div class="pf-burger-header">
-            <div class="pf-burger-logo">PrintFlow</div>
-            <button class="pf-burger-close" onclick="closeBurgerMenu()" aria-label="Close menu">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
-        
-        <?php if ($is_logged_in && is_customer()): ?>
-        <!-- Logged-in Customer Navigation -->
-        <div class="pf-burger-section">
-            <div class="pf-mobile-profile" style="margin-bottom:1.25rem;">
-                <div class="pf-mobile-profile-avatar">
-                    <?php if (!empty($current_user['profile_picture'])): ?>
-                        <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Profile">
-                    <?php else: ?>
-                        <span><?php echo htmlspecialchars($initials); ?></span>
-                    <?php endif; ?>
-                </div>
-                <div class="pf-mobile-profile-info">
-                    <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
-                    <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
-                </div>
-            </div>
-            <div class="pf-burger-section-title">Navigation</div>
-            <nav class="pf-burger-nav">
-                <a href="<?php echo $base_url; ?>/customer/services.php" class="pf-burger-link" onclick="closeBurgerMenu()">Services</a>
-                <a href="<?php echo $base_url; ?>/customer/products.php" class="pf-burger-link" onclick="closeBurgerMenu()">Products</a>
-                <a href="<?php echo $base_url; ?>/customer/cart.php" class="pf-burger-link" onclick="closeBurgerMenu()">My Cart</a>
-                <a href="<?php echo $base_url; ?>/customer/orders.php" class="pf-burger-link" onclick="closeBurgerMenu()">Orders</a>
-                <a href="<?php echo $base_url; ?>/customer/messages.php" class="pf-burger-link" onclick="closeBurgerMenu()">Messages</a>
-                <a href="<?php echo $base_url; ?>/customer/notifications.php" class="pf-burger-link" onclick="closeBurgerMenu()">Notifications</a>
-                <a href="<?php echo $base_url; ?>/customer/profile.php" class="pf-burger-link" onclick="closeBurgerMenu()">Profile</a>
-            </nav>
-        </div>
-        <div class="pf-burger-actions">
-            <button onclick="closeBurgerMenu(); document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
-                    class="pf-burger-btn-login" style="color:rgba(239,68,68,.9);border-color:rgba(239,68,68,.3);">
-                Logout
-            </button>
-        </div>
-        <?php elseif (!$is_logged_in): ?>
-        <!-- Guest Navigation -->
-        <div class="pf-burger-section">
-            <div class="pf-burger-section-title">Navigation</div>
-            <nav class="pf-burger-nav">
-                <a href="<?php echo $url_index; ?>" class="pf-burger-link">Home</a>
-                <a href="<?php echo $base_url; ?>/public/about.php" class="pf-burger-link">About</a>
-                <a href="<?php echo $base_url; ?>/public/services.php" class="pf-burger-link">Services</a>
-                <a href="<?php echo $url_products; ?>" class="pf-burger-link">Products</a>
-            </nav>
-        </div>
-        <div class="pf-burger-actions">
-            <a href="#" data-auth-modal="login" class="pf-burger-btn-login" onclick="closeBurgerMenu()">Login</a>
-            <a href="#" data-auth-modal="register" class="pf-burger-btn-register" onclick="closeBurgerMenu()">Register</a>
-            <button type="button" id="pwa-install-btn-mobile" class="pf-burger-btn-install" aria-label="Install PrintFlow app">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                Install App
-            </button>
-        </div>
-        <?php endif; ?>
-    </div>
-
 </header>
+
+<!-- Burger Menu Overlay (Mobile Only) -->
+<div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
+
+<!-- Burger Menu Panel (Mobile Only) -->
+<div class="pf-burger-menu" data-pf-burger-menu>
+    <div class="pf-burger-header">
+        <div class="pf-burger-logo">PrintFlow</div>
+        <button class="pf-burger-close" onclick="closeBurgerMenu()" aria-label="Close menu">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+    
+    <?php if ($is_logged_in && is_customer()): ?>
+    <!-- Logged-in Customer Navigation -->
+    <div class="pf-burger-section">
+        <div class="pf-mobile-profile" style="margin-bottom:1.25rem;">
+            <div class="pf-mobile-profile-avatar">
+                <?php if (!empty($current_user['profile_picture'])): ?>
+                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Profile">
+                <?php else: ?>
+                    <span><?php echo htmlspecialchars($initials); ?></span>
+                <?php endif; ?>
+            </div>
+            <div class="pf-mobile-profile-info">
+                <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
+                <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
+            </div>
+        </div>
+        <div class="pf-burger-section-title">Navigation</div>
+        <nav class="pf-burger-nav">
+            <a href="<?php echo $base_url; ?>/customer/services.php" class="pf-burger-link" onclick="closeBurgerMenu()">Services</a>
+            <a href="<?php echo $base_url; ?>/customer/products.php" class="pf-burger-link" onclick="closeBurgerMenu()">Products</a>
+            <a href="<?php echo $base_url; ?>/customer/cart.php" class="pf-burger-link" onclick="closeBurgerMenu()">My Cart</a>
+            <a href="<?php echo $base_url; ?>/customer/orders.php" class="pf-burger-link" onclick="closeBurgerMenu()">Orders</a>
+            <a href="<?php echo $base_url; ?>/customer/messages.php" class="pf-burger-link" onclick="closeBurgerMenu()">Messages</a>
+            <a href="<?php echo $base_url; ?>/customer/notifications.php" class="pf-burger-link" onclick="closeBurgerMenu()">Notifications</a>
+            <a href="<?php echo $base_url; ?>/customer/profile.php" class="pf-burger-link" onclick="closeBurgerMenu()">Profile</a>
+        </nav>
+    </div>
+    <div class="pf-burger-actions">
+        <button onclick="closeBurgerMenu(); document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
+                class="pf-burger-btn-login" style="color:rgba(239,68,68,.9);border-color:rgba(239,68,68,.3);">
+            Logout
+        </button>
+    </div>
+    <?php elseif (!$is_logged_in): ?>
+    <!-- Guest Navigation -->
+    <div class="pf-burger-section">
+        <div class="pf-burger-section-title">Navigation</div>
+        <nav class="pf-burger-nav">
+            <a href="<?php echo $url_index; ?>" class="pf-burger-link">Home</a>
+            <a href="<?php echo $base_url; ?>/public/about.php" class="pf-burger-link">About</a>
+            <a href="<?php echo $base_url; ?>/public/services.php" class="pf-burger-link">Services</a>
+            <a href="<?php echo $url_products; ?>" class="pf-burger-link">Products</a>
+        </nav>
+    </div>
+    <div class="pf-burger-actions">
+        <a href="#" data-auth-modal="login" class="pf-burger-btn-login" onclick="closeBurgerMenu()">Login</a>
+        <a href="#" data-auth-modal="register" class="pf-burger-btn-register" onclick="closeBurgerMenu()">Register</a>
+        <button type="button" id="pwa-install-btn-mobile" class="pf-burger-btn-install" aria-label="Install PrintFlow app">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Install App
+        </button>
+    </div>
+    <?php endif; ?>
+</div>
 
 <?php if ($is_logged_in): ?>
 <!-- Logout Confirmation Modal -->
