@@ -665,15 +665,16 @@ if ($initials === '') {
                     <?php endif; ?>
                     <!-- Notifications -->
                     <div class="relative" data-pf-notif-wrap>
-                        <button type="button" 
+                        <button type="button"
                            title="Notifications"
                            data-pf-notif-toggle
-                           class="pf-icon-btn nav-link">
+                           class="pf-icon-btn nav-link"
+                           onclick="var menu=this.parentNode.querySelector('[data-pf-notif-menu]');var other=document.querySelector('[data-pf-profile-menu]');if(other)other.classList.remove('open');menu.classList.toggle('open');if(menu.classList.contains('open')&&window.PFNotifications)window.PFNotifications.loadDropdown();event.stopPropagation();">
                             <svg class="pf-notif-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                             </svg>
-                            <?php 
-                            $notif_display = $unread_count > 99 ? '99+' : $unread_count; 
+                            <?php
+                            $notif_display = $unread_count > 99 ? '99+' : $unread_count;
                             ?>
                             <span id="nav-notif-badge" data-notif-badge class="pf-badge" style="display:<?php echo ($unread_count > 0 ? 'flex' : 'none'); ?>;"><?php echo $notif_display; ?></span>
                         </button>
@@ -695,20 +696,21 @@ if ($initials === '') {
 
                     <!-- User Dropdown -->
                     <div class="relative" data-pf-profile-wrap>
-                        <button type="button" data-pf-profile-toggle class="pf-icon-btn nav-link flex items-center gap-3" style="width:auto;padding:0 0.5rem;" title="My Account">
+                        <button type="button" data-pf-profile-toggle class="pf-icon-btn nav-link flex items-center gap-3" style="width:auto;padding:0 0.5rem;" title="My Account"
+                                onclick="var wrap=this.closest('[data-pf-profile-wrap]');var menu=wrap.querySelector('[data-pf-profile-menu]');var arrow=wrap.querySelector('[data-dropdown-arrow]');var other=document.querySelector('[data-pf-notif-menu]');if(other)other.classList.remove('open');var isOpen=menu.classList.toggle('open');if(arrow)arrow.style.transform=isOpen?'rotate(180deg)':'rotate(0deg)';event.stopPropagation();">
                             <div class="pf-avatar transition-all duration-300"
                                  style="width:1.85rem;height:1.85rem;font-size:0.7rem;<?php echo (stripos($_SERVER['REQUEST_URI'] ?? '', '/profile.php') !== false) ? 'color:#53C5E0;' : ''; ?>">
                                 <?php if (!empty($current_user['profile_picture'])): ?>
-                                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" 
-                                         alt="Profile" 
+                                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>"
+                                         alt="Profile"
                                          class="w-full h-full object-cover">
                                 <?php else: ?>
                                     <span><?php echo htmlspecialchars($initials); ?></span>
                                 <?php endif; ?>
                             </div>
-                            <svg class="w-3.5 h-3.5 transition-transform duration-200" 
-                                 style="color:inherit;flex-shrink:0;opacity:0.8;" 
-                                 fill="currentColor" 
+                            <svg class="w-3.5 h-3.5 transition-transform duration-200"
+                                 style="color:inherit;flex-shrink:0;opacity:0.8;"
+                                 fill="currentColor"
                                  viewBox="0 0 20 20"
                                  data-dropdown-arrow>
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
