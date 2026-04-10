@@ -415,7 +415,7 @@ if ($initials === '') {
             #main-header .pf-header-mid { display: flex; }
         }
         @media (max-width: 1023px) {
-            #main-header .pf-burger-btn { display: inline-flex; }
+            #main-header .pf-burger-btn { display: inline-flex !important; }
             #main-header .pf-header-shell {
                 display: flex;
                 align-items: center;
@@ -624,7 +624,7 @@ if ($initials === '') {
             <!-- Right Side Icons -->
             <div class="pf-header-right">
                 <!-- Burger Menu Button (Mobile - All Users) -->
-                <button type="button" class="pf-burger-btn" data-pf-mobile-toggle aria-label="Open navigation menu">
+                <button type="button" class="pf-burger-btn" data-pf-mobile-toggle aria-label="Open navigation menu" style="display:none;">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
                     </svg>
@@ -790,8 +790,10 @@ if ($initials === '') {
             <nav class="pf-burger-nav">
                 <a href="<?php echo $base_url; ?>/customer/services.php" class="pf-burger-link" onclick="closeBurgerMenu()">Services</a>
                 <a href="<?php echo $base_url; ?>/customer/products.php" class="pf-burger-link" onclick="closeBurgerMenu()">Products</a>
+                <a href="<?php echo $base_url; ?>/customer/cart.php" class="pf-burger-link" onclick="closeBurgerMenu()">My Cart</a>
                 <a href="<?php echo $base_url; ?>/customer/orders.php" class="pf-burger-link" onclick="closeBurgerMenu()">Orders</a>
                 <a href="<?php echo $base_url; ?>/customer/messages.php" class="pf-burger-link" onclick="closeBurgerMenu()">Messages</a>
+                <a href="<?php echo $base_url; ?>/customer/notifications.php" class="pf-burger-link" onclick="closeBurgerMenu()">Notifications</a>
                 <a href="<?php echo $base_url; ?>/customer/profile.php" class="pf-burger-link" onclick="closeBurgerMenu()">Profile</a>
             </nav>
         </div>
