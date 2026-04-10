@@ -423,7 +423,7 @@ function about_icon(string $icon): string {
 
         <div class="why-us-grid">
 
-            <div>
+            <div class="why-us-content text-center-mobile">
 
                 <p style="font-size:0.8rem; font-weight:700; color:var(--lp-accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem;">Why <?php echo $shop_name; ?></p>
 
@@ -435,7 +435,7 @@ function about_icon(string $icon): string {
 
                 </p>
 
-                <div style="display:flex; gap:1rem; flex-wrap:wrap; padding:0 1rem;">
+                <div class="why-us-buttons">
 
                     <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-primary">Explore Services</a>
 

@@ -1324,6 +1324,23 @@ body.lp-page {
         gap: 2rem !important;
     }
     
+    /* Center Why Printflow content on mobile */
+    .why-us-content {
+        text-align: center !important;
+    }
+
+    .why-us-buttons {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    .why-us-buttons .lp-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+    }
+    
     /* Hero title mobile */
     .lp-hero-title {
         font-size: 1.75rem !important;
