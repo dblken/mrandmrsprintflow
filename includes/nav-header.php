@@ -749,8 +749,6 @@ if ($initials === '') {
         </div>
     </nav>
     
-</header>
-
     <!-- Burger Menu Overlay (Mobile Only) -->
     <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
     
@@ -822,7 +820,7 @@ if ($initials === '') {
         <?php endif; ?>
     </div>
 
-<?php if ($is_logged_in): ?>
+</header>
 <!-- Logout Confirmation Modal -->
 <div id="logout-confirm-modal"
      style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:1rem;"
@@ -881,8 +879,12 @@ if ($initials === '') {
         }
     };
     
-    // Force-close on page load to ensure menu starts closed
+    // Move overlay and panel to <body> so position:fixed works from viewport root
     document.addEventListener('DOMContentLoaded', function() {
+        var overlay = document.querySelector('[data-pf-burger-overlay]');
+        var menu = document.querySelector('[data-pf-burger-menu]');
+        if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+        if (menu && menu.parentElement !== document.body) document.body.appendChild(menu);
         closeBurgerMenu();
     });
     
