@@ -1576,26 +1576,26 @@ body.lp-page {
 
     /* Reduce scroll-to-top and chatbot icon sizes on mobile */
     .ft-bubble {
-        width: 48px !important;
-        height: 48px !important;
-        bottom: 15px !important;
+        width: 40px !important;
+        height: 40px !important;
+        bottom: 12px !important;
     }
 
     .ft-bubble-left {
-        left: 15px !important;
+        left: 12px !important;
     }
 
     .ft-bubble-right {
-        right: 15px !important;
+        right: 12px !important;
     }
 
     .ft-bubble svg {
-        width: 22px !important;
-        height: 22px !important;
+        width: 18px !important;
+        height: 18px !important;
     }
 
     #chatbot-btn svg {
-        width: 24px !important;
-        height: 24px !important;
+        width: 20px !important;
+        height: 20px !important;
     }
 }
