@@ -363,7 +363,7 @@ function _ft_detect_social(string $url): array {
     <?php if (empty($hide_chatbot) && !is_admin() && !is_staff()): ?>
     <script>
     // Define BASE_PATH for JavaScript
-    window.BASE_PATH = '<?php echo $base_url ?? '/printflow'; ?>';
+    window.BASE_PATH = <?php echo json_encode($base_url ?? '/printflow'); ?>;
     (function() {
         var btn = document.getElementById('chatbot-btn');
         var win = document.getElementById('chatbot-window');
