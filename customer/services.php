@@ -93,6 +93,18 @@ function render_service_card($srv) {
         foreach ($images as $imgPath) {
             $imgPath = trim($imgPath);
             if ($imgPath !== '') {
+                // Transform path: /uploads/... -> /public/assets/uploads/...
+                if (strpos($imgPath, 'http') === false) {
+                    $imgPath = '/' . ltrim($imgPath, '/');
+                    if (strpos($imgPath, '/public/') === false) {
+                        // Check if it already has /uploads/services/ prefix
+                        if (strpos($imgPath, '/uploads/services/') === false) {
+                            $imgPath = '/public/assets/uploads/services/' . basename($imgPath);
+                        } else {
+                            $imgPath = '/public/assets' . $imgPath;
+                        }
+                    }
+                }
                 $display_images[] = $imgPath;
             }
         }
