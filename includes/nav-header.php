@@ -769,8 +769,39 @@ if ($initials === '') {
             </button>
         </div>
         
-        <?php if (!$is_logged_in): ?>
-        <!-- Navigation Section -->
+        <?php if ($is_logged_in && is_customer()): ?>
+        <!-- Logged-in Customer Navigation -->
+        <div class="pf-burger-section">
+            <div class="pf-mobile-profile" style="margin-bottom:1.25rem;">
+                <div class="pf-mobile-profile-avatar">
+                    <?php if (!empty($current_user['profile_picture'])): ?>
+                        <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Profile">
+                    <?php else: ?>
+                        <span><?php echo htmlspecialchars($initials); ?></span>
+                    <?php endif; ?>
+                </div>
+                <div class="pf-mobile-profile-info">
+                    <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
+                    <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
+                </div>
+            </div>
+            <div class="pf-burger-section-title">Navigation</div>
+            <nav class="pf-burger-nav">
+                <a href="<?php echo $base_url; ?>/customer/services.php" class="pf-burger-link" onclick="closeBurgerMenu()">Services</a>
+                <a href="<?php echo $base_url; ?>/customer/products.php" class="pf-burger-link" onclick="closeBurgerMenu()">Products</a>
+                <a href="<?php echo $base_url; ?>/customer/orders.php" class="pf-burger-link" onclick="closeBurgerMenu()">Orders</a>
+                <a href="<?php echo $base_url; ?>/customer/messages.php" class="pf-burger-link" onclick="closeBurgerMenu()">Messages</a>
+                <a href="<?php echo $base_url; ?>/customer/profile.php" class="pf-burger-link" onclick="closeBurgerMenu()">Profile</a>
+            </nav>
+        </div>
+        <div class="pf-burger-actions">
+            <button onclick="closeBurgerMenu(); document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
+                    class="pf-burger-btn-login" style="color:rgba(239,68,68,.9);border-color:rgba(239,68,68,.3);">
+                Logout
+            </button>
+        </div>
+        <?php elseif (!$is_logged_in): ?>
+        <!-- Guest Navigation -->
         <div class="pf-burger-section">
             <div class="pf-burger-section-title">Navigation</div>
             <nav class="pf-burger-nav">
@@ -780,8 +811,6 @@ if ($initials === '') {
                 <a href="<?php echo $url_products; ?>" class="pf-burger-link">Products</a>
             </nav>
         </div>
-        
-        <!-- Account Actions -->
         <div class="pf-burger-actions">
             <a href="#" data-auth-modal="login" class="pf-burger-btn-login" onclick="closeBurgerMenu()">Login</a>
             <a href="#" data-auth-modal="register" class="pf-burger-btn-register" onclick="closeBurgerMenu()">Register</a>
@@ -794,48 +823,7 @@ if ($initials === '') {
         </div>
         <?php endif; ?>
     </div>
-    <?php if ($is_logged_in && is_customer()): ?>
-    <div class="pf-mobile-panel" data-pf-mobile-panel>
-        <!-- Profile Section -->
-        <div class="pf-mobile-profile">
-            <div class="pf-mobile-profile-avatar">
-                <?php if (!empty($current_user['profile_picture'])): ?>
-                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" 
-                         alt="Profile">
-                <?php else: ?>
-                    <span><?php echo htmlspecialchars($initials); ?></span>
-                <?php endif; ?>
-            </div>
-            <div class="pf-mobile-profile-info">
-                <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
-                <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
-            </div>
-        </div>
 
-        <!-- Search -->
-        <form class="pf-mobile-search" action="<?php echo htmlspecialchars($search_action); ?>" method="get" autocomplete="off">
-            <svg style="width:1rem;height:1rem;color:rgba(255,255,255,.72);" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"></path>
-            </svg>
-            <input type="search" name="<?php echo htmlspecialchars($search_param); ?>" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="<?php echo htmlspecialchars($search_placeholder); ?>" aria-label="Search">
-        </form>
-
-        <!-- Navigation Links -->
-        <div class="pf-mobile-links">
-            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/services.php">Services</a>
-            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/products.php">Products</a>
-            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/orders.php">Orders</a>
-            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/messages.php">Messages</a>
-            <a class="pf-mobile-link" href="<?php echo $base_url; ?>/customer/profile.php">Profile</a>
-            <div style="height:1px;background:rgba(83,197,224,0.15);margin:0.5rem 0;"></div>
-            <button onclick="document.getElementById('logout-confirm-modal').style.display='flex'" type="button"
-                    class="pf-mobile-link" 
-                    style="width:100%;border:none;cursor:pointer;color:rgba(239,68,68,.9);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);">
-                Logout
-            </button>
-        </div>
-    </div>
-    <?php endif; ?>
 </header>
 
 <?php if ($is_logged_in): ?>
@@ -1005,13 +993,8 @@ if ($initials === '') {
         })(notifWraps[k]);
     }
 
-    // ── Mobile panel ─────────────────────────────────────────────
-    var mobileToggle = document.querySelector('[data-pf-mobile-toggle]');
-    var mobilePanel = document.querySelector('[data-pf-mobile-panel]');
-    if (mobileToggle && mobilePanel) {
-        mobileToggle.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); mobilePanel.classList.toggle('open'); });
-        document.addEventListener('click', function(ev){ if (!mobilePanel.contains(ev.target) && !mobileToggle.contains(ev.target)) mobilePanel.classList.remove('open'); });
-    }
+    // ── Mobile panel (legacy — burger panel is now used instead) ──
+    // No-op: burger button now always opens the burger slide-out panel.
 
     // ── Cart count badge ─────────────────────────────────────────
     window.updateCartBadge = function(count) {

@@ -230,7 +230,7 @@ function _ft_detect_social(string $url): array {
     <?php endif; ?>
 
     <!-- Support chat window -->
-    <div id="chatbot-window" class="lp-chatbot-hidden" style="position: fixed; bottom: 100px; right: 20px; width: 380px; max-width: calc(100vw - 40px); max-height: 85vh; background: white; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 9998; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; opacity: 0; transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;">
+    <div id="chatbot-window" class="lp-chatbot-hidden" style="position: fixed; bottom: 90px; right: 20px; width: 380px; max-width: calc(100vw - 40px); height: 560px; max-height: calc(100vh - 110px); background: white; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 9998; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; opacity: 0; transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;">
         <!-- Header -->
         <div style="padding: 18px; background: linear-gradient(135deg, #00232b, #1a5a6f); color: white; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,35,43,0.3); flex-shrink: 0;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -426,7 +426,7 @@ function _ft_detect_social(string $url): array {
                 win.classList.remove('lp-chatbot-hidden');
                 setTimeout(() => win.classList.add('lp-chatbot-visible'), 10);
                 if (!loaded) loadFAQs();
-                setTimeout(() => input.focus(), 300);
+                setTimeout(() => { input.focus(); msgs.scrollTop = msgs.scrollHeight; }, 300);
                 
                 // Real-time reply polling
                 checkReplies();
