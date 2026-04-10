@@ -1306,9 +1306,15 @@ body.lp-page {
         gap: 4rem;
     }
 
-    /* Restore desktop layout for Why Printflow content */
+    /* Restore desktop layout for Why Printflow content - force left alignment */
     .why-us-content {
-        text-align: left;
+        text-align: left !important;
+    }
+
+    .why-us-content h2,
+    .why-us-content p {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
     .why-us-buttons {
