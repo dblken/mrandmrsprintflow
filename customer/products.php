@@ -305,6 +305,10 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="shopee-grid">
                 <?php foreach ($products as $product): 
                     $raw_img = $product['photo_path'] ?: $product['product_image'] ?: '';
+                    // Strip PHP code that admin may have stored (e.g., <?php echo $base_path; ?>/uploads/...)
+                    $raw_img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $raw_img);
+                    $raw_img = trim($raw_img);
+                    
                     // Transform image paths to /public/assets/uploads/products/
                     if ($raw_img !== '' && strpos($raw_img, 'http') === false) {
                         $raw_img = '/' . ltrim($raw_img, '/');

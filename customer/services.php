@@ -34,6 +34,10 @@ foreach ($visible_rows as $row) {
         $img = trim((string) ($row['hero_image'] ?? ''));
     }
     
+    // Strip PHP code that admin may have stored (e.g., <?php echo $base_path; ?>/uploads/...)
+    $img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $img);
+    $img = trim($img);
+    
     // Transform path: /uploads/... -> /public/assets/uploads/...
     if ($img !== '' && strpos($img, 'http') === false) {
         $img = '/' . ltrim($img, '/');
@@ -93,6 +97,10 @@ function render_service_card($srv) {
         foreach ($images as $imgPath) {
             $imgPath = trim($imgPath);
             if ($imgPath !== '') {
+                // Strip PHP code that admin may have stored
+                $imgPath = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $imgPath);
+                $imgPath = trim($imgPath);
+                
                 // Transform path: /uploads/... -> /public/assets/uploads/...
                 if (strpos($imgPath, 'http') === false) {
                     $imgPath = '/' . ltrim($imgPath, '/');
