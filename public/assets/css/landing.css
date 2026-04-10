@@ -1496,21 +1496,26 @@ body.lp-page {
     /* Service cards: icon and title side-by-side, vertically centered */
     .lp-card {
         display: flex !important;
-        flex-direction: row !important;
+        flex-direction: column !important;
     }
 
     .lp-card-icon {
         margin-bottom: 0 !important;
-        margin-right: 0.75rem !important;
-        display: inline-flex !important;
-        vertical-align: middle !important;
+        margin-right: 1rem !important;
     }
 
     .lp-card-title {
-        display: inline-flex !important;
+        display: flex !important;
         align-items: center !important;
         margin: 0 !important;
-        vertical-align: middle !important;
+        min-height: 3rem !important;
+    }
+
+    /* Why Choose Us section mobile - center heading content */
+    .lp-order-1 .lp-heading-label,
+    .lp-order-1 .lp-heading,
+    .lp-order-1 .lp-heading-desc {
+        text-align: center !important;
     }
 
     /* List items: icon and title side-by-side, top-aligned */
