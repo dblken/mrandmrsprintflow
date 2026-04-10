@@ -1573,4 +1573,29 @@ body.lp-page {
     .lp-wrap {
         padding: 0 1rem !important;
     }
+
+    /* Reduce scroll-to-top and chatbot icon sizes on mobile */
+    .ft-bubble {
+        width: 48px !important;
+        height: 48px !important;
+        bottom: 15px !important;
+    }
+
+    .ft-bubble-left {
+        left: 15px !important;
+    }
+
+    .ft-bubble-right {
+        right: 15px !important;
+    }
+
+    .ft-bubble svg {
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    #chatbot-btn svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
 }
