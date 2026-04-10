@@ -354,6 +354,30 @@ function _ft_detect_social(string $url): array {
 
     #chatbot-tabs button:hover { background: #f9f9f9; }
     #chatbot-tabs button { transition: all 0.2s ease; }
+    
+    /* Mobile responsive styles for scroll-to-top and chatbot */
+    @media (max-width: 768px) {
+        .ft-bubble {
+            width: 40px !important;
+            height: 40px !important;
+            bottom: 12px !important;
+        }
+        .ft-bubble-left {
+            left: 12px !important;
+        }
+        .ft-bubble-right {
+            right: 12px !important;
+        }
+        .ft-bubble svg {
+            width: 18px !important;
+            height: 18px !important;
+        }
+        #chatbot-window {
+            width: calc(100vw - 24px) !important;
+            right: 12px !important;
+            bottom: 70px !important;
+        }
+    }
     </style>
 
     <!-- Support chat widget script -->
