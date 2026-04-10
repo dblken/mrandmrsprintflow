@@ -131,43 +131,7 @@ if ($initials === '') {
         
         /* Burger Menu Overlay */
         #main-header .pf-burger-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-        #main-header .pf-burger-overlay.open {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-        
-        /* Burger Menu Panel */
-        #main-header .pf-burger-menu {
             display: none;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 320px;
-            max-width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            background: #0a2530;
-            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            overflow-y: auto;
-            padding: 1.5rem;
-            margin: 0;
-            border-radius: 0;
-        }
-        #main-header .pf-burger-menu.open {
-            display: flex;
         }
         
         /* Burger Menu Header */
@@ -516,6 +480,35 @@ if ($initials === '') {
             }
         }
     </style>
+    <style>
+        /* Burger overlay & panel — global, not scoped to header */
+        .pf-burger-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9998;
+            display: none;
+        }
+        .pf-burger-overlay.open { display: block; }
+        .pf-burger-menu {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 320px;
+            max-width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #0a2530;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+            z-index: 9999;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        .pf-burger-menu.open { display: flex; }
+    </style>
     <nav class="container mx-auto px-4 py-3">
         <div class="pf-header-shell">
             <!-- Logo -->
@@ -756,6 +749,8 @@ if ($initials === '') {
         </div>
     </nav>
     
+</header>
+
     <!-- Burger Menu Overlay (Mobile Only) -->
     <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
     
@@ -826,8 +821,6 @@ if ($initials === '') {
         </div>
         <?php endif; ?>
     </div>
-
-</header>
 
 <?php if ($is_logged_in): ?>
 <!-- Logout Confirmation Modal -->
