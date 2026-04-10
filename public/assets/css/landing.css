@@ -1407,8 +1407,21 @@ body.lp-page {
         gap: 0.75rem !important;
         width: 100% !important;
     }
-    
+
     .lp-hero-btns .lp-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+    }
+
+    /* Mini hero buttons - equal width on mobile */
+    .hero-buttons {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+    }
+
+    .hero-buttons .lp-btn {
         width: 100% !important;
         max-width: 280px !important;
     }

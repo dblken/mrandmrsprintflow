@@ -126,7 +126,7 @@ function about_icon(string $icon): string {
 
             </p>
 
-            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; padding:0 1rem;">
+            <div class="hero-buttons" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; padding:0 1rem;">
 
                 <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse Our Products</a>
 
