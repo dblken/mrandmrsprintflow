@@ -107,7 +107,7 @@ function about_icon(string $icon): string {
             <p class="lp-heading-desc">Our mission and vision guide every product we produce and every client we serve.</p>
         </div>
 
-        <div class="flex flex-col md:flex-row gap-6">
+        <div class="flex flex-col gap-6">
             <!-- Mission -->
             <div class="w-full break-words" style="background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:1.5rem md:padding:2.5rem; position:relative; overflow:hidden;">
                 <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--lp-accent), var(--lp-accent-l));"></div>
