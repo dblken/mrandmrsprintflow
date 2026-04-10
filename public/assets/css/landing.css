@@ -1485,6 +1485,38 @@ body.lp-page {
         gap: 2rem !important;
     }
     
+    /* Why Choose Us section mobile - center content */
+    .lp-order-1 .lp-heading-label,
+    .lp-order-1 .lp-heading,
+    .lp-order-1 .lp-heading-desc {
+        text-align: center !important;
+    }
+
+    /* Center the list items and align icon with title */
+    .lp-list li {
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: 0.75rem !important;
+    }
+
+    .lp-list-icon {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .lp-list-title {
+        text-align: center !important;
+    }
+
+    .lp-list-desc {
+        text-align: center !important;
+    }
+
+    /* Center the Get Started button */
+    .lp-order-1 .lp-mt {
+        text-align: center !important;
+    }
+    
     /* Align icon and title in one line for Core Values cards on mobile - consistent spacing */
     .cv-card-header {
         display: flex !important;
