@@ -304,8 +304,15 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="shopee-grid">
                 <?php foreach ($products as $product): 
-                    $display_img = $product['photo_path'] ?: $product['product_image'] ?: "<?php echo $base_path; ?>/public/assets/images/services/default.png";
-                    if ($display_img[0] !== '/' && strpos($display_img, 'http') === false) $display_img = '/' . $display_img;
+                    $raw_img = $product['photo_path'] ?: $product['product_image'] ?: '';
+                    // photo_path stored as /uploads/products/... but files live at /public/assets/uploads/products/
+                    if ($raw_img !== '' && strpos($raw_img, 'http') === false) {
+                        $raw_img = '/' . ltrim($raw_img, '/');
+                        if (strpos($raw_img, '/public/') === false) {
+                            $raw_img = '/public/assets' . $raw_img;
+                        }
+                    }
+                    $display_img = $raw_img ?: '/public/assets/images/services/default.png';
                     
                     $sold_count = (int)$product['sold_count'];
                     $avg_rating = (float)$product['avg_rating'];
