@@ -206,9 +206,6 @@ function _ft_detect_social(string $url): array {
     
     <?php require_once __DIR__ . '/success_modal.php'; ?>
 
-    <!-- Alpine.js for dropdowns (self-hosted to avoid tracking prevention) -->
-    <script defer src="<?php echo $base_url ?? '/printflow'; ?>/public/assets/js/alpine.min.js"></script>
-
     <!-- Scroll to Top (all non-admin pages) -->
     <?php if (!is_admin() && !is_staff()): ?>
     <?php if (empty($use_landing_css)): ?>

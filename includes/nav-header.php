@@ -969,7 +969,6 @@ if ($initials === '') {
             menu.addEventListener('click', function(ev){ ev.stopPropagation(); });
             document.addEventListener('click', function(ev){ if (!wrap.contains(ev.target)) { menu.classList.remove('open'); if (arrow) arrow.style.transform = 'rotate(0deg)'; } });
         })(profileWraps[j]);
-    }
 
     // ── Notifications dropdown ───────────────────────────────────
     var notifWraps = document.querySelectorAll('[data-pf-notif-wrap]');

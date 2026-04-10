@@ -67,12 +67,6 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/customer-theme.css?v=<?php echo $ver; ?>">
     <?php endif; ?>
 
-    <!-- Core Libraries (Turbo & Alpine) -->
-    <script src="<?php echo $asset_base; ?>/assets/js/turbo.min.js" defer></script>
-    <script src="<?php echo $asset_base; ?>/assets/js/alpine.min.js" defer></script>
-    <script src="<?php echo $asset_base; ?>/assets/js/alpine-init-helper.js"></script>
-    <script src="<?php echo $asset_base; ?>/assets/js/turbo-init.js" defer></script>
-    
     <!-- Customer Burger Menu (Landing & Customer Pages) -->
     <script src="<?php echo $asset_base; ?>/assets/js/customer-burger.js" defer></script>
     
