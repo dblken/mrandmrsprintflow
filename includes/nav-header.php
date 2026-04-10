@@ -90,8 +90,9 @@ if ($initials === '') {
         #main-header .pf-notif-empty { padding: 32px 16px; text-align: center; color: rgba(255,255,255,0.4); font-size: 0.85rem; }
         #main-header .pf-avatar { width: 2.55rem; height: 2.55rem; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(83,197,224,.45); background: linear-gradient(135deg, rgba(83,197,224,.24), rgba(50,161,196,.4)); display: inline-flex; align-items: center; justify-content: center; color: #e6f7fc; font-size: .78rem; font-weight: 700; letter-spacing: .02em; }
         #main-header .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }
-        #main-header .pf-dropdown-menu { display: none; }
-        #main-header .pf-dropdown-menu.open { display: block; }
+        #main-header .pf-dropdown-menu { display: none !important; }
+        #main-header .pf-dropdown-menu.open { display: block !important; }
+        #main-header .pf-icon-btn { pointer-events: auto !important; touch-action: manipulation; }
         #main-header .pf-dropdown-link,
         #main-header .pf-dropdown-btn {
             display: flex;
@@ -969,6 +970,7 @@ if ($initials === '') {
             menu.addEventListener('click', function(ev){ ev.stopPropagation(); });
             document.addEventListener('click', function(ev){ if (!wrap.contains(ev.target)) { menu.classList.remove('open'); if (arrow) arrow.style.transform = 'rotate(0deg)'; } });
         })(profileWraps[j]);
+    }
 
     // ── Notifications dropdown ───────────────────────────────────
     var notifWraps = document.querySelectorAll('[data-pf-notif-wrap]');
