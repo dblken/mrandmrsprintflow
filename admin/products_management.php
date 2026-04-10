@@ -85,7 +85,9 @@ function handle_product_photo_upload($file, $product_id = null) {
         throw new Exception('Failed to upload file to server');
     }
     
-    return '<?php echo $base_path; ?>/uploads/products/' . $filename;
+    // Use the actual $base_path variable value, not PHP code
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
+    return $base . '/uploads/products/' . $filename;
 }
 
 // Handle product creation/update/delete
