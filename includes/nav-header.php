@@ -153,8 +153,9 @@ if ($initials === '') {
             top: 0;
             right: 0;
             width: 320px;
-            max-width: 85vw;
+            max-width: 100vw;
             height: 100vh;
+            height: 100dvh;
             background: #0a2530;
             box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
             z-index: 1000;
@@ -163,6 +164,8 @@ if ($initials === '') {
             overflow-y: auto;
             padding: 1.5rem;
             visibility: hidden;
+            margin: 0;
+            border-radius: 0;
         }
         #main-header .pf-burger-menu.open {
             transform: translateX(0);
