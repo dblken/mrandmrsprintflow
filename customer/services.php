@@ -34,7 +34,7 @@ foreach ($visible_rows as $row) {
         $img = trim((string) ($row['hero_image'] ?? ''));
     }
     
-    // Strip PHP code that admin may have stored (e.g., <?php echo $base_path; ?>/uploads/...)
+    // Strip PHP code that admin may have stored (e.g., < ?php echo $base_path; ? >/uploads/...)
     $img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $img);
     $img = trim($img);
     
@@ -98,7 +98,7 @@ function render_service_card($srv) {
             $imgPath = trim($imgPath);
             if ($imgPath !== '') {
                 // Strip PHP code that admin may have stored
-                $imgPath = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $imgPath);
+                $imgPath = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/i', '', $imgPath);
                 $imgPath = trim($imgPath);
                 
                 // Transform path to correct location: /public/assets/images/services/
