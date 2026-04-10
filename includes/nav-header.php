@@ -131,23 +131,24 @@ if ($initials === '') {
         
         /* Burger Menu Overlay */
         #main-header .pf-burger-overlay {
-            display: none;
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(4px);
             z-index: 999;
             opacity: 0;
-            transition: opacity 0.3s ease;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
         }
         #main-header .pf-burger-overlay.open {
-            display: block;
             opacity: 1;
+            visibility: visible;
         }
         
         /* Burger Menu Panel */
         #main-header .pf-burger-menu {
-            display: none;
+            display: flex;
+            flex-direction: column;
             position: fixed;
             top: 0;
             right: 0;
@@ -161,11 +162,11 @@ if ($initials === '') {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
             padding: 1.5rem;
+            visibility: hidden;
         }
         #main-header .pf-burger-menu.open {
-            display: flex;
-            flex-direction: column;
             transform: translateX(0);
+            visibility: visible;
         }
         
         /* Burger Menu Header */
