@@ -1281,9 +1281,12 @@ body.lp-page {
         grid-template-columns: 1fr 1fr;
     }
 
-    /* Restore desktop block layout for card headers */
+    /* Desktop: align icon and title side by side */
     .mv-card-header {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
     }
 
     /* Restore desktop block layout for Core Values card headers */
