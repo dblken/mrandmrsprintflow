@@ -1309,6 +1309,14 @@ body.lp-page {
         grid-template-columns: 1fr !important;
         gap: 2rem !important;
     }
+
+    /* Align icon and title in one line on mobile */
+    .mv-card-header {
+        display: flex !important;
+        align-items: center !important;
+        gap: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
     
     /* Why Us section mobile */
     .why-us-grid {

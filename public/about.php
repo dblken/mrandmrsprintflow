@@ -224,17 +224,19 @@ function about_icon(string $icon): string {
 
                 <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--lp-accent), var(--lp-accent-l));"></div>
 
-                <div style="width:52px; height:52px; background:rgba(50,161,196,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
+                <div class="mv-card-header">
+                    <div style="width:52px; height:52px; background:rgba(50,161,196,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
 
-                    <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
 
-                    </svg>
+                        </svg>
 
+                    </div>
+
+                    <h3 style="font-size:1.4rem; font-weight:700; color:#fff;">Our Mission</h3>
                 </div>
-
-                <h3 style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;">Our Mission</h3>
 
                 <p style="color:var(--lp-muted); line-height:1.8; font-size:1rem;"><?php echo $mission; ?></p>
 
@@ -248,19 +250,21 @@ function about_icon(string $icon): string {
 
                 <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--lp-accent-l), #a3e8f7);"></div>
 
-                <div style="width:52px; height:52px; background:rgba(83,197,224,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
+                <div class="mv-card-header">
+                    <div style="width:52px; height:52px; background:rgba(83,197,224,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
 
-                    <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
 
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
 
-                    </svg>
+                        </svg>
 
+                    </div>
+
+                    <h3 style="font-size:1.4rem; font-weight:700; color:#fff;">Our Vision</h3>
                 </div>
-
-                <h3 style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;">Our Vision</h3>
 
                 <p style="color:var(--lp-muted); line-height:1.8; font-size:1rem;"><?php echo $vision; ?></p>
 
