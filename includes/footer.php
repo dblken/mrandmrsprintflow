@@ -223,7 +223,7 @@ function _ft_detect_social(string $url): array {
     </a>
 
     <!-- Support chat button (RIGHT) -->
-    <?php if (empty($hide_chatbot)): ?>
+    <?php if (empty($hide_chatbot) && !is_admin() && !is_staff()): ?>
     <div id="chatbot-btn" class="ft-bubble ft-bubble-right" title="Open support chat">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width: 32px; height: 32px; color: #00232b; transition: all 0.3s ease;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
     </div>
@@ -360,8 +360,10 @@ function _ft_detect_social(string $url): array {
     </style>
 
     <!-- Support chat widget script -->
-    <?php if (empty($hide_chatbot)): ?>
+    <?php if (empty($hide_chatbot) && !is_admin() && !is_staff()): ?>
     <script>
+    // Define BASE_PATH for JavaScript
+    window.BASE_PATH = '<?php echo $base_url ?? '/printflow'; ?>';
     (function() {
         var btn = document.getElementById('chatbot-btn');
         var win = document.getElementById('chatbot-window');
@@ -450,7 +452,7 @@ function _ft_detect_social(string $url): array {
         // Load FAQs and populate questions
         function loadFAQs() {
             loaded = true;
-            var basePath = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
+            var basePath = window.BASE_PATH || '';
             Promise.all([
                 fetch(basePath + '/public/api/get_faqs.php').then(r => r.json()),
                 fetch(basePath + '/public/api/get_chatbot_info.php').then(r => r.json())
@@ -617,7 +619,7 @@ function _ft_detect_social(string $url): array {
                 else payload.guest_id = guestId;
 
                 // Send to API
-                var basePath = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
+                var basePath = window.BASE_PATH || '';
                 fetch(basePath + '/public/api/chatbot_inquiry.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -680,7 +682,8 @@ function _ft_detect_social(string $url): array {
             if (ids.length === 0) return;
             
             ids.forEach(function(id) {
-                fetch(BASE_PATH . '/public/api/chatbot_inquiry.php?id=' + id)
+                var basePath = window.BASE_PATH || '';
+                fetch(basePath + '/public/api/chatbot_inquiry.php?id=' + id)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data.success && data.data && data.data.status === 'answered' && data.data.admin_reply) {
