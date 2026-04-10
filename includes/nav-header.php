@@ -5,6 +5,11 @@
  */
 $nav_header_class = $nav_header_class ?? 'bg-[#0a2530] backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-white/5';
 require_once __DIR__ . '/shop_config.php';
+
+// Ensure asset_base is defined for image paths (compatible with production root paths)
+if (!isset($asset_base)) {
+    $asset_base = $base_url . '/public';
+}
 $show_header_search = stripos((string)$nav_header_class, 'lp-hero-nav') === false;
 $search_query = trim((string) ($_GET['search'] ?? $_GET['q'] ?? ''));
 $search_action = $url_products;
