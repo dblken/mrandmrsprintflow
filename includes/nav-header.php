@@ -138,13 +138,11 @@ if ($initials === '') {
             z-index: 999;
             opacity: 0;
             visibility: hidden;
-            pointer-events: none;
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
         #main-header .pf-burger-overlay.open {
             opacity: 1;
             visibility: visible;
-            pointer-events: auto;
         }
         
         /* Burger Menu Panel */
@@ -161,15 +159,17 @@ if ($initials === '') {
             background: #0a2530;
             box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
             z-index: 1000;
-            transform: translateX(110%);
+            transform: translateX(100%);
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
             padding: 1.5rem;
+            visibility: hidden;
             margin: 0;
             border-radius: 0;
         }
         #main-header .pf-burger-menu.open {
             transform: translateX(0);
+            visibility: visible;
         }
         
         /* Burger Menu Header */
@@ -890,11 +890,6 @@ if ($initials === '') {
             document.body.style.overflow = '';
         }
     };
-    
-    // Force-close on every page load to clear any stuck state
-    window.closeBurgerMenu();
-    document.addEventListener('turbo:load', window.closeBurgerMenu);
-    document.addEventListener('turbo:render', window.closeBurgerMenu);
     
     // Burger button click handler
     var burgerBtn = document.querySelector('[data-pf-mobile-toggle]');
