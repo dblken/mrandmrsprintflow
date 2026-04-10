@@ -152,11 +152,6 @@ function about_icon(string $icon): string {
 
     <div class="lp-wrap">
 
-        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; text-align:center;">
-            @media (min-width: 768px) {
-                .stats-grid { grid-template-columns: repeat(4,1fr) !important; gap: 2rem !important; }
-            }
-            <style>.stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.5rem; text-align: center; } @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4,1fr) !important; gap: 2rem !important; } }</style>
         <div class="stats-grid">
 
             <div>
@@ -221,9 +216,7 @@ function about_icon(string $icon): string {
 
 
 
-        <div style="display:grid; grid-template-columns:1fr; gap:2rem;">
-            <style>@media (min-width: 768px) { .mission-vision-grid { grid-template-columns: 1fr 1fr !important; } }</style>
-        <div class="mission-vision-grid" style="display:grid; grid-template-columns:1fr; gap:2rem;">
+        <div class="mission-vision-grid">
 
             <!-- Mission -->
 
@@ -422,9 +415,7 @@ function about_icon(string $icon): string {
 
     <div class="lp-wrap">
 
-        <div style="display:grid; grid-template-columns:1fr; gap:3rem; align-items:center;">
-            <style>@media (min-width: 1024px) { .why-us-grid { grid-template-columns: 1fr 1fr !important; gap: 4rem !important; } }</style>
-        <div class="why-us-grid" style="display:grid; grid-template-columns:1fr; gap:3rem; align-items:center;">
+        <div class="why-us-grid">
 
             <div>
 
