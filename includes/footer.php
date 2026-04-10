@@ -450,9 +450,10 @@ function _ft_detect_social(string $url): array {
         // Load FAQs and populate questions
         function loadFAQs() {
             loaded = true;
+            var basePath = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
             Promise.all([
-                fetch(BASE_PATH . '/public/api/get_faqs.php').then(r => r.json()),
-                fetch(BASE_PATH . '/public/api/get_chatbot_info.php').then(r => r.json())
+                fetch(basePath + '/public/api/get_faqs.php').then(r => r.json()),
+                fetch(basePath + '/public/api/get_chatbot_info.php').then(r => r.json())
             ])
             .then(([faqData, infoData]) => {
                 var allQuestions = [];
@@ -616,7 +617,8 @@ function _ft_detect_social(string $url): array {
                 else payload.guest_id = guestId;
 
                 // Send to API
-                fetch(BASE_PATH . '/public/api/chatbot_inquiry.php', {
+                var basePath = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
+                fetch(basePath + '/public/api/chatbot_inquiry.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
