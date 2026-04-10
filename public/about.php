@@ -107,21 +107,21 @@ function about_icon(string $icon): string {
             <p class="lp-heading-desc">Our mission and vision guide every product we produce and every client we serve.</p>
         </div>
 
-        <div class="flex flex-col md:flex-row gap-6">
+        <div style="display:flex; gap:2rem;" class="flex-col md:flex-row gap-6">
             <!-- Mission -->
-            <div class="w-full break-words" style="background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:1.5rem md:padding:2.5rem; position:relative; overflow:hidden;">
+            <div style="flex:1; background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:2.5rem; position:relative; overflow:hidden;" class="w-full break-words p-4 md:p-6">
                 <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--lp-accent), var(--lp-accent-l));"></div>
                 <div style="width:52px; height:52px; background:rgba(50,161,196,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
                     <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
                     </svg>
                 </div>
-                <h3 class="break-words" style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;">Our Mission</h3>
-                <p class="break-words" style="color:var(--lp-muted); line-height:1.8; font-size:1rem; word-wrap: break-word; overflow-wrap: break-word;"><?php echo $mission; ?></p>
+                <h3 style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;" class="break-words">Our Mission</h3>
+                <p style="color:var(--lp-muted); line-height:1.8; font-size:1rem;" class="break-words" style="word-wrap: break-word; overflow-wrap: break-word;"><?php echo $mission; ?></p>
             </div>
 
             <!-- Vision -->
-            <div class="w-full break-words" style="background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:1.5rem md:padding:2.5rem; position:relative; overflow:hidden;">
+            <div style="flex:1; background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:2.5rem; position:relative; overflow:hidden;" class="w-full break-words p-4 md:p-6">
                 <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--lp-accent-l), #a3e8f7);"></div>
                 <div style="width:52px; height:52px; background:rgba(83,197,224,0.15); border-radius:14px; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
                     <svg style="width:26px; height:26px; color:var(--lp-accent-l);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,8 +129,8 @@ function about_icon(string $icon): string {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                     </svg>
                 </div>
-                <h3 class="break-words" style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;">Our Vision</h3>
-                <p class="break-words" style="color:var(--lp-muted); line-height:1.8; font-size:1rem; word-wrap: break-word; overflow-wrap: break-word;"><?php echo $vision; ?></p>
+                <h3 style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:1rem;" class="break-words">Our Vision</h3>
+                <p style="color:var(--lp-muted); line-height:1.8; font-size:1rem;" class="break-words" style="word-wrap: break-word; overflow-wrap: break-word;"><?php echo $vision; ?></p>
             </div>
         </div>
     </div>
@@ -148,9 +148,9 @@ function about_icon(string $icon): string {
             <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:520px; margin:0 auto; line-height:1.7;">The principles that guide every print, every project, every promise we make to you.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:1.5rem;" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <?php foreach ($values as $v): ?>
-            <div class="p-4 md:p-6 break-words" style="background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; box-shadow:0 2px 12px rgba(0,0,0,0.2); transition:transform .2s, box-shadow .2s;"
+            <div style="background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1.25rem; padding:2rem; box-shadow:0 2px 12px rgba(0,0,0,0.2); transition:transform .2s, box-shadow .2s;" class="p-4 md:p-6 break-words"
                 onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 30px rgba(50,161,196,0.2)'"
                 onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.2)'">
                 <div style="width:48px; height:48px; background:linear-gradient(135deg, #eaf7fb, #cff1f8); border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem;">
@@ -158,8 +158,8 @@ function about_icon(string $icon): string {
                         <?php echo about_icon($v['icon'] ?? 'star'); ?>
                     </svg>
                 </div>
-                <h3 class="text-base md:text-lg font-bold text-white mb-2 break-words"><?php echo htmlspecialchars($v['title']); ?></h3>
-                <p class="text-sm text-[var(--lp-muted)] leading-relaxed break-words"><?php echo htmlspecialchars($v['desc']); ?></p>
+                <h3 style="font-size:1.0625rem; font-weight:700; color:#fff; margin-bottom:.5rem;" class="text-base md:text-lg font-bold text-white mb-2 break-words"><?php echo htmlspecialchars($v['title']); ?></h3>
+                <p style="font-size:.9375rem; color:var(--lp-muted); line-height:1.6;" class="text-sm text-[var(--lp-muted)] leading-relaxed break-words"><?php echo htmlspecialchars($v['desc']); ?></p>
             </div>
             <?php endforeach; ?>
         </div>
@@ -179,21 +179,21 @@ function about_icon(string $icon): string {
             <p class="lp-heading-desc">Passionate professionals dedicated to making your printing experience seamless and outstanding.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-center">
+        <div style="display:flex; flex-wrap:wrap; gap:1.75rem; justify-content:center;" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-center">
             <?php foreach ($team_members as $tm): ?>
-            <div class="flex flex-col items-center">
+            <div style="text-align:center; max-width:240px; width:100%; margin:0 auto;" class="flex flex-col items-center">
                 <?php if (!empty($tm['photo'])): ?>
                     <img src="<?php echo $base_path; ?>/public/assets/uploads/team/<?php echo htmlspecialchars($tm['photo']); ?>"
-                         class="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 block rounded-full object-cover border-3 border-[var(--lp-accent)]">
+                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--lp-accent); margin:0 auto 1rem; display:block;" class="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 block rounded-full object-cover border-3 border-[var(--lp-accent)]">
                 <?php else: ?>
-                    <div class="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 rounded-full bg-[var(--lp-surface)] border-3 border-[var(--lp-accent)] flex items-center justify-center">
-                        <svg class="w-10 h-10 md:w-14 md:h-14 text-[var(--lp-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div style="width:100px; height:100px; border-radius:50%; background:var(--lp-surface); border:3px solid var(--lp-accent); margin:0 auto 1rem; display:flex; align-items:center; justify-content:center;" class="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 rounded-full bg-[var(--lp-surface)] border-3 border-[var(--lp-accent)] flex items-center justify-center">
+                        <svg style="width:48px; height:48px; color:var(--lp-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-10 h-10 md:w-14 md:h-14 text-[var(--lp-muted)]">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                     </div>
                 <?php endif; ?>
-                <h4 class="text-sm md:text-lg font-bold text-white mb-1 break-words"><?php echo htmlspecialchars($tm['name']); ?></h4>
-                <p class="text-xs md:text-sm text-[var(--lp-accent-l)] break-words"><?php echo htmlspecialchars($tm['role']); ?></p>
+                <h4 style="font-size:1rem; font-weight:700; color:#fff; margin-bottom:.25rem;" class="text-sm md:text-lg font-bold text-white mb-1 break-words"><?php echo htmlspecialchars($tm['name']); ?></h4>
+                <p style="font-size:.875rem; color:var(--lp-accent-l);" class="text-xs md:text-sm text-[var(--lp-accent-l)] break-words"><?php echo htmlspecialchars($tm['role']); ?></p>
             </div>
             <?php endforeach; ?>
         </div>
@@ -206,19 +206,19 @@ function about_icon(string $icon): string {
      ============================================================ -->
 <section class="lp-section-light overflow-x-hidden py-12 md:py-20">
     <div class="lp-wrap px-4 sm:px-6 max-w-full">
-        <div class="flex flex-col md:flex-row gap-6 items-center">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center;" class="flex flex-col md:flex-row gap-6 items-center">
             <div class="w-full text-center md:text-left">
                 <p style="font-size:0.8rem; font-weight:700; color:var(--lp-accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem;">Why <?php echo $shop_name; ?></p>
                 <h2 style="font-size:clamp(1.9rem,4vw,2.8rem); font-weight:800; color:#fff; letter-spacing:-0.025em; margin-bottom:1.5rem; line-height:1.15;">Built on <span style="color:var(--lp-accent);">Quality</span>,<br>Driven by <span style="color:var(--lp-accent);">Results</span></h2>
                 <p class="break-words" style="font-size:1rem; color:var(--lp-muted); line-height:1.8; margin-bottom:1.75rem;">
                     We're not just a printing shop — we're your creative partner. From concept to completion, we ensure every detail meets your expectations and exceeds industry standards.
                 </p>
-                <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                     <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-primary w-full sm:w-auto">Explore Services</a>
                     <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-outline w-full sm:w-auto">View Products</a>
                 </div>
             </div>
-            <div class="w-full">
+            <div class="w-full" style="display:flex; flex-direction:column; gap:1rem;">
                 <?php $perks = [
                     ['title'=>'State-of-the-Art Equipment','desc'=>'We invest in the latest printing technology to guarantee crisp, vivid results every time.'],
                     ['title'=>'Eco-Friendly Materials','desc'=>'We use sustainable inks and materials whenever possible to reduce our environmental footprint.'],
@@ -227,15 +227,15 @@ function about_icon(string $icon): string {
                 ]; ?>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <?php foreach ($perks as $perk): ?>
-                    <div class="p-4 md:p-6 break-words" style="display:flex; gap:1rem; align-items:flex-start; background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1rem; box-shadow:0 1px 6px rgba(0,0,0,0.2);">
+                    <div style="display:flex; gap:1rem; align-items:flex-start; padding:1.25rem; background:var(--lp-surface); border:1px solid rgba(83,197,224,0.15); border-radius:1rem; box-shadow:0 1px 6px rgba(0,0,0,0.2);" class="p-4 md:p-6 break-words">
                         <div style="width:36px; height:36px; background:linear-gradient(135deg,#eaf7fb,#cff1f8); border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;">
                             <svg style="width:18px;height:18px;color:var(--lp-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                             </svg>
                         </div>
                         <div>
-                            <div class="text-base md:text-lg font-bold text-white mb-1 break-words"><?php echo $perk['title']; ?></div>
-                            <div class="text-sm text-[var(--lp-muted)] leading-relaxed break-words"><?php echo $perk['desc']; ?></div>
+                            <div style="font-size:.9375rem; font-weight:700; color:#fff; margin-bottom:.2rem;" class="text-base md:text-lg font-bold text-white mb-1 break-words"><?php echo $perk['title']; ?></div>
+                            <div style="font-size:.875rem; color:var(--lp-muted); line-height:1.6;" class="text-sm text-[var(--lp-muted)] leading-relaxed break-words"><?php echo $perk['desc']; ?></div>
                         </div>
                     </div>
                     <?php endforeach; ?>
