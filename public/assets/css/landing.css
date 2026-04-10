@@ -1489,13 +1489,13 @@ body.lp-page {
     .lp-order-1 .lp-heading-label,
     .lp-order-1 .lp-heading,
     .lp-order-1 .lp-heading-desc {
-        text-align: center !important;
+        text-align: flex-start !important;
     }
 
-    /* List items: icon and title side-by-side, title vertically centered */
+    /* List items: icon and title side-by-side, top aligned */
     .lp-list li {
         flex-direction: row !important;
-        align-items: center !important;
+        align-items: flex-start !important;
         gap: 1rem !important;
     }
 
