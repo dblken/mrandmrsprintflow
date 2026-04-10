@@ -520,7 +520,7 @@ if ($initials === '') {
         }
     </style>
     <nav style="width:100%;max-width:100%;">
-        <div class="pf-header-shell" style="max-width:1200px;margin:0 auto;padding:0.75rem 1rem;">
+        <div class="pf-header-shell" style="max-width:1200px;margin:0 auto;padding:0.5rem 1rem;">
             <!-- Logo -->
             <div class="pf-header-left flex items-center space-x-3">
                 <a href="<?php echo $url_index; ?>" class="flex items-center space-x-2 group">
