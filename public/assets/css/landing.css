@@ -1290,6 +1290,15 @@ body.lp-page {
         margin-bottom: 1rem;
     }
 
+    /* Desktop: Core Values title on one line, aligned with description */
+    .cv-card-header h3 {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 36px;
+        margin: 0;
+    }
+
     /* Desktop: consistent icon size across all cards */
     .mv-card-header > div:first-child,
     .cv-card-header > div:first-child {
