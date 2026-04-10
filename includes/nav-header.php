@@ -480,35 +480,6 @@ if ($initials === '') {
             }
         }
     </style>
-    <style>
-        /* Burger overlay & panel — global, not scoped to header */
-        .pf-burger-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            z-index: 9998;
-            display: none;
-        }
-        .pf-burger-overlay.open { display: block; }
-        .pf-burger-menu {
-            display: none;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 320px;
-            max-width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            background: #0a2530;
-            box-shadow: -4px 0 20px rgba(0,0,0,0.5);
-            z-index: 9999;
-            overflow-y: auto;
-            padding: 1.5rem;
-        }
-        .pf-burger-menu.open { display: flex; }
-    </style>
     <nav class="container mx-auto px-4 py-3">
         <div class="pf-header-shell">
             <!-- Logo -->
@@ -749,6 +720,8 @@ if ($initials === '') {
         </div>
     </nav>
     
+</header>
+
     <!-- Burger Menu Overlay (Mobile Only) -->
     <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
     
@@ -820,7 +793,7 @@ if ($initials === '') {
         <?php endif; ?>
     </div>
 
-</header>
+<?php if ($is_logged_in): ?>
 <!-- Logout Confirmation Modal -->
 <div id="logout-confirm-modal"
      style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:1rem;"
@@ -879,12 +852,8 @@ if ($initials === '') {
         }
     };
     
-    // Move overlay and panel to <body> so position:fixed works from viewport root
+    // Force-close on page load to ensure menu starts closed
     document.addEventListener('DOMContentLoaded', function() {
-        var overlay = document.querySelector('[data-pf-burger-overlay]');
-        var menu = document.querySelector('[data-pf-burger-menu]');
-        if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
-        if (menu && menu.parentElement !== document.body) document.body.appendChild(menu);
         closeBurgerMenu();
     });
     
