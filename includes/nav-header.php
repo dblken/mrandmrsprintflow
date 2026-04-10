@@ -131,7 +131,47 @@ if ($initials === '') {
         
         /* Burger Menu Overlay */
         #main-header .pf-burger-overlay {
-            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #main-header .pf-burger-overlay.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        
+        /* Burger Menu Panel */
+        #main-header .pf-burger-menu {
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 320px;
+            max-width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #0a2530;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            padding: 1.5rem;
+            visibility: hidden;
+            margin: 0;
+            border-radius: 0;
+        }
+        #main-header .pf-burger-menu.open {
+            transform: translateX(0);
+            visibility: visible;
         }
         
         /* Burger Menu Header */
@@ -720,8 +760,6 @@ if ($initials === '') {
         </div>
     </nav>
     
-</header>
-
     <!-- Burger Menu Overlay (Mobile Only) -->
     <div class="pf-burger-overlay" data-pf-burger-overlay onclick="closeBurgerMenu()"></div>
     
@@ -792,6 +830,8 @@ if ($initials === '') {
         </div>
         <?php endif; ?>
     </div>
+
+</header>
 
 <?php if ($is_logged_in): ?>
 <!-- Logout Confirmation Modal -->
