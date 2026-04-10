@@ -745,7 +745,7 @@ require_once __DIR__ . '/../includes/header.php';
         }
         
         .review-info-note-title {
-            font-size: 0.75rem !important;
+            font-size: 0.85rem !important;
         }
         
         .review-info-note-text {
