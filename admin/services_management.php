@@ -1288,7 +1288,7 @@ function renderExistingMediaPreviews(images, video) {
         const div = document.createElement('div');
         div.className = 'media-item';
         div.innerHTML = `
-            <img src="${imgPath}" alt="Image ${index + 1}">
+            <img src="${imgPath}" alt="Image ${index + 1}" style="image-orientation: from-image; object-fit: cover;">
             <span class="media-badge">IMG ${index + 1}</span>
             <button type="button" class="remove-btn" onclick="removeExistingMedia('image', ${index})">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
