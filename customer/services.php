@@ -34,10 +34,17 @@ foreach ($visible_rows as $row) {
         $img = trim((string) ($row['hero_image'] ?? ''));
     }
     
+    // Transform path: /uploads/... -> /public/assets/uploads/...
+    if ($img !== '' && strpos($img, 'http') === false) {
+        $img = '/' . ltrim($img, '/');
+        if (strpos($img, '/public/') === false) {
+            $img = '/public/assets' . $img;
+        }
+    }
+    
     if ($img === '') {
         $img = '/public/assets/images/services/default.png';
     }
-    // Already absolute path — no prefix needed
     
     $core_services[] = [
         'id' => $row['service_id'],
@@ -62,7 +69,8 @@ require_once __DIR__ . '/../includes/header.php';
 // Reusable card template function
 function render_service_card($srv) {
     $img = $srv['img'];
-    if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img) && strpos($img, 'http') === false) {
+    // Use default if image path is empty or doesn't contain public/assets
+    if ($img === '' || (strpos($img, 'http') === false && strpos($img, '/public/') === false)) {
         $img = '/public/assets/images/services/default.png';
     }
     
