@@ -25,6 +25,7 @@ if (file_exists(__DIR__ . '/../config.php')) {
 
 // Determine base URL and asset path
 $base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
+$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_base = $base_url . '/public';
 
 // Timestamp for cache busting
