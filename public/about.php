@@ -312,17 +312,19 @@ function about_icon(string $icon): string {
 
                 onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.2)'">
 
-                <div style="width:48px; height:48px; background:linear-gradient(135deg, #eaf7fb, #cff1f8); border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem;">
+                <div class="cv-card-header">
+                    <div style="width:48px; height:48px; background:linear-gradient(135deg, #eaf7fb, #cff1f8); border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
 
-                    <svg style="width:24px; height:24px; color:var(--lp-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg style="width:24px; height:24px; color:var(--lp-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 
-                        <?php echo about_icon($v['icon'] ?? 'star'); ?>
+                            <?php echo about_icon($v['icon'] ?? 'star'); ?>
 
-                    </svg>
+                        </svg>
 
+                    </div>
+
+                    <h3 style="font-size:1.0625rem; font-weight:700; color:#fff;"><?php echo htmlspecialchars($v['title']); ?></h3>
                 </div>
-
-                <h3 style="font-size:1.0625rem; font-weight:700; color:#fff; margin-bottom:.5rem;"><?php echo htmlspecialchars($v['title']); ?></h3>
 
                 <p style="font-size:.9375rem; color:var(--lp-muted); line-height:1.6;"><?php echo htmlspecialchars($v['desc']); ?></p>
 

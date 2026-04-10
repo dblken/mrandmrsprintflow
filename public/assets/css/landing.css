@@ -1369,6 +1369,14 @@ body.lp-page {
         gap: 1.5rem !important;
     }
     
+    /* Align icon and title in one line for Core Values cards on mobile */
+    .cv-card-header {
+        display: flex !important;
+        align-items: center !important;
+        gap: 1rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
     /* Team grid mobile */
     .team-grid {
         flex-direction: column !important;
