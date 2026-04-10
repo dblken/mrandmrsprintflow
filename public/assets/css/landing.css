@@ -1280,6 +1280,16 @@ body.lp-page {
     .mission-vision-grid {
         grid-template-columns: 1fr 1fr;
     }
+
+    /* Restore desktop block layout for card headers */
+    .mv-card-header {
+        display: block;
+    }
+
+    /* Restore desktop block layout for Core Values card headers */
+    .cv-card-header {
+        display: block;
+    }
 }
 
 /* Why Us Grid */
@@ -1294,6 +1304,22 @@ body.lp-page {
     .why-us-grid {
         grid-template-columns: 1fr 1fr;
         gap: 4rem;
+    }
+
+    /* Restore desktop layout for Why Printflow content */
+    .why-us-content {
+        text-align: left;
+    }
+
+    .why-us-buttons {
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 1rem;
+    }
+
+    .why-us-buttons .lp-btn {
+        width: auto;
     }
 }
 
