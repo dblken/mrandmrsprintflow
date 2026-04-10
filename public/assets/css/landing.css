@@ -1296,6 +1296,18 @@ body.lp-page {
         gap: 1rem;
         margin-bottom: 0.75rem;
     }
+
+    /* Desktop: reduce Core Values icon size */
+    .cv-card-header > div:first-child {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 8px !important;
+    }
+
+    .cv-card-header > div:first-child svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
 }
 
 /* Why Us Grid */
