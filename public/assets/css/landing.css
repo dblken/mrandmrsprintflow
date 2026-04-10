@@ -1394,10 +1394,10 @@ body.lp-page {
         gap: 2rem !important;
     }
 
-    /* Align icon and title in one line on mobile */
+    /* Align icon and title in one line on mobile - vertically centered */
     .mv-card-header {
         display: flex !important;
-        align-items: flex-start !important;
+        align-items: center !important;
         gap: 1rem !important;
         margin-bottom: 1rem !important;
     }
