@@ -53,6 +53,8 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <?php include __DIR__ . '/staff_theme.php'; ?>
     <?php endif; ?>
 
+    <!-- Turbo: disable page cache to prevent double-encoded HTML on restore -->
+    <meta name="turbo-cache-control" content="no-cache">
     <!-- PWA Manifest -->
     <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.php">
     <!-- Tailwind CSS -->

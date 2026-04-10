@@ -351,6 +351,7 @@ function render_service_card($srv) {
                     </div>
                 </div>
                 <p id="modal-intro-text" style="color: #b9d4df; margin: 0 0 1.25rem; line-height: 1.6; font-size: 0.9rem;"></p>
+                <a id="modal-reviews-link" href="#" style="display:none;"></a>
             </div>
             <div id="modal-ratings-section" style="padding: 0 2rem 1.5rem;"></div>
         </div>
