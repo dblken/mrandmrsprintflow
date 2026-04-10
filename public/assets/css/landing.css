@@ -1503,8 +1503,10 @@ body.lp-page {
     /* Hero buttons mobile */
     .lp-hero-btns {
         flex-direction: column !important;
+        align-items: center !important;
         gap: 0.75rem !important;
         width: 100% !important;
+        justify-content: center !important;
     }
 
     .lp-hero-btns .lp-btn {
