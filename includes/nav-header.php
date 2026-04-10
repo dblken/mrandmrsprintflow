@@ -71,6 +71,10 @@ if ($initials === '') {
         #main-header .pf-badge { position: absolute; top: -6px; right: -6px; background: #53C5E0; color: #0a2530; font-size: .65rem; font-weight: 900; border-radius: 9999px; min-width: 18px; height: 18px; padding: 0 4px; display: flex !important; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(83,197,224,.4); line-height: 1; border: 1.5px solid #0a2530; z-index: 10; pointer-events: none; }
         #main-header .pf-notif-dropdown { position: absolute; top: calc(100% + 10px); right: 0; width: 320px; max-height: 480px; background: #0a2530; border: 1px solid rgba(83,197,224,0.3); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: none !important; flex-direction: column; overflow: hidden; z-index: 1002; }
         #main-header .pf-notif-dropdown.open { display: flex !important; }
+        /* Mobile: position notification dropdown to the right edge */
+        @media (max-width: 768px) {
+            #main-header .pf-notif-dropdown { right: -10px; width: 300px; }
+        }
         #main-header .pf-notif-header { padding: 12px 16px; border-bottom: 1px solid rgba(83,197,224,0.1); display: flex; align-items: center; justify-content: space-between; background: rgba(83,197,224,0.05); }
         #main-header .pf-notif-header span { font-size: 0.7rem; font-weight: 800; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.05em; }
         #main-header .pf-notif-header a { font-size: 0.7rem !important; color: #53c5e0; text-decoration: none; font-weight: 800 !important; text-transform: uppercase; letter-spacing: 0.05em; }
