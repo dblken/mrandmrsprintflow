@@ -779,13 +779,6 @@ if ($initials === '') {
     <!-- Logged-in Customer Navigation -->
     <div class="pf-burger-section">
         <div class="pf-mobile-profile" style="margin-bottom:1.25rem;">
-            <div class="pf-mobile-profile-avatar">
-                <?php if (!empty($current_user['profile_picture'])): ?>
-                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Profile">
-                <?php else: ?>
-                    <span><?php echo htmlspecialchars($initials); ?></span>
-                <?php endif; ?>
-            </div>
             <div class="pf-mobile-profile-info">
                 <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
                 <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
