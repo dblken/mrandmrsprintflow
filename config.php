@@ -29,7 +29,14 @@ $is_production = (
 
 // Set base path based on environment
 if ($is_production) {
-    // Production: domain root
+    // Production: domain root - force empty values
+    // Clear any .env overrides first
+    putenv('BASE_PATH=');
+    putenv('BASE_URL=');
+    $_ENV['BASE_PATH'] = '';
+    $_ENV['BASE_URL'] = '';
+    $_SERVER['BASE_PATH'] = '';
+    $_SERVER['BASE_URL'] = '';
     define('BASE_PATH', '');
     define('BASE_URL', '');
 } else {
