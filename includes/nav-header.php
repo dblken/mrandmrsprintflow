@@ -61,8 +61,9 @@ if ($initials === '') {
         #main-header .pf-header-right { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: .6rem; }
         #main-header .pf-icon-btn { position: relative; width: 2.55rem; height: 2.55rem; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,.86); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.11); transition: all .2s ease; overflow: visible; cursor: pointer; z-index: 5; }
         #main-header .pf-icon-btn:hover { color: #53C5E0; border-color: rgba(83,197,224,.5); background: rgba(83,197,224,.12); transform: translateY(-1px); }
-        #main-header [data-pf-notif-wrap], #main-header [data-pf-profile-wrap] { position: relative; z-index: 50; }
-        #main-header [data-pf-notif-toggle], #main-header [data-pf-profile-toggle] { pointer-events: auto !important; }
+        #main-header [data-pf-notif-wrap], #main-header [data-pf-profile-wrap] { position: relative; z-index: 1000 !important; }
+        #main-header [data-pf-notif-toggle], #main-header [data-pf-profile-toggle] { pointer-events: auto !important; cursor: pointer !important; position: relative; z-index: 1001 !important; }
+        #main-header .pf-notif-dropdown, #main-header .pf-dropdown-menu { z-index: 1002 !important; }
         #main-header .pf-icon-btn svg { width: 1.2rem; height: 1.2rem; stroke-width: 1.9; }
         #main-header .pf-cart-icon,
         #main-header .pf-notif-icon { width: 1.2rem; height: 1.2rem; stroke-width: 1.9; }
