@@ -1249,3 +1249,100 @@ body.lp-page {
     font-weight: 800;
     color: var(--lp-accent-l);
 }
+
+/* ==========================================================
+   MOBILE RESPONSIVE IMPROVEMENTS
+   ========================================================== */
+@media (max-width: 767px) {
+    /* Stats grid mobile */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 1.5rem !important;
+    }
+    
+    /* Mission/Vision mobile */
+    .mission-vision-grid {
+        grid-template-columns: 1fr !important;
+        gap: 2rem !important;
+    }
+    
+    /* Why Us section mobile */
+    .why-us-grid {
+        grid-template-columns: 1fr !important;
+        gap: 2rem !important;
+    }
+    
+    /* Hero title mobile */
+    .lp-hero-title {
+        font-size: 1.75rem !important;
+        line-height: 1.2 !important;
+    }
+    
+    /* Section padding mobile */
+    .lp-section,
+    .lp-section-light,
+    .lp-section-cta {
+        padding: 3rem 0 !important;
+    }
+    
+    /* Card padding mobile */
+    .lp-card {
+        padding: 1.5rem !important;
+    }
+    
+    /* Button stacking mobile */
+    .lp-cta-btns {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+        align-items: center !important;
+    }
+    
+    .lp-cta-btns .lp-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+    }
+    
+    /* Text sizes mobile */
+    .lp-heading {
+        font-size: 1.75rem !important;
+    }
+    
+    .lp-cta-title {
+        font-size: 1.875rem !important;
+    }
+    
+    /* Values grid mobile */
+    .lp-cards {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem !important;
+    }
+    
+    /* Team grid mobile */
+    .team-grid {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 2rem !important;
+    }
+    
+    /* Hero buttons mobile */
+    .lp-hero-btns {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+    }
+    
+    .lp-hero-btns .lp-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+    }
+    
+    /* Mini hero padding */
+    .lp-mini-hero {
+        padding: 4rem 0 2rem 0 !important;
+    }
+    
+    /* Wrap padding */
+    .lp-wrap {
+        padding: 0 1rem !important;
+    }
+}

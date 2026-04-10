@@ -120,13 +120,13 @@ function about_icon(string $icon): string {
 
             </h1>
 
-            <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:640px; margin:0 auto 2.5rem; line-height:1.7;">
+            <p style="font-size:clamp(0.9rem,2.5vw,1.0625rem); color:var(--lp-muted); max-width:640px; margin:0 auto 2.5rem; line-height:1.7; padding:0 1rem;">
 
                 <?php echo $hero_subtitle; ?>
 
             </p>
 
-            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; padding:0 1rem;">
 
                 <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse Our Products</a>
 
@@ -152,7 +152,12 @@ function about_icon(string $icon): string {
 
     <div class="lp-wrap">
 
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2rem; text-align:center;">
+        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; text-align:center;">
+            @media (min-width: 768px) {
+                .stats-grid { grid-template-columns: repeat(4,1fr) !important; gap: 2rem !important; }
+            }
+            <style>.stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.5rem; text-align: center; } @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4,1fr) !important; gap: 2rem !important; } }</style>
+        <div class="stats-grid">
 
             <div>
 
@@ -216,7 +221,9 @@ function about_icon(string $icon): string {
 
 
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+        <div style="display:grid; grid-template-columns:1fr; gap:2rem;">
+            <style>@media (min-width: 768px) { .mission-vision-grid { grid-template-columns: 1fr 1fr !important; } }</style>
+        <div class="mission-vision-grid" style="display:grid; grid-template-columns:1fr; gap:2rem;">
 
             <!-- Mission -->
 
@@ -360,11 +367,11 @@ function about_icon(string $icon): string {
 
 
 
-        <div style="display:flex; flex-wrap:wrap; gap:1.75rem; justify-content:center;">
+        <div class="team-grid" style="display:flex; flex-wrap:wrap; gap:1.75rem; justify-content:center;">
 
             <?php foreach ($team_members as $tm): ?>
 
-            <div style="text-align:center; max-width:240px; width:100%; margin:0 auto;">
+            <div style="text-align:center; max-width:240px; width:100%; margin:0;">
 
                 <?php if (!empty($tm['photo'])): ?>
 
@@ -415,21 +422,23 @@ function about_icon(string $icon): string {
 
     <div class="lp-wrap">
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center;">
+        <div style="display:grid; grid-template-columns:1fr; gap:3rem; align-items:center;">
+            <style>@media (min-width: 1024px) { .why-us-grid { grid-template-columns: 1fr 1fr !important; gap: 4rem !important; } }</style>
+        <div class="why-us-grid" style="display:grid; grid-template-columns:1fr; gap:3rem; align-items:center;">
 
             <div>
 
                 <p style="font-size:0.8rem; font-weight:700; color:var(--lp-accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem;">Why <?php echo $shop_name; ?></p>
 
-                <h2 style="font-size:clamp(1.9rem,4vw,2.8rem); font-weight:800; color:#fff; letter-spacing:-0.025em; margin-bottom:1.5rem; line-height:1.15;">Built on <span style="color:var(--lp-accent);">Quality</span>,<br>Driven by <span style="color:var(--lp-accent);">Results</span></h2>
+                <h2 style="font-size:clamp(1.9rem,4vw,2.8rem); font-weight:800; color:#fff; letter-spacing:-0.025em; margin-bottom:1.5rem; line-height:1.15; padding:0 1rem;">Built on <span style="color:var(--lp-accent);">Quality</span>,<br>Driven by <span style="color:var(--lp-accent);">Results</span></h2>
 
-                <p style="font-size:1rem; color:var(--lp-muted); line-height:1.8; margin-bottom:1.75rem;">
+                <p style="font-size:1rem; color:var(--lp-muted); line-height:1.8; margin-bottom:1.75rem; padding:0 1rem;">
 
                     We're not just a printing shop — we're your creative partner. From concept to completion, we ensure every detail meets your expectations and exceeds industry standards.
 
                 </p>
 
-                <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                <div style="display:flex; gap:1rem; flex-wrap:wrap; padding:0 1rem;">
 
                     <a href="<?php echo $base_path; ?>/public/services.php" class="lp-btn lp-btn-primary">Explore Services</a>
 
