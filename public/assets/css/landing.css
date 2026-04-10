@@ -1520,10 +1520,10 @@ body.lp-page {
         text-align: center !important;
     }
 
-    /* Align icon and title in one line for Core Values cards on mobile - consistent spacing */
+    /* Align icon and title in one line for Core Values cards on mobile - vertically centered */
     .cv-card-header {
         display: flex !important;
-        align-items: flex-start !important;
+        align-items: center !important;
         gap: 1rem !important;
         margin-bottom: 1rem !important;
     }
