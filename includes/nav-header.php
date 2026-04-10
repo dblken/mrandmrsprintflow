@@ -778,12 +778,6 @@ if ($initials === '') {
     <?php if ($is_logged_in && is_customer()): ?>
     <!-- Logged-in Customer Navigation -->
     <div class="pf-burger-section">
-        <div class="pf-mobile-profile" style="margin-bottom:1.25rem;">
-            <div class="pf-mobile-profile-info">
-                <div class="pf-mobile-profile-name"><?php echo htmlspecialchars($first . ' ' . $last); ?></div>
-                <div class="pf-mobile-profile-email"><?php echo htmlspecialchars($current_user['email'] ?? ''); ?></div>
-            </div>
-        </div>
         <div class="pf-burger-section-title">Navigation</div>
         <nav class="pf-burger-nav">
             <a href="<?php echo $base_url; ?>/customer/services.php" class="pf-burger-link" onclick="closeBurgerMenu()">Services</a>
