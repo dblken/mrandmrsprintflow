@@ -138,11 +138,13 @@ if ($initials === '') {
             z-index: 999;
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
         #main-header .pf-burger-overlay.open {
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
         }
         
         /* Burger Menu Panel */
@@ -889,6 +891,11 @@ if ($initials === '') {
             document.body.style.overflow = '';
         }
     };
+    
+    // Force-close on page load to ensure menu starts closed
+    document.addEventListener('DOMContentLoaded', function() {
+        closeBurgerMenu();
+    });
     
     // Burger button click handler
     var burgerBtn = document.querySelector('[data-pf-mobile-toggle]');
