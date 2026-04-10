@@ -1493,6 +1493,24 @@ body.lp-page {
         gap: 2rem !important;
     }
 
+    /* Service cards: icon and title side-by-side, vertically centered */
+    .lp-card {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .lp-card-icon {
+        margin-bottom: 0 !important;
+        margin-right: 1rem !important;
+    }
+
+    .lp-card-title {
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+        min-height: 3rem !important;
+    }
+
     /* Why Choose Us section mobile - center heading content */
     .lp-order-1 .lp-heading-label,
     .lp-order-1 .lp-heading,
