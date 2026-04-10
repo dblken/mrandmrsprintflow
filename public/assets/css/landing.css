@@ -584,11 +584,56 @@ body.lp-page {
 }
 
 .lp-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 30px rgba(83, 197, 224, .12);
+    border-color: rgba(83, 197, 224, .25);
+}
 
-    .lp-card:hover {
-        .lp-card-icon {
+.lp-card-icon {
     width: 3rem;
     height: 3rem;
+    background: rgba(83, 197, 224, .15);
+    color: var(--lp-accent-l);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.lp-card-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.lp-card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.75rem;
+}
+
+.lp-card-text {
+    color: var(--lp-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.lp-card-link {
+    color: var(--lp-accent-l);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.lp-card-link:hover {
+    color: #c4b5fd;
+}
+
+/* ==========================================================
+   TWO-COL FEATURE
+   ========================================================== */
+.lp-two-col {
     display: grid;
     grid-template-columns: 1fr;
     gap: 4rem;
