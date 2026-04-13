@@ -154,9 +154,9 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         min-height: 64px;
         padding: 12px 14px 12px 72px !important;
         margin-bottom: 8px;
-        position: sticky;
-        top: 0;
-        z-index: 900;
+        position: static;
+        top: auto;
+        z-index: auto;
         background: #fff;
         box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95);
     }

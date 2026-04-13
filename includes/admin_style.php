@@ -1169,9 +1169,9 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             min-height: 64px !important;
             padding: 12px 14px 12px 72px !important;
             margin-bottom: 8px !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 900 !important;
+            position: static !important;
+            top: auto !important;
+            z-index: auto !important;
             background: #fff !important;
             box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95) !important;
         }
