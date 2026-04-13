@@ -229,7 +229,7 @@ require_once __DIR__ . '/../includes/db.php';
                 <div style="width:4rem; height:4rem; border-radius:50%; background:rgba(83,197,224,.15); border:2px solid rgba(83,197,224,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; position:relative; z-index:1;">
                     <span style="font-size:1.25rem; font-weight:800; color:var(--lp-accent-l);">01</span>
                 </div>
-                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Choose a Service</h4>
+                <h4 class="lp-services-step-title" style="font-size:1.0625rem; font-weight:700; color:#ffffff !important; margin-bottom:.6rem;">Choose a Service</h4>
                 <p style="font-size:.9rem; color:#475569; line-height:1.6;">Browse our catalog and select the product or service that fits your needs. Filter by category, size, or printing method.</p>
             </div>
 
@@ -238,7 +238,7 @@ require_once __DIR__ . '/../includes/db.php';
                 <div style="width:4rem; height:4rem; border-radius:50%; background:rgba(83,197,224,.15); border:2px solid rgba(83,197,224,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; position:relative; z-index:1;">
                     <span style="font-size:1.25rem; font-weight:800; color:var(--lp-accent-l);">02</span>
                 </div>
-                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Upload Your Design</h4>
+                <h4 class="lp-services-step-title" style="font-size:1.0625rem; font-weight:700; color:#ffffff !important; margin-bottom:.6rem;">Upload Your Design</h4>
                 <p style="font-size:.9rem; color:#475569; line-height:1.6;">Upload your artwork or brief our design team. We accept PDF, PNG, AI, PSD, and most standard print formats.</p>
             </div>
 
@@ -247,7 +247,7 @@ require_once __DIR__ . '/../includes/db.php';
                 <div style="width:4rem; height:4rem; border-radius:50%; background:rgba(83,197,224,.15); border:2px solid rgba(83,197,224,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; position:relative; z-index:1;">
                     <span style="font-size:1.25rem; font-weight:800; color:var(--lp-accent-l);">03</span>
                 </div>
-                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Review & Confirm</h4>
+                <h4 class="lp-services-step-title" style="font-size:1.0625rem; font-weight:700; color:#ffffff !important; margin-bottom:.6rem;">Review & Confirm</h4>
                 <p style="font-size:.9rem; color:#475569; line-height:1.6;">We send a proof for your approval. Once confirmed, our production team gets to work immediately.</p>
             </div>
 
@@ -256,7 +256,7 @@ require_once __DIR__ . '/../includes/db.php';
                 <div style="width:4rem; height:4rem; border-radius:50%; background:rgba(83,197,224,.15); border:2px solid rgba(83,197,224,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; position:relative; z-index:1;">
                     <span style="font-size:1.25rem; font-weight:800; color:var(--lp-accent-l);">04</span>
                 </div>
-                <h4 style="font-size:1.0625rem; font-weight:700; color:#1e293b; margin-bottom:.6rem;">Pick Up Your Order</h4>
+                <h4 class="lp-services-step-title" style="font-size:1.0625rem; font-weight:700; color:#ffffff !important; margin-bottom:.6rem;">Pick Up Your Order</h4>
                 <p style="font-size:.9rem; color:#475569; line-height:1.6;">Once your order is ready, we'll notify you so you can pick it up at the shop at your convenience.</p>
             </div>
 

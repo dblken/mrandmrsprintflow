@@ -529,6 +529,15 @@ body.lp-page {
 .lp-section-light .lp-list-desc {
     color: #c7d2e0;
 }
+.lp-section-light .lp-services-step-title {
+    color: #fff !important;
+}
+.lp-section-light .lp-services-steps h4 {
+    color: #fff !important;
+}
+.lp-section-light .lp-services-steps p {
+    color: #c7d2e0 !important;
+}
 
 /* ---------- headings ---------- */
 .lp-heading-wrap {
@@ -1681,4 +1690,13 @@ body.lp-page {
     .lp-services-feature-stats p {
         overflow-wrap: anywhere !important;
     }
+}
+
+
+/* Force white color for step titles */
+.lp-services-steps h4 {
+    color: #ffffff !important;
+}
+.lp-services-step-title {
+    color: #ffffff !important;
 }
