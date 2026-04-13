@@ -245,70 +245,70 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
 }
 
 /* ============================================
-   TABLES MOBILE - CARD LAYOUT
+   TABLES MOBILE - HORIZONTAL SCROLL
    ============================================ */
 @media (max-width: 768px) {
-    /* Hide table headers on mobile */
+    .overflow-x-auto,
+    .table-responsive,
+    [id$="TableContainer"],
+    [class*="table-wrap"],
+    .card:has(table),
+    .dash-card:has(table) {
+        overflow-x: auto !important;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+
+    table {
+        display: table !important;
+        width: max-content !important;
+        min-width: max(720px, 100%) !important;
+        max-width: none !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
     table thead {
-        display: none;
+        display: table-header-group !important;
     }
-    
-    /* Convert table to card layout */
+
     table tbody {
-        display: block;
+        display: table-row-group !important;
     }
-    
+
     table tr {
-        display: block;
-        margin-bottom: 16px;
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        display: table-row !important;
+        margin-bottom: 0 !important;
+        background: transparent;
+        border: 0 !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
     }
-    
+
+    table th,
     table td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0 !important;
+        display: table-cell !important;
+        padding: 12px 14px !important;
         border-bottom: 1px solid #f3f4f6 !important;
-        text-align: left !important;
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
     }
-    
+
+    table td:before {
+        content: none !important;
+        display: none !important;
+    }
+
     table td:last-child {
-        border-bottom: none !important;
         padding-top: 12px !important;
     }
-    
-    /* Add labels before each cell */
-    table td:before {
-        content: attr(data-label);
-        font-weight: 600;
-        font-size: 12px;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        flex-shrink: 0;
-        margin-right: 12px;
-    }
-    
-    /* Action buttons in mobile cards */
-    table td:last-child {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
+
     table td:last-child a,
     table td:last-child button {
-        width: 100%;
-        text-align: center;
-    }
-    
-    /* Table wrapper */
-    .table-responsive {
-        overflow-x: visible !important;
+        width: auto !important;
     }
 }
 
