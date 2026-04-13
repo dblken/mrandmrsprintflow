@@ -1498,15 +1498,16 @@ a.export-dd-link:hover { background: #f9fafb; }
         -webkit-overflow-scrolling: touch;
     }
     .pf-wide-chart-canvas {
-        width: 720px !important;
-        min-width: 720px !important;
+        width: 820px !important;
+        min-width: 820px !important;
+        max-width: none !important;
         height: 100% !important;
     }
     .pf-wide-chart-canvas canvas,
     #dash-sales-chart-wrap canvas,
     .ana-card .trend12-chart canvas {
-        min-width: 720px !important;
-        width: 720px !important;
+        min-width: 820px !important;
+        width: 820px !important;
         max-width: none !important;
     }
 }

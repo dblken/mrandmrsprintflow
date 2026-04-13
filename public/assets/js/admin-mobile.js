@@ -176,6 +176,14 @@
         
         const tables = document.querySelectorAll('table');
         tables.forEach(table => {
+            const scrollWrapperSelector = '.pf-table-scroll, .overflow-x-auto, .table-responsive, [id$="TableContainer"], [class*="table-wrap"]';
+            if (!table.closest(scrollWrapperSelector) && table.parentNode) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'pf-table-scroll';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            }
+
             const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
             const rows = table.querySelectorAll('tbody tr');
             
@@ -189,16 +197,89 @@
             });
         });
     }
+
+    function getAdminScroller() {
+        return document.querySelector('.main-content') || window;
+    }
+
+    function getScrollerTop(scroller) {
+        if (scroller === window) {
+            return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        }
+        return scroller.scrollTop || 0;
+    }
+
+    function scrollScrollerToTop(scroller) {
+        if (scroller === window) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        scroller.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function initAdminScrollTop() {
+        let button = document.getElementById('adminScrollTop');
+
+        if (!isMobile()) {
+            if (button) button.classList.add('pf-admin-scroll-top-hidden');
+            return;
+        }
+
+        if (!button) {
+            button = document.createElement('button');
+            button.id = 'adminScrollTop';
+            button.className = 'pf-admin-scroll-top pf-admin-scroll-top-hidden';
+            button.type = 'button';
+            button.setAttribute('aria-label', 'Scroll to top');
+            button.setAttribute('aria-hidden', 'true');
+            button.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>';
+            document.body.appendChild(button);
+        }
+
+        const scroller = getAdminScroller();
+        const hide = () => {
+            button.classList.add('pf-admin-scroll-top-hidden');
+            button.setAttribute('aria-hidden', 'true');
+        };
+        const showWhileScrolling = () => {
+            window.clearTimeout(button._pfHideTimer);
+            if (getScrollerTop(scroller) > 180) {
+                button.classList.remove('pf-admin-scroll-top-hidden');
+                button.setAttribute('aria-hidden', 'false');
+                button._pfHideTimer = window.setTimeout(hide, 1200);
+            } else {
+                hide();
+            }
+        };
+
+        if (button._pfScrollTarget && button._pfScrollHandler) {
+            button._pfScrollTarget.removeEventListener('scroll', button._pfScrollHandler);
+        }
+
+        button._pfScrollTarget = scroller;
+        button._pfScrollHandler = showWhileScrolling;
+        scroller.addEventListener('scroll', showWhileScrolling, { passive: true });
+
+        button.onclick = (e) => {
+            e.preventDefault();
+            scrollScrollerToTop(scroller);
+            hide();
+        };
+
+        hide();
+    }
     
     // Initialize on load
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             initMobileMenu();
             enhanceTables();
+            initAdminScrollTop();
         });
     } else {
         initMobileMenu();
         enhanceTables();
+        initAdminScrollTop();
     }
     
     // Re-initialize on window resize
@@ -209,15 +290,18 @@
             if (isMobile()) {
                 initMobileMenu();
                 enhanceTables();
+                initAdminScrollTop();
             } else {
                 // Clean up mobile elements on desktop
                 const burger = document.getElementById('mobileBurger');
                 const overlay = document.getElementById('sidebarOverlay');
                 const sidebar = document.querySelector('.sidebar');
+                const scrollTop = document.getElementById('adminScrollTop');
                 
                 if (burger) burger.style.display = 'none';
                 if (overlay) overlay.classList.remove('active');
                 if (sidebar) sidebar.classList.remove('active');
+                if (scrollTop) scrollTop.classList.add('pf-admin-scroll-top-hidden');
                 document.body.style.overflow = '';
             }
         }, 250);
@@ -227,6 +311,7 @@
     document.addEventListener('turbo:load', () => {
         initMobileMenu();
         enhanceTables();
+        initAdminScrollTop();
     });
     
 })();

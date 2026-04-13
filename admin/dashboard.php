@@ -569,15 +569,16 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 -webkit-overflow-scrolling:touch;
             }
             .pf-wide-chart-canvas {
-                width:720px !important;
-                min-width:720px !important;
+                width:820px !important;
+                min-width:820px !important;
+                max-width:none !important;
                 height:100% !important;
             }
             .pf-wide-chart-canvas canvas,
             #dash-sales-chart-wrap canvas,
             .trend12-chart canvas {
-                min-width:720px !important;
-                width:720px !important;
+                min-width:820px !important;
+                width:820px !important;
                 max-width:none !important;
             }
             .dash-card > div[style*="height:240px"] {

@@ -821,6 +821,10 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         display: block;
     }
 
+    .pf-admin-scroll-top {
+        display: none;
+    }
+
     .stat-label {
         color: #00232b;
         font-weight: 600;
@@ -1167,8 +1171,9 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             margin-bottom: 8px !important;
             position: sticky !important;
             top: 0 !important;
-            z-index: 80 !important;
+            z-index: 900 !important;
             background: #fff !important;
+            box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95) !important;
         }
         .main-content > header.pf-mobile-shell-header,
         .main-content > .top-bar.pf-mobile-shell-header {
@@ -1256,10 +1261,9 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         }
         .overflow-x-auto,
         .table-responsive,
+        .pf-table-scroll,
         [id$="TableContainer"],
-        [class*="table-wrap"],
-        .card:has(table),
-        .dash-card:has(table) {
+        [class*="table-wrap"] {
             overflow-x: auto !important;
             overflow-y: visible !important;
             -webkit-overflow-scrolling: touch;
@@ -1330,6 +1334,81 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             overflow: hidden !important;
             text-overflow: ellipsis !important;
         }
+        .modal,
+        .modal-overlay,
+        #product-modal-overlay,
+        #view-product-modal-overlay,
+        #service-modal-overlay,
+        #view-service-modal-overlay,
+        #archive-storage-overlay,
+        #items-archive-storage-overlay,
+        .cropper-modal-overlay,
+        .upload-modal-overlay,
+        .view-picture-modal {
+            align-items: flex-start !important;
+            justify-content: center !important;
+            overflow-y: auto !important;
+            padding: 12px !important;
+            z-index: 11000 !important;
+        }
+        .modal-content,
+        .modal-dialog,
+        #product-modal,
+        #view-product-modal,
+        #service-modal,
+        #view-service-modal,
+        #archive-storage-modal,
+        #items-archive-storage-modal,
+        .cropper-modal-panel,
+        .upload-modal {
+            width: min(100%, 560px) !important;
+            max-width: calc(100vw - 24px) !important;
+            margin: 64px auto 24px !important;
+            border-radius: 8px !important;
+            min-height: auto !important;
+            max-height: calc(100dvh - 88px) !important;
+            overflow-y: auto !important;
+            z-index: 11010 !important;
+        }
+        .branch-dropdown,
+        .sort-dropdown,
+        .export-dropdown-wide,
+        .dropdown-menu,
+        [data-pf-profile-menu],
+        [data-pf-notif-menu] {
+            z-index: 11020 !important;
+            max-width: calc(100vw - 24px) !important;
+        }
+        .main-content > header .branch-dropdown,
+        .main-content > .top-bar .branch-dropdown {
+            right: 0 !important;
+            left: auto !important;
+        }
+        .pf-admin-scroll-top {
+            position: fixed !important;
+            right: 14px !important;
+            bottom: 14px !important;
+            z-index: 880 !important;
+            width: 42px !important;
+            height: 42px !important;
+            border: 1px solid rgba(13, 148, 136, 0.35) !important;
+            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #0f172a !important;
+            color: #ffffff !important;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22) !important;
+            cursor: pointer !important;
+            opacity: 1 !important;
+            transform: translateY(0) scale(1) !important;
+            transition: opacity 0.22s ease, transform 0.22s ease !important;
+        }
+        .pf-admin-scroll-top-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: translateY(12px) scale(0.94) !important;
+        }
         #dash-sales-chart-wrap,
         .trend12-chart {
             overflow-x: auto !important;
@@ -1337,15 +1416,16 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             -webkit-overflow-scrolling: touch;
         }
         .pf-wide-chart-canvas {
-            width: 720px !important;
-            min-width: 720px !important;
+            width: 820px !important;
+            min-width: 820px !important;
+            max-width: none !important;
             height: 100% !important;
         }
         .pf-wide-chart-canvas canvas,
         #dash-sales-chart-wrap canvas,
         .trend12-chart canvas {
-            min-width: 720px !important;
-            width: 720px !important;
+            min-width: 820px !important;
+            width: 820px !important;
             max-width: none !important;
         }
     }
