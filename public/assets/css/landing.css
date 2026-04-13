@@ -1619,4 +1619,66 @@ body.lp-page {
         width: 20px !important;
         height: 20px !important;
     }
+
+    /* Services page: keep dense content inside narrow mobile viewports */
+    .lp-services-hero-actions {
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    .lp-services-hero-actions .lp-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+    }
+
+    .lp-services-quick-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 1.25rem .75rem !important;
+        margin-top: 2.5rem !important;
+        padding-top: 2rem !important;
+    }
+
+    .lp-services-grid,
+    .lp-services-steps,
+    .lp-services-tech-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 1rem !important;
+        width: 100% !important;
+    }
+
+    .lp-services-grid .lp-card,
+    .lp-services-grid .lp-card * {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .lp-services-grid .lp-card-link {
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+
+    .lp-services-feature-box {
+        border-radius: 1rem !important;
+    }
+
+    .lp-services-feature-box .lp-feature-box-title {
+        font-size: 1.25rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .lp-services-feature-stats {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: .75rem !important;
+        padding: 1rem !important;
+    }
+
+    .lp-services-feature-stats > div {
+        min-width: 0 !important;
+    }
+
+    .lp-services-feature-stats p {
+        overflow-wrap: anywhere !important;
+    }
 }

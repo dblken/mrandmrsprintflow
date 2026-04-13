@@ -32,7 +32,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:620px; margin:0 auto 2.5rem; line-height:1.7;">
                 From bold tarpaulins to crisp business cards — we handle every order with precision, speed, and craftsmanship you can trust.
             </p>
-            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <div class="lp-services-hero-actions" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
                 <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary">Browse All Products</a>
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-outline">Get Started Free</a>
@@ -40,7 +40,7 @@ require_once __DIR__ . '/../includes/db.php';
             </div>
 
             <!-- Quick stats bar -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1.5rem; margin-top:3.5rem; border-top:1px solid var(--lp-border); padding-top:2.5rem;">
+            <div class="lp-services-quick-stats" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1.5rem; margin-top:3.5rem; border-top:1px solid var(--lp-border); padding-top:2.5rem;">
                 <div style="text-align:center;">
                     <p style="font-size:1.875rem; font-weight:800; color:#fff; line-height:1; margin-bottom:.3rem;">500+</p>
                     <p style="font-size:.8125rem; color:var(--lp-muted);">Happy Clients</p>
@@ -73,7 +73,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-desc">Six dedicated service categories — each handled by specialists using the right technology for the job.</p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1.75rem;">
+        <div class="lp-services-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1.75rem;">
 
             <!-- Apparel -->
             <div class="lp-card" style="display:flex; flex-direction:column;">
@@ -222,7 +222,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-desc">Getting your prints has never been easier. Follow these four steps from inquiry to pickup.</p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:2rem; position:relative;">
+        <div class="lp-services-steps" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:2rem; position:relative;">
 
             <!-- Step 1 -->
             <div style="text-align:center; position:relative;">
@@ -273,11 +273,11 @@ require_once __DIR__ . '/../includes/db.php';
 
             <!-- Left: feature visual box -->
             <div class="lp-order-1">
-                <div class="lp-feature-box" style="padding-top: 0; padding-bottom: 2rem; overflow: hidden;">
+                <div class="lp-feature-box lp-services-feature-box" style="padding-top: 0; padding-bottom: 2rem; overflow: hidden;">
                     <img src="../uploads/designs/store_pict.jpg" alt="Our Store" class="lp-feature-box-image" style="width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 1.5rem; display: block;">
                     <h3 class="lp-feature-box-title" style="padding: 0 1.5rem;">Trusted Customer Support</h3>
                     <p style="font-size:.95rem; color:var(--lp-muted); margin-top:.75rem; line-height:1.6; padding: 0 1.5rem;">Every order undergoes a strict quality-check before it leaves our shop — or we reprint it at no extra cost.</p>
-                    <div style="display:flex; justify-content:center; gap:2rem; margin-top:2rem; padding: 1.5rem; border-top:1px solid var(--lp-border);">
+                    <div class="lp-services-feature-stats" style="display:flex; justify-content:center; gap:2rem; margin-top:2rem; padding: 1.5rem; border-top:1px solid var(--lp-border);">
                         <div style="text-align:center;">
                             <p style="font-size:1.5rem; font-weight:800; color:var(--lp-accent-l);">99%</p>
                             <p style="font-size:.8rem; color:var(--lp-muted);">Satisfaction rate</p>
@@ -349,7 +349,7 @@ require_once __DIR__ . '/../includes/db.php';
             <p class="lp-heading-label">Our Technology</p>
             <h2 class="lp-heading" style="font-size:1.875rem;">Powered by Professional Print Tech</h2>
         </div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1rem;">
+        <div class="lp-services-tech-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1rem;">
             <?php
             $techs = [
                 ['label'=>'DTF Printing',        'desc'=>'Direct-to-Film',          'color'=>'rgba(99,102,241,.15)',  'text'=>'#818cf8'],
