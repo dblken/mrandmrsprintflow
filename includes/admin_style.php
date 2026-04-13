@@ -1173,7 +1173,6 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             top: auto !important;
             z-index: auto !important;
             background: #fff !important;
-            box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95) !important;
         }
         .main-content > header.pf-mobile-shell-header,
         .main-content > .top-bar.pf-mobile-shell-header {
@@ -1316,11 +1315,35 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         .table-header,
         .section-header {
             min-width: 0 !important;
-            flex-wrap: nowrap !important;
+            flex-wrap: wrap !important;
+        }
+        .card:has(table) > div:first-child:not(.pf-table-scroll),
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll),
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll),
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll),
+        .table-header {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+            overflow: visible !important;
         }
         .dash-card-title,
         .card-title,
         .table-title,
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h1,
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h2,
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h3,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h1,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h2,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h3,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h1,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h2,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h3,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h1,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h2,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h3,
         .card-header h1,
         .card-header h2,
         .card-header h3,
@@ -1333,6 +1356,44 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+        }
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h1,
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h2,
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > h3,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h1,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h2,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h3,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h1,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h2,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > h3,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h1,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h2,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > h3 {
+            flex: 0 1 100% !important;
+            max-width: 100% !important;
+        }
+        .card:has(table) > div:first-child:not(.pf-table-scroll) > div,
+        .card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > div,
+        .dash-card:has(table) > div:first-child:not(.pf-table-scroll) > div,
+        .dash-card:has(.pf-table-scroll) > div:first-child:not(.pf-table-scroll) > div,
+        .table-header > div {
+            flex: 0 1 100% !important;
+            max-width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            overflow: visible !important;
+        }
+        .card:has(table) .toolbar-btn,
+        .card:has(.pf-table-scroll) .toolbar-btn,
+        .dash-card:has(table) .toolbar-btn,
+        .dash-card:has(.pf-table-scroll) .toolbar-btn,
+        .table-header .toolbar-btn {
+            flex: 0 1 auto !important;
+            max-width: 100% !important;
+            white-space: nowrap !important;
         }
         .modal,
         .modal-overlay,
