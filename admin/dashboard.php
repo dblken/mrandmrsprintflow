@@ -502,6 +502,18 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 border-radius:10px;
                 box-shadow:0 8px 26px rgba(15, 23, 42, 0.07);
             }
+            .dash-card-title {
+                flex-wrap:nowrap !important;
+                min-width:0;
+                white-space:nowrap;
+            }
+            .dash-card-title > span:first-child,
+            .chart-title-nowrap {
+                min-width:0;
+                white-space:nowrap !important;
+                overflow:hidden;
+                text-overflow:ellipsis;
+            }
             .chart-header-row {
                 flex-direction:row;
                 align-items:center;

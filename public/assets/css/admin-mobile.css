@@ -31,8 +31,8 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     /* Mobile Burger Menu */
     #mobileBurger {
         display: flex !important;
-        position: fixed;
-        top: 16px;
+        position: fixed !important;
+        top: 12px;
         left: 16px;
         z-index: 1010;
         width: 44px;
@@ -139,15 +139,61 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     }
     
     /* Mobile Page Header */
-    .top-bar, header {
-        padding: 16px !important;
+    .main-content > .top-bar,
+    .main-content > header {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 10px !important;
+        min-height: 64px;
+        padding: 12px 14px 12px 72px !important;
         margin-bottom: 8px;
-        position: relative;
+        position: sticky;
+        top: 0;
+        z-index: 80;
+        background: #fff;
     }
     
-    .page-title, h1 {
+    .main-content > .top-bar .page-title,
+    .main-content > .top-bar h1:first-child,
+    .main-content > header .page-title,
+    .main-content > header h1:first-child {
         font-size: 20px !important;
         padding-left: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        min-width: 0;
+        flex: 1 1 auto;
+        line-height: 1.2;
+    }
+
+    .main-content > .top-bar .branch-selector-wrap,
+    .main-content > header .branch-selector-wrap {
+        flex: 0 1 auto;
+        max-width: min(46vw, 190px);
+        margin-left: auto;
+    }
+
+    .main-content > .top-bar .branch-selector-btn,
+    .main-content > .top-bar .branch-selector-static,
+    .main-content > header .branch-selector-btn,
+    .main-content > header .branch-selector-static {
+        min-width: 0 !important;
+        width: 100%;
+        max-width: 190px;
+    }
+
+    .main-content > .top-bar #branchSelectorLabel,
+    .main-content > header #branchSelectorLabel,
+    .main-content > .top-bar .branch-selector-static span:last-child,
+    .main-content > header .branch-selector-static span:last-child {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
@@ -258,6 +304,7 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         overflow-y: visible;
         -webkit-overflow-scrolling: touch;
         max-width: 100%;
+        padding-bottom: 4px;
     }
 
     table {
@@ -297,6 +344,12 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         white-space: nowrap;
     }
 
+    table th:last-child,
+    table td:last-child {
+        padding-right: 18px !important;
+        border-right: 1px solid #f3f4f6 !important;
+    }
+
     table td:before {
         content: none !important;
         display: none !important;
@@ -309,6 +362,33 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     table td:last-child a,
     table td:last-child button {
         width: auto !important;
+    }
+
+    .dash-card-title,
+    .card-title,
+    .table-title,
+    .card-header,
+    .table-header,
+    .section-header {
+        min-width: 0;
+        flex-wrap: nowrap !important;
+    }
+
+    .dash-card-title,
+    .card-title,
+    .table-title,
+    .card-header h1,
+    .card-header h2,
+    .card-header h3,
+    .table-header h1,
+    .table-header h2,
+    .table-header h3,
+    .section-header h1,
+    .section-header h2,
+    .section-header h3 {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 }
 

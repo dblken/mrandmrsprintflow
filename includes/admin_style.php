@@ -1110,7 +1110,61 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         }
         #mobileBurger {
             display: flex !important;
+            position: fixed !important;
+            top: 12px !important;
+            left: 16px !important;
             z-index: 1010 !important;
+        }
+        .main-content > header,
+        .main-content > .top-bar {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+            min-height: 64px !important;
+            padding: 12px 14px 12px 72px !important;
+            margin-bottom: 8px !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 80 !important;
+            background: #fff !important;
+        }
+        .main-content > header .page-title,
+        .main-content > header h1:first-child,
+        .main-content > .top-bar .page-title,
+        .main-content > .top-bar h1:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            padding-left: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1.2 !important;
+        }
+        .main-content > header .branch-selector-wrap,
+        .main-content > .top-bar .branch-selector-wrap {
+            flex: 0 1 auto !important;
+            max-width: min(46vw, 190px) !important;
+            margin-left: auto !important;
+        }
+        .main-content > header .branch-selector-btn,
+        .main-content > header .branch-selector-static,
+        .main-content > .top-bar .branch-selector-btn,
+        .main-content > .top-bar .branch-selector-static {
+            min-width: 0 !important;
+            width: 100% !important;
+            max-width: 190px !important;
+        }
+        .main-content > header #branchSelectorLabel,
+        .main-content > .top-bar #branchSelectorLabel,
+        .main-content > header .branch-selector-static span:last-child,
+        .main-content > .top-bar .branch-selector-static span:last-child {
+            min-width: 0 !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
         }
         #sidebarOverlay {
             z-index: 990 !important;
@@ -1127,6 +1181,82 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         .kpi-row {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             gap: 12px !important;
+        }
+        .overflow-x-auto,
+        .table-responsive,
+        [id$="TableContainer"],
+        [class*="table-wrap"],
+        .card:has(table),
+        .dash-card:has(table) {
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100% !important;
+            padding-bottom: 4px;
+        }
+        table {
+            display: table !important;
+            width: max-content !important;
+            min-width: max(720px, 100%) !important;
+            max-width: none !important;
+        }
+        table thead { display: table-header-group !important; }
+        table tbody { display: table-row-group !important; }
+        table tr {
+            display: table-row !important;
+            margin-bottom: 0 !important;
+            background: transparent;
+            border: 0 !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }
+        table th,
+        table td {
+            display: table-cell !important;
+            padding: 12px 14px !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+            text-align: left;
+            vertical-align: middle;
+            white-space: nowrap !important;
+        }
+        table th:last-child,
+        table td:last-child {
+            padding-right: 18px !important;
+            border-right: 1px solid #f3f4f6 !important;
+        }
+        table td::before {
+            content: none !important;
+            display: none !important;
+        }
+        table td:last-child a,
+        table td:last-child button {
+            width: auto !important;
+        }
+        .dash-card-title,
+        .card-title,
+        .table-title,
+        .card-header,
+        .table-header,
+        .section-header {
+            min-width: 0 !important;
+            flex-wrap: nowrap !important;
+        }
+        .dash-card-title,
+        .card-title,
+        .table-title,
+        .card-header h1,
+        .card-header h2,
+        .card-header h3,
+        .table-header h1,
+        .table-header h2,
+        .table-header h3,
+        .section-header h1,
+        .section-header h2,
+        .section-header h3 {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
     }
 </style>
