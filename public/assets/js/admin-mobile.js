@@ -67,6 +67,7 @@
         } else {
             burger.style.display = 'flex';
         }
+        burger.removeAttribute('onclick');
         
         // Create overlay if it doesn't exist
         let overlay = document.getElementById('sidebarOverlay');
@@ -76,6 +77,7 @@
             document.body.appendChild(overlay);
         }
         overlay.style.display = 'block';
+        overlay.removeAttribute('onclick');
         
         const sidebar = document.querySelector('.sidebar');
         
@@ -122,10 +124,12 @@
         
         // Remove old event listeners by cloning
         const newBurger = burger.cloneNode(true);
+        newBurger.removeAttribute('onclick');
         burger.parentNode.replaceChild(newBurger, burger);
         burger = newBurger;
         
         const newOverlay = overlay.cloneNode(true);
+        newOverlay.removeAttribute('onclick');
         overlay.parentNode.replaceChild(newOverlay, overlay);
         overlay = newOverlay;
         

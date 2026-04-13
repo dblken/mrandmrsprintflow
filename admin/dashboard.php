@@ -420,6 +420,102 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
         /* 12-Month Trend */
         .trend12-chart { height:280px; }
+
+        @media (max-width:768px) {
+            header {
+                flex-direction:column;
+                align-items:stretch;
+                gap:12px;
+            }
+            .kpi-row {
+                grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+                gap:12px !important;
+            }
+            .kpi-card {
+                min-width:0;
+                padding:14px 12px !important;
+                border-radius:10px;
+            }
+            .kpi-card--link .kpi-card-inner {
+                padding-bottom:0;
+            }
+            .kpi-label {
+                font-size:10px;
+                line-height:1.2;
+                letter-spacing:.03em;
+                overflow-wrap:anywhere;
+            }
+            .kpi-value {
+                font-size:clamp(20px, 5.2vw, 24px);
+                line-height:1.15;
+                overflow-wrap:anywhere;
+            }
+            .kpi-sub {
+                font-size:11px;
+                line-height:1.3;
+                overflow-wrap:anywhere;
+            }
+            .kpi-card-cta {
+                position:static;
+                display:block;
+                margin-top:8px;
+                line-height:1.2;
+            }
+            .dash-grid {
+                gap:14px;
+                margin-bottom:18px;
+            }
+            .dash-card {
+                min-width:0;
+                padding:16px !important;
+                overflow:hidden;
+            }
+            .chart-header-row {
+                flex-direction:column;
+                align-items:flex-start;
+                flex-wrap:wrap;
+            }
+            .chart-title-nowrap {
+                white-space:normal;
+                min-width:0;
+            }
+            .chart-filters {
+                width:100%;
+                flex-wrap:wrap;
+                gap:8px;
+            }
+            .chart-filter-group {
+                flex:1 1 100%;
+                flex-wrap:wrap;
+            }
+            .chart-select {
+                flex:1 1 130px;
+                min-width:0;
+            }
+            .chart-wrap,
+            .rev-donut-chart,
+            .products-chart,
+            .trend12-chart {
+                max-width:100%;
+                overflow:hidden;
+            }
+            .mini-table td {
+                min-width:0;
+                overflow-wrap:anywhere;
+            }
+            .stock-bar {
+                max-width:100%;
+            }
+        }
+
+        @media (max-width:420px) {
+            .kpi-card {
+                padding:12px 10px !important;
+            }
+            .kpi-value {
+                font-size:clamp(18px, 5vw, 22px);
+            }
+        }
     </style>
 </head>
 <body>

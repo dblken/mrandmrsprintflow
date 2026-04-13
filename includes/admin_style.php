@@ -307,14 +307,32 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
     }
     @media (max-width: 768px) {
         .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: 1fr; }
-        .main-content { margin-left: 0; padding-top: 0; }
-        .sidebar { transform: translateX(-100%); }
-        .sidebar.active { transform: translateX(0); box-shadow: 4px 0 15px rgba(0,0,0,0.2); }
-        .sidebar.collapsed { width: 240px; }
+        .dashboard-container { display: block; height: 100dvh; overflow: hidden; }
+        .main-content {
+            margin-left: 0 !important;
+            padding-top: 64px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            height: 100dvh !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        .sidebar {
+            width: min(86vw, 300px) !important;
+            max-width: 320px !important;
+            transform: translateX(-105%);
+            z-index: 1000;
+            box-shadow: none;
+        }
+        .sidebar.active {
+            transform: translateX(0);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.32);
+        }
+        .sidebar.collapsed { width: min(86vw, 300px) !important; }
         .sidebar.collapsed.active { transform: translateX(0); }
         html.sidebar-preload-collapsed aside.sidebar,
         body.sidebar-collapsed aside.sidebar {
-            width: 240px !important;
+            width: min(86vw, 300px) !important;
         }
         html.sidebar-preload-collapsed .main-content,
         body.sidebar-collapsed .main-content {
@@ -328,22 +346,22 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
         .sidebar-collapse-btn { display: none; }
         
         /* Ensure proper z-index stacking */
-        .sidebar { z-index: 100; }
-        #mobileBurger { z-index: 101; }
-        #sidebarOverlay { z-index: 90; }
+        .sidebar { z-index: 1020; }
+        #mobileBurger { z-index: 1010; }
+        #sidebarOverlay { z-index: 990; }
         
         /* Adjust content padding for mobile */
         .content-area, main { padding: 16px; }
         .top-bar, header { padding: 16px; margin-bottom: 8px; }
         
-        /* Add top padding to headers to avoid burger overlap */
-        .page-title, h1 { padding-left: 60px; }
+        /* Header sits below the fixed burger on mobile */
+        .page-title, h1 { padding-left: 0; }
         
         /* Make tables horizontally scrollable */
         .overflow-x-auto { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         
         /* Adjust KPI grid for mobile */
-        .kpi-row { grid-template-columns: 1fr; gap: 12px; }
+        .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px; }
     }
 
     /* Sidebar — full dark theme */
@@ -1042,6 +1060,67 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
         background: #ef4444;
         color: white !important;
         transform: translateY(-1px);
+    }
+
+    /*
+     * Final mobile shell overrides.
+     * These sit after the base sidebar rules because the base fixed-sidebar
+     * transform/z-index declarations otherwise win in the cascade on mobile.
+     */
+    @media (max-width: 768px) {
+        .dashboard-container {
+            display: block !important;
+            height: 100dvh !important;
+            overflow: hidden !important;
+        }
+        .main-content {
+            margin-left: 0 !important;
+            padding-top: 64px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            height: 100dvh !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        aside.sidebar,
+        html.sidebar-preload-collapsed aside.sidebar,
+        body.sidebar-collapsed aside.sidebar,
+        aside.sidebar.collapsed {
+            width: min(86vw, 300px) !important;
+            max-width: 320px !important;
+            transform: translateX(-105%) !important;
+            z-index: 1020 !important;
+            box-shadow: none !important;
+        }
+        aside.sidebar.active,
+        aside.sidebar.collapsed.active {
+            transform: translateX(0) !important;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.32) !important;
+        }
+        html.sidebar-preload-collapsed .main-content,
+        body.sidebar-collapsed .main-content {
+            margin-left: 0 !important;
+        }
+        #mobileBurger {
+            display: flex !important;
+            z-index: 1010 !important;
+        }
+        #sidebarOverlay {
+            z-index: 990 !important;
+            pointer-events: none;
+        }
+        #sidebarOverlay.active {
+            display: block !important;
+            pointer-events: auto;
+        }
+        .sidebar-collapse-btn,
+        #global-sidebar-toggle {
+            display: none !important;
+        }
+        .kpi-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+        }
     }
 </style>
 <script>
