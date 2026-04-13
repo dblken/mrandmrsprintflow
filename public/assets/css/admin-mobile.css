@@ -162,6 +162,7 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
 
     .main-content > .top-bar.pf-mobile-shell-header,
     .main-content > header.pf-mobile-shell-header {
+        flex-wrap: wrap !important;
         padding-left: 14px !important;
     }
 
@@ -192,8 +193,10 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
 
     .main-content > .top-bar .branch-selector-wrap,
     .main-content > header .branch-selector-wrap {
-        flex: 0 0 auto;
-        max-width: min(44vw, 190px);
+        display: flex;
+        justify-content: flex-end;
+        flex: 0 0 100%;
+        max-width: 100%;
         margin-left: auto;
     }
 
@@ -202,7 +205,7 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     .main-content > header .branch-selector-btn,
     .main-content > header .branch-selector-static {
         min-width: 0 !important;
-        width: 100%;
+        width: auto;
         max-width: 190px;
     }
 
@@ -314,6 +317,27 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     /* Chart Container */
     .card:has(.chart-wrap) {
         padding: 16px !important;
+    }
+
+    #dash-sales-chart-wrap,
+    .trend12-chart {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .pf-wide-chart-canvas {
+        width: 720px !important;
+        min-width: 720px !important;
+        height: 100% !important;
+    }
+
+    .pf-wide-chart-canvas canvas,
+    #dash-sales-chart-wrap canvas,
+    .trend12-chart canvas {
+        min-width: 720px !important;
+        width: 720px !important;
+        max-width: none !important;
     }
 }
 

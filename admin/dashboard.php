@@ -426,8 +426,9 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 flex-direction:row;
                 align-items:center;
                 justify-content:space-between;
+                flex-wrap:wrap !important;
                 gap:10px;
-                padding:16px 16px 16px 72px !important;
+                padding:12px 14px !important;
                 min-height:64px;
             }
             header .page-title {
@@ -441,13 +442,15 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             }
             header .branch-selector-wrap {
                 margin-left:auto;
-                flex:0 0 auto;
-                max-width:min(44vw, 180px);
+                display:flex;
+                justify-content:flex-end;
+                flex:0 0 100%;
+                max-width:100%;
             }
             header .branch-selector-btn,
             header .branch-selector-static {
                 min-width:0;
-                width:100%;
+                width:auto;
                 max-width:180px;
                 padding:7px 10px;
             }
@@ -559,6 +562,24 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 width:100% !important;
                 max-width:100% !important;
             }
+            #dash-sales-chart-wrap,
+            .trend12-chart {
+                overflow-x:auto !important;
+                overflow-y:hidden !important;
+                -webkit-overflow-scrolling:touch;
+            }
+            .pf-wide-chart-canvas {
+                width:720px !important;
+                min-width:720px !important;
+                height:100% !important;
+            }
+            .pf-wide-chart-canvas canvas,
+            #dash-sales-chart-wrap canvas,
+            .trend12-chart canvas {
+                min-width:720px !important;
+                width:720px !important;
+                max-width:none !important;
+            }
             .dash-card > div[style*="height:240px"] {
                 height:280px !important;
             }
@@ -587,7 +608,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 padding-right:12px !important;
             }
             header .branch-selector-wrap {
-                max-width:46vw;
+                max-width:100%;
             }
             header .branch-selector-btn,
             header .branch-selector-static {
@@ -717,7 +738,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                             <span>No sales data for this period</span>
                         </div>
-                        <canvas id="salesChart"></canvas>
+                        <div class="pf-wide-chart-canvas"><canvas id="salesChart"></canvas></div>
                     </div>
                 </div>
 
@@ -922,7 +943,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                     12-Month Sales Trend
                 </div>
-                <div class="trend12-chart"><canvas id="trend12Chart"></canvas></div>
+                <div class="trend12-chart"><div class="pf-wide-chart-canvas"><canvas id="trend12Chart"></canvas></div></div>
             </div>
 
             <!-- Recent Orders (Full Width) -->

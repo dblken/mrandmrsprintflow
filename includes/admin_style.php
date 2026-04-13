@@ -811,6 +811,16 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         display: block !important;
     }
 
+    .pf-wide-chart-canvas {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+    }
+    .pf-wide-chart-canvas canvas {
+        display: block;
+    }
+
     .stat-label {
         color: #00232b;
         font-weight: 600;
@@ -1162,6 +1172,7 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         }
         .main-content > header.pf-mobile-shell-header,
         .main-content > .top-bar.pf-mobile-shell-header {
+            flex-wrap: wrap !important;
             padding-left: 14px !important;
         }
         .main-content > header.pf-mobile-shell-header > #mobileBurger,
@@ -1188,8 +1199,10 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         }
         .main-content > header .branch-selector-wrap,
         .main-content > .top-bar .branch-selector-wrap {
-            flex: 0 0 auto !important;
-            max-width: min(44vw, 190px) !important;
+            display: flex !important;
+            justify-content: flex-end !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
             margin-left: auto !important;
         }
         .main-content > header .branch-selector-btn,
@@ -1197,7 +1210,7 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         .main-content > .top-bar .branch-selector-btn,
         .main-content > .top-bar .branch-selector-static {
             min-width: 0 !important;
-            width: 100% !important;
+            width: auto !important;
             max-width: 190px !important;
         }
         .main-content > header #branchSelectorLabel,
@@ -1316,6 +1329,24 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+        }
+        #dash-sales-chart-wrap,
+        .trend12-chart {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        .pf-wide-chart-canvas {
+            width: 720px !important;
+            min-width: 720px !important;
+            height: 100% !important;
+        }
+        .pf-wide-chart-canvas canvas,
+        #dash-sales-chart-wrap canvas,
+        .trend12-chart canvas {
+            min-width: 720px !important;
+            width: 720px !important;
+            max-width: none !important;
         }
     }
 </style>
