@@ -68,6 +68,12 @@
             burger.style.display = 'flex';
         }
         burger.removeAttribute('onclick');
+        const pageHeader = document.querySelector('.main-content > header, .main-content > .top-bar');
+        if (pageHeader && !pageHeader.contains(burger)) {
+            pageHeader.insertBefore(burger, pageHeader.firstChild);
+            pageHeader.classList.add('pf-mobile-shell-header');
+            document.body.classList.add('pf-burger-in-header');
+        }
         
         // Create overlay if it doesn't exist
         let overlay = document.getElementById('sidebarOverlay');

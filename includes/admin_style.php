@@ -735,6 +735,16 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         position: relative;
         overflow: hidden;
     }
+    .kpi-card,
+    .stat-card,
+    .kpi-card-v2 {
+        min-width: 0 !important;
+    }
+    .kpi-card *,
+    .stat-card *,
+    .kpi-card-v2 * {
+        min-width: 0;
+    }
     .stats-grid .stat-card::before,
     .stat-card:not(.no-stat-accent)::before {
         content: '';
@@ -753,35 +763,51 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
      * stable on first paint and across navigations.
      */
     .kpi-value {
-        font-size: clamp(20px, 3.5vw, 26px);
+        font-size: 26px !important;
         font-weight: 800 !important;
         color: #1f2937;
         font-variant-numeric: tabular-nums;
-        white-space: nowrap !important;
+        line-height: 1.15 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word;
         display: block !important;
     }
     .stats-grid .stat-value,
     .stat-card > .stat-value {
-        font-size: clamp(22px, 4vw, 32px);
+        font-size: 32px !important;
         font-weight: 800 !important;
         color: #1f2937;
         font-variant-numeric: tabular-nums;
+        line-height: 1.15 !important;
         margin-bottom: 4px;
-        white-space: nowrap !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word;
         display: block !important;
     }
     .report-summary .summary-box .value {
-        font-size: clamp(18px, 3vw, 24px);
+        font-size: 24px !important;
         font-weight: 800 !important;
         color: #1f2937;
         font-variant-numeric: tabular-nums;
-        white-space: nowrap !important;
+        line-height: 1.15 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word;
         display: block !important;
     }
     .inv-summary-card .value {
         font-weight: 800 !important;
         font-variant-numeric: tabular-nums;
-        white-space: nowrap !important;
+        line-height: 1.15 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word;
         display: block !important;
     }
 
@@ -1089,6 +1115,9 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             overflow-y: auto !important;
             overflow-x: hidden !important;
         }
+        body.pf-burger-in-header .main-content {
+            padding-top: 0 !important;
+        }
         aside.sidebar,
         html.sidebar-preload-collapsed aside.sidebar,
         body.sidebar-collapsed aside.sidebar,
@@ -1131,11 +1160,25 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             z-index: 80 !important;
             background: #fff !important;
         }
+        .main-content > header.pf-mobile-shell-header,
+        .main-content > .top-bar.pf-mobile-shell-header {
+            padding-left: 14px !important;
+        }
+        .main-content > header.pf-mobile-shell-header > #mobileBurger,
+        .main-content > .top-bar.pf-mobile-shell-header > #mobileBurger {
+            position: static !important;
+            top: auto !important;
+            left: auto !important;
+            flex: 0 0 44px !important;
+            width: 44px !important;
+            height: 44px !important;
+            z-index: 1 !important;
+        }
         .main-content > header .page-title,
         .main-content > header h1:first-child,
         .main-content > .top-bar .page-title,
         .main-content > .top-bar h1:first-child {
-            flex: 1 1 auto !important;
+            flex: 1 1 0 !important;
             min-width: 0 !important;
             padding-left: 0 !important;
             white-space: nowrap !important;
@@ -1145,8 +1188,8 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         }
         .main-content > header .branch-selector-wrap,
         .main-content > .top-bar .branch-selector-wrap {
-            flex: 0 1 auto !important;
-            max-width: min(46vw, 190px) !important;
+            flex: 0 0 auto !important;
+            max-width: min(44vw, 190px) !important;
             margin-left: auto !important;
         }
         .main-content > header .branch-selector-btn,
@@ -1181,6 +1224,22 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         .kpi-row {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             gap: 12px !important;
+        }
+        .kpi-card,
+        .stat-card,
+        .kpi-card-v2 {
+            min-width: 0 !important;
+        }
+        .kpi-value,
+        .stat-value,
+        .kpi-v2-value {
+            max-width: 100% !important;
+            min-width: 0 !important;
+            font-size: 20px !important;
+            line-height: 1.15 !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word;
         }
         .overflow-x-auto,
         .table-responsive,

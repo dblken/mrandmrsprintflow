@@ -319,15 +319,15 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .kpi-card--link .kpi-card-inner {
             position: relative;
             display: block;
-            padding-bottom: 22px;
+            padding-bottom: 0;
         }
         .kpi-card--link .kpi-label,
         .kpi-card--link .kpi-value,
         .kpi-card--link .kpi-sub { display: block; }
         .kpi-card-cta {
-            position: absolute;
-            right: 2px;
-            bottom: 0;
+            position: static;
+            display: block;
+            margin-top: 8px;
             font-size: 11px;
             font-weight: 600;
             color: #6b7280;
@@ -431,13 +431,18 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 min-height:64px;
             }
             header .page-title {
-                flex:0 0 auto;
+                flex:1 1 0 !important;
+                min-width:0;
                 font-size:20px !important;
                 line-height:1.15;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
             }
             header .branch-selector-wrap {
                 margin-left:auto;
-                max-width:min(48vw, 180px);
+                flex:0 0 auto;
+                max-width:min(44vw, 180px);
             }
             header .branch-selector-btn,
             header .branch-selector-static {
@@ -476,9 +481,12 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 overflow-wrap:anywhere;
             }
             .kpi-value {
-                font-size:clamp(20px, 5.2vw, 24px);
-                line-height:1.15;
-                overflow-wrap:anywhere;
+                font-size:20px !important;
+                line-height:1.15 !important;
+                max-width:100%;
+                white-space:normal !important;
+                overflow-wrap:anywhere !important;
+                word-break:break-word;
             }
             .kpi-sub {
                 font-size:11px;
@@ -589,7 +597,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 padding:12px 10px !important;
             }
             .kpi-value {
-                font-size:clamp(18px, 5vw, 22px);
+                font-size:18px !important;
             }
             .chart-header-row {
                 align-items:flex-start;
