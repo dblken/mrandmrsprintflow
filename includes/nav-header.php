@@ -260,8 +260,16 @@ if ($initials === '') {
             transform: translateX(4px);
         }
         .pf-burger-link.active {
-            background: rgba(83, 197, 224, 0.15);
-            color: #53c5e0;
+            background: rgba(83, 197, 224, 0.16);
+            color: #53c5e0 !important;
+            border-left: 3px solid #53c5e0;
+            padding-left: calc(1rem - 3px);
+        }
+        #main-header .pf-nav-links .nav-link.nav-active {
+            color: #53c5e0 !important;
+        }
+        #main-header .pf-nav-links .nav-link.nav-active > span:last-child {
+            width: 100% !important;
         }
         
         /* Burger Menu Buttons */
@@ -946,12 +954,20 @@ if ($initials === '') {
     
     // ── Active nav link ──────────────────────────────────────────
     var p = window.location.pathname.toLowerCase().replace(/\/$/, '');
+    var basePath = <?php echo json_encode($base_path ?? ''); ?>.toLowerCase().replace(/\/$/, '');
     var navLinks = document.querySelectorAll('a.nav-link, a.pf-burger-link');
     for (var i = 0; i < navLinks.length; i++) {
         var a = navLinks[i];
-        var h = (a.getAttribute('href') || '').toLowerCase().replace(/\/$/, '');
-        var isHomeLink = (h === BASE_PATH . '/public' || h === '/printflow' || h === '' || h.endsWith('/index.php'));
-        var isHomePage = (p === BASE_PATH . '/public' || p === '/printflow' || p === '' || p.endsWith('/index.php'));
+        var rawHref = a.getAttribute('href') || '';
+        var h = '';
+        try {
+            h = new URL(rawHref, window.location.origin).pathname.toLowerCase().replace(/\/$/, '');
+        } catch (err) {
+            h = rawHref.split('?')[0].split('#')[0].toLowerCase().replace(/\/$/, '');
+        }
+        var publicRoot = (basePath + '/public').replace(/\/$/, '');
+        var isHomeLink = (h === publicRoot || h === basePath || h === '' || h.endsWith('/index.php'));
+        var isHomePage = (p === publicRoot || p === basePath || p === '' || p.endsWith('/index.php'));
         if (isHomeLink && isHomePage) {
             a.classList.add('nav-active');
             if (a.classList.contains('pf-burger-link')) a.classList.add('active');
@@ -1041,7 +1057,7 @@ if ($initials === '') {
     // Poll cart count on load and every 5s
     <?php if ($is_logged_in && is_customer()): ?>
     (function pollCart() {
-        fetch(BASE_PATH . '/customer/api_cart.php', {
+        fetch(basePath + '/customer/api_cart.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'get_count', csrf_token: '<?php echo generate_csrf_token(); ?>'})
@@ -1090,8 +1106,8 @@ if ($initials === '') {
         function doSearch(q) {
             console.log('Search triggered for:', q);
             if (!q.trim()) { dropdown.style.display = 'none'; return; }
-            console.log('Fetching:', BASE_PATH . '/public/api/search.php?q=' + encodeURIComponent(q));
-            fetch(BASE_PATH . '/public/api/search.php?q=' + encodeURIComponent(q))
+            console.log('Fetching:', basePath + '/public/api/search.php?q=' + encodeURIComponent(q));
+            fetch(basePath + '/public/api/search.php?q=' + encodeURIComponent(q))
             .then(function(r){ 
                 console.log('Response status:', r.status);
                 return r.json(); 

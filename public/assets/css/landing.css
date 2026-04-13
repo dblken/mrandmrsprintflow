@@ -1749,14 +1749,16 @@ body.lp-page {
     }
 
     .lp-products-card-footer {
-        flex-direction: column !important;
-        align-items: stretch !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
         gap: .85rem !important;
     }
 
     .lp-products-card-footer a {
-        width: 100% !important;
+        width: auto !important;
         justify-content: center !important;
+        margin-left: auto !important;
     }
 }
 

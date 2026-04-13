@@ -51,6 +51,59 @@ foreach (($products ?: []) as $p) {
 $page_title = 'Products - PrintFlow';
 $use_landing_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+function public_product_image_url(array $product, string $base_path): string
+{
+    $raw = trim((string)($product['photo_path'] ?? $product['product_image'] ?? ''));
+    $raw = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/i', '', $raw);
+    $raw = trim((string)$raw);
+    $root = dirname(__DIR__);
+
+    $url_for_existing = static function (string $relative) use ($root, $base_path): ?string {
+        $relative = '/' . ltrim($relative, '/');
+        if (file_exists($root . $relative)) {
+            return rtrim($base_path, '/') . $relative;
+        }
+        return null;
+    };
+
+    if ($raw !== '') {
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+
+        $clean = '/' . ltrim($raw, '/');
+        if ($base_path !== '' && str_starts_with($clean, rtrim($base_path, '/') . '/')) {
+            $clean = substr($clean, strlen(rtrim($base_path, '/')));
+        }
+
+        foreach ([
+            $clean,
+            '/uploads/products/' . basename($clean),
+            '/public/assets/uploads/products/' . basename($clean),
+            '/public/images/products/' . basename($clean),
+        ] as $candidate) {
+            $resolved = $url_for_existing($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    $product_id = (int)($product['product_id'] ?? 0);
+    foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+        $resolved = $url_for_existing('/public/images/products/product_' . $product_id . '.' . $ext);
+        if ($resolved !== null) {
+            return $resolved;
+        }
+    }
+
+    if (function_exists('get_service_image_url')) {
+        return get_service_image_url((string)($product['category'] ?? $product['name'] ?? ''));
+    }
+
+    return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
+}
 ?>
 
 <!-- ============================================================
@@ -128,24 +181,18 @@ foreach ($products_by_category as $cat_name => $cat_products):
                  onmouseout="this.style.transform='';this.style.boxShadow='';">
 
                 <!-- Image -->
-                <?php if (!empty($product['product_image'])): ?>
+                <?php $product_image_url = public_product_image_url($product, $base_path); ?>
                 <div style="width:100%;aspect-ratio:4/3;overflow:hidden;position:relative;background:#1a2535;">
-                    <img src="<?php echo $base_path; ?>/public/assets/uploads/products/<?php echo htmlspecialchars($product['product_image']); ?>"
+                    <img src="<?php echo htmlspecialchars($product_image_url); ?>"
                          alt="<?php echo htmlspecialchars($product['name']); ?>"
                          style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
+                         loading="lazy"
+                         onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($base_path); ?>/public/assets/images/services/default.png';"
                          onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     <?php if ($product['is_featured'] ?? 0): ?>
                     <span style="position:absolute;top:.75rem;left:.75rem;background:var(--lp-accent);color:#fff;font-size:.65rem;font-weight:800;letter-spacing:.08em;padding:.25rem .7rem;border-radius:20px;text-transform:uppercase;">★ Popular</span>
                     <?php endif; ?>
                 </div>
-                <?php else: ?>
-                <div style="width:100%;aspect-ratio:4/3;background:<?php echo $dark ? '#001a22' : '#f1f5f9'; ?>;display:flex;align-items:center;justify-content:center;position:relative;">
-                    <svg style="width:52px;height:52px;color:<?php echo $dark ? '#1e4a5c' : '#cbd5e1'; ?>;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                    <?php if ($product['is_featured'] ?? 0): ?>
-                    <span style="position:absolute;top:.75rem;left:.75rem;background:var(--lp-accent);color:#fff;font-size:.65rem;font-weight:800;letter-spacing:.08em;padding:.25rem .7rem;border-radius:20px;text-transform:uppercase;">★ Popular</span>
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
 
                 <!-- Body -->
                 <div class="lp-products-card-body" style="padding:1.25rem;display:flex;flex-direction:column;flex:1;gap:.5rem;">
