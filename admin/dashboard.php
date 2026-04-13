@@ -423,9 +423,39 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
         @media (max-width:768px) {
             header {
-                flex-direction:column;
-                align-items:stretch;
-                gap:12px;
+                flex-direction:row;
+                align-items:center;
+                justify-content:space-between;
+                gap:10px;
+                padding:16px 16px 16px 72px !important;
+                min-height:64px;
+            }
+            header .page-title {
+                flex:0 0 auto;
+                font-size:20px !important;
+                line-height:1.15;
+            }
+            header .branch-selector-wrap {
+                margin-left:auto;
+                max-width:min(48vw, 180px);
+            }
+            header .branch-selector-btn,
+            header .branch-selector-static {
+                min-width:0;
+                width:100%;
+                max-width:180px;
+                padding:7px 10px;
+            }
+            #branchSelectorLabel,
+            header .branch-selector-static span:last-child {
+                min-width:0;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+            }
+            header .branch-dropdown {
+                right:0;
+                min-width:min(260px, calc(100vw - 32px));
             }
             .kpi-row {
                 grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
@@ -462,42 +492,65 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 line-height:1.2;
             }
             .dash-grid {
-                gap:14px;
-                margin-bottom:18px;
+                gap:18px;
+                margin-bottom:22px;
             }
             .dash-card {
                 min-width:0;
-                padding:16px !important;
-                overflow:hidden;
+                padding:18px !important;
+                overflow:visible;
+                border-radius:10px;
+                box-shadow:0 8px 26px rgba(15, 23, 42, 0.07);
             }
             .chart-header-row {
-                flex-direction:column;
-                align-items:flex-start;
+                flex-direction:row;
+                align-items:center;
+                justify-content:space-between;
                 flex-wrap:wrap;
+                gap:12px;
             }
             .chart-title-nowrap {
-                white-space:normal;
+                white-space:nowrap;
                 min-width:0;
             }
             .chart-filters {
-                width:100%;
+                width:auto;
                 flex-wrap:wrap;
                 gap:8px;
+                justify-content:flex-end;
             }
             .chart-filter-group {
-                flex:1 1 100%;
+                flex:0 1 auto;
                 flex-wrap:wrap;
+                justify-content:flex-end;
             }
             .chart-select {
-                flex:1 1 130px;
+                flex:0 1 auto;
                 min-width:0;
+                width:auto;
+                max-width:130px;
             }
-            .chart-wrap,
+            .chart-wrap {
+                height:330px !important;
+                padding:10px 0 2px;
+            }
+            .chart-wrap canvas {
+                min-width:0 !important;
+                width:100% !important;
+                max-width:100% !important;
+            }
+            .dash-card > div[style*="height:240px"] {
+                height:280px !important;
+            }
             .rev-donut-chart,
             .products-chart,
             .trend12-chart {
+                height:320px !important;
                 max-width:100%;
-                overflow:hidden;
+                overflow:visible;
+            }
+            #productsChart {
+                min-height:320px;
             }
             .mini-table td {
                 min-width:0;
@@ -509,11 +562,36 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         }
 
         @media (max-width:420px) {
+            header {
+                gap:8px;
+                padding-right:12px !important;
+            }
+            header .branch-selector-wrap {
+                max-width:46vw;
+            }
+            header .branch-selector-btn,
+            header .branch-selector-static {
+                max-width:160px;
+            }
             .kpi-card {
                 padding:12px 10px !important;
             }
             .kpi-value {
                 font-size:clamp(18px, 5vw, 22px);
+            }
+            .chart-header-row {
+                align-items:flex-start;
+            }
+            .chart-filters {
+                width:100%;
+                justify-content:flex-start;
+            }
+            .chart-wrap {
+                height:340px !important;
+            }
+            .trend12-chart,
+            .products-chart {
+                height:340px !important;
             }
         }
     </style>
@@ -973,6 +1051,18 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         var dashAnimShort = 680;
         var doughnutAnim = { animateRotate: true, animateScale: true, duration: 1500 };
 
+        function isDashMobile() {
+            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function dashMoneyTick(v) {
+            var peso = '\u20b1';
+            if (!isDashMobile()) return peso + v.toLocaleString();
+            if (v >= 1000000) return peso + (v / 1000000).toFixed(v >= 10000000 ? 0 : 1) + 'M';
+            if (v >= 1000) return peso + (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'K';
+            return peso + v.toLocaleString();
+        }
+
         function bindWhenVisible(target, onFirst) {
             if (!target || typeof onFirst !== 'function') return;
             if (typeof IntersectionObserver === 'undefined') {
@@ -1085,7 +1175,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 type: 'line',
                 data: { labels: [], datasets: [
                     {
-                        label: 'Store Revenue (₱)',
+                        label: 'Store',
                         data: [],
                         borderColor: '#00232b',
                         backgroundColor: 'rgba(0,35,43,.08)',
@@ -1098,7 +1188,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         yAxisID: 'y'
                     },
                     {
-                        label: 'Customization Revenue (₱)',
+                        label: 'Custom',
                         data: [],
                         borderColor: '#6366F1',
                         backgroundColor: 'transparent',
@@ -1111,7 +1201,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         yAxisID: 'y'
                     },
                     {
-                        label: 'Orders (total)',
+                        label: 'Orders',
                         data: [],
                         borderColor: '#53C5E0',
                         backgroundColor: 'transparent',
@@ -1127,16 +1217,26 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: isDashMobile() ? { top: 8, right: 4, bottom: 0, left: 0 } : { top: 6, right: 8, bottom: 0, left: 4 } },
                     animation: { duration: dashAnimLong, easing: 'easeOutQuart' },
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        legend: {
+                            display: true,
+                            position: isDashMobile() ? 'bottom' : 'top',
+                            labels: {
+                                boxWidth: isDashMobile() ? 8 : 12,
+                                usePointStyle: true,
+                                padding: isDashMobile() ? 12 : 16,
+                                font: { size: isDashMobile() ? 10 : 11, weight: 600 }
+                            }
+                        },
                         tooltip: { animation: { duration: 180 }, padding: 10, cornerRadius: 8, displayColors: true }
                     },
                     scales: {
-                        y:  { beginAtZero: true, ticks: { font: { size: 11 }, callback: function (v) { return '₱' + v.toLocaleString(); } }, grid: { color: '#f3f4f6' } },
-                        y1: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
-                        x:  { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+                        y:  { beginAtZero: true, ticks: { font: { size: isDashMobile() ? 10 : 11 }, maxTicksLimit: isDashMobile() ? 5 : 7, callback: dashMoneyTick }, grid: { color: '#f3f4f6' } },
+                        y1: { display: !isDashMobile(), beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
+                        x:  { ticks: { font: { size: isDashMobile() ? 9 : 10 }, maxRotation: isDashMobile() ? 0 : 45, autoSkip: true, maxTicksLimit: isDashMobile() ? 5 : 10 }, grid: { display: false } }
                     }
                 }
             });
@@ -1300,7 +1400,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     data: {
                         labels: <?php echo json_encode($trend12_labels); ?>,
                         datasets: [{
-                            label: 'Store Revenue (₱)',
+                            label: 'Store',
                             data: <?php echo json_encode($trend12_revenues_store); ?>,
                             borderColor: '#00232b',
                             backgroundColor: 'rgba(0,35,43,.08)',
@@ -1309,7 +1409,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             tension: 0.35,
                             yAxisID: 'y'
                         }, {
-                            label: 'Customization Revenue (₱)',
+                            label: 'Custom',
                             data: <?php echo json_encode($trend12_revenues_custom); ?>,
                             borderColor: '#6366F1',
                             backgroundColor: 'transparent',
@@ -1331,15 +1431,25 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        layout: { padding: isDashMobile() ? { top: 8, right: 4, bottom: 0, left: 0 } : { top: 6, right: 8, bottom: 0, left: 4 } },
                         animation: { duration: 1500 },
                         plugins: {
-                            legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                            legend: {
+                                display: true,
+                                position: isDashMobile() ? 'bottom' : 'top',
+                                labels: {
+                                    boxWidth: isDashMobile() ? 8 : 12,
+                                    usePointStyle: true,
+                                    padding: isDashMobile() ? 12 : 16,
+                                    font: { size: isDashMobile() ? 10 : 11, weight: 600 }
+                                }
+                            },
                             tooltip: { animation: { duration: 180 }, padding: 10, cornerRadius: 8 }
                         },
                         scales: {
-                            y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: function (v) { return '₱' + v.toLocaleString(); } }, grid: { color: '#f3f4f6' } },
-                            y1: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
-                            x: { ticks: { font: { size: 10 }, maxRotation: 45 }, grid: { display: false } }
+                            y: { beginAtZero: true, ticks: { font: { size: isDashMobile() ? 10 : 11 }, maxTicksLimit: isDashMobile() ? 5 : 7, callback: dashMoneyTick }, grid: { color: '#f3f4f6' } },
+                            y1: { display: !isDashMobile(), beginAtZero: true, position: 'right', ticks: { font: { size: 11 }, precision: 0 }, grid: { display: false } },
+                            x: { ticks: { font: { size: isDashMobile() ? 9 : 10 }, maxRotation: isDashMobile() ? 0 : 45, autoSkip: true, maxTicksLimit: isDashMobile() ? 5 : 10 }, grid: { display: false } }
                         }
                     }
                 });
@@ -1385,14 +1495,19 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             var el = document.getElementById('productsChart');
             if (!el || typeof ApexCharts === 'undefined') return;
             bindWhenVisible(el.parentElement, function () {
+                var mobileProducts = isDashMobile();
                 var chart = new ApexCharts(el, {
-                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                    chart: { type: 'bar', height: mobileProducts ? 340 : 300, toolbar: { show: false } },
                     series: [{ name: 'Quantity Sold', data: <?php echo json_encode(array_map(fn($p) => (int)$p['qty_sold'], array_slice($top_products_full, 0, 8))); ?> }],
-                    xaxis: { categories: <?php echo json_encode(array_map(fn($p) => mb_substr($p['product_name'], 0, 20), array_slice($top_products_full, 0, 8))); ?> },
+                    xaxis: {
+                        categories: <?php echo json_encode(array_map(fn($p) => mb_substr($p['product_name'], 0, 20), array_slice($top_products_full, 0, 8))); ?>,
+                        labels: { style: { fontSize: mobileProducts ? '10px' : '11px' } }
+                    },
+                    yaxis: { labels: { maxWidth: mobileProducts ? 118 : 160, style: { fontSize: mobileProducts ? '10px' : '11px' } } },
                     colors: ['#00232b'],
-                    plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
-                    dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 700 } },
-                    grid: { borderColor: '#f3f4f6' },
+                    plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: mobileProducts ? '58%' : '64%' } },
+                    dataLabels: { enabled: !mobileProducts, style: { fontSize: '11px', fontWeight: 700 } },
+                    grid: { borderColor: '#f3f4f6', padding: { left: mobileProducts ? 0 : 8, right: mobileProducts ? 4 : 12 } },
                     tooltip: { theme: 'dark' }
                 });
                 chart.render();

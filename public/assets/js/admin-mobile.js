@@ -112,6 +112,7 @@
         function openSidebar() {
             sidebar.classList.add('active');
             overlay.classList.add('active');
+            burger.setAttribute('aria-expanded', 'true');
             document.body.style.overflow = 'hidden';
         }
         
@@ -119,6 +120,7 @@
         function closeSidebar() {
             sidebar.classList.remove('active');
             overlay.classList.remove('active');
+            burger.setAttribute('aria-expanded', 'false');
             document.body.style.overflow = '';
         }
         

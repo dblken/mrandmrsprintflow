@@ -1,5 +1,9 @@
-<?php require_once __DIR__ . '/favicon_links.php'; ?>
-<link rel="stylesheet" href="<?php echo (defined('BASE_PATH') ? BASE_PATH : '/printflow'); ?>/public/assets/css/admin-mobile.css">
+<?php
+require_once __DIR__ . '/favicon_links.php';
+$__pf_admin_mobile_css_file = __DIR__ . '/../public/assets/css/admin-mobile.css';
+$__pf_admin_mobile_css_ver = file_exists($__pf_admin_mobile_css_file) ? (string)filemtime($__pf_admin_mobile_css_file) : '1';
+?>
+<link rel="stylesheet" href="<?php echo (defined('BASE_PATH') ? BASE_PATH : '/printflow'); ?>/public/assets/css/admin-mobile.css?v=<?php echo $__pf_admin_mobile_css_ver; ?>">
 <?php
 /**
  * Alpine.js Core Loading (admin / manager / staff shell).
@@ -17,13 +21,16 @@ if (!isset($base_path)) {
 if (empty($GLOBALS['__printflow_shell_core_js'])) {
     $GLOBALS['__printflow_shell_core_js'] = true;
     $__pf_asset_js = $base_path . '/public/assets/js';
+    $__pf_admin_mobile_js_file = __DIR__ . '/../public/assets/js/admin-mobile.js';
+    $__pf_admin_mobile_js_ver = file_exists($__pf_admin_mobile_js_file) ? (string)filemtime($__pf_admin_mobile_js_file) : '1';
     ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo $__pf_asset_js; ?>/alpine.min.js" defer></script>
-<script src="<?php echo $__pf_asset_js; ?>/admin-mobile.js" defer></script>
+<script src="<?php echo $__pf_asset_js; ?>/admin-mobile.js?v=<?php echo $__pf_admin_mobile_js_ver; ?>" defer></script>
 <?php
-    unset($__pf_asset_js);
+    unset($__pf_asset_js, $__pf_admin_mobile_js_file, $__pf_admin_mobile_js_ver);
 }
+unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
 ?>
 
 <?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>

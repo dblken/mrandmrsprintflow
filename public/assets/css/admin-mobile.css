@@ -228,13 +228,14 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]) #mobile
 @media (max-width: 768px) {
     .chart-wrap,
     .chart-card {
-        height: 250px !important;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        min-height: 280px !important;
+        overflow-x: visible;
     }
     
     .chart-wrap canvas {
-        min-width: 400px; /* Prevent chart from being too compressed */
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     /* Chart Container */

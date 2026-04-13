@@ -31,10 +31,10 @@ if (isset($_SESSION['user_id'])) {
 <?php include __DIR__ . '/sidebar_layout_boot.php'; ?>
 
 <!-- Mobile Sidebar Overlay -->
-<div id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+<div id="sidebarOverlay" onclick="toggleMobileSidebar(event, false)"></div>
 
 <!-- Mobile Burger Menu Button -->
-<button id="mobileBurger" onclick="toggleMobileSidebar()" aria-label="Toggle menu">
+<button id="mobileBurger" onclick="toggleMobileSidebar(event)" aria-label="Toggle menu" aria-expanded="false" aria-controls="adminSidebar">
     <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
     </svg>
@@ -262,16 +262,28 @@ document.addEventListener('DOMContentLoaded', printflowSyncSidebarState);
 document.addEventListener('printflow:page-init', printflowSyncSidebarState);
 
 // Mobile burger menu toggle
-function toggleMobileSidebar() {
+function toggleMobileSidebar(event, forceOpen) {
+    if (event && typeof event.stopImmediatePropagation === 'function') {
+        event.stopImmediatePropagation();
+    } else if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+    }
     const sidebar = document.getElementById('adminSidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    const isActive = sidebar.classList.toggle('active');
+    const burger = document.getElementById('mobileBurger');
+    if (!sidebar || !overlay) return;
+
+    const isActive = typeof forceOpen === 'boolean'
+        ? forceOpen
+        : !sidebar.classList.contains('active');
+
+    sidebar.classList.toggle('active', isActive);
+    overlay.classList.toggle('active', isActive);
+    if (burger) burger.setAttribute('aria-expanded', isActive ? 'true' : 'false');
     
     if (isActive) {
-        overlay.classList.add('active');
         document.body.style.overflow = 'hidden'; // Prevent body scroll
     } else {
-        overlay.classList.remove('active');
         document.body.style.overflow = '';
     }
 }
@@ -283,7 +295,7 @@ document.addEventListener('click', function(event) {
         const burger = document.getElementById('mobileBurger');
         if (sidebar && burger && sidebar.classList.contains('active')) {
             if (!sidebar.contains(event.target) && !burger.contains(event.target)) {
-                toggleMobileSidebar();
+                toggleMobileSidebar(null, false);
             }
         }
     }
@@ -341,6 +353,8 @@ document.addEventListener('click', function(event) {
                     if (sb && sb.classList.contains('active')) {
                         sb.classList.remove('active');
                         if (overlay) overlay.classList.remove('active');
+                        var burger = document.getElementById('mobileBurger');
+                        if (burger) burger.setAttribute('aria-expanded', 'false');
                         document.body.style.overflow = '';
                     }
                 }
