@@ -596,7 +596,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         }
     </style>
 </head>
-<body>
+<body class="printflow-admin-shell">
 
 <div class="dashboard-container">
     <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>

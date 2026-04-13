@@ -20,7 +20,7 @@ body[class*="manager"] #mobileBurger,
 }
 
 /* Prevent conflicts with customer pages */
-body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]) #mobileBurger {
+body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.printflow-admin-shell) > #mobileBurger {
     display: none !important;
 }
 
