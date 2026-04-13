@@ -61,13 +61,13 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="lp-mini-hero-inner" style="padding-top:4rem;">
         <div class="lp-wrap" style="text-align:center;">
             <p class="lp-hero-tag" style="margin-bottom:1.25rem;">✦ Our Catalog</p>
-            <h1 style="font-size:clamp(2.2rem,5vw,3.5rem); font-weight:800; color:#fff; letter-spacing:-0.03em; margin-bottom:1.25rem; line-height:1.1;">
+            <h1 class="lp-products-hero-title" style="font-size:clamp(2.2rem,5vw,3.5rem); font-weight:800; color:#fff; letter-spacing:-0.03em; margin-bottom:1.25rem; line-height:1.1;">
                 Browse Our <span style="color:var(--lp-accent-l);">Products</span>
             </h1>
-            <p style="font-size:1.0625rem; color:var(--lp-muted); max-width:540px; margin:0 auto 2.5rem; line-height:1.7;">
+            <p class="lp-products-hero-desc" style="font-size:1.0625rem; color:var(--lp-muted); max-width:540px; margin:0 auto 2.5rem; line-height:1.7;">
                 From tarpaulins to T-shirts, stickers to signage — find the perfect print solution for your next project.
             </p>
-            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <div class="lp-products-hero-actions" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; width:100%;">
                 <a href="#products-grid" class="lp-btn lp-btn-primary">Browse All Products</a>
                 <?php if (!is_logged_in()): ?>
                 <a href="#" data-auth-modal="register" class="lp-btn lp-btn-outline">Get Started Free</a>
@@ -110,20 +110,20 @@ foreach ($products_by_category as $cat_name => $cat_products):
 <section style="padding:4rem 0;background:<?php echo $bg; ?>;">
     <div class="lp-wrap">
         <!-- Category heading -->
-        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap;">
-            <div style="flex:1;">
+        <div class="lp-products-category-head" style="display:flex;align-items:center;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap;">
+            <div style="flex:1; min-width:0;">
                 <h2 style="font-size:1.6rem;font-weight:800;color:<?php echo $heading_col; ?>;letter-spacing:-0.02em;margin:0 0 .25rem;">
                     <?php echo htmlspecialchars($cat_name); ?>
                 </h2>
                 <p style="font-size:.875rem;color:<?php echo $sub_col; ?>;margin:0;"><?php echo count($cat_products); ?> product<?php echo count($cat_products) !== 1 ? 's' : ''; ?> available</p>
             </div>
-            <div style="height:3px;flex:1;max-width:220px;background:linear-gradient(90deg,var(--lp-accent),transparent);border-radius:2px;opacity:.5;"></div>
+            <div class="lp-products-category-line" style="height:3px;flex:1;max-width:220px;background:linear-gradient(90deg,var(--lp-accent),transparent);border-radius:2px;opacity:.5;"></div>
         </div>
 
         <!-- Card grid -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1.5rem;">
+        <div class="lp-products-category-grid"<?php echo $section_i === 1 ? ' id="products-grid"' : ''; ?> style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr));gap:1.5rem;">
             <?php foreach ($cat_products as $product): ?>
-            <div style="background:<?php echo $card_bg; ?>;border:<?php echo $card_border; ?>;border-radius:1.125rem;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s;cursor:default;"
+            <div class="lp-products-card" style="background:<?php echo $card_bg; ?>;border:<?php echo $card_border; ?>;border-radius:1.125rem;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s;cursor:default;"
                  onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 12px 36px rgba(50,161,196,0.18)';"
                  onmouseout="this.style.transform='';this.style.boxShadow='';">
 
@@ -148,7 +148,7 @@ foreach ($products_by_category as $cat_name => $cat_products):
                 <?php endif; ?>
 
                 <!-- Body -->
-                <div style="padding:1.25rem;display:flex;flex-direction:column;flex:1;gap:.5rem;">
+                <div class="lp-products-card-body" style="padding:1.25rem;display:flex;flex-direction:column;flex:1;gap:.5rem;">
                     <div style="font-size:.75rem;font-weight:700;color:var(--lp-accent);text-transform:uppercase;letter-spacing:.07em;"><?php echo htmlspecialchars($product['category']); ?></div>
                     <h3 style="font-size:1.0625rem;font-weight:700;color:<?php echo $name_col; ?>;margin:0;line-height:1.3;"><?php echo htmlspecialchars($product['name']); ?></h3>
                     <?php if (!empty($product['description'])): ?>
@@ -156,7 +156,7 @@ foreach ($products_by_category as $cat_name => $cat_products):
                     <?php else: ?>
                     <div style="flex:1;"></div>
                     <?php endif; ?>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;padding-top:.875rem;border-top:1px solid <?php echo $dark ? 'rgba(83,197,224,0.1)' : '#f1f5f9'; ?>;">
+                    <div class="lp-products-card-footer" style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;padding-top:.875rem;border-top:1px solid <?php echo $dark ? 'rgba(83,197,224,0.1)' : '#f1f5f9'; ?>;">
                         <div>
                             <div style="font-size:1.5rem;font-weight:800;color:<?php echo $dark ? '#fff' : '#0f172a'; ?>;line-height:1;">₱<?php echo number_format($product['price'], 2); ?></div>
                             <div style="font-size:.75rem;color:<?php echo $desc_col; ?>;margin-top:2px;">Starting price</div>
