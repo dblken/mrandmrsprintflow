@@ -496,6 +496,114 @@ function custom_payment_badge($status) {
         .tab-btn:not(.active) { color: #6b7280; }
         .history-item { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
         .history-item:last-child { border-bottom: none; }
+
+        @media (max-width: 768px) {
+            main[x-data="custModal()"] .modal-overlay {
+                align-items: flex-start !important;
+                padding: 10px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+            main[x-data="custModal()"] .modal-panel {
+                width: 100% !important;
+                max-width: calc(100vw - 20px) !important;
+                max-height: calc(100dvh - 76px) !important;
+                margin: 56px auto 16px !important;
+                border-radius: 8px !important;
+            }
+            main[x-data="custModal()"] .modal-content {
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+            main[x-data="custModal()"] .modal-content > div {
+                padding-left: 16px !important;
+                padding-right: 16px !important;
+            }
+            main[x-data="custModal()"] .modal-content > div:first-child {
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+            main[x-data="custModal()"] .modal-content > div:first-child > div:first-child {
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+            main[x-data="custModal()"] .modal-content > div:first-child h3 {
+                font-size: 16px !important;
+                line-height: 1.25 !important;
+                overflow-wrap: anywhere !important;
+            }
+            main[x-data="custModal()"] .modal-content > div[style*="padding:24px"] {
+                padding: 16px !important;
+            }
+            main[x-data="custModal()"] .detail-row {
+                flex-direction: column !important;
+                gap: 10px !important;
+                margin-bottom: 10px !important;
+            }
+            main[x-data="custModal()"] .detail-block {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+            main[x-data="custModal()"] .detail-block span,
+            main[x-data="custModal()"] .history-item div {
+                overflow-wrap: anywhere !important;
+            }
+            main[x-data="custModal()"] .modal-content [style*="display:flex"][style*="gap:24px"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            main[x-data="custModal()"] .modal-content [style*="min-width:200px"] {
+                min-width: 0 !important;
+                width: 100% !important;
+            }
+            main[x-data="custModal()"] .modal-content [style*="width:120px"][style*="height:120px"] {
+                width: min(120px, 40vw) !important;
+                height: min(120px, 40vw) !important;
+            }
+            main[x-data="custModal()"] .modal-content > div:last-child,
+            main[x-data="custModal()"] .modal-panel > div:last-child[style*="border-top"] {
+                text-align: left !important;
+                justify-content: stretch !important;
+            }
+            main[x-data="custModal()"] .modal-content > div:last-child .btn-secondary,
+            main[x-data="custModal()"] .modal-panel > div:last-child[style*="border-top"] .btn-secondary {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+            main[x-data="custModal()"] .history-item {
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+            main[x-data="custModal()"] .history-item > div {
+                min-width: 0 !important;
+            }
+            main[x-data="custModal()"] .history-item > div:last-child {
+                flex: 0 0 auto !important;
+                max-width: 42% !important;
+            }
+            main[x-data="custModal()"] .tab-btn {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+                padding: 8px 10px !important;
+                text-align: center !important;
+            }
+            .custom-image-viewer {
+                z-index: 11020 !important;
+            }
+            .custom-image-viewer-backdrop {
+                left: 0 !important;
+                padding: 12px !important;
+            }
+            .custom-image-viewer-panel {
+                max-width: calc(100vw - 24px) !important;
+                max-height: calc(100dvh - 24px) !important;
+                border-radius: 8px !important;
+            }
+            .custom-image-viewer-panel img {
+                max-width: calc(100vw - 24px) !important;
+                max-height: calc(100dvh - 24px) !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1177,9 +1285,9 @@ function custom_payment_badge($status) {
 </div>
 
 <!-- Image Viewer Modal -->
-<div x-show="showImageViewer" x-cloak style="position:fixed;top:0;bottom:0;left:0;right:0;z-index:10000;" @click="showImageViewer = false">
-    <div style="position:absolute;top:0;bottom:0;left:240px;right:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;">
-        <div style="position:relative;max-width:85%;max-height:85%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.5);" @click.stop>
+<div x-show="showImageViewer" x-cloak class="custom-image-viewer" style="position:fixed;top:0;bottom:0;left:0;right:0;z-index:10000;" @click="showImageViewer = false">
+    <div class="custom-image-viewer-backdrop" style="position:absolute;top:0;bottom:0;left:240px;right:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;">
+        <div class="custom-image-viewer-panel" style="position:relative;max-width:85%;max-height:85%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.5);" @click.stop>
             <button @click="showImageViewer = false" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.8);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;transition:background 0.2s;">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>

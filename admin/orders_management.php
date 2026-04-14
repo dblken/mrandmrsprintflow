@@ -568,6 +568,81 @@ if (isset($_GET['ajax'])) {
         .tab-btn:not(.active) { color: #6b7280; }
         .history-item { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
         .history-item:last-child { border-bottom: none; }
+
+        @media (max-width: 768px) {
+            main[x-data="ordersPage()"] .modal-overlay {
+                align-items: flex-start !important;
+                padding: 10px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+            main[x-data="ordersPage()"] .modal-panel {
+                width: 100% !important;
+                max-width: calc(100vw - 20px) !important;
+                max-height: calc(100dvh - 76px) !important;
+                margin: 56px auto 16px !important;
+                border-radius: 8px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content {
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div {
+                padding-left: 16px !important;
+                padding-right: 16px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div:first-child {
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div:first-child > div:first-child {
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div:first-child h3 {
+                font-size: 16px !important;
+                line-height: 1.25 !important;
+                overflow-wrap: anywhere !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+                padding-top: 16px !important;
+                padding-bottom: 16px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div[style*="padding:0 24px"] {
+                padding-left: 16px !important;
+                padding-right: 16px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content [style*="border:1px"][style*="overflow:hidden"] {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            main[x-data="ordersPage()"] .modal-content table {
+                min-width: 640px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content [style*="max-width:180px"],
+            main[x-data="ordersPage()"] .modal-content [style*="max-width:150px"],
+            main[x-data="ordersPage()"] .modal-content [style*="max-width:120px"] {
+                max-width: 180px !important;
+            }
+            main[x-data="ordersPage()"] .modal-content [style*="background:#fff"][style*="box-shadow"] {
+                max-width: 100% !important;
+            }
+            main[x-data="ordersPage()"] .modal-content [style*="display:grid"][style*="grid-template-columns:1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+            main[x-data="ordersPage()"] .modal-content [style*="display:flex"][style*="justify-content:flex-end"] {
+                flex-wrap: wrap !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div:last-child {
+                justify-content: stretch !important;
+            }
+            main[x-data="ordersPage()"] .modal-content > div:last-child .btn-secondary {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+        }
     </style>
 </head>
 <body>
