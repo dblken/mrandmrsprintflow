@@ -47,5 +47,5 @@ if ($stored_otp === (string)$otp) {
     db_execute($update_sql, 's', [$email]);
 
     $_SESSION['otp_success'] = "Email verified successfully. You can now log in.";
-    redirect('<?php echo $base_path; ?>//printflow/?auth_modal=login&success=' . urlencode('Email verified. Please log in.'));
+    redirect(AUTH_REDIRECT_BASE . '/?auth_modal=login&success=' . urlencode('Email verified. Please log in.'));
 }

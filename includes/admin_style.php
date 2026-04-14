@@ -1286,6 +1286,13 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             padding: 0 !important;
             box-shadow: none !important;
         }
+        table tr[hidden],
+        table tr.hidden,
+        table tr[aria-hidden="true"],
+        table tr[style*="display:none"],
+        table tr[style*="display: none"] {
+            display: none !important;
+        }
         table th,
         table td {
             display: table-cell !important;

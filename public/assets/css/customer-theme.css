@@ -788,6 +788,13 @@ body.customer-theme select.input-field {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
+    body.customer-theme table tr[hidden],
+    body.customer-theme table tr.hidden,
+    body.customer-theme table tr[aria-hidden="true"],
+    body.customer-theme table tr[style*="display:none"],
+    body.customer-theme table tr[style*="display: none"] {
+        display: none !important;
+    }
 }
 
 @media (max-width: 767px) {

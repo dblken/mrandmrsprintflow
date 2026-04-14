@@ -385,6 +385,14 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         box-shadow: none !important;
     }
 
+    table tr[hidden],
+    table tr.hidden,
+    table tr[aria-hidden="true"],
+    table tr[style*="display:none"],
+    table tr[style*="display: none"] {
+        display: none !important;
+    }
+
     table th,
     table td {
         display: table-cell !important;
