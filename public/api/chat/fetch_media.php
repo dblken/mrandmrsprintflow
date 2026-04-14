@@ -54,13 +54,33 @@ if ($media === false) {
     exit();
 }
 
+function pf_chat_media_public_url(?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
+        return $path;
+    }
+
+    $path = str_replace('<?php echo $base_path; ?>', '', $path);
+    $path = preg_replace('#/+#', '/', $path);
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
+
+    if ($base === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($base !== '' && strpos($path, $base . '/') === 0) {
+        return $path;
+    }
+    if ($path !== '' && $path[0] === '/') {
+        return $base . $path;
+    }
+
+    return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
+}
+
 // Prepend BASE_URL if needed
 $results = [];
 foreach ($media as $item) {
-    $path = (string)$item['message_file'];
-    if ($path !== '' && !preg_match('#^https?://#i', $path)) {
-        if (strpos($path, '<?php echo $base_path; ?>/') !== 0) $path = '<?php echo $base_path; ?>/' . ltrim($path, '/');
-    }
+    $path = pf_chat_media_public_url($item['message_file'] ?? '');
     $results[] = [
         'message_file' => $path,
         'file_type' => $item['file_type']

@@ -159,7 +159,7 @@ echo json_encode([
         'customer_email' => $order['customer_email'] ?? 'N/A',
         'customer_phone' => $order['customer_phone'] ?? 'N/A',
         'customer_initial' => strtoupper(substr($order['cust_first'] ?? 'C', 0, 1)),
-        'customer_picture' => !empty($order['profile_picture']) ? '<?php echo $base_path; ?>/public/assets/uploads/profiles/' . $order['profile_picture'] : '',
+        'customer_picture' => !empty($order['profile_picture']) ? $base_path . '/public/assets/uploads/profiles/' . $order['profile_picture'] : '',
         'order_date' => format_datetime($order['order_date']),
         'total_amount' => format_currency($order['total_amount']),
         'status' => $order['status'],

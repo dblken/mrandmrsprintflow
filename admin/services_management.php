@@ -31,6 +31,34 @@ function service_name_exists(string $name, int $excludeId = 0): bool {
     return !empty($rows);
 }
 
+function pf_service_public_url(string $path): string {
+    $path = trim($path);
+    if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
+        return $path;
+    }
+
+    $path = str_replace('<?php echo $base_path; ?>', '', $path);
+    $path = preg_replace('#/+#', '/', $path);
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : ($GLOBALS['base_path'] ?? '/printflow'), '/');
+
+    if ($base === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($base !== '' && strpos($path, $base . '/') === 0) {
+        return $path;
+    }
+    if ($path !== '' && $path[0] === '/') {
+        return $base . $path;
+    }
+
+    return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
+}
+
+function pf_service_media_list_url(string $value): string {
+    $parts = array_filter(array_map('trim', explode(',', $value)), static fn($part) => $part !== '');
+    return implode(',', array_map('pf_service_public_url', $parts));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     // Handle file uploads
     $uploaded_images = [];
@@ -69,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_images[] = '<?php echo $base_path; ?>/public/assets/images/services/' . $new_filename;
+                        $uploaded_images[] = pf_service_public_url('/public/assets/images/services/' . $new_filename);
                         error_log('Image uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move image file');
@@ -87,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_video = '<?php echo $base_path; ?>/public/assets/videos/services/' . $new_filename;
+                        $uploaded_video = pf_service_public_url('/public/assets/videos/services/' . $new_filename);
                         error_log('Video uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move video file');
@@ -306,6 +334,12 @@ $order_clause = match ($sort_by) {
 };
 $sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $services = db_query($sql, $types ?: null, $params ?: null) ?: [];
+foreach ($services as &$svc) {
+    $svc['hero_image'] = pf_service_public_url((string)($svc['hero_image'] ?? ''));
+    $svc['display_image'] = pf_service_media_list_url((string)($svc['display_image'] ?? ''));
+    $svc['video_url'] = pf_service_public_url((string)($svc['video_url'] ?? ''));
+}
+unset($svc);
 
 $page_title = 'Services Management - Admin';
 

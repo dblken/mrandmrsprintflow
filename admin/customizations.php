@@ -732,7 +732,7 @@ function custom_payment_badge($status) {
         }
         printflowOpenJobFromQuery();
         </script>
-        <header>
+        <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Customizations</h1>
             <?php render_branch_selector($branchCtx); ?>
         </header>

@@ -317,15 +317,15 @@ $page_title = 'Notifications - Staff';
                 <p style="font-size:14px;color:#6b7280;"><?php echo (int)$unread_count; ?> unread · <?php echo number_format($total_count); ?> matching this view</p>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-                <button type="button" onclick="refreshNotifications()" class="btn-secondary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button type="button" onclick="refreshNotifications()" class="btn-secondary mobile-hidden" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
+                    <svg class="mobile-hidden" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                     Refresh
                 </button>
                 <?php if ($unread_count > 0): ?>
                 <a href="?action=mark_all_read" class="notif-header-primary">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="mobile-hidden" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
                     Mark All Read

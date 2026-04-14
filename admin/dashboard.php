@@ -426,7 +426,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 flex-direction:row;
                 align-items:center;
                 justify-content:space-between;
-                flex-wrap:wrap !important;
+                flex-wrap:nowrap !important;
                 gap:10px;
                 padding:12px 14px !important;
                 min-height:64px;
@@ -444,14 +444,14 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 margin-left:auto;
                 display:flex;
                 justify-content:flex-end;
-                flex:0 0 100%;
-                max-width:100%;
+                flex:0 1 auto;
+                max-width:46vw;
             }
             header .branch-selector-btn,
             header .branch-selector-static {
                 min-width:0;
                 width:auto;
-                max-width:180px;
+                max-width:46vw;
                 padding:7px 10px;
             }
             #branchSelectorLabel,
@@ -609,11 +609,11 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 padding-right:12px !important;
             }
             header .branch-selector-wrap {
-                max-width:100%;
+                max-width:46vw;
             }
             header .branch-selector-btn,
             header .branch-selector-static {
-                max-width:160px;
+                max-width:46vw;
             }
             .kpi-card {
                 padding:12px 10px !important;
@@ -644,7 +644,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
     <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
 
     <div class="main-content">
-        <header>
+        <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Dashboard</h1>
             <?php render_branch_selector($branchCtx); ?>
         </header>

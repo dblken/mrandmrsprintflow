@@ -973,8 +973,8 @@ if (isset($_GET['ajax'])) {
             printflowOpenOrderFromQuery();
             document.addEventListener('printflow:page-init', printflowOpenOrderFromQuery);
         </script>
-        <header>
-            <h1 class="page-title">Orders Management</h1>
+        <header class="pf-mobile-branch-inline">
+            <h1 class="page-title">Orders <span class="pf-mobile-title-extra">Management</span></h1>
             <?php render_branch_selector($branchCtx); ?>
         </header>
 

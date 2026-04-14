@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 header('Content-Type: application/json');
 
+$base_path = rtrim(defined('BASE_PATH') ? BASE_PATH : '/printflow', '/');
 $q = trim((string)($_GET['q'] ?? ''));
 if ($q === '' || mb_strlen($q) < 2) {
     echo json_encode(['success' => true, 'query' => $q, 'results' => []]);
@@ -34,7 +35,7 @@ foreach ($products as $p) {
         'type' => 'product',
         'title' => $p['name'],
         'meta' => $p['category'] ?: 'Product',
-        'url' => '<?php echo $base_path; ?>/' . (is_customer() ? 'customer/products.php' : 'products/') . '?search=' . rawurlencode($q),
+        'url' => $base_path . '/' . (is_customer() ? 'customer/products.php' : 'products/') . '?search=' . rawurlencode($q),
     ];
 }
 
@@ -56,7 +57,7 @@ foreach ($services as $s) {
         'type' => 'service',
         'title' => $s['name'],
         'meta' => $s['category'] ?: 'Service',
-        'url' => '<?php echo $base_path; ?>/' . (is_customer() ? 'customer/services.php' : 'public/services.php'),
+        'url' => $base_path . '/' . (is_customer() ? 'customer/services.php' : 'public/services.php'),
     ];
 }
 
@@ -94,7 +95,7 @@ if (is_logged_in() && is_customer()) {
             'type' => 'order',
             'title' => 'Order #' . (int)$o['order_id'] . ' - ' . ($o['display_name'] ?: 'Order'),
             'meta' => $o['status'] ?: 'Order',
-            'url' => '<?php echo $base_path; ?>/customer/chat.php?order_id=' . (int)$o['order_id'],
+            'url' => $base_path . '/customer/chat.php?order_id=' . (int)$o['order_id'],
         ];
     }
 }

@@ -366,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password']) &&
 
 $user_initial = strtoupper(substr($admin['first_name'], 0, 1));
 $profile_pic_url = !empty($admin['profile_picture']) 
-    ? '<?php echo $base_path; ?>/public/assets/uploads/profiles/' . $admin['profile_picture'] 
+    ? $base_path . '/public/assets/uploads/profiles/' . $admin['profile_picture']
     : '';
 
 $page_title = 'My Profile - PrintFlow Admin';

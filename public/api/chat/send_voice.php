@@ -42,7 +42,8 @@ if (!is_dir($upload_dir)) {
 
 $filename = uniqid() . ".webm";
 $target_path = $upload_dir . $filename;
-$relative_path = '<?php echo $base_path; ?>//printflow/uploads/chat_media/' . $filename;
+$base_path = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
+$relative_path = ($base_path === '' ? '' : $base_path) . '/uploads/chat_media/' . $filename;
 
 if (move_uploaded_file($file['tmp_name'], $target_path)) {
     // Save to DB

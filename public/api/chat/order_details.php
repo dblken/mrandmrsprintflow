@@ -39,6 +39,29 @@ if (empty($order_result)) {
 }
 $order = $order_result[0];
 
+function pf_chat_order_public_url(?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
+        return $path;
+    }
+
+    $path = str_replace('<?php echo $base_path; ?>', '', $path);
+    $path = preg_replace('#/+#', '/', $path);
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
+
+    if ($base === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($base !== '' && strpos($path, $base . '/') === 0) {
+        return $path;
+    }
+    if ($path !== '' && $path[0] === '/') {
+        return $base . $path;
+    }
+
+    return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
+}
+
 // Get customer info (join from customers table)
 $customer = [];
 $customer_id = (int)($order['customer_id'] ?? 0);
@@ -106,12 +129,12 @@ foreach ($items ?: [] as $item) {
     $design_url = null;
     $ref_url = null;
     if (!empty($item['design_image']) || !empty($item['design_file'])) {
-        $design_url = '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'];
+        $design_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']);
     } elseif (!empty($item['product_image'])) {
-        $design_url = (strpos($item['product_image'], '/') === 0) ? $item['product_image'] : '<?php echo $base_path; ?>/' . ltrim($item['product_image'], '/');
+        $design_url = pf_chat_order_public_url((string)$item['product_image']);
     }
     if (!empty($item['reference_image_file'])) {
-        $ref_url = '<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference';
+        $ref_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference');
     }
 
     $items_out[] = [

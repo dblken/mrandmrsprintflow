@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 header('Content-Type: application/json');
 ob_clean();
 
+$base_path = rtrim(defined('BASE_PATH') ? BASE_PATH : '/printflow', '/');
 $q = trim($_GET['q'] ?? '');
 if (strlen($q) < 1) {
     echo json_encode(['results' => []]);
@@ -28,7 +29,7 @@ try {
             'type'  => 'service',
             'label' => $s['name'],
             'sub'   => $s['category'],
-            'url'   => '<?php echo $base_path; ?>//printflow/customer/order_service_dynamic.php?service_id=' . $s['service_id'],
+            'url'   => $base_path . '/customer/order_service_dynamic.php?service_id=' . $s['service_id'],
         ];
     }
 
@@ -42,7 +43,7 @@ try {
             'type'  => 'product',
             'label' => $p['name'],
             'sub'   => $p['category'],
-            'url'   => '<?php echo $base_path; ?>//printflow/customer/order_create.php?product_id=' . $p['product_id'],
+            'url'   => $base_path . '/customer/order_create.php?product_id=' . $p['product_id'],
         ];
     }
 } catch (Exception $e) {

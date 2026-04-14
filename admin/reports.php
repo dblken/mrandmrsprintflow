@@ -1557,8 +1557,8 @@ a.export-dd-link:hover { background: #f9fafb; }
 <div class="dashboard-container">
     <?php include __DIR__ . '/../includes/' . ($current_user['role'] === 'Admin' ? 'admin_sidebar.php' : 'manager_sidebar.php'); ?>
     <div class="main-content">
-        <header>
-            <h1 class="page-title">Reports & Analytics</h1>
+        <header class="pf-mobile-branch-inline">
+            <h1 class="page-title">Reports <span class="pf-mobile-title-extra">& Analytics</span></h1>
             <?php render_branch_selector($branchCtx); ?>
         </header>
         <main>

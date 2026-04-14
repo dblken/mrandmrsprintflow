@@ -34,6 +34,29 @@ if (!$order_id) {
     exit;
 }
 
+function pf_chat_public_url(?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
+        return $path;
+    }
+
+    $path = str_replace('<?php echo $base_path; ?>', '', $path);
+    $path = preg_replace('#/+#', '/', $path);
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
+
+    if ($base === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($base !== '' && strpos($path, $base . '/') === 0) {
+        return $path;
+    }
+    if ($path !== '' && $path[0] === '/') {
+        return $base . $path;
+    }
+
+    return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
+}
+
 // 1. Fetch new messages
 $sql = "SELECT m.*, 
         p.message AS reply_message, 
@@ -75,23 +98,22 @@ if ($messages_raw) {
         }
 
         $image_path = (string)($msg['image_path'] ?? '');
-        if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
-            if (strpos($image_path, '<?php echo $base_path; ?>/') !== 0) $image_path = '<?php echo $base_path; ?>/' . ltrim($image_path, '/');
-        }
+        $image_path = pf_chat_public_url($image_path);
 
         $sender_avatar = $msg['sender_avatar'] ?? null;
         if ($sender_avatar && strpos($sender_avatar, '/') === false) {
             $sender_avatar = 'public/assets/uploads/profiles/' . $sender_avatar;
         }
+        $sender_avatar = pf_chat_public_url($sender_avatar);
 
         $messages[] = [
             'id' => $msg['message_id'],
             'message' => $msg['message'] ?? '',
             'message_type' => $msg['message_type'] ?? 'text',
             'image_path' => $image_path,
-            'message_file' => $msg['message_file'] ?? $image_path,
+            'message_file' => pf_chat_public_url($msg['message_file'] ?? $image_path),
             'file_type' => $msg['file_type'] ?? 'text',
-            'file_path' => $msg['file_path'] ?? null,
+            'file_path' => pf_chat_public_url($msg['file_path'] ?? null),
             'file_name' => $msg['file_name'] ?? null,
             'file_size' => $msg['file_size'] ?? null,
             'created_at' => date('h:i A', strtotime($msg['created_at'])),
@@ -100,7 +122,7 @@ if ($messages_raw) {
             'is_system' => $is_system,
             'reply_id' => $msg['reply_id'] ?: null,
             'reply_message' => $msg['reply_message'] ?? null,
-            'reply_image' => $msg['reply_image'] ?? null,
+            'reply_image' => pf_chat_public_url($msg['reply_image'] ?? null),
             'reply_sender_id' => $msg['reply_sender_id'] ?? null,
             'sender_name' => $msg['sender_name'],
             'sender_role' => $msg['sender_role'],
@@ -163,6 +185,7 @@ if ($partner_type === 'Staff') {
 if ($partner['avatar'] && strpos($partner['avatar'], '/') === false) {
     $partner['avatar'] = 'public/assets/uploads/profiles/' . $partner['avatar'];
 }
+$partner['avatar'] = pf_chat_public_url($partner['avatar']);
 
 // 4. Fetch order metadata (archive status)
 $has_archived_col = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));

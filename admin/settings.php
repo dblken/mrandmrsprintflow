@@ -268,6 +268,54 @@ $page_title = 'Settings - Admin';
         .cropper-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:9999; }
         .cropper-modal-panel { background:#fff; border-radius:12px; padding:20px; width:90%; max-width:500px; box-shadow:0 10px 25px rgba(0,0,0,0.2); }
         .cropper-container-box { width:100%; height:300px; background:#f3f4f6; margin:15px 0; border:1px dashed #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        @media (max-width: 768px) {
+            .settings-grid { gap:14px; }
+            .settings-card {
+                padding:18px !important;
+                border-radius:10px !important;
+                overflow:visible;
+            }
+            .settings-card form > div[style*="grid-template-columns"],
+            .pm-row > div[style*="grid-template-columns"],
+            .about-value-row {
+                grid-template-columns:1fr !important;
+            }
+            .branch-addr-row > div,
+            .social-row,
+            .toggle-row {
+                align-items:stretch !important;
+            }
+            .branch-addr-row > div,
+            .social-row {
+                flex-wrap:nowrap;
+            }
+            .about-value-row button {
+                width:100%;
+                margin-top:0 !important;
+            }
+            #about-team-list {
+                grid-template-columns:1fr !important;
+            }
+            .section-save {
+                justify-content:stretch;
+            }
+            .btn-save-sm,
+            #add-branch-addr,
+            #add-social,
+            #add-about-value,
+            #add-about-team {
+                width:100%;
+            }
+            .cropper-modal-panel {
+                width:calc(100vw - 24px);
+                max-height:calc(100dvh - 48px);
+                overflow-y:auto;
+                padding:16px;
+            }
+            .cropper-container-box {
+                height:260px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -366,7 +414,7 @@ $page_title = 'Settings - Admin';
                                     <input type="hidden" name="pm_existing_file[]" value="<?php echo htmlspecialchars($pm['file'] ?? ''); ?>">
                                     <input type="hidden" name="pm_cropped_img[]" value="">
                                     <div style="margin-top:8px;">
-                                        <img src="<?php echo !empty($pm['file']) ? '<?php echo $base_path; ?>/public/assets/uploads/qr/' . htmlspecialchars($pm['file']) . '?t=' . time() : ''; ?>" 
+                                        <img src="<?php echo !empty($pm['file']) ? $base_path . '/public/assets/uploads/qr/' . htmlspecialchars($pm['file']) . '?t=' . time() : ''; ?>"
                                              class="pm-preview-img" 
                                              style="height:80px; width:80px; object-fit:cover; border-radius:8px; border:2px solid #e5e7eb; background:#fff; display:<?php echo !empty($pm['file']) ? 'block' : 'none'; ?>;" alt="QR">
                                     </div>

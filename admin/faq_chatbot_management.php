@@ -195,7 +195,7 @@ $inq_conversations = db_query(
 $inq_total_pages = (int)ceil(max(1, $inq_total_count) / $inq_per_page);
 }
 $page_title = 'Support Chat Management - Admin';
-$inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '<?php echo $base_path; ?>/admin/api_chatbot_conversations.php';
+$inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $base_path . '/admin/api_chatbot_conversations.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -746,7 +746,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
 
     <div class="main-content">
         <header>
-            <h1 class="page-title">Support Chat Management</h1>
+            <h1 class="page-title">Support Chat <span class="pf-mobile-title-extra">Management</span></h1>
             <button id="btn-add-faq" class="btn-primary" style="<?php echo $active_tab === 'inquiries' ? 'display:none;' : ''; ?>"><span class="pf-add-wide">+ Add Response</span><span class="pf-add-mobile">Add</span></button>
         </header>
 

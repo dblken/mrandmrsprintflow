@@ -244,6 +244,47 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         margin-bottom: 0 !important;
     }
 
+    .main-content > .top-bar.pf-mobile-shell-header.pf-mobile-branch-inline,
+    .main-content > header.pf-mobile-shell-header.pf-mobile-branch-inline {
+        flex-wrap: nowrap !important;
+    }
+
+    .main-content > .top-bar.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-wrap,
+    .main-content > header.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-wrap {
+        flex: 0 1 auto !important;
+        max-width: 46vw !important;
+        justify-content: flex-end !important;
+        margin-left: auto !important;
+    }
+
+    .main-content > .top-bar.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-btn,
+    .main-content > .top-bar.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-static,
+    .main-content > header.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-btn,
+    .main-content > header.pf-mobile-shell-header.pf-mobile-branch-inline .branch-selector-static {
+        max-width: 46vw !important;
+    }
+
+    .pf-mobile-title-extra {
+        display: none !important;
+    }
+
+    #notifications-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #notifications-container .notif-item {
+        min-width: 720px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: flex-start !important;
+    }
+
+    #notifications-container .notif-actions-wrap {
+        flex-direction: row !important;
+        white-space: nowrap !important;
+    }
+
     .main-content > .top-bar .branch-selector-wrap,
     .main-content > header .branch-selector-wrap {
         display: flex;

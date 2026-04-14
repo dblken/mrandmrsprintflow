@@ -32,7 +32,7 @@ try {
     // Format profile picture path
     $profile_picture = null;
     if (!empty($c['profile_picture'])) {
-        $profile_picture = '<?php echo $base_path; ?>/public/assets/uploads/profiles/' . $c['profile_picture'];
+        $profile_picture = $base_path . '/public/assets/uploads/profiles/' . $c['profile_picture'];
     }
     
     // Format Data
@@ -51,7 +51,7 @@ try {
         'initial' => strtoupper(substr($c['first_name'], 0, 1)),
         'id_status' => $c['id_status'] ?? 'Unverified',
         'id_type'   => $c['id_type'] ?? '',
-        'id_image'  => !empty($c['id_image']) ? '<?php echo $base_path; ?>/uploads/ids/' . $c['id_image'] : null,
+        'id_image'  => !empty($c['id_image']) ? $base_path . '/uploads/ids/' . $c['id_image'] : null,
         'id_reject_reason' => $c['id_reject_reason'] ?? ''
     ];
 
