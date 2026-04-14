@@ -1440,6 +1440,47 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
             z-index: 11020 !important;
             max-width: calc(100vw - 24px) !important;
         }
+        .sort-dropdown,
+        .filter-panel {
+            position: fixed !important;
+            top: 96px !important;
+            left: 50% !important;
+            right: auto !important;
+            bottom: auto !important;
+            transform: translateX(-50%) !important;
+            width: min(420px, calc(100vw - 32px)) !important;
+            min-width: min(420px, calc(100vw - 32px)) !important;
+            max-width: calc(100vw - 32px) !important;
+            max-height: calc(100dvh - 128px) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            border-radius: 8px !important;
+            box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22) !important;
+            z-index: 11030 !important;
+        }
+        .sort-dropdown:not(.export-dropdown-wide) {
+            width: min(320px, calc(100vw - 32px)) !important;
+            min-width: min(320px, calc(100vw - 32px)) !important;
+        }
+        .filter-panel .filter-section,
+        .filter-panel .filter-actions,
+        .filter-panel .filter-panel-header,
+        .filter-panel .filter-panel-footer {
+            padding-left: 18px !important;
+            padding-right: 18px !important;
+        }
+        .filter-panel .filter-date-row,
+        .filter-panel .form-row,
+        .filter-panel .filter-grid {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+        }
+        .filter-panel input,
+        .filter-panel select,
+        .filter-panel button {
+            max-width: 100% !important;
+        }
         .main-content > header .branch-dropdown,
         .main-content > .top-bar .branch-dropdown {
             right: 0 !important;

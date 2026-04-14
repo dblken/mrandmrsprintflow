@@ -245,10 +245,12 @@ if ($initials === '') {
         .pf-burger-link {
             display: flex;
             align-items: center;
+            justify-content: center;
             padding: 0.75rem 1rem;
             border-radius: 0.5rem;
             color: rgba(255, 255, 255, 0.85);
             text-decoration: none;
+            text-align: center;
             font-size: 0.95rem;
             font-weight: 600;
             transition: all 0.2s;
@@ -257,13 +259,13 @@ if ($initials === '') {
         .pf-burger-link:hover {
             background: rgba(83, 197, 224, 0.1);
             color: #53c5e0;
-            transform: translateX(4px);
         }
         .pf-burger-link.active {
             background: rgba(83, 197, 224, 0.16);
             color: #53c5e0 !important;
             border-left: 3px solid #53c5e0;
-            padding-left: calc(1rem - 3px);
+            padding-left: 1rem;
+            padding-right: calc(1rem + 3px);
         }
         #main-header .pf-nav-links .nav-link.nav-active {
             color: #53c5e0 !important;
