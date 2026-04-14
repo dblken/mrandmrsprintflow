@@ -268,6 +268,74 @@
 
         hide();
     }
+
+    function closeFilterPanel(panel) {
+        let node = panel;
+
+        while (node) {
+            if (Array.isArray(node._x_dataStack)) {
+                const filterState = node._x_dataStack.find((state) => (
+                    state && Object.prototype.hasOwnProperty.call(state, 'filterOpen')
+                ));
+
+                if (filterState) {
+                    filterState.filterOpen = false;
+                    return;
+                }
+            }
+
+            node = node.parentElement;
+        }
+
+        panel.style.display = 'none';
+    }
+
+    function enhanceFilterPanels(root = document) {
+        const panels = root.querySelectorAll ? root.querySelectorAll('.filter-panel') : [];
+
+        panels.forEach(panel => {
+            if (panel.querySelector(':scope > .pf-filter-close')) return;
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'pf-filter-close';
+            button.setAttribute('aria-label', 'Close filter panel');
+            button.setAttribute('title', 'Close filter panel');
+            button.innerHTML = '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeFilterPanel(panel);
+            });
+
+            panel.insertBefore(button, panel.firstChild);
+        });
+    }
+
+    let filterObserverStarted = false;
+
+    function initFilterPanelCloseButtons() {
+        enhanceFilterPanels();
+
+        if (filterObserverStarted) return;
+        filterObserverStarted = true;
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+                    if (node.matches && node.matches('.filter-panel')) {
+                        enhanceFilterPanels(node.parentElement || document);
+                    } else {
+                        enhanceFilterPanels(node);
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
     
     // Initialize on load
     if (document.readyState === 'loading') {
@@ -275,11 +343,13 @@
             initMobileMenu();
             enhanceTables();
             initAdminScrollTop();
+            initFilterPanelCloseButtons();
         });
     } else {
         initMobileMenu();
         enhanceTables();
         initAdminScrollTop();
+        initFilterPanelCloseButtons();
     }
     
     // Re-initialize on window resize
@@ -312,6 +382,7 @@
         initMobileMenu();
         enhanceTables();
         initAdminScrollTop();
+        initFilterPanelCloseButtons();
     });
     
 })();

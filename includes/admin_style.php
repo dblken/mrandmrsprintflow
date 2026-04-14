@@ -87,6 +87,48 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         color: var(--text-main);
     }
 
+    .filter-panel .filter-panel-header {
+        padding-right: 56px !important;
+    }
+
+    .filter-panel > .pf-filter-close {
+        position: absolute !important;
+        top: 10px !important;
+        right: 10px !important;
+        z-index: 3 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        padding: 0 !important;
+        border-radius: 8px !important;
+        border: 1px solid #e5e7eb !important;
+        background: #ffffff !important;
+        color: #334155 !important;
+        font-size: 18px !important;
+        line-height: 1 !important;
+        font-weight: 700 !important;
+        cursor: pointer !important;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12) !important;
+    }
+
+    .filter-panel > .pf-filter-close:hover,
+    .filter-panel > .pf-filter-close:focus-visible {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+        outline: none !important;
+    }
+
+    .filter-panel > .pf-filter-close svg {
+        width: 18px !important;
+        height: 18px !important;
+        pointer-events: none !important;
+    }
+
     /*
      * Sidebar anti-flicker (collapsed nav):
      * - Head script sets sidebar-boot-pending only when localStorage says collapsed.
@@ -1475,6 +1517,9 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
         .filter-panel .filter-panel-footer {
             padding-left: 18px !important;
             padding-right: 18px !important;
+        }
+        .filter-panel .filter-panel-header {
+            padding-right: 56px !important;
         }
         .filter-panel .filter-date-row,
         .filter-panel .form-row,
