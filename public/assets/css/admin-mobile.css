@@ -633,8 +633,12 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
     }
     
     /* Modal Forms */
-    .modal-content,
-    .modal-body {
+    .modal-body,
+    .modal-bdy,
+    .modal-panel > .modal-content,
+    .modal > .modal-content,
+    .modal-overlay > .modal-content,
+    #user-modal-box .modal-body {
         padding: 16px !important;
     }
 }
@@ -692,32 +696,48 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
 @media (max-width: 768px) {
     .modal,
     .modal-overlay,
+    .modal-backdrop,
     #product-modal-overlay,
     #view-product-modal-overlay,
     #service-modal-overlay,
     #view-service-modal-overlay,
     #archive-storage-overlay,
     #items-archive-storage-overlay,
+    #user-modal-backdrop,
+    #serviceStatusConfirmModal,
     .cropper-modal-overlay,
     .upload-modal-overlay,
-    .view-picture-modal {
+    .view-picture-modal,
+    .pf-fg-nav-modal,
+    .pf-fg-nav-modal__backdrop {
         align-items: flex-start !important;
         justify-content: center !important;
         overflow-y: auto !important;
+        overflow-x: hidden !important;
         padding: 12px !important;
         z-index: 11000 !important;
     }
     
-    .modal-content,
-    .modal-dialog,
+    .modal > .modal-content,
+    .modal > .modal-dialog,
+    .modal-overlay > .modal-content,
+    .modal-overlay > .modal-dialog,
+    .modal-overlay > .modal-panel,
+    .modal-overlay > .modal-box,
+    .modal-backdrop > .modal-content,
+    .modal-backdrop > .modal-dialog,
     #product-modal,
     #view-product-modal,
     #service-modal,
     #view-service-modal,
     #archive-storage-modal,
     #items-archive-storage-modal,
+    #user-modal-box,
+    #serviceStatusConfirmModal > [role="dialog"],
+    .chat-modal-shell,
     .cropper-modal-panel,
-    .upload-modal {
+    .upload-modal,
+    .pf-fg-nav-modal__panel {
         width: min(100%, 560px) !important;
         max-width: calc(100vw - 24px) !important;
         margin: 64px auto 24px !important;
@@ -725,28 +745,141 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         min-height: auto !important;
         max-height: calc(100dvh - 88px) !important;
         overflow-y: auto !important;
+        overflow-x: hidden !important;
         z-index: 11010 !important;
+        box-sizing: border-box !important;
     }
     
-    .modal-header {
+    .modal-header,
+    .modal-hdr,
+    .chat-modal-header {
         padding: 16px !important;
         position: sticky;
         top: 0;
         background: white;
         z-index: 10;
         border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0 !important;
+        gap: 10px !important;
+    }
+
+    .modal-header h1,
+    .modal-header h2,
+    .modal-header h3,
+    .modal-hdr h1,
+    .modal-hdr h2,
+    .modal-hdr h3,
+    .modal-title,
+    .chat-modal-title {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+        line-height: 1.25 !important;
     }
     
-    .modal-body {
+    .modal-body,
+    .modal-bdy,
+    .modal-panel > .modal-content,
+    .chat-modal-messages {
         padding: 16px !important;
+        min-width: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
     }
     
-    .modal-footer {
+    .modal-footer,
+    .modal-ftr,
+    .modal-actions,
+    .pf-fg-nav-modal__actions {
         padding: 16px !important;
         position: sticky;
         bottom: 0;
         background: white;
         border-top: 1px solid #e5e7eb;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .modal-footer button,
+    .modal-footer a,
+    .modal-ftr button,
+    .modal-ftr a,
+    .modal-actions button,
+    .modal-actions a,
+    .pf-fg-nav-modal__actions button,
+    .pf-fg-nav-modal__actions a,
+    #serviceStatusConfirmModal button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    #serviceStatusConfirmModal [style*="display:flex"] {
+        flex-direction: column !important;
+    }
+
+    .modal-content .form-row,
+    .modal-content .form-row-3,
+    .modal-content .form-grid,
+    .modal-content .field-row,
+    .modal-content .mf-row,
+    .modal-content .mf-row-3,
+    .modal-content [style*="grid-template-columns"],
+    .modal-panel .form-row,
+    .modal-panel .form-row-3,
+    .modal-panel .form-grid,
+    .modal-panel .field-row,
+    .modal-panel .mf-row,
+    .modal-panel .mf-row-3,
+    .modal-panel [style*="grid-template-columns"],
+    .modal-box .form-row,
+    .modal-box .form-row-3,
+    .modal-box .form-grid,
+    .modal-box .field-row,
+    .modal-box .mf-row,
+    .modal-box .mf-row-3,
+    .modal-box [style*="grid-template-columns"],
+    #user-modal-box .form-row,
+    #user-modal-box .form-row-3,
+    #user-modal-box .form-grid,
+    #user-modal-box [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal-content input,
+    .modal-content select,
+    .modal-content textarea,
+    .modal-panel input,
+    .modal-panel select,
+    .modal-panel textarea,
+    .modal-box input,
+    .modal-box select,
+    .modal-box textarea,
+    #user-modal-box input,
+    #user-modal-box select,
+    #user-modal-box textarea {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .modal-content table,
+    .modal-panel table,
+    .modal-box table,
+    #user-modal-box table {
+        min-width: 640px !important;
+    }
+
+    .modal-content img,
+    .modal-panel img,
+    .modal-box img,
+    #user-modal-box img,
+    .upload-modal img,
+    .cropper-modal-panel img {
+        max-width: 100% !important;
+        height: auto;
     }
 
     .branch-dropdown,
