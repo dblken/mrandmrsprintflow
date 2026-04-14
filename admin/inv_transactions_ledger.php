@@ -449,7 +449,7 @@ if (isset($_GET['ajax'])) {
 
     <div class="main-content">
         <header>
-            <div>
+            <div class="pf-mobile-title-group">
                 <h1 class="page-title" style="margin-bottom: 4px;">Stock Movement Ledger</h1>
             </div>
             <a href="inv_items_management" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">

@@ -218,7 +218,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
         .cb-tab-content.active { display:block; }
 
         /* KPI Cards */
-        .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+        .kpi-row { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:24px; }
         @media(max-width:768px) { .kpi-row { grid-template-columns:1fr 1fr; } }
         .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
@@ -732,6 +732,11 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 35, 43, 0.25);
         }
+        #btn-add-faq .pf-add-mobile { display: none; }
+        @media (max-width: 768px) {
+            #btn-add-faq .pf-add-wide { display: none; }
+            #btn-add-faq .pf-add-mobile { display: inline; }
+        }
     </style>
 </head>
 <body>
@@ -742,7 +747,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
     <div class="main-content">
         <header>
             <h1 class="page-title">Support Chat Management</h1>
-            <button id="btn-add-faq" class="btn-primary" style="<?php echo $active_tab === 'inquiries' ? 'display:none;' : ''; ?>">+ Add Response</button>
+            <button id="btn-add-faq" class="btn-primary" style="<?php echo $active_tab === 'inquiries' ? 'display:none;' : ''; ?>"><span class="pf-add-wide">+ Add Response</span><span class="pf-add-mobile">Add</span></button>
         </header>
 
         <main>
@@ -801,11 +806,6 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
                         <div class="kpi-label">Active / Public</div>
                         <div class="kpi-value"><?php echo $stat_active; ?></div>
                         <div class="kpi-sub">Shown to customers</div>
-                    </div>
-                    <div class="kpi-card rose">
-                        <div class="kpi-label">Inactive / Hidden</div>
-                        <div class="kpi-value"><?php echo $stat_inactive; ?></div>
-                        <div class="kpi-sub">Not visible</div>
                     </div>
                 </div>
 

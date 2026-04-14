@@ -312,7 +312,7 @@ $page_title = 'Notifications - Staff';
 
     <div class="main-content">
         <header>
-            <div>
+            <div class="pf-mobile-title-group">
                 <h1 class="page-title" style="margin-bottom:4px;">Notifications</h1>
                 <p style="font-size:14px;color:#6b7280;"><?php echo (int)$unread_count; ?> unread · <?php echo number_format($total_count); ?> matching this view</p>
             </div>

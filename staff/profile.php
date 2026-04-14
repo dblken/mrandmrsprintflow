@@ -212,8 +212,16 @@ $page_title = 'My Profile - Staff';
         .alert-success { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; }
         .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
         @media (max-width: 900px) { .profile-grid { grid-template-columns:1fr; } }
+        .profile-name-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
         .info-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
         @media (max-width: 768px) { .info-grid { grid-template-columns:1fr; } }
+        @media (max-width: 768px) {
+            .profile-grid { gap:16px; }
+            .profile-name-grid { grid-template-columns:1fr !important; }
+            .profile-grid .card { padding:18px !important; border-radius:10px !important; }
+            .profile-grid .btn-primary { width:100%; justify-content:center; }
+            .profile-grid .input-field { min-width:0; }
+        }
         .info-item p:first-child { font-size:12px; color:#9ca3af; margin-bottom:4px; }
         .info-item p:last-child { font-size:14px; font-weight:600; color:#1f2937; }
         textarea.input-field { resize: vertical; min-height: 80px; }
@@ -299,7 +307,7 @@ $page_title = 'My Profile - Staff';
                             <p class="text-xs text-gray-500 mt-2">JPG, PNG or WEBP. Max 2MB.</p>
                         </div>
                         
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
+                        <div class="profile-name-grid">
                             <div>
                                 <label>First Name <span class="required-asterisk">*</span></label>
                                 <input type="text" name="first_name" id="first_name" class="input-field" required value="<?php echo htmlspecialchars($user['first_name']); ?>">

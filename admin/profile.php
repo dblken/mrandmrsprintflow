@@ -503,7 +503,49 @@ $page_title = 'My Profile - PrintFlow Admin';
         }
         @media (max-width: 768px) {
             .form-grid { grid-template-columns: 1fr; }
-            .profile-hero { flex-direction: column; text-align: center; padding: 32px 20px; }
+            .profile-hero {
+                flex-direction: column;
+                text-align: center;
+                padding: 28px 18px;
+                gap: 18px;
+                border-radius: 12px;
+            }
+            .profile-avatar {
+                width: 86px;
+                height: 86px;
+                font-size: 30px;
+            }
+            .profile-hero-info {
+                min-width: 0;
+                width: 100%;
+            }
+            .profile-hero-info h2,
+            .profile-hero-info p {
+                overflow-wrap: anywhere;
+            }
+            .profile-columns {
+                grid-template-columns: 1fr !important;
+                gap: 14px !important;
+            }
+            .section-card {
+                padding: 18px;
+                border-radius: 10px;
+            }
+            .profile-form-actions {
+                justify-content: stretch;
+            }
+            .profile-form-actions .btn-save,
+            .btn-danger-outline {
+                width: 100%;
+                justify-content: center;
+            }
+            .upload-modal {
+                max-width: calc(100vw - 24px);
+                max-height: calc(100dvh - 48px);
+                overflow-y: auto;
+                padding: 18px;
+                border-radius: 10px;
+            }
         }
         .form-group { margin-bottom: 16px; }
         .form-group label {
@@ -772,7 +814,7 @@ $page_title = 'My Profile - PrintFlow Admin';
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="profile-columns" style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
                 <!-- Profile Information -->
                 <div class="section-card">
                     <div class="section-title">

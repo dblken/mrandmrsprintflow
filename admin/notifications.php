@@ -353,7 +353,7 @@ $page_title = 'Notifications - Admin';
     <!-- Main Content -->
     <div class="main-content">
         <header>
-            <div>
+            <div class="pf-mobile-title-group">
                 <h1 class="page-title" style="margin-bottom:4px;">Notifications</h1>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">

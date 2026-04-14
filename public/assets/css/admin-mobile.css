@@ -233,6 +233,17 @@ body:not([class*="admin"]):not([class*="staff"]):not([class*="manager"]):not(.pr
         line-height: 1.2;
     }
 
+    .main-content > .top-bar.pf-mobile-shell-header .pf-mobile-title-group,
+    .main-content > header.pf-mobile-shell-header .pf-mobile-title-group {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+
+    .main-content > .top-bar.pf-mobile-shell-header .pf-mobile-title-group .page-title,
+    .main-content > header.pf-mobile-shell-header .pf-mobile-title-group .page-title {
+        margin-bottom: 0 !important;
+    }
+
     .main-content > .top-bar .branch-selector-wrap,
     .main-content > header .branch-selector-wrap {
         display: flex;
