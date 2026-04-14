@@ -88,6 +88,18 @@ function _ft_detect_social(string $url): array {
             .ft-list li { text-align: center; }
             .ft-list a { display: inline-block; }
             .ft-list-item { justify-content: center; text-align: center; display: inline-flex; max-width: fit-content; margin-left: auto; margin-right: auto; }
+            .ft-services-list .ft-list-item {
+                display: flex;
+                width: 100%;
+                max-width: none;
+            }
+            .ft-contact-list .ft-list-item {
+                display: inline-flex;
+                width: auto;
+                gap: 0.4rem;
+                justify-content: center;
+                align-items: flex-start;
+            }
             .ft-social { margin-top: .85rem; }
             .ft-list li { margin-bottom: .65rem; }
             .ft-grid > div { padding: 0 0.5rem; text-align: center; }
@@ -139,7 +151,7 @@ function _ft_detect_social(string $url): array {
                 <div>
                     <h3 class="ft-title">Our Services</h3>
                     <?php if (!empty($_ft_services)): ?>
-                    <ul class="ft-list">
+                    <ul class="ft-list ft-services-list">
                         <?php foreach ($_ft_services as $_svc): ?>
                         <li class="ft-list-item">
                             <span class="ft-ico">✓</span>
@@ -155,7 +167,7 @@ function _ft_detect_social(string $url): array {
                 <!-- Contact (dynamic) -->
                 <div>
                     <h3 class="ft-title">Contact</h3>
-                    <ul class="ft-list">
+                    <ul class="ft-list ft-contact-list">
                         <?php if (!empty($_ft_email)): ?>
                         <li class="ft-list-item">
                             <svg class="ft-ico-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
