@@ -435,6 +435,11 @@ if (isset($_GET['ajax'])) {
             font-weight: 700;
         }
         [x-cloak] { display: none !important; }
+        @media (max-width: 768px) {
+            .pf-inventory-mobile-hide {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -447,7 +452,7 @@ if (isset($_GET['ajax'])) {
             <div>
                 <h1 class="page-title" style="margin-bottom: 4px;">Stock Movement Ledger</h1>
             </div>
-            <a href="inv_items_management" class="btn-secondary" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">
+            <a href="inv_items_management" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
                 Manage Items
             </a>
@@ -459,7 +464,7 @@ if (isset($_GET['ajax'])) {
                 <div id="ledger-filter-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Ledger List
-                        <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
+                        <span class="pf-inventory-mobile-hide" style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
                             (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '–' . min($offset + $per_page, $total_rows) : '0'; ?></strong> of <span id="totalCount"><?php echo number_format($total_rows); ?></span> transactions)
                         </span>
                     </h3>

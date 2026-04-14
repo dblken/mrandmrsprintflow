@@ -547,6 +547,11 @@ if (isset($_GET['ajax'])) {
         /* Low stock row highlight */
         .low-stock-row td { background-color: #fff5f5 !important; color: #1f2937 !important; }
         .low-stock-row:hover td { background-color: #fee2e2 !important; }
+        @media (max-width: 768px) {
+            .pf-inventory-mobile-hide {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -557,7 +562,7 @@ if (isset($_GET['ajax'])) {
         <header>
             <h1 class="page-title">Inventory Master</h1>
             <div style="display: flex; gap: 12px;">
-                <a href="inv_transactions_ledger" class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
+                <a href="inv_transactions_ledger" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     Transaction Ledger
                 </a>
@@ -570,7 +575,7 @@ if (isset($_GET['ajax'])) {
                 <div id="inv-filter-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Inventory Items List
-                        <span style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
+                        <span class="pf-inventory-mobile-hide" style="font-size:13px; font-weight:400; color:#6b7280; margin-left:8px;">
                             (Showing <strong style="color:#1f2937;" id="showingCount"><?php echo $total_rows > 0 ? ($offset + 1) . '&ndash;' . min($offset + $per_page, $total_rows) : '0'; ?></strong><span id="invShowingMeta"> of <?php echo number_format($total_rows); ?> items)</span>
                         </span>
                     </h3>
