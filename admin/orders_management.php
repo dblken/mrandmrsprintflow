@@ -177,7 +177,10 @@ if (isset($_GET['ajax'])) {
                 </tr>
                 <?php foreach ($orders as $order): ?>
                     <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="color:#1f2937;white-space:nowrap;"><?php echo $order['order_sku'] ? htmlspecialchars($order['order_sku']) . '-' . $order['order_id'] : 'ORD-' . $order['order_id']; ?></td>
+                        <?php $order_code = $order['order_sku'] ? $order['order_sku'] . '-' . $order['order_id'] : 'ORD-' . $order['order_id']; ?>
+                        <td class="order-code-cell">
+                            <span class="cell-ellipsis order-code-text" title="<?php echo htmlspecialchars($order_code); ?>"><?php echo htmlspecialchars($order_code); ?></span>
+                        </td>
                         <td>
                             <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                             <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
@@ -478,7 +481,7 @@ if (isset($_GET['ajax'])) {
         }
 
         /* ── Table improvements ─── */
-        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
         .orders-table th {
             padding: 12px 16px;
             font-size: 13px;
@@ -504,6 +507,14 @@ if (isset($_GET['ajax'])) {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .order-code-cell {
+            color: #1f2937;
+            max-width: 0;
+        }
+        .order-code-text {
+            display: block;
+            max-width: 100%;
         }
 
         /* Pagination Styling */
@@ -1128,7 +1139,10 @@ if (isset($_GET['ajax'])) {
                             <?php else: ?>
                                 <?php foreach ($orders as $order): ?>
                                     <tr data-order-id="<?php echo $order['order_id']; ?>" @click="openModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;">
-                                        <td style="color:#1f2937;white-space:nowrap;"><?php echo $order['order_sku'] ? htmlspecialchars($order['order_sku']) . '-' . $order['order_id'] : 'ORD-' . $order['order_id']; ?></td>
+                                        <?php $order_code = $order['order_sku'] ? $order['order_sku'] . '-' . $order['order_id'] : 'ORD-' . $order['order_id']; ?>
+                                        <td class="order-code-cell">
+                                            <span class="cell-ellipsis order-code-text" title="<?php echo htmlspecialchars($order_code); ?>"><?php echo htmlspecialchars($order_code); ?></span>
+                                        </td>
                                         <td>
                                             <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                                             <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
