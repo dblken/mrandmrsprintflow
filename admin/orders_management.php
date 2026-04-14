@@ -604,6 +604,17 @@ if (isset($_GET['ajax'])) {
                 line-height: 1.25 !important;
                 overflow-wrap: anywhere !important;
             }
+            main[x-data="ordersPage()"] .modal-content h3,
+            main[x-data="ordersPage()"] .modal-content h4,
+            main[x-data="ordersPage()"] .modal-content p,
+            main[x-data="ordersPage()"] .modal-content div,
+            main[x-data="ordersPage()"] .modal-content span,
+            main[x-data="ordersPage()"] .modal-content td {
+                min-width: 0 !important;
+                overflow-wrap: anywhere !important;
+                word-break: break-word !important;
+                white-space: normal !important;
+            }
             main[x-data="ordersPage()"] .modal-content > div[style*="grid-template-columns"] {
                 grid-template-columns: 1fr !important;
                 gap: 12px !important;
@@ -625,6 +636,8 @@ if (isset($_GET['ajax'])) {
             main[x-data="ordersPage()"] .modal-content [style*="max-width:150px"],
             main[x-data="ordersPage()"] .modal-content [style*="max-width:120px"] {
                 max-width: 180px !important;
+                white-space: normal !important;
+                text-overflow: clip !important;
             }
             main[x-data="ordersPage()"] .modal-content [style*="background:#fff"][style*="box-shadow"] {
                 max-width: 100% !important;

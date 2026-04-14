@@ -532,6 +532,20 @@ function custom_payment_badge($status) {
                 line-height: 1.25 !important;
                 overflow-wrap: anywhere !important;
             }
+            main[x-data="custModal()"] .modal-content h3,
+            main[x-data="custModal()"] .modal-content h4,
+            main[x-data="custModal()"] .modal-content p,
+            main[x-data="custModal()"] .modal-content div,
+            main[x-data="custModal()"] .modal-content span,
+            main[x-data="custModal()"] .modal-content td,
+            main[x-data="custModal()"] .modal-panel h3,
+            main[x-data="custModal()"] .modal-panel p,
+            main[x-data="custModal()"] .modal-panel span {
+                min-width: 0 !important;
+                overflow-wrap: anywhere !important;
+                word-break: break-word !important;
+                white-space: normal !important;
+            }
             main[x-data="custModal()"] .modal-content > div[style*="padding:24px"] {
                 padding: 16px !important;
             }
