@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
@@ -14,25 +15,28 @@ if (!defined('BASE_URL')) {
 }
 
 service_order_ensure_tables();
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 $filter = $_GET['status'] ?? '';
+$branchWhere = '(so.branch_id = ? OR so.branch_id IS NULL)';
 $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number 
         FROM service_orders so 
         LEFT JOIN customers c ON so.customer_id = c.customer_id 
+        WHERE {$branchWhere}
         ORDER BY so.created_at DESC";
-$params = [];
-$types = '';
+$params = [$staffBranchId];
+$types = 'i';
 if ($filter && in_array($filter, ['Pending', 'Pending Review', 'Approved', 'Processing', 'Completed', 'Rejected'], true)) {
     $sql = "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number 
             FROM service_orders so 
             LEFT JOIN customers c ON so.customer_id = c.customer_id 
-            WHERE so.status = ? 
+            WHERE {$branchWhere} AND so.status = ? 
             ORDER BY so.created_at DESC";
-    $params = [$filter];
-    $types = 's';
+    $params = [$staffBranchId, $filter];
+    $types = 'is';
 }
 
-$orders = $params ? db_query($sql, $types, $params) : db_query($sql);
+$orders = db_query($sql, $types, $params);
 
 $page_title = 'Service Orders - Staff';
 ?>
@@ -96,10 +100,10 @@ $page_title = 'Service Orders - Staff';
         <main>
             <?php
             // Calculate KPIs for service orders
-            $total_count = db_query("SELECT COUNT(*) as count FROM service_orders")[0]['count'] ?? 0;
-            $pending_count = db_query("SELECT COUNT(*) as count FROM service_orders WHERE status = 'Pending'")[0]['count'] ?? 0;
-            $processing_count = db_query("SELECT COUNT(*) as count FROM service_orders WHERE status = 'Processing'")[0]['count'] ?? 0;
-            $completed_count = db_query("SELECT COUNT(*) as count FROM service_orders WHERE status = 'Completed'")[0]['count'] ?? 0;
+            $total_count = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE {$branchWhere}", 'i', [$staffBranchId])[0]['count'] ?? 0;
+            $pending_count = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE {$branchWhere} AND status = 'Pending'", 'i', [$staffBranchId])[0]['count'] ?? 0;
+            $processing_count = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE {$branchWhere} AND status = 'Processing'", 'i', [$staffBranchId])[0]['count'] ?? 0;
+            $completed_count = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE {$branchWhere} AND status = 'Completed'", 'i', [$staffBranchId])[0]['count'] ?? 0;
             ?>
 
             <!-- Standardized KPI Row -->

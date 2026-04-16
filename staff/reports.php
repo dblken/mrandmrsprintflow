@@ -7,10 +7,12 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
+printflow_ensure_product_branch_stock_table();
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 $range = $_GET['range'] ?? 'week';
 $report_date = $_GET['date'] ?? date('Y-m-d');
@@ -62,8 +64,14 @@ $pending_period_orders = $pend_res[0]['count'] ?? 0;
 $global_back_res = db_query("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Completed', 'Cancelled') AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
 $global_backlog = $global_back_res[0]['count'] ?? 0;
 
-// Low stock finished goods alert (This is ALWAYS current status)
-$stock_res = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND stock_quantity < 20");
+// Low stock finished goods alert (branch-aware current status)
+$stock_res = db_query("
+    SELECT COUNT(*) as count
+    FROM products p
+    LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+    WHERE p.status = 'Activated'
+      AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 20)
+", 'i', [$staffBranchId]);
 $low_stock_count = $stock_res[0]['count'] ?? 0;
 
 // ---- 2. REVENUE TREND (DYNAMIC) ----

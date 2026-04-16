@@ -7,11 +7,13 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 // Require staff access
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
+printflow_ensure_product_branch_stock_table();
 $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
 $branch_name = $staffCtx['branch_name'];
@@ -101,7 +103,12 @@ $completed_custom_res = db_query("
       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
 ", 'i', [$staffBranchId]);
 $completed_custom_count = $completed_custom_res[0]['count'] ?? 0;
-$pending_reviews_res = db_query("SELECT COUNT(*) as count FROM reviews");
+$pending_reviews_res = db_query("
+    SELECT COUNT(*) as count
+    FROM reviews r
+    LEFT JOIN orders o ON o.order_id = r.order_id
+    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
+", 'i', [$staffBranchId]);
 $pending_reviews_count = $pending_reviews_res[0]['count'] ?? 0;
 
 // Sales Overview (Last 7 Days) for Trend Chart (Scoped)
@@ -174,16 +181,24 @@ $recent_orders = db_query("
 
 // Get low-stock products (view-only)
 $low_stock = db_query("
-    SELECT name, sku, stock_quantity, category 
-    FROM products 
-    WHERE status = 'Activated' AND stock_quantity < 10 
-    ORDER BY stock_quantity ASC LIMIT 5
-");
+    SELECT p.name, p.sku, COALESCE(pbs.stock_quantity, p.stock_quantity) AS stock_quantity, p.category
+    FROM products p
+    LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+    WHERE p.status = 'Activated'
+      AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)
+    ORDER BY COALESCE(pbs.stock_quantity, p.stock_quantity) ASC
+    LIMIT 5
+", 'i', [$staffBranchId]);
 
 // Define missing variables for KPI cards (Staff Dashboard)
 $active_orders_count = $pending_orders + $processing_orders + $ready_orders;
 $all_products_count = db_query("SELECT COUNT(*) as cnt FROM products WHERE status = 'Activated'")[0]['cnt'] ?? 0;
-$pending_reviews_count = db_query("SELECT COUNT(*) as cnt FROM reviews")[0]['cnt'] ?? 0;
+$pending_reviews_count = db_query("
+    SELECT COUNT(*) as cnt
+    FROM reviews r
+    LEFT JOIN orders o ON o.order_id = r.order_id
+    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
+", 'i', [$staffBranchId])[0]['cnt'] ?? 0;
 
 $page_title = 'Staff Dashboard - PrintFlow';
 

@@ -7,27 +7,38 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
+
+printflow_ensure_product_branch_stock_table();
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Build query
-$sql = "SELECT * FROM products WHERE status = 'Activated'";
-$params = [];
-$types = '';
+$stockExpr = 'COALESCE(pbs.stock_quantity, p.stock_quantity)';
+$lowStockExpr = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
+$sql = "SELECT p.product_id, p.sku, p.name, p.category, p.product_type, p.price, p.status,
+               {$stockExpr} AS stock_quantity, {$lowStockExpr} AS low_stock_level
+        FROM products p
+        LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+        WHERE p.status = 'Activated'";
+$params = [$staffBranchId];
+$types = 'i';
 
 if (!empty($category)) {
-    $sql .= " AND category = ?";
+    $sql .= " AND p.category = ?";
     $params[] = $category;
     $types .= 's';
 }
 
 if (!empty($search)) {
-    $sql .= " AND (name LIKE ? OR sku LIKE ?)";
+    $sql .= " AND (p.name LIKE ? OR p.sku LIKE ?)";
     $search_term = '%' . $search . '%';
     $params[] = $search_term;
     $params[] = $search_term;
@@ -40,18 +51,21 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 // Count total items for pagination
-$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated'";
-$count_params = [];
-$count_types = '';
+$count_sql = "SELECT COUNT(*) as total
+              FROM products p
+              LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+              WHERE p.status = 'Activated'";
+$count_params = [$staffBranchId];
+$count_types = 'i';
 
 if (!empty($category)) {
-    $count_sql .= " AND category = ?";
+    $count_sql .= " AND p.category = ?";
     $count_params[] = $category;
     $count_types .= 's';
 }
 
 if (!empty($search)) {
-    $count_sql .= " AND (name LIKE ? OR sku LIKE ?)";
+    $count_sql .= " AND (p.name LIKE ? OR p.sku LIKE ?)";
     $count_params[] = '%' . $search . '%';
     $count_params[] = '%' . $search . '%';
     $count_types .= 'ss';
@@ -63,11 +77,11 @@ $total_pages = ceil($total_items / $items_per_page);
 
 $sort = $_GET['sort'] ?? 'az';
 $sort_clause = match($sort) {
-    'za'      => " ORDER BY name DESC",
-    'price_high' => " ORDER BY price DESC",
-    'price_low'  => " ORDER BY price ASC",
-    'stock_low'  => " ORDER BY stock_quantity ASC",
-    default   => " ORDER BY name ASC"
+    'za'      => " ORDER BY p.name DESC",
+    'price_high' => " ORDER BY p.price DESC",
+    'price_low'  => " ORDER BY p.price ASC",
+    'stock_low'  => " ORDER BY {$stockExpr} ASC",
+    default   => " ORDER BY p.name ASC"
 };
 
 $sql .= $sort_clause . " LIMIT ? OFFSET ?";
@@ -108,7 +122,13 @@ $page_title = 'Products & Inventory - Staff';
             <?php
             // Calculate KPIs for products
             $total_products = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated'")[0]['count'] ?? 0;
-            $low_stock_count = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND stock_quantity < ?", 'i', [10])[0]['count'] ?? 0;
+            $low_stock_count = db_query("
+                SELECT COUNT(*) as count
+                FROM products p
+                LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+                WHERE p.status = 'Activated'
+                  AND {$stockExpr} <= {$lowStockExpr}
+            ", 'i', [$staffBranchId])[0]['count'] ?? 0;
             $fixed_count = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND product_type = 'fixed'")[0]['count'] ?? 0;
             $variable_count = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND product_type = 'variable'")[0]['count'] ?? 0;
             ?>
@@ -247,7 +267,8 @@ $page_title = 'Products & Inventory - Staff';
                                     <td><span class="badge <?php echo $product['product_type'] === 'fixed' ? 'badge-blue' : 'badge-purple'; ?>"><?php echo ucfirst($product['product_type']); ?></span></td>
                                     <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
                                     <td>
-                                        <?php if ($product['stock_quantity'] < 10): ?>
+                                        <?php $productLowLevel = (int)($product['low_stock_level'] ?? 10); ?>
+                                        <?php if ((int)$product['stock_quantity'] <= $productLowLevel): ?>
                                             <span style="color:#dc2626; font-weight:700;"><?php echo $product['stock_quantity']; ?></span>
                                             <span style="font-size:11px; color:#dc2626; font-weight:600;">LOW</span>
                                         <?php else: ?>

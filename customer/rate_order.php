@@ -14,6 +14,10 @@ require_role('Customer');
 ensure_ratings_table_exists();
 ensure_order_status_values(['To Rate', 'Rated']);
 
+$review_columns = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+$review_customer_col = isset($review_columns['customer_id']) ? 'customer_id' : 'user_id';
+$review_message_col = isset($review_columns['message']) ? 'message' : 'comment';
+
 $customer_id = get_user_id();
 $order_id = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
 
@@ -50,8 +54,8 @@ if (!in_array((string)$order['status'], ['Completed', 'To Rate', 'Rated'], true)
     redirect('<?php echo $base_path; ?>/customer/orders.php');
 }
 
-// Check if already rated in the new reviews table
-$existing = db_query("SELECT id, rating, message, created_at FROM reviews WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
+// Check if already rated in the reviews table (supports both legacy and current column names)
+$existing = db_query("SELECT id, rating, {$review_message_col} AS message, created_at FROM reviews WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
 $already_rated = !empty($existing);
 $review_id = $already_rated ? (int)$existing[0]['id'] : 0;
 $existing_rating = $already_rated ? (int)$existing[0]['rating'] : 0;
@@ -155,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($needs_message_update) {
                         // Update existing review with the message
                         db_execute(
-                            "UPDATE reviews SET rating = ?, message = ? WHERE id = ?",
+                            "UPDATE reviews SET rating = ?, {$review_message_col} = ? WHERE id = ?",
                             'isi',
                             [$rating, $message, $review_id]
                         );
@@ -163,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         // Insert new review
                         db_execute(
-                            "INSERT INTO reviews (order_id, customer_id, service_type, rating, message, created_at)
+                            "INSERT INTO reviews (order_id, {$review_customer_col}, service_type, rating, {$review_message_col}, created_at)
                              VALUES (?, ?, ?, ?, ?, NOW())",
                             'iisis',
                             [$order_id, $customer_id, $service_type_label, $rating, $message]

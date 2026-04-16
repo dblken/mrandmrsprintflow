@@ -142,6 +142,243 @@
         color: #047676;
     }
 
+    /* Shared filter / sort controls used across staff pages */
+    html.printflow-staff .toolbar-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        width: 100%;
+    }
+    html.printflow-staff .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    html.printflow-staff .toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 36px;
+        padding: 7px 14px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        border-radius: 8px;
+        color: #374151;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+    html.printflow-staff .toolbar-btn:hover {
+        background: #f8fafc;
+        border-color: #9ca3af;
+        color: #0f172a;
+    }
+    html.printflow-staff .toolbar-btn.active {
+        background: rgba(6, 161, 161, 0.1);
+        border-color: #06A1A1;
+        color: #047676;
+        box-shadow: 0 2px 10px rgba(6, 161, 161, 0.12);
+    }
+    html.printflow-staff .toolbar-btn svg {
+        flex: 0 0 auto;
+    }
+    html.printflow-staff .dropdown-panel,
+    html.printflow-staff .sort-dropdown,
+    html.printflow-staff .filter-panel {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+        z-index: 200;
+    }
+    html.printflow-staff .sort-dropdown {
+        min-width: 200px;
+        padding: 6px;
+        overflow: hidden;
+    }
+    html.printflow-staff .filter-panel {
+        width: min(320px, calc(100vw - 32px));
+        overflow: hidden;
+    }
+    html.printflow-staff .filter-header,
+    html.printflow-staff .filter-panel-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f3f4f6;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 800;
+    }
+    html.printflow-staff .filter-section {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    html.printflow-staff .filter-section:last-of-type {
+        border-bottom: 0;
+    }
+    html.printflow-staff .filter-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    html.printflow-staff .filter-label,
+    html.printflow-staff .filter-section-label {
+        color: #374151;
+        font-size: 13px;
+        font-weight: 700;
+    }
+    html.printflow-staff .filter-reset-link,
+    html.printflow-staff a.filter-reset-link {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #047676;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    html.printflow-staff .filter-reset-link:hover,
+    html.printflow-staff a.filter-reset-link:hover {
+        color: #035f5f;
+        text-decoration: underline;
+    }
+    html.printflow-staff .filter-input,
+    html.printflow-staff .filter-select,
+    html.printflow-staff .filter-search-input {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        color: #1f2937;
+        font-size: 13px;
+        line-height: 1.2;
+        box-sizing: border-box;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    html.printflow-staff .filter-input,
+    html.printflow-staff .filter-search-input {
+        padding: 0 10px;
+    }
+    html.printflow-staff .filter-select {
+        padding: 0 32px 0 10px;
+        cursor: pointer;
+    }
+    html.printflow-staff .filter-input:focus,
+    html.printflow-staff .filter-select:focus,
+    html.printflow-staff .filter-search-input:focus {
+        outline: none;
+        border-color: #06A1A1;
+        box-shadow: 0 0 0 3px rgba(6, 161, 161, 0.14);
+    }
+    html.printflow-staff .filter-date-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    html.printflow-staff .filter-date-label {
+        margin-bottom: 4px;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    html.printflow-staff .filter-footer,
+    html.printflow-staff .filter-actions {
+        display: flex;
+        gap: 8px;
+        padding: 14px 18px;
+        border-top: 1px solid #f3f4f6;
+    }
+    html.printflow-staff .filter-btn-reset,
+    html.printflow-staff .filter-btn-apply {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    html.printflow-staff .filter-btn-reset {
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        color: #374151;
+    }
+    html.printflow-staff .filter-btn-reset:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+    html.printflow-staff .filter-btn-apply {
+        border: 1px solid #06A1A1;
+        background: #06A1A1;
+        color: #fff;
+    }
+    html.printflow-staff .filter-btn-apply:hover {
+        background: #058f8f;
+        border-color: #058f8f;
+    }
+    html.printflow-staff .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #06A1A1;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1;
+    }
+    html.printflow-staff .sort-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 6px;
+        color: #374151;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.1s ease, color 0.1s ease;
+    }
+    html.printflow-staff .sort-option:hover {
+        background: #f8fafc;
+        color: #111827;
+    }
+    html.printflow-staff .sort-option.active,
+    html.printflow-staff .sort-option.selected {
+        background: rgba(6, 161, 161, 0.1);
+        color: #047676;
+    }
+    html.printflow-staff .sort-option .check,
+    html.printflow-staff .sort-option svg.check {
+        color: #06A1A1;
+        margin-left: auto;
+    }
+    html.printflow-staff [x-cloak] {
+        display: none !important;
+    }
+
     /* Form guard (sidebar portal) */
     html.printflow-staff .pf-fg-spinner {
         border-color: rgba(6, 161, 161, 0.3);

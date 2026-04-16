@@ -5,6 +5,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'Invalid request method.']);
@@ -47,13 +48,30 @@ if (mb_strlen($message) > 1000) {
 
 try {
     // Check if review exists
-    $review_check = db_query("SELECT id, user_id, order_id FROM reviews WHERE id = ? LIMIT 1", 'i', [$review_id]);
+    $review_columns = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+    $review_customer_expr = isset($review_columns['customer_id']) ? 'r.customer_id' : (isset($review_columns['user_id']) ? 'r.user_id' : '0');
+    $branchFilter = printflow_branch_filter_for_user();
+    $branchSql = '';
+    $types = 'i';
+    $params = [$review_id];
+    if ($branchFilter !== null) {
+        $branchSql = ' AND (o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0)';
+        $types .= 'i';
+        $params[] = (int)$branchFilter;
+    }
+    $review_check = db_query("
+        SELECT r.id, {$review_customer_expr} AS customer_id, r.order_id
+        FROM reviews r
+        LEFT JOIN orders o ON o.order_id = r.order_id
+        WHERE r.id = ? {$branchSql}
+        LIMIT 1
+    ", $types, $params);
     if (empty($review_check)) {
         echo json_encode(['success' => false, 'error' => 'Review not found.']);
         exit;
     }
 
-    $customer_id = (int)$review_check[0]['user_id'];
+    $customer_id = (int)$review_check[0]['customer_id'];
     $order_id = (int)$review_check[0]['order_id'];
 
     db_execute("

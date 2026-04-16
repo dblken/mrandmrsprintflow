@@ -8,10 +8,36 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role(['Staff', 'Admin']);
 require_once __DIR__ . '/../includes/staff_pending_check.php';
+ensure_ratings_table_exists();
+db_execute("CREATE TABLE IF NOT EXISTS review_helpful (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    review_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_review_user (review_id, user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 require_once __DIR__ . '/../includes/branch_context.php';
 $branch_ctx = init_branch_context(false);
+$reviewBranchFilter = printflow_branch_filter_for_user();
+$staffBranchId = $reviewBranchFilter ?? ($branch_ctx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$branch_ctx['selected_branch_id']);
 $branchName = $branch_ctx['branch_name'] ?? 'Main Branch';
+
+$review_columns = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+$review_customer_expr = isset($review_columns['customer_id']) ? 'r.customer_id' : (isset($review_columns['user_id']) ? 'r.user_id' : '0');
+$review_message_expr = isset($review_columns['message']) ? 'r.message' : (isset($review_columns['comment']) ? 'r.comment' : "''");
+$review_reference_expr = isset($review_columns['reference_id']) ? 'r.reference_id' : 'NULL';
+$review_type_expr = isset($review_columns['review_type']) ? 'r.review_type' : "'custom'";
+$review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
+$review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
+$review_branch_from = 'FROM reviews r';
+$review_kpi_types = '';
+$review_kpi_params = [];
+if ($reviewBranchFilter !== null) {
+    $review_branch_from .= " LEFT JOIN orders o ON o.order_id = r.order_id WHERE (o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0)";
+    $review_kpi_types = 'i';
+    $review_kpi_params = [(int)$reviewBranchFilter];
+}
 
 // Filters
 $search = sanitize($_GET['search'] ?? '');
@@ -23,7 +49,7 @@ $sort_by = sanitize($_GET['sort_by'] ?? 'newest');
 // Get distinct services for the filter from reviews, services, and products table
 $available_services = db_query("
     SELECT DISTINCT name FROM (
-        SELECT service_type COLLATE utf8mb4_general_ci as name FROM reviews WHERE service_type != '' AND service_type IS NOT NULL
+        SELECT {$review_service_expr} COLLATE utf8mb4_general_ci as name FROM reviews r WHERE {$review_service_expr} != '' AND {$review_service_expr} IS NOT NULL
         UNION
         SELECT name COLLATE utf8mb4_general_ci FROM services
         UNION
@@ -38,11 +64,18 @@ $offset = ($current_page - 1) * $items_per_page;
 
 $sql_base = "
     FROM reviews r
-    INNER JOIN customers c ON c.customer_id = r.user_id
+    INNER JOIN customers c ON c.customer_id = {$review_customer_expr}
+    LEFT JOIN orders o ON o.order_id = r.order_id
     WHERE 1=1
 ";
 $params = [];
 $types = '';
+
+if ($reviewBranchFilter !== null) {
+    $sql_base .= " AND (o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0)";
+    $params[] = (int)$reviewBranchFilter;
+    $types .= 'i';
+}
 
 if (!empty($search)) {
     $sql_base .= " AND (c.first_name LIKE ? OR c.last_name LIKE ? OR r.order_id = ?)";
@@ -53,7 +86,7 @@ if (!empty($search)) {
     $types .= 'ssi';
 }
 if (!empty($review_type)) {
-    $sql_base .= " AND r.review_type = ?";
+    $sql_base .= " AND {$review_type_expr} = ?";
     $params[] = $review_type;
     $types .= 's';
 }
@@ -65,10 +98,10 @@ if ($rating > 0 && $rating <= 5) {
 if (!empty($service)) {
     // Robust filtering by name (legacy) or by ID mapping (modern)
     $sql_base .= " AND (
-        r.service_type = ? 
-        OR r.service_type LIKE ? 
-        OR (r.review_type = 'custom' AND r.reference_id IN (SELECT service_id FROM services WHERE name = ? OR name LIKE ?))
-        OR (r.review_type = 'product' AND r.reference_id IN (SELECT product_id FROM products WHERE name = ? OR name LIKE ?))
+        {$review_service_expr} = ? 
+        OR {$review_service_expr} LIKE ? 
+        OR ({$review_type_expr} = 'custom' AND {$review_reference_expr} IN (SELECT service_id FROM services WHERE name = ? OR name LIKE ?))
+        OR ({$review_type_expr} = 'product' AND {$review_reference_expr} IN (SELECT product_id FROM products WHERE name = ? OR name LIKE ?))
     )";
     $like = $service . '%';
     $params[] = $service;
@@ -89,19 +122,19 @@ $query_sql = "
     SELECT
         r.id,
         r.order_id,
-        r.reference_id,
-        r.review_type,
-        r.service_type as legacy_service_type,
+        {$review_reference_expr} as reference_id,
+        {$review_type_expr} as review_type,
+        {$review_service_expr} as legacy_service_type,
         r.rating,
-        r.comment,
-        r.video_path,
+        {$review_message_expr} as comment,
+        {$review_video_expr} as video_path,
         r.created_at,
         c.first_name,
         c.last_name,
         (CASE 
-            WHEN r.review_type = 'product' THEN (SELECT name FROM products WHERE product_id = r.reference_id)
-            WHEN r.review_type = 'custom' THEN (SELECT name FROM services WHERE service_id = r.reference_id)
-            ELSE r.service_type
+            WHEN {$review_type_expr} = 'product' THEN (SELECT name FROM products WHERE product_id = {$review_reference_expr})
+            WHEN {$review_type_expr} = 'custom' THEN (SELECT name FROM services WHERE service_id = {$review_reference_expr})
+            ELSE {$review_service_expr}
         END) as item_name,
         (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count
     " . $sql_base . "
@@ -578,7 +611,7 @@ $page_title = 'Review Management - Staff';
                         <span class="kpi-label">Average Rating</span>
                         <span class="kpi-value">
                             <?php
-                            $avg = db_query("SELECT AVG(rating) as avg FROM reviews");
+                            $avg = db_query("SELECT AVG(r.rating) as avg {$review_branch_from}", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo number_format($avg[0]['avg'] ?? 0, 1);
                             ?>
                             <span style="font-size: 18px; color: #f59e0b;">★</span>
@@ -589,7 +622,7 @@ $page_title = 'Review Management - Staff';
                         <span class="kpi-label">Service Focus</span>
                         <span class="kpi-value" style="font-size: 18px; line-height:36px;">
                             <?php
-                            $top = db_query("SELECT service_type, COUNT(*) as c FROM reviews GROUP BY service_type ORDER BY c DESC LIMIT 1");
+                            $top = db_query("SELECT {$review_service_expr} AS service_type, COUNT(*) as c {$review_branch_from} GROUP BY service_type ORDER BY c DESC LIMIT 1", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo htmlspecialchars(ucfirst($top[0]['service_type'] ?? 'None'));
                             ?>
                         </span>
@@ -599,7 +632,8 @@ $page_title = 'Review Management - Staff';
                         <span class="kpi-label">Pending Replies</span>
                         <span class="kpi-value">
                             <?php
-                            $pending = db_query("SELECT COUNT(*) as c FROM reviews r WHERE (SELECT COUNT(*) FROM review_replies rr WHERE rr.review_id = r.id) = 0");
+                            $pendingWhere = $reviewBranchFilter !== null ? ' AND ' : ' WHERE ';
+                            $pending = db_query("SELECT COUNT(*) as c {$review_branch_from}{$pendingWhere}(SELECT COUNT(*) FROM review_replies rr WHERE rr.review_id = r.id) = 0", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo $pending[0]['c'] ?? 0;
                             ?>
                         </span>

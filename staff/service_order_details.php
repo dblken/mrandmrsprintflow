@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
@@ -20,10 +21,12 @@ if ($order_id < 1) {
 }
 
 service_order_ensure_tables();
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+$branchWhere = '(branch_id = ? OR branch_id IS NULL)';
 
 // Legacy POST targets (forms posting here) — mirror staff/api/service_order_api.php behaviour
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
-    $row = db_query('SELECT * FROM service_orders WHERE id = ?', 'i', [$order_id]);
+    $row = db_query("SELECT * FROM service_orders WHERE id = ? AND {$branchWhere}", 'ii', [$order_id, $staffBranchId]);
     if (!empty($row)) {
         $row = $row[0];
         if (isset($_POST['approve'])) {

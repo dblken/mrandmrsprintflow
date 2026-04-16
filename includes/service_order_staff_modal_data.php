@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/service_order_helper.php';
+require_once __DIR__ . '/branch_context.php';
 
 if (!function_exists('staff_service_order_placement_image_url')) {
     function staff_service_order_placement_image_url(string $placement_value): ?string {
@@ -71,13 +72,23 @@ function service_order_staff_modal_data(int $order_id): ?array {
         return null;
     }
 
+    $branchFilter = printflow_branch_filter_for_user();
+    $branchSql = '';
+    $branchTypes = '';
+    $branchParams = [];
+    if ($branchFilter !== null) {
+        $branchSql = ' AND (so.branch_id = ? OR so.branch_id IS NULL)';
+        $branchTypes = 'i';
+        $branchParams = [(int)$branchFilter];
+    }
+
     $order = db_query(
         "SELECT so.*, c.first_name, c.last_name, c.email, c.contact_number, c.customer_type, c.transaction_count 
          FROM service_orders so 
          LEFT JOIN customers c ON so.customer_id = c.customer_id 
-         WHERE so.id = ?",
-        'i',
-        [$order_id]
+         WHERE so.id = ?" . $branchSql,
+        'i' . $branchTypes,
+        array_merge([$order_id], $branchParams)
     );
     if (empty($order)) {
         return null;

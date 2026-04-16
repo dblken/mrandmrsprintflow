@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/service_order_helper.php';
+require_once __DIR__ . '/../../includes/branch_context.php';
 require_once __DIR__ . '/../../includes/service_order_staff_modal_data.php';
 
 if (!is_logged_in() || (!is_staff() && !is_admin())) {
@@ -15,6 +16,15 @@ if (!is_logged_in() || (!is_staff() && !is_admin())) {
 }
 
 service_order_ensure_tables();
+$staffBranchId = printflow_branch_filter_for_user();
+$serviceOrderBranchSql = '';
+$serviceOrderBranchTypes = '';
+$serviceOrderBranchParams = [];
+if ($staffBranchId !== null) {
+    $serviceOrderBranchSql = ' AND (branch_id = ? OR branch_id IS NULL)';
+    $serviceOrderBranchTypes = 'i';
+    $serviceOrderBranchParams = [(int)$staffBranchId];
+}
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -52,9 +62,9 @@ if ($order_id < 1) {
 }
 
 $order_row = db_query(
-    'SELECT * FROM service_orders WHERE id = ?',
-    'i',
-    [$order_id]
+    'SELECT * FROM service_orders WHERE id = ?' . $serviceOrderBranchSql,
+    'i' . $serviceOrderBranchTypes,
+    array_merge([$order_id], $serviceOrderBranchParams)
 );
 if (empty($order_row)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
