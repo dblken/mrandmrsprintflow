@@ -32,7 +32,7 @@ if (isset($_GET['action'])) {
 
     if ($action === 'mark_all_read') {
         db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
-        redirect('/printflow/staff/notifications.php?success=All notifications marked as read');
+        redirect(BASE_PATH . '/staff/notifications.php?success=All notifications marked as read');
     }
 
     if ($action === 'delete' && isset($_GET['id'])) {
@@ -98,7 +98,7 @@ $page_title = 'Notifications - Staff';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="turbo-visit-control" content="reload">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         [x-cloak] { display: none !important; }

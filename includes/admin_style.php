@@ -1,9 +1,55 @@
 <?php
 require_once __DIR__ . '/favicon_links.php';
+$__pf_base_path = defined('BASE_PATH') ? rtrim((string) BASE_PATH, '/') : '/printflow';
+$__pf_asset_path = $__pf_base_path . '/public/assets';
+$__pf_output_css_file = __DIR__ . '/../public/assets/css/output.css';
+$__pf_output_css_ver = file_exists($__pf_output_css_file) ? (string)filemtime($__pf_output_css_file) : '1';
 $__pf_admin_mobile_css_file = __DIR__ . '/../public/assets/css/admin-mobile.css';
 $__pf_admin_mobile_css_ver = file_exists($__pf_admin_mobile_css_file) ? (string)filemtime($__pf_admin_mobile_css_file) : '1';
 ?>
-<link rel="stylesheet" href="<?php echo (defined('BASE_PATH') ? BASE_PATH : '/printflow'); ?>/public/assets/css/admin-mobile.css?v=<?php echo $__pf_admin_mobile_css_ver; ?>">
+<link rel="stylesheet" href="<?php echo htmlspecialchars($__pf_asset_path . '/css/output.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_output_css_ver; ?>">
+<link rel="stylesheet" href="<?php echo htmlspecialchars($__pf_asset_path . '/css/admin-mobile.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_admin_mobile_css_ver; ?>">
+<script>
+(function () {
+    var basePath = <?php echo json_encode($__pf_base_path); ?>;
+    window.PF_BASE_PATH = basePath;
+
+    function normalizePrintflowPath(value) {
+        if (typeof value !== 'string') return value;
+        if (value === '/printflow') return basePath || '/';
+        if (value.indexOf('/printflow/') !== 0) return value;
+        return (basePath || '') + value.slice('/printflow'.length);
+    }
+
+    if (!window.__pfPathCompatFetch && window.fetch) {
+        window.__pfPathCompatFetch = true;
+        var nativeFetch = window.fetch;
+        window.fetch = function (input, init) {
+            if (typeof input === 'string') {
+                input = normalizePrintflowPath(input);
+            }
+            return nativeFetch.call(this, input, init);
+        };
+    }
+
+    if (!window.__pfPathCompatXhr && window.XMLHttpRequest) {
+        window.__pfPathCompatXhr = true;
+        var nativeOpen = window.XMLHttpRequest.prototype.open;
+        window.XMLHttpRequest.prototype.open = function (method, url) {
+            arguments[1] = normalizePrintflowPath(url);
+            return nativeOpen.apply(this, arguments);
+        };
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[href^="/printflow"], [src^="/printflow"], [action^="/printflow"]').forEach(function (el) {
+            ['href', 'src', 'action'].forEach(function (attr) {
+                if (el.hasAttribute(attr)) el.setAttribute(attr, normalizePrintflowPath(el.getAttribute(attr)));
+            });
+        });
+    });
+})();
+</script>
 <?php
 /**
  * Alpine.js Core Loading (admin / manager / staff shell).
@@ -31,6 +77,7 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
     unset($__pf_asset_js, $__pf_admin_mobile_js_file, $__pf_admin_mobile_js_ver);
 }
 unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
+unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css_ver);
 ?>
 
 <?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>
@@ -751,6 +798,75 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
     .main-content { height: 100%; overflow-y: scroll; scroll-behavior: smooth; } /* Always show scrollbar track */
 
     /* ── Global summary / KPI card accent (all admin-style pages) ───────── */
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        width: 100%;
+    }
+
+    .kpi-card {
+        position: relative;
+        display: block;
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 18px;
+        min-height: 148px;
+        color: var(--text-main);
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .kpi-card--link:hover {
+        transform: translateY(-2px);
+        border-color: rgba(6, 161, 161, 0.28);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        pointer-events: none;
+    }
+
+    .kpi-card-inner {
+        display: flex;
+        min-height: 112px;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .kpi-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .kpi-sub {
+        display: block;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+    .kpi-card-cta {
+        display: block;
+        margin-top: auto;
+        color: var(--accent-color);
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
     .kpi-card::before,
     .kpi-card.indigo::before,
     .kpi-card.emerald::before,

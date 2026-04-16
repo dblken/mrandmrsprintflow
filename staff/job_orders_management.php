@@ -27,7 +27,7 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
 <head>
     <meta charset="UTF-8">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         /* Standardized classes used from admin_style.php */
@@ -658,10 +658,10 @@ $completed_jobs = db_query("SELECT COUNT(*) as count FROM job_orders jo WHERE st
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
                                 <template x-for="file in (currentJo.files || [])" :key="file.id">
                                     <div style="width:100%; margin-bottom:12px; text-align: center;">
-                                        <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                                            <img :src="'/printflow/' + file.file_path.replace(/^\/+/, '')" alt="Design" style="width: 100%; max-height: 250px; object-fit: cover; display: block;">
+                                        <a :href="(window.PF_BASE_PATH || '') + '/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                                            <img :src="(window.PF_BASE_PATH || '') + '/' + file.file_path.replace(/^\/+/, '')" alt="Design" style="width: 100%; max-height: 250px; object-fit: cover; display: block;">
                                         </a>
-                                        <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: inline-block; font-size: 12px; color: #06A1A1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #e6f7f5; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
+                                        <a :href="(window.PF_BASE_PATH || '') + '/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display: inline-block; font-size: 12px; color: #06A1A1; margin-top: 8px; font-weight: 700; text-decoration: none; background: #e6f7f5; padding: 4px 10px; border-radius: 6px;">↗ View Full</a>
                                     </div>
                                 </template>
                             </div>

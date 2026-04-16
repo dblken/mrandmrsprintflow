@@ -160,7 +160,7 @@ $page_title = 'Visual Reports & Analytics';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .rpt-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }

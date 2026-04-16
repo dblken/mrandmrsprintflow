@@ -88,7 +88,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
     <meta charset="UTF-8">
     <meta name="turbo-visit-control" content="reload">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
 
@@ -561,7 +561,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     <!-- Customer Row -->
                     <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">
                         <div x-show="!currentJo.customer_profile_picture || currentJo.customer_profile_picture === 'null' || currentJo.customer_profile_picture === 'undefined'" style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#06A1A1,#047676);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:22px;flex-shrink:0;" x-text="currentJo.customer_full_name ? currentJo.customer_full_name[0].toUpperCase() : '?'"></div>
-                        <img x-show="currentJo.customer_profile_picture && currentJo.customer_profile_picture !== 'null' && currentJo.customer_profile_picture !== 'undefined'" :src="getProfileImage(currentJo.customer_profile_picture)" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #06A1A1;background:#f3f4f6;flex-shrink:0;" onerror="this.src='/printflow/public/assets/uploads/profiles/default.png'">
+                        <img x-show="currentJo.customer_profile_picture && currentJo.customer_profile_picture !== 'null' && currentJo.customer_profile_picture !== 'undefined'" :src="getProfileImage(currentJo.customer_profile_picture)" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #06A1A1;background:#f3f4f6;flex-shrink:0;" onerror="this.src='<?php echo htmlspecialchars(BASE_PATH . '/public/assets/uploads/profiles/default.png', ENT_QUOTES, 'UTF-8'); ?>'">
                         <div>
                             <div style="font-size:16px;font-weight:700;color:#1f2937;" x-text="currentJo.customer_full_name"></div>
                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
@@ -631,10 +631,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             <div style="display:flex; gap:20px; align-items:flex-start;">
                                 <div style="width:160px; flex-shrink:0;">
                                     <template x-if="currentJo.payment_proof_path">
-                                        <a :href="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                        <a :href="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
                                            target="_blank" rel="noopener noreferrer"
                                            style="display:block;line-height:0;">
-                                            <img :src="'/printflow/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                            <img :src="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
                                                  style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1);"
                                                  alt="Proof — opens full size in new tab">
                                         </a>
@@ -961,7 +961,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:8px;">Artwork Files</label>
                         <div style="display:flex;flex-direction:column;gap:6px;">
                             <template x-for="file in (currentJo.files || [])" :key="file.id">
-                                <a :href="'/printflow/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none;color:#1f2937;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#06A1A1'" onmouseout="this.style.borderColor='#e5e7eb'">
+                                <a :href="(document.body.getAttribute('data-base-url') || '') + '/' + file.file_path.replace(/^\/+/, '')" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none;color:#1f2937;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#06A1A1'" onmouseout="this.style.borderColor='#e5e7eb'">
                                     <span style="font-size:12px;font-weight:500;" x-text="file.file_name"></span>
                                     <span style="font-size:11px;color:#06A1A1;font-weight:600;">View ↗</span>
                                 </a>
@@ -1166,13 +1166,13 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             // ── Profile Image Fallback ───────────────────────────────────
             getProfileImage(image) {
                 if (!image || image === 'null' || image === 'undefined') {
-                    return '/printflow/public/assets/uploads/profiles/default.png';
+                    return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/default.png';
                 }
-                if (typeof image !== 'string') return '/printflow/public/assets/uploads/profiles/default.png';
+                if (typeof image !== 'string') return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/default.png';
                 if (image.startsWith('/') || image.startsWith('http')) {
                     return image;
                 }
-                return '/printflow/public/assets/uploads/profiles/' + image;
+                return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/' + image;
             },
 
             getItemCount(name, list) {
@@ -1837,7 +1837,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
                 this.currentJo = {};
-                const base = document.body.getAttribute('data-base-url') || '/printflow';
+                const base = document.body.getAttribute('data-base-url') || '';
                 
                 if (orderType === 'CUSTOMIZATION') {
                     // Fetch customization entry details
@@ -1962,7 +1962,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     fd.append('action', 'update_customization');
                     fd.append('id', this.currentJo.id);
                     fd.append('status', status === 'APPROVED' ? 'Approved' : status);
-                    const base = document.body.getAttribute('data-base-url') || '/printflow';
+                    const base = document.body.getAttribute('data-base-url') || '';
                     const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
                     if (res.success) { await this.loadOrders(); this.showDetailsModal = false; }
                     else this.showStaffAlert('Error', res.error || 'Update failed.');
@@ -1983,7 +1983,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     return false;
                 }
 
-                const base = document.body.getAttribute('data-base-url') || '/printflow';
+                const base = document.body.getAttribute('data-base-url') || '';
                 const fd = new FormData();
                 
                 if (this.currentJo.order_type === 'CUSTOMIZATION') {
@@ -2025,7 +2025,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     'Verify Payment & Start Production',
                     `Verify payment of ₱${this.currentJo.payment_submitted_amount}?\n\nThis will deduct materials from inventory and start production.`,
                     async () => {
-                        const base = document.body.getAttribute('data-base-url') || '/printflow';
+                        const base = document.body.getAttribute('data-base-url') || '';
                         const ot = this.currentJo.order_type || 'JOB';
                         let res;
 
@@ -2089,7 +2089,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 }
                 if(!reason) return;
 
-                const base = document.body.getAttribute('data-base-url') || '/printflow';
+                const base = document.body.getAttribute('data-base-url') || '';
                 const ot = this.currentJo.order_type || 'JOB';
                 let res;
 
@@ -2202,7 +2202,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     fd.append('id', this.currentJo.id);
                     fd.append('status', 'TO_PAY');
                     fd.append('price', this.jobPriceInput);
-                    const base = document.body.getAttribute('data-base-url') || '/printflow';
+                    const base = document.body.getAttribute('data-base-url') || '';
                     const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
                     if (res.success) {
                         const hasPaymentProof = this.currentJo.payment_proof_path || this.currentJo.payment_proof;
@@ -2345,7 +2345,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 
                 // Check if we need to redirect back to POS
                 if (fromPOS) {
-                    const base = document.body.getAttribute('data-base-url') || '/printflow';
+                    const base = document.body.getAttribute('data-base-url') || '';
                     const savedState = sessionStorage.getItem('pos_cart_state');
                     
                     if (savedState) {

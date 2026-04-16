@@ -344,7 +344,7 @@ $page_title = 'My Profile - Staff';
                             <div class="avatar-upload-wrap">
                                 <div class="avatar-ring">
                                     <?php if (!empty($user['profile_picture'])): ?>
-                                        <img src="<?php echo get_profile_image($user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='/printflow/public/assets/uploads/profiles/default.png'">
+                                        <img src="<?php echo get_profile_image($user['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars(BASE_PATH . '/public/assets/uploads/profiles/default.png', ENT_QUOTES, 'UTF-8'); ?>'">
                                     <?php else: ?>
                                         <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);">
                                             <svg width="60" height="60" fill="none" stroke="var(--pf-accent)" viewBox="0 0 24 24" style="opacity:0.4;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -471,7 +471,7 @@ $page_title = 'My Profile - Staff';
                                             <p style="font-size:0.85rem; font-weight:700; color:var(--pf-accent);">ID VALIDATION IMAGE</p>
                                             <p style="font-size:0.75rem; color:var(--pf-text-muted);">Verified for staff authentication.</p>
                                         </div>
-                                        <a href="javascript:void(0)" onclick="openIdModal('/printflow/uploads/ids/<?php echo htmlspecialchars($user['id_validation_image']); ?>')" class="btn-teal-save" style="font-size:0.7rem; padding:8px 16px;">View Current ID</a>
+                                        <a href="javascript:void(0)" onclick="openIdModal('<?php echo htmlspecialchars(BASE_PATH . '/uploads/ids/' . $user['id_validation_image'], ENT_QUOTES, 'UTF-8'); ?>')" class="btn-teal-save" style="font-size:0.7rem; padding:8px 16px;">View Current ID</a>
                                     </div>
                                     <div style="margin-top:1rem;">
                                         <label class="field-label">Replace ID (Optional)</label>
@@ -534,7 +534,7 @@ $page_title = 'My Profile - Staff';
         document.getElementById('idModalImg').src = src;
         document.getElementById('idModal').style.display = 'flex';
     };
-    const addrApi = '/printflow/public/api_address_public.php';
+    const addrApi = <?php echo json_encode(BASE_PATH . '/public/api_address_public.php'); ?>;
     const prov = document.getElementById('profile_province');
     const city = document.getElementById('profile_city');
     const brgy = document.getElementById('profile_barangay');

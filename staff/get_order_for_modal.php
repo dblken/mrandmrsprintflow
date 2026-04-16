@@ -87,9 +87,9 @@ foreach ($items as $item) {
         'quantity'        => (int)$item['quantity'],
         'customization'   => $custom,
         'design_url'      => (!empty($item['design_image']) || !empty($item['design_file']))
-            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
+            ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] : null,
         'reference_url'   => !empty($item['reference_image_file'])
-            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
+            ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference' : null,
     ];
 }
 

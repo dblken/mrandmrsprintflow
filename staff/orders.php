@@ -69,14 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 exit;
             }
 
-            redirect('/printflow/staff/orders.php?success=1');
+            redirect(BASE_PATH . '/staff/orders.php?success=1');
         } else {
             if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
                 header('Content-Type: application/json');
                 echo json_encode(['success' => false, 'error' => 'Database update failed']);
                 exit;
             }
-            redirect('/printflow/staff/orders.php?error=1');
+            redirect(BASE_PATH . '/staff/orders.php?error=1');
         }
     } else {
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
@@ -293,7 +293,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         >
                             Manage
                         </button>
-                        <a href="/printflow/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
+                        <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                             onclick="event.stopPropagation();"
                             class="btn-staff-action btn-staff-action-indigo"
                         >
@@ -328,9 +328,9 @@ $page_title = 'Orders - Staff';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="turbo-visit-control" content="reload">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/chat.css'); ?>">
     <style>
         /* ── Tabs for Status Filtering ─── */
         .pf-custom-tabs {
@@ -686,6 +686,11 @@ $page_title = 'Orders - Staff';
     ═══════════════════════════════════════════════════════ */
 
     // ── Navigate without Turbo Drive interception ────────
+    const STAFF_BASE_PATH = <?php echo json_encode(BASE_PATH); ?>;
+    function staffUrl(path) {
+        return (STAFF_BASE_PATH || '') + '/' + String(path || '').replace(/^\/+/, '');
+    }
+
     function openStaffOrderManage(orderId, status = '') {
         // Always open the modal for all product order statuses
         openOrderModal(orderId);
@@ -853,11 +858,11 @@ $page_title = 'Orders - Staff';
             },
             getProfileImage(image) {
                 if (!image || image === 'null' || image === 'undefined') {
-                    return '/printflow/public/assets/uploads/profiles/default.png';
+                    return staffUrl('public/assets/uploads/profiles/default.png');
                 }
-                if (typeof image !== 'string') return '/printflow/public/assets/uploads/profiles/default.png';
+                if (typeof image !== 'string') return staffUrl('public/assets/uploads/profiles/default.png');
                 if (image.startsWith('/') || image.startsWith('http')) return image;
-                return '/printflow/public/assets/uploads/profiles/' + image;
+                return staffUrl('public/assets/uploads/profiles/' + image);
             },
             
             init() {
@@ -953,7 +958,7 @@ $page_title = 'Orders - Staff';
         modal.classList.add('open');
         document.body.style.overflow = 'hidden';
 
-        fetch('/printflow/staff/get_order_data.php?id=' + orderId, {
+        fetch(staffUrl('staff/get_order_data.php?id=') + orderId, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function(r) {
@@ -1045,7 +1050,7 @@ $page_title = 'Orders - Staff';
         var fd = new FormData();
         fd.append('order_id', orderId);
         fd.append('csrf_token', csrfToken);
-        fetch('/printflow/staff/approve_design_process.php', {
+        fetch(staffUrl('staff/approve_design_process.php'), {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1078,7 +1083,7 @@ $page_title = 'Orders - Staff';
         fd.append('status', 'Completed');
         fd.append('csrf_token', csrfToken);
         
-        fetch('/printflow/staff/update_order_status_process.php', {
+        fetch(staffUrl('staff/update_order_status_process.php'), {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1118,7 +1123,7 @@ $page_title = 'Orders - Staff';
         fd.append('order_id', orderId);
         fd.append('action', 'Approve');
         
-        fetch('/printflow/staff/api_verify_payment.php', {
+        fetch(staffUrl('staff/api_verify_payment.php'), {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1168,7 +1173,7 @@ $page_title = 'Orders - Staff';
         fd.append('action', 'Reject');
         fd.append('reason', reason);
 
-        fetch('/printflow/staff/api_verify_payment.php', {
+        fetch(staffUrl('staff/api_verify_payment.php'), {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1207,7 +1212,7 @@ $page_title = 'Orders - Staff';
         fd.append('price', price);
         fd.append('action', 'update_order_price');
 
-        fetch('/printflow/admin/job_orders_api.php', {
+        fetch(staffUrl('admin/job_orders_api.php'), {
             method: 'POST', body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1295,7 +1300,7 @@ $page_title = 'Orders - Staff';
         
         contentHTML += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">' +
             '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#06A1A1,#047676);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:22px;flex-shrink:0;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.1);">' + 
-              ((d.cust_profile_picture && d.cust_profile_picture !== "null" && d.cust_profile_picture !== "undefined") ? '<img src="' + getProfileImage(d.cust_profile_picture) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.src=\'/printflow/public/assets/uploads/profiles/default.png\'">' : esc(d.cust_initial || '?')) + 
+              ((d.cust_profile_picture && d.cust_profile_picture !== "null" && d.cust_profile_picture !== "undefined") ? '<img src="' + getProfileImage(d.cust_profile_picture) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.src=\'' + staffUrl('public/assets/uploads/profiles/default.png') + '\'">' : esc(d.cust_initial || '?')) + 
             '</div>' +
             '<div>' +
                 '<div style="font-size:16px;font-weight:700;color:#1f2937;">' + esc(d.cust_name) + '</div>' +
@@ -1330,12 +1335,12 @@ $page_title = 'Orders - Staff';
         // 3. Order Details Section
         var itemsHTML = '';
         (d.items || []).forEach(function(item) {
-            var itemImg = item.product_image || item.design_url || '/printflow/public/assets/images/services/default.png';
+            var itemImg = item.product_image || item.design_url || staffUrl('public/assets/images/services/default.png');
             if (!itemImg || itemImg === 'null' || itemImg === 'undefined') {
-                itemImg = '/printflow/public/assets/images/services/default.png';
+                itemImg = staffUrl('public/assets/images/services/default.png');
             }
-            if (!itemImg.startsWith('/printflow') && !itemImg.startsWith('http') && !itemImg.startsWith('data:')) {
-                itemImg = '/printflow/' + itemImg.replace(/^\/+/, '');
+            if (!itemImg.startsWith(STAFF_BASE_PATH + '/') && !itemImg.startsWith('http') && !itemImg.startsWith('data:')) {
+                itemImg = staffUrl(itemImg);
             }
 
             var specHTML = '';
@@ -1650,7 +1655,7 @@ $page_title = 'Orders - Staff';
                                                     class="btn-staff-action btn-staff-action-emerald">
                                                 Manage
                                             </button>
-                                            <a href="/printflow/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
+                                            <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                                                onclick="event.stopPropagation();"
                                                class="btn-staff-action btn-staff-action-indigo">
                                                 Message

@@ -60,7 +60,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - PrintFlow</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
@@ -1378,6 +1378,10 @@ try {
         let cart = [];
         let currentTotal = 0;
         let currentMode = null; // 'products' or 'services'
+        const STAFF_BASE_PATH = <?php echo json_encode(BASE_PATH); ?>;
+        function staffUrl(path) {
+            return (STAFF_BASE_PATH || '') + '/' + String(path || '').replace(/^\/+/, '');
+        }
 
         // Initialize Select2 for customer dropdown
         $(document).ready(function () {
@@ -1450,7 +1454,7 @@ try {
         async function syncedCartAction(action, payload = {}) {
             console.log('syncedCartAction:', action, payload);
             try {
-                const response = await fetch('/printflow/staff/api/pos_cart_handler.php', {
+                const response = await fetch(staffUrl('staff/api/pos_cart_handler.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action, ...payload })
@@ -1484,7 +1488,7 @@ try {
                 grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;"><i class="fas fa-spinner fa-spin" style="font-size:32px; margin-bottom:16px;"></i><br>Loading products...</div>';
             }
             try {
-                const res = await fetch('/printflow/staff/api/get_products.php');
+                const res = await fetch(staffUrl('staff/api/get_products.php'));
                 const data = await res.json();
                 console.log('Products API Response:', data);
                 if (data.success) {
@@ -1525,7 +1529,7 @@ try {
             overlay.dataset.serviceName = serviceName;
 
             try {
-                const res = await fetch('/printflow/staff/api/pos_service_fields.php?service_id=' + serviceId);
+                const res = await fetch(staffUrl('staff/api/pos_service_fields.php?service_id=') + serviceId);
                 const data = await res.json();
                 console.log('Service fields response:', data);
                 if (!data.success) {
@@ -2536,7 +2540,7 @@ try {
             };
 
             try {
-                const res = await fetch('/printflow/staff/api/pos_checkout.php', {
+                const res = await fetch(staffUrl('staff/api/pos_checkout.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -2626,7 +2630,7 @@ try {
             btn.disabled = true;
 
             try {
-                const res = await fetch('/printflow/staff/api/pos_add_customer.php', {
+                const res = await fetch(staffUrl('staff/api/pos_add_customer.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2710,7 +2714,7 @@ try {
             };
 
             try {
-                const res = await fetch('/printflow/staff/api/pos_checkout.php', {
+                const res = await fetch(staffUrl('staff/api/pos_checkout.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -2718,7 +2722,7 @@ try {
                 const data = await res.json();
                 if (data.success && data.customization_id) {
                     // Redirect to customizations page
-                    window.location.href = '/printflow/staff/customizations.php?status=APPROVED&order_id=' + data.customization_id + '&job_type=CUSTOMIZATION&return_to_pos=1';
+                    window.location.href = <?php echo json_encode(BASE_PATH . '/staff/customizations.php'); ?> + '?status=APPROVED&order_id=' + data.customization_id + '&job_type=CUSTOMIZATION&return_to_pos=1';
                 } else {
                     await showPOSAlert('Error', 'Failed to create customization: ' + (data.message || 'Unknown error'), 'error');
                 }

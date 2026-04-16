@@ -20,13 +20,13 @@ $current_user = get_logged_in_user();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
-    <link rel="stylesheet" href="/printflow/public/assets/css/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/bootstrap-icons.min.css'); ?>">
     
     <!-- Load Socket.io and WebRTC Call Assets -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="/printflow/public/assets/css/printflow_call.css">
-    <script src="/printflow/public/assets/js/printflow_call.js"></script>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/printflow_call.css'); ?>">
+    <script src="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/js/printflow_call.js'); ?>"></script>
 
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>

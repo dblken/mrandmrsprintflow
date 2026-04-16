@@ -16,7 +16,7 @@ $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_i
 
 $order_id = (int)($_GET['id'] ?? 0);
 if (!$order_id) {
-    redirect('/printflow/staff/orders.php');
+    redirect(BASE_PATH . '/staff/orders.php');
 }
 
 // Handle status update
@@ -64,7 +64,7 @@ $order_result = db_query("
 ", 'ii', [$order_id, $staffBranchId]);
 
 if (empty($order_result)) {
-    redirect('/printflow/staff/orders.php');
+    redirect(BASE_PATH . '/staff/orders.php');
 }
 $order = $order_result[0];
 
@@ -92,9 +92,9 @@ $page_title = "Order #{$order_id} - Staff";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/chat.css'); ?>">
     <style>
         .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
         @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
@@ -412,7 +412,7 @@ $page_title = "Order #{$order_id} - Staff";
                                                         <?php if (!empty($item['design_image']) || !empty($item['design_file'])): ?>
                                                             <div>
                                                                 <div style="font-weight:800; color:#475569; margin-bottom:0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.025em;">Customer Design</div>
-                                                                <?php $design_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id']; ?>
+                                                                <?php $design_url = BASE_PATH . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id']; ?>
                                                                 <a href="<?php echo $design_url; ?>" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 3px solid white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
                                                                     <img src="<?php echo $design_url; ?>" style="width:100%; height:auto; display: block;" alt="Customer Design">
                                                                 </a>
@@ -423,7 +423,7 @@ $page_title = "Order #{$order_id} - Staff";
                                                         <?php if (!empty($item['reference_image_file'])): ?>
                                                             <div>
                                                                 <div style="font-weight:800; color:#475569; margin-bottom:0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.025em;">Reference Image</div>
-                                                                <?php $ref_url = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference"; ?>
+                                                                <?php $ref_url = BASE_PATH . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference"; ?>
                                                                 <a href="<?php echo $ref_url; ?>" target="_blank" style="display: block; border-radius: 12px; overflow: hidden; border: 3px solid white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
                                                                     <img src="<?php echo $ref_url; ?>" style="width:100%; height:auto; display: block;" alt="Reference Image">
                                                                 </a>

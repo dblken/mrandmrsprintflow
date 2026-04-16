@@ -35,7 +35,7 @@
 
                     <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">
                         <div x-show="!svc.customer_profile_picture || svc.customer_profile_picture === 'null' || svc.customer_profile_picture === 'undefined'" style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#06A1A1,#047676);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:22px;flex-shrink:0;" x-text="svc.customer_initial"></div>
-                        <img x-show="svc.customer_profile_picture && svc.customer_profile_picture !== 'null' && svc.customer_profile_picture !== 'undefined'" :src="getProfileImage(svc.customer_profile_picture)" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #06A1A1;background:#f3f4f6;flex-shrink:0;" onerror="this.src='/printflow/public/assets/uploads/profiles/default.png'">
+                        <img x-show="svc.customer_profile_picture && svc.customer_profile_picture !== 'null' && svc.customer_profile_picture !== 'undefined'" :src="getProfileImage(svc.customer_profile_picture)" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #06A1A1;background:#f3f4f6;flex-shrink:0;" onerror="this.src='<?php echo htmlspecialchars(BASE_PATH . '/public/assets/uploads/profiles/default.png', ENT_QUOTES, 'UTF-8'); ?>'">
                         <div>
                             <div style="font-size:16px;font-weight:700;color:#1f2937;" x-text="svc.customer_full_name || 'Customer'"></div>
                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">

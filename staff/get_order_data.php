@@ -135,10 +135,10 @@ foreach ($items as $item) {
         'has_reference' => !empty($item['reference_image_file']),
         'design_name'   => $item['design_image_name'] ?? 'design_file',
         'design_url'    => (!empty($item['design_image']) || !empty($item['design_file']))
-                            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
+                            ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
                             : null,
         'reference_url' => !empty($item['reference_image_file'])
-                            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
+                            ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
                             : null,
         'product_image' => (function() use ($item) {
             // photo_path is the primary image field (used by customer/products.php)
@@ -147,7 +147,7 @@ foreach ($items as $item) {
             // If it already has a full path starting with / or http, use as-is
             if ($img[0] === '/' || strpos($img, 'http') === 0) return $img;
             // Bare filename — assume products uploads folder
-            return '/printflow/public/assets/uploads/products/' . $img;
+            return BASE_PATH . '/public/assets/uploads/products/' . $img;
         })(),
         'product_type'  => $item['product_type'] ?? 'custom',
     ];
@@ -173,6 +173,14 @@ if (($order['order_type'] ?? '') === 'product') {
     $production_statuses = ['Processing', 'In Production', 'Printing', 'Approved Design'];
     if (in_array($display_status, $production_statuses)) {
         $display_status = 'Ready for Pickup';
+    }
+}
+
+$payment_proof_path = null;
+if (!empty($order['payment_proof'])) {
+    $payment_proof_path = preg_replace('#^/printflow/#', BASE_PATH . '/', (string)$order['payment_proof']);
+    if (strpos($payment_proof_path, 'http') !== 0 && ($payment_proof_path[0] ?? '') !== '/') {
+        $payment_proof_path = BASE_PATH . '/' . ltrim($payment_proof_path, '/');
     }
 }
 
@@ -202,7 +210,7 @@ echo json_encode([
     'cust_type'           => $order['cust_type'] ?? 'REGULAR',
     'cust_address'        => $order['cust_address'] ?? '',
     'cust_profile_picture'=> get_profile_image($order['cust_profile_picture'] ?? null),
-    'payment_proof'       => !empty($order['payment_proof']) ? (strpos($order['payment_proof'], '/printflow') === 0 ? $order['payment_proof'] : '/printflow/' . ltrim($order['payment_proof'], '/')) : null,
+    'payment_proof'       => $payment_proof_path,
     'payment_submitted_at'=> !empty($order['payment_submitted_at']) ? format_datetime($order['payment_submitted_at']) : '',
     'revision_count'      => (int)($order['revision_count'] ?? 0),
     'revision_reason'     => $order['revision_reason'] ?? '',

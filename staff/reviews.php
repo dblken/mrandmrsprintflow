@@ -159,7 +159,7 @@ $page_title = 'Review Management - Staff';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .page-title {
@@ -782,7 +782,7 @@ $page_title = 'Review Management - Staff';
                                             <?php if ($has_vid):
                                                 $vpath = $review['video_path'];
                                                 if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/'))
-                                                    $vpath = '/printflow/' . $vpath;
+                                                    $vpath = BASE_PATH . '/' . ltrim($vpath, '/');
                                                 ?>
                                                 <div class="media-thumb video-thumb" style="width: 100%; aspect-ratio: 1;"
                                                     onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')"></div>
@@ -791,7 +791,7 @@ $page_title = 'Review Management - Staff';
                                             <?php foreach ($review['images'] as $img):
                                                 $ipath = $img['image_path'];
                                                 if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/'))
-                                                    $ipath = '/printflow/' . $ipath;
+                                                    $ipath = BASE_PATH . '/' . ltrim($ipath, '/');
                                                 ?>
                                                 <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb"
                                                     style="width: 100%; aspect-ratio: 1;"
@@ -866,11 +866,11 @@ $page_title = 'Review Management - Staff';
                 sortOpen: false,
                 getProfileImage(image) {
                     if (!image || image === 'null' || image === 'undefined') {
-                        return '/printflow/public/assets/uploads/profiles/default.png';
+                        return (window.PF_BASE_PATH || '') + '/public/assets/uploads/profiles/default.png';
                     }
-                    if (typeof image !== 'string') return '/printflow/public/assets/uploads/profiles/default.png';
+                    if (typeof image !== 'string') return (window.PF_BASE_PATH || '') + '/public/assets/uploads/profiles/default.png';
                     if (image.startsWith('/') || image.startsWith('http')) return image;
-                    return '/printflow/public/assets/uploads/profiles/' + image;
+                    return (window.PF_BASE_PATH || '') + '/public/assets/uploads/profiles/' + image;
                 },
 
                 init() {
