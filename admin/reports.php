@@ -81,15 +81,14 @@ $salesTrendToEnd    = $toEnd;
 $salesTrendBranchId = $branchId;
 
 /**
- * Isolated Filter Context for All Other Analytics:
- * Non-sales charts follow 'All-Time' and 'All-Branches' (for Admins) logic.
+ * Analytics filter context:
+ * Use the selected branch from the report filter. When Admin selects "All",
+ * branch_where_parts() intentionally applies no branch filter.
  */
-$is_admin = ($current_user['role'] === 'Admin');
 $globalAnalyticsFrom     = '';
 $globalAnalyticsTo       = '';
 $globalAnalyticsToEnd    = '';
-// Admin sees global stats; Managers see their context.
-$globalAnalyticsBranchId = $is_admin ? 'all' : $branchId;
+$globalAnalyticsBranchId = $branchId;
 
 // Helpers for the decoupled context
 [$gaBSql, $gaBTypes, $gaBParams] = branch_where_parts('o', $globalAnalyticsBranchId);
