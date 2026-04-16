@@ -23,8 +23,26 @@ function staff_order_data_json($payload, $status = 200) {
 
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($payload);
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        http_response_code(500);
+        $json = json_encode(['error' => 'Server error while encoding order details.']);
+    }
+    echo $json;
     exit;
+}
+
+function staff_order_data_profile_image($image) {
+    if (empty($image) || $image === 'null' || $image === 'undefined') {
+        return BASE_PATH . '/public/assets/uploads/profiles/default.png';
+    }
+
+    $image = (string)$image;
+    if ($image[0] === '/' || strpos($image, 'http') === 0) {
+        return $image;
+    }
+
+    return BASE_PATH . '/public/assets/uploads/profiles/' . ltrim($image, '/');
 }
 
 register_shutdown_function(function() {
@@ -40,13 +58,37 @@ register_shutdown_function(function() {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'error' => 'Server error while loading order details.'
-        ]);
+        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 });
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+
+function staff_order_data_columns($table) {
+    static $cache = [];
+
+    if (!isset($cache[$table])) {
+        $rows = db_query("SHOW COLUMNS FROM `{$table}`");
+        $cache[$table] = [];
+        foreach ($rows as $row) {
+            if (!empty($row['Field'])) {
+                $cache[$table][$row['Field']] = true;
+            }
+        }
+    }
+
+    return $cache[$table];
+}
+
+function staff_order_data_select($columns, $alias, $column, $as, $defaultSql = "''") {
+    if (isset($columns[$column])) {
+        return "{$alias}.`{$column}` AS {$as}";
+    }
+
+    return "{$defaultSql} AS {$as}";
+}
 
 try {
 
@@ -56,6 +98,8 @@ if (!is_logged_in() || !in_array(get_user_type(), ['Staff', 'Admin', 'Manager'])
 }
 
 $branchFilter = printflow_branch_filter_for_user();
+$customerColumns = staff_order_data_columns('customers');
+$productColumns = staff_order_data_columns('products');
 
 $action = $_GET['action'] ?? 'get_order';
 
@@ -97,13 +141,20 @@ if (!$order_id) {
 }
 
 // Get order with customer info
+$customer_select = "
+               " . staff_order_data_select($customerColumns, 'c', 'first_name', 'cust_first') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'last_name', 'cust_last') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'email', 'cust_email') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'contact_number', 'cust_phone') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'customer_id', 'cust_id', 'NULL') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'customer_type', 'cust_type', "'REGULAR'") . ",
+               " . staff_order_data_select($customerColumns, 'c', 'address', 'cust_address') . ",
+               " . staff_order_data_select($customerColumns, 'c', 'profile_picture', 'cust_profile_picture') . "";
+
 if ($branchFilter !== null) {
     $order_result = db_query("
         SELECT o.*,
-               c.first_name as cust_first, c.last_name as cust_last,
-               c.email as cust_email, c.contact_number as cust_phone,
-               c.customer_id as cust_id, c.customer_type as cust_type, c.address as cust_address,
-               c.profile_picture as cust_profile_picture
+               {$customer_select}
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.customer_id
         WHERE o.order_id = ? AND o.branch_id = ?
@@ -111,10 +162,7 @@ if ($branchFilter !== null) {
 } else {
     $order_result = db_query("
         SELECT o.*,
-               c.first_name as cust_first, c.last_name as cust_last,
-               c.email as cust_email, c.contact_number as cust_phone,
-               c.customer_id as cust_id, c.customer_type as cust_type, c.address as cust_address,
-               c.profile_picture as cust_profile_picture
+               {$customer_select}
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.customer_id
         WHERE o.order_id = ?
@@ -127,8 +175,16 @@ if (empty($order_result)) {
 $order = $order_result[0];
 
 // Get order items
+$product_select = "
+       " . staff_order_data_select($productColumns, 'p', 'name', 'product_name') . ",
+       " . staff_order_data_select($productColumns, 'p', 'sku', 'sku') . ",
+       " . staff_order_data_select($productColumns, 'p', 'category', 'category') . ",
+       " . staff_order_data_select($productColumns, 'p', 'product_image', 'product_image') . ",
+       " . staff_order_data_select($productColumns, 'p', 'photo_path', 'photo_path') . ",
+       " . staff_order_data_select($productColumns, 'p', 'product_type', 'product_type', "'custom'") . "";
+
 $items = db_query("
-    SELECT oi.*, p.name as product_name, p.sku, p.category, p.product_image, p.photo_path, p.product_type
+    SELECT oi.*, {$product_select}
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.product_id
     WHERE oi.order_id = ?
@@ -238,7 +294,7 @@ staff_order_data_json([
     'cust_phone'          => $order['cust_phone'] ?? '',
     'cust_type'           => $order['cust_type'] ?? 'REGULAR',
     'cust_address'        => $order['cust_address'] ?? '',
-    'cust_profile_picture'=> get_profile_image($order['cust_profile_picture'] ?? null),
+    'cust_profile_picture'=> staff_order_data_profile_image($order['cust_profile_picture'] ?? null),
     'payment_proof'       => $payment_proof_path,
     'payment_submitted_at'=> !empty($order['payment_submitted_at']) ? format_datetime($order['payment_submitted_at']) : '',
     'revision_count'      => (int)($order['revision_count'] ?? 0),

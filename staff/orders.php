@@ -691,6 +691,15 @@ $page_title = 'Orders - Staff';
         return (STAFF_BASE_PATH || '') + '/' + String(path || '').replace(/^\/+/, '');
     }
 
+    function getProfileImage(image) {
+        if (!image || image === 'null' || image === 'undefined') {
+            return staffUrl('public/assets/uploads/profiles/default.png');
+        }
+        if (typeof image !== 'string') return staffUrl('public/assets/uploads/profiles/default.png');
+        if (image.startsWith('/') || image.startsWith('http')) return image;
+        return staffUrl('public/assets/uploads/profiles/' + image);
+    }
+
     function openStaffOrderManage(orderId, status = '') {
         // Always open the modal for all product order statuses
         openOrderModal(orderId);
