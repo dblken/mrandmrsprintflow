@@ -5,22 +5,54 @@
  */
 
 error_reporting(0);
-ini_set('display_errors', 0);
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+
+while (ob_get_level()) {
+    ob_end_clean();
+}
+ob_start();
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-cache, must-revalidate');
+
+function staff_order_data_json($payload, $status = 200) {
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload);
+    exit;
+}
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+
+    if ($error && in_array($error['type'], $fatalTypes, true)) {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => 'Server error while loading order details.'
+        ]);
+    }
+});
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-header('Content-Type: application/json');
-ob_clean();
-
 try {
 
 // Allow Staff, Admin and Manager to access order data
 if (!is_logged_in() || !in_array(get_user_type(), ['Staff', 'Admin', 'Manager'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
+    staff_order_data_json(['error' => 'Unauthorized'], 401);
 }
 
 $branchFilter = printflow_branch_filter_for_user();
@@ -56,14 +88,12 @@ if ($action === 'list_orders') {
         $o['total_amount_fmt'] = format_currency($o['total_amount']);
     }
     
-    echo json_encode(['success' => true, 'orders' => $orders]);
-    exit;
+    staff_order_data_json(['success' => true, 'orders' => $orders]);
 }
 
 $order_id = (int)($_GET['id'] ?? 0);
 if (!$order_id) {
-    echo json_encode(['error' => 'Invalid order ID']);
-    exit;
+    staff_order_data_json(['error' => 'Invalid order ID'], 400);
 }
 
 // Get order with customer info
@@ -92,8 +122,7 @@ if ($branchFilter !== null) {
 }
 
 if (empty($order_result)) {
-    echo json_encode(['error' => 'Order not found']);
-    exit;
+    staff_order_data_json(['error' => 'Order not found'], 404);
 }
 $order = $order_result[0];
 
@@ -184,7 +213,7 @@ if (!empty($order['payment_proof'])) {
     }
 }
 
-echo json_encode([
+staff_order_data_json([
     'order_id'            => $order['order_id'],
     'order_date'          => format_datetime($order['order_date']),
     'total_amount'        => format_currency($order['total_amount']),
@@ -220,6 +249,6 @@ echo json_encode([
     'csrf_token'          => generate_csrf_token(),
 ]);
 
-} catch (Exception $e) {
-    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+} catch (Throwable $e) {
+    staff_order_data_json(['error' => 'Server error while loading order details.'], 500);
 }

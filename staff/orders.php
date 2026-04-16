@@ -971,7 +971,18 @@ $page_title = 'Orders - Staff';
                     return null;
                 });
             }
-            return r.json();
+            return r.text().then(function(txt) {
+                if (!txt.trim()) {
+                    throw new Error('Empty server response (HTTP ' + r.status + ')');
+                }
+
+                try {
+                    return JSON.parse(txt);
+                } catch (err) {
+                    console.error('Invalid JSON response:', txt);
+                    throw new Error('Invalid server JSON response (HTTP ' + r.status + ')');
+                }
+            });
         })
         .then(function(data) {
             if (!data) return;
