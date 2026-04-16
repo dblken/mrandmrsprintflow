@@ -683,8 +683,7 @@ if ($initials === '') {
                         <button type="button"
                            title="Notifications"
                            data-pf-notif-toggle
-                           class="pf-icon-btn nav-link"
-                           onclick="var menu=this.parentNode.querySelector('[data-pf-notif-menu]');var other=document.querySelector('[data-pf-profile-menu]');if(other)other.classList.remove('open');menu.classList.toggle('open');if(menu.classList.contains('open')&&window.PFNotifications)window.PFNotifications.loadDropdown();event.stopPropagation();">
+                           class="pf-icon-btn nav-link">
                             <svg class="pf-notif-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                             </svg>
@@ -711,8 +710,7 @@ if ($initials === '') {
 
                     <!-- User Dropdown -->
                     <div class="relative" data-pf-profile-wrap>
-                        <button type="button" data-pf-profile-toggle class="pf-icon-btn nav-link flex items-center gap-3" style="width:auto;padding:0 0.5rem;" title="My Account"
-                                onclick="var wrap=this.closest('[data-pf-profile-wrap]');var menu=wrap.querySelector('[data-pf-profile-menu]');var arrow=wrap.querySelector('[data-dropdown-arrow]');var other=document.querySelector('[data-pf-notif-menu]');if(other)other.classList.remove('open');var isOpen=menu.classList.toggle('open');if(arrow)arrow.style.transform=isOpen?'rotate(180deg)':'rotate(0deg)';event.stopPropagation();">
+                        <button type="button" data-pf-profile-toggle class="pf-icon-btn nav-link flex items-center gap-3" style="width:auto;padding:0 0.5rem;" title="My Account">
                             <div class="pf-avatar transition-all duration-300"
                                  style="width:1.85rem;height:1.85rem;font-size:0.7rem;<?php echo (stripos($_SERVER['REQUEST_URI'] ?? '', '/profile.php') !== false) ? 'color:#53C5E0;' : ''; ?>">
                                 <?php if (!empty($current_user['profile_picture'])): ?>
@@ -991,7 +989,14 @@ if ($initials === '') {
             var menu = wrap.querySelector('[data-pf-profile-menu]');
             var arrow = wrap.querySelector('[data-dropdown-arrow]');
             if (!btn || !menu) return;
-            btn.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); var isOpen = menu.classList.toggle('open'); if (arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)'; });
+            btn.addEventListener('click', function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+                var otherNotif = document.querySelector('[data-pf-notif-menu].open');
+                if (otherNotif) otherNotif.classList.remove('open');
+                var isOpen = menu.classList.toggle('open');
+                if (arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+            });
             menu.addEventListener('click', function(ev){ ev.stopPropagation(); });
             document.addEventListener('click', function(ev){ if (!wrap.contains(ev.target)) { menu.classList.remove('open'); if (arrow) arrow.style.transform = 'rotate(0deg)'; } });
         })(profileWraps[j]);
@@ -1006,6 +1011,8 @@ if ($initials === '') {
             if (!btn || !menu) return;
             btn.addEventListener('click', function(ev){
                 ev.preventDefault(); ev.stopPropagation();
+                var otherProfile = document.querySelector('[data-pf-profile-menu].open');
+                if (otherProfile) otherProfile.classList.remove('open');
                 var isOpen = menu.classList.toggle('open');
                 if (isOpen) {
                     if (window.PFNotifications && typeof window.PFNotifications.loadDropdown === 'function') {
