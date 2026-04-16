@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 header('Content-Type: application/json');
 
@@ -54,7 +55,7 @@ if (move_uploaded_file($file['tmp_name'], $target_path)) {
     // Fallback if voice type is rejected (though ALTER should have worked)
     // Actually we keep it as 'voice' since the ALTER worked.
     
-    if (db_execute($sql, 'isss', [$order_id, $db_sender, $user_id, $relative_path])) {
+    if (db_execute($sql, 'isis', [$order_id, $db_sender, $user_id, $relative_path])) {
         echo json_encode(['success' => true, 'file' => $relative_path]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Database insertion failed: ' . ($conn->error ?? 'unknown')]);

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Prevent accidental output
 ob_start();

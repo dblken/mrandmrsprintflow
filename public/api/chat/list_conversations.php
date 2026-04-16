@@ -9,11 +9,13 @@ ini_set('display_errors', 0); // Disable raw output to prevent JSON corruption
 try {
     require_once __DIR__ . '/../../../includes/auth.php';
     require_once __DIR__ . '/../../../includes/functions.php';
+    require_once __DIR__ . '/../../../includes/branch_context.php';
+    require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
     // Global Output Buffer to trap stray warnings/notices
     ob_start();
 
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=utf-8');
 
     if (!is_logged_in()) {
         ob_end_clean();
@@ -26,6 +28,36 @@ $user_type = get_user_type();
 $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 $show_archived = isset($_GET['archived']) && $_GET['archived'] == 1;
 
+function pf_chat_table_columns($table) {
+    static $cache = [];
+    if (!isset($cache[$table])) {
+        $rows = db_query("SHOW COLUMNS FROM `{$table}`") ?: [];
+        $cache[$table] = [];
+        foreach ($rows as $row) {
+            if (!empty($row['Field'])) {
+                $cache[$table][$row['Field']] = true;
+            }
+        }
+    }
+    return $cache[$table];
+}
+
+function pf_chat_has_column($columns, $column) {
+    return !empty($columns[$column]);
+}
+
+$customerCols = pf_chat_table_columns('customers');
+$orderItemCols = pf_chat_table_columns('order_items');
+$productCols = pf_chat_table_columns('products');
+$ordersCols = pf_chat_table_columns('orders');
+
+$customerAvatarSelect = pf_chat_has_column($customerCols, 'profile_picture') ? 'c.profile_picture' : 'NULL';
+$customerActivitySelect = pf_chat_has_column($customerCols, 'last_activity') ? 'c.last_activity' : 'NULL';
+$archive_col = pf_chat_has_column($ordersCols, 'is_archived') ? "o.is_archived" : "0";
+$productNameExpr = pf_chat_has_column($orderItemCols, 'customization_data')
+    ? "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), p.name, 'Order')"
+    : "COALESCE(p.name, 'Order')";
+
 $search_clause = "";
 $params = [];
 $types = "";
@@ -33,65 +65,70 @@ $types = "";
 if ($search !== '') {
     $like = "%$search%";
     if ($user_type === 'Customer') {
-        $search_clause = " AND (o.order_id LIKE ? OR (SELECT mi.message FROM order_messages mi WHERE mi.order_id = o.order_id ORDER BY mi.message_id DESC LIMIT 1) LIKE ? OR (SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), pi.name, 'Order') FROM order_items oi LEFT JOIN products pi ON oi.product_id = pi.product_id WHERE oi.order_id = o.order_id LIMIT 1) LIKE ?)";
+        $search_clause = " AND (o.order_id LIKE ? OR (SELECT mi.message FROM order_messages mi WHERE mi.order_id = o.order_id ORDER BY mi.message_id DESC LIMIT 1) LIKE ? OR (SELECT " . str_replace('p.', 'pi.', $productNameExpr) . " FROM order_items oi LEFT JOIN products pi ON oi.product_id = pi.product_id WHERE oi.order_id = o.order_id LIMIT 1) LIKE ?)";
         $params = [$like, $like, $like];
         $types = "sss";
     } else {
-        $search_clause = " AND (o.order_id LIKE ? OR CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) LIKE ? OR (SELECT mi.message FROM order_messages mi WHERE mi.order_id = o.order_id ORDER BY mi.message_id DESC LIMIT 1) LIKE ? OR (SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), pi.name, 'Order') FROM order_items oi LEFT JOIN products pi ON oi.product_id = pi.product_id WHERE oi.order_id = o.order_id LIMIT 1) LIKE ?)";
+        $search_clause = " AND (o.order_id LIKE ? OR CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) LIKE ? OR (SELECT mi.message FROM order_messages mi WHERE mi.order_id = o.order_id ORDER BY mi.message_id DESC LIMIT 1) LIKE ? OR (SELECT " . str_replace('p.', 'pi.', $productNameExpr) . " FROM order_items oi LEFT JOIN products pi ON oi.product_id = pi.product_id WHERE oi.order_id = o.order_id LIMIT 1) LIKE ?)";
         $params = [$like, $like, $like, $like];
         $types = "ssss";
     }
 }
 
 if ($user_type === 'Customer') {
-    // Check if is_archived column exists
-    $has_archived = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
-    $archive_col = $has_archived ? "o.is_archived" : "0";
-    
     $sql = "
         SELECT o.order_id, o.status, o.order_date, $archive_col as is_archived,
                (SELECT m.message FROM order_messages m WHERE m.order_id = o.order_id ORDER BY m.message_id DESC LIMIT 1) AS last_message,
                (SELECT m.created_at FROM order_messages m WHERE m.order_id = o.order_id ORDER BY m.message_id DESC LIMIT 1) AS last_message_at,
                (SELECT COUNT(*) FROM order_messages m WHERE m.order_id = o.order_id AND m.sender = 'Staff' AND m.read_receipt != 2) AS unread_count,
-               (SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), p.name, 'Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) AS product_name,
+               (SELECT {$productNameExpr} FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) AS product_name,
                (SELECT TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) FROM order_messages m JOIN users u ON u.user_id = m.sender_id WHERE m.order_id = o.order_id AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1) AS staff_name
         FROM orders o
-        WHERE o.customer_id = ?" . ($has_archived ? " AND $archive_col = ?" : "") . " $search_clause
+        WHERE o.customer_id = ?" . (pf_chat_has_column($ordersCols, 'is_archived') ? " AND $archive_col = ?" : "") . " $search_clause
         ORDER BY COALESCE((SELECT MAX(mx.created_at) FROM order_messages mx WHERE mx.order_id = o.order_id), o.order_date) DESC
+        LIMIT 200
     ";
     
-    $full_params = $has_archived ? array_merge([$user_id, ($show_archived ? 1 : 0)], $params) : array_merge([$user_id], $params);
-    $full_types = $has_archived ? "ii" . $types : "i" . $types;
+    $full_params = pf_chat_has_column($ordersCols, 'is_archived') ? array_merge([$user_id, ($show_archived ? 1 : 0)], $params) : array_merge([$user_id], $params);
+    $full_types = pf_chat_has_column($ordersCols, 'is_archived') ? "ii" . $types : "i" . $types;
     $rows = db_query($sql, $full_types, $full_params);
     if ($rows === false) throw new Exception("Database lookup failed on orders.");
 } else {
-    // Check if is_archived column exists
-    $has_archived = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
-    $archive_col = $has_archived ? "o.is_archived" : "0";
-    $has_activity = !empty(db_query("SHOW COLUMNS FROM customers LIKE 'last_activity'"));
-    $activity_sel = $has_activity ? "c.last_activity as partner_last_activity," : "NULL as partner_last_activity,";
+    $branchFilter = printflow_branch_filter_for_user();
+    $branchClause = $branchFilter !== null ? " AND o.branch_id = ?" : "";
 
     $sql = "
         SELECT o.order_id, o.status, o.order_date, $archive_col as is_archived,
                TRIM(CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))) AS customer_name,
-               c.profile_picture AS customer_avatar,
-               $activity_sel
+               {$customerAvatarSelect} AS customer_avatar,
+               {$customerActivitySelect} as partner_last_activity,
                (SELECT m.message FROM order_messages m WHERE m.order_id = o.order_id ORDER BY m.message_id DESC LIMIT 1) AS last_message,
                (SELECT m.created_at FROM order_messages m WHERE m.order_id = o.order_id ORDER BY m.message_id DESC LIMIT 1) AS last_message_at,
                (SELECT COUNT(*) FROM order_messages m WHERE m.order_id = o.order_id AND m.sender = 'Customer' AND m.read_receipt != 2) AS unread_count,
-               (SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), p.name, 'Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) AS product_name
+               (SELECT {$productNameExpr} FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) AS product_name
         FROM orders o
         LEFT JOIN customers c ON c.customer_id = o.customer_id
-        WHERE o.status != 'Cancelled'" . ($has_archived ? " AND $archive_col = ?" : "") . " $search_clause
+        WHERE o.status != 'Cancelled'" . (pf_chat_has_column($ordersCols, 'is_archived') ? " AND $archive_col = ?" : "") . " $branchClause $search_clause
         AND (
             EXISTS (SELECT 1 FROM order_messages m WHERE m.order_id = o.order_id)
             OR o.order_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)
         )
         ORDER BY COALESCE((SELECT MAX(mx.created_at) FROM order_messages mx WHERE mx.order_id = o.order_id), o.order_date) DESC
+        LIMIT 200
     ";
     
-    $full_params = $has_archived ? array_merge([($show_archived ? 1 : 0)], $params) : $params;
-    $full_types = $has_archived ? "i" . $types : $types;
+    $full_params = [];
+    $full_types = "";
+    if (pf_chat_has_column($ordersCols, 'is_archived')) {
+        $full_params[] = $show_archived ? 1 : 0;
+        $full_types .= "i";
+    }
+    if ($branchFilter !== null) {
+        $full_params[] = $branchFilter;
+        $full_types .= "i";
+    }
+    $full_params = array_merge($full_params, $params);
+    $full_types .= $types;
     $rows = db_query($sql, $full_types, $full_params);
     if ($rows === false) throw new Exception("Database lookup failed on staff view.");
 }
@@ -147,7 +184,7 @@ foreach ($rows ?: [] as $r) {
         'success' => true, 
         'conversations' => $conversations,
         'debug' => !empty($captured_garbage) ? 'Server notice captured' : null
-    ]);
+    ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
 } catch (Exception $e) {
     // Fatal Error Handler: Always return JSON
@@ -158,7 +195,7 @@ foreach ($rows ?: [] as $r) {
         'success' => false,
         'error' => 'A server error occurred while loading your chats.',
         'details' => $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 } catch (Throwable $t) {
     // PHP 7+ Engine Errors (Syntax, etc.)
     if (ob_get_level() > 0) ob_end_clean();
@@ -168,5 +205,5 @@ foreach ($rows ?: [] as $r) {
         'success' => false,
         'error' => 'Critical engine error.',
         'details' => $t->getMessage()
-    ]);
+    ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 }

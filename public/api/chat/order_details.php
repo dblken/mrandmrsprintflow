@@ -92,6 +92,7 @@ if ($customer_id) {
 }
 
 // Get items with product info
+$order_item_cols = array_column(db_query("SHOW COLUMNS FROM order_items") ?: [], 'Field');
 $has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
 $has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
 $product_image_select = "'' AS product_image";
@@ -115,7 +116,9 @@ $show_price = !in_array($order['status'], $price_pending_statuses, true);
 
 $items_out = [];
 foreach ($items ?: [] as $item) {
-    $custom_data = json_decode($item['customization_data'] ?? '{}', true) ?: [];
+    $custom_data = in_array('customization_data', $order_item_cols, true)
+        ? (json_decode($item['customization_data'] ?? '{}', true) ?: [])
+        : [];
     unset($custom_data['design_upload'], $custom_data['reference_upload']);
 
     $product_name = get_service_name_from_customization($custom_data, 'Order Item');
@@ -128,12 +131,13 @@ foreach ($items ?: [] as $item) {
 
     $design_url = null;
     $ref_url = null;
-    if (!empty($item['design_image']) || !empty($item['design_file'])) {
+    if ((in_array('design_image', $order_item_cols, true) && !empty($item['design_image']))
+        || (in_array('design_file', $order_item_cols, true) && !empty($item['design_file']))) {
         $design_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']);
     } elseif (!empty($item['product_image'])) {
         $design_url = pf_chat_order_public_url((string)$item['product_image']);
     }
-    if (!empty($item['reference_image_file'])) {
+    if (in_array('reference_image_file', $order_item_cols, true) && !empty($item['reference_image_file'])) {
         $ref_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference');
     }
 

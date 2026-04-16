@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Global Output Buffer to trap notices
 ob_start();

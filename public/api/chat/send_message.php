@@ -33,7 +33,7 @@ $messages_sent = 0;
 if ($message !== '') {
     $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt, reply_id)
             VALUES (?, ?, ?, ?, 'text', 0, ?)";
-    if (db_execute($sql, 'isssi', [$order_id, $db_sender, $user_id, $message, $reply_id])) {
+    if (db_execute($sql, 'isisi', [$order_id, $db_sender, $user_id, $message, $reply_id])) {
         $messages_sent++;
     }
 }
@@ -73,7 +73,7 @@ if (isset($_FILES['image'])) {
         // message_type = 'image', but we have file_type = 'video' natively.
         // Actually, let's use message_type = 'image', file_type = 'video'
         
-        if (db_execute($sql, 'issssssssii', [
+        if (db_execute($sql, 'isissssssii', [
             $order_id, $db_sender, $user_id, 
             'image', // legacy message_type
             $image_path, // legacy image_path

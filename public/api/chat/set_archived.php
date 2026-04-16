@@ -23,6 +23,12 @@ if (!$order_id) {
     exit();
 }
 
+$has_archive = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
+if (!$has_archive) {
+    global $conn;
+    @$conn->query("ALTER TABLE orders ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+}
+
 $res = db_execute("UPDATE orders SET is_archived = ? WHERE order_id = ?", 'ii', [$archive, $order_id]);
 
 // Clear accidental output before sending JSON

@@ -57,6 +57,29 @@ function pf_chat_public_url(?string $path): string {
     return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
 }
 
+function pf_chat_fetch_columns($table) {
+    static $cache = [];
+    if (!isset($cache[$table])) {
+        $rows = db_query("SHOW COLUMNS FROM `{$table}`") ?: [];
+        $cache[$table] = [];
+        foreach ($rows as $row) {
+            if (!empty($row['Field'])) {
+                $cache[$table][$row['Field']] = true;
+            }
+        }
+    }
+    return $cache[$table];
+}
+
+$customerCols = pf_chat_fetch_columns('customers');
+$userCols = pf_chat_fetch_columns('users');
+$customerAvatarSql = !empty($customerCols['profile_picture']) ? "(SELECT profile_picture FROM customers WHERE customer_id = m.sender_id)" : "NULL";
+$staffAvatarSql = !empty($userCols['profile_picture']) ? "(SELECT profile_picture FROM users WHERE user_id = m.sender_id)" : "NULL";
+$partnerStaffAvatarSql = !empty($userCols['profile_picture'])
+    ? "SELECT profile_picture FROM users WHERE user_id = (SELECT sender_id FROM order_messages WHERE order_id = ? AND sender = 'Staff' ORDER BY message_id DESC LIMIT 1)"
+    : "SELECT NULL AS profile_picture";
+$partnerCustomerAvatarSql = !empty($customerCols['profile_picture']) ? "SELECT profile_picture FROM customers WHERE customer_id = (SELECT customer_id FROM orders WHERE order_id = ?)" : "SELECT NULL AS profile_picture";
+
 // 1. Fetch new messages
 $sql = "SELECT m.*, 
         p.message AS reply_message, 
@@ -73,8 +96,8 @@ $sql = "SELECT m.*,
             ELSE 'System' 
         END as sender_role,
         CASE 
-            WHEN m.sender = 'Customer' THEN (SELECT profile_picture FROM customers WHERE customer_id = m.sender_id)
-            WHEN m.sender = 'Staff' THEN (SELECT profile_picture FROM users WHERE user_id = m.sender_id)
+            WHEN m.sender = 'Customer' THEN {$customerAvatarSql}
+            WHEN m.sender = 'Staff' THEN {$staffAvatarSql}
             ELSE NULL 
         END as sender_avatar
         FROM order_messages m 
@@ -120,6 +143,7 @@ if ($messages_raw) {
             'is_self' => $is_self,
             'status' => (int)$msg['read_receipt'], // 0=Sent, 1=Delivered, 2=Seen
             'is_system' => $is_system,
+            'is_pinned' => !empty($msg['is_pinned']),
             'reply_id' => $msg['reply_id'] ?: null,
             'reply_message' => $msg['reply_message'] ?? null,
             'reply_image' => pf_chat_public_url($msg['reply_image'] ?? null),
@@ -175,10 +199,10 @@ if (!empty($partner_raw)) {
 
 // Get partner avatar for seen indicator
 if ($partner_type === 'Staff') {
-    $av_res = db_query("SELECT profile_picture FROM users WHERE user_id = (SELECT sender_id FROM order_messages WHERE order_id = ? AND sender = 'Staff' ORDER BY message_id DESC LIMIT 1)", 'i', [$order_id]);
+    $av_res = db_query($partnerStaffAvatarSql, 'i', [$order_id]);
     if ($av_res) $partner['avatar'] = $av_res[0]['profile_picture'];
 } else {
-    $av_res = db_query("SELECT profile_picture FROM customers WHERE customer_id = (SELECT customer_id FROM orders WHERE order_id = ?)", 'i', [$order_id]);
+    $av_res = db_query($partnerCustomerAvatarSql, 'i', [$order_id]);
     if ($av_res) $partner['avatar'] = $av_res[0]['profile_picture'];
 }
 
@@ -202,10 +226,28 @@ if (!empty($seen_query) && $seen_query[0]['last_seen']) {
     $last_seen_id = (int)$seen_query[0]['last_seen'];
 }
 
+$pinned_raw = db_query("
+    SELECT message_id AS id, message, image_path, message_file, created_at
+    FROM order_messages
+    WHERE order_id = ? AND is_pinned = 1
+    ORDER BY message_id DESC
+", 'i', [$order_id]) ?: [];
+$pinned_messages = [];
+foreach ($pinned_raw as $pin) {
+    $pinned_messages[] = [
+        'id' => (int)$pin['id'],
+        'message' => $pin['message'] ?? '',
+        'image_path' => pf_chat_public_url($pin['image_path'] ?? null),
+        'message_file' => pf_chat_public_url($pin['message_file'] ?? null),
+        'created_at' => !empty($pin['created_at']) ? date('h:i A', strtotime($pin['created_at'])) : ''
+    ];
+}
+
     ob_end_clean();
     echo json_encode([
         'success' => true,
         'messages' => $messages,
+        'pinned_messages' => $pinned_messages,
         'reactions' => $reactions,
         'partner' => $partner,
         'is_archived' => $is_archived,

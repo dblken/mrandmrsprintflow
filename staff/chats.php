@@ -13,6 +13,17 @@ if (!defined('BASE_URL'))
 
 $page_title = 'Chats - PrintFlow';
 $current_user = get_logged_in_user();
+
+function staff_chat_profile_image($image) {
+    if (empty($image) || $image === 'null' || $image === 'undefined') {
+        return BASE_PATH . '/public/assets/uploads/profiles/default.png';
+    }
+    $image = (string)$image;
+    if ($image[0] === '/' || strpos($image, 'http') === 0) {
+        return $image;
+    }
+    return BASE_PATH . '/public/assets/uploads/profiles/' . ltrim($image, '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -839,7 +850,7 @@ function initCallSystem() {
         userId: <?php echo get_user_id(); ?>,
         role: 'Staff',
         userName: '<?php echo str_replace("'", "\\'", $_SESSION['user_name'] ?? "Staff"); ?>',
-        userAvatar: '<?= addslashes(get_profile_image($current_user['profile_picture'] ?? null)) ?>'
+        userAvatar: '<?= addslashes(staff_chat_profile_image($current_user['profile_picture'] ?? null)) ?>'
     });
 }
 
@@ -865,8 +876,21 @@ async function api(url, method = 'GET', body = null) {
     if (body) opts.body = (body instanceof FormData) ? body : JSON.stringify(body);
     try {
         const r = await fetch(window.baseUrl + url, opts);
-        if (!r.ok) throw new Error('Request failed with status ' + r.status);
-        return await r.json();
+        const txt = await r.text();
+        if (!txt.trim()) {
+            throw new Error('Empty server response with status ' + r.status);
+        }
+        let data;
+        try {
+            data = JSON.parse(txt);
+        } catch (err) {
+            console.error('Invalid chat API response:', txt);
+            throw new Error('Invalid server response with status ' + r.status);
+        }
+        if (!r.ok && data.success !== false) {
+            throw new Error('Request failed with status ' + r.status);
+        }
+        return data;
     } catch (e) {
         return { success: false, error: e.message };
     }

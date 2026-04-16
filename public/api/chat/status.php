@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
+require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Prevent accidental output (warnings/notices) from breaking JSON
 ob_start();
