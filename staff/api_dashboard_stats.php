@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/service_order_helper.php';
 
 // Check staff access
 if (!has_role('Staff')) {
@@ -16,6 +17,7 @@ if (!has_role('Staff')) {
 }
 
 $staffCtx = init_branch_context();
+service_order_ensure_tables();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
 
 // --- Inputs ---
@@ -42,6 +44,42 @@ switch ($timeframe) {
         break;
 }
 
+$latest_activity_row = db_query("
+    SELECT MAX(activity_date) AS latest_date
+    FROM (
+        SELECT DATE(order_date) AS activity_date FROM orders WHERE branch_id = ?
+        UNION ALL
+        SELECT DATE(created_at) AS activity_date FROM service_orders WHERE branch_id = ? OR branch_id IS NULL
+    ) branch_activity
+", 'ii', [$staffBranchId, $staffBranchId]);
+$latestBranchDate = $latest_activity_row[0]['latest_date'] ?? null;
+$period_probe = db_query("
+    SELECT SUM(cnt) AS total_count
+    FROM (
+        SELECT COUNT(*) AS cnt FROM orders o WHERE o.branch_id = ? AND {$timeframe_sql}
+        UNION ALL
+        SELECT COUNT(*) AS cnt FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND " . str_replace('o.order_date', 'so.created_at', $timeframe_sql) . "
+    ) period_counts
+", 'ii', [$staffBranchId, $staffBranchId]);
+$timeframe_label = $timeframe === 'today' ? 'Today' : ($timeframe === 'week' ? 'This Week' : 'This Month');
+if (((int)($period_probe[0]['total_count'] ?? 0)) === 0 && $latestBranchDate) {
+    $safeLatest = db_escape($latestBranchDate);
+    if ($timeframe === 'month') {
+        $timeframe_sql = "YEAR(o.order_date) = YEAR('{$safeLatest}') AND MONTH(o.order_date) = MONTH('{$safeLatest}')";
+        $timeframe_sql_no_alias = "YEAR(order_date) = YEAR('{$safeLatest}') AND MONTH(order_date) = MONTH('{$safeLatest}')";
+        $timeframe_label = 'Latest Month';
+    } elseif ($timeframe === 'week') {
+        $timeframe_sql = "YEARWEEK(o.order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
+        $timeframe_sql_no_alias = "YEARWEEK(order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
+        $timeframe_label = 'Latest Week';
+    } else {
+        $timeframe_sql = "DATE(o.order_date) = '{$safeLatest}'";
+        $timeframe_sql_no_alias = "DATE(order_date) = '{$safeLatest}'";
+        $timeframe_label = 'Latest Day';
+    }
+}
+$service_timeframe_sql = str_replace('o.order_date', 'so.created_at', $timeframe_sql);
+
 // 1. Stats
 $completed_products = db_query("
     SELECT COUNT(DISTINCT o.order_id) as count 
@@ -60,8 +98,22 @@ $completed_custom = db_query("
     WHERE o.status = 'Completed' AND o.branch_id = ? AND $timeframe_sql_no_alias
       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
 ", 'i', [$staffBranchId])[0]['count'] ?? 0;
+$completed_custom += (int)(db_query("
+    SELECT COUNT(*) AS count
+    FROM service_orders so
+    WHERE so.status = 'Completed'
+      AND (so.branch_id = ? OR so.branch_id IS NULL)
+      AND {$service_timeframe_sql}
+", 'i', [$staffBranchId])[0]['count'] ?? 0);
 
-$total_revenue = db_query("SELECT SUM(total_amount) as total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?", 'i', [$staffBranchId])[0]['total'] ?? 0;
+$total_revenue = db_query("
+    SELECT SUM(total) AS total
+    FROM (
+        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?
+        UNION ALL
+        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE {$service_timeframe_sql} AND status NOT IN ('Cancelled', 'Rejected') AND (branch_id = ? OR branch_id IS NULL)
+    ) branch_revenue
+", 'ii', [$staffBranchId, $staffBranchId])[0]['total'] ?? 0;
 
 // 2. Optimized & Dynamic Chart Data
 $chart_labels = [];
@@ -88,7 +140,15 @@ switch($timeframe) {
         for ($i = 0; $i < 24; $i++) {
             $h = str_pad($i, 2, "0", STR_PAD_LEFT);
             $chart_labels[] = $h . ":00";
-            $res = db_query("SELECT SUM(o.total_amount) as total FROM orders o $chart_sql_cond AND DATE(o.order_date) = CURDATE() AND HOUR(o.order_date) = ?", $chart_types.'i', array_merge($chart_params, [$i]));
+            $chartDate = $latestBranchDate ?: date('Y-m-d');
+            $res = db_query("
+                SELECT SUM(total) AS total
+                FROM (
+                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ? AND HOUR(o.order_date) = ?
+                    UNION ALL
+                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ? AND HOUR(so.created_at) = ?
+                ) hourly_revenue
+            ", $chart_types.'siisi', array_merge($chart_params, [$chartDate, $i, $staffBranchId, $chartDate, $i]));
             $chart_values[] = (float)($res[0]['total'] ?? 0);
         }
         break;
@@ -96,20 +156,35 @@ switch($timeframe) {
     case 'week':
         $chart_title = "Weekly Trend (Daily)";
         for ($i = 6; $i >= 0; $i--) {
-            $d = date('Y-m-d', strtotime("-$i days"));
+            $d = date('Y-m-d', strtotime("-$i days", strtotime($latestBranchDate ?: date('Y-m-d'))));
             $chart_labels[] = date('D', strtotime($d));
-            $res = db_query("SELECT SUM(o.total_amount) as total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?", $chart_types.'s', array_merge($chart_params, [$d]));
+            $res = db_query("
+                SELECT SUM(total) AS total
+                FROM (
+                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
+                    UNION ALL
+                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
+                ) daily_revenue
+            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
             $chart_values[] = (float)($res[0]['total'] ?? 0);
         }
         break;
         
     case 'month':
         $chart_title = "Monthly Performance (Daily)";
-        $days_in_month = date('t');
+        $days_in_month = date('t', strtotime($latestBranchDate ?: date('Y-m-d')));
         for ($i = 1; $i <= $days_in_month; $i++) {
-            $d = date('Y-m-') . str_pad($i, 2, "0", STR_PAD_LEFT);
+            $monthAnchor = $latestBranchDate ?: date('Y-m-d');
+            $d = date('Y-m-', strtotime($monthAnchor)) . str_pad($i, 2, "0", STR_PAD_LEFT);
             $chart_labels[] = $i;
-            $res = db_query("SELECT SUM(o.total_amount) as total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?", $chart_types.'s', array_merge($chart_params, [$d]));
+            $res = db_query("
+                SELECT SUM(total) AS total
+                FROM (
+                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
+                    UNION ALL
+                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
+                ) daily_revenue
+            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
             $chart_values[] = (float)($res[0]['total'] ?? 0);
         }
         break;
@@ -119,9 +194,16 @@ switch($timeframe) {
     default: // 7 Days
         $chart_title = "Last 7 Days (Trend)";
         for ($i = 6; $i >= 0; $i--) {
-            $d = date('Y-m-d', strtotime("-$i days"));
+            $d = date('Y-m-d', strtotime("-$i days", strtotime($latestBranchDate ?: date('Y-m-d'))));
             $chart_labels[] = date('D', strtotime($d));
-            $res = db_query("SELECT SUM(o.total_amount) as total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?", $chart_types.'s', array_merge($chart_params, [$d]));
+            $res = db_query("
+                SELECT SUM(total) AS total
+                FROM (
+                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
+                    UNION ALL
+                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
+                ) daily_revenue
+            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
             $chart_values[] = (float)($res[0]['total'] ?? 0);
         }
 }
@@ -148,6 +230,18 @@ $top_services = db_query("
     ORDER BY order_count DESC
     LIMIT 10
 ", 'i', [$staffBranchId]);
+if (empty($top_services)) {
+    $top_services = db_query("
+        SELECT service_name AS name, COUNT(*) AS order_count
+        FROM service_orders so
+        WHERE {$service_timeframe_sql}
+          AND (so.branch_id = ? OR so.branch_id IS NULL)
+          AND so.status NOT IN ('Cancelled', 'Rejected')
+        GROUP BY service_name
+        ORDER BY order_count DESC
+        LIMIT 10
+    ", 'i', [$staffBranchId]);
+}
 
 // 4. Recent Orders
 $sql_cond = " WHERE o.branch_id = ?";
@@ -215,5 +309,5 @@ echo json_encode([
         'total_pages' => ceil($total_rows / $limit),
         'total_rows' => (int)$total_rows
     ],
-    'timeframe_label' => $timeframe === 'today' ? 'Today' : ($timeframe === 'week' ? 'This Week' : 'This Month')
+    'timeframe_label' => $timeframe_label
 ]);

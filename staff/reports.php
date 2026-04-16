@@ -8,11 +8,13 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
+require_once __DIR__ . '/../includes/service_order_helper.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 printflow_ensure_product_branch_stock_table();
+service_order_ensure_tables();
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 $range = $_GET['range'] ?? 'week';
 $report_date = $_GET['date'] ?? date('Y-m-d');
@@ -42,26 +44,93 @@ if ($status_filter !== 'ALL' && !empty($status_filter)) {
     $status_t = "s";
 }
 
+$latest_activity_row = db_query("
+    SELECT MAX(activity_date) AS latest_date
+    FROM (
+        SELECT DATE(order_date) AS activity_date FROM orders WHERE branch_id = ?
+        UNION ALL
+        SELECT DATE(created_at) AS activity_date FROM service_orders WHERE branch_id = ? OR branch_id IS NULL
+    ) branch_activity
+", 'ii', [$staffBranchId, $staffBranchId]);
+$latestBranchDate = $latest_activity_row[0]['latest_date'] ?? null;
+$period_probe = db_query("
+    SELECT SUM(cnt) AS total_count
+    FROM (
+        SELECT COUNT(*) AS cnt FROM orders o WHERE o.branch_id = ? AND {$date_condition}
+        UNION ALL
+        SELECT COUNT(*) AS cnt FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND " . str_replace('o.order_date', 'so.created_at', $date_condition) . "
+    ) period_counts
+", 'ii', [$staffBranchId, $staffBranchId]);
+if (((int)($period_probe[0]['total_count'] ?? 0)) === 0 && $latestBranchDate) {
+    $safeLatest = db_escape($latestBranchDate);
+    if ($range === 'month') {
+        $interval_label = 'Latest Month';
+        $group_by = "DATE(o.order_date)";
+        $date_condition = "YEAR(o.order_date) = YEAR('{$safeLatest}') AND MONTH(o.order_date) = MONTH('{$safeLatest}')";
+    } elseif ($range === 'today') {
+        $interval_label = 'Latest Day';
+        $group_by = "HOUR(o.order_date)";
+        $date_condition = "DATE(o.order_date) = '{$safeLatest}'";
+    } else {
+        $interval_label = 'Latest Week';
+        $group_by = "DATE(o.order_date)";
+        $date_condition = "YEARWEEK(o.order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
+    }
+}
+$service_date_condition = str_replace('o.order_date', 'so.created_at', $date_condition);
+$service_status_where = $status_filter !== 'ALL' && !empty($status_filter) ? " AND so.status = ? " : "";
+
 // ---- 1. RANGE-AWARE KPI METRICS (DYNAMIC) ----
-// Total revenue for THE SELECTED PERIOD (Paid only)
-$rev_res = db_query("SELECT COALESCE(SUM(total_amount), 0) as total FROM orders o WHERE $date_condition AND payment_status = 'Paid' AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
+// Total revenue for THE SELECTED PERIOD
+$rev_types = $status_t ? "i{$status_t}i{$status_t}" : "ii";
+$rev_params = $status_t
+    ? array_merge([$staffBranchId], $status_p, [$staffBranchId], $status_p)
+    : [$staffBranchId, $staffBranchId];
+$rev_res = db_query("
+    SELECT SUM(total) AS total
+    FROM (
+        SELECT COALESCE(SUM(total_amount), 0) AS total
+        FROM orders o
+        WHERE $date_condition AND status != 'Cancelled' AND branch_id = ? $status_where
+        UNION ALL
+        SELECT COALESCE(SUM(total_price), 0) AS total
+        FROM service_orders so
+        WHERE $service_date_condition AND so.status NOT IN ('Cancelled', 'Rejected') AND (so.branch_id = ? OR so.branch_id IS NULL) $service_status_where
+    ) branch_revenue
+", $rev_types, $rev_params);
 $period_revenue = $rev_res[0]['total'] ?? 0;
 
 // Total orders count for THE SELECTED PERIOD
-$ord_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE $date_condition AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
+$ord_res = db_query("
+    SELECT SUM(count) AS count
+    FROM (
+        SELECT COUNT(*) AS count FROM orders o WHERE $date_condition AND branch_id = ? $status_where
+        UNION ALL
+        SELECT COUNT(*) AS count FROM service_orders so WHERE $service_date_condition AND (so.branch_id = ? OR so.branch_id IS NULL) $service_status_where
+    ) branch_orders
+", $rev_types, $rev_params);
 $period_orders = $ord_res[0]['count'] ?? 0;
 
 // Pending/Active orders received in THE SELECTED PERIOD (if status is not filtered specifically)
 $active_statuses_sql = "status IN ('Pending', 'Pending Review', 'Pending Verification', 'Approved', 'Downpayment Submitted', 'In Production')";
 if ($status_filter !== 'ALL') {
     $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE status = ? AND branch_id = ? AND $date_condition", 'si', [$status_filter, $staffBranchId]);
+    $svc_pend_res = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE so.status = ? AND (so.branch_id = ? OR so.branch_id IS NULL) AND $service_date_condition", 'si', [$status_filter, $staffBranchId]);
 } else {
     $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE $active_statuses_sql AND branch_id = ? AND $date_condition", 'i', [$staffBranchId]);
+    $svc_pend_res = db_query("SELECT COUNT(*) as count FROM service_orders so WHERE so.status IN ('Pending', 'Pending Review', 'Approved', 'Processing') AND (so.branch_id = ? OR so.branch_id IS NULL) AND $service_date_condition", 'i', [$staffBranchId]);
 }
-$pending_period_orders = $pend_res[0]['count'] ?? 0;
+$pending_period_orders = (int)($pend_res[0]['count'] ?? 0) + (int)($svc_pend_res[0]['count'] ?? 0);
 
 // GLOBAL Backlog (All pending/active orders ever)
-$global_back_res = db_query("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Completed', 'Cancelled') AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
+$global_back_res = db_query("
+    SELECT SUM(count) AS count
+    FROM (
+        SELECT COUNT(*) AS count FROM orders WHERE status NOT IN ('Completed', 'Cancelled') AND branch_id = ? $status_where
+        UNION ALL
+        SELECT COUNT(*) AS count FROM service_orders so WHERE so.status NOT IN ('Completed', 'Cancelled', 'Rejected') AND (so.branch_id = ? OR so.branch_id IS NULL) $service_status_where
+    ) branch_backlog
+", $rev_types, $rev_params);
 $global_backlog = $global_back_res[0]['count'] ?? 0;
 
 // Low stock finished goods alert (branch-aware current status)
@@ -76,20 +145,29 @@ $low_stock_count = $stock_res[0]['count'] ?? 0;
 
 // ---- 2. REVENUE TREND (DYNAMIC) ----
 $trend_res = db_query("
-    SELECT $group_by as dte, COALESCE(SUM(total_amount), 0) as daily_total 
-    FROM orders o 
-    WHERE $date_condition AND branch_id = ?
-    $status_where
+    SELECT dte, SUM(daily_total) AS daily_total
+    FROM (
+        SELECT $group_by as dte, COALESCE(SUM(total_amount), 0) as daily_total
+        FROM orders o
+        WHERE $date_condition AND branch_id = ? $status_where
+        GROUP BY dte
+        UNION ALL
+        SELECT " . str_replace('o.order_date', 'so.created_at', $group_by) . " as dte, COALESCE(SUM(total_price), 0) as daily_total
+        FROM service_orders so
+        WHERE $service_date_condition AND so.status NOT IN ('Cancelled', 'Rejected') AND (so.branch_id = ? OR so.branch_id IS NULL) $service_status_where
+        GROUP BY dte
+    ) merged_trend
     GROUP BY dte
     ORDER BY dte ASC
-", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
+", $rev_types, $rev_params);
 
 // Fill empty data points so the chart doesn't break
 $trend_dates = [];
 $trend_totals = [];
 
 if ($range === 'today') {
-    for ($i = 0; $i <= date('H'); $i++) {
+    $hourLimit = ($interval_label === 'Latest Day' && $latestBranchDate) ? 23 : (int)date('H');
+    for ($i = 0; $i <= $hourLimit; $i++) {
         $h_str = str_pad($i, 2, '0', STR_PAD_LEFT);
         $trend_dates[] = $h_str . ':00';
         $found = 0;
@@ -97,8 +175,9 @@ if ($range === 'today') {
         $trend_totals[] = $found;
     }
 } elseif ($range === 'month') {
-    $days_in_month = (int)date('d'); // Plot up to today
-    $current_month_prefix = date('Y-m');
+    $monthAnchor = ($interval_label === 'Latest Month' && $latestBranchDate) ? $latestBranchDate : date('Y-m-d');
+    $days_in_month = ($interval_label === 'Latest Month' && $latestBranchDate) ? (int)date('t', strtotime($monthAnchor)) : (int)date('d');
+    $current_month_prefix = date('Y-m', strtotime($monthAnchor));
     for ($i = 1; $i <= $days_in_month; $i++) {
         $day_str = str_pad($i, 2, '0', STR_PAD_LEFT);
         $date_str = $current_month_prefix . '-' . $day_str;
@@ -109,8 +188,9 @@ if ($range === 'today') {
         $trend_totals[] = $found;
     }
 } else {
-    $monday = strtotime('monday this week');
-    $days_to_plot = (int)date('N', strtotime('today')); // 1=Mon, 7=Sun
+    $weekAnchor = ($interval_label === 'Latest Week' && $latestBranchDate) ? $latestBranchDate : date('Y-m-d');
+    $monday = strtotime('monday this week', strtotime($weekAnchor));
+    $days_to_plot = ($interval_label === 'Latest Week' && $latestBranchDate) ? 7 : (int)date('N', strtotime('today'));
     for ($i = 0; $i < $days_to_plot; $i++) {
         $date_str = date('Y-m-d', strtotime("+$i days", $monday));
         $trend_dates[] = date('D', strtotime($date_str));
@@ -133,10 +213,20 @@ $status_res = db_query("
     WHERE $date_condition AND branch_id = ?
     GROUP BY status
 ", 'i', [$staffBranchId]);
+$service_status_res = db_query("
+    SELECT so.status, COUNT(*) as status_count
+    FROM service_orders so
+    WHERE $service_date_condition AND (so.branch_id = ? OR so.branch_id IS NULL)
+    GROUP BY so.status
+", 'i', [$staffBranchId]);
 
 $status_map = [];
 foreach ($status_res as $s) {
     if ($s['status']) $status_map[$s['status']] = (int)$s['status_count'];
+}
+foreach ($service_status_res as $s) {
+    if (!$s['status']) continue;
+    $status_map[$s['status']] = ($status_map[$s['status']] ?? 0) + (int)$s['status_count'];
 }
 
 $status_labels = $std_statuses;
@@ -159,6 +249,18 @@ $top_products = db_query("
     ORDER BY total_sold DESC
     LIMIT 5
 ", 'i', [$staffBranchId]);
+if (empty($top_products)) {
+    $top_products = db_query("
+        SELECT so.service_name AS name, COUNT(*) AS total_sold
+        FROM service_orders so
+        WHERE $service_date_condition
+          AND (so.branch_id = ? OR so.branch_id IS NULL)
+          AND so.status NOT IN ('Cancelled', 'Rejected')
+        GROUP BY so.service_name
+        ORDER BY total_sold DESC
+        LIMIT 5
+    ", 'i', [$staffBranchId]);
+}
 
 $page_title = 'Visual Reports & Analytics';
 ?>
