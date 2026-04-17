@@ -826,7 +826,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 textarea.shopee-opt-btn { height: auto; min-height: 100px; }
 textarea.shopee-opt-btn:hover, textarea.shopee-opt-btn:focus, select.shopee-opt-btn:focus { border-color: #53c5e0 !important; background: rgba(0,49,61,0.8) !important; outline: none; }
 select.shopee-opt-btn option { background: #0a2530; color: #eaf6fb; }
-.notes-textarea { font-size: 0.875rem; font-weight: 500; color: #e0f2fe; resize: none !important; overflow-y: auto !important; min-height: 160px !important; max-height: 160px !important; scrollbar-width: thin; scrollbar-color: #53c5e0 rgba(0,49,61,0.4); }
+.notes-textarea { font-size: 0.875rem; font-weight: 500; color: #e0f2fe; resize: none !important; overflow-y: auto !important; min-height: 100px !important; max-height: 100px !important; scrollbar-width: thin; scrollbar-color: #53c5e0 rgba(0,49,61,0.4); }
 .notes-textarea::placeholder { font-size: 0.875rem; font-weight: 500; color: #9fc4d4; }
 textarea.notes-textarea { resize: none !important; }
 textarea.notes-textarea::-webkit-resizer { display: none !important; }
@@ -844,7 +844,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
 .input-field, .shopee-opt-group, .shopee-qty-control { margin-top: 0; }
 select, input:not([type="radio"]), textarea, .shopee-opt-btn, .shopee-qty-control, .notes-textarea, .input-field { border-radius: 0 !important; border: 1px solid #53c5e0 !important; outline: none !important; box-shadow: none !important; height: 42px; }
-textarea, .notes-textarea { height: auto !important; min-height: 160px !important; }
+textarea, .notes-textarea { height: auto !important; min-height: 100px !important; }
 </style>
 
 <script>
