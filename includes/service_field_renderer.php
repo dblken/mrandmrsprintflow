@@ -292,7 +292,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                         if ($w && $h) {
                             $displayLabel = $w . '×' . $h;
                             $is_active = (!$is_custom_dimension && $saved_width == $w && $saved_height == $h) ? ' active' : '';
-                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1" onclick="return window.pfSelectDimensionButton ? window.pfSelectDimensionButton(this) : false">' . $displayLabel . '</button>';
+                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1" onclick="var r=this.closest(\'.shopee-form-row\');if(r){r.querySelectorAll(\'.shopee-opt-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\');var o=r.querySelector(\'.dim-others-inputs\');if(o)o.style.display=\'none\';var cw=r.querySelector(\'.custom-dim-width\');var ch=r.querySelector(\'.custom-dim-height\');if(cw)cw.value=\'\';if(ch)ch.value=\'\';var w=r.querySelector(\'[data-dimension-role=width]\')||r.querySelector(\'input[name=width]\');var h=r.querySelector(\'[data-dimension-role=height]\')||r.querySelector(\'input[name=height]\');if(w)w.value=this.dataset.width||\'\';if(h)h.value=this.dataset.height||\'\';var lw=r.querySelector(\'input[name=width]\');var lh=r.querySelector(\'input[name=height]\');if(lw)lw.value=this.dataset.width||\'\';if(lh)lh.value=this.dataset.height||\'\';}if(window.calculateEstimatedPrice)window.calculateEstimatedPrice();return false;">' . $displayLabel . '</button>';
                         }
                     }
                 }
@@ -300,7 +300,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             
             if ($allowOthers) {
                 $others_active = $is_custom_dimension ? ' active' : '';
-                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-others="1" onclick="return window.pfSelectDimensionOthersButton ? window.pfSelectDimensionOthersButton(this) : false">Others</button>';
+                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-others="1" onclick="var r=this.closest(\'.shopee-form-row\');if(r){r.querySelectorAll(\'.shopee-opt-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\');var o=r.querySelector(\'.dim-others-inputs\');if(o)o.style.display=\'block\';var w=r.querySelector(\'[data-dimension-role=width]\')||r.querySelector(\'input[name=width]\');var h=r.querySelector(\'[data-dimension-role=height]\')||r.querySelector(\'input[name=height]\');if(w)w.value=\'\';if(h)h.value=\'\';var lw=r.querySelector(\'input[name=width]\');var lh=r.querySelector(\'input[name=height]\');if(lw)lw.value=\'\';if(lh)lh.value=\'\';}if(window.calculateEstimatedPrice)window.calculateEstimatedPrice();return false;">Others</button>';
             }
             $html .= '</div>';
             
@@ -617,13 +617,55 @@ function serviceFieldEventProxy(method, target) {
 
 function pfSelectDimensionButton(button) {
     if (!button) return false;
-    selectDimension(button.dataset.width || '', button.dataset.height || '', serviceFieldEventProxy('selectDimension', button));
+    dimensionMode = 'preset';
+    window.__pfServiceDimensionMode = dimensionMode;
+    const row = button.closest('.shopee-form-row');
+    if (row) {
+        row.querySelectorAll('.shopee-opt-btn').forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+        const othersInput = row.querySelector('.dim-others-inputs');
+        if (othersInput) othersInput.style.display = 'none';
+        const widthInput = row.querySelector('.custom-dim-width');
+        const heightInput = row.querySelector('.custom-dim-height');
+        if (widthInput) widthInput.value = '';
+        if (heightInput) heightInput.value = '';
+        const widthHidden = row.querySelector('[data-dimension-role="width"]') || row.querySelector('input[name="width"]');
+        const heightHidden = row.querySelector('[data-dimension-role="height"]') || row.querySelector('input[name="height"]');
+        if (widthHidden) widthHidden.value = button.dataset.width || '';
+        if (heightHidden) heightHidden.value = button.dataset.height || '';
+        const legacyWidth = row.querySelector('input[name="width"]');
+        const legacyHeight = row.querySelector('input[name="height"]');
+        if (legacyWidth) legacyWidth.value = button.dataset.width || '';
+        if (legacyHeight) legacyHeight.value = button.dataset.height || '';
+    } else {
+        selectDimension(button.dataset.width || '', button.dataset.height || '', serviceFieldEventProxy('selectDimension', button));
+    }
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
     return false;
 }
 
 function pfSelectDimensionOthersButton(button) {
     if (!button) return false;
-    selectDimensionOthers(serviceFieldEventProxy('selectDimensionOthers', button));
+    dimensionMode = 'others';
+    window.__pfServiceDimensionMode = dimensionMode;
+    const row = button.closest('.shopee-form-row');
+    if (row) {
+        row.querySelectorAll('.shopee-opt-btn').forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+        const othersInput = row.querySelector('.dim-others-inputs');
+        if (othersInput) othersInput.style.display = 'block';
+        const widthHidden = row.querySelector('[data-dimension-role="width"]') || row.querySelector('input[name="width"]');
+        const heightHidden = row.querySelector('[data-dimension-role="height"]') || row.querySelector('input[name="height"]');
+        if (widthHidden) widthHidden.value = '';
+        if (heightHidden) heightHidden.value = '';
+        const legacyWidth = row.querySelector('input[name="width"]');
+        const legacyHeight = row.querySelector('input[name="height"]');
+        if (legacyWidth) legacyWidth.value = '';
+        if (legacyHeight) legacyHeight.value = '';
+    } else {
+        selectDimensionOthers(serviceFieldEventProxy('selectDimensionOthers', button));
+    }
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
     return false;
 }
 
@@ -652,7 +694,7 @@ if (!window.__pfServiceFieldDelegatesBound) {
         if (dimBtn) {
             e.preventDefault();
             e.stopPropagation();
-            selectDimension(dimBtn.dataset.width || '', dimBtn.dataset.height || '', serviceFieldEventProxy('selectDimension', dimBtn));
+            pfSelectDimensionButton(dimBtn);
             return;
         }
 
@@ -660,7 +702,7 @@ if (!window.__pfServiceFieldDelegatesBound) {
         if (otherBtn) {
             e.preventDefault();
             e.stopPropagation();
-            selectDimensionOthers(serviceFieldEventProxy('selectDimensionOthers', otherBtn));
+            pfSelectDimensionOthersButton(otherBtn);
             return;
         }
 
