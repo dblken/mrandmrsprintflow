@@ -8,13 +8,6 @@ require_once __DIR__ . '/../includes/customer_service_catalog.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
 require_role(['Admin', 'Manager']);
-// Ensure $base_path is defined
-if (!isset($base_path)) {
-    if (file_exists(__DIR__ . '/../config.php')) {
-        require_once __DIR__ . '/../config.php';
-    }
-    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
-}
 
 $current_user = get_logged_in_user();
 $error = '';
@@ -24,39 +17,11 @@ $success = '';
 function service_name_exists(string $name, int $excludeId = 0): bool {
     $name = trim($name);
     $rows = db_query(
-        "SELECT service_id FROM services WHERE LOWER(TRIM(name)) = LOWER(?) AND service_id != ?",
+        "SELECT service_id FROM services WHERE LOWER(TRIM(name)) = LOWER(?) AND service_id != ? AND status != 'Archived'",
         'si',
         [$name, $excludeId]
     );
     return !empty($rows);
-}
-
-function pf_service_public_url(string $path): string {
-    $path = trim($path);
-    if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
-        return $path;
-    }
-
-    $path = str_replace('<?php echo $base_path; ?>', '', $path);
-    $path = preg_replace('#/+#', '/', $path);
-    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : ($GLOBALS['base_path'] ?? '/printflow'), '/');
-
-    if ($base === '' && strpos($path, '/printflow/') === 0) {
-        $path = substr($path, strlen('/printflow'));
-    }
-    if ($base !== '' && strpos($path, $base . '/') === 0) {
-        return $path;
-    }
-    if ($path !== '' && $path[0] === '/') {
-        return $base . $path;
-    }
-
-    return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
-}
-
-function pf_service_media_list_url(string $value): string {
-    $parts = array_filter(array_map('trim', explode(',', $value)), static fn($part) => $part !== '');
-    return implode(',', array_map('pf_service_public_url', $parts));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -97,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_images[] = pf_service_public_url('/public/assets/images/services/' . $new_filename);
+                        $uploaded_images[] = '/printflow/public/assets/images/services/' . $new_filename;
                         error_log('Image uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move image file');
@@ -107,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             // Check if video
             elseif (strpos($file_type, 'video/') === 0) {
                 $allowed_vid = ['mp4', 'webm', 'mov', 'avi'];
-                if (in_array($file_ext, $allowed_vid) && $file_size <= 50 * 1024 * 1024 && empty($uploaded_video)) {
+                if (in_array($file_ext, $allowed_vid) && $file_size <= 100 * 1024 * 1024 && empty($uploaded_video)) {
                     $upload_dir = __DIR__ . '/../public/assets/videos/services/';
                     if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
                     
@@ -115,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_video = pf_service_public_url('/public/assets/videos/services/' . $new_filename);
+                        $uploaded_video = '/printflow/public/assets/videos/services/' . $new_filename;
                         error_log('Video uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move video file');
@@ -227,8 +192,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $success = 'Service archived successfully!';
     } elseif (isset($_POST['restore_service'])) {
         $service_id = (int)$_POST['service_id'];
-        db_execute("UPDATE services SET status = 'Activated', updated_at = NOW() WHERE service_id = ?", 'i', [$service_id]);
-        $success = 'Service restored successfully!';
+        
+        // Get the name of the service we want to restore
+        $svc_to_restore = db_query("SELECT name FROM services WHERE service_id = ?", 'i', [$service_id]);
+        $svc_name = $svc_to_restore[0]['name'] ?? '';
+        
+        if (service_name_exists($svc_name, $service_id)) {
+            $error = 'Cannot restore: An active service with this name already exists.';
+        } else {
+            db_execute("UPDATE services SET status = 'Activated', updated_at = NOW() WHERE service_id = ?", 'i', [$service_id]);
+            $success = 'Service restored successfully!';
+        }
     } elseif (isset($_POST['delete_service'])) {
         $service_id = (int)$_POST['service_id'];
         $current = db_query("SELECT status FROM services WHERE service_id = ?", 'i', [$service_id]);
@@ -334,12 +308,6 @@ $order_clause = match ($sort_by) {
 };
 $sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $services = db_query($sql, $types ?: null, $params ?: null) ?: [];
-foreach ($services as &$svc) {
-    $svc['hero_image'] = pf_service_public_url((string)($svc['hero_image'] ?? ''));
-    $svc['display_image'] = pf_service_media_list_url((string)($svc['display_image'] ?? ''));
-    $svc['video_url'] = pf_service_public_url((string)($svc['video_url'] ?? ''));
-}
-unset($svc);
 
 $page_title = 'Services Management - Admin';
 
@@ -444,9 +412,6 @@ if (isset($_GET['ajax'])) {
 }
 
 $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees', 'Apparel', 'Signage', 'Merchandise', 'Print', 'Service', 'Consulting', 'Design'];
-$sidebar_include = defined('MANAGER_PANEL') && MANAGER_PANEL
-    ? __DIR__ . '/../includes/manager_sidebar.php'
-    : __DIR__ . '/../includes/admin_sidebar.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -454,7 +419,7 @@ $sidebar_include = defined('MANAGER_PANEL') && MANAGER_PANEL
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:72px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; }
@@ -534,7 +499,7 @@ $sidebar_include = defined('MANAGER_PANEL') && MANAGER_PANEL
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include $sidebar_include; ?>
+    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
     <div class="main-content">
         <header><h1 class="page-title">Services Management</h1></header>
         <main>
@@ -1240,8 +1205,8 @@ function handleMediaUpload(input) {
                 alert('Maximum 1 video allowed');
                 continue;
             }
-            if (file.size > 50 * 1024 * 1024) {
-                alert(`Video "${file.name}" exceeds 50MB limit`);
+            if (file.size > 100 * 1024 * 1024) {
+                alert(`Video "${file.name}" exceeds 100MB limit`);
                 continue;
             }
             videos.push({ file, type: 'video' });
@@ -1325,7 +1290,7 @@ function renderExistingMediaPreviews(images, video) {
         const div = document.createElement('div');
         div.className = 'media-item';
         div.innerHTML = `
-            <img src="${imgPath}" alt="Image ${index + 1}" style="image-orientation: from-image; object-fit: cover;">
+            <img src="${imgPath}" alt="Image ${index + 1}">
             <span class="media-badge">IMG ${index + 1}</span>
             <button type="button" class="remove-btn" onclick="removeExistingMedia('image', ${index})">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1392,7 +1357,7 @@ if (mediaArea) {
     }, false);
 }
 </script>
-<script src="<?php echo $base_path; ?>/public/assets/js/service-form-validation.js"></script>
+<script src="/printflow/public/assets/js/service-form-validation.js"></script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>
