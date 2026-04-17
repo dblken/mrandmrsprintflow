@@ -432,10 +432,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                 <?php endforeach; ?>
                                 
                                 <!-- Navigation Arrows -->
-                                <button type="button" id="carousel-prev" data-carousel-dir="-1" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="return window.pfCarouselStep ? window.pfCarouselStep(-1) : false" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
-                                <button type="button" id="carousel-next" data-carousel-dir="1" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="return window.pfCarouselStep ? window.pfCarouselStep(1) : false" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 
@@ -912,6 +912,11 @@ function changeImage(direction) {
     syncCarouselToIndex(currentImageIndex + delta);
 }
 
+function pfCarouselStep(direction) {
+    changeImage(direction);
+    return false;
+}
+
 function goToImage(index) {
     syncCarouselToIndex(index);
 }
@@ -945,21 +950,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.changeImage = changeImage;
+window.pfCarouselStep = pfCarouselStep;
 window.goToImage = goToImage;
 window.toggleMute = toggleMute;
 window.toggleSingleMute = toggleSingleMute;
 
 function bindCarouselControls() {
-    document.querySelectorAll('[data-carousel-dir]').forEach(btn => {
-        if (btn.dataset.pfCarouselBound === '1') return;
-        btn.dataset.pfCarouselBound = '1';
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            changeImage(parseInt(this.dataset.carouselDir, 10) || 0);
-        });
-    });
-
     document.querySelectorAll('.carousel-thumbnail[data-index]').forEach(thumb => {
         if (thumb.dataset.pfCarouselBound === '1') return;
         thumb.dataset.pfCarouselBound = '1';
