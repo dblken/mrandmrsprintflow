@@ -35,9 +35,9 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-window.baseUrl = window.baseUrl || '<?php echo BASE_URL; ?>';
+window.baseUrl = window.baseUrl || <?php echo json_encode(BASE_URL); ?>;
 
-fetch('/printflow/public/api/chat/list_conversations.php', {
+fetch(window.baseUrl + '/public/api/chat/list_conversations.php', {
     credentials: 'same-origin',
     headers: {
         'Accept': 'application/json'

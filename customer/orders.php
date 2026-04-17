@@ -552,7 +552,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="empty-view">
                         <div class="empty-view-title">No orders found</div>
                         <div class="empty-view-sub">Orders from this category will show up here.</div>
-                        <a href="/printflow/customer/services.php" class="empty-view-btn">Browse Services</a>
+                        <a href="<?php echo BASE_URL; ?>/customer/services.php" class="empty-view-btn">Browse Services</a>
                     </div>
                 <?php else: ?>
                     <?php foreach ($orders as $index => $order): ?>
@@ -592,7 +592,7 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
 
                             <div class="card-content">
-                                <div class="img-preview-box"><img src="<?php echo htmlspecialchars($preview_url); ?>" alt="Preview" onerror="this.src='/printflow/public/assets/images/services/default.png';"></div>
+                                <div class="img-preview-box"><img src="<?php echo htmlspecialchars($preview_url); ?>" alt="Preview" onerror="this.src='<?php echo BASE_URL; ?>/public/assets/images/services/default.png';"></div>
                                 <div class="details-column">
                                     <h3 class="order-title"><?php echo htmlspecialchars($d_name); ?></h3>
                                     <div class="qty-tag"><?php echo max(1, (int)($order['total_quantity'] ?? 0)); ?> Items</div>
@@ -658,7 +658,7 @@ require_once __DIR__ . '/../includes/header.php';
 // Inline helper for this specific page theme
 function get_preview_image_for_order_ui($order, $display_name) {
     if (!empty($order['first_item_has_design']) && !empty($order['first_item_id'])) {
-        return "/printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+        return BASE_URL . "/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
     }
     $product_img = "";
     $pn = trim($order['first_product_name'] ?? '');
@@ -667,7 +667,7 @@ function get_preview_image_for_order_ui($order, $display_name) {
             $img = $order['first_product_image'];
             if ($img[0] !== '/' && strpos($img, 'http') === false) {
                 if (file_exists(__DIR__ . '/../uploads/products/' . $img)) {
-                    return '/printflow/uploads/products/' . $img;
+                    return BASE_URL . '/uploads/products/' . $img;
                 }
             } else {
                 return $img;
@@ -676,8 +676,8 @@ function get_preview_image_for_order_ui($order, $display_name) {
         $prod_id = (int)($order['first_product_id'] ?? 0);
         if ($prod_id > 0) {
             $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
-            if (file_exists($img_base . ".jpg")) return "/printflow/public/images/products/product_" . $prod_id . ".jpg";
-            if (file_exists($img_base . ".png")) return "/printflow/public/images/products/product_" . $prod_id . ".png";
+            if (file_exists($img_base . ".jpg")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".jpg";
+            if (file_exists($img_base . ".png")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".png";
         }
     }
     return get_service_image_url($display_name);
@@ -686,6 +686,7 @@ function get_preview_image_for_order_ui($order, $display_name) {
 
 <script>
 document.body.classList.add('orders-page');
+const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -791,7 +792,7 @@ function openItemsModal(orderId) {
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 
-    fetch(`/printflow/customer/get_order_items.php?id=${orderId}`)
+    fetch(`${CUSTOMER_BASE_URL}/customer/get_order_items.php?id=${orderId}`)
     .then(r => r.json())
     .then(data => {
         if (data.error) {
@@ -906,7 +907,7 @@ function openItemsModal(orderId) {
                         ${['Completed', 'To Rate', 'Rated'].includes(data.status) ? (
                             data.rating_data
                                 ? `<a href="${data.rating_data.view_url}" class="w-full py-3.5 bg-[rgba(249,115,22,0.1)] text-[#f97316] text-[11px] font-black border border-[rgba(249,115,22,0.4)] hover:bg-[#f97316] hover:text-white transition-all tracking-widest flex items-center justify-center gap-2 rounded-xl">★ VIEW YOUR REVIEW</a>`
-                                : `<a href="/printflow/customer/rate_order.php?order_id=${data.order_id}" class="w-full py-3.5 bg-[rgba(249,115,22,0.1)] text-[#f97316] text-[11px] font-black border border-[rgba(249,115,22,0.4)] hover:bg-[#f97316] hover:text-white transition-all tracking-widest flex items-center justify-center gap-2 rounded-xl">★ RATE THIS ORDER</a>`
+                                : `<a href="${CUSTOMER_BASE_URL}/customer/rate_order.php?order_id=${data.order_id}" class="w-full py-3.5 bg-[rgba(249,115,22,0.1)] text-[#f97316] text-[11px] font-black border border-[rgba(249,115,22,0.4)] hover:bg-[#f97316] hover:text-white transition-all tracking-widest flex items-center justify-center gap-2 rounded-xl">★ RATE THIS ORDER</a>`
                         ) : ''}
 
                         ${data.can_cancel ? `
@@ -961,7 +962,7 @@ function submitOrderCancellation() {
     fd.append('ajax', '1'); fd.append('order_id', cancelOrderId);
     fd.append('csrf_token', cancelCsrfToken); fd.append('reason', reason); fd.append('details', details);
 
-    fetch('/printflow/customer/cancel_order.php', { method: 'POST', body: fd })
+    fetch(`${CUSTOMER_BASE_URL}/customer/cancel_order.php`, { method: 'POST', body: fd })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
@@ -983,7 +984,7 @@ function handleDesignReupload(input, orderId, csrfToken) {
     const fd = new FormData();
     fd.append('order_id', orderId); fd.append('csrf_token', csrfToken); fd.append('design_file', file);
     
-    fetch('/printflow/customer/reupload_design_process.php', { method: 'POST', body: fd })
+    fetch(`${CUSTOMER_BASE_URL}/customer/reupload_design_process.php`, { method: 'POST', body: fd })
     .then(r => r.json())
     .then(res => {
         if (res.success) window.location.reload();
@@ -1029,7 +1030,7 @@ function escIM(str) {
     };
 
     function poll() {
-        fetch('/printflow/customer/api_customer_orders.php')
+        fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php`)
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;

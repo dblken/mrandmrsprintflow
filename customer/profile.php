@@ -782,7 +782,7 @@ select.pf-input option {
                     <div class="profile-avatar-wrap">
                         <div class="profile-avatar-ring">
                             <?php if (!empty($customer['profile_picture'])): ?>
-                                <img src="<?php echo get_profile_image($customer['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='/printflow/public/assets/uploads/profiles/default.png'">
+                                <img src="<?php echo get_profile_image($customer['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='<?php echo $base_path; ?>/public/assets/uploads/profiles/default.png'">
                             <?php else: ?>
                                 <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f1f5f9;">
                                     <svg width="48" height="48" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -1052,7 +1052,7 @@ select.pf-input option {
                         <?php if (!empty($id_image)): ?>
                         <div style="margin-top:1rem;">
                             <p style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">Previously submitted:</p>
-                            <img src="/printflow/uploads/ids/<?php echo htmlspecialchars($id_image); ?>" style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;">
+                            <img src="<?php echo $base_path; ?>/uploads/ids/<?php echo htmlspecialchars($id_image); ?>" style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;">
                         </div>
                         <?php endif; ?>
                         <div style="margin-top:1.5rem;display:flex;justify-content:flex-end;">
@@ -1810,4 +1810,3 @@ function previewIdImage(input) {
     }
 }
 </script>
-

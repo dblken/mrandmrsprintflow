@@ -15,7 +15,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v10';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -27,7 +27,7 @@ const APP_SHELL = [
     BASE_PATH + '/public/assets/js/pwa.js',
     BASE_PATH + '/public/assets/images/icon-192.png',
     BASE_PATH + '/public/assets/images/icon-512.png',
-    BASE_PATH + '/manifest.php',
+    BASE_PATH + '/public/manifest.php',
 ];
 
 // Pages to pre-cache

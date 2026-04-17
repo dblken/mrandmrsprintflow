@@ -751,7 +751,7 @@ function _ft_detect_social(string $url): array {
     <?php endif; ?>
 
     <!-- PWA -->
-    <script src="<?php echo $base_url; ?>/public/assets/js/pwa.js"></script>
+    <script src="<?php echo $base_url; ?>/public/assets/js/pwa.js?v=<?php echo time(); ?>"></script>
 
     <?php
     // Only load push/notification script for authenticated users
