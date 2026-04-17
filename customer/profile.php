@@ -514,7 +514,7 @@ require_once __DIR__ . '/../includes/header.php';
     display: flex;
     justify-content: space-between;
     padding: 0.75rem 0;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--pf-border);
     font-size: 0.813rem;
     color: var(--pf-text-muted);
 }
@@ -709,7 +709,7 @@ select.pf-input option {
 .profile-nav-list { list-style: none; padding: 0; margin: 0; }
 .profile-nav-item a {
     display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-    border-radius: 8px; font-weight: 600; color: #94a3b8; text-decoration: none; transition: 0.2s;
+    border-radius: 8px; font-weight: 600; color: var(--pf-text-muted); text-decoration: none; transition: 0.2s;
 }
 .profile-nav-item a:hover { background: rgba(83,197,224,0.1); color: var(--pf-accent); }
 .profile-nav-item a.active { background: rgba(83,197,224,0.12); color: var(--pf-accent); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
@@ -786,7 +786,7 @@ select.pf-input option {
                             <?php if (!empty($customer['profile_picture'])): ?>
                                 <img src="<?php echo get_profile_image($customer['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='<?php echo $base_path; ?>/public/assets/uploads/profiles/default.png'">
                             <?php else: ?>
-                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f1f5f9;">
+                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#00151b;">
                                     <svg width="48" height="48" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 </div>
                                 <img src="" alt="Profile" style="display:none;width:100%;height:100%;object-fit:cover;" id="profile-preview">
@@ -850,7 +850,7 @@ select.pf-input option {
                             </div>
                             <div class="pf-field-group">
                                 <label class="pf-label">Email Address (Locked)</label>
-                                <input type="email" class="pf-input" style="background:#f1f5f9; cursor:not-allowed;" value="<?php echo htmlspecialchars($customer['email']); ?>" readonly>
+                                <input type="email" class="pf-input" style="background:#f1f5f9; cursor:not-allowed; color:#0f172a;" value="<?php echo htmlspecialchars($customer['email']); ?>" readonly>
                             </div>
                             <div class="pf-field-group">
                                 <label for="contact_number" class="pf-label">Contact Number</label>
@@ -884,7 +884,7 @@ select.pf-input option {
                 </div>
 
                 <!-- Address Section -->
-                <div class="profile-card" id="section-address" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
+                <div class="profile-card" id="section-address" style="padding-top: 2rem; border-top: 1px solid rgba(83,197,224,0.2);">
                     <h3 class="profile-card-title">Address & Delivery</h3>
                     
                     <form method="POST" action="" id="address-form">
@@ -927,8 +927,8 @@ select.pf-input option {
                         </div>
 
                         <div id="addr-preview" style="display:none; background:rgba(0,0,0,0.2); border:1px solid rgba(83,197,224,0.2); border-radius:0; padding:1rem; margin-top:1.5rem; font-size:0.875rem; color:#e0f2fe;">
-                            <span style="color:#64748b; font-weight:600; display:block; margin-bottom:4px;">Delivery Summary</span>
-                            <div id="addr-preview-text" style="color:#0f172a; line-height:1.4;"></div>
+                            <span style="color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Delivery Summary</span>
+                            <div id="addr-preview-text" style="color:#e0f2fe; line-height:1.4;"></div>
                         </div>
 
                         <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
@@ -938,7 +938,7 @@ select.pf-input option {
                 </div>
 
                 <!-- Security Section -->
-                <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
+                <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid rgba(83,197,224,0.2);">
                     <h3 class="profile-card-title">Security & Password</h3>
                     
                     <form method="POST" action="" novalidate>
@@ -958,7 +958,7 @@ select.pf-input option {
                             </div>
                             <div class="pf-field-group">
                                 <!-- empty column for alignment or extra info -->
-                                <div style="font-size:0.813rem; color:#64748b; padding-top:2rem;">
+                                <div style="font-size:0.813rem; color:#94a3b8; padding-top:2rem;">
                                     Confirm your identity to make security changes.
                                 </div>
                             </div>
@@ -1053,7 +1053,7 @@ select.pf-input option {
                         </div>
                         <?php if (!empty($id_image)): ?>
                         <div style="margin-top:1rem;">
-                            <p style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">Previously submitted:</p>
+                            <p style="font-size:0.75rem;color:#94a3b8;margin-bottom:6px;">Previously submitted:</p>
                             <img src="<?php echo $base_path; ?>/uploads/ids/<?php echo htmlspecialchars($id_image); ?>" style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;">
                         </div>
                         <?php endif; ?>
