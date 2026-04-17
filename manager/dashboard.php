@@ -14,13 +14,6 @@ require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 // Only Managers allowed here
 require_role('Manager');
-// Ensure $base_path is defined
-if (!isset($base_path)) {
-    if (file_exists(__DIR__ . '/../config.php')) {
-        require_once __DIR__ . '/../config.php';
-    }
-    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
-}
 
 // ── Branch Context (Manager is always locked to their branch) ────
 $branchCtx = init_branch_context(false);
@@ -163,7 +156,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
@@ -490,7 +483,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             if (noDataEl) noDataEl.classList.remove('visible');
             var year = yearEl ? yearEl.value : new Date().getFullYear();
             var month = monthEl ? monthEl.value : new Date().getMonth() + 1;
-            var url = '<?php echo $base_path; ?>/admin/api_revenue_chart.php?period=' + encodeURIComponent(period) + '&year=' + encodeURIComponent(year);
+            var url = '/printflow/admin/api_revenue_chart.php?period=' + encodeURIComponent(period) + '&year=' + encodeURIComponent(year);
             if (period === 'monthly') url += '&month=' + encodeURIComponent(month);
             if (DASH_BRANCH_ID) url += '&branch_id=' + DASH_BRANCH_ID;
             try {

@@ -1,8 +1,8 @@
 <?php
 /**
- * Manager — Inventory
- * Thin wrapper: sets MANAGER_PANEL then delegates to shared admin inventory items page.
- * Managers see only inventory for their assigned branch.
+ * Manager — Inventory Ledger
+ * Thin wrapper: sets MANAGER_PANEL then delegates to shared admin ledger page.
+ * Managers see only transactions for their assigned branch.
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_role('Manager');
@@ -20,4 +20,4 @@ $_SESSION['selected_branch_id'] = $manager_branch_id;
 $_GET['branch_id'] = $manager_branch_id; // Force branch filter
 
 define('MANAGER_PANEL', true);
-require __DIR__ . '/../admin/inv_items_management.php';
+require __DIR__ . '/../admin/inv_transactions_ledger.php';
