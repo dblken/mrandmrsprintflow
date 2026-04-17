@@ -411,7 +411,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     <div class="shopee-main-image-wrap" style="position:relative;">
                         <?php if (count($display_images) > 1): ?>
                             <!-- Media Carousel -->
-                            <div id="image-carousel" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;isolation:isolate;pointer-events:auto;">
+                            <div id="image-carousel" data-current-index="0" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;isolation:isolate;pointer-events:auto;">
                                 <?php foreach ($display_images as $index => $media): ?>
                                     <?php if ($media['type'] === 'video'): ?>
                                         <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:none;">
@@ -431,11 +431,67 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                                 
+                                <script>
+                                window.pfInlineCarouselStep = function(direction) {
+                                    var carousel = document.getElementById('image-carousel');
+                                    if (!carousel) return false;
+
+                                    var items = Array.prototype.slice.call(carousel.querySelectorAll('.carousel-image, .carousel-item')).sort(function(a, b) {
+                                        return (parseInt(a.getAttribute('data-index'), 10) || 0) - (parseInt(b.getAttribute('data-index'), 10) || 0);
+                                    });
+                                    if (!items.length) return false;
+
+                                    var current = parseInt(carousel.getAttribute('data-current-index'), 10);
+                                    if (isNaN(current)) {
+                                        var counter = document.getElementById('current-image');
+                                        current = counter ? ((parseInt(counter.textContent, 10) || 1) - 1) : 0;
+                                    }
+
+                                    var delta = parseInt(direction, 10) || 0;
+                                    var next = Math.max(0, Math.min(items.length - 1, current + delta));
+                                    if (next === current) return false;
+
+                                    var oldItem = items[current];
+                                    var newItem = items[next];
+                                    if (newItem) newItem.style.left = delta > 0 ? '100%' : '-100%';
+                                    if (newItem) newItem.offsetHeight;
+                                    if (oldItem) oldItem.style.left = delta > 0 ? '-100%' : '100%';
+                                    if (newItem) newItem.style.left = '0';
+
+                                    carousel.setAttribute('data-current-index', String(next));
+                                    window.currentImageIndex = next;
+                                    window.__pfServiceCarouselState = { serviceId: <?php echo (int)$service_id; ?>, imageIndex: next };
+
+                                    var currentLabel = document.getElementById('current-image');
+                                    if (currentLabel) currentLabel.textContent = next + 1;
+
+                                    var prevBtn = document.getElementById('carousel-prev');
+                                    var nextBtn = document.getElementById('carousel-next');
+                                    if (prevBtn) prevBtn.style.display = next === 0 ? 'none' : 'flex';
+                                    if (nextBtn) nextBtn.style.display = next === items.length - 1 ? 'none' : 'flex';
+
+                                    items.forEach(function(item, i) {
+                                        var video = item.querySelector ? item.querySelector('video') : null;
+                                        if (!video) return;
+                                        if (i === next) video.play().catch(function() {});
+                                        else video.pause();
+                                    });
+
+                                    window.setTimeout(function() {
+                                        items.forEach(function(item, i) {
+                                            item.style.left = ((i - next) * 100) + '%';
+                                        });
+                                    }, 430);
+
+                                    return false;
+                                };
+                                </script>
+
                                 <!-- Navigation Arrows -->
-                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="changeImage(-1); return false;" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="return window.pfInlineCarouselStep(-1)" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
-                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="changeImage(1); return false;" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="return window.pfInlineCarouselStep(1)" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 
