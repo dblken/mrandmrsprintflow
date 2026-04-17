@@ -1286,6 +1286,30 @@ function get_base_url() {
 }
 
 /**
+ * Build a public URL for a stored profile image.
+ */
+function get_profile_image($image) {
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : ''), '/');
+    $fallback = $base . '/public/assets/images/icon-192.png';
+    $image = trim((string)$image);
+
+    if ($image === '' || strtolower($image) === 'null' || strtolower($image) === 'undefined') {
+        return $fallback;
+    }
+
+    if (preg_match('#^https?://#i', $image)) {
+        return $image;
+    }
+
+    $clean = ltrim($image, '/');
+    if (strpos($clean, 'public/') === 0 || strpos($clean, 'uploads/') === 0) {
+        return $base . '/' . $clean;
+    }
+
+    return $base . '/public/assets/uploads/profiles/' . basename($clean);
+}
+
+/**
  * Detects the service name based on customization keys if not explicitly provided.
  */
 function normalize_service_name($name, $fallback = 'Custom Order') {
