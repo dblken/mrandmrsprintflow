@@ -292,7 +292,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                         if ($w && $h) {
                             $displayLabel = $w . '×' . $h;
                             $is_active = (!$is_custom_dimension && $saved_width == $w && $saved_height == $h) ? ' active' : '';
-                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-choice="1">' . $displayLabel . '</button>';
+                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1">' . $displayLabel . '</button>';
                         }
                     }
                 }
@@ -300,7 +300,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             
             if ($allowOthers) {
                 $others_active = $is_custom_dimension ? ' active' : '';
-                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-others="1">Others</button>';
+                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-others="1">Others</button>';
             }
             $html .= '</div>';
             
@@ -310,19 +310,21 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 $html .= '<div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 400px;">';
                 $html .= '<div style="flex: 1;">';
                 $html .= '<label class="dim-label" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">WIDTH</label>';
-                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-width" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_width) : '') . '" style="text-align: center;">';
+                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-width" data-dimension-key="' . htmlspecialchars($field_key) . '" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_width) : '') . '" style="text-align: center;">';
                 $html .= '</div>';
                 $html .= '<div style="padding-top: 1.75rem; color: #cbd5e1; font-weight: bold; font-size: 1.25rem;">×</div>';
                 $html .= '<div style="flex: 1;">';
                 $html .= '<label class="dim-label" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">HEIGHT</label>';
-                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-height" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_height) : '') . '" style="text-align: center;">';
+                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-height" data-dimension-key="' . htmlspecialchars($field_key) . '" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_height) : '') . '" style="text-align: center;">';
                 $html .= '</div>';
                 $html .= '</div>';
                 $html .= '</div>';
             }
             
-            $html .= '<input type="hidden" id="width_hidden" name="width" value="' . htmlspecialchars($saved_width) . '" ' . $required_attr . '>';
-            $html .= '<input type="hidden" id="height_hidden" name="height" value="' . htmlspecialchars($saved_height) . '" ' . $required_attr . '>';
+            $html .= '<input type="hidden" id="' . htmlspecialchars($field_key) . '_width_hidden" data-dimension-role="width" data-dimension-key="' . htmlspecialchars($field_key) . '" name="' . htmlspecialchars($field_key) . '_width" value="' . htmlspecialchars($saved_width) . '" ' . $required_attr . '>';
+            $html .= '<input type="hidden" id="' . htmlspecialchars($field_key) . '_height_hidden" data-dimension-role="height" data-dimension-key="' . htmlspecialchars($field_key) . '" name="' . htmlspecialchars($field_key) . '_height" value="' . htmlspecialchars($saved_height) . '" ' . $required_attr . '>';
+            $html .= '<input type="hidden" id="width_hidden" name="width" value="' . htmlspecialchars($saved_width) . '">';
+            $html .= '<input type="hidden" id="height_hidden" name="height" value="' . htmlspecialchars($saved_height) . '">';
             $html .= '<input type="hidden" name="unit" value="' . htmlspecialchars($unit) . '">';
             break;
             
@@ -519,9 +521,11 @@ function updateDimensionUnit(unit, row) {
 
 function syncDimensionToHidden(row) {
     const scope = row || document;
-    const wh = scope.querySelector('input[name="width"]');
-    const hh = scope.querySelector('input[name="height"]');
+    const wh = scope.querySelector('input[data-dimension-role="width"]') || scope.querySelector('input[name="width"]');
+    const hh = scope.querySelector('input[data-dimension-role="height"]') || scope.querySelector('input[name="height"]');
     if (!wh || !hh) return;
+    const legacyWidth = scope.querySelector('input[name="width"]');
+    const legacyHeight = scope.querySelector('input[name="height"]');
     
     if (dimensionMode === 'preset') {
         const btn = scope.querySelector('.shopee-opt-btn.active[data-width]');
@@ -536,6 +540,8 @@ function syncDimensionToHidden(row) {
         wh.value = scope.querySelector('.custom-dim-width')?.value || '';
         hh.value = scope.querySelector('.custom-dim-height')?.value || '';
     }
+    if (legacyWidth && legacyWidth !== wh) legacyWidth.value = wh.value;
+    if (legacyHeight && legacyHeight !== hh) legacyHeight.value = hh.value;
 }
 
 function selectDimension(w, h, e) {
@@ -770,14 +776,14 @@ function clearFieldRowValues(row) {
     });
     
     // 6. Dimensions (custom)
-    const wh = row.querySelector('#width_hidden');
-    const hh = row.querySelector('#height_hidden');
-    if (wh) wh.value = '';
-    if (hh) hh.value = '';
+    row.querySelectorAll('[data-dimension-role="width"], [data-dimension-role="height"], #width_hidden, #height_hidden').forEach(input => {
+        input.value = '';
+    });
     
     row.querySelectorAll('.shopee-opt-btn').forEach(btn => btn.classList.remove('active'));
-    const othersInput = row.querySelector('#dim-others-inputs');
-    if (othersInput) othersInput.style.display = 'none';
+    row.querySelectorAll('.dim-others-inputs, #dim-others-inputs').forEach(othersInput => {
+        othersInput.style.display = 'none';
+    });
 }
 
 function initServiceFieldRenderer() {

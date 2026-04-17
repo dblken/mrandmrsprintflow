@@ -166,8 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     break;
                 }
             } elseif ($config['type'] === 'dimension') {
-                $width = trim($_POST['width'] ?? '');
-                $height = trim($_POST['height'] ?? '');
+                $width = trim($_POST[$key . '_width'] ?? $_POST['width'] ?? '');
+                $height = trim($_POST[$key . '_height'] ?? $_POST['height'] ?? '');
                 if ($config['required'] && (empty($width) || empty($height))) {
                     $error = 'Please select dimensions.';
                     break;
@@ -245,8 +245,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 if (in_array($key, ['branch', 'needed_date', 'quantity', 'notes'])) continue;
                 
                 if ($config['type'] === 'dimension') {
-                    if (!empty($_POST['width']) && !empty($_POST['height'])) {
-                        $customization[$config['label']] = $_POST['width'] . '×' . $_POST['height'] . ' ' . ($config['unit'] ?? 'ft');
+                    $width = trim($_POST[$key . '_width'] ?? $_POST['width'] ?? '');
+                    $height = trim($_POST[$key . '_height'] ?? $_POST['height'] ?? '');
+                    if ($width !== '' && $height !== '') {
+                        $customization[$config['label']] = $width . '×' . $height . ' ' . ($config['unit'] ?? 'ft');
                     }
                 } else {
                     if (isset($_POST[$key]) && $_POST[$key] !== '') {
@@ -280,8 +282,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 
                 // Handle dimension fields
                 if ($config['type'] === 'dimension') {
-                    $width = $_POST['width'] ?? '';
-                    $height = $_POST['height'] ?? '';
+                    $width = trim($_POST[$key . '_width'] ?? $_POST['width'] ?? '');
+                    $height = trim($_POST[$key . '_height'] ?? $_POST['height'] ?? '');
                     if (!empty($width) && !empty($height)) {
                         $selected_value = $width . '×' . $height;
                     }
@@ -1108,8 +1110,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 // 3. DIMENSIONS (hidden width/height fields)
-                const widthHidden = row.querySelector('#width_hidden');
-                const heightHidden = row.querySelector('#height_hidden');
+                const widthHidden = row.querySelector('[data-dimension-role="width"], #width_hidden');
+                const heightHidden = row.querySelector('[data-dimension-role="height"], #height_hidden');
                 if (widthHidden && heightHidden) {
                     hasControls = true;
                     if (widthHidden.value && heightHidden.value) rowHasValue = true;
@@ -1132,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 6. TEXT / NUMBER / TEXTAREA
                 const genericInputs = row.querySelectorAll('input[type="text"], input[type="number"], textarea');
                 genericInputs.forEach(input => {
-                    if (input.type === 'hidden' || input.id === 'width_hidden' || input.id === 'height_hidden') return;
+                    if (input.type === 'hidden' || input.dataset.dimensionRole || input.id === 'width_hidden' || input.id === 'height_hidden') return;
                     hasControls = true;
                     if (input.value && input.value.trim() !== '') rowHasValue = true;
                 });
