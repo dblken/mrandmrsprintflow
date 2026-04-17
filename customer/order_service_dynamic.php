@@ -393,10 +393,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 
 <div class="min-h-screen py-8 bg-white">
     <div class="shopee-layout-container">
-        <div class="text-sm text-gray-300 mb-6 flex items-center gap-2">
-            <a href="services.php" class="hover:text-blue-400">Services</a>
+        <div class="text-sm text-gray-500 mb-6 flex items-center gap-2">
+            <a href="services.php" class="hover:text-blue-600">Services</a>
             <span>/</span>
-            <span class="font-semibold text-white"><?php echo htmlspecialchars($service['name']); ?></span>
+            <span class="font-semibold text-gray-900"><?php echo htmlspecialchars($service['name']); ?></span>
         </div>
 
         <?php if ($error): ?>
