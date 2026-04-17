@@ -163,29 +163,29 @@ function render_service_card($srv) {
 
 <style>
     :root {
-        --shopee-orange: #53c5e0;
-        --shopee-bg: #00151b;
-        --shopee-card-bg: rgba(0,49,61,0.85);
-        --shopee-text: #e0f2fe;
-        --shopee-muted: #94a3b8;
-        --shopee-border: rgba(83,197,224,0.2);
+        --shopee-orange: #0a2530;
+        --shopee-bg: #ffffff;
+        --shopee-card-bg: #ffffff;
+        --shopee-text: #212121;
+        --shopee-muted: #757575;
+        --shopee-border: rgba(0,0,0,0.09);
     }
     
     .shopee-card {
         background: var(--shopee-card-bg);
-        border: none;
-        border-radius: 0;
+        border: 1px solid var(--shopee-border);
+        border-radius: 4px;
         transition: transform 0.2s, box-shadow 0.2s;
         cursor: pointer;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        backdrop-filter: blur(8px);
     }
     
     .shopee-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(83,197,224,0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: var(--shopee-orange);
     }
     
     .shopee-img {
@@ -249,7 +249,7 @@ function render_service_card($srv) {
     .shopee-btn {
         flex: 1;
         padding: 7px 0;
-        border-radius: 0;
+        border-radius: 3px;
         font-size: 0.8rem;
         font-weight: 600;
         text-align: center;
@@ -272,14 +272,10 @@ function render_service_card($srv) {
         background: var(--shopee-orange);
         color: #fff;
         width: 100%;
-        box-shadow: 0 0 12px rgba(83, 197, 224, 0.2);
     }
     
-    .shopee-btn-buy:hover {
-        opacity: 1 !important;
-        background: #7adcf5 !important;
-        box-shadow: 0 0 20px rgba(83, 197, 224, 0.5);
-        transform: translateY(-1px);
+    .shopee-btn:hover {
+        opacity: 0.9;
     }
     
     .rating-stars {
