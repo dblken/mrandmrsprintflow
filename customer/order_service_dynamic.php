@@ -830,7 +830,7 @@ async function markHelpful(reviewId, btn) {
 
 <script>
 let currentImageIndex = 0;
-const totalImages = <?php echo count($display_images); ?>;
+let totalImages = <?php echo count($display_images); ?>;
 let isAnimating = false;
 
 function getAllCarouselItems() {
@@ -855,11 +855,13 @@ function updateThumbnailBorder() {
 
 function changeImage(direction) {
     if (isAnimating) return;
+    const items = getAllCarouselItems();
+    if (items.length === 0) return;
+    if (items.length !== totalImages) totalImages = items.length;
     const newIndex = currentImageIndex + direction;
     if (newIndex < 0 || newIndex >= totalImages) return;
     isAnimating = true;
 
-    const items = getAllCarouselItems();
     const oldIndex = currentImageIndex;
     currentImageIndex = newIndex;
 
@@ -936,6 +938,9 @@ document.addEventListener('DOMContentLoaded', function() {
     updateArrowVisibility();
     updateThumbnailBorder();
 });
+
+window.changeImage = changeImage;
+window.goToImage = goToImage;
 
 document.addEventListener('keydown', function(e) {
     if (totalImages > 1) {
