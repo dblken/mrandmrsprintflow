@@ -9,6 +9,29 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/customer_service_catalog.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
+$base_path = pf_app_base_path();
+$default_service_img = $base_path . '/public/assets/images/services/default.png';
+
+function pf_normalize_service_image_path($path, $base_path, $default_img) {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return $default_img;
+    }
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+    if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($path !== '' && $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+    if ($base_path !== '' && strpos($path, $base_path . '/') !== 0) {
+        $path = $base_path . $path;
+    }
+    return $path;
+}
+
 // Fetch services from DB
 $visible_rows = db_query(
     "SELECT s.*, 
@@ -32,11 +55,9 @@ foreach ($visible_rows as $row) {
     }
     
     if ($img === '') {
-        $img = '/printflow/public/assets/images/services/default.png';
+        $img = $default_service_img;
     }
-    if ($img !== '' && $img[0] !== '/') {
-        $img = '/' . ltrim($img, '/');
-    }
+    $img = pf_normalize_service_image_path($img, $base_path, $default_service_img);
     
     $core_services[] = [
         'id' => $row['service_id'],
@@ -60,9 +81,13 @@ require_once __DIR__ . '/../includes/header.php';
 
 // Reusable card template function
 function render_service_card($srv) {
-    $img = $srv['img'];
-    if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img) && strpos($img, 'http') === false) {
-        $img = '/printflow/public/assets/images/services/default.png';
+    global $base_path, $default_service_img;
+    $img = pf_normalize_service_image_path($srv['img'], $base_path, $default_service_img);
+    if (strpos($img, 'http') === false) {
+        $img_path = $_SERVER['DOCUMENT_ROOT'] . $img;
+        if (!file_exists($img_path)) {
+            $img = $default_service_img;
+        }
     }
     
     $json_name = htmlspecialchars(json_encode($srv['name']), ENT_QUOTES, 'UTF-8');
@@ -79,7 +104,7 @@ function render_service_card($srv) {
         foreach ($images as $imgPath) {
             $imgPath = trim($imgPath);
             if ($imgPath !== '') {
-                $display_images[] = $imgPath;
+                $display_images[] = pf_normalize_service_image_path($imgPath, $base_path, $default_service_img);
             }
         }
     }
@@ -365,6 +390,7 @@ function render_service_card($srv) {
 </div>
 
 <script>
+var basePath = <?php echo json_encode($base_path); ?>;
 var currentModalData = {};
 var modalImages = [];
 var currentModalImageIndex = 0;
@@ -484,7 +510,7 @@ function loadModalReviews(serviceId) {
     const container = document.getElementById('modal-ratings-section');
     container.innerHTML = '';
 
-    fetch('/printflow/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
+    fetch(basePath + '/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
         .then(r => r.json())
         .then(data => {
             const reviews = data.reviews || [];
