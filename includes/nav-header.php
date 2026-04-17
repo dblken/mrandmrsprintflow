@@ -1066,15 +1066,24 @@ if ($initials === '') {
     // Poll cart count on load and every 5s
     <?php if ($is_logged_in && is_customer()): ?>
     (function pollCart() {
+        var keepPolling = true;
         fetch(basePath + '/customer/api_cart.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'get_count', csrf_token: '<?php echo generate_csrf_token(); ?>'})
         })
-        .then(function(r){ return r.json(); })
-        .then(function(d){ if (d.success) window.updateCartBadge(d.cart_count); })
-        .catch(function(){});
-        setTimeout(pollCart, 5000);
+        .then(function(r){
+            if (r.status === 401 || r.status === 403) {
+                keepPolling = false;
+                return null;
+            }
+            return r.json();
+        })
+        .then(function(d){ if (d && d.success) window.updateCartBadge(d.cart_count); })
+        .catch(function(){})
+        .finally(function(){
+            if (keepPolling) setTimeout(pollCart, 5000);
+        });
     })();
     <?php endif; ?>
 
