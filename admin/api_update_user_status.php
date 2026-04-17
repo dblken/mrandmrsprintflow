@@ -211,23 +211,28 @@ if ($action === 'toggle_status') {
         exit;
     }
     $u = $u[0];
+
+    $admin_notes = [];
+    if (!empty($data['admin_notes']) && is_array($data['admin_notes'])) {
+        $admin_notes = array_values(array_filter(array_map('trim', $data['admin_notes'])));
+    }
+    if (empty($admin_notes)) {
+        echo json_encode(['success' => false, 'error' => 'Please select at least one item before sending the link.']);
+        exit;
+    }
+
     $token = bin2hex(random_bytes(32));
     $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
     
     // Store which fields to clear as JSON
     $fields_to_clear = [];
-    $admin_notes = [];
-    if (!empty($data['admin_notes']) && is_array($data['admin_notes'])) {
-        $admin_notes = array_values(array_filter(array_map('trim', $data['admin_notes'])));
-        // Map admin notes to field names
-        foreach ($admin_notes as $note) {
-            if (stripos($note, 'Address') !== false) {
-                $fields_to_clear[] = 'address';
-            } elseif (stripos($note, 'ID Image') !== false || stripos($note, 'ID') !== false) {
-                $fields_to_clear[] = 'id_image';
-            } elseif (stripos($note, 'Contact') !== false) {
-                $fields_to_clear[] = 'contact';
-            }
+    foreach ($admin_notes as $note) {
+        if (stripos($note, 'Address') !== false) {
+            $fields_to_clear[] = 'address';
+        } elseif (stripos($note, 'ID Image') !== false || stripos($note, 'ID') !== false) {
+            $fields_to_clear[] = 'id_image';
+        } elseif (stripos($note, 'Contact') !== false) {
+            $fields_to_clear[] = 'contact';
         }
     }
     

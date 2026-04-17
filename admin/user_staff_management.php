@@ -53,6 +53,7 @@ if (!is_file($__pfUsersSchemaOk)) {
         if (!in_array('profile_completion_expires', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_expires DATETIME NULL");
         if (!in_array('profile_completion_fields_to_clear', $uc)) db_execute("ALTER TABLE users ADD COLUMN profile_completion_fields_to_clear TEXT NULL");
         if (!in_array('id_validation_image', $uc)) db_execute("ALTER TABLE users ADD COLUMN id_validation_image VARCHAR(255) NULL");
+        if (!in_array('id_type', $uc)) db_execute("ALTER TABLE users ADD COLUMN id_type VARCHAR(100) NULL AFTER id_validation_image");
         @file_put_contents($__pfUsersSchemaOk, '1');
     } catch (Throwable $e) { /* ignore */ }
 }
@@ -398,6 +399,12 @@ if (isset($_GET['ajax'])) {
         .mf-alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
         .mf-alert.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
         .mf-alert.err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+        .pf-submit-overlay { position:fixed; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; background:rgba(1,22,28,0.52); backdrop-filter:blur(2px); }
+        .pf-submit-overlay.is-open { display:flex; }
+        .pf-submit-card { width:min(320px, calc(100vw - 32px)); background:#fff; border:1px solid #d9f3f0; border-radius:8px; box-shadow:0 20px 48px rgba(0,0,0,0.22); padding:24px; text-align:center; }
+        .pf-submit-spinner { width:40px; height:40px; border-radius:50%; border:4px solid #d9f3f0; border-top-color:#0d9488; animation:spin 0.8s linear infinite; margin:0 auto 14px; }
+        .pf-submit-title { font-size:15px; font-weight:700; color:#102a33; margin-bottom:4px; }
+        .pf-submit-copy { font-size:13px; color:#64748b; }
         
         /* Validation States */
         .mf-group.is-invalid input, .mf-group.is-invalid select, .mf-group.is-invalid textarea {
@@ -976,6 +983,9 @@ if (isset($_GET['ajax'])) {
                 <div x-show="viewModal.user?.id_validation_image" style="margin-bottom:18px;">
                     <p style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">ID Validation</p>
                     <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                        <p x-show="viewModal.user?.id_type" style="font-size:13px; color:#374151; margin:0 0 8px 0;">
+                            <strong>ID Type:</strong> <span x-text="viewModal.user?.id_type"></span>
+                        </p>
                         <p style="font-size:11px; color:#6b7280; margin:0 0 8px 0;">Reference guide:</p>
                         <img src="<?php echo $base_path; ?>/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%; height:auto; border-radius:6px; margin-bottom:8px;">
                         <template x-if="viewModal.user?.id_validation_image">
@@ -1206,6 +1216,7 @@ if (isset($_GET['ajax'])) {
         </div>
         <div class="modal-bdy">
             <p style="margin:0 0 16px 0; font-size:13px; color:#6b7280;">Select what needs to be fixed so the staff is aware:</p>
+            <div x-show="resendModal.error" x-cloak class="mf-alert err" x-text="resendModal.error"></div>
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
                 <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
                     <input type="checkbox" x-model="resendModal.notes.address"> Address
@@ -1228,6 +1239,14 @@ if (isset($_GET['ajax'])) {
                 <button type="button" @click="sendResendLink()" class="mf-btn-outline teal" :disabled="resendModal.sending" x-text="resendModal.sending ? 'Sending...' : 'Send Link'"></button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="pf-submit-overlay" :class="{'is-open': pageSubmitting}" x-cloak>
+    <div class="pf-submit-card">
+        <div class="pf-submit-spinner"></div>
+        <div class="pf-submit-title" x-text="submitMessage || 'Submitting...'"></div>
+        <div class="pf-submit-copy">Please wait while Printflow processes the request.</div>
     </div>
 </div>
 
@@ -1746,6 +1765,8 @@ function resetFilterField(fields) {
 
 function userManagement() {
     const data = {
+        pageSubmitting: false,
+        submitMessage: '',
         viewModal: {
             isOpen: false,
             loading: false,
@@ -1763,6 +1784,7 @@ function userManagement() {
                 branch_name: '',
                 status: '',
                 created_at: '',
+                id_type: '',
                 id_validation_image: ''
             }
         },
@@ -1783,6 +1805,7 @@ function userManagement() {
             isOpen: false,
             userId: 0,
             sending: false,
+            error: '',
             notes: {
                 name: false,
                 address: false,
@@ -2127,6 +2150,7 @@ function userManagement() {
         },
         openResendModal(userId) {
             this.resendModal.userId = userId;
+            this.resendModal.error = '';
             this.resendModal.notes = {
                 name: false,
                 address: false,
@@ -2137,10 +2161,21 @@ function userManagement() {
             };
             this.resendModal.isOpen = true;
         },
+        hasResendSelection() {
+            const n = this.resendModal.notes;
+            return !!(n.name || n.address || n.idImage || n.contact || n.other);
+        },
         async sendResendLink() {
             const userId = this.resendModal.userId;
             if (!userId) return;
+            if (!this.hasResendSelection()) {
+                this.resendModal.error = 'Please select at least one item before sending the link.';
+                return;
+            }
+            this.resendModal.error = '';
             this.resendModal.sending = true;
+            this.pageSubmitting = true;
+            this.submitMessage = 'Sending completion link...';
             const n = this.resendModal.notes;
             const admin_notes = [];
             if (n.name) admin_notes.push('Name');
@@ -2174,6 +2209,8 @@ function userManagement() {
                 alert('Network error.');
             } finally {
                 this.resendModal.sending = false;
+                this.pageSubmitting = false;
+                this.submitMessage = '';
             }
         },
         async saveUserChanges() {

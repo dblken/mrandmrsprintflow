@@ -17,7 +17,23 @@ $form_data = [
     'address_barangay' => $_POST['address_barangay'] ?? '',
     'address_line' => $_POST['address_line'] ?? '',
     'gender' => $_POST['gender'] ?? '',
+    'id_type' => $_POST['id_type'] ?? '',
     'id_filename' => ''
+];
+
+$id_type_options = [
+    'Philippine Passport',
+    "Driver's License",
+    'SSS ID',
+    'PhilHealth ID',
+    'Postal ID',
+    "Voter's ID",
+    'PRC ID',
+    'National ID (PhilSys)',
+    'UMID',
+    'Senior Citizen ID',
+    'PWD ID',
+    'Barangay ID',
 ];
 
 // Preserve uploaded file name across form submissions
@@ -39,11 +55,15 @@ if (empty($token)) {
         if (empty($columns)) {
             db_execute("ALTER TABLE users ADD COLUMN profile_completion_fields_to_clear TEXT NULL AFTER profile_completion_expires");
         }
+        $idTypeColumn = db_query("SHOW COLUMNS FROM users LIKE 'id_type'");
+        if (empty($idTypeColumn)) {
+            db_execute("ALTER TABLE users ADD COLUMN id_type VARCHAR(100) NULL AFTER id_validation_image");
+        }
     } catch (Exception $e) {
         // Column might already exist or error adding it
     }
     
-    $user = db_query("SELECT user_id, first_name, middle_name, last_name, email, contact_number, address, gender, id_validation_image, profile_completion_token, profile_completion_expires, profile_completion_fields_to_clear, status FROM users WHERE profile_completion_token = ?", 's', [$token]);
+    $user = db_query("SELECT user_id, first_name, middle_name, last_name, email, contact_number, address, gender, id_type, id_validation_image, profile_completion_token, profile_completion_expires, profile_completion_fields_to_clear, status FROM users WHERE profile_completion_token = ?", 's', [$token]);
     $user = $user[0] ?? null;
 
     if (!$user) {
@@ -79,6 +99,10 @@ if (empty($token)) {
             // Pre-fill gender
             if (!empty($user['gender'])) {
                 $form_data['gender'] = $user['gender'];
+            }
+
+            if (!empty($user['id_type'])) {
+                $form_data['id_type'] = $user['id_type'];
             }
             
             // Keep ID image if not marked for clearing
@@ -209,6 +233,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         if (empty($columns)) {
             db_execute("ALTER TABLE users ADD COLUMN profile_completion_fields_to_clear TEXT NULL AFTER profile_completion_expires");
         }
+        $idTypeColumn = db_query("SHOW COLUMNS FROM users LIKE 'id_type'");
+        if (empty($idTypeColumn)) {
+            db_execute("ALTER TABLE users ADD COLUMN id_type VARCHAR(100) NULL AFTER id_validation_image");
+        }
     } catch (Exception $e) {
         // Column might already exist
     }
@@ -235,6 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user && verify_csrf_token($_POST['
     $address_barangay = trim($_POST['address_barangay'] ?? '');
     $address_line = trim($_POST['address_line'] ?? '');
     $gender = trim($_POST['gender'] ?? '');
+    $id_type = trim($_POST['id_type'] ?? '');
 
     $addressParts = [];
     if ($address_line !== '') $addressParts[] = $address_line;
@@ -248,6 +277,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user && verify_csrf_token($_POST['
         $error = 'Valid contact number required (09XXXXXXXXX).';
     } elseif (strlen($address) < 10) {
         $error = 'Please complete the address (province, city, barangay).';
+    } elseif ($id_type === '' || !in_array($id_type, $id_type_options, true)) {
+        $error = 'Please select a valid ID type.';
     } else {
         // Check if ID image is uploaded (either new upload or previously uploaded in session)
         $hasIdImage = !empty($_FILES['id_image']['tmp_name']) && $_FILES['id_image']['error'] === UPLOAD_ERR_OK;
@@ -291,9 +322,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user && verify_csrf_token($_POST['
                 
                 if (!$error) {
                     db_execute(
-                        "UPDATE users SET contact_number=?, address=?, gender=?, id_validation_image=?, profile_completion_token=NULL, profile_completion_expires=NULL, status='Pending', updated_at=NOW() WHERE user_id=?",
-                        'ssssi',
-                        [$contact_number, $address, $gender, $filename, $user['user_id']]
+                        "UPDATE users SET contact_number=?, address=?, gender=?, id_type=?, id_validation_image=?, profile_completion_token=NULL, profile_completion_expires=NULL, status='Pending', updated_at=NOW() WHERE user_id=?",
+                        'sssssi',
+                        [$contact_number, $address, $gender, $id_type, $filename, $user['user_id']]
                     );
 
                     $full_name = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
@@ -430,6 +461,18 @@ $page_title = 'Complete Your Profile - PrintFlow';
             <div class="id-reference">
                 <h3>ID Photo Reference – Upload a clear, valid ID (not blurred)</h3>
                 <img src="<?php echo $base_path; ?>/uploads/id_validation.png" alt="Valid vs Invalid ID" style="max-width:100%;">
+            </div>
+
+            <div class="form-group">
+                <label>ID Type *</label>
+                <select name="id_type" id="id_type" required>
+                    <option value="">-- Select ID Type --</option>
+                    <?php foreach ($id_type_options as $idt): ?>
+                    <option value="<?php echo htmlspecialchars($idt); ?>" <?php echo $form_data['id_type'] === $idt ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($idt); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="form-group">

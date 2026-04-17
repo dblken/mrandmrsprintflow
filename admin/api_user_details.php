@@ -15,9 +15,18 @@ if (!$user_id) {
     exit;
 }
 
+try {
+    $cols = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
+    if (!in_array('id_type', $cols, true)) {
+        db_execute("ALTER TABLE users ADD COLUMN id_type VARCHAR(100) NULL AFTER id_validation_image");
+    }
+} catch (Throwable $e) {
+    // Keep details loading even if this safe migration cannot run.
+}
+
 $user = db_query("
     SELECT u.user_id, u.first_name, u.middle_name, u.last_name, u.birthday as dob, u.gender,
-           u.email, u.contact_number, u.address, u.role, u.profile_picture, u.id_validation_image,
+           u.email, u.contact_number, u.address, u.role, u.profile_picture, u.id_type, u.id_validation_image,
            u.status, u.branch_id, b.branch_name, u.created_at
     FROM users u 
     LEFT JOIN branches b ON u.branch_id = b.id 
