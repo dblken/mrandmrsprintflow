@@ -9,9 +9,48 @@ require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
 require_role(['Admin', 'Manager']);
 
+$base_path = pf_app_base_path();
 $current_user = get_logged_in_user();
 $error = '';
 $success = '';
+
+function admin_service_media_url(string $path): string {
+    global $base_path;
+    $path = trim(str_replace('\\', '/', $path));
+    if ($path === '') return '';
+    if (preg_match('#^https?://#i', $path)) {
+        $parts = parse_url($path);
+        $host = strtolower((string)($parts['host'] ?? ''));
+        $currentHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host !== '' && $currentHost !== '' && $host !== $currentHost) {
+            return $path;
+        }
+        $path = (string)($parts['path'] ?? '');
+    }
+    if (preg_match('#^[A-Za-z]:/#', $path)) {
+        $path = preg_replace('#^[A-Za-z]:#', '', $path);
+    }
+    $publicPos = strpos($path, '/public/');
+    if ($publicPos !== false) {
+        $path = substr($path, $publicPos);
+    }
+    if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($path !== '' && $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+    if ($base_path !== '' && strpos($path, $base_path . '/') !== 0) {
+        $path = $base_path . $path;
+    }
+    return $path;
+}
+
+function admin_service_media_list_url(string $value): string {
+    $items = array_filter(array_map('trim', explode(',', $value)), static fn($item) => $item !== '');
+    $items = array_map('admin_service_media_url', $items);
+    return implode(',', array_filter($items, static fn($item) => $item !== ''));
+}
 
 /** Duplicate name check (case-insensitive, trimmed). */
 function service_name_exists(string $name, int $excludeId = 0): bool {
@@ -62,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_images[] = '/printflow/public/assets/images/services/' . $new_filename;
+                        $uploaded_images[] = $base_path . '/public/assets/images/services/' . $new_filename;
                         error_log('Image uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move image file');
@@ -80,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $upload_path = $upload_dir . $new_filename;
                     
                     if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_video = '/printflow/public/assets/videos/services/' . $new_filename;
+                        $uploaded_video = $base_path . '/public/assets/videos/services/' . $new_filename;
                         error_log('Video uploaded: ' . $new_filename);
                     } else {
                         error_log('Failed to move video file');
@@ -102,9 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $price = 1.0;
         $statusRaw = trim((string) ($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
-        $hero_image = sanitize(trim((string) ($_POST['hero_image'] ?? '')));
-        $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : sanitize(trim((string) ($_POST['display_image'] ?? '')));
-        $video_url = $uploaded_video ?: sanitize(trim((string) ($_POST['video_url'] ?? '')));
+        $hero_image = admin_service_media_url(sanitize(trim((string) ($_POST['hero_image'] ?? ''))));
+        $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : admin_service_media_list_url(sanitize(trim((string) ($_POST['display_image'] ?? ''))));
+        $video_url = $uploaded_video ?: admin_service_media_url(sanitize(trim((string) ($_POST['video_url'] ?? ''))));
         $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($name === '') {
@@ -147,9 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $price = 1.0;
         $statusRaw = trim((string) ($_POST['status'] ?? ''));
         $status = ($statusRaw === 'Deactivated') ? 'Deactivated' : 'Activated';
-        $hero_image = sanitize(trim((string) ($_POST['hero_image'] ?? '')));
-        $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : sanitize(trim((string) ($_POST['display_image'] ?? '')));
-        $video_url = $uploaded_video ?: sanitize(trim((string) ($_POST['video_url'] ?? '')));
+        $hero_image = admin_service_media_url(sanitize(trim((string) ($_POST['hero_image'] ?? ''))));
+        $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : admin_service_media_list_url(sanitize(trim((string) ($_POST['display_image'] ?? ''))));
+        $video_url = $uploaded_video ?: admin_service_media_url(sanitize(trim((string) ($_POST['video_url'] ?? ''))));
         $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($service_id < 1) {
@@ -419,7 +458,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($base_path); ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .btn-action { display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; min-width:72px; border:1px solid transparent; background:transparent; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; }
@@ -795,11 +834,43 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
 
 <script>
 window.PF_DEFAULT_SERVICE_MODAL_TEXT = <?php echo json_encode(printflow_default_customer_service_modal_text(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+window.PF_BASE_PATH = <?php echo json_encode($base_path); ?>;
 /* var: Turbo re-runs inline scripts; let/const would throw "already been declared". */
 var activeSort = '<?php echo htmlspecialchars($sort_by); ?>';
 var searchDebounceTimer = null;
 var _serviceStatusForm = null;
 var _serviceStatusButtonName = null;
+
+function serviceMediaUrl(path) {
+    let value = String(path || '').trim().replace(/\\/g, '/');
+    const base = (window.PF_BASE_PATH || '').replace(/\/+$/, '');
+    if (!value) return '';
+    if (value.startsWith('data:') || value.startsWith('blob:')) return value;
+    if (/^https?:\/\//i.test(value)) {
+        try {
+            const url = new URL(value, window.location.origin);
+            if (url.origin !== window.location.origin) return value;
+            value = url.pathname;
+        } catch (e) {
+            return value;
+        }
+    }
+    value = value.replace(/^[A-Za-z]:/, '');
+    const publicIndex = value.indexOf('/public/');
+    if (publicIndex !== -1) value = value.slice(publicIndex);
+    if (!base && value.startsWith('/printflow/')) value = value.slice('/printflow'.length);
+    if (!value.startsWith('/')) value = '/' + value.replace(/^\/+/, '');
+    if (base && !value.startsWith(base + '/')) value = base + value;
+    return value;
+}
+
+function serviceMediaList(paths) {
+    return String(paths || '')
+        .split(',')
+        .map(item => serviceMediaUrl(item))
+        .filter(Boolean)
+        .join(',');
+}
 
 function filterPanel() {
     return {
@@ -965,11 +1036,11 @@ function openModal(mode, svc) {
         
         // Load existing media files
         uploadedMediaFiles = [];
-        const existingImages = (svc.display_image || '').split(',').filter(img => img.trim());
-        const existingVideo = svc.video_url || '';
+        const existingImages = (svc.display_image || '').split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
+        const existingVideo = serviceMediaUrl(svc.video_url || '');
         
         // Store existing media paths in hidden fields
-        document.getElementById('modal-display-image').value = svc.display_image || '';
+        document.getElementById('modal-display-image').value = existingImages.join(',');
         document.getElementById('modal-video-url').value = existingVideo;
         
         // Display existing media previews
@@ -1042,8 +1113,8 @@ function openViewModal(svc) {
         (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '—');
     
     // Display existing media if available
-    const existingImages = (svc.display_image || '').split(',').filter(img => img.trim());
-    const existingVideo = svc.video_url || '';
+    const existingImages = (svc.display_image || '').split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
+    const existingVideo = serviceMediaUrl(svc.video_url || '');
     
     // Add media preview section to view modal if not exists
     let mediaSection = document.getElementById('view-media-section');
@@ -1060,14 +1131,14 @@ function openViewModal(svc) {
         
         existingImages.forEach((img, i) => {
             html += `<div style="position:relative;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
-                <img src="${img}" alt="Image ${i+1}" style="width:100%;height:100px;object-fit:cover;display:block;">
+                <img src="${serviceMediaUrl(img)}" alt="Image ${i+1}" style="width:100%;height:100px;object-fit:cover;display:block;">
                 <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">IMG ${i+1}</span>
             </div>`;
         });
         
         if (existingVideo) {
             html += `<div style="position:relative;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
-                <video src="${existingVideo}" style="width:100%;height:100px;object-fit:cover;display:block;"></video>
+                <video src="${serviceMediaUrl(existingVideo)}" style="width:100%;height:100px;object-fit:cover;display:block;"></video>
                 <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">VIDEO</span>
             </div>`;
         }
@@ -1290,7 +1361,7 @@ function renderExistingMediaPreviews(images, video) {
         const div = document.createElement('div');
         div.className = 'media-item';
         div.innerHTML = `
-            <img src="${imgPath}" alt="Image ${index + 1}">
+            <img src="${serviceMediaUrl(imgPath)}" alt="Image ${index + 1}">
             <span class="media-badge">IMG ${index + 1}</span>
             <button type="button" class="remove-btn" onclick="removeExistingMedia('image', ${index})">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1304,7 +1375,7 @@ function renderExistingMediaPreviews(images, video) {
         const div = document.createElement('div');
         div.className = 'media-item';
         div.innerHTML = `
-            <video src="${video}"></video>
+            <video src="${serviceMediaUrl(video)}"></video>
             <span class="media-badge">VIDEO</span>
             <button type="button" class="remove-btn" onclick="removeExistingMedia('video', 0)">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1317,13 +1388,13 @@ function renderExistingMediaPreviews(images, video) {
 function removeExistingMedia(type, index) {
     if (type === 'image') {
         const displayImageInput = document.getElementById('modal-display-image');
-        const images = displayImageInput.value.split(',').filter(img => img.trim());
+        const images = displayImageInput.value.split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
         images.splice(index, 1);
         displayImageInput.value = images.join(',');
         renderExistingMediaPreviews(images, document.getElementById('modal-video-url').value);
     } else if (type === 'video') {
         document.getElementById('modal-video-url').value = '';
-        const images = document.getElementById('modal-display-image').value.split(',').filter(img => img.trim());
+        const images = document.getElementById('modal-display-image').value.split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
         renderExistingMediaPreviews(images, '');
     }
 }
@@ -1357,7 +1428,7 @@ if (mediaArea) {
     }, false);
 }
 </script>
-<script src="/printflow/public/assets/js/service-form-validation.js"></script>
+<script src="<?php echo htmlspecialchars($base_path); ?>/public/assets/js/service-form-validation.js"></script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>
