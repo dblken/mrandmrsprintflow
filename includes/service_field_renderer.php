@@ -350,7 +350,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             break;
             
         case 'textarea':
-            $html .= '<textarea name="' . htmlspecialchars($field_key) . '" rows="4" class="shopee-opt-btn notes-textarea" placeholder="Any special instructions..." maxlength="500" ' . $required_attr . ' style="max-width: 600px; height: 100px; resize: none; align-items: flex-start; justify-content: flex-start; text-align: left; padding: 0.75rem;">' . htmlspecialchars($saved_value) . '</textarea>';
+            $html .= '<textarea name="' . htmlspecialchars($field_key) . '" rows="4" class="shopee-opt-btn notes-textarea" placeholder="Any special instructions..." maxlength="500" ' . $required_attr . ' style="width: 100%; max-width: 100%; height: 100px; resize: none; align-items: flex-start; justify-content: flex-start; text-align: left; padding: 0.75rem;">' . htmlspecialchars($saved_value) . '</textarea>';
             break;
             
         case 'text':
