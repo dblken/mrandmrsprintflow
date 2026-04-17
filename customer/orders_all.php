@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
@@ -145,7 +141,7 @@ require_once __DIR__ . '/../includes/header.php';
                         }
                     ?>
                     <div class="row">
-                        <img class="thumb" src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo $base_path; ?>/public/assets/images/services/default.png';">
+                        <img class="thumb" src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='/printflow/public/assets/images/services/default.png';">
                         <div class="meta">
                             <div class="name"><?php echo htmlspecialchars($display_name); ?></div>
                             <div class="sub"><?php echo $qty; ?>x</div>

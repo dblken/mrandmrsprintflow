@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
@@ -162,7 +158,7 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/chat.css">
+<link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
 
 <style>
 /* TikTok Style Orders Nav */
@@ -394,10 +390,10 @@ body.customer-theme.orders-page footer.ft-footer {
                             $show_design = !empty($order['first_item_has_design']) && !empty($order['first_item_id']);
                             $img_style = 'width:80px; height:80px; object-fit:cover; border-radius:8px;';
                             $img_wrapper = 'width:80px; height:80px; border-radius:8px; overflow:hidden; border:2px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.1); background:#f8fafc;';
-                            $fallback_img = '<?php echo $base_path; ?>/public/assets/images/services/default.png';
+                            $fallback_img = '/printflow/public/assets/images/services/default.png';
 
                             if ($show_design) {
-                                $order_img_src = "<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+                                $order_img_src = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
                             } else {
                                 $product_img = "";
                                 $pn = trim($order['first_product_name'] ?? '');
@@ -407,8 +403,8 @@ body.customer-theme.orders-page footer.ft-footer {
                                     }
                                     if (empty($product_img) && ($prod_id = (int)($order['first_product_id'] ?? 0)) > 0) {
                                         $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
-                                        if (file_exists($img_base . ".jpg")) $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".jpg";
-                                        elseif (file_exists($img_base . ".png")) $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".png";
+                                        if (file_exists($img_base . ".jpg")) $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
+                                        elseif (file_exists($img_base . ".png")) $product_img = "/printflow/public/images/products/product_" . $prod_id . ".png";
                                     }
                                 }
                                 $order_img_src = !empty($product_img) ? $product_img : get_service_image_url($service_category ?: $display_name);
@@ -416,7 +412,7 @@ body.customer-theme.orders-page footer.ft-footer {
                             ?>
 
                             <?php if ($show_design): ?>
-                                <a href="<?php echo $base_path; ?>/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" target="_blank" style="display:block; <?php echo $img_wrapper; ?>">
+                                <a href="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" target="_blank" style="display:block; <?php echo $img_wrapper; ?>">
                                     <img src="<?php echo htmlspecialchars($order_img_src); ?>" style="<?php echo $img_style; ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo $fallback_img; ?>';">
                                 </a>
                             <?php else: ?>
@@ -475,11 +471,11 @@ body.customer-theme.orders-page footer.ft-footer {
                             <?php if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)): ?>
                                 <?php $rating_value = (int)($order['rating_value'] ?? 0); ?>
                                 <?php if ($rating_value > 0): ?>
-                                    <a href="<?php echo $base_path; ?>/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; gap:6px; border:1px solid #fde68a; background:#fffbeb; color:#b45309; font-size:12px; font-weight:800; border-radius:999px; padding:6px 10px; text-decoration:none; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.borderColor='#f59e0b';" onmouseout="this.style.background='#fffbeb';this.style.borderColor='#fde68a';" title="View your review">
+                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; gap:6px; border:1px solid #fde68a; background:#fffbeb; color:#b45309; font-size:12px; font-weight:800; border-radius:999px; padding:6px 10px; text-decoration:none; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.borderColor='#f59e0b';" onmouseout="this.style.background='#fffbeb';this.style.borderColor='#fde68a';" title="View your review">
                                         Rated <?php echo str_repeat('★', $rating_value) . str_repeat('☆', max(0, 5 - $rating_value)); ?>
                                     </a>
                                 <?php else: ?>
-                                    <a href="<?php echo $base_path; ?>/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; justify-content:center; border-radius:8px; padding:8px 12px; background:#f59e0b; color:#fff; font-size:12px; font-weight:800; text-decoration:none; letter-spacing:0.02em;">
+                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; justify-content:center; border-radius:8px; padding:8px 12px; background:#f59e0b; color:#fff; font-size:12px; font-weight:800; text-decoration:none; letter-spacing:0.02em;">
                                         Rate Order
                                     </a>
                                 <?php endif; ?>
@@ -1128,7 +1124,7 @@ function submitOrderCancellation() {
     fd.append('reason', reason);
     fd.append('details', details);
 
-    fetch('<?php echo $base_path; ?>/customer/cancel_order.php', {
+    fetch('/printflow/customer/cancel_order.php', {
         method: 'POST',
         body: fd
     })
@@ -1185,7 +1181,7 @@ function handleDesignReupload(input, orderId, csrfToken) {
     btn.disabled = true;
     btn.innerHTML = '<span>Uploading...</span>';
 
-    fetch('<?php echo $base_path; ?>/customer/reupload_design_process.php', {
+    fetch('/printflow/customer/reupload_design_process.php', {
         method: 'POST',
         body: fd
     })
@@ -1291,7 +1287,7 @@ function escIM(str) {
     }
 
     function poll() {
-        fetch('<?php echo $base_path; ?>/customer/api_customer_orders.php')
+        fetch('/printflow/customer/api_customer_orders.php')
             .then(r => r.json())
             .then(data => {
                 if (!data.success) return;

@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
@@ -20,14 +16,14 @@ $customer_id = get_customer_id();
 $job = db_query("SELECT * FROM job_orders WHERE id = ? AND customer_id = ?", 'ii', [$job_id, $customer_id]);
 
 if (empty($job)) {
-    redirect('<?php echo $base_path; ?>/customer/services.php');
+    redirect('/printflow/customer/services.php');
 }
 
 $job = $job[0];
 
 // Only allow payment if UNPAID or PARTIAL, and not fully completed
 if (in_array($job['payment_proof_status'], ['VERIFIED']) && $job['payment_status'] === 'PAID') {
-    redirect('<?php echo $base_path; ?>/customer/services.php');
+    redirect('/printflow/customer/services.php');
 }
 
 $success = '';
@@ -208,7 +204,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($active_pms as $pm): ?>
                     <div class="border rounded-lg p-4 flex gap-4 items-center bg-gray-50">
                         <?php if (!empty($pm['file'])): ?>
-                        <img src="<?php echo $base_path; ?>/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1 shadow-sm">
+                        <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1 shadow-sm">
                         <?php endif; ?>
                         <div>
                             <p class="font-bold text-gray-900 leading-tight"><?php echo htmlspecialchars($pm['provider']); ?></p>

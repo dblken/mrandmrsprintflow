@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
@@ -70,7 +66,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <style>
-    body.customer-theme { background: #ffffff !important; }
+    /* body.customer-theme bg handled by customer-theme.css */
     .cart-theme-page {
         color: #1e293b;
     }
@@ -78,11 +74,12 @@ require_once __DIR__ . '/../includes/header.php';
         color: #0f172a !important;
     }
     .cart-theme-page .card {
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 1.25rem !important;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
+        background: rgba(0,49,61,0.85) !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
         overflow: hidden;
+        backdrop-filter: blur(8px);
     }
     .cart-theme-page table {
         background: transparent !important;
@@ -137,15 +134,15 @@ require_once __DIR__ . '/../includes/header.php';
         display: inline-flex;
         align-items: center;
         background: #f1f5f9;
-        border-radius: 9999px;
+        border-radius: 0;
         padding: 4px;
         gap: 12px;
-        border: 1px solid #cbd5e1;
+        border: none;
     }
     .qty-btn {
         width: 32px;
         height: 32px;
-        border-radius: 50%;
+        border-radius: 0;
         border: none;
         background: #e2e8f0;
         color: #334155;
@@ -175,7 +172,7 @@ require_once __DIR__ . '/../includes/header.php';
     .cart-checkbox {
         width: 20px;
         height: 20px;
-        border-radius: 50%;
+        border-radius: 0;
         border: 2px solid rgba(83, 197, 224, 0.35);
         cursor: pointer;
         accent-color: #53c5e0;
@@ -187,7 +184,7 @@ require_once __DIR__ . '/../includes/header.php';
         background: rgba(239, 68, 68, 0.1);
         border: none;
         padding: 8px;
-        border-radius: 8px;
+        border-radius: 0;
         cursor: pointer;
         transition: all 0.2s;
         display: flex;
@@ -215,9 +212,9 @@ require_once __DIR__ . '/../includes/header.php';
         
         .cart-theme-page .cart-row {
             display: block;
-            background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 6px;
+            background: rgba(0,49,61,0.85) !important;
+            border: none !important;
+            border-radius: 0;
             margin-bottom: 0.5rem;
             padding: 0.5rem;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
@@ -525,8 +522,8 @@ require_once __DIR__ . '/../includes/header.php';
         max-height: 85vh;
         overflow: hidden;
         background: rgba(10, 37, 48, 0.97);
-        border: 1px solid rgba(83, 197, 224, 0.28);
-        border-radius: 14px;
+        border: none;
+        border-radius: 0;
         box-shadow: 0 18px 44px rgba(0,0,0,0.45);
     }
     .cart-info-scroll {
@@ -573,8 +570,8 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .cart-info-list li {
         padding: 0.6rem 0.7rem;
-        border: 1px solid rgba(83, 197, 224, 0.22);
-        border-radius: 8px;
+        border: none;
+        border-radius: 0;
         background: rgba(255, 255, 255, 0.04);
         color: #d9e6ef;
         font-size: 0.86rem;
@@ -586,8 +583,8 @@ require_once __DIR__ . '/../includes/header.php';
         right: 0.65rem;
         width: 30px;
         height: 30px;
-        border-radius: 999px;
-        border: 1px solid rgba(83, 197, 224, 0.35);
+        border-radius: 0;
+        border: none;
         background: rgba(255,255,255,0.08);
         color: #d8edf5;
         font-size: 1.05rem;
@@ -603,8 +600,8 @@ require_once __DIR__ . '/../includes/header.php';
         height: 42px;
         min-width: 120px;
         padding: 0 1rem;
-        border-radius: 10px;
-        border: 1px solid rgba(83, 197, 224, 0.3);
+        border-radius: 0;
+        border: none;
         background: rgba(255,255,255,0.05);
         color: #d9e6ef;
         font-weight: 700;
@@ -766,7 +763,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         }
                                         
                                         if ($data_service_id > 0) {
-                                            $onclick_handler = "window.location.href='<?php echo $base_path; ?>/customer/order/{$data_service_id}';";
+                                            $onclick_handler = "window.location.href='/printflow/customer/order/{$data_service_id}';";
                                         }
                                     }
                                 ?>
@@ -810,9 +807,9 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img) && $prod_id > 0) {
                                                 $img_base = "../public/images/products/product_" . $prod_id;
                                                 if (file_exists($img_base . ".jpg")) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".jpg";
+                                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
                                                 } elseif (file_exists($img_base . ".png")) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_" . $prod_id . ".png";
+                                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".png";
                                                 }
                                             }
                                             
@@ -820,21 +817,21 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img)) {
                                                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
                                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/signage.jpg";
+                                                    $product_img = "/printflow/public/images/products/signage.jpg";
                                                 } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_41.jpg";
+                                                    $product_img = "/printflow/public/images/products/product_41.jpg";
                                                 } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/services/Sintraboard Standees.jpg";
+                                                    $product_img = "/printflow/public/images/services/Sintraboard Standees.jpg";
                                                 } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/images/products/product_31.jpg";
+                                                    $product_img = "/printflow/public/images/products/product_31.jpg";
                                                 } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
                                                     if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
-                                                        $product_img = "<?php echo $base_path; ?>/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
+                                                        $product_img = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
                                                     } else {
-                                                        $product_img = "<?php echo $base_path; ?>/public/images/products/product_21.jpg";
+                                                        $product_img = "/printflow/public/images/products/product_21.jpg";
                                                     }
                                                 } elseif (strpos($cat_lower, 'souvenir') !== false) {
-                                                    $product_img = "<?php echo $base_path; ?>/public/assets/images/icon-192.png";
+                                                    $product_img = "/printflow/public/assets/images/icon-192.png";
                                                 }
                                             }
                                             ?>
@@ -842,7 +839,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <?php if (!empty($product_img)): ?>
                                                     <img src="<?php echo $product_img; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Product">
                                                 <?php else: ?>
-                                                    <img src="<?php echo $base_path; ?>/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
+                                                    <img src="/printflow/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
                                                 <?php endif; ?>
                                             </div>
                                             <div style="flex:1;">
@@ -929,12 +926,12 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Remove Confirmation Modal -->
 <div id="removeModal" style="display:none; position:fixed; inset:0; z-index:50; align-items:center; justify-content:center;">
     <div style="position:absolute; inset:0; background:rgba(15,23,42,0.45);" onclick="closeRemoveModal()"></div>
-    <div style="position:relative; background:rgba(10,37,48,.97); padding:2rem; border-radius:12px; max-width:400px; width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); z-index:51;">
+    <div style="position:relative; background:rgba(10,37,48,.97); padding:2rem; border-radius:0; max-width:400px; width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); z-index:51;">
         <h3 style="font-size:1.25rem; font-weight:700; color:#eaf6fb; margin-bottom:0.5rem;">Remove from Cart?</h3>
         <p style="color:#b9d4df; margin-bottom:1.5rem; line-height:1.5;">Are you sure you want to remove this item from your shopping cart?</p>
         <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
-            <button type="button" onclick="closeRemoveModal()" style="padding:0.5rem 1.25rem; border-radius:8px; background:rgba(255,255,255,.08); color:#d9e6ef; font-weight:600; border:1px solid rgba(83,197,224,.24); cursor:pointer; transition:background 0.2s;">Cancel</button>
-            <button type="button" onclick="handleRemoveItem()" style="padding:0.5rem 1.25rem; border-radius:8px; background:#ef4444; color:white; font-weight:600; border:none; cursor:pointer; transition:background 0.2s;">Delete</button>
+            <button type="button" onclick="closeRemoveModal()" style="padding:0.5rem 1.25rem; border-radius:0; background:rgba(255,255,255,.08); color:#d9e6ef; font-weight:600; border:none; cursor:pointer; transition:background 0.2s;">Cancel</button>
+            <button type="button" onclick="handleRemoveItem()" style="padding:0.5rem 1.25rem; border-radius:0; background:#ef4444; color:white; font-weight:600; border:none; cursor:pointer; transition:background 0.2s;">Delete</button>
         </div>
     </div>
 </div>
@@ -1305,7 +1302,7 @@ function handleCartRowClick(row, event) {
     
     if (itemOrigin === 'Service') {
         if (serviceId && serviceId !== '' && serviceId !== '0') {
-            const url = '<?php echo $base_path; ?>/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
+            const url = '/printflow/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
             console.log('✓ Redirecting to:', url);
             window.location.href = url;
         } else {
@@ -1313,11 +1310,11 @@ function handleCartRowClick(row, event) {
             const match = cartKey.match(/^service_(\d+)_/);
             if (match && match[1]) {
                 const extractedId = match[1];
-                const url = '<?php echo $base_path; ?>/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
+                const url = '/printflow/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
                 console.log('✓ Extracted service_id:', extractedId, '- Redirecting to:', url);
                 window.location.href = url;
             } else {
-                alert('Cannot view this service item.');
+                showToast('Cannot view this service item.');
             }
         }
     } else if (itemOrigin === 'Product') {

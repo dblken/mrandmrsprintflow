@@ -3,10 +3,6 @@
  * Layout Design Service - Service Order Form
  */
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 require_role('Customer');
@@ -100,7 +96,7 @@ $layout_types = ['Logo', 'Banner', 'Invitation', 'Poster', 'Other'];
         <div class="shopee-card">
             <!-- Left Side: Image -->
             <div class="shopee-image-section">
-                <div class="sticky top-24">
+                <div class="sticky-image-container">
                     <div class="shopee-main-image-wrap">
                         <img src="<?php echo htmlspecialchars($display_img ?: 'https://placehold.co/600x600/f8fafc/0f172a?text=Layout+Design'); ?>" alt="Layout Design" class="shopee-main-image" onerror="this.src='https://placehold.co/600x600/f8fafc/0f172a?text=Layout+Design'">
                     </div>

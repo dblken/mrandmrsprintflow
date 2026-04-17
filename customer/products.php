@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
@@ -67,12 +63,12 @@ require_once __DIR__ . '/../includes/header.php';
 
 <style>
     :root {
-        --shopee-orange: #0a2530;
-        --shopee-bg: #ffffff;
-        --shopee-card-bg: #ffffff;
-        --shopee-text: #212121;
-        --shopee-muted: #757575;
-        --shopee-border: rgba(0,0,0,0.09);
+        --shopee-orange: #53c5e0;
+        --shopee-bg: #00151b;
+        --shopee-card-bg: rgba(0,49,61,0.85);
+        --shopee-text: #e0f2fe;
+        --shopee-muted: #94a3b8;
+        --shopee-border: rgba(83,197,224,0.2);
     }
 
     .shopee-grid {
@@ -81,107 +77,29 @@ require_once __DIR__ . '/../includes/header.php';
         gap: 20px;
     }
 
-    /* Tablet: 2 cards per row */
-    @media (max-width: 1023px) and (min-width: 641px) {
-        .shopee-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-    }
-
-    /* Mobile: 1 card per row (full width) */
     @media (max-width: 640px) {
         .shopee-grid {
             grid-template-columns: 1fr;
             gap: 16px;
         }
-        
-        .shopee-card {
-            width: 100%;
-            max-width: 100%;
-            margin: 0;
-            min-height: auto;
-        }
-        
-        /* Optimize card layout for mobile */
-        .shopee-img {
-            aspect-ratio: 1.5;
-            width: 100%;
-            height: auto;
-            max-height: 280px;
-            object-fit: cover;
-        }
-        
-        .shopee-body {
-            padding: 14px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .shopee-name {
-            font-size: 1.05rem;
-            line-height: 1.4rem;
-            height: 2.8rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            margin-bottom: 8px;
-        }
-        
-        .shopee-category {
-            font-size: 0.8rem;
-        }
-        
-        .shopee-price-row {
-            margin-top: auto;
-        }
-        
-        .shopee-price {
-            font-size: 1.25rem;
-        }
-        
-        .shopee-footer {
-            padding: 10px 14px;
-            gap: 10px;
-            flex-shrink: 0;
-        }
-        
-        .shopee-btn {
-            padding: 10px 0;
-            font-size: 0.85rem;
-            min-height: 42px;
-        }
-        
-        .rating-stars {
-            font-size: 0.85rem;
-            margin-bottom: 4px;
-        }
-        
-        .rating-stars svg {
-            width: 15px !important;
-            height: 15px !important;
-        }
     }
 
     .shopee-card {
         background: var(--shopee-card-bg);
-        border: 1px solid var(--shopee-border);
-        border-radius: 4px;
+        border: none;
+        border-radius: 0;
         transition: transform 0.2s, box-shadow 0.2s;
         cursor: pointer;
         overflow: hidden;
         display: flex;
         flex-direction: column;
         height: 100%;
+        backdrop-filter: blur(8px);
     }
 
     .shopee-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        border-color: var(--shopee-orange);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(83,197,224,0.1);
     }
 
     .shopee-img {
@@ -226,13 +144,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     .shopee-price {
         color: var(--shopee-orange);
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-
-    .shopee-sold {
-        font-size: 0.75rem;
-        color: var(--shopee-muted);
+        font-weight: 800;
+        font-size: 1.2rem;
+        letter-spacing: -0.02em;
     }
 
     .shopee-footer {
@@ -244,32 +158,42 @@ require_once __DIR__ . '/../includes/header.php';
 
     .shopee-btn {
         flex: 1;
-        padding: 7px 0;
-        border-radius: 3px;
+        padding: 8px 0;
+        border-radius: 0;
         font-size: 0.8rem;
-        font-weight: 600;
+        font-weight: 700;
         text-align: center;
         text-transform: uppercase;
-        transition: all 0.2s;
-        border: 1px solid var(--shopee-orange);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
         display: flex;
         align-items: center;
         justify-content: center;
         text-decoration: none;
+        cursor: pointer;
     }
 
     .shopee-btn-cart {
-        background: rgba(10, 37, 48, 0.08);
+        background: rgba(83, 197, 224, 0.08);
         color: var(--shopee-orange);
+        border: none;
+        flex: 0 0 45px;
+    }
+    
+    .shopee-btn-cart:hover {
+        background: rgba(83, 197, 224, 0.15);
     }
 
     .shopee-btn-buy {
         background: var(--shopee-orange);
-        color: #fff;
+        color: #001c24;
+        box-shadow: 0 0 12px rgba(83, 197, 224, 0.2);
     }
 
-    .shopee-btn:hover {
-        opacity: 0.9;
+    .shopee-btn-buy:hover {
+        background: #7adcf5;
+        box-shadow: 0 0 20px rgba(83, 197, 224, 0.5);
+        transform: translateY(-1px);
     }
 
     .rating-stars {
@@ -288,7 +212,7 @@ require_once __DIR__ . '/../includes/header.php';
     }
 </style>
 
-<div class="min-h-screen py-8 bg-white">
+<div class="min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <h1 class="text-2xl font-bold text-gray-800">Available Products</h1>
@@ -304,20 +228,8 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <div class="shopee-grid">
                 <?php foreach ($products as $product): 
-                    $raw_img = $product['photo_path'] ?: $product['product_image'] ?: '';
-                    // Strip PHP code that admin may have stored (e.g., < ?php echo $base_path; ? >/uploads/...)
-                    $raw_img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/i', '', $raw_img);
-                    $raw_img = trim($raw_img);
-                    
-                    // Transform image paths - products are in /uploads/products/ (not in public/assets/)
-                    if ($raw_img !== '' && strpos($raw_img, 'http') === false) {
-                        $raw_img = '/' . ltrim($raw_img, '/');
-                        // Ensure it has /uploads/products/ prefix
-                        if (strpos($raw_img, '/uploads/products/') === false) {
-                            $raw_img = '/uploads/products/' . basename($raw_img);
-                        }
-                    }
-                    $display_img = $raw_img ?: '/public/assets/images/services/default.png';
+                    $display_img = $product['photo_path'] ?: $product['product_image'] ?: "/printflow/public/assets/images/services/default.png";
+                    if ($display_img[0] !== '/' && strpos($display_img, 'http') === false) $display_img = '/' . $display_img;
                     
                     $sold_count = (int)$product['sold_count'];
                     $avg_rating = (float)$product['avg_rating'];
@@ -414,7 +326,7 @@ function showToast(msg, isError) {
         background: ${isError ? 'rgba(239,68,68,0.92)' : 'rgba(0,0,0,0.85)'};
         color: white;
         padding: 12px 24px;
-        border-radius: 4px;
+        border-radius: 0;
         font-size: 0.9rem;
         font-weight: 500;
         z-index: 10000;

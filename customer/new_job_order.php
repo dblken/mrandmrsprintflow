@@ -4,10 +4,6 @@
  * Modern, single-page ordering interface with real-time validation.
  */
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/ServiceAvailabilityChecker.php';
 

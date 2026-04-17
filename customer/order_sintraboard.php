@@ -4,10 +4,6 @@
  * PrintFlow - Clean flow: Product Type → Dimensions → Options → Upload → Needed Date + Quantity → Notes
  */
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 require_role('Customer');
@@ -177,7 +173,7 @@ if (!empty($_POST['dimensions']) && preg_match('/^(\d+(?:\.\d+)?)\s*[x×]\s*(\d+
         <div class="shopee-card">
             <!-- Left Side: Image -->
             <div class="shopee-image-section">
-                <div class="sticky top-24">
+                <div class="sticky-image-container">
                     <div class="shopee-main-image-wrap">
                         <img src="<?php echo htmlspecialchars($display_img ?: 'https://placehold.co/600x600/f8fafc/0f172a?text=Sintraboard'); ?>" alt="Sintraboard & Standees" class="shopee-main-image" onerror="this.src='https://placehold.co/600x600/f8fafc/0f172a?text=Sintraboard'">
                     </div>

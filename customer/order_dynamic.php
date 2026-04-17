@@ -5,10 +5,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/dynamic_form_helpers.php';
 
@@ -66,14 +62,14 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="shopee-card">
             <!-- Left: Image -->
             <div class="shopee-image-section">
-                <div class="sticky top-24">
+                <div class="sticky-image-container">
                     <div class="shopee-main-image-wrap">
                         <?php 
                         $display_img = "";
                         if (!empty($product['photo_path'])) {
                             $display_img = $product['photo_path'];
                         } elseif (!empty($product['product_image'])) {
-                            $display_img = "<?php echo $base_path; ?>/" . ltrim($product['product_image'], '/');
+                            $display_img = "/printflow/" . ltrim($product['product_image'], '/');
                         }
                         
                         if ($display_img): ?>

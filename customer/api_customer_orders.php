@@ -5,7 +5,6 @@
  * Returns lightweight order list (status + price visibility controlled).
  */
 require_once __DIR__ . '/../includes/auth.php';
-require_customer();
 require_once __DIR__ . '/../includes/functions.php';
 require_role('Customer');
 

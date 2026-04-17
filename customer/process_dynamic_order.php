@@ -174,7 +174,7 @@ if ($action === 'buy_now') {
         $product_id,
         0, // total_amount - will be set by staff
         0, // downpayment_amount
-        'To Pay', // status
+        'Pending', // status
         'Unpaid', // payment_status
         'full_payment', // payment_type
         null, // notes
@@ -217,7 +217,7 @@ if ($action === 'buy_now') {
                     $ext = strtolower(pathinfo($value['name'], PATHINFO_EXTENSION));
                     $new_name = uniqid('design_') . '_' . time() . '.' . $ext;
                     if (copy($value['tmp_path'], $upload_dir . '/' . $new_name)) {
-                        $design_file_path = '<?php echo $base_path; ?>/uploads/orders/' . $new_name;
+                        $design_file_path = '/printflow/uploads/orders/' . $new_name;
                     }
                     $design_mime = $value['mime'];
                     $design_name = $value['name'];

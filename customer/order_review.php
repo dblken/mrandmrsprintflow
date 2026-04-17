@@ -7,10 +7,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
 
@@ -141,13 +137,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                 $order_status = ($order_type === 'custom') ? 'Pending' : 'To Pay';
                 $branch_id = $selected_branch_id;
                 
-                // For service/custom orders, set total_amount = 0 so staff can set the price (Step 1)
-                $order_total_amount = ($order_type === 'custom') ? 0 : $grand_total;
+                // For service/custom orders, save estimated_price and set total_amount to estimated total
+                $estimated_price = ($order_type === 'custom') ? $grand_total : null;
+                $order_total_amount = $grand_total;
 
                 // 2. Create Single Order with order_source = 'customer'
-                $order_sql = "INSERT INTO orders (customer_id, branch_id, reference_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes, order_type, order_source)
-                              VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, 'customer')";
-                $order_id  = db_execute($order_sql, 'iiiddsssss', [$customer_id, $branch_id, $reference_id, $order_total_amount, $downpayment_amount, $order_status, $payment_status, $payment_type, $notes_summary, $order_type]);
+                $order_sql = "INSERT INTO orders (customer_id, branch_id, reference_id, order_date, total_amount, estimated_price, downpayment_amount, status, payment_status, payment_type, notes, order_type, order_source)
+                              VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, 'customer')";
+                $order_id  = db_execute($order_sql, 'iiidddsssss', [$customer_id, $branch_id, $reference_id, $order_total_amount, $estimated_price, $downpayment_amount, $order_status, $payment_status, $payment_type, $notes_summary, $order_type]);
 
                 if ($order_id) {
                     error_log('Order created successfully with ID: ' . $order_id);
@@ -176,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                             $ext = strtolower(pathinfo($design_name, PATHINFO_EXTENSION));
                             $new_name = uniqid('design_') . '_' . time() . '.' . $ext;
                             if (copy($item['design_tmp_path'], $upload_dir . '/' . $new_name)) {
-                                $design_file_path = '<?php echo $base_path; ?>/uploads/orders/' . $new_name;
+                                $design_file_path = '/printflow/uploads/orders/' . $new_name;
                             }
                         }
 
@@ -185,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                             $ext = strtolower(pathinfo($ref_name, PATHINFO_EXTENSION));
                             $new_name = uniqid('ref_') . '_' . time() . '.' . $ext;
                             if (copy($item['reference_tmp_path'], $upload_dir . '/' . $new_name)) {
-                                $reference_file_path = '<?php echo $base_path; ?>/uploads/orders/' . $new_name;
+                                $reference_file_path = '/printflow/uploads/orders/' . $new_name;
                             }
                         }
 
@@ -202,13 +199,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                             $product_id = 3; // Fallback
                         }
 
-                        // Safety check: ensure unit_price is per item
-                        // For service/custom orders, set unit_price = 0 (staff will set price in Step 1)
-                        $unit_price = ($order_type === 'custom') ? 0 : (float)$item['price'];
+                        // FIXED: Save estimated price to order_items so it displays correctly
+                        // For service/custom orders, save estimated unit_price (staff can update later)
+                        // For product orders, use the price as-is (it's already per-item unit price)
+                        $unit_price = (float)$item['price'];
                         $quantity_val = (int)$item['quantity'];
-                        if ($order_type !== 'custom' && $quantity_val > 1 && $unit_price > 500) {
-                            $unit_price = round($unit_price / $quantity_val, 2);
-                        }
 
                         if ($design_binary) {
                             $stmt = $conn->prepare(
@@ -278,11 +273,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
 // Calculate total for all items
 $grand_total = 0;
 foreach ($items_to_review as $key => $item) {
-    // Fix unit price if it's actually the total
-    if ($item['quantity'] > 1 && $item['price'] > 500) {
-        $items_to_review[$key]['price'] = round($item['price'] / $item['quantity'], 2);
-    }
-    $grand_total += $items_to_review[$key]['price'] * $item['quantity'];
+    // Use the price as-is for service/custom orders (it's already the estimated_price)
+    $grand_total += $item['price'] * $item['quantity'];
 }
 
 // Determine if any item has customization
@@ -305,10 +297,10 @@ require_once __DIR__ . '/../includes/header.php';
     .compact-card { padding: 1.25rem !important; }
     .review-title { text-align: center; margin-bottom: 2rem; color: #1f2937 !important; }
     .review-card {
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
+        background: rgba(0,49,61,0.85) !important;
+        border: 1px solid rgba(83,197,224,0.2) !important;
         border-radius: 12px !important;
-        backdrop-filter: none;
+        backdrop-filter: blur(8px);
     }
     .review-heading {
         color: #111827 !important;
@@ -338,9 +330,9 @@ require_once __DIR__ . '/../includes/header.php';
         margin-bottom: 2px;
     }
     .review-input-disabled {
-        background: #f9fafb !important;
-        border: 1px solid #e5e7eb !important;
-        color: #374151 !important;
+        background: rgba(0,49,61,0.5) !important;
+        border: 1px solid rgba(83,197,224,0.2) !important;
+        color: #e0f2fe !important;
         font-weight: 600;
         font-size: 0.85rem;
         font-family: inherit !important;
@@ -398,570 +390,6 @@ require_once __DIR__ . '/../includes/header.php';
         border-color: rgba(83,197,224,.52);
         color: #fff;
     }
-    
-    /* ============================================
-       MOBILE-FIRST REDESIGN - ORDER REVIEW CARDS
-       ============================================ */
-    
-    /* Mobile Order Card - Stacked Layout */
-    .mobile-order-card {
-        background: #0a2530;
-        border: 1px solid rgba(83, 197, 224, 0.24);
-        border-radius: 16px;
-        overflow: hidden;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    }
-    
-    /* Full-width Product Image */
-    .mobile-product-image {
-        width: 100%;
-        height: 200px;
-        position: relative;
-        overflow: hidden;
-        background: rgba(0,0,0,0.3);
-    }
-    
-    .mobile-product-image img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform 0.3s ease;
-    }
-    
-    .mobile-product-image:active img {
-        transform: scale(0.98);
-    }
-    
-    /* Image Preview Modal */
-    .image-preview-modal {
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.95);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-    }
-    
-    .image-preview-modal.active {
-        opacity: 1;
-        visibility: visible;
-    }
-    
-    .image-preview-modal img {
-        max-width: 100%;
-        max-height: 80vh;
-        border-radius: 12px;
-        transform: scale(0.9);
-        transition: transform 0.3s ease;
-    }
-    
-    .image-preview-modal.active img {
-        transform: scale(1);
-    }
-    
-    .image-preview-close {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        width: 44px;
-        height: 44px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 24px;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-    }
-    
-    /* Card Content Area */
-    .mobile-card-content {
-        padding: 16px;
-    }
-    
-    /* Product Name */
-    .mobile-product-name {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #ffffff;
-        margin: 0 0 8px 0;
-        line-height: 1.4;
-    }
-    
-    /* Category Badge */
-    .mobile-category-badge {
-        display: inline-flex;
-        font-size: 0.65rem;
-        font-weight: 700;
-        color: #53c5e0;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 4px 10px;
-        border-radius: 20px;
-        background: rgba(83, 197, 224, 0.12);
-        border: 1px solid rgba(83, 197, 224, 0.2);
-        margin-bottom: 16px;
-    }
-    
-    /* Divider */
-    .mobile-divider {
-        height: 1px;
-        background: rgba(83, 197, 224, 0.15);
-        margin: 12px 0;
-    }
-    
-    /* Price Row Layout */
-    .mobile-price-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 12px;
-    }
-    
-    .mobile-price-item {
-        flex: 1;
-        text-align: center;
-        padding: 8px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 10px;
-    }
-    
-    .mobile-price-label {
-        font-size: 0.65rem;
-        color: #9fc4d4;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 4px;
-    }
-    
-    .mobile-price-value {
-        font-size: 0.95rem;
-        color: #eaf6fb;
-        font-weight: 700;
-    }
-    
-    /* Total Section - Highlighted */
-    .mobile-total-section {
-        background: rgba(83, 197, 224, 0.1);
-        border: 1px solid rgba(83, 197, 224, 0.25);
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-top: 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .mobile-total-label {
-        font-size: 0.75rem;
-        color: #53c5e0;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    
-    .mobile-total-value {
-        font-size: 1.35rem;
-        color: #53c5e0;
-        font-weight: 800;
-    }
-    
-    /* Collapsible Specifications */
-    .mobile-specs-toggle {
-        width: 100%;
-        padding: 14px 16px;
-        background: rgba(255,255,255,0.03);
-        border: none;
-        border-top: 1px solid rgba(83, 197, 224, 0.1);
-        color: #9fc4d4;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-height: 48px;
-    }
-    
-    .mobile-specs-toggle:active {
-        background: rgba(83, 197, 224, 0.1);
-    }
-    
-    .mobile-specs-toggle svg {
-        width: 20px;
-        height: 20px;
-        transition: transform 0.3s ease;
-    }
-    
-    .mobile-specs-toggle.active svg {
-        transform: rotate(180deg);
-    }
-    
-    .mobile-specs-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-        background: rgba(0,0,0,0.15);
-    }
-    
-    .mobile-specs-content.active {
-        max-height: 500px;
-    }
-    
-    .mobile-specs-inner {
-        padding: 16px;
-    }
-    
-    .mobile-spec-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    
-    .mobile-spec-item {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(83, 197, 224, 0.12);
-        border-radius: 8px;
-        padding: 10px 12px;
-    }
-    
-    .mobile-spec-label {
-        font-size: 0.6rem;
-        color: #9fc4d4;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-bottom: 3px;
-        letter-spacing: 0.03em;
-    }
-    
-    .mobile-spec-value {
-        font-size: 0.85rem;
-        color: #eaf6fb;
-        font-weight: 600;
-        word-break: break-word;
-    }
-    
-    .mobile-specs-empty {
-        text-align: center;
-        color: #9fc4d4;
-        font-size: 0.85rem;
-        font-style: italic;
-        padding: 20px;
-    }
-    
-    /* Info Box - Softer Background */
-    .mobile-info-box {
-        background: rgba(83, 197, 224, 0.06);
-        border: 1px solid rgba(83, 197, 224, 0.15);
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin: 16px 0;
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-    }
-    
-    .mobile-info-box svg {
-        width: 20px;
-        height: 20px;
-        color: #53c5e0;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    
-    .mobile-info-title {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #eaf6fb;
-        margin-bottom: 4px;
-    }
-    
-    .mobile-info-text {
-        font-size: 0.8rem;
-        color: #9fc4d4;
-        line-height: 1.5;
-    }
-    
-    /* Loading Skeleton */
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
-    
-    .skeleton {
-        background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-        border-radius: 8px;
-    }
-    
-    .skeleton-image {
-        height: 180px;
-        width: 100%;
-    }
-    
-    .skeleton-text {
-        height: 16px;
-        margin-bottom: 8px;
-    }
-    
-    .skeleton-badge {
-        height: 24px;
-        width: 80px;
-    }
-    
-    /* Mobile Form Elements */
-    .mobile-form-group {
-        margin-bottom: 16px;
-    }
-    
-    .mobile-form-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #9fc4d4;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin-bottom: 6px;
-    }
-    
-    .mobile-form-input {
-        width: 100%;
-        padding: 12px 14px;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(83, 197, 224, 0.2);
-        border-radius: 10px;
-        color: #eaf6fb;
-        font-size: 0.95rem;
-        min-height: 48px;
-    }
-    
-    .mobile-form-input:disabled {
-        background: rgba(255,255,255,0.03);
-        color: #9fc4d4;
-    }
-    
-    /* Mobile Action Buttons */
-    .mobile-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: 24px;
-        padding-top: 20px;
-        border-top: 1px solid rgba(83, 197, 224, 0.15);
-    }
-    
-    .mobile-btn {
-        width: 100%;
-        padding: 16px 20px;
-        border-radius: 12px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-height: 52px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        border: none;
-    }
-    
-    .mobile-btn-primary {
-        background: linear-gradient(135deg, #53C5E0, #3aa8c4);
-        color: #0a2530;
-        box-shadow: 0 4px 15px rgba(83, 197, 224, 0.3);
-    }
-    
-    .mobile-btn-primary:active {
-        transform: scale(0.98);
-        box-shadow: 0 2px 8px rgba(83, 197, 224, 0.2);
-    }
-    
-    .mobile-btn-secondary {
-        background: transparent;
-        color: #9fc4d4;
-        border: 1px solid rgba(83, 197, 224, 0.3);
-    }
-    
-    .mobile-btn-secondary:active {
-        background: rgba(83, 197, 224, 0.1);
-    }
-    
-    /* Grand Total Section */
-    .mobile-grand-total {
-        background: rgba(83, 197, 224, 0.08);
-        border: 1px solid rgba(83, 197, 224, 0.2);
-        border-radius: 14px;
-        padding: 18px 20px;
-        margin: 20px 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .mobile-grand-label {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #9fc4d4;
-    }
-    
-    .mobile-grand-value {
-        font-size: 1.5rem;
-        font-weight: 800;
-        color: #53c5e0;
-    }
-    
-    /* Notes Section */
-    .mobile-notes {
-        background: rgba(83, 197, 224, 0.06);
-        border-left: 3px solid #53c5e0;
-        border-radius: 0 10px 10px 0;
-        padding: 12px 14px;
-        margin-top: 12px;
-    }
-    
-    .mobile-notes-label {
-        font-size: 0.7rem;
-        color: #53c5e0;
-        font-weight: 700;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    
-    .mobile-notes-text {
-        font-size: 0.85rem;
-        color: #eaf6fb;
-        line-height: 1.5;
-    }
-    
-    /* Reference Image */
-    .mobile-reference {
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px solid rgba(83, 197, 224, 0.1);
-    }
-    
-    .mobile-reference-label {
-        font-size: 0.75rem;
-        color: #9fc4d4;
-        font-weight: 600;
-        margin-bottom: 10px;
-    }
-    
-    .mobile-reference-image {
-        width: 100%;
-        max-width: 200px;
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid rgba(83, 197, 224, 0.2);
-    }
-    
-    .mobile-reference-image img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-    
-    /* ============================================
-       MOBILE MEDIA QUERY - ACTIVATE REDESIGN
-       ============================================ */
-    @media (max-width: 640px) {
-        /* Hide desktop layout, show mobile */
-        .review-order-item > .mobile-order-card {
-            display: block !important;
-        }
-        
-        /* Container adjustments */
-        .order-container {
-            padding: 0 16px !important;
-        }
-        
-        .review-card {
-            padding: 16px !important;
-            background: transparent !important;
-            border: none !important;
-        }
-        
-        /* Section headings */
-        .review-heading {
-            font-size: 1rem !important;
-            margin-bottom: 16px !important;
-            padding-bottom: 12px !important;
-        }
-        
-        /* Form adjustments */
-        .review-contact-grid {
-            grid-template-columns: 1fr !important;
-            gap: 12px !important;
-        }
-        
-        .review-contact-full {
-            grid-column: span 1 !important;
-        }
-        
-        /* Action buttons */
-        .review-actions-row {
-            flex-direction: column-reverse !important;
-            gap: 12px !important;
-        }
-        
-        .review-buy-btn,
-        .review-cancel-btn,
-        .shopee-btn-primary,
-        .shopee-btn-outline {
-            width: 100% !important;
-            min-height: 52px !important;
-            justify-content: center !important;
-        }
-        
-        /* Info note redesign */
-        .review-info-note {
-            background: rgba(83, 197, 224, 0.06) !important;
-            border: 1px solid rgba(83, 197, 224, 0.15) !important;
-            border-left: none !important;
-            border-radius: 12px !important;
-            padding: 14px 16px !important;
-        }
-        
-        .review-info-note-title {
-            color: #eaf6fb !important;
-        }
-        
-        .review-info-note-text {
-            color: #9fc4d4 !important;
-            font-size: 0.8rem !important;
-        }
-        
-        /* Page title */
-        h1 {
-            font-size: 1.1rem !important;
-        }
-        
-        /* Compact spacing */
-        .compact-card {
-            padding: 0 !important;
-        }
-    }
-    
-    /* Desktop: hide mobile-only elements */
-    @media (min-width: 641px) {
-        .mobile-order-only {
-            display: none !important;
-        }
-    }
-    
     .review-actions-row {
         display: flex;
         justify-content: flex-end;
@@ -996,14 +424,14 @@ require_once __DIR__ . '/../includes/header.php';
         transition: all .2s;
     }
     .tshirt-btn-secondary {
-        background: #ffffff !important;
-        border: 1px solid #d1d5db !important;
-        color: #374151 !important;
+        background: rgba(83,197,224,0.08) !important;
+        border: 1px solid rgba(83,197,224,0.3) !important;
+        color: #e0f2fe !important;
     }
     .tshirt-btn-secondary:hover {
-        background: #f3f4f6 !important;
-        border-color: #9ca3af !important;
-        color: #111827 !important;
+        background: rgba(83,197,224,0.15) !important;
+        border-color: rgba(83,197,224,0.5) !important;
+        color: #ffffff !important;
     }
     .tshirt-btn-primary {
         border: none;
@@ -1309,7 +737,7 @@ require_once __DIR__ . '/../includes/header.php';
         }
         
         .review-info-note-title {
-            font-size: 0.85rem !important;
+            font-size: 0.75rem !important;
         }
         
         .review-info-note-text {
@@ -1499,10 +927,10 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <?php if (!$is_product_order): ?>
                 <!-- 3. Payment Policy Notice -->
-                <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
-                    <h3 style="font-size:0.9rem; font-weight:700; color:#78350f; margin-bottom:0.5rem;">Payment Policy</h3>
-                    <p style="font-size:0.82rem; color:#92400e; line-height:1.6; margin:0;">
-                        Payment options (100% Full Payment or 50% Downpayment) will become available once staff reviews your order and sets the price.
+                <div style="background: rgba(0,49,61,0.7); border: 1px solid #53c5e0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; backdrop-filter: blur(8px);">
+                    <h3 style="font-size:0.95rem; font-weight:700; color:#53c5e0; margin-bottom:0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Payment Policy</h3>
+                    <p style="font-size:0.85rem; color:#e0f2fe; line-height:1.6; margin:0;">
+                        The payment option (100% Full Payment) will become available once staff reviews your order and sets the price. 
                         You will receive a notification when your order is ready for payment.
                     </p>
                 </div>
@@ -1515,7 +943,7 @@ require_once __DIR__ . '/../includes/header.php';
                         Back to Cart
                     </a>
                     
-                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;">Place Order</button>
+                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;">Inquire Now</button>
                 </div>
             </div>
         </form>

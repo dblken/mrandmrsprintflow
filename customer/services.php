@@ -9,9 +9,6 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/customer_service_catalog.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
-// Require customer access only
-require_customer();
-
 // Fetch services from DB
 $visible_rows = db_query(
     "SELECT s.*, 
@@ -34,25 +31,11 @@ foreach ($visible_rows as $row) {
         $img = trim((string) ($row['hero_image'] ?? ''));
     }
     
-    // Strip PHP code that admin may have stored (e.g., < ?php echo $base_path; ? >/uploads/...)
-    $img = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/', '', $img);
-    $img = trim($img);
-    
-    // Transform path to correct location: /public/assets/images/services/
-    if ($img !== '' && strpos($img, 'http') === false) {
-        $img = '/' . ltrim($img, '/');
-        if (strpos($img, '/public/') === false) {
-            // Check if it already has /images/services/ prefix (admin upload location)
-            if (strpos($img, '/images/services/') === false && strpos($img, '/uploads/services/') === false) {
-                $img = '/public/assets/images/services/' . basename($img);
-            } else {
-                $img = '/public/assets' . $img;
-            }
-        }
-    }
-    
     if ($img === '') {
-        $img = '/public/assets/images/services/default.png';
+        $img = '/printflow/public/assets/images/services/default.png';
+    }
+    if ($img !== '' && $img[0] !== '/') {
+        $img = '/' . ltrim($img, '/');
     }
     
     $core_services[] = [
@@ -78,9 +61,8 @@ require_once __DIR__ . '/../includes/header.php';
 // Reusable card template function
 function render_service_card($srv) {
     $img = $srv['img'];
-    // Use default if image path is empty or doesn't contain public/assets
-    if ($img === '' || (strpos($img, 'http') === false && strpos($img, '/public/') === false)) {
-        $img = '/public/assets/images/services/default.png';
+    if (!file_exists($_SERVER['DOCUMENT_ROOT'] . $img) && strpos($img, 'http') === false) {
+        $img = '/printflow/public/assets/images/services/default.png';
     }
     
     $json_name = htmlspecialchars(json_encode($srv['name']), ENT_QUOTES, 'UTF-8');
@@ -97,22 +79,6 @@ function render_service_card($srv) {
         foreach ($images as $imgPath) {
             $imgPath = trim($imgPath);
             if ($imgPath !== '') {
-                // Strip PHP code that admin may have stored
-                $imgPath = preg_replace('/<\?php\s+echo\s+\$[a-z_]+;?\s*\?>/i', '', $imgPath);
-                $imgPath = trim($imgPath);
-                
-                // Transform path to correct location: /public/assets/images/services/
-                if (strpos($imgPath, 'http') === false) {
-                    $imgPath = '/' . ltrim($imgPath, '/');
-                    if (strpos($imgPath, '/public/') === false) {
-                        // Check if it already has /images/services/ prefix (admin upload location)
-                        if (strpos($imgPath, '/images/services/') === false && strpos($imgPath, '/uploads/services/') === false) {
-                            $imgPath = '/public/assets/images/services/' . basename($imgPath);
-                        } else {
-                            $imgPath = '/public/assets' . $imgPath;
-                        }
-                    }
-                }
                 $display_images[] = $imgPath;
             }
         }
@@ -155,34 +121,29 @@ function render_service_card($srv) {
 
 <style>
     :root {
-        --shopee-orange: #0a2530;
-        --shopee-bg: #ffffff;
-        --shopee-card-bg: #ffffff;
-        --shopee-text: #212121;
-        --shopee-muted: #757575;
-        --shopee-border: rgba(0,0,0,0.09);
-    }
-
-    body.customer-theme {
-        background: #ffffff !important;
-        background-image: none !important;
+        --shopee-orange: #53c5e0;
+        --shopee-bg: #00151b;
+        --shopee-card-bg: rgba(0,49,61,0.85);
+        --shopee-text: #e0f2fe;
+        --shopee-muted: #94a3b8;
+        --shopee-border: rgba(83,197,224,0.2);
     }
     
     .shopee-card {
         background: var(--shopee-card-bg);
-        border: 1px solid var(--shopee-border);
-        border-radius: 4px;
+        border: none;
+        border-radius: 0;
         transition: transform 0.2s, box-shadow 0.2s;
         cursor: pointer;
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        backdrop-filter: blur(8px);
     }
     
     .shopee-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        border-color: var(--shopee-orange);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(83,197,224,0.1);
     }
     
     .shopee-img {
@@ -246,7 +207,7 @@ function render_service_card($srv) {
     .shopee-btn {
         flex: 1;
         padding: 7px 0;
-        border-radius: 3px;
+        border-radius: 0;
         font-size: 0.8rem;
         font-weight: 600;
         text-align: center;
@@ -269,10 +230,14 @@ function render_service_card($srv) {
         background: var(--shopee-orange);
         color: #fff;
         width: 100%;
+        box-shadow: 0 0 12px rgba(83, 197, 224, 0.2);
     }
     
-    .shopee-btn:hover {
-        opacity: 0.9;
+    .shopee-btn-buy:hover {
+        opacity: 1 !important;
+        background: #7adcf5 !important;
+        box-shadow: 0 0 20px rgba(83, 197, 224, 0.5);
+        transform: translateY(-1px);
     }
     
     .rating-stars {
@@ -291,15 +256,15 @@ function render_service_card($srv) {
     }
     
     #service-modal-content {
-        background: #ffffff !important;
-        border-color: #e2e8f0 !important;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+        background: rgba(0,28,36,0.97) !important;
+        border: 1px solid rgba(83,197,224,0.28) !important;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.6) !important;
     }
-    #modal-name { color: #1e293b !important; }
-    #modal-intro-text { color: #475569 !important; }
+    #modal-name { color: #eaf6fb !important; }
+    #modal-intro-text { color: #b9d4df !important; }
     #modal-cart-section {
-        background: #f8fafc !important;
-        border-top-color: #e2e8f0 !important;
+        background: rgba(0,18,24,0.97) !important;
+        border-top-color: rgba(83,197,224,0.24) !important;
     }
 </style>
 
@@ -331,21 +296,21 @@ function render_service_card($srv) {
     <!-- Backdrop -->
     <div onclick="closeServiceModal()" style="position: absolute; inset: 0; background-color: rgba(0, 0, 0, 0.45);"></div>
     
-    <div id="service-modal-content" style="position: relative; background: rgba(10, 37, 48, 0.96); border: 1px solid rgba(83, 197, 224, 0.28); border-radius: 1.25rem; width: 620px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: all 0.3s ease;">
+    <div id="service-modal-content" style="position: relative; background: rgba(10, 37, 48, 0.96); border: none; border-radius: 0; width: 620px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: all 0.3s ease;">
         
         <style>
             #service-modal-scroll-body::-webkit-scrollbar { width: 6px; }
             #service-modal-scroll-body::-webkit-scrollbar-track { background: transparent; }
             #service-modal-scroll-body::-webkit-scrollbar-thumb { background: rgba(83, 197, 224, 0.7); border-radius: 10px; }
             .modal-action-row { display: flex; align-items: stretch; gap: 1rem; }
-            .modal-qty-block { display: flex; align-items: center; border: 1px solid rgba(83, 197, 224, 0.32); border-radius: 0.75rem; height: 48px; flex-shrink: 0; background: rgba(12, 43, 56, 0.92); }
+            .modal-qty-block { display: flex; align-items: center; border: none; border-radius: 0; height: 48px; flex-shrink: 0; background: rgba(12, 43, 56, 0.92); }
             .modal-qty-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; color: #e8f4f8; font-weight: 700; transition: all 0.2s; }
             .modal-action-buttons { display: grid; grid-template-columns: 1fr; gap: 0.75rem; flex: 1; }
-            .modal-action-btn { height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; border-radius: 0.75rem; border: none; cursor: pointer; transition: all 0.3s; font-size: 0.9rem; text-transform: uppercase; background: #0a2530; color: #ffffff; box-shadow: 0 8px 18px rgba(10, 37, 48, 0.25); }
-            .modal-action-btn:hover { background: #53C5E0; box-shadow: 0 8px 22px rgba(83, 197, 224, 0.35); transform: translateY(-1px); }
+            .modal-action-btn { height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; border-radius: 0; border: none; cursor: pointer; transition: all 0.3s; font-size: 0.9rem; text-transform: uppercase; background: var(--shopee-orange); color: #001c24; box-shadow: 0 0 15px rgba(83, 197, 224, 0.25); letter-spacing: 0.05em; }
+            .modal-action-btn:hover { background: #7adcf5; box-shadow: 0 0 25px rgba(83, 197, 224, 0.5); transform: translateY(-2px); }
         </style>
         
-        <button onclick="closeServiceModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 9999px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
+        <button onclick="closeServiceModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 100; padding: 0.5rem; background: #ffffff; border: none; border-radius: 0; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
             <svg style="width: 1.5rem; height: 1.5rem; color: #1e293b;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
 
@@ -356,33 +321,32 @@ function render_service_card($srv) {
                 </div>
                 
                 <!-- Navigation Arrows -->
-                <button type="button" id="modal-carousel-prev" onclick="changeModalImage(-1);event.stopPropagation();" style="display:none;position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);color:#374151;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10;transition:all 0.2s;">
+                <button type="button" id="modal-carousel-prev" onclick="changeModalImage(-1);event.stopPropagation();" style="display:none;position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);color:#374151;border:none;border-radius:0;width:36px;height:36px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10;transition:all 0.2s;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 </button>
-                <button type="button" id="modal-carousel-next" onclick="changeModalImage(1);event.stopPropagation();" style="display:flex;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);color:#374151;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10;transition:all 0.2s;">
+                <button type="button" id="modal-carousel-next" onclick="changeModalImage(1);event.stopPropagation();" style="display:flex;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);color:#374151;border:none;border-radius:0;width:36px;height:36px;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10;transition:all 0.2s;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
                 
                 <!-- Image Counter -->
-                <div id="modal-image-counter" style="display:none;position:absolute;bottom:16px;right:16px;background:rgba(0,0,0,0.7);color:white;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:10;">
+                <div id="modal-image-counter" style="display:none;position:absolute;bottom:16px;right:16px;background:rgba(0,0,0,0.7);color:white;padding:4px 10px;border-radius:0;font-size:11px;font-weight:600;z-index:10;">
                     <span id="modal-current-image">1</span> / <span id="modal-total-images">1</span>
                 </div>
                 
                 <div style="position: absolute; top: 1.25rem; left: 1.25rem; z-index:11;">
-                    <span id="modal-category" style="padding: 0.35rem 0.85rem; background: #ffffff; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; border-radius: 0.5rem; color: #4F46E5; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">CATEGORY</span>
+                    <span id="modal-category" style="padding: 0.35rem 0.85rem; background: #ffffff; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; border-radius: 0; color: #4F46E5; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">CATEGORY</span>
                 </div>
             </div>
 
             <div style="padding: 1.5rem 2rem; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
                     <h2 id="modal-name" style="font-size: 1.5rem; font-weight: 800; color: #eaf6fb; margin: 0;">Service Name</h2>
-                    <div id="modal-rating-pill" style="display: flex; align-items: center; gap: 6px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 4px 10px; border-radius: 999px;">
+                    <div id="modal-rating-pill" style="display: flex; align-items: center; gap: 6px; background: rgba(245, 158, 11, 0.1); border: none; padding: 4px 10px; border-radius: 0;">
                         <span style="color: #f59e0b; font-size: 14px;">★</span>
                         <span id="modal-rating-val" style="color: #f59e0b; font-size: 0.85rem; font-weight: 800;">0.0</span>
                     </div>
                 </div>
                 <p id="modal-intro-text" style="color: #b9d4df; margin: 0 0 1.25rem; line-height: 1.6; font-size: 0.9rem;"></p>
-                <a id="modal-reviews-link" href="#" style="display:none;"></a>
             </div>
             <div id="modal-ratings-section" style="padding: 0 2rem 1.5rem;"></div>
         </div>
@@ -401,9 +365,9 @@ function render_service_card($srv) {
 </div>
 
 <script>
-let currentModalData = {};
-let modalImages = [];
-let currentModalImageIndex = 0;
+var currentModalData = {};
+var modalImages = [];
+var currentModalImageIndex = 0;
 
 function openServiceModal(id, name, category, images, link, is_service, price, stock, modalIntro, avgRating, reviewCount) {
     document.getElementById('modal-name').textContent = name;
@@ -520,7 +484,7 @@ function loadModalReviews(serviceId) {
     const container = document.getElementById('modal-ratings-section');
     container.innerHTML = '';
 
-    fetch('<?php echo $base_path; ?>/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
+    fetch('/printflow/public/api/modal_reviews.php?service_id=' + encodeURIComponent(serviceId))
         .then(r => r.json())
         .then(data => {
             const reviews = data.reviews || [];
@@ -530,8 +494,8 @@ function loadModalReviews(serviceId) {
             const starSvg = (w, filled) =>
                 `<svg width="${w}" height="${w}" fill="${filled ? '#ef4444' : '#d1d5db'}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
 
-            let html = `<div style="background:#fff;border:1px solid #e5e7eb;border-radius:4px;padding:1.5rem 2rem;">`;
-            html += `<h2 style="font-size:1.1rem;font-weight:700;color:#111827;margin:0 0 0.75rem;">Product Ratings</h2>`;
+            let html = `<div style="background:rgba(0,28,36,0.95);border:1px solid rgba(83,197,224,0.16);border-radius:8px;padding:1.5rem;">`;
+            html += `<h2 style="font-size:1.1rem;font-weight:700;color:#eaf6fb;margin:0 0 0.75rem;">Product Ratings</h2>`;
 
             if (reviews.length === 0) {
                 html += `<div style="text-align:center;padding:3rem 1rem;color:#6b7280;">`;
@@ -540,7 +504,7 @@ function loadModalReviews(serviceId) {
                 html += `<p style="font-size:0.875rem;color:#9ca3af;">Be the first to review this product!</p>`;
                 html += `</div>`;
             } else {
-                html += `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">`;
+                html += `<div style="background:rgba(83,197,224,0.05);border:1px solid rgba(83,197,224,0.18);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">`;
                 html += `<div style="display:flex;gap:2rem;align-items:center;flex-wrap:wrap;">`;
                 html += `<div style="text-align:center;"><div style="font-size:3rem;font-weight:700;color:#ef4444;line-height:1;">${avg.toFixed(1)}</div>`;
                 html += `<div style="font-size:0.875rem;color:#6b7280;margin-top:0.25rem;">out of 5</div>`;
@@ -554,13 +518,34 @@ function loadModalReviews(serviceId) {
                     const date = rv.created_at ? rv.created_at.substring(0, 16) : '';
                     const msg = rv.message ? rv.message.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 
-                    html += `<div style="padding:1.5rem;border-bottom:1px solid #e5e7eb;">`;
+                    html += `<div style="padding:1.5rem;border-bottom:1px solid rgba(83,197,224,0.1);">`;
                     html += `<div style="display:flex;gap:1rem;">`;
-                    html += `<div style="flex-shrink:0;"><div style="width:48px;height:48px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-weight:600;color:#6b7280;">${initial}</div></div>`;
-                    html += `<div style="flex:1;"><div style="font-weight:600;color:#1f2937;margin-bottom:0.25rem;">${name}</div>`;
+                    html += `<div style="flex-shrink:0;"><div style="width:48px;height:48px;border-radius:50%;background:rgba(83,197,224,0.15);display:flex;align-items:center;justify-content:center;font-weight:600;color:#e0f2fe;">${initial}</div></div>`;
+                    html += `<div style="flex:1;"><div style="font-weight:600;color:#eaf6fb;margin-bottom:0.25rem;">${name}</div>`;
                     html += `<div style="display:flex;gap:2px;margin-bottom:0.5rem;">${[1,2,3,4,5].map(i => starSvg(16, i <= rating)).join('')}</div>`;
                     html += `<div style="font-size:0.875rem;color:#6b7280;margin-bottom:0.5rem;">${date}</div>`;
-                    if (msg) html += `<div style="color:#374151;line-height:1.6;">${msg}</div>`;
+                    
+                    if (msg) html += `<div style="color:#b9d4df;line-height:1.6;margin-bottom:0.75rem;">${msg}</div>`;
+                    
+                    // Photos
+                    if (rv.images && rv.images.length > 0) {
+                        html += `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; margin-bottom:0.75rem;">`;
+                        rv.images.forEach(img => {
+                            html += `<div style="aspect-ratio:1; border-radius:6px; overflow:hidden; border:1px solid rgba(83,197,224,0.12);">`;
+                            html += `<img src="${img.image_path}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(this.src, '_blank')">`;
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                    }
+                    
+                    // Video
+                    if (rv.video_path) {
+                        html += `<div style="margin-bottom:0.75rem; max-width:260px;">`;
+                        html += `<div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:8px; overflow:hidden; border:1px solid rgba(83,197,224,0.2);">`;
+                        html += `<video src="${rv.video_path}" controls style="width:100%; height:100%; object-fit:cover;"></video>`;
+                        html += `</div></div>`;
+                    }
+
                     html += `</div></div></div>`;
                 });
 

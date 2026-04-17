@@ -4,7 +4,6 @@
  * Handles customer-side order submission and profile data.
  */
 require_once __DIR__ . '/../includes/auth.php';
-require_customer();
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 

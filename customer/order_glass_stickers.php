@@ -4,10 +4,6 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
-
-// Require customer access only
-require_customer();
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
@@ -135,7 +131,7 @@ $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Activ
 
 // Fetch actual service image
 $service_info = db_query("SELECT hero_image FROM services WHERE customer_link LIKE '%order_glass_stickers%' LIMIT 1");
-$display_img = (!empty($service_info) && !empty($service_info[0]['hero_image'])) ? $service_info[0]['hero_image'] : '<?php echo $base_path; ?>/public/assets/images/services/default.png';
+$display_img = (!empty($service_info) && !empty($service_info[0]['hero_image'])) ? $service_info[0]['hero_image'] : '/printflow/public/assets/images/services/default.png';
 if ($display_img !== '' && strpos($display_img, 'http') === false && $display_img[0] !== '/') {
     $display_img = '/' . ltrim($display_img, '/');
 }
@@ -156,7 +152,7 @@ if ($display_img !== '' && strpos($display_img, 'http') === false && $display_im
 
         <div class="shopee-card">
             <div class="shopee-image-section">
-                <div class="sticky top-24">
+                <div class="sticky-image-container">
                     <div class="shopee-main-image-wrap">
                         <img src="<?php echo htmlspecialchars($display_img); ?>" alt="Service Image" class="shopee-main-image" onerror="this.src='https://placehold.co/600x600/f8fafc/0f172a?text=Glass+Printing'">
                     </div>
