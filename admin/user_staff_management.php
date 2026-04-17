@@ -401,8 +401,8 @@ if (isset($_GET['ajax'])) {
         .mf-alert.err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
         .pf-submit-overlay { position:fixed; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; background:rgba(1,22,28,0.52); backdrop-filter:blur(2px); }
         .pf-submit-overlay.is-open { display:flex; }
-        .pf-submit-card { width:72px; height:72px; background:#fff; border:1px solid #d9f3f0; border-radius:8px; box-shadow:0 20px 48px rgba(0,0,0,0.22); display:flex; align-items:center; justify-content:center; }
-        .pf-submit-spinner { width:38px; height:38px; border-radius:50%; border:4px solid #d9f3f0; border-top-color:#0d9488; animation:spin 0.8s linear infinite; }
+        .pf-submit-spinner { width:48px; height:48px; border-radius:50%; border:5px solid rgba(217,243,240,0.35); border-top-color:#0d9488; animation:pf-submit-spin 0.72s linear infinite; }
+        @keyframes pf-submit-spin { to { transform: rotate(360deg); } }
         
         /* Validation States */
         .mf-group.is-invalid input, .mf-group.is-invalid select, .mf-group.is-invalid textarea {
@@ -1241,9 +1241,7 @@ if (isset($_GET['ajax'])) {
 </div>
 
 <div class="pf-submit-overlay" :class="{'is-open': pageSubmitting}" x-cloak>
-    <div class="pf-submit-card">
-        <div class="pf-submit-spinner"></div>
-    </div>
+    <div class="pf-submit-spinner"></div>
 </div>
 
 <!-- Image Viewer Modal - REMOVED -->
@@ -2068,6 +2066,7 @@ function userManagement() {
             const userId = this.activateConfirm.userId;
             if (!userId) return;
             this.activateConfirm.isOpen = false;
+            this.pageSubmitting = true;
             try {
                 const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
@@ -2113,6 +2112,8 @@ function userManagement() {
                 }
             } catch (e) {
                 alert('Network error.');
+            } finally {
+                this.pageSubmitting = false;
             }
         },
         async confirmDeleteUser() {
