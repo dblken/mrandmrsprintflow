@@ -428,7 +428,7 @@ function render_service_fields($service_id, $branches = [], $existing_data = [])
 function get_service_field_scripts() {
     return <<<'JSEND'
 <script>
-let dimensionMode = 'preset';
+var dimensionMode = window.__pfServiceDimensionMode || 'preset';
 
 function updateOptVisual(input) {
     const name = input.name;
@@ -541,6 +541,7 @@ function syncDimensionToHidden(row) {
 function selectDimension(w, h, e) {
     if (e) e.preventDefault();
     dimensionMode = 'preset';
+    window.__pfServiceDimensionMode = dimensionMode;
     const target = e ? e.target : null;
     const row = target ? target.closest('.shopee-form-row') : document;
     const btnGroup = target ? target.closest('.shopee-opt-group') : null;
@@ -563,6 +564,7 @@ function selectDimension(w, h, e) {
 function selectDimensionOthers(e) {
     if (e) e.preventDefault();
     dimensionMode = 'others';
+    window.__pfServiceDimensionMode = dimensionMode;
     const target = e ? e.target : null;
     const row = target ? target.closest('.shopee-form-row') : document;
     const btnGroup = target ? target.closest('.shopee-opt-group') : null;
