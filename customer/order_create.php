@@ -9,6 +9,24 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_id_verified.php';
 
+function order_create_optional_query($sql, $types = '', $params = []) {
+    try {
+        return db_query($sql, $types, $params) ?: [];
+    } catch (Throwable $e) {
+        error_log('order_create optional query failed: ' . $e->getMessage());
+        return [];
+    }
+}
+
+function order_create_optional_execute($sql, $types = '', $params = []) {
+    try {
+        return db_execute($sql, $types, $params);
+    } catch (Throwable $e) {
+        error_log('order_create optional execute failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
 $product_id = (int)($_GET['product_id'] ?? 0);
 $edit_item_key = $_GET['edit_item'] ?? '';
 
@@ -80,9 +98,16 @@ if (!$display_img) {
 }
 
 // Ratings
+if (function_exists('ensure_ratings_table_exists')) {
+    try {
+        ensure_ratings_table_exists();
+    } catch (Throwable $e) {
+        error_log('order_create ratings schema ensure failed: ' . $e->getMessage());
+    }
+}
+
 // Ensure review_helpful table exists
-global $conn;
-$conn->query("CREATE TABLE IF NOT EXISTS review_helpful (
+order_create_optional_execute("CREATE TABLE IF NOT EXISTS review_helpful (
     id INT AUTO_INCREMENT PRIMARY KEY,
     review_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -91,14 +116,32 @@ $conn->query("CREATE TABLE IF NOT EXISTS review_helpful (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 $current_user_id = get_user_id();
-$reviews = db_query(
-    "SELECT r.*, c.first_name, c.last_name, c.profile_picture,
+$review_columns = array_flip(array_column(order_create_optional_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+$review_customer_expr = isset($review_columns['customer_id']) ? 'r.customer_id' : (isset($review_columns['user_id']) ? 'r.user_id' : '0');
+$review_comment_expr = isset($review_columns['comment']) ? 'r.comment' : (isset($review_columns['message']) ? 'r.message' : "''");
+$review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
+$review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
+$review_created_expr = isset($review_columns['created_at']) ? 'r.created_at' : 'NOW()';
+
+$reviews = order_create_optional_query(
+    "SELECT
+     r.id,
+     r.order_id,
+     {$review_customer_expr} AS user_id,
+     {$review_service_expr} AS service_type,
+     r.rating,
+     {$review_comment_expr} AS comment,
+     {$review_video_expr} AS video_path,
+     {$review_created_expr} AS created_at,
+     c.first_name,
+     c.last_name,
+     c.profile_picture,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted
      FROM reviews r
-     LEFT JOIN customers c ON r.user_id = c.customer_id
-     WHERE r.service_type COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci
-     ORDER BY r.created_at DESC",
+     LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
+     WHERE {$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+     ORDER BY {$review_created_expr} DESC",
     'is', [$current_user_id, $product['name']]
 ) ?: [];
 
@@ -112,10 +155,10 @@ foreach ($reviews as $idx => $r) {
     if (!empty(trim($r['comment'] ?? ''))) $with_comments++;
     
     // Fetch all images for this review
-    $r_imgs = db_query("SELECT image_path FROM review_images WHERE review_id = ?", "i", [$r['id']]) ?: [];
+    $r_imgs = order_create_optional_query("SELECT image_path FROM review_images WHERE review_id = ?", "i", [$r['id']]) ?: [];
     
     // Fetch all replies for this review
-    $r_replies = db_query("
+    $r_replies = order_create_optional_query("
         SELECT rr.reply_message, rr.created_at, u.first_name, u.last_name
         FROM review_replies rr
         INNER JOIN users u ON u.user_id = rr.staff_id
@@ -130,14 +173,14 @@ foreach ($reviews as $idx => $r) {
     if (!empty($r_imgs) || !empty($r['video_path'])) $with_media++;
 }
 
-$sold_count = db_query(
+$sold_count = order_create_optional_query(
     "SELECT COALESCE(SUM(oi.quantity),0) as cnt FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE oi.product_id = ? AND o.status != 'Cancelled' AND (oi.customization_data IS NULL OR oi.customization_data = '' OR oi.customization_data NOT LIKE '%\"service_type\"%')",
     'i', [$product_id]
 );
 $sold_count = (int)($sold_count[0]['cnt'] ?? 0);
 $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k' : $sold_count;
 
-$branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'") ?: [];
+$branches = order_create_optional_query("SELECT id, branch_name FROM branches WHERE status = 'Active'") ?: [];
 
 $page_title = 'Order ' . $product['name'] . ' - PrintFlow';
 $use_customer_css = true;
