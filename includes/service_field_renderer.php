@@ -292,7 +292,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                         if ($w && $h) {
                             $displayLabel = $w . '×' . $h;
                             $is_active = (!$is_custom_dimension && $saved_width == $w && $saved_height == $h) ? ' active' : '';
-                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" onclick="selectDimension(' . htmlspecialchars($w) . ', ' . htmlspecialchars($h) . ', event)">' . $displayLabel . '</button>';
+                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-choice="1">' . $displayLabel . '</button>';
                         }
                     }
                 }
@@ -300,7 +300,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             
             if ($allowOthers) {
                 $others_active = $is_custom_dimension ? ' active' : '';
-                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" onclick="selectDimensionOthers(event)">Others</button>';
+                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-others="1">Others</button>';
             }
             $html .= '</div>';
             
@@ -310,19 +310,19 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 $html .= '<div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 400px;">';
                 $html .= '<div style="flex: 1;">';
                 $html .= '<label class="dim-label" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">WIDTH</label>';
-                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-width" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_width) : '') . '" oninput="validateDimensionInput(this)" style="text-align: center;">';
+                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-width" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_width) : '') . '" style="text-align: center;">';
                 $html .= '</div>';
                 $html .= '<div style="padding-top: 1.75rem; color: #cbd5e1; font-weight: bold; font-size: 1.25rem;">×</div>';
                 $html .= '<div style="flex: 1;">';
                 $html .= '<label class="dim-label" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">HEIGHT</label>';
-                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-height" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_height) : '') . '" oninput="validateDimensionInput(this)" style="text-align: center;">';
+                $html .= '<input type="text" inputmode="numeric" class="input-field custom-dim-height" placeholder="' . htmlspecialchars($unit) . '" maxlength="2" pattern="[0-9]*" value="' . ($is_custom_dimension ? htmlspecialchars($saved_height) : '') . '" style="text-align: center;">';
                 $html .= '</div>';
                 $html .= '</div>';
                 $html .= '</div>';
             }
             
-            $html .= '<input type="hidden" name="width" value="' . htmlspecialchars($saved_width) . '" ' . $required_attr . '>';
-            $html .= '<input type="hidden" name="height" value="' . htmlspecialchars($saved_height) . '" ' . $required_attr . '>';
+            $html .= '<input type="hidden" id="width_hidden" name="width" value="' . htmlspecialchars($saved_width) . '" ' . $required_attr . '>';
+            $html .= '<input type="hidden" id="height_hidden" name="height" value="' . htmlspecialchars($saved_height) . '" ' . $required_attr . '>';
             $html .= '<input type="hidden" name="unit" value="' . htmlspecialchars($unit) . '">';
             break;
             
@@ -340,9 +340,9 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             $saved_qty = $existing_data['quantity'] ?? 1;
             $html .= '<div class="shopee-opt-group">';
             $html .= '<div class="quantity-container shopee-opt-btn" style="display: inline-flex; justify-content: space-between; gap: 1rem; width: 175px; cursor: default;">';
-            $html .= '<button type="button" class="qty-btn-minus" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="decreaseQty()">&minus;</button>';
-            $html .= '<input type="number" id="quantity-input" name="quantity" class="qty-input-field" style="border: none; text-align: center; width: 60px; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; outline: none; -moz-appearance: textfield;" min="1" max="100" value="' . (int)$saved_qty . '" onwheel="return false;" oninput="validateQuantity(this)" onkeydown="return event.key === \'Backspace\' || event.key === \'Delete\' || event.key === \'ArrowLeft\' || event.key === \'ArrowRight\' || event.key === \'Tab\' || (event.key >= \'0\' && event.key <= \'9\');">';
-            $html .= '<button type="button" class="qty-btn-plus" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="increaseQty()">+</button>';
+            $html .= '<button type="button" class="qty-btn-minus" data-qty-action="decrease" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">&minus;</button>';
+            $html .= '<input type="number" id="quantity-input" name="quantity" class="qty-input-field" style="border: none; text-align: center; width: 60px; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; outline: none; -moz-appearance: textfield;" min="1" max="100" value="' . (int)$saved_qty . '" onwheel="return false;" onkeydown="return event.key === \'Backspace\' || event.key === \'Delete\' || event.key === \'ArrowLeft\' || event.key === \'ArrowRight\' || event.key === \'Tab\' || (event.key >= \'0\' && event.key <= \'9\');">';
+            $html .= '<button type="button" class="qty-btn-plus" data-qty-action="increase" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">+</button>';
             $html .= '</div>';
             $html .= '</div>';
             break;
@@ -601,6 +601,14 @@ function validateQuantity(input) {
     if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
+function serviceFieldEventProxy(method, target) {
+    return {
+        target: target,
+        preventDefault: function() {},
+        stopPropagation: function() {}
+    };
+}
+
 window.updateOptVisual = updateOptVisual;
 window.handleNestedFields = handleNestedFields;
 window.selectNestedDimension = selectNestedDimension;
@@ -615,6 +623,52 @@ window.increaseQty = increaseQty;
 window.decreaseQty = decreaseQty;
 window.validateQuantity = validateQuantity;
 window.updateConditionalFields = updateConditionalFields;
+
+if (!window.__pfServiceFieldDelegatesBound) {
+    window.__pfServiceFieldDelegatesBound = true;
+
+    document.addEventListener('click', function(e) {
+        const dimBtn = e.target.closest('[data-dimension-choice="1"]');
+        if (dimBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectDimension(dimBtn.dataset.width || '', dimBtn.dataset.height || '', serviceFieldEventProxy('selectDimension', dimBtn));
+            return;
+        }
+
+        const otherBtn = e.target.closest('[data-dimension-others="1"]');
+        if (otherBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectDimensionOthers(serviceFieldEventProxy('selectDimensionOthers', otherBtn));
+            return;
+        }
+
+        const qtyBtn = e.target.closest('[data-qty-action]');
+        if (qtyBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (qtyBtn.dataset.qtyAction === 'increase') increaseQty();
+            else decreaseQty();
+        }
+    }, true);
+
+    document.addEventListener('change', function(e) {
+        const radio = e.target.closest('.shopee-opt-btn input[type="radio"]');
+        if (radio) {
+            updateOptVisual(radio);
+            updateConditionalFields();
+        }
+    }, true);
+
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('.custom-dim-width, .custom-dim-height')) {
+            validateDimensionInput(e.target);
+        } else if (e.target.matches('#quantity-input')) {
+            validateQuantity(e.target);
+        }
+    }, true);
+}
 
 // --- Conditional Fields Logic ---
 

@@ -430,10 +430,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                 <?php endforeach; ?>
                                 
                                 <!-- Navigation Arrows -->
-                                <button type="button" id="carousel-prev" onclick="window.changeImage && window.changeImage(-1)" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:10;transition:all 0.2s;">
+                                <button type="button" id="carousel-prev" data-carousel-dir="-1" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:10;transition:all 0.2s;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
-                                <button type="button" id="carousel-next" onclick="window.changeImage && window.changeImage(1)" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:10;transition:all 0.2s;">
+                                <button type="button" id="carousel-next" data-carousel-dir="1" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:10;transition:all 0.2s;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 
@@ -466,8 +466,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <div style="display:none;gap:8px;margin-top:12px;overflow-x:auto;padding:4px;">
                                 <?php foreach ($display_images as $index => $media): ?>
                                     <?php if ($media['type'] === 'video'): ?>
-                                        <div onclick="window.goToImage && window.goToImage(<?php echo $index; ?>)"
-                                             class="carousel-thumbnail"
+                                        <div class="carousel-thumbnail"
                                              data-index="<?php echo $index; ?>"
                                              style="width:70px;height:70px;border-radius:10px;cursor:pointer;border:2px solid <?php echo $index === 0 ? '#53c5e0' : 'rgba(83,197,224,0.15)'; ?>;transition:all 0.2s;flex-shrink:0;background:#111;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
                                             <video src="<?php echo htmlspecialchars($media['src']); ?>" style="width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>
@@ -478,7 +477,6 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                     <?php else: ?>
                                         <img src="<?php echo htmlspecialchars($media['src']); ?>"
                                              alt="Thumbnail <?php echo $index + 1; ?>"
-                                            onclick="window.goToImage && window.goToImage(<?php echo $index; ?>)"
                                              class="carousel-thumbnail"
                                              data-index="<?php echo $index; ?>"
                                              style="width:70px;height:70px;object-fit:cover;border-radius:10px;cursor:pointer;border:2px solid <?php echo $index === 0 ? '#53c5e0' : 'rgba(83,197,224,0.15)'; ?>;transition:all 0.2s;flex-shrink:0;box-shadow:0 4px 10px rgba(0,0,0,0.2);">
@@ -948,6 +946,35 @@ window.goToImage = goToImage;
 window.toggleMute = toggleMute;
 window.toggleSingleMute = toggleSingleMute;
 
+function bindCarouselControls() {
+    document.querySelectorAll('[data-carousel-dir]').forEach(btn => {
+        if (btn.dataset.pfCarouselBound === '1') return;
+        btn.dataset.pfCarouselBound = '1';
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            changeImage(parseInt(this.dataset.carouselDir, 10) || 0);
+        });
+    });
+
+    document.querySelectorAll('.carousel-thumbnail[data-index]').forEach(thumb => {
+        if (thumb.dataset.pfCarouselBound === '1') return;
+        thumb.dataset.pfCarouselBound = '1';
+        thumb.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            goToImage(parseInt(this.dataset.index, 10) || 0);
+        });
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindCarouselControls);
+} else {
+    bindCarouselControls();
+}
+document.addEventListener('turbo:load', bindCarouselControls);
+
 document.addEventListener('keydown', function(e) {
     if (totalImages > 1) {
         if (e.key === 'ArrowLeft') changeImage(-1);
@@ -1157,6 +1184,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-
-
-
