@@ -409,10 +409,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     <div class="shopee-main-image-wrap" style="position:relative;">
                         <?php if (count($display_images) > 1): ?>
                             <!-- Media Carousel -->
-                            <div id="image-carousel" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;">
+                            <div id="image-carousel" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;isolation:isolate;pointer-events:auto;">
                                 <?php foreach ($display_images as $index => $media): ?>
                                     <?php if ($media['type'] === 'video'): ?>
-                                        <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;">
+                                        <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:none;">
                                             <video id="carousel-video-<?php echo $index; ?>"
                                                    src="<?php echo htmlspecialchars($media['src']); ?>"
                                                    style="width:100%;height:100%;object-fit:cover;display:block;"
@@ -425,15 +425,15 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                              alt="<?php echo htmlspecialchars($service['name']); ?>"
                                              class="carousel-image"
                                              data-index="<?php echo $index; ?>"
-                                             style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;object-fit:cover;transition:left 0.4s ease-in-out;">
+                                             style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;object-fit:cover;transition:left 0.4s ease-in-out;pointer-events:none;">
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                                 
                                 <!-- Navigation Arrows -->
-                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="return window.changeImage ? (window.changeImage(-1), false) : false" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-prev" data-carousel-dir="-1" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
-                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="return window.changeImage ? (window.changeImage(1), false) : false" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-next" data-carousel-dir="1" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 
@@ -831,7 +831,8 @@ async function markHelpful(reviewId, btn) {
 <?php echo get_service_field_scripts(); ?>
 
 <script>
-var currentImageIndex = parseInt(window.__pfCurrentImageIndex || 0, 10) || 0;
+var currentImageIndex = 0;
+var carouselServiceId = <?php echo (int)$service_id; ?>;
 var totalImages = <?php echo count($display_images); ?>;
 
 function getAllCarouselItems() {
@@ -860,7 +861,10 @@ function syncCarouselToIndex(index) {
     if (items.length !== totalImages) totalImages = items.length;
 
     currentImageIndex = Math.max(0, Math.min(parseInt(index, 10) || 0, totalImages - 1));
-    window.__pfCurrentImageIndex = currentImageIndex;
+    window.__pfServiceCarouselState = {
+        serviceId: carouselServiceId,
+        imageIndex: currentImageIndex
+    };
 
     const carousel = document.getElementById('image-carousel');
     if (carousel) carousel.dataset.currentIndex = currentImageIndex;
@@ -930,6 +934,11 @@ function toggleSingleMute() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    if (window.__pfServiceCarouselState && window.__pfServiceCarouselState.serviceId === carouselServiceId) {
+        currentImageIndex = parseInt(window.__pfServiceCarouselState.imageIndex || 0, 10) || 0;
+    } else {
+        currentImageIndex = 0;
+    }
     syncCarouselToIndex(currentImageIndex);
 });
 
@@ -939,6 +948,16 @@ window.toggleMute = toggleMute;
 window.toggleSingleMute = toggleSingleMute;
 
 function bindCarouselControls() {
+    document.querySelectorAll('[data-carousel-dir]').forEach(btn => {
+        if (btn.dataset.pfCarouselBound === '1') return;
+        btn.dataset.pfCarouselBound = '1';
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            changeImage(parseInt(this.dataset.carouselDir, 10) || 0);
+        });
+    });
+
     document.querySelectorAll('.carousel-thumbnail[data-index]').forEach(thumb => {
         if (thumb.dataset.pfCarouselBound === '1') return;
         thumb.dataset.pfCarouselBound = '1';
