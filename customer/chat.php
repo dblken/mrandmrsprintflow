@@ -24,21 +24,22 @@ require_once __DIR__ . '/../includes/header.php';
 
 <style>
     :root {
-        --pf-navy: #00151b;
-        --pf-navy-card: #00232b;
-        --pf-cyan: #53c5e0;
-        --pf-cyan-glow: rgba(83,197,224,0.15);
-        --pf-border: rgba(83,197,224,0.3);
-        --pf-dim: #94a3b8;
-        --pf-self-bubble: linear-gradient(135deg,#0a2530,#001a21);
+        --pf-navy: #f8fafc;
+        --pf-navy-card: #ffffff;
+        --pf-cyan: #0a2530;
+        --pf-cyan-glow: rgba(10,37,48,0.08);
+        --pf-border: #e2e8f0;
+        --pf-dim: #64748b;
+        --pf-self-bubble: linear-gradient(135deg,#0a2530,#0f172a);
     }
 
     /* Layout — fill viewport below the site header */
     .hidden { display: none !important; }
-    body.chat-page { overflow: hidden !important; }
+    body.chat-page { overflow: hidden !important; background: var(--pf-navy); }
     body.chat-page #main-content { padding: 0 !important; min-height: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; }
     body.chat-page #main-header { position: sticky; top: 0; z-index: 100; }
-    
+    body.chat-page .text-white { color: #0f172a !important; }
+
     /* Prevent layout shift from scrollbar appearance/disappearance */
     html { overflow-y: scroll; }
     body.chat-page { overflow-y: hidden !important; }
@@ -53,57 +54,57 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     /* ── Sidebar ── */
-    .cs-sidebar { display:flex; flex-direction:column; background:rgba(0,35,43,0.97); border-right:1px solid var(--pf-border); overflow:hidden; }
+    .cs-sidebar { display:flex; flex-direction:column; background:#f8fafc; border-right:1px solid var(--pf-border); overflow:hidden; }
     .cs-sidebar-top { padding:1.25rem 1rem; border-bottom:1px solid var(--pf-border); flex-shrink:0; }
-    .cs-sidebar-top h2 { font-size:1.1rem; font-weight:800; color:#fff; margin:0 0 .9rem; }
+    .cs-sidebar-top h2 { font-size:1.1rem; font-weight:800; color:#0f172a; margin:0 0 .9rem; }
     .cs-search { position:relative; }
-    .cs-search i { position:absolute; left:.75rem; top:50%; transform:translateY(-50%); color:var(--pf-cyan); opacity:.5; }
-    .cs-search input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.05); border:1px solid var(--pf-border); border-radius:12px; padding:.55rem .75rem .55rem 2.25rem; font-size:.85rem; color:#fff; outline:none; transition:.2s; }
-    .cs-search input:focus { border-color:var(--pf-cyan); background:rgba(255,255,255,.08); }
+    .cs-search i { position:absolute; left:.75rem; top:50%; transform:translateY(-50%); color:#94a3b8; opacity:.8; }
+    .cs-search input { width:100%; box-sizing:border-box; background:#fff; border:1px solid var(--pf-border); border-radius:12px; padding:.55rem .75rem .55rem 2.25rem; font-size:.85rem; color:#0f172a; outline:none; transition:.2s; }
+    .cs-search input:focus { border-color:var(--pf-cyan); box-shadow:0 0 0 3px rgba(10,37,48,0.08); }
 
     .cs-tabs { display:flex; gap:6px; padding:.75rem 1rem; border-bottom:1px solid var(--pf-border); flex-shrink:0; }
     .cs-tab { flex:1; text-align:center; padding:.4rem 0; border-radius:8px; font-size:.75rem; font-weight:700; color:var(--pf-dim); cursor:pointer; background:transparent; border:none; transition:.2s; }
-    .cs-tab.active { background:var(--pf-cyan-glow); color:var(--pf-cyan); border:1px solid rgba(83,197,224,.25); }
+    .cs-tab.active { background:#fff; color:var(--pf-cyan); border:1px solid var(--pf-border); box-shadow:0 2px 8px rgba(15,23,42,0.06); }
 
     .cs-list { flex:1; overflow-y:auto; padding:.5rem; }
     .cs-list::-webkit-scrollbar { width:3px; }
     .cs-list::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
 
     .conv-card { display:flex; gap:11px; padding:12px 14px; border-radius:14px; margin-bottom:3px; cursor:pointer; border:1px solid transparent; transition:.18s; }
-    .conv-card:hover { background:rgba(255,255,255,.03); }
-    .conv-card.active { background:var(--pf-cyan-glow); border-color:rgba(83,197,224,.25); }
-    .conv-av { width:44px; height:44px; border-radius:11px; background:rgba(83,197,224,0.14); border:1px solid var(--pf-border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem; color:var(--pf-cyan); flex-shrink:0; overflow:hidden; }
+    .conv-card:hover { background:#f1f5f9; }
+    .conv-card.active { background:#fff; border-color:var(--pf-border); box-shadow:0 4px 12px rgba(15,23,42,0.06); }
+    .conv-av { width:44px; height:44px; border-radius:11px; background:#f1f5f9; border:1px solid var(--pf-border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem; color:var(--pf-cyan); flex-shrink:0; overflow:hidden; }
     .conv-av img { width:100%; height:100%; object-fit:cover; }
     .conv-info { flex:1; min-width:0; }
     .conv-top { display:flex; justify-content:space-between; align-items:baseline; gap:4px; }
-    .conv-name { font-size:.88rem; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .conv-time { font-size:.65rem; color:var(--pf-dim); font-weight:700; flex-shrink:0; }
-    .conv-sub { font-size:.68rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase; letter-spacing:.04em; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.85; }
-    .conv-prev { font-size:.75rem; color:var(--pf-dim); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.7; }
+    .conv-name { font-size:.88rem; font-weight:700; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .conv-time { font-size:.65rem; color:#94a3b8; font-weight:700; flex-shrink:0; }
+    .conv-sub { font-size:.68rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase; letter-spacing:.04em; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.9; }
+    .conv-prev { font-size:.75rem; color:var(--pf-dim); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.9; }
 
     /* ── Main Chat Window ── */
-    .cs-window { display:flex; flex-direction:column; overflow:hidden; background:#001a21; position:relative; }
-    .cs-header { display:flex; align-items:center; gap:12px; padding:1rem 1.5rem; border-bottom:1px solid var(--pf-border); background:rgba(0,20,26,.45); backdrop-filter:blur(10px); z-index:20; flex-shrink:0; }
+    .cs-window { display:flex; flex-direction:column; overflow:hidden; background:#fff; position:relative; }
+    .cs-header { display:flex; align-items:center; gap:12px; padding:1rem 1.5rem; border-bottom:1px solid var(--pf-border); background:#fff; z-index:20; flex-shrink:0; }
     .cs-header-info { flex:1; min-width:0; }
-    .cs-header-name { font-size:1rem; font-weight:800; color:#fff; margin:0; display:flex; align-items:center; gap:8px; }
-    .cs-header-meta { font-size:.75rem; color:var(--pf-cyan); font-weight:700; opacity:.8; margin:0; }
-    
+    .cs-header-name { font-size:1rem; font-weight:800; color:#0f172a; margin:0; display:flex; align-items:center; gap:8px; }
+    .cs-header-meta { font-size:.75rem; color:var(--pf-dim); font-weight:700; opacity:.9; margin:0; }
+
     .cs-h-actions { display: flex; gap: 8px; }
-    .cs-h-btn { 
-        width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--pf-border); 
-        background: rgba(255,255,255,.05); color: var(--pf-cyan); 
+    .cs-h-btn {
+        width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--pf-border);
+        background: #fff; color: #64748b;
         display: flex; align-items:center; justify-content:center; cursor:pointer; font-size: 1rem; transition:.2s;
     }
-    .cs-h-btn:hover { background: rgba(83,197,224,.12); color: #fff; }
+    .cs-h-btn:hover { background: #f8fafc; color: #0f172a; }
 
     .h-menu-wrap { position:relative; }
-    .h-dropdown { display:none; position:absolute; top:calc(100% + 8px); right:0; background:#00232b; border:1px solid var(--pf-border); border-radius:13px; width:170px; z-index:200; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,.4); }
+    .h-dropdown { display:none; position:absolute; top:calc(100% + 8px); right:0; background:#fff; border:1px solid var(--pf-border); border-radius:13px; width:170px; z-index:200; overflow:hidden; box-shadow:0 12px 30px rgba(15,23,42,0.12); }
     .h-dropdown.show { display:block; }
-    .h-drop-item { padding:10px 16px; font-size:.84rem; font-weight:700; color:#fff; cursor:pointer; display:flex; align-items:center; gap:10px; transition:.15s; }
-    .h-drop-item:hover { background:rgba(83,197,224,.1); color:var(--pf-cyan); }
+    .h-drop-item { padding:10px 16px; font-size:.84rem; font-weight:700; color:#0f172a; cursor:pointer; display:flex; align-items:center; gap:10px; transition:.15s; }
+    .h-drop-item:hover { background:#f1f5f9; color:var(--pf-cyan); }
 
     /* Messages Area */
-    #messagesArea { flex:1; overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:4px; background:radial-gradient(circle at top,#00232b 0%,#00151b 100%); scroll-behavior:smooth; }
+    #messagesArea { flex:1; overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:4px; background:#f8fafc; scroll-behavior:smooth; }
     #messagesArea::-webkit-scrollbar { width:4px; }
     #messagesArea::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
 
@@ -111,7 +112,7 @@ require_once __DIR__ . '/../includes/header.php';
     .brow { display:flex; width:100%; align-items:flex-end; gap:8px; margin-bottom:12px; position:relative; transition: margin 0.2s; }
     .brow.self { flex-direction:row-reverse; }
     .brow.system { justify-content:center; margin-bottom: 24px; }
-    
+
     .brow.grouped-msg { margin-bottom: 2px !important; }
     .brow.grouped-msg-next .b-meta { display: none !important; }
     .brow.grouped-msg-next .conv-av { visibility: hidden; }
@@ -119,61 +120,61 @@ require_once __DIR__ . '/../includes/header.php';
     .b-col { max-width:75%; position:relative; }
     .brow.self .b-col { display:grid; justify-items:end; }
     .brow.other .b-col { display:flex; flex-direction:column; align-items:flex-start; }
-    
+
     .bubble { display:inline-block; padding:10px 16px; border-radius:20px; font-size:.9rem; font-weight:500; line-height:1.45; max-width:100%; word-break:break-word; position: relative; }
-    .brow.self .bubble { background: var(--pf-self-bubble); border:1px solid var(--pf-border); border-radius:20px 20px 4px 20px; color: #fff; }
-    .brow.other .bubble { background:rgba(255,255,255,.07); border:1px solid var(--pf-border); border-radius:20px 20px 20px 4px; color: #fff; }
-    
+    .brow.self .bubble { background: var(--pf-self-bubble); border:1px solid rgba(10,37,48,0.15); border-radius:20px 20px 4px 20px; color: #fff; }
+    .brow.other .bubble { background:#fff; border:1px solid var(--pf-border); border-radius:20px 20px 20px 4px; color: #1e293b; }
+
     .brow.grouped-msg.other .bubble { border-radius: 20px 20px 4px 4px; }
     .brow.grouped-msg-next.other .bubble { border-radius: 4px 20px 20px 4px; }
     .brow.grouped-msg.self .bubble { border-radius: 20px 20px 4px 4px; }
     .brow.grouped-msg-next.self .bubble { border-radius: 20px 4px 4px 20px; }
 
-    .brow.system .bubble { background:rgba(255,255,255,.03); color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .brow.system .bubble { background:#f1f5f9; color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 
-    .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.6; margin-top:6px; display:flex; gap:4px; }
+    .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
 
     /* Action Bar (Messenger Style) */
     .brow:hover .b-actions, .brow.has-active-menu .b-actions { opacity:1; pointer-events:auto; }
-    .b-actions { 
-        opacity:0; pointer-events:none; display:flex; align-items: center; gap:4px; 
-        position:absolute; top:50%; transform:translateY(-50%); z-index:100; transition:.2s; 
-        background: #00232b; border: 1px solid var(--pf-border); 
-        border-radius:999px; padding:4px 8px; backdrop-filter:blur(12px); box-shadow:0 4px 20px rgba(0,0,0,0.4); 
+    .b-actions {
+        opacity:0; pointer-events:none; display:flex; align-items: center; gap:4px;
+        position:absolute; top:50%; transform:translateY(-50%); z-index:100; transition:.2s;
+        background: #fff; border: 1px solid var(--pf-border);
+        border-radius:999px; padding:4px 8px; box-shadow:0 4px 20px rgba(15,23,42,0.12);
     }
     .brow.other .b-actions { left:calc(100% + 12px); }
     .brow.self  .b-actions { right:calc(100% + 12px); flex-direction:row-reverse; }
-    
-    .ab { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--pf-cyan); cursor:pointer; font-size:1.1rem; transition:.15s; }
-    .ab:hover { background: rgba(83,197,224,0.15); color: #fff; }
+
+    .ab { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#64748b; cursor:pointer; font-size:1.1rem; transition:.15s; }
+    .ab:hover { background: #f1f5f9; color: #0f172a; }
 
     /* More Menu Sub-Menu */
-    .more-menu { 
-        display:none; position:absolute; top:100%; right:0; background:#00232b; 
-        border:1px solid var(--pf-border); border-radius:12px; width:160px; z-index:151; 
-        overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.5); margin-top: 8px;
+    .more-menu {
+        display:none; position:absolute; top:100%; right:0; background:#fff;
+        border:1px solid var(--pf-border); border-radius:12px; width:160px; z-index:151;
+        overflow:hidden; box-shadow:0 12px 30px rgba(15,23,42,0.12); margin-top: 8px;
     }
     .more-menu.show { display:block; animation: menuFade 0.2s ease; }
-    .mi { padding:10px 16px; font-size:.85rem; font-weight:700; color:#fff; cursor:pointer; display:flex; align-items:center; gap:10px; transition:.15s; text-align: left; }
-    .mi:hover { background:rgba(83,197,224,0.1); color:var(--pf-cyan); }
+    .mi { padding:10px 16px; font-size:.85rem; font-weight:700; color:#475569; cursor:pointer; display:flex; align-items:center; gap:10px; transition:.15s; text-align: left; }
+    .mi:hover { background:#f1f5f9; color:var(--pf-cyan); }
 
     /* Reactions Attached to Bubble */
-    .react-display { 
+    .react-display {
         display:flex; gap:4px; position: absolute; bottom: -10px; z-index: 10;
-        background: #00232b; border: 1px solid var(--pf-border); border-radius: 999px; padding: 3px 10px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3); cursor: default; white-space: nowrap;
+        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 3px 10px;
+        box-shadow: 0 4px 8px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
     }
     .brow.self .react-display { right: 8px; }
     .brow.other .react-display { left: 8px; }
-    .react-chip { font-size:.85rem; display:flex; align-items:center; gap:4px; color: #fff; }
+    .react-chip { font-size:.85rem; display:flex; align-items:center; gap:4px; color: #0f172a; }
     .react-chip b { font-weight: 800; font-size: 0.75rem; color: var(--pf-cyan); }
 
     /* Reaction Picker */
-    .react-picker { 
-        display:none; position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%); 
-        background:#00232b; border:1px solid var(--pf-border); border-radius:999px; padding:0 18px; 
-        gap:10px; z-index:150; box-shadow:0 12px 40px rgba(0,0,0,0.5); height: 50px; align-items: center; justify-content: center;
+    .react-picker {
+        display:none; position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%);
+        background:#fff; border:1px solid var(--pf-border); border-radius:999px; padding:0 18px;
+        gap:10px; z-index:150; box-shadow:0 12px 40px rgba(15,23,42,0.12); height: 50px; align-items: center; justify-content: center;
         animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .react-picker.show { display:flex; }
@@ -183,12 +184,12 @@ require_once __DIR__ . '/../includes/header.php';
     /* Seen Indicator */
     .seen-wrapper { display:flex; width:100%; margin-top:2px; min-height:16px; align-items:center; }
     .brow.self .seen-wrapper { justify-content: flex-end; }
-    .seen-avatar { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; border: 1px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .seen-avatar { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; border: 1px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.12); }
 
     /* Reply Sub-Area */
-    #replyBox { 
-        display:none; background:var(--pf-navy-card); border-top:1px solid var(--pf-border); 
-        padding:10px 1.5rem; justify-content:space-between; align-items:center; gap:10px; 
+    #replyBox {
+        display:none; background:#f8fafc; border-top:1px solid var(--pf-border);
+        padding:10px 1.5rem; justify-content:space-between; align-items:center; gap:10px;
     }
     .reply-wrap { border-left:3px solid var(--pf-cyan); padding-left:12px; overflow:hidden; }
     .reply-head { font-size:.7rem; font-weight:800; color:var(--pf-cyan); text-transform:uppercase; margin-bottom:2px; }
@@ -196,25 +197,25 @@ require_once __DIR__ . '/../includes/header.php';
     .reply-close { background:transparent; border:none; color:var(--pf-dim); cursor:pointer; font-size:1.2rem; }
 
     /* ── Window Footer (Compact Staff Layout) ── */
-    .cs-footer { padding: 0.75rem 1.25rem; border-top: 1px solid var(--pf-border); background:rgba(0,20,26,.8); backdrop-filter:blur(10px); flex-shrink:0; z-index:20; }
+    .cs-footer { padding: 0.75rem 1.25rem; border-top: 1px solid var(--pf-border); background:#fff; flex-shrink:0; z-index:20; }
     .chat-input-area { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 900px; margin: 0 auto; }
-    
+
     .mic-btn {
-        width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--pf-border); 
+        width: 40px; height: 40px; border-radius: 12px; background: #f8fafc; border: 1px solid var(--pf-border);
         color: var(--pf-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: all 0.2s; flex-shrink: 0;
     }
-    .mic-btn:hover { background: rgba(83,197,224,0.1); color: var(--pf-cyan); }
-    .mic-btn.recording { 
-        background: rgba(239, 68, 68, 0.15); border-color: rgba(239,68,68,0.5); color: #ef4444; 
-        box-shadow: 0 0 15px rgba(239,68,68,0.4);
-        animation: pulse-rec 1.5s infinite; 
+    .mic-btn:hover { background: #f1f5f9; color: var(--pf-cyan); }
+    .mic-btn.recording {
+        background: rgba(239, 68, 68, 0.12); border-color: rgba(239,68,68,0.5); color: #ef4444;
+        box-shadow: 0 0 15px rgba(239,68,68,0.25);
+        animation: pulse-rec 1.5s infinite;
     }
 
-    .input-bar { 
-        flex: 1; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.05); border: 2px solid transparent; 
+    .input-bar {
+        flex: 1; display: flex; align-items: center; gap: 10px; background: #f1f5f9; border: 2px solid transparent;
         border-radius: 16px; padding: 4px 4px 4px 12px; transition: all 0.2s; position: relative;
     }
-    .input-bar:focus-within { background: rgba(255,255,255,.08); border-color: var(--pf-cyan); }
+    .input-bar:focus-within { background: #fff; border-color: var(--pf-cyan); box-shadow:0 10px 15px -3px rgba(15,23,42,0.08); }
 
     .recording-panel {
         flex: 1; display: flex; align-items: center; gap: 12px; background: rgba(239,68,68,0.05);
@@ -226,81 +227,76 @@ require_once __DIR__ . '/../includes/header.php';
     #recordingCanvas { flex: 1; height: 30px; }
 
     #voicePreviewArea {
-        display: none; align-items: center; gap: 10px; background: rgba(255,255,255,0.05);
+        display: none; align-items: center; gap: 10px; background: #fff;
         border: 1px solid var(--pf-border); border-radius: 14px; padding: 6px 12px; margin: 0 4px; flex: 1;
     }
     .play-pause-btn {
-        width: 32px; height: 32px; border-radius: 50%; background: var(--pf-cyan); color: #00151b;
+        width: 32px; height: 32px; border-radius: 50%; background: var(--pf-cyan); color: #fff;
         border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
     }
     .v-waveform-container { flex: 1; height: 30px; position: relative; cursor: pointer; display: flex; align-items: center; }
     .v-waveform-canvas { width: 100%; height: 100%; display: block; }
     .v-duration { font-size: 11px; font-weight: 700; color: var(--pf-dim); min-width: 35px; }
 
-    .footer-action-btn { 
+    .footer-action-btn {
         width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
         color: var(--pf-dim); cursor: pointer; transition: all 0.15s; background: transparent; flex-shrink: 0;
     }
-    .footer-action-btn:hover { color: var(--pf-cyan); background: rgba(83,197,224,0.1); }
+    .footer-action-btn:hover { color: var(--pf-cyan); background: #f1f5f9; }
 
-    #customerMsgInput { 
-        flex: 1; background: transparent; border: none !important; outline: none !important; color: #fff; 
+    #customerMsgInput {
+        flex: 1; background: transparent; border: none !important; outline: none !important; color: #0f172a;
         font-size: 0.95rem; font-weight: 500; padding: 10px 0; font-family: inherit; line-height: 1.4;
         resize: none; max-height: 120px;
     }
-    #customerMsgInput::placeholder { color: rgba(159, 196, 212, 0.4); }
+    #customerMsgInput::placeholder { color: #94a3b8; }
 
-    .char-counter { font-size: 10px; font-weight: 800; color: var(--pf-dim); opacity: 0.5; white-space: nowrap; align-self: center; }
+    .char-counter { font-size: 10px; font-weight: 800; color: var(--pf-dim); opacity: 0.7; white-space: nowrap; align-self: center; }
 
-    .btn-send { 
-        background: #06b6d4; /* Tailwind bg-cyan-500 */ color: #00151b; border: none; width: 44px; height: 44px; border-radius: 14px; 
+    .btn-send {
+        background: #0a2530; color: #fff; border: none; width: 44px; height: 44px; border-radius: 14px;
         display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
-        box-shadow: 0 2px 10px rgba(6, 182, 212, 0.2);
+        box-shadow: 0 2px 10px rgba(10,37,48,0.2);
     }
-    .btn-send:hover {
-        background: #22d3ee; /* Tailwind bg-cyan-400 */
-        filter: brightness(1.1);
-    }
-    .btn-send:hover { transform: scale(1.05); filter: brightness(1.1); }
+    .btn-send:hover { background: #0f172a; transform: scale(1.05); }
     .btn-send.hidden { display: none; }
 
     /* Voice Bubble Style */
     .voice-bubble-player { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 20px; min-width: 220px; }
     .play-pause-bubble { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .brow.self .play-pause-bubble { background: #fff; color: #00151b; }
-    .brow.other .play-pause-bubble { background: var(--pf-cyan); color: #00151b; }
+    .brow.self .play-pause-bubble { background: #fff; color: #0a2530; }
+    .brow.other .play-pause-bubble { background: var(--pf-cyan); color: #fff; }
 
     @keyframes pulse-rec { 0%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 70%{box-shadow:0 0 0 10px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
     @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
     @keyframes pickerPop { from { opacity: 0; transform: translateX(-50%) scale(0.8) translateY(10px); } to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); } }
     @keyframes menuFade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-
     /* Forward Modal CSS */
-    #pfFwdModal { display:none; position:fixed; inset:0; background:transparent; z-index:2000; align-items:center; justify-content:center; }
+    #pfFwdModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; }
     #pfFwdModal.show { display:flex; }
-    .fwd-panel { background:rgba(0,35,43,0.8); backdrop-filter:blur(30px); border:1px solid rgba(83,197,224,0.3); border-radius:32px; width:100%; max-width:480px; box-shadow:0 40px 100px rgba(0,0,0,0.6); display:flex; flex-direction:column; overflow:hidden; }
-    .fwd-header { padding:1.25rem 1.5rem; border-bottom:1px solid rgba(83,197,224,0.1); display:flex; justify-content:space-between; align-items:center; }
-    .fwd-search-wrap { padding:1rem 1.5rem; border-bottom:1px solid rgba(83,197,224,0.1); }
-    .fwd-search-input { width:100%; height:44px; background:rgba(255,255,255,0.05); border:1px solid rgba(83,197,224,0.2); border-radius:14px; padding:0 1rem 0 2.5rem; color:#fff; font-size:0.9rem; outline:none; transition:.2s; }
-    .fwd-search-input:focus { border-color:var(--pf-cyan); background:rgba(255,255,255,0.08); }
-    .fwd-preview-section { padding:0.75rem 1.5rem; background:rgba(0,0,0,0.2); border-bottom:1px solid rgba(83,197,224,0.1); }
+    .fwd-panel { background:#fff; border:1px solid var(--pf-border); border-radius:32px; width:100%; max-width:480px; box-shadow:0 40px 100px rgba(15,23,42,0.2); display:flex; flex-direction:column; overflow:hidden; }
+    .fwd-header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--pf-border); display:flex; justify-content:space-between; align-items:center; }
+    .fwd-search-wrap { padding:1rem 1.5rem; border-bottom:1px solid var(--pf-border); }
+    .fwd-search-input { width:100%; height:44px; background:#f8fafc; border:1px solid var(--pf-border); border-radius:14px; padding:0 1rem 0 2.5rem; color:#0f172a; font-size:0.9rem; outline:none; transition:.2s; }
+    .fwd-search-input:focus { border-color:var(--pf-cyan); background:#fff; box-shadow:0 0 0 3px rgba(10,37,48,0.08); }
+    .fwd-preview-section { padding:0.75rem 1.5rem; background:#f8fafc; border-bottom:1px solid var(--pf-border); }
     .fwd-preview-label { font-size:0.65rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.05em; }
     .fwd-body { flex:1; max-height:380px; overflow-y:auto; padding:1rem 1.25rem; display:flex; flex-direction:column; gap:8px; }
     .fwd-body::-webkit-scrollbar { width:4px; }
-    .fwd-body::-webkit-scrollbar-thumb { background:rgba(83,197,224,0.2); border-radius:10px; }
-    .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid rgba(83,197,224,0.1); display:flex; justify-content:flex-end; gap:12px; }
-    
-    .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:rgba(255,255,255,0.02); border:1px solid rgba(83,197,224,0.1); }
-    .fwd-list-item:hover { background:rgba(255,255,255,0.05); border-color:rgba(83,197,224,0.2); }
-    .fwd-list-item.selected { background:rgba(83,197,224,0.08); border-color:rgba(83,197,224,0.4); }
-    .fwd-check-circle { width:20px; height:20px; border-radius:50%; border:2px solid rgba(83,197,224,0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:.2s; }
+    .fwd-body::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
+    .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid var(--pf-border); display:flex; justify-content:flex-end; gap:12px; }
+
+    .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:#fff; border:1px solid var(--pf-border); }
+    .fwd-list-item:hover { background:#f8fafc; border-color:#cbd5e1; }
+    .fwd-list-item.selected { background:rgba(10,37,48,0.06); border-color:rgba(10,37,48,0.35); }
+    .fwd-check-circle { width:20px; height:20px; border-radius:50%; border:2px solid rgba(10,37,48,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:.2s; }
     .selected .fwd-check-circle { background:var(--pf-cyan); border-color:var(--pf-cyan); }
 
     #galleryPanel {
-        position: absolute; right: 0; top: 0; bottom: 0; width: 320px; 
-        background: var(--pf-navy-card); border-left: 1px solid var(--pf-border); z-index: 50; 
-        display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.4);
+        position: absolute; right: 0; top: 0; bottom: 0; width: 320px;
+        background: #fff; border-left: 1px solid var(--pf-border); z-index: 50;
+        display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(15,23,42,0.12);
     }
     #galleryPanel.show { display: flex; }
 </style>
@@ -345,14 +341,14 @@ require_once __DIR__ . '/../includes/header.php';
             </header>
 
             <div id="pinnedBar" onclick="showPinnedModal()" style="display:none; background:var(--pf-navy-card); border-bottom:1px solid var(--pf-border); padding:10px 1.5rem; align-items:center; justify-content:space-between; cursor:pointer;">
-                <div style="display:flex;align-items:center;gap:8px;"><i class="bi bi-pin-angle-fill" style="color:var(--pf-cyan);"></i><span id="pinnedTxt" style="font-size:0.75rem; font-weight:800; color:#fff;">0 pinned messages</span></div>
+                <div style="display:flex;align-items:center;gap:8px;"><i class="bi bi-pin-angle-fill" style="color:var(--pf-cyan);"></i><span id="pinnedTxt" style="font-size:0.75rem; font-weight:800; color:#0f172a;">0 pinned messages</span></div>
                 <i class="bi bi-chevron-right" style="color:var(--pf-dim);font-size:.85rem;"></i>
             </div>
 
             <div id="messagesArea"></div>
 
             <div id="galleryPanel">
-                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#fff;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:var(--pf-dim);font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
+                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#0f172a;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:var(--pf-dim);font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
                 <div class="gal-grid" id="galleryGrid"></div>
             </div>
 
@@ -375,7 +371,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <input type="file" id="customerMediaInput" multiple style="display:none;" onchange="onImgSelected()">
                             <i class="bi bi-image"></i>
                         </label>
-                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#fff; flex:1; resize:none; font-family:inherit; padding:10px 0;"></textarea>
+                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#0f172a; flex:1; resize:none; font-family:inherit; padding:10px 0;"></textarea>
                         <span id="customerCharCount" class="char-counter">0/500</span>
                     </div>
 
@@ -385,7 +381,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="rec-timer" id="timerMain" style="font-family:monospace; font-weight:700; color:#ef4444; font-size:0.85rem;">0:00</span>
                     </div>
 
-                    <div id="voicePreviewAreaMain" style="display:none; align-items:center; gap:10px; background:rgba(255,255,255,0.05); border:1px solid var(--pf-border); border-radius:14px; padding:6px 12px; margin:0 4px; flex:1;">
+                    <div id="voicePreviewAreaMain" style="display:none; align-items:center; gap:10px; background:#fff; border:1px solid var(--pf-border); border-radius:14px; padding:6px 12px; margin:0 4px; flex:1;">
                         <button type="button" class="play-pause-btn" onclick="togglePreviewPlayback()">
                             <i class="bi bi-play-fill" id="previewPlayIconMain"></i>
                         </button>
@@ -409,8 +405,8 @@ require_once __DIR__ . '/../includes/header.php';
     <div id="pfFwdModal" class="hidden">
         <div class="fwd-panel">
             <div class="fwd-header">
-                <h3 class="text-white font-black text-xl">Forward Message</h3>
-                <button onclick="closeFwd()" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:1.5rem; padding:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='rgba(255,255,255,0.4)';"><i class="bi bi-x-lg"></i></button>
+                <h3 class="font-black text-xl" style="color:#0f172a;">Forward Message</h3>
+                <button onclick="closeFwd()" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:1.5rem; padding:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#0f172a';" onmouseout="this.style.background='transparent'; this.style.color='#64748b';"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="fwd-search-wrap">
                 <div style="position:relative;">
@@ -420,25 +416,25 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div class="fwd-preview-section">
                 <div class="fwd-preview-label">Preview</div>
-                <div id="fwdPreview" style="font-size:0.85rem; color:#fff; opacity:0.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                <div id="fwdPreview" style="font-size:0.85rem; color:#334155; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
             </div>
             <div id="fwdList" class="fwd-body"></div>
             <div class="fwd-footer">
-                <button onclick="closeFwd()" style="padding:0 20px; height:44px; border-radius:14px; border:1px solid rgba(83,197,224,0.2); background:transparent; color:var(--pf-dim); font-weight:700; font-size:0.9rem; cursor:pointer;">Cancel</button>
-                <button id="fwdSendBtn" onclick="doForward()" disabled style="padding:0 32px; height:44px; border-radius:14px; border:1px solid rgba(83,197,224,0.2); background:#06b6d4; color:#fff; font-weight:700; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.2s;">Send <i class="bi bi-send-fill"></i></button>
+                <button onclick="closeFwd()" style="padding:0 20px; height:44px; border-radius:14px; border:1px solid var(--pf-border); background:transparent; color:var(--pf-dim); font-weight:700; font-size:0.9rem; cursor:pointer;">Cancel</button>
+                <button id="fwdSendBtn" onclick="doForward()" disabled style="padding:0 32px; height:44px; border-radius:14px; border:1px solid var(--pf-border); background:#0a2530; color:#fff; font-weight:700; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.2s;">Send <i class="bi bi-send-fill"></i></button>
             </div>
         </div>
     </div>
 
     <!-- Order Details Modal -->
-    <div id="detailsModal" style="display:none; position:fixed; inset:0; background:transparent; z-index:3000; align-items:center; justify-content:center;">
-        <div style="background:rgba(0,35,43,0.7); backdrop-filter:blur(20px); border:1px solid rgba(83,197,224,0.3); border-radius:32px; width:100%; max-width:600px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 100px rgba(0,0,0,0.5);">
+    <div id="detailsModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:3000; align-items:center; justify-content:center;">
+        <div style="background:#fff; border:1px solid var(--pf-border); border-radius:32px; width:100%; max-width:600px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 100px rgba(15,23,42,0.2);">
             <div style="padding:1.5rem; border-bottom:1px solid var(--pf-border); display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                   <h2 style="color:#fff; font-size:1.4rem; font-weight:900; margin:0;">Order Specifications</h2>
+                   <h2 style="color:#0f172a; font-size:1.4rem; font-weight:900; margin:0;">Order Specifications</h2>
                    <p style="color:var(--pf-dim); font-size:0.7rem; font-weight:800; text-transform:uppercase; margin-top:2px;">Production Metadata</p>
                 </div>
-                <button onclick="document.getElementById('detailsModal').style.display='none'" style="background:transparent; border:none; color:#fff; cursor:pointer; font-size:1.5rem;"><i class="bi bi-x-lg"></i></button>
+                <button onclick="document.getElementById('detailsModal').style.display='none'" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:1.5rem;"><i class="bi bi-x-lg"></i></button>
             </div>
             <div id="detailsBody" style="flex:1; overflow-y:auto; padding:1.5rem;"></div>
         </div>
@@ -643,7 +639,7 @@ function appendMsgUI(m) {
             <span class="v-duration" id="v-dur-${m.id}">0:00</span>
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
-        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
+        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(10,37,48,0.6)'), 50);
     } else {
         contentHtml = `
             ${m.image_path ? `<img class="chat-img" src="${m.image_path}" onclick="window.open(this.src)" style="max-width:250px; border-radius:12px; margin-bottom:5px; display:block; cursor:pointer;">` : ''}
@@ -660,7 +656,7 @@ function appendMsgUI(m) {
                 <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi bi-pin-angle"></i> Pin</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
             </div>
             <div class="bubble">
-                ${m.reply_id ? `<div style="background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
+                ${m.reply_id ? `<div style="background:#f1f5f9; padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
                 ${contentHtml}
                 <div class="react-display" id="rd-${m.id}" style="display:none;"></div>
             </div>
@@ -951,7 +947,7 @@ async function drawWaveformPreview(blob, canvasId) {
         const w = canvas.width / samples;
         filtered.forEach((n,i) => {
             const h = n * mult * canvas.height;
-            ctx.fillStyle = '#53c5e0';
+            ctx.fillStyle = '#0a2530';
             ctx.fillRect(i * w, (canvas.height - h) / 2, w - 1, h);
         });
     } catch (e) {
@@ -997,7 +993,7 @@ function drawDataToCanvas(id, data, color, prog = 0) {
     const w = cvs.width / data.length;
     ctx.clearRect(0,0,cvs.width,cvs.height);
     data.forEach((n,i) => {
-        ctx.fillStyle = (i / data.length) < prog ? '#53c5e0' : color;
+        ctx.fillStyle = (i / data.length) < prog ? '#0a2530' : color;
         const h = n * cvs.height;
         ctx.fillRect(i * w, (cvs.height - h) / 2, w - 1, h);
     });
@@ -1017,7 +1013,7 @@ window.updateVoiceProgress = function(id) {
     if (dur) dur.textContent = fmtDuration(audio.currentTime);
     const row = cvs.closest('.brow');
     const isSelf = row ? row.classList.contains('self') : false;
-    drawDataToCanvas(cvs.id, vCache[audio.src], isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)', prog);
+    drawDataToCanvas(cvs.id, vCache[audio.src], isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(10,37,48,0.6)', prog);
 };
 window.resetVoicePlayer = id => { const i = document.getElementById(`v-icon-${id}`); if(i) i.className="bi bi-play-fill"; };
 window.initVoiceDuration = id => { const a = document.getElementById(`v-audio-${id}`), d = document.getElementById(`v-dur-${id}`); if(a && d) d.textContent = fmtDuration(a.duration); };
@@ -1082,10 +1078,10 @@ function loadFwdList(q = '') {
 
             return `
             <div class="fwd-list-item ${isSel?'selected':''}" onclick="toggleFwdTarget(${c.order_id})">
-                <div class="conv-av" style="width:38px;height:38px;background:rgba(83,197,224,0.1); border-radius:12px;">${avatarHtml}</div>
+                <div class="conv-av" style="width:38px;height:38px;background:#f1f5f9; border-radius:12px;">${avatarHtml}</div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:0.88rem; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(name)}</div>
-                    <div style="font-size:0.75rem; color:var(--pf-cyan); font-weight:700; opacity:0.8;">Order #${c.order_id} · ${esc(c.product_name||'Order')}</div>
+                    <div style="font-size:0.88rem; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(name)}</div>
+                    <div style="font-size:0.75rem; color:var(--pf-dim); font-weight:700; opacity:0.9;">Order #${c.order_id} · ${esc(c.product_name||'Order')}</div>
                 </div>
                 <div class="fwd-check-circle">${isSel?'<i class="bi bi-check text-black" style="font-size:14px; font-weight:900;"></i>':''}</div>
             </div>`;
@@ -1126,20 +1122,20 @@ function openOrderDetails(id) {
             const specs = it.customization || {};
             const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
             return `
-            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--pf-border); border-radius:20px; padding:1.25rem; margin-bottom:1rem;">
+            <div style="background:#fff; border:1px solid var(--pf-border); border-radius:20px; padding:1.25rem; margin-bottom:1rem;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
-                    <div><div style="font-size:0.75rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase;">${it.category}</div><div style="font-size:1.1rem; font-weight:900; color:#fff;">${it.product_name}</div></div>
-                    <div style="background:var(--pf-cyan); color:#00151b; font-size:0.7rem; font-weight:900; padding:4px 10px; border-radius:10px;">QTY: ${it.quantity}</div>
+                    <div><div style="font-size:0.75rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase;">${it.category}</div><div style="font-size:1.1rem; font-weight:900; color:#0f172a;">${it.product_name}</div></div>
+                    <div style="background:var(--pf-cyan); color:#fff; font-size:0.7rem; font-weight:900; padding:4px 10px; border-radius:10px;">QTY: ${it.quantity}</div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:0.85rem;">
-                    ${entries.map(([k,v]) => `<div><div style="font-size:0.65rem; color:var(--pf-dim); font-weight:800; text-transform:uppercase;">${k.replace(/_/g,' ')}</div><div style="font-weight:700; color:#fff;">${v}</div></div>`).join('')}
+                    ${entries.map(([k,v]) => `<div><div style="font-size:0.65rem; color:var(--pf-dim); font-weight:800; text-transform:uppercase;">${k.replace(/_/g,' ')}</div><div style="font-weight:700; color:#0f172a;">${v}</div></div>`).join('')}
                 </div>
             </div>`;
         }).join('');
         body.innerHTML = `
             <div style="margin-bottom:1.5rem; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <div style="background:var(--pf-cyan-glow); padding:1rem; border-radius:16px; border:1px solid rgba(83,197,224,0.2);"><div style="font-size:0.65rem; font-weight:800; color:var(--pf-cyan); text-transform:uppercase;">Status</div><div style="font-size:1rem; font-weight:900; color:#fff;">${order.status}</div></div>
-                <div style="background:rgba(255,165,0,0.05); padding:1rem; border-radius:16px; border:1px solid rgba(255,165,0,0.2);"><div style="font-size:0.65rem; font-weight:800; color:#f59e0b; text-transform:uppercase;">Order Date</div><div style="font-size:1rem; font-weight:900; color:#fff;">${order.order_date}</div></div>
+                <div style="background:var(--pf-cyan-glow); padding:1rem; border-radius:16px; border:1px solid rgba(10,37,48,0.2);"><div style="font-size:0.65rem; font-weight:800; color:var(--pf-cyan); text-transform:uppercase;">Status</div><div style="font-size:1rem; font-weight:900; color:#0f172a;">${order.status}</div></div>
+                <div style="background:rgba(245,158,11,0.08); padding:1rem; border-radius:16px; border:1px solid rgba(245,158,11,0.2);"><div style="font-size:0.65rem; font-weight:800; color:#b45309; text-transform:uppercase;">Order Date</div><div style="font-size:1rem; font-weight:900; color:#0f172a;">${order.order_date}</div></div>
             </div>
             ${itemsHtml || '<div class="text-center p-8 opacity-40 italic">No items found.</div>'}
         `;
@@ -1152,7 +1148,7 @@ function openGallery() {
     grid.innerHTML = '<div style="grid-column: span 3; padding:3rem; text-align:center;"><i class="bi bi-hourglass-split animate-spin text-2xl text-white opacity-20"></i></div>';
     gallery.classList.add('show');
     api(`/public/api/chat/fetch_media.php?order_id=${activeId}`).then(res => {
-        if (!res.media || !res.media.length) { grid.innerHTML = '<div style="grid-column: span 3; padding:5rem 1rem; text-align:center; color:rgba(255,255,255,0.2); font-weight:700;">No shared media yet.</div>'; return; }
+        if (!res.media || !res.media.length) { grid.innerHTML = '<div style="grid-column: span 3; padding:5rem 1rem; text-align:center; color:rgba(15,23,42,0.35); font-weight:700;">No shared media yet.</div>'; return; }
         grid.innerHTML = res.media.map(m => `<div class="gal-item" onclick="window.open('${m.message_file||m.image_path}')"><img src="${m.message_file||m.image_path}"></div>`).join('');
     });
 }
