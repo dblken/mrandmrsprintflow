@@ -348,36 +348,28 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <style>
-/* ── Modern Profile Page (Refactored to Project Specs) ─── */
+/* -- Modern Profile Page (Refactored to Project Specs) -- */
 :root {
-    --pf-primary: #53c5e0;
-    --pf-secondary: #00232b;
+    --pf-primary: #030d11;
+    --pf-secondary: #0a1f26;
     --pf-accent: #53c5e0;
     --pf-accent-hover: #32a1c4;
-    --pf-text-main: #e0f2fe;
-    --pf-text-muted: #94a3b8;
-    --pf-border: rgba(83,197,224,0.2);
-    --pf-card-bg: rgba(0,49,61,0.85);
+    --pf-text-main: #030d11;
+    --pf-text-muted: #64748b;
+    --pf-border: #e2e8f0;
+    --pf-card-bg: #ffffff;
 }
 
+/* 1. SINGLE MAIN CONTAINER */
 .profile-container {
     max-width: 1100px;
     margin: 40px auto;
     padding: 2.5rem;
-    background: rgba(0,49,61,0.8);
-    border: none;
-    border-radius: 0;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
     box-sizing: border-box;
-    backdrop-filter: blur(12px);
-    color: var(--pf-text-main);
-}
-
-body.customer-theme .profile-card-title,
-body.customer-theme .profile-container h1,
-body.customer-theme .profile-container h2,
-body.customer-theme .profile-container h3 {
-    color: var(--pf-text-main) !important;
 }
 
 /* Mobile: reduce padding and margin */
@@ -385,7 +377,7 @@ body.customer-theme .profile-container h3 {
     .profile-container {
         margin: 20px 1rem;
         padding: 1.5rem 1rem;
-        border-radius: 0;
+        border-radius: 12px;
     }
 }
 
@@ -397,7 +389,7 @@ body.customer-theme .profile-container h3 {
     align-items: start;
 }
 
-/* 📱 Mobile: Single column, sidebar on top */
+/* Mobile: Single column, sidebar on top */
 @media (max-width: 992px) {
     .profile-grid {
         grid-template-columns: 1fr;
@@ -405,7 +397,7 @@ body.customer-theme .profile-container h3 {
     }
 }
 
-/* ─ SIDEBAR (LEFT SIDE / TOP ON MOBILE) ─ */
+/* -- SIDEBAR (LEFT SIDE / TOP ON MOBILE) -- */
 .profile-sidebar {
     position: sticky;
     top: 20px;
@@ -424,10 +416,9 @@ body.customer-theme .profile-container h3 {
 .sidebar-content {
     text-align: center;
     padding: 1.5rem;
-    background: rgba(0,28,36,0.85);
-    border-radius: 0;
-    border: none;
-    backdrop-filter: blur(8px);
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid var(--pf-border);
 }
 
 @media (max-width: 768px) {
@@ -445,11 +436,11 @@ body.customer-theme .profile-container h3 {
 .profile-avatar-ring {
     width: 130px;
     height: 130px;
-    border-radius: 0;
+    border-radius: 50%;
     overflow: hidden;
-    background: #00151b;
-    border: 3px solid var(--pf-accent);
-    box-shadow: 0 4px 12px rgba(83,197,224,0.1);
+    background: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     margin: 0 auto;
 }
 
@@ -468,25 +459,25 @@ body.customer-theme .profile-container h3 {
 
 .profile-avatar-edit-btn {
     position: absolute;
-    bottom: -5px;
-    right: -5px;
+    bottom: 5px;
+    right: 5px;
     width: 32px;
     height: 32px;
-    border-radius: 0;
+    border-radius: 50%;
     background: var(--pf-accent);
-    color: #001820;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(83,197,224,0.3);
-    border: 2px solid #00151b;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: 2px solid #fff;
 }
 
 .profile-user-name {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--pf-text-main);
+    color: #0f172a;
     margin-bottom: 0.25rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -503,7 +494,7 @@ body.customer-theme .profile-container h3 {
 
 .profile-user-email {
     font-size: 0.875rem;
-    color: var(--pf-text-muted);
+    color: #64748b;
     margin-bottom: 1rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -521,9 +512,8 @@ body.customer-theme .profile-container h3 {
     display: flex;
     justify-content: space-between;
     padding: 0.75rem 0;
-    border-top: 1px solid var(--pf-border);
+    border-top: 1px solid #e2e8f0;
     font-size: 0.813rem;
-    color: var(--pf-text-muted);
 }
 
 @media (max-width: 768px) {
@@ -533,7 +523,7 @@ body.customer-theme .profile-container h3 {
     }
 }
 
-/* ─ MAIN CONTENT (RIGHT SIDE) ─ */
+/* -- MAIN CONTENT (RIGHT SIDE) -- */
 .profile-main-content {
     display: flex;
     flex-direction: column;
@@ -547,12 +537,9 @@ body.customer-theme .profile-container h3 {
 }
 
 .profile-card {
-    background: rgba(0,28,36,0.7);
-    border: none;
-    border-radius: 0;
-    padding: 1.5rem;
+    background: #fff;
+    padding: 0;
     transition: all 0.3s ease;
-    backdrop-filter: blur(6px);
 }
 
 .profile-card:hover {
@@ -568,7 +555,7 @@ body.customer-theme .profile-container h3 {
 .profile-card-title {
     font-size: 1.125rem;
     font-weight: 700;
-    color: var(--pf-text-main);
+    color: #0f172a;
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -583,7 +570,7 @@ body.customer-theme .profile-container h3 {
     }
 }
 
-/* ─ FORM LAYOUT & ELEMENTS ─ */
+/* -- FORM LAYOUT & ELEMENTS -- */
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -591,7 +578,7 @@ body.customer-theme .profile-container h3 {
     box-sizing: border-box;
 }
 
-/* 📱 Mobile: Single column */
+/* Mobile: Single column */
 @media (max-width: 768px) {
     .form-grid {
         grid-template-columns: 1fr;
@@ -607,7 +594,7 @@ body.customer-theme .profile-container h3 {
     display: block;
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--pf-text-muted);
+    color: #475569;
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.025em;
@@ -623,23 +610,13 @@ body.customer-theme .profile-container h3 {
 .pf-input {
     width: 100%;
     padding: 12px 14px;
-    border: 1px solid rgba(83,197,224,0.2) !important;
-    border-radius: 0 !important;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
     font-size: 0.95rem;
-    color: #e0f2fe !important;
-    background: rgba(0,49,61,0.6) !important;
+    color: #1e293b;
+    background: #fff;
     box-sizing: border-box;
     transition: 0.2s;
-    color-scheme: dark;
-}
-
-.pf-input:-webkit-autofill,
-.pf-input:-webkit-autofill:hover, 
-.pf-input:-webkit-autofill:focus, 
-.pf-input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px rgba(0,28,36,0.95) inset !important;
-    -webkit-text-fill-color: #e0f2fe !important;
-    transition: background-color 5000s ease-in-out 0s;
 }
 
 @media (max-width: 768px) {
@@ -652,53 +629,40 @@ body.customer-theme .profile-container h3 {
 
 .pf-input:focus {
     outline: none;
-    border-color: var(--pf-accent) !important;
-    background: rgba(0,49,61,0.8) !important;
+    border-color: var(--pf-accent);
     box-shadow: 0 0 0 3px rgba(83, 197, 224, 0.1);
-}
-
-select.pf-input option {
-    background: #00151b;
-    color: #e0f2fe;
 }
 
 .pf-btn-primary {
     padding: 7px 24px;
-    border-radius: 0;
+    border-radius: 3px;
     border: none;
-    background: linear-gradient(135deg, #268dae, #53c5e0) !important;
-    color: #ffffff !important;
-    font-weight: 700;
+    background: #0a2530;
+    color: #fff;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 0.05em;
+    font-size: 0.8rem;
     text-decoration: none;
-    min-height: 48px;
-    box-shadow: 0 4px 15px rgba(83, 197, 224, 0.4), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+    min-height: 40px;
 }
 
 @media (max-width: 768px) {
     .pf-btn-primary {
         width: 100%;
         padding: 12px 20px;
+        font-size: 0.85rem;
+        min-height: 48px;
     }
 }
 
 .pf-btn-primary:hover {
-    transform: scale(1.03);
-    box-shadow: 0 6px 20px rgba(83, 197, 224, 0.6), inset 0 1px 0 rgba(255,255,255,0.4) !important;
-    opacity: 1 !important;
-}
-
-.pf-btn-primary:active {
-    transform: scale(0.97);
-    box-shadow: 0 2px 8px rgba(83, 197, 224, 0.3) !important;
+    opacity: 0.9;
 }
 
 /* Button container on mobile */
@@ -710,16 +674,15 @@ select.pf-input option {
 
 /* Quick Actions Nav */
 .profile-nav-card {
-    background: rgba(0,28,36,0.85); border-radius: 0; border: none; padding: 0.5rem;
-    backdrop-filter: blur(8px);
+    background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 0.5rem;
 }
 .profile-nav-list { list-style: none; padding: 0; margin: 0; }
 .profile-nav-item a {
     display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-    border-radius: 8px; font-weight: 600; color: var(--pf-text-muted); text-decoration: none; transition: 0.2s;
+    border-radius: 8px; font-weight: 600; color: #64748b; text-decoration: none; transition: 0.2s;
 }
-.profile-nav-item a:hover { background: rgba(83,197,224,0.1); color: var(--pf-accent); }
-.profile-nav-item a.active { background: rgba(83,197,224,0.12); color: var(--pf-accent); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.profile-nav-item a:hover { background: #fff; color: var(--pf-accent); }
+.profile-nav-item a.active { background: #fff; color: var(--pf-accent); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
 /* Alerts */
 .pf-alert {
@@ -769,7 +732,7 @@ select.pf-input option {
 }
 </style>
 
-<div class="min-h-screen py-10">
+<div class="min-h-screen py-10" style="background: #f1f5f9;">
     <div class="profile-container">
 
         <?php if ($error): ?>
@@ -793,7 +756,7 @@ select.pf-input option {
                             <?php if (!empty($customer['profile_picture'])): ?>
                                 <img src="<?php echo get_profile_image($customer['profile_picture']); ?>?t=<?php echo time(); ?>" alt="Avatar" id="profile-preview" onerror="this.onerror=null;this.src='<?php echo $base_path; ?>/public/assets/images/icon-192.png'">
                             <?php else: ?>
-                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#00151b;">
+                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f1f5f9;">
                                     <svg width="48" height="48" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 </div>
                                 <img src="" alt="Profile" style="display:none;width:100%;height:100%;object-fit:cover;" id="profile-preview">
@@ -809,7 +772,7 @@ select.pf-input option {
                     <div style="margin-top: 1rem;">
                         <div class="profile-info-pill">
                             <span>Since</span>
-                            <span style="font-weight:700;color:#e0f2fe;"><?php echo isset($customer['created_at']) ? date('M Y', strtotime($customer['created_at'])) : '2026'; ?></span>
+                            <span style="font-weight:700;color:#0f172a;"><?php echo isset($customer['created_at']) ? date('M Y', strtotime($customer['created_at'])) : '2026'; ?></span>
                         </div>
                         <div class="profile-info-pill" style="border-bottom: none;">
                             <span>Status</span>
@@ -891,7 +854,7 @@ select.pf-input option {
                 </div>
 
                 <!-- Address Section -->
-                <div class="profile-card" id="section-address" style="padding-top: 2rem; border-top: 1px solid rgba(83,197,224,0.2);">
+                <div class="profile-card" id="section-address" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
                     <h3 class="profile-card-title">Address & Delivery</h3>
                     
                     <form method="POST" action="" id="address-form">
@@ -933,9 +896,9 @@ select.pf-input option {
                             <input type="text" id="addr_street" name="street_address" class="pf-input" placeholder="e.g. #123 Sampaguita st., Phase 2" value="<?php echo htmlspecialchars($customer['street_address'] ?? ''); ?>">
                         </div>
 
-                        <div id="addr-preview" style="display:none; background:rgba(0,0,0,0.2); border:1px solid rgba(83,197,224,0.2); border-radius:0; padding:1rem; margin-top:1.5rem; font-size:0.875rem; color:#e0f2fe;">
-                            <span style="color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Delivery Summary</span>
-                            <div id="addr-preview-text" style="color:#e0f2fe; line-height:1.4;"></div>
+                        <div id="addr-preview" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:1rem; margin-top:1.5rem; font-size:0.875rem;">
+                            <span style="color:#64748b; font-weight:600; display:block; margin-bottom:4px;">Delivery Summary</span>
+                            <div id="addr-preview-text" style="color:#0f172a; line-height:1.4;"></div>
                         </div>
 
                         <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
@@ -945,7 +908,7 @@ select.pf-input option {
                 </div>
 
                 <!-- Security Section -->
-                <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid rgba(83,197,224,0.2);">
+                <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
                     <h3 class="profile-card-title">Security & Password</h3>
                     
                     <form method="POST" action="" novalidate>
@@ -965,7 +928,7 @@ select.pf-input option {
                             </div>
                             <div class="pf-field-group">
                                 <!-- empty column for alignment or extra info -->
-                                <div style="font-size:0.813rem; color:#94a3b8; padding-top:2rem;">
+                                <div style="font-size:0.813rem; color:#64748b; padding-top:2rem;">
                                     Confirm your identity to make security changes.
                                 </div>
                             </div>
@@ -1004,14 +967,14 @@ select.pf-input option {
                 $id_image  = $customer['id_image'] ?? '';
                 $id_reject = $customer['id_reject_reason'] ?? '';
                 $status_colors = [
-                    'None'     => ['#94a3b8','rgba(148, 163, 184, 0.2)','Not Submitted'],
-                    'Pending'  => ['#fcd34d','rgba(252, 211, 77, 0.2)','Under Review'],
-                    'Verified' => ['#4ade80','rgba(74, 222, 128, 0.2)','Verified ✓'],
-                    'Rejected' => ['#fca5a5','rgba(248, 113, 113, 0.2)','Rejected'],
+                    'None'     => ['#64748b','#f1f5f9','Not Submitted'],
+                    'Pending'  => ['#b45309','#fffbeb','Under Review'],
+                    'Verified' => ['#15803d','#f0fdf4','Verified ✓'],
+                    'Rejected' => ['#b91c1c','#fef2f2','Rejected'],
                 ];
                 [$sc,$sbg,$slabel] = $status_colors[$id_status] ?? $status_colors['None'];
                 ?>
-                <div class="profile-card" id="section-id" style="padding-top:2rem;border-top:1px solid rgba(83,197,224,0.15);">
+                <div class="profile-card" id="section-id" style="padding-top:2rem;border-top:1px solid #e2e8f0;">
                     <h3 class="profile-card-title">
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/></svg>
                         ID Verification
@@ -1019,20 +982,20 @@ select.pf-input option {
                     </h3>
 
                     <?php if ($id_status === 'Rejected'): ?>
-                    <div style="background:rgba(248, 113, 113, 0.1);border:1px solid rgba(248, 113, 113, 0.2);border-radius:0;padding:12px 16px;margin-bottom:1.25rem;font-size:0.875rem;color:#fca5a5;">
+                    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:1.25rem;font-size:0.875rem;color:#b91c1c;">
                         <strong>Rejected:</strong> <?php echo htmlspecialchars($id_reject ?: 'Your ID was rejected. Please resubmit a clearer photo.'); ?>
                     </div>
                     <?php endif; ?>
 
                     <?php if ($id_status === 'Verified'): ?>
-                    <div style="background:rgba(74, 222, 128, 0.1);border:1px solid rgba(74, 222, 128, 0.2);border-radius:0;padding:16px;font-size:0.9rem;color:#86efac;">
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;font-size:0.9rem;color:#15803d;">
                         <strong>✓ Your identity has been verified.</strong> You can now place orders.
                     </div>
                     <?php else: ?>
-                    <p style="font-size:0.875rem;color:#94a3b8;margin-bottom:1.25rem;">Upload a valid government-issued ID to verify your identity before placing orders.</p>
+                    <p style="font-size:0.875rem;color:#64748b;margin-bottom:1.25rem;">Upload a valid government-issued ID to verify your identity before placing orders.</p>
 
                     <?php if (!empty($id_image) && $id_status === 'Pending'): ?>
-                    <div style="margin-bottom:1.25rem;padding:12px 16px;background:rgba(252, 211, 77, 0.1);border:1px solid rgba(252, 211, 77, 0.2);border-radius:0;font-size:0.875rem;color:#fde047;">
+                    <div style="margin-bottom:1.25rem;padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:0.875rem;color:#92400e;">
                         ⏳ Your ID is currently under review. We'll notify you once it's approved.
                     </div>
                     <?php endif; ?>
@@ -1060,7 +1023,7 @@ select.pf-input option {
                         </div>
                         <?php if (!empty($id_image)): ?>
                         <div style="margin-top:1rem;">
-                            <p style="font-size:0.75rem;color:#94a3b8;margin-bottom:6px;">Previously submitted:</p>
+                            <p style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">Previously submitted:</p>
                             <img src="<?php echo $base_path; ?>/uploads/ids/<?php echo htmlspecialchars($id_image); ?>" style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;">
                         </div>
                         <?php endif; ?>
@@ -1089,10 +1052,10 @@ select.pf-input option {
     padding-right: 2.8rem;
 }
 .addr-select-wrap select:disabled {
-    background: rgba(255,255,255,0.05) !important;
-    color: #475569 !important;
+    background: #f3f7f9;
+    color: #9ca3af;
     cursor: not-allowed;
-    border-color: rgba(83,197,224,0.1) !important;
+    border-color: #e5e7eb;
 }
 .addr-spinner {
     display: none;
