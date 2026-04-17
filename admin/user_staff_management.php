@@ -401,10 +401,8 @@ if (isset($_GET['ajax'])) {
         .mf-alert.err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
         .pf-submit-overlay { position:fixed; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; background:rgba(1,22,28,0.52); backdrop-filter:blur(2px); }
         .pf-submit-overlay.is-open { display:flex; }
-        .pf-submit-card { width:min(320px, calc(100vw - 32px)); background:#fff; border:1px solid #d9f3f0; border-radius:8px; box-shadow:0 20px 48px rgba(0,0,0,0.22); padding:24px; text-align:center; }
-        .pf-submit-spinner { width:40px; height:40px; border-radius:50%; border:4px solid #d9f3f0; border-top-color:#0d9488; animation:spin 0.8s linear infinite; margin:0 auto 14px; }
-        .pf-submit-title { font-size:15px; font-weight:700; color:#102a33; margin-bottom:4px; }
-        .pf-submit-copy { font-size:13px; color:#64748b; }
+        .pf-submit-card { width:72px; height:72px; background:#fff; border:1px solid #d9f3f0; border-radius:8px; box-shadow:0 20px 48px rgba(0,0,0,0.22); display:flex; align-items:center; justify-content:center; }
+        .pf-submit-spinner { width:38px; height:38px; border-radius:50%; border:4px solid #d9f3f0; border-top-color:#0d9488; animation:spin 0.8s linear infinite; }
         
         /* Validation States */
         .mf-group.is-invalid input, .mf-group.is-invalid select, .mf-group.is-invalid textarea {
@@ -1245,8 +1243,6 @@ if (isset($_GET['ajax'])) {
 <div class="pf-submit-overlay" :class="{'is-open': pageSubmitting}" x-cloak>
     <div class="pf-submit-card">
         <div class="pf-submit-spinner"></div>
-        <div class="pf-submit-title" x-text="submitMessage || 'Submitting...'"></div>
-        <div class="pf-submit-copy">Please wait while Printflow processes the request.</div>
     </div>
 </div>
 
@@ -1766,7 +1762,6 @@ function resetFilterField(fields) {
 function userManagement() {
     const data = {
         pageSubmitting: false,
-        submitMessage: '',
         viewModal: {
             isOpen: false,
             loading: false,
@@ -2175,7 +2170,6 @@ function userManagement() {
             this.resendModal.error = '';
             this.resendModal.sending = true;
             this.pageSubmitting = true;
-            this.submitMessage = 'Sending completion link...';
             const n = this.resendModal.notes;
             const admin_notes = [];
             if (n.name) admin_notes.push('Name');
@@ -2210,7 +2204,6 @@ function userManagement() {
             } finally {
                 this.resendModal.sending = false;
                 this.pageSubmitting = false;
-                this.submitMessage = '';
             }
         },
         async saveUserChanges() {
