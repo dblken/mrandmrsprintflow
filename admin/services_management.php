@@ -444,6 +444,9 @@ if (isset($_GET['ajax'])) {
 }
 
 $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees', 'Apparel', 'Signage', 'Merchandise', 'Print', 'Service', 'Consulting', 'Design'];
+$sidebar_include = defined('MANAGER_PANEL') && MANAGER_PANEL
+    ? __DIR__ . '/../includes/manager_sidebar.php'
+    : __DIR__ . '/../includes/admin_sidebar.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -531,7 +534,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php include $sidebar_include; ?>
     <div class="main-content">
         <header><h1 class="page-title">Services Management</h1></header>
         <main>
