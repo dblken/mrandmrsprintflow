@@ -370,6 +370,7 @@ require_once __DIR__ . '/../includes/header.php';
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     box-sizing: border-box;
     backdrop-filter: blur(12px);
+    color: var(--pf-text-main);
 }
 
 /* Mobile: reduce padding and margin */
@@ -478,7 +479,7 @@ require_once __DIR__ . '/../includes/header.php';
 .profile-user-name {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--pf-text-main);
     margin-bottom: 0.25rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -495,7 +496,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 .profile-user-email {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--pf-text-muted);
     margin-bottom: 1rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -515,6 +516,7 @@ require_once __DIR__ . '/../includes/header.php';
     padding: 0.75rem 0;
     border-top: 1px solid #e2e8f0;
     font-size: 0.813rem;
+    color: var(--pf-text-muted);
 }
 
 @media (max-width: 768px) {
@@ -559,7 +561,7 @@ require_once __DIR__ . '/../includes/header.php';
 .profile-card-title {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--pf-text-main);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -598,7 +600,7 @@ require_once __DIR__ . '/../includes/header.php';
     display: block;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #475569;
+    color: var(--pf-text-muted);
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.025em;
