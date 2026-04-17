@@ -3,7 +3,6 @@
  * Philippine Address API (PSGC) - Public
  * No auth required; used by complete_profile and other public pages.
  */
-require_once __DIR__ . '/../includes/db.php';
 
 header('Content-Type: application/json');
 

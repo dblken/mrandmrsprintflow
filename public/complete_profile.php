@@ -355,6 +355,7 @@ $page_title = 'Complete Your Profile - PrintFlow';
 <?php if ($user): ?>
 <script>
 (function() {
+    const BASE_PATH = <?php echo json_encode(defined('BASE_PATH') ? BASE_PATH : ($base_path ?? '')); ?>;
     const addrApi = BASE_PATH . '/public/api_address_public.php';
     const prov = document.getElementById('address_province');
     const city = document.getElementById('address_city');
@@ -369,20 +370,28 @@ $page_title = 'Complete Your Profile - PrintFlow';
     }
 
     async function loadProvinces() {
-        const r = await fetch(addrApi + '?address_action=provinces');
-        const d = await r.json();
-        if (d.success && d.data) {
-            provincesData = d.data;
-            prov.innerHTML = '<option value="">Select province</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
-            
-            // Restore selected province
-            const selectedProv = prov.getAttribute('data-selected');
-            if (selectedProv) {
-                prov.value = selectedProv;
-                const opt = prov.options[prov.selectedIndex];
-                const code = opt && opt.value ? opt.getAttribute('data-code') : '';
-                if (code) await loadCities(code);
+        try {
+            prov.innerHTML = '<option value="">Loading provinces...</option>';
+            const r = await fetch(addrApi + '?address_action=provinces');
+            const d = await r.json();
+            if (d.success && d.data) {
+                provincesData = d.data;
+                prov.innerHTML = '<option value="">Select province</option>' + d.data.map(x => '<option value="' + x.name + '" data-code="' + x.code + '">' + x.name + '</option>').join('');
+
+                // Restore selected province
+                const selectedProv = prov.getAttribute('data-selected');
+                if (selectedProv) {
+                    prov.value = selectedProv;
+                    const opt = prov.options[prov.selectedIndex];
+                    const code = opt && opt.value ? opt.getAttribute('data-code') : '';
+                    if (code) await loadCities(code);
+                }
+            } else {
+                prov.innerHTML = '<option value="">Unable to load provinces</option>';
             }
+        } catch (error) {
+            console.error('Address API error:', error);
+            prov.innerHTML = '<option value="">Unable to load provinces</option>';
         }
     }
     async function loadCities(provinceCode) {
