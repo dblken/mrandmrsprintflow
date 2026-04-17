@@ -133,8 +133,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
                 [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $token, $expires, $role, $branch_id]
             );
 
-            $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-            $complete_link = rtrim($base_url, '/') . '<?php echo $base_path; ?>/public/complete_profile.php?token=' . $token;
+            $site_url = defined('SITE_URL')
+                ? SITE_URL
+                : ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . (defined('BASE_PATH') ? BASE_PATH : '/printflow'));
+            $complete_link = rtrim($site_url, '/') . '/public/complete_profile.php?token=' . urlencode($token);
 
             require_once __DIR__ . '/../includes/profile_completion_mailer.php';
 
