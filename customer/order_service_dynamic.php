@@ -432,10 +432,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                 <?php endforeach; ?>
                                 
                                 <!-- Navigation Arrows -->
-                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="return window.pfCarouselStep ? window.pfCarouselStep(-1) : false" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-prev" data-carousel-dir="-1" onclick="changeImage(-1); return false;" class="carousel-arrow carousel-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
-                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="return window.pfCarouselStep ? window.pfCarouselStep(1) : false" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
+                                <button type="button" id="carousel-next" data-carousel-dir="1" onclick="changeImage(1); return false;" class="carousel-arrow carousel-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);color:#374151;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:100;transition:all 0.2s;pointer-events:auto;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 
@@ -836,6 +836,7 @@ async function markHelpful(reviewId, btn) {
 var currentImageIndex = 0;
 var carouselServiceId = <?php echo (int)$service_id; ?>;
 var totalImages = <?php echo count($display_images); ?>;
+var isAnimating = false;
 
 function getAllCarouselItems() {
     const all = Array.from(document.querySelectorAll('.carousel-image, .carousel-item'));
@@ -857,7 +858,32 @@ function updateThumbnailBorder() {
     });
 }
 
-function syncCarouselToIndex(index) {
+function updateCarouselVideos(items) {
+    let hasVideo = false;
+    items.forEach((item, i) => {
+        if (!item.classList.contains('carousel-item')) return;
+        const vid = item.querySelector('video');
+        if (!vid) return;
+        if (i === currentImageIndex) {
+            vid.play().catch(() => {});
+            hasVideo = true;
+            const sharedIcon = document.getElementById('shared-mute-icon');
+            if (sharedIcon && typeof MUTE_PATH !== 'undefined') {
+                sharedIcon.innerHTML = vid.muted ? MUTE_PATH : UNMUTE_PATH;
+            }
+        } else {
+            vid.pause();
+        }
+    });
+
+    const sharedMuteBtn = document.getElementById('shared-mute-btn');
+    if (sharedMuteBtn) {
+        sharedMuteBtn.style.display = hasVideo ? 'flex' : 'none';
+        if (hasVideo) sharedMuteBtn.setAttribute('onclick', 'toggleMute(' + currentImageIndex + ')');
+    }
+}
+
+function setCarouselState(index) {
     const items = getAllCarouselItems();
     if (items.length === 0) return;
     if (items.length !== totalImages) totalImages = items.length;
@@ -875,50 +901,63 @@ function syncCarouselToIndex(index) {
         item.style.left = ((i - currentImageIndex) * 100) + '%';
     });
 
-    let hasVideo = false;
-    items.forEach((item, i) => {
-        if (item.classList.contains('carousel-item')) {
-            const vid = item.querySelector('video');
-            if (vid) {
-                if (i === currentImageIndex) {
-                    vid.play().catch(() => {});
-                    hasVideo = true;
-                    const sharedIcon = document.getElementById('shared-mute-icon');
-                    if (sharedIcon && typeof MUTE_PATH !== 'undefined') sharedIcon.innerHTML = vid.muted ? MUTE_PATH : UNMUTE_PATH;
-                } else {
-                    vid.pause();
-                }
-            }
-        }
-    });
-
-    const sharedMuteBtn = document.getElementById('shared-mute-btn');
-    if (sharedMuteBtn) {
-        sharedMuteBtn.style.display = hasVideo ? 'flex' : 'none';
-        if (hasVideo) {
-            sharedMuteBtn.setAttribute('onclick', `toggleMute(${currentImageIndex})`);
-        }
-    }
-
     const counter = document.getElementById('current-image');
     if (counter) counter.textContent = currentImageIndex + 1;
+    updateCarouselVideos(items);
     updateArrowVisibility();
     updateThumbnailBorder();
 }
 
 function changeImage(direction) {
-    const delta = parseInt(direction, 10) || 0;
-    if (delta === 0) return;
-    syncCarouselToIndex(currentImageIndex + delta);
-}
+    if (isAnimating) return false;
 
-function pfCarouselStep(direction) {
-    changeImage(direction);
+    const delta = parseInt(direction, 10) || 0;
+    const newIndex = currentImageIndex + delta;
+    if (delta === 0 || newIndex < 0 || newIndex >= totalImages) return false;
+
+    const items = getAllCarouselItems();
+    if (!items.length) return false;
+    isAnimating = true;
+
+    const oldIndex = currentImageIndex;
+    const oldItem = items[oldIndex];
+    const newItem = items[newIndex];
+    currentImageIndex = newIndex;
+
+    if (newItem) newItem.style.left = delta > 0 ? '100%' : '-100%';
+    if (newItem) newItem.offsetHeight;
+    if (oldItem) oldItem.style.left = delta > 0 ? '-100%' : '100%';
+    if (newItem) newItem.style.left = '0';
+
+    const carousel = document.getElementById('image-carousel');
+    if (carousel) carousel.dataset.currentIndex = currentImageIndex;
+    window.__pfServiceCarouselState = {
+        serviceId: carouselServiceId,
+        imageIndex: currentImageIndex
+    };
+
+    const counter = document.getElementById('current-image');
+    if (counter) counter.textContent = currentImageIndex + 1;
+    updateCarouselVideos(items);
+    updateArrowVisibility();
+    updateThumbnailBorder();
+
+    setTimeout(() => {
+        isAnimating = false;
+        getAllCarouselItems().forEach((item, i) => {
+            item.style.left = ((i - currentImageIndex) * 100) + '%';
+        });
+    }, 420);
     return false;
 }
 
 function goToImage(index) {
-    syncCarouselToIndex(index);
+    if (isAnimating) return false;
+    index = parseInt(index, 10) || 0;
+    if (index === currentImageIndex || index < 0 || index >= totalImages) return false;
+    const direction = index > currentImageIndex ? 1 : -1;
+    currentImageIndex = index - direction;
+    return changeImage(direction);
 }
 
 var MUTE_PATH = '<path d="M16.5 12A4.5 4.5 0 0014 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0017.73 18l2 2.01L21 18.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>';
@@ -946,11 +985,10 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         currentImageIndex = 0;
     }
-    syncCarouselToIndex(currentImageIndex);
+    setCarouselState(currentImageIndex);
 });
 
 window.changeImage = changeImage;
-window.pfCarouselStep = pfCarouselStep;
 window.goToImage = goToImage;
 window.toggleMute = toggleMute;
 window.toggleSingleMute = toggleSingleMute;
