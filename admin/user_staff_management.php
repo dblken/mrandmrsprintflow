@@ -296,7 +296,10 @@ if (isset($_GET['ajax'])) {
                     ?><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $sc; ?>"><?php echo $user['status']; ?></span></td>
                 <td class="py-3 text-right" onclick="event.stopPropagation();">
                     <button type="button" class="btn-action blue" style="margin-right:4px;" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View</button>
-                    <button type="button" class="btn-action teal" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
+                    <button type="button" class="btn-action teal" style="margin-right:4px;" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
+                    <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
+                    <button type="button" class="btn-action red" onclick="window._deleteUser && _deleteUser(<?php echo $user['user_id']; ?>)">Delete</button>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -350,6 +353,8 @@ if (isset($_GET['ajax'])) {
         .btn-action.blue:hover { background:#3b82f6; color:white; }
         .btn-action.teal { color:#0d9488; border-color:#0d9488; }
         .btn-action.teal:hover { background:#0d9488; color:white; }
+        .btn-action.red { color:#dc2626; border-color:#dc2626; }
+        .btn-action.red:hover { background:#dc2626; color:white; }
 
         /* ===== VIEW MODAL - CUSTOMIZATION STYLE ===== */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9900; align-items:center; justify-content:center; padding:16px; }
@@ -387,6 +392,8 @@ if (isset($_GET['ajax'])) {
         .mf-btn-outline.blue:hover { background:#3b82f6; color:white; }
         .mf-btn-outline.teal { color:#0d9488; border-color:#0d9488; }
         .mf-btn-outline.teal:hover { background:#0d9488; color:white; }
+        .mf-btn-outline.red { color:#dc2626; border-color:#dc2626; }
+        .mf-btn-outline.red:hover { background:#dc2626; color:white; }
         .mf-btn-outline:disabled { opacity:.5; cursor:not-allowed; }
         .mf-alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
         .mf-alert.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
@@ -855,7 +862,10 @@ if (isset($_GET['ajax'])) {
                                     </td>
                                     <td class="py-3 text-right" @click.stop>
                                         <button type="button" @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action blue" style="margin-right:4px;">View</button>
-                                        <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal">Edit</button>
+                                        <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal" style="margin-right:4px;">Edit</button>
+                                        <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
+                                        <button type="button" @click="showDeleteConfirm(<?php echo $user['user_id']; ?>)" class="btn-action red">Delete</button>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -987,6 +997,9 @@ if (isset($_GET['ajax'])) {
             </template>
             <template x-if="viewModal.user?.status === 'Activated'">
                 <button type="button" @click="showDeactivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Deactivate Account</button>
+            </template>
+            <template x-if="viewModal.user?.status === 'Deactivated'">
+                <button type="button" @click="showDeleteConfirm(viewModal.user.user_id)" class="mf-btn-outline red">Delete Account</button>
             </template>
             <button type="button" @click="viewModal.isOpen = false; editUser(viewModal.user?.user_id)" class="mf-btn-outline teal">Edit</button>
         </div>
@@ -1162,6 +1175,23 @@ if (isset($_GET['ajax'])) {
             <div class="mf-footer" style="border:none; padding:0;">
                 <button type="button" @click="deactivateConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
                 <button type="button" @click="confirmDeactivateUser()" class="mf-btn-outline teal">Deactivate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div x-show="deleteConfirm.isOpen" x-cloak class="modal-overlay" :class="{'is-open': deleteConfirm.isOpen}" @click.self="deleteConfirm.isOpen = false">
+    <div class="modal-box" style="max-width:400px;" @click.stop>
+        <div class="modal-hdr">
+            <h2>Delete Account</h2>
+            <button @click="deleteConfirm.isOpen = false">&times;</button>
+        </div>
+        <div class="modal-bdy">
+            <p style="margin:0 0 20px 0; color:#374151;">Delete this deactivated account? This cannot be undone.</p>
+            <div class="mf-footer" style="border:none; padding:0;">
+                <button type="button" @click="deleteConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
+                <button type="button" @click="confirmDeleteUser()" class="mf-btn-outline red" :disabled="deleteConfirm.deleting" x-text="deleteConfirm.deleting ? 'Deleting...' : 'Delete'"></button>
             </div>
         </div>
     </div>
@@ -1744,6 +1774,11 @@ function userManagement() {
             isOpen: false,
             userId: 0
         },
+        deleteConfirm: {
+            isOpen: false,
+            userId: 0,
+            deleting: false
+        },
         resendModal: {
             isOpen: false,
             userId: 0,
@@ -2007,6 +2042,10 @@ function userManagement() {
             this.deactivateConfirm.userId = userId;
             this.deactivateConfirm.isOpen = true;
         },
+        showDeleteConfirm(userId) {
+            this.deleteConfirm.userId = userId;
+            this.deleteConfirm.isOpen = true;
+        },
         async confirmActivateUser() {
             const userId = this.activateConfirm.userId;
             if (!userId) return;
@@ -2056,6 +2095,34 @@ function userManagement() {
                 }
             } catch (e) {
                 alert('Network error.');
+            }
+        },
+        async confirmDeleteUser() {
+            const userId = this.deleteConfirm.userId;
+            if (!userId || this.deleteConfirm.deleting) return;
+            this.deleteConfirm.deleting = true;
+            try {
+                const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete_user',
+                        user_id: userId,
+                        csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.deleteConfirm.isOpen = false;
+                    this.viewModal.isOpen = false;
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to delete account.');
+                }
+            } catch (e) {
+                alert('Network error.');
+            } finally {
+                this.deleteConfirm.deleting = false;
             }
         },
         openResendModal(userId) {
@@ -2223,6 +2290,7 @@ function initAlpineGlobalBridge() {
     };
     window._viewUser = (id) => { const d = getData(); if (d) d.viewUser(id); };
     window._editUser = (id) => { const d = getData(); if (d) d.editUser(id); };
+    window._deleteUser = (id) => { const d = getData(); if (d) d.showDeleteConfirm(id); };
 }
 
 // Initialize immediately and on all page events
