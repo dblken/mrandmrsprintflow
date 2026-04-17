@@ -952,7 +952,7 @@ document.addEventListener('keydown', function(e) {
 
 <script>
 // Estimated Price Calculation System - Global scope
-let calculateEstimatedPrice;
+window.calculateEstimatedPrice = window.calculateEstimatedPrice || null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('serviceForm');
@@ -961,7 +961,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get base price from PHP
     const basePrice = <?php echo (float)($service['base_price'] ?? 0); ?>;
     
-    calculateEstimatedPrice = function() {
+    window.calculateEstimatedPrice = function() {
         let optionsTotal = 0;
         
         // Calculate price from radio buttons
@@ -1010,15 +1010,15 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // Listen to all form changes
-    form.addEventListener('change', calculateEstimatedPrice);
+    form.addEventListener('change', window.calculateEstimatedPrice);
     form.addEventListener('input', function(e) {
         if (e.target.name === 'quantity') {
-            calculateEstimatedPrice();
+            window.calculateEstimatedPrice();
         }
     });
     
     // Initial calculation
-    calculateEstimatedPrice();
+    window.calculateEstimatedPrice();
 });
 </script>
 
@@ -1151,7 +1151,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-
 
 
 

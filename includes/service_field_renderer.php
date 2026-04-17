@@ -539,14 +539,15 @@ function syncDimensionToHidden(row) {
 }
 
 function selectDimension(w, h, e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     dimensionMode = 'preset';
-    const row = e.target.closest('.shopee-form-row');
-    const btnGroup = e.target.closest('.shopee-opt-group');
+    const target = e ? e.target : null;
+    const row = target ? target.closest('.shopee-form-row') : document;
+    const btnGroup = target ? target.closest('.shopee-opt-group') : null;
     if (btnGroup) {
         btnGroup.querySelectorAll('.shopee-opt-btn').forEach(b => b.classList.remove('active'));
     }
-    e.target.closest('.shopee-opt-btn').classList.add('active');
+    if (target) target.closest('.shopee-opt-btn')?.classList.add('active');
     const othersInput = row ? row.querySelector('.dim-others-inputs') : null;
     if (othersInput) othersInput.style.display = 'none';
     
@@ -556,13 +557,15 @@ function selectDimension(w, h, e) {
     if (heightInput) heightInput.value = '';
     
     syncDimensionToHidden(row);
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
 function selectDimensionOthers(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     dimensionMode = 'others';
-    const row = e.target.closest('.shopee-form-row');
-    const btnGroup = e.target.closest('.shopee-opt-group');
+    const target = e ? e.target : null;
+    const row = target ? target.closest('.shopee-form-row') : document;
+    const btnGroup = target ? target.closest('.shopee-opt-group') : null;
     if (btnGroup) {
         btnGroup.querySelectorAll('.shopee-opt-btn').forEach(b => b.classList.remove('active'));
     }
@@ -571,16 +574,19 @@ function selectDimensionOthers(e) {
     const othersInput = row ? row.querySelector('.dim-others-inputs') : null;
     if (othersInput) othersInput.style.display = 'block';
     syncDimensionToHidden(row);
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
 function increaseQty() {
     const i = document.getElementById('quantity-input');
     if (i) i.value = Math.min(100, (parseInt(i.value) || 1) + 1);
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
 function decreaseQty() {
     const i = document.getElementById('quantity-input');
     if (i && parseInt(i.value) > 1) i.value = parseInt(i.value) - 1;
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
 function validateQuantity(input) {
@@ -590,7 +596,23 @@ function validateQuantity(input) {
     } else if (val > 100) {
         input.value = 100;
     }
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
+
+window.updateOptVisual = updateOptVisual;
+window.handleNestedFields = handleNestedFields;
+window.selectNestedDimension = selectNestedDimension;
+window.selectNestedDimensionOthers = selectNestedDimensionOthers;
+window.syncNestedDimension = syncNestedDimension;
+window.validateDimensionInput = validateDimensionInput;
+window.updateDimensionUnit = updateDimensionUnit;
+window.syncDimensionToHidden = syncDimensionToHidden;
+window.selectDimension = selectDimension;
+window.selectDimensionOthers = selectDimensionOthers;
+window.increaseQty = increaseQty;
+window.decreaseQty = decreaseQty;
+window.validateQuantity = validateQuantity;
+window.updateConditionalFields = updateConditionalFields;
 
 // --- Conditional Fields Logic ---
 
@@ -702,7 +724,7 @@ function clearFieldRowValues(row) {
     if (othersInput) othersInput.style.display = 'none';
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+function initServiceFieldRenderer() {
     // Ensure all nested fields are hidden initially
     document.querySelectorAll('.nested-fields-container').forEach(container => {
         container.style.display = 'none';
@@ -713,6 +735,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (radio.checked) {
             updateOptVisual(radio);
         }
+        if (radio.dataset.pfServiceFieldBound === '1') return;
+        radio.dataset.pfServiceFieldBound = '1';
         radio.addEventListener('change', function() {
             updateOptVisual(this);
             updateConditionalFields();
@@ -721,10 +745,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize select listeners
     document.querySelectorAll('select').forEach(select => {
+        if (select.dataset.pfServiceFieldBound === '1') return;
+        select.dataset.pfServiceFieldBound = '1';
         select.addEventListener('change', updateConditionalFields);
     });
     
     document.querySelectorAll('.custom-dim-width, .custom-dim-height').forEach(input => {
+        if (input.dataset.pfServiceFieldBound === '1') return;
+        input.dataset.pfServiceFieldBound = '1';
         input.addEventListener('input', function() {
             const row = input.closest('.shopee-form-row');
             syncDimensionToHidden(row);
@@ -733,7 +761,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Run once on load to show initial state
     updateConditionalFields();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initServiceFieldRenderer);
+} else {
+    initServiceFieldRenderer();
+}
+document.addEventListener('turbo:load', initServiceFieldRenderer);
 </script>
 JSEND;
 }
