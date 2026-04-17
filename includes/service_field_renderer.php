@@ -292,7 +292,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                         if ($w && $h) {
                             $displayLabel = $w . '×' . $h;
                             $is_active = (!$is_custom_dimension && $saved_width == $w && $saved_height == $h) ? ' active' : '';
-                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1">' . $displayLabel . '</button>';
+                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1" onclick="return window.pfSelectDimensionButton ? window.pfSelectDimensionButton(this) : false">' . $displayLabel . '</button>';
                         }
                     }
                 }
@@ -300,7 +300,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             
             if ($allowOthers) {
                 $others_active = $is_custom_dimension ? ' active' : '';
-                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-others="1">Others</button>';
+                $html .= '<button type="button" class="shopee-opt-btn dim-others-btn' . $others_active . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-others="1" onclick="return window.pfSelectDimensionOthersButton ? window.pfSelectDimensionOthersButton(this) : false">Others</button>';
             }
             $html .= '</div>';
             
@@ -615,6 +615,18 @@ function serviceFieldEventProxy(method, target) {
     };
 }
 
+function pfSelectDimensionButton(button) {
+    if (!button) return false;
+    selectDimension(button.dataset.width || '', button.dataset.height || '', serviceFieldEventProxy('selectDimension', button));
+    return false;
+}
+
+function pfSelectDimensionOthersButton(button) {
+    if (!button) return false;
+    selectDimensionOthers(serviceFieldEventProxy('selectDimensionOthers', button));
+    return false;
+}
+
 window.updateOptVisual = updateOptVisual;
 window.handleNestedFields = handleNestedFields;
 window.selectNestedDimension = selectNestedDimension;
@@ -625,6 +637,8 @@ window.updateDimensionUnit = updateDimensionUnit;
 window.syncDimensionToHidden = syncDimensionToHidden;
 window.selectDimension = selectDimension;
 window.selectDimensionOthers = selectDimensionOthers;
+window.pfSelectDimensionButton = pfSelectDimensionButton;
+window.pfSelectDimensionOthersButton = pfSelectDimensionOthersButton;
 window.increaseQty = increaseQty;
 window.decreaseQty = decreaseQty;
 window.validateQuantity = validateQuantity;
