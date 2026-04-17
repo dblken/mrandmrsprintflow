@@ -9,6 +9,46 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 require_once __DIR__ . '/../includes/service_field_renderer.php';
 
+$base_path = pf_app_base_path();
+$default_service_img = $base_path . '/public/assets/images/services/default.png';
+
+function pf_normalize_service_media_path($path, $base_path, $default_img) {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return $default_img;
+    }
+    $path = str_replace('\\', '/', $path);
+    if (preg_match('#^https?://#i', $path)) {
+        $parts = parse_url($path);
+        if (!empty($parts['path'])) {
+            $path = $parts['path'];
+        } else {
+            return $path;
+        }
+    }
+    if (preg_match('#^[A-Za-z]:/#', $path)) {
+        $path = preg_replace('#^[A-Za-z]:#', '', $path);
+    }
+    $public_pos = strpos($path, '/public/');
+    if ($public_pos !== false) {
+        $path = substr($path, $public_pos);
+    }
+    $uploads_pos = strpos($path, '/uploads/');
+    if ($uploads_pos !== false && $uploads_pos < $public_pos) {
+        $path = substr($path, $uploads_pos);
+    }
+    if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($path !== '' && $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+    if ($base_path !== '' && strpos($path, $base_path . '/') !== 0) {
+        $path = $base_path . $path;
+    }
+    return $path;
+}
+
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_id_verified.php';
 $customer_id = get_user_id();
@@ -311,9 +351,7 @@ if (!empty($service['display_image'])) {
     foreach ($images as $img) {
         $img = trim($img);
         if ($img !== '') {
-            if (strpos($img, 'http') === false && $img[0] !== '/') {
-                $img = '/' . ltrim($img, '/');
-            }
+            $img = pf_normalize_service_media_path($img, $base_path, $default_service_img);
             $display_images[] = ['type' => 'image', 'src' => $img];
         }
     }
@@ -324,9 +362,7 @@ $display_video = '';
 if (!empty($service['video_url'])) {
     $vid = trim($service['video_url']);
     if ($vid !== '') {
-        if (strpos($vid, 'http') === false && $vid[0] !== '/') {
-            $vid = '/' . ltrim($vid, '/');
-        }
+        $vid = pf_normalize_service_media_path($vid, $base_path, $default_service_img);
         $display_video = $vid;
         $display_images[] = ['type' => 'video', 'src' => $vid];
     }
@@ -334,10 +370,7 @@ if (!empty($service['video_url'])) {
 
 // Fallback to hero_image if no display images
 if (empty($display_images) && !empty($service['hero_image'])) {
-    $img = $service['hero_image'];
-    if (strpos($img, 'http') === false && $img[0] !== '/') {
-        $img = '/' . ltrim($img, '/');
-    }
+    $img = pf_normalize_service_media_path($service['hero_image'], $base_path, $default_service_img);
     $display_images[] = ['type' => 'image', 'src' => $img];
 }
 
