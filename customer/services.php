@@ -17,8 +17,25 @@ function pf_normalize_service_image_path($path, $base_path, $default_img) {
     if ($path === '') {
         return $default_img;
     }
+    $path = str_replace('\\', '/', $path);
     if (preg_match('#^https?://#i', $path)) {
-        return $path;
+        $parts = parse_url($path);
+        if (!empty($parts['path'])) {
+            $path = $parts['path'];
+        } else {
+            return $path;
+        }
+    }
+    if (preg_match('#^[A-Za-z]:/#', $path)) {
+        $path = preg_replace('#^[A-Za-z]:#', '', $path);
+    }
+    $public_pos = strpos($path, '/public/');
+    if ($public_pos !== false) {
+        $path = substr($path, $public_pos);
+    }
+    $uploads_pos = strpos($path, '/uploads/');
+    if ($uploads_pos !== false && $uploads_pos < $public_pos) {
+        $path = substr($path, $uploads_pos);
     }
     if ($base_path === '' && strpos($path, '/printflow/') === 0) {
         $path = substr($path, strlen('/printflow'));
@@ -121,7 +138,7 @@ function render_service_card($srv) {
     $display_sold = ($sold <= 0 && $rcount > 0) ? $rcount : $sold;
     ?>
     <div class="shopee-card" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_images; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
-        <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" class="shopee-img">
+        <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" class="shopee-img" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($default_service_img); ?>';">
         <div class="shopee-body">
             <span class="shopee-category"><?php echo htmlspecialchars($srv['category']); ?></span>
             <h3 class="shopee-name"><?php echo htmlspecialchars($srv['name']); ?></h3>
