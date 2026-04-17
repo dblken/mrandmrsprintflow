@@ -65,10 +65,10 @@ require_once __DIR__ . '/../includes/header.php';
     :root {
         --shopee-orange: #53c5e0;
         --shopee-bg: #00151b;
-        --shopee-card-bg: rgba(0,49,61,0.85);
-        --shopee-text: #e0f2fe;
-        --shopee-muted: #94a3b8;
-        --shopee-border: rgba(83,197,224,0.2);
+        --shopee-card-bg: #ffffff;
+        --shopee-text: #0f172a;
+        --shopee-muted: #64748b;
+        --shopee-border: #e5e7eb;
     }
 
     .shopee-grid {
