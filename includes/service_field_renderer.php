@@ -342,9 +342,9 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             $saved_qty = $existing_data['quantity'] ?? 1;
             $html .= '<div class="shopee-opt-group">';
             $html .= '<div class="quantity-container shopee-opt-btn" style="display: inline-flex; justify-content: space-between; gap: 1rem; width: 175px; cursor: default;">';
-            $html .= '<button type="button" class="qty-btn-minus" data-qty-action="decrease" onclick="if(window.decreaseQty)window.decreaseQty();" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">&minus;</button>';
+            $html .= '<button type="button" class="qty-btn-minus" data-qty-action="decrease" onclick="if(window.pfChangeQty)window.pfChangeQty(this,-1);" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">&minus;</button>';
             $html .= '<input type="text" inputmode="numeric" id="quantity-input" name="quantity" class="qty-input-field" style="border: none; text-align: center; width: 60px; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; outline: none;" value="' . (int)$saved_qty . '" oninput="if(window.validateQuantity)window.validateQuantity(this);" onkeydown="return event.key === \'Backspace\' || event.key === \'Delete\' || event.key === \'ArrowLeft\' || event.key === \'ArrowRight\' || event.key === \'Tab\' || (event.key >= \'0\' && event.key <= \'9\');">';
-            $html .= '<button type="button" class="qty-btn-plus" data-qty-action="increase" onclick="if(window.increaseQty)window.increaseQty();" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">+</button>';
+            $html .= '<button type="button" class="qty-btn-plus" data-qty-action="increase" onclick="if(window.pfChangeQty)window.pfChangeQty(this,1);" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">+</button>';
             $html .= '</div>';
             $html .= '</div>';
             break;
@@ -607,6 +607,20 @@ function validateQuantity(input) {
     if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
 }
 
+function pfChangeQty(btn, delta) {
+    if (!btn) return;
+    const container = btn.closest('.quantity-container') || btn.parentElement;
+    const input = container ? container.querySelector('#quantity-input') : document.getElementById('quantity-input');
+    if (!input) return;
+    let val = parseInt(input.value);
+    if (isNaN(val) || val < 1) val = 1;
+    val = val + delta;
+    if (val < 1) val = 1;
+    if (val > 100) val = 100;
+    input.value = val;
+    if (typeof window.calculateEstimatedPrice === 'function') window.calculateEstimatedPrice();
+}
+
 function serviceFieldEventProxy(method, target) {
     return {
         target: target,
@@ -684,6 +698,7 @@ window.pfSelectDimensionOthersButton = pfSelectDimensionOthersButton;
 window.increaseQty = increaseQty;
 window.decreaseQty = decreaseQty;
 window.validateQuantity = validateQuantity;
+window.pfChangeQty = pfChangeQty;
 window.updateConditionalFields = updateConditionalFields;
 
 if (!window.__pfServiceFieldDelegatesBound) {
@@ -710,8 +725,8 @@ if (!window.__pfServiceFieldDelegatesBound) {
         if (qtyBtn) {
             e.preventDefault();
             e.stopPropagation();
-            if (qtyBtn.dataset.qtyAction === 'increase') increaseQty();
-            else decreaseQty();
+            const delta = qtyBtn.dataset.qtyAction === 'increase' ? 1 : -1;
+            pfChangeQty(qtyBtn, delta);
         }
     }, true);
 
