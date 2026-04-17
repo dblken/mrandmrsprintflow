@@ -804,7 +804,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .poc-section-title { font-size:1.1rem;font-weight:700;color:#111827;margin:0 0 0.75rem; }
 .poc-filter-btn.active { background:#0a2530 !important;color:white !important;border-color:#0a2530 !important; }
 .poc-filter-btn:hover { border-color:#0a2530;background:#f0f4f5; }
-.poc-review-item { border-bottom:1px solid #f3f4f6;padding:1.25rem 0; }
+.poc-review-item { border-bottom:1px solid #f3f4f6;padding:1.25rem 0; color: #1f2937; }
 .poc-review-item:last-child { border-bottom:none; }
 .poc-empty { text-align:center;padding:3rem 1rem;color:#6b7280; }
 .helpful-btn { display:inline-flex;align-items:center;gap:5px;padding:4px 0;border:none;background:transparent;color:#9ca3af;font-size:0.82rem;font-weight:400;cursor:pointer;transition:color 0.2s; }
