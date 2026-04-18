@@ -40,6 +40,30 @@ if (!function_exists('pf_order_ui_value_to_text')) {
     }
 }
 
+if (!function_exists('pf_order_ui_temp_preview_url')) {
+    function pf_order_ui_temp_preview_url(array $item, string $field): ?string {
+        $cart_key = (string)($item['_cart_key'] ?? '');
+        if ($cart_key === '') {
+            return null;
+        }
+
+        $path_key = $field === 'reference' ? 'reference_tmp_path' : 'design_tmp_path';
+        $mime_key = $field === 'reference' ? 'reference_mime' : 'design_mime';
+
+        if (empty($item[$path_key]) || !is_file((string)$item[$path_key])) {
+            return null;
+        }
+
+        $mime = (string)($item[$mime_key] ?? '');
+        if ($mime !== '' && stripos($mime, 'image/') !== 0) {
+            return null;
+        }
+
+        $base = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
+        return rtrim($base, '/') . '/customer/temp_upload_preview.php?item=' . rawurlencode($cart_key) . '&field=' . rawurlencode($field);
+    }
+}
+
 /**
  * Renders a single order item card in the Neubrutalism style.
  * Supports both cart items (session) and database items (order_items table).
@@ -78,14 +102,8 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     $ref_url = null;
     
     if ($is_cart_item) {
-        if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
-            $binary = @file_get_contents($item['design_tmp_path']);
-            if ($binary) $design_url = 'data:' . $item['design_mime'] . ';base64,' . base64_encode($binary);
-        }
-        if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path']) && !empty($item['reference_mime'])) {
-            $binary = @file_get_contents($item['reference_tmp_path']);
-            if ($binary) $ref_url = 'data:' . $item['reference_mime'] . ';base64,' . base64_encode($binary);
-        }
+        $design_url = pf_order_ui_temp_preview_url($item, 'design');
+        $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
     } else {
         $has_design = !empty($item['design_image']) || !empty($item['design_file']);
         if ($has_design) {
@@ -145,7 +163,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
         <div style="padding: 1.5rem; border-bottom: 2px solid #000; display: flex; gap: 1.5rem; align-items: flex-start;">
             <div style="width: 120px; height: 120px; border: 2px solid #000; border-radius: 8px; overflow: hidden; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                 <?php if ($design_url): ?>
-                    <img src="<?php echo $design_url; ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                    <img src="<?php echo htmlspecialchars($design_url); ?>" style="width: 100%; height: 100%; object-fit: cover;">
                 <?php else: ?>
                     <span style="font-size: 2.5rem; color: #9ca3af; text-align: center;">Item</span>
                 <?php endif; ?>
@@ -219,7 +237,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
             <div style="padding: 1.25rem; background: #fff; border-top: 1px solid #000; border-style: dashed;">
                 <div style="font-size: 0.75rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.75rem;">Reference Image</div>
                 <div style="display: inline-block; padding: 6px; border: 2px solid #000; border-radius: 8px; background: white; box-shadow: 4px 4px 0px rgba(0,0,0,0.1);">
-                    <img src="<?php echo $ref_url; ?>" style="max-width: 140px; border-radius: 4px; display: block;">
+                    <img src="<?php echo htmlspecialchars($ref_url); ?>" style="max-width: 140px; border-radius: 4px; display: block;">
                 </div>
             </div>
         <?php endif; ?>
@@ -265,24 +283,18 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $ref_url = null;
     
     if ($is_cart_item) {
-        if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path']) && !empty($item['design_mime'])) {
-            $binary = @file_get_contents($item['design_tmp_path']);
-            if ($binary) $design_url = 'data:' . $item['design_mime'] . ';base64,' . base64_encode($binary);
-        }
-        if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path']) && !empty($item['reference_mime'])) {
-            $binary = @file_get_contents($item['reference_tmp_path']);
-            if ($binary) $ref_url = 'data:' . $item['reference_mime'] . ';base64,' . base64_encode($binary);
-        }
+        $design_url = pf_order_ui_temp_preview_url($item, 'design');
+        $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
     } else {
         $has_design = !empty($item['design_image']) || !empty($item['design_file']);
         if ($has_design) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+            $design_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
             $design_url = $item['product_image'];
         }
 
         if (!empty($item['reference_image_file'])) {
-            $ref_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
+            $ref_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
     }
 
@@ -290,11 +302,11 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     if (!$design_url) {
         $cat_comb = strtolower(($item['category'] ?? '') . ' ' . ($name ?? ''));
         if (strpos($cat_comb, 't-shirt') !== false || strpos($cat_comb, 'tshirt') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_31.jpg";
+            $design_url = $base_url . "/public/images/products/product_31.jpg";
         } else if (strpos($cat_comb, 'tarpaulin') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_42.jpg";
+            $design_url = $base_url . "/public/images/products/product_42.jpg";
         } else if (strpos($cat_comb, 'reflectorized') !== false || strpos($cat_comb, 'signage') !== false || strpos($cat_comb, 'sticker') !== false || strpos($cat_comb, 'decal') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_21.jpg";
+            $design_url = $base_url . "/public/images/products/product_21.jpg";
         }
     }
 
@@ -330,7 +342,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         <div class="order-item-header" style="padding: 1.25rem; display: flex; gap: 1.25rem; align-items: flex-start; border-bottom: 1px solid rgba(83, 197, 224, 0.15); background: rgba(255,255,255,0.02);">
             <div class="order-item-image" style="width: 130px; height: 130px; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.35); border: 1px solid rgba(83, 197, 224, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);">
                 <?php if ($design_url): ?>
-                    <img src="<?php echo $design_url; ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease-in-out;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                    <img src="<?php echo htmlspecialchars($design_url); ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease-in-out;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
                 <?php else: ?>
                     <span style="font-size: 2.2rem; color: rgba(255,255,255,0.15);">Item</span>
                 <?php endif; ?>
@@ -411,7 +423,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     Reference Attachment
                 </div>
                 <div style="width: 140px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(83, 197, 224, 0.24); padding: 5px; background: rgba(0,0,0,0.2);">
-                    <img src="<?php echo $ref_url; ?>" style="width: 100%; height: auto; display: block; border-radius: 6px;">
+                    <img src="<?php echo htmlspecialchars($ref_url); ?>" style="width: 100%; height: auto; display: block; border-radius: 6px;">
                 </div>
             </div>
         <?php endif; ?>

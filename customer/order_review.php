@@ -43,8 +43,9 @@ if (empty($item_keys)) {
 // Collect all valid items
 $items_to_review = [];
 foreach ($item_keys as $key) {
-    if (isset($cart[$key])) {
+    if (isset($cart[$key]) && is_array($cart[$key])) {
         $items_to_review[$key] = $cart[$key];
+        $items_to_review[$key]['_cart_key'] = $key;
     }
 }
 
