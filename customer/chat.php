@@ -36,7 +36,7 @@ require_once __DIR__ . '/../includes/header.php';
     /* Layout — fill viewport below the site header */
     .hidden { display: none !important; }
     body.chat-page { overflow: hidden !important; background: var(--pf-navy); }
-    body.chat-page #main-content { padding: 0 !important; min-height: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; }
+    body.chat-page #main-content { padding: 0 1rem !important; min-height: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; align-items: center; }
     body.chat-page #main-header { position: sticky; top: 0; z-index: 100; }
     body.chat-page .text-white { color: #0f172a !important; }
 
@@ -46,11 +46,16 @@ require_once __DIR__ . '/../includes/header.php';
 
     #chat-root {
         display: grid;
-        grid-template-columns: 350px 1fr;
-        height: calc(100vh - 65px);
+        grid-template-columns: 330px minmax(0, 1fr);
+        width: 100%;
+        max-width: 1100px;
+        height: calc(100vh - 96px);
+        margin: 1rem auto;
         overflow: hidden;
         background: var(--pf-navy);
         font-family: 'Inter', sans-serif;
+        border: 1px solid var(--pf-border);
+        border-radius: 12px;
     }
 
     /* ── Sidebar ── */
@@ -299,6 +304,64 @@ require_once __DIR__ . '/../includes/header.php';
         display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(15,23,42,0.12);
     }
     #galleryPanel.show { display: flex; }
+
+    .chat-welcome {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        background: #f8fafc;
+    }
+    .chat-welcome-card {
+        width: 100%;
+        max-width: 440px;
+        background: #ffffff;
+        border: 1px solid var(--pf-border);
+        border-radius: 12px;
+        padding: 2rem;
+    }
+    .chat-welcome-icon {
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 1.25rem;
+        border-radius: 18px;
+        background: rgba(14,116,144,0.08);
+        border: 1px solid rgba(14,116,144,0.18);
+        color: #0e7490;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+    }
+    .chat-welcome-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.65rem;
+        font-weight: 900;
+    }
+    .chat-welcome-copy {
+        color: #475569;
+        max-width: 340px;
+        margin: 0.75rem auto 0;
+        font-size: 0.98rem;
+        font-weight: 600;
+        line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+        body.chat-page #main-content { padding: 0 !important; }
+        #chat-root {
+            grid-template-columns: 1fr;
+            height: calc(100vh - 65px);
+            margin: 0;
+            border-radius: 0;
+            border-left: 0;
+            border-right: 0;
+        }
+        .cs-sidebar { display: none; }
+    }
 </style>
 
 <div id="chat-root">
@@ -314,13 +377,13 @@ require_once __DIR__ . '/../includes/header.php';
 
     <!-- ══ Chat Window ── -->
     <section class="cs-window">
-        <div id="welcome" class="flex-1 flex items-center justify-center text-left p-12">
-        <div>
-            <div class="text-5xl opacity-20 text-white mb-6"><i class="bi bi-chat-heart-fill"></i></div>
-            <h3 class="text-3xl font-black text-white letter-spacing-tight">Get in Touch</h3>
-            <p class="text-white opacity-50 max-w-xs mt-3 font-bold text-lg leading-snug">Please select an order to start chatting. You can contact our admin or staff directly if you encounter any issues.</p>
+        <div id="welcome" class="chat-welcome">
+            <div class="chat-welcome-card">
+                <div class="chat-welcome-icon"><i class="bi bi-chat-heart-fill"></i></div>
+                <h3 class="chat-welcome-title">Get in Touch</h3>
+                <p class="chat-welcome-copy">Select an order from your messages to start chatting with our team. We are here to help with updates, questions, and order concerns.</p>
+            </div>
         </div>
-    </div>
         
         <div id="chatInterface" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
             <header class="cs-header">

@@ -252,10 +252,10 @@ require_once __DIR__ . '/../includes/header.php';
 
 .orders-theme-page .orders-list-content {
     background: #ffffff;
-    min-height: 500px;
+    min-height: 0;
 }
 .orders-theme-page .ct-order-card {
-    padding: 1.15rem 2rem;
+    padding: 0.95rem 2rem;
     transition: background 0.2s, border-color 0.2s;
     background: transparent !important;
     border: none !important;
@@ -265,7 +265,7 @@ require_once __DIR__ . '/../includes/header.php';
     cursor: pointer;
 }
 @media (max-width: 640px) {
-    .orders-theme-page .ct-order-card { padding: 1.25rem 1rem; }
+    .orders-theme-page .ct-order-card { padding: 1rem; }
 }
 .orders-theme-page .ct-order-card + .ct-order-card { border-top: 1px solid #e2e8f0 !important; }
 .orders-theme-page .ct-order-card:hover { background: #f8fafc !important; }
@@ -274,12 +274,12 @@ require_once __DIR__ . '/../includes/header.php';
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.65rem;
     border-bottom: 1px solid #e2e8f0;
 }
 @media (max-width: 640px) {
-    .orders-theme-page .card-top-row { margin-bottom: 1rem; padding-bottom: 1rem; }
+    .orders-theme-page .card-top-row { margin-bottom: 0.85rem; padding-bottom: 0.85rem; }
 }
 .orders-theme-page .order-id-chip {
     font-size: 0.7rem;
@@ -294,7 +294,7 @@ require_once __DIR__ . '/../includes/header.php';
 @media (max-width: 640px) {
     .orders-theme-page .order-id-chip { font-size: 0.75rem; padding: 5px 12px; }
 }
-.orders-theme-page .card-content { display: flex; gap: 1.5rem; align-items: flex-start; }
+.orders-theme-page .card-content { display: flex; gap: 1.35rem; align-items: flex-start; }
 @media (max-width: 640px) {
     .orders-theme-page .card-content { flex-direction: column; gap: 1rem; }
 }
