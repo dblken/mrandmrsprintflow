@@ -260,8 +260,7 @@ if ($action === 'buy_now') {
         $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
         if (empty($customer_name)) $customer_name = 'Customer';
         
-        $notification_msg = "New order #$order_id from $customer_name";
-        create_notification(null, 'Staff', $notification_msg, 'Order', false, false, $order_id);
+        notify_staff_new_order((int)$order_id, $customer_name);
         
         // Log activity
         log_activity($customer_id, 'Order Placed', "Customer placed order #$order_id");
