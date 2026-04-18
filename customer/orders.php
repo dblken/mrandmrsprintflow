@@ -180,11 +180,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 .orders-theme-page .unified-dashboard {
     background: rgba(0, 49, 61, 0.88);
-    border: 1px solid rgba(83,197,224,0.18) !important;
+    border: 0 !important;
     border-radius: 12px !important;
     overflow: hidden;
     margin-bottom: 3rem;
-    box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+    box-shadow: none;
     backdrop-filter: blur(8px);
 }
 
@@ -453,13 +453,13 @@ require_once __DIR__ . '/../includes/header.php';
 }
 #itemsModal.open { opacity: 1; pointer-events: auto; }
 .im-panel {
-    background: rgba(10, 37, 48, 0.99) !important;
-    border: 1px solid rgba(83,197,224,0.2);
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0;
     border-radius: 12px !important;
     width: 100%; max-width: 1150px;
     max-height: calc(100vh - 4rem);
     display: flex; flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    box-shadow: 0 24px 60px rgba(15,23,42,0.18);
     overflow: hidden;
     transform: scale(0.95);
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -467,32 +467,32 @@ require_once __DIR__ . '/../includes/header.php';
 #itemsModal.open .im-panel { transform: scale(1); }
 .im-header {
     padding: 0.75rem 1.25rem;
-    background: rgba(83,197,224,0.05);
-    border-bottom: 1px solid rgba(83,197,224,0.15);
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
 }
-.im-title { font-size: 1rem; font-weight: 800; color: #fff !important; margin: 0; }
-.im-subtitle { font-size: 0.82rem; color: rgba(255,255,255,0.5) !important; margin-top: 4px; font-weight: 600; }
+.im-title { font-size: 1rem; font-weight: 800; color: #0f172a !important; margin: 0; }
+.im-subtitle { font-size: 0.82rem; color: #64748b !important; margin-top: 4px; font-weight: 600; }
 .im-close {
     width: 42px; height: 42px; border-radius: 8px !important;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+    background: #ffffff; border: 1px solid #e2e8f0; color: #64748b;
     cursor: pointer; transition: all 0.2s; font-size: 1.2rem;
 }
-.im-close:hover { background: rgba(255,100,100,0.1); color: #ff6b6b; }
+.im-close:hover { background: #fee2e2; color: #b91c1c; }
 .im-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
 .im-dashboard { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
 .im-main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .im-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
 .im-table { width: 100%; border-collapse: collapse; }
-.im-table th { text-align: left; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 700; color: rgba(255,255,255,0.4); border-bottom: 2px solid rgba(255,255,255,0.08); }
-.im-table td { padding: 1.25rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; color: #eaf6fb; }
-.im-sec-card { background: rgba(255,255,255,0.02); border-left: 2px solid rgba(255,255,255,0.1); padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
-.im-sec-card.accent { border-left-color: #53c5e0; background: rgba(83,197,224,0.05); }
-.im-label { font-size: 0.68rem; color: rgba(255,255,255,0.4); font-weight: 700; margin-bottom: 6px; }
-.im-val { font-size: 0.95rem; font-weight: 800; color: #fff; }
-.im-chip { display: inline-flex; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); padding: 2px 8px; border-radius: 4px !important; font-size: 0.65rem; }
-.im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
+.im-table th { text-align: left; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 700; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+.im-table td { padding: 1.25rem 0.5rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
+.im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
+.im-sec-card.accent { border-left-color: #0e7490; background: #f8fafc; }
+.im-label { font-size: 0.68rem; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+.im-val { font-size: 0.95rem; font-weight: 800; color: #0f172a; }
+.im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.65rem; }
+.im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
 
 #cancelModal {
     position: fixed; inset: 0; z-index: 100000;
@@ -830,29 +830,29 @@ function openItemsModal(orderId) {
                 if (chipItems) chips = `<div class="im-chips">${chipItems}</div>`;
             }
             
-            const design = item.has_design ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.design_url}')"><div class="text-[9px] font-black text-slate-400 uppercase mb-1">Final Design</div><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></div>` : '';
-            const reference = item.has_reference ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.reference_url}')"><div class="text-[9px] font-black text-slate-400 uppercase mb-1">Reference</div><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></div>` : '';
+            const design = item.has_design ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.design_url}')"><div style="font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem;">Final Design</div><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></div>` : '';
+            const reference = item.has_reference ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.reference_url}')"><div style="font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem;">Reference</div><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></div>` : '';
 
             return `<tr>
                 <td style="min-width: 250px;">
-                    <div style="font-weight: 700; color: #fff; font-size: 14px; margin-bottom: 0.5rem;">${escIM(item.product_name)}</div>
+                    <div style="font-weight: 800; color: #0f172a; font-size: 14px; margin-bottom: 0.5rem;">${escIM(item.product_name)}</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem;">${chips}</div>
                     
                     ${design || reference ? `
                         <div style="margin-top: 1rem;">
-                            <div style="font-size: 11px; font-weight: 700; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Uploaded Assets</div>
+                            <div style="font-size: 11px; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Uploaded Assets</div>
                             <div style="display: flex; gap: 0.75rem;">${design}${reference}</div>
                         </div>
                     ` : ''}
                 </td>
                 <td style="text-align: center; vertical-align: middle;">
-                    <div style="font-size: 16px; font-weight: 700; color: #eaf6fb;">${item.quantity}</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #0f172a;">${item.quantity}</div>
                 </td>
                 <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
-                    <div style="font-size: 14px; font-weight: 400; color: #9fc4d4;">${escIM(item.unit_price)}</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #475569;">${escIM(item.unit_price)}</div>
                 </td>
                 <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
-                    <div style="font-size: 16px; font-weight: 700; color: #53c5e0;">${escIM(item.subtotal)}</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #0e7490;">${escIM(item.subtotal)}</div>
                 </td>
             </tr>`;
         }).join('');
@@ -860,9 +860,9 @@ function openItemsModal(orderId) {
         document.getElementById('imBody').innerHTML = `
             <div class="im-dashboard">
                 <div class="im-main">
-                    <div style="background: rgba(0, 28, 36, 0.5); border: 1px solid rgba(83, 197, 224, 0.15); border-radius: 12px; overflow: hidden;">
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                         <table class="im-table">
-                            <thead style="background: rgba(83, 197, 224, 0.05);">
+                            <thead style="background: #f8fafc;">
                                 <tr>
                                     <th style="padding: 1rem; font-size: 11px; font-weight: 700;">Service Description</th>
                                     <th style="text-align: center; padding: 1rem; font-size: 11px; font-weight: 700;">Qty</th>
@@ -875,9 +875,9 @@ function openItemsModal(orderId) {
                     </div>
                     
                     ${data.notes ? `
-                        <div style="margin-top: 1.5rem; padding: 1.25rem; background: rgba(83, 197, 224, 0.05); border: 1px solid rgba(83, 197, 224, 0.2); border-left: 4px solid #53c5e0; border-radius: 12px;">
-                            <div style="font-size: 11px; font-weight: 700; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Customer Notes</div>
-                            <div style="font-size: 14px; font-weight: 400; color: #eaf6fb; line-height: 1.6;">"${escIM(data.notes)}"</div>
+                        <div style="margin-top: 1.5rem; padding: 1.25rem; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0e7490; border-radius: 12px;">
+                            <div style="font-size: 11px; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Customer Notes</div>
+                            <div style="font-size: 14px; font-weight: 500; color: #334155; line-height: 1.6;">"${escIM(data.notes)}"</div>
                         </div>
                     ` : ''}
                 </div>
@@ -887,20 +887,20 @@ function openItemsModal(orderId) {
                     <div class="im-sec-card accent">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px;">Current status</div>
-                                <div style="font-size: 16px; font-weight: 700; color: #fff; line-height: 1.2;">${data.status}</div>
+                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Current status</div>
+                                <div style="font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.2;">${data.status}</div>
                             </div>
                             <div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>
                         </div>
-                        <div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px; margin-top: 16px;">Branch processing</div>
-                        <div style="font-size: 14px; font-weight: 400; color: #e0f2fe;">${escIM(data.branch_name)}</div>
+                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; margin-top: 16px;">Branch processing</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #334155;">${escIM(data.branch_name)}</div>
                     </div>
 
                     <div class="im-sec-card">
-                        <div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 12px;">Payment information</div>
+                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 12px;">Payment information</div>
                         <div class="space-y-4">
-                            <div><div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); margin-bottom: 4px;">Method</div><div style="font-size: 14px; font-weight: 400; color: #e0f2fe;">${escIM(data.payment_method)}</div></div>
-                            <div><div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
+                            <div><div style="font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px;">Method</div><div style="font-size: 14px; font-weight: 600; color: #334155;">${escIM(data.payment_method)}</div></div>
+                            <div><div style="font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
                         </div>
                     </div>
 
