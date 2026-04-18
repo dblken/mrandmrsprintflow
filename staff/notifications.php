@@ -47,7 +47,7 @@ if (isset($_GET['action'])) {
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-$where = "user_id = ? AND type != 'Message'";
+$where = "user_id = ?";
 $params = [$staff_id];
 $types = 'i';
 
@@ -75,7 +75,7 @@ if ($page > $total_pages) {
 }
 $offset = ($page - 1) * $per_page;
 $notifications = db_query(
-    "SELECT * FROM notifications WHERE $where ORDER BY created_at DESC LIMIT ? OFFSET ?",
+    "SELECT * FROM notifications WHERE $where ORDER BY created_at DESC, notification_id DESC LIMIT ? OFFSET ?",
     $types . 'ii',
     array_merge($params, [$per_page, $offset])
 ) ?: [];
