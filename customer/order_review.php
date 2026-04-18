@@ -180,12 +180,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                 $estimated_price = ($order_type === 'custom') ? $grand_total : null;
                 $order_total_amount = $grand_total;
 
-                // 2. Create Single Order with order_source = 'customer'
-                $order_sql = "INSERT INTO orders (customer_id, branch_id, reference_id, order_date, total_amount, estimated_price, downpayment_amount, status, payment_status, payment_type, notes, order_type, order_source)
-                              VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, 'customer')";
-                $order_id  = db_execute($order_sql, 'iiidddsssss', [$customer_id, $branch_id, $reference_id, $order_total_amount, $estimated_price, $downpayment_amount, $order_status, $payment_status, $payment_type, $notes_summary, $order_type]);
+                // 2. Create Single Order with a schema-safe insert
+                $orders_columns = db_query("SHOW COLUMNS FROM orders") ?: [];
+                $orders_field_map = [];
+                foreach ($orders_columns as $col) {
+                    if (!empty($col['Field'])) {
+                        $orders_field_map[$col['Field']] = true;
+                    }
+                }
 
-                if ($order_id) {
+                $required_fields = ['customer_id', 'total_amount'];
+                $missing_required = array_filter($required_fields, fn($f) => empty($orders_field_map[$f]));
+                if (!empty($missing_required)) {
+                    $order_error = 'Order table is missing required columns. Please contact support.';
+                } else {
+                    $insert_fields = [];
+                    $insert_values = [];
+                    $types = '';
+                    $params = [];
+
+                    $add_param = function ($field, $type, $value) use (&$insert_fields, &$insert_values, &$types, &$params) {
+                        $insert_fields[] = $field;
+                        $insert_values[] = '?';
+                        $types .= $type;
+                        $params[] = $value;
+                    };
+
+                    if (!empty($orders_field_map['customer_id'])) {
+                        $add_param('customer_id', 'i', $customer_id);
+                    }
+                    if (!empty($orders_field_map['branch_id'])) {
+                        $add_param('branch_id', 'i', $branch_id);
+                    }
+                    if (!empty($orders_field_map['reference_id'])) {
+                        $add_param('reference_id', 'i', $reference_id);
+                    }
+                    if (!empty($orders_field_map['order_date'])) {
+                        $insert_fields[] = 'order_date';
+                        $insert_values[] = 'NOW()';
+                    }
+                    if (!empty($orders_field_map['total_amount'])) {
+                        $add_param('total_amount', 'd', $order_total_amount);
+                    }
+                    if (!empty($orders_field_map['estimated_price'])) {
+                        $add_param('estimated_price', 'd', $estimated_price);
+                    }
+                    if (!empty($orders_field_map['downpayment_amount'])) {
+                        $add_param('downpayment_amount', 'd', $downpayment_amount);
+                    }
+                    if (!empty($orders_field_map['status'])) {
+                        $add_param('status', 's', $order_status);
+                    }
+                    if (!empty($orders_field_map['payment_status'])) {
+                        $add_param('payment_status', 's', $payment_status);
+                    }
+                    if (!empty($orders_field_map['payment_type'])) {
+                        $add_param('payment_type', 's', $payment_type);
+                    }
+                    if (!empty($orders_field_map['notes'])) {
+                        $add_param('notes', 's', $notes_summary);
+                    }
+                    if (!empty($orders_field_map['order_type'])) {
+                        $add_param('order_type', 's', $order_type);
+                    }
+                    if (!empty($orders_field_map['order_source'])) {
+                        $add_param('order_source', 's', 'customer');
+                    }
+
+                    $order_sql = "INSERT INTO orders (" . implode(', ', $insert_fields) . ") VALUES (" . implode(', ', $insert_values) . ")";
+                    $order_id = $types !== '' ? db_execute($order_sql, $types, $params) : db_execute($order_sql);
+                }
+
+                if (!empty($order_id)) {
                     error_log('Order created successfully with ID: ' . $order_id);
                     error_log('Order type: ' . $order_type);
                     error_log('Branch ID: ' . $branch_id);
