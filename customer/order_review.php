@@ -353,11 +353,10 @@ require_once __DIR__ . '/../includes/header.php';
         color: #374151 !important;
     }
     .review-policy-card {
-        background: #fef3c7 !important;
-        border: 1px solid #fde68a !important;
+        margin-bottom: 1.5rem;
     }
-    .review-policy-title { color: #78350f !important; }
-    .review-policy-text { color: #92400e !important; line-height: 1.6; margin: 0; font-size: 0.82rem; }
+    .review-policy-title { font-size: 0.82rem; font-weight: 700; color: #0c4a6e !important; margin-bottom: 3px; }
+    .review-policy-text { font-size: 0.75rem; color: #075985 !important; line-height: 1.5; margin: 0; }
     .review-buy-btn {
         width: auto;
         font-weight: 700;
@@ -929,12 +928,14 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <?php if (!$is_product_order): ?>
                 <!-- 3. Payment Policy Notice -->
-                <div style="background: rgba(0,49,61,0.7); border: 1px solid #53c5e0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; backdrop-filter: blur(8px);">
-                    <h3 style="font-size:0.95rem; font-weight:700; color:#53c5e0; margin-bottom:0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Payment Policy</h3>
-                    <p style="font-size:0.85rem; color:#e0f2fe; line-height:1.6; margin:0;">
-                        The payment option (100% Full Payment) will become available once staff reviews your order and sets the price. 
-                        You will receive a notification when your order is ready for payment.
-                    </p>
+                <div class="review-info-note review-policy-card">
+                    <svg style="width:20px;height:20px;color:#0ea5e9;flex-shrink:0;margin-top:1px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                    </svg>
+                    <div>
+                        <div class="review-policy-title">Payment Policy</div>
+                        <div class="review-policy-text">The payment option (100% Full Payment) will become available once staff reviews your order and sets the price. You will receive a notification when your order is ready for payment.</div>
+                    </div>
                 </div>
                 <?php endif; ?>
 

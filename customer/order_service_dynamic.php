@@ -611,17 +611,17 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     
                     <?php echo render_service_fields($service_id, $branches, $existing_data); ?>
                     
-                    <div class="shopee-form-row pt-8">
+                    <div class="shopee-form-row pt-8 service-action-row">
                         <div style="width: 130px;"></div>
-                        <div class="flex gap-4 flex-1 flex-wrap">
-                            <a href="<?php echo BASE_URL; ?>/customer/services.php" class="shopee-btn-outline" style="flex: 1; min-width: 100px;">Back</a>
-                            <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="flex: 1.2; min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; padding: 0.5rem 1.25rem;" title="Add to Cart">
+                        <div class="service-action-buttons">
+                            <a href="<?php echo BASE_URL; ?>/customer/services.php" class="shopee-btn-outline" style="min-width: 100px;">Back</a>
+                            <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; padding: 0.5rem 1.25rem;" title="Add to Cart">
                                 <svg style="width: 1.125rem; height: 1.125rem; flex-shrink: 0; margin-right: 0.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
                                 <span>Add to Cart</span>
                             </button>
-                            <button type="submit" name="action" value="inquire_now" class="shopee-btn-primary" style="flex: 2; min-width: 200px; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1.25rem;">
+                            <button type="submit" name="action" value="inquire_now" class="shopee-btn-primary" style="min-width: 200px; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1.25rem;">
                                 <svg style="width: 1.125rem; height: 1.125rem; flex-shrink: 0; margin-right: 0.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
                                 </svg>
@@ -859,6 +859,10 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .shopee-form-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: flex-start; position: relative; flex-wrap: wrap; }
 .shopee-form-label { min-width: 130px; padding-top: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151; flex-shrink: 0; }
 .shopee-form-field { flex: 1; position: relative; display: flex !important; flex-direction: column !important; min-width: 0; gap: 4px; }
+.service-action-row { align-items: center; margin-bottom: 0; }
+.service-action-buttons { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.service-action-buttons > a,
+.service-action-buttons > button { flex: 0 0 auto; }
 .field-error { display: flex !important; align-items: center; gap: 0.375rem; color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; padding-left: 0; width: 100% !important; min-width: 100% !important; flex-basis: 100% !important; order: 999; clear: both; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
 .input-field, .shopee-opt-group, .shopee-qty-control { margin-top: 0; }

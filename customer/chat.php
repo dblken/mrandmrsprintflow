@@ -75,9 +75,16 @@ require_once __DIR__ . '/../includes/header.php';
     .cs-list::-webkit-scrollbar { width:3px; }
     .cs-list::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
 
-    .conv-card { display:flex; gap:11px; padding:12px 14px; border-radius:14px; margin-bottom:3px; cursor:pointer; border:1px solid transparent; transition:.18s; }
+    .conv-card { display:flex; gap:11px; padding:12px 14px; border-radius:14px; margin-bottom:3px; cursor:pointer; border:1px solid transparent; border-left:4px solid transparent; transition:.18s; }
     .conv-card:hover { background:#f1f5f9; }
-    .conv-card.active { background:#fff; border-color:var(--pf-border); box-shadow:0 4px 12px rgba(15,23,42,0.06); }
+    .conv-card.active {
+        background:#ffffff;
+        border-color:rgba(14,116,144,0.28);
+        border-left-color:#0e7490;
+        box-shadow:0 8px 20px rgba(14,116,144,0.14);
+    }
+    .conv-card.active .conv-name,
+    .conv-card.active .conv-sub { color:#0e7490; }
     .conv-av { width:44px; height:44px; border-radius:11px; background:#f1f5f9; border:1px solid var(--pf-border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem; color:var(--pf-cyan); flex-shrink:0; overflow:hidden; }
     .conv-av img { width:100%; height:100%; object-fit:cover; }
     .conv-info { flex:1; min-width:0; }
@@ -597,7 +604,7 @@ function loadConvs() {
             const name = c.staff_name || 'PrintFlow Team';
             const active = activeId === c.order_id ? 'active' : '';
             return `
-            <div class="conv-card ${active}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
+            <div class="conv-card ${active}" data-order-id="${c.order_id}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
                 <div class="conv-av">${c.staff_avatar ? `<img src="${resolveProfileUrl(c.staff_avatar)}" onerror="${PROFILE_IMAGE_ONERROR}">` : (name === 'PrintFlow Team' ? `<img src="${BASE}/public/assets/images/favicon.png" style="width:24px;height:24px;object-fit:contain;opacity:0.8;">` : `<span>${name[0].toUpperCase()}</span>`)}</div>
                 <div class="conv-info">
                     <div class="conv-top"><span class="conv-name">${esc(name)}</span><span class="conv-time">${fmtTimeAgo(c.last_message_at)}</span></div>
@@ -624,6 +631,9 @@ function loadConvs() {
 
 function openChat(id, name, meta, archived, avatar = '') {
     activeId = id; lastId = 0; isConvArch = !!archived; partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : '';
+    document.querySelectorAll('.conv-card').forEach(card => card.classList.remove('active'));
+    const activeCard = document.querySelector(`.conv-card[data-order-id="${id}"]`);
+    if (activeCard) activeCard.classList.add('active');
     document.getElementById('welcome').style.display = 'none';
     document.getElementById('chatInterface').style.display = 'flex';
     document.getElementById('hName').textContent = name;
