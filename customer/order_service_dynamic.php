@@ -860,9 +860,15 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .shopee-form-label { min-width: 130px; padding-top: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151; flex-shrink: 0; }
 .shopee-form-field { flex: 1; position: relative; display: flex !important; flex-direction: column !important; min-width: 0; gap: 4px; }
 .service-action-row { align-items: center; margin-bottom: 0; }
-.service-action-buttons { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.service-action-buttons { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; flex-wrap: nowrap; min-width: 0; }
 .service-action-buttons > a,
 .service-action-buttons > button { flex: 0 0 auto; }
+@media (max-width: 760px) {
+    .service-action-row > div:first-child { display: none; }
+    .service-action-buttons { justify-content: stretch; flex-wrap: wrap; }
+    .service-action-buttons > a,
+    .service-action-buttons > button { flex: 1 1 100%; width: 100%; }
+}
 .field-error { display: flex !important; align-items: center; gap: 0.375rem; color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; padding-left: 0; width: 100% !important; min-width: 100% !important; flex-basis: 100% !important; order: 999; clear: both; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
 .input-field, .shopee-opt-group, .shopee-qty-control { margin-top: 0; }
