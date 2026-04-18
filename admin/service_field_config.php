@@ -1260,8 +1260,13 @@ document.getElementById('configForm')?.addEventListener('submit', function(e) {
             const optionList = card.querySelector('.option-list:not(.dimension-options)');
             if (optionList) {
                 const options = [];
-                optionList.querySelectorAll('.option-input').forEach(input => {
-                    if (input.value.trim()) options.push(input.value.trim());
+                optionList.querySelectorAll('.option-item').forEach(item => {
+                    const input = item.querySelector('.option-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) return;
+                    const priceInput = item.querySelector('.option-price-input');
+                    const optionPrice = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+                    options.push({ value: val, price: optionPrice });
                 });
                 if (options.length > 0) config.options = options;
             }
@@ -1272,7 +1277,10 @@ document.getElementById('configForm')?.addEventListener('submit', function(e) {
                 dimensionList.querySelectorAll('.option-item').forEach(item => {
                     const w = item.querySelector('.dimension-w')?.value.trim();
                     const h = item.querySelector('.dimension-h')?.value.trim();
-                    if (w && h) dimensions.push(w + '×' + h);
+                    if (!w || !h) return;
+                    const priceInput = item.querySelector('.dimension-price-input');
+                    const price = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+                    dimensions.push({ value: w + '×' + h, price: price });
                 });
                 if (dimensions.length > 0) config.options = dimensions;
                 

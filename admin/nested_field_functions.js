@@ -232,6 +232,8 @@ window.collectNestedFieldConfigurations = function() {
                 radioOptionsList.querySelectorAll('.radio-option-item').forEach(optionItem => {
                     const optionValue = optionItem.querySelector('.option-input').value.trim();
                     if (!optionValue) return;
+                    const priceInput = optionItem.querySelector('.option-price-input');
+                    const optionPrice = priceInput ? parseFloat(priceInput.value) || 0 : 0;
                     
                     // Check if this option has a nested field panel
                     const nestedPanel = optionItem.querySelector('.nested-field-panel');
@@ -271,14 +273,15 @@ window.collectNestedFieldConfigurations = function() {
                         if (nestedFields.length > 0) {
                             options.push({
                                 value: optionValue,
+                                price: optionPrice,
                                 nested_fields: nestedFields
                             });
                         } else {
-                            options.push(optionValue);
+                            options.push({ value: optionValue, price: optionPrice });
                         }
                     } else {
                         // No nested field panel
-                        options.push(optionValue);
+                        options.push({ value: optionValue, price: optionPrice });
                     }
                 });
                 
@@ -290,9 +293,13 @@ window.collectNestedFieldConfigurations = function() {
             const optionList = card.querySelector('.option-list:not(.radio-options-list)');
             if (optionList) {
                 const options = [];
-                optionList.querySelectorAll('.option-input').forEach(input => {
-                    const val = input.value.trim();
-                    if (val) options.push(val);
+                optionList.querySelectorAll('.option-item').forEach(item => {
+                    const input = item.querySelector('.option-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) return;
+                    const priceInput = item.querySelector('.option-price-input');
+                    const optionPrice = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+                    options.push({ value: val, price: optionPrice });
                 });
                 if (options.length > 0) config.options = options;
             }
@@ -305,7 +312,10 @@ window.collectNestedFieldConfigurations = function() {
                 dimensionList.querySelectorAll('.option-item').forEach(item => {
                     const w = item.querySelector('.dimension-w')?.value.trim();
                     const h = item.querySelector('.dimension-h')?.value.trim();
-                    if (w && h) dimensions.push(w + '×' + h);
+                    if (!w || !h) return;
+                    const priceInput = item.querySelector('.dimension-price-input');
+                    const price = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+                    dimensions.push({ value: w + '×' + h, price: price });
                 });
                 if (dimensions.length > 0) config.options = dimensions;
                 
