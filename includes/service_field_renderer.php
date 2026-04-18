@@ -133,7 +133,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 $is_checked = ($saved_value == $optionValue) ? ' checked' : '';
                 $optionPrice = is_array($option) ? ($option['price'] ?? 0) : 0;
                 $html .= '<label class="shopee-opt-btn' . ($is_checked ? ' active' : '') . '">';
-                $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="' . htmlspecialchars((string)$optionPrice) . '" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
+                $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="' . htmlspecialchars((string)$optionPrice) . '" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \'' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
                 $html .= '<span>' . $value . '</span>';
                 $html .= '</label>';
             }
