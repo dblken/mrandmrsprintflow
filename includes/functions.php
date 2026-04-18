@@ -1067,6 +1067,152 @@ function get_unread_notification_count($user_id, $user_type) {
 }
 
 /**
+ * Build customer notification rows for the full page and header dropdown.
+ *
+ * The notifications table only stores the core event payload, so this helper
+ * resolves display title, image fallback, relative time, and safe customer URLs.
+ */
+function get_customer_notifications_for_display($customer_id, $limit = 10, $offset = 0) {
+    $customer_id = (int)$customer_id;
+    $limit = max(1, (int)$limit);
+    $offset = max(0, (int)$offset);
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $default_image = $base . '/public/assets/images/services/default.png';
+
+    $rows = db_query(
+        "SELECT notification_id, customer_id, message, type, data_id, is_read, created_at
+         FROM notifications
+         WHERE customer_id = ?
+         ORDER BY created_at DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        'i',
+        [$customer_id]
+    );
+
+    if (empty($rows) || !is_array($rows)) {
+        return [];
+    }
+
+    $notifications = [];
+    foreach ($rows as $row) {
+        $type = (string)($row['type'] ?? 'System');
+        $message = (string)($row['message'] ?? '');
+        $data_id = (int)($row['data_id'] ?? 0);
+        $title = customer_notification_title($type, $message);
+        $target = customer_notification_target_url($row);
+        $link = $target;
+
+        if ((int)($row['is_read'] ?? 0) === 0) {
+            $link = $base . '/customer/notifications.php?mark_read=' . (int)$row['notification_id'] . '&next=' . urlencode($target);
+        }
+
+        $image = customer_notification_image_url($row, $default_image);
+
+        $notifications[] = [
+            'notification_id' => (int)($row['notification_id'] ?? 0),
+            'title' => $title,
+            'message' => $message,
+            'type' => $type,
+            'data_id' => $data_id,
+            'is_read' => (int)($row['is_read'] ?? 0),
+            'created_at' => (string)($row['created_at'] ?? ''),
+            'time_ago' => !empty($row['created_at']) ? time_ago((string)$row['created_at']) : '',
+            'link' => $link,
+            'image' => $image,
+            'fallback' => $default_image,
+        ];
+    }
+
+    return $notifications;
+}
+
+function customer_notification_title($type, $message) {
+    $type = (string)$type;
+    $message = strtolower((string)$message);
+
+    if ($type === 'Rating' || $type === 'Review' || strpos($message, 'rate') !== false || strpos($message, 'review') !== false) {
+        return 'Review update';
+    }
+    if ($type === 'Payment' || strpos($message, 'payment') !== false || strpos($message, 'pay') !== false) {
+        return 'Payment update';
+    }
+    if ($type === 'Design' || strpos($message, 'design') !== false || strpos($message, 'revision') !== false) {
+        return 'Design update';
+    }
+    if ($type === 'Order' || $type === 'Job Order' || strpos($message, 'order') !== false) {
+        return 'Order update';
+    }
+    if ($type === 'Status') {
+        return 'Status update';
+    }
+
+    return 'Notification';
+}
+
+function customer_notification_target_url(array $notification) {
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $type = (string)($notification['type'] ?? '');
+    $message = (string)($notification['message'] ?? '');
+    $data_id = (int)($notification['data_id'] ?? 0);
+    $message_l = strtolower($message);
+
+    if ($data_id > 0) {
+        if ($type === 'Rating' || $type === 'Review' || strpos($message_l, 'rate your') !== false || strpos($message_l, 'rate here') !== false) {
+            return $base . '/customer/rate_order.php?order_id=' . $data_id;
+        }
+        if ($type === 'Payment' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
+            return $base . '/customer/payment.php?order_id=' . $data_id;
+        }
+        return $base . '/customer/orders.php?highlight=' . $data_id;
+    }
+
+    if (preg_match('/order\s*#?(\d+)/i', $message, $m)) {
+        return $base . '/customer/orders.php?highlight=' . (int)$m[1];
+    }
+
+    return $base . '/customer/notifications.php';
+}
+
+function customer_notification_image_url(array $notification, string $fallback) {
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $data_id = (int)($notification['data_id'] ?? 0);
+    if ($data_id <= 0) {
+        return $fallback;
+    }
+
+    $item = db_query(
+        "SELECT oi.order_item_id,
+                IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) AS has_design,
+                oi.customization_data,
+                p.name AS product_name,
+                p.product_id
+         FROM order_items oi
+         LEFT JOIN products p ON oi.product_id = p.product_id
+         WHERE oi.order_id = ?
+         ORDER BY oi.order_item_id ASC
+         LIMIT 1",
+        'i',
+        [$data_id]
+    );
+
+    if (!empty($item[0])) {
+        if (!empty($item[0]['has_design']) && !empty($item[0]['order_item_id'])) {
+            return $base . '/public/serve_design.php?type=order_item&id=' . (int)$item[0]['order_item_id'];
+        }
+
+        $custom = !empty($item[0]['customization_data']) ? json_decode((string)$item[0]['customization_data'], true) : [];
+        $display_name = get_service_name_from_customization(
+            is_array($custom) ? $custom : [],
+            (string)($item[0]['product_name'] ?? 'Order Item')
+        );
+
+        return get_service_image_url($display_name);
+    }
+
+    return $fallback;
+}
+
+/**
  * Get count of unread chat messages for an order
  * @param int $order_id
  * @param string $viewer_role 'Customer' or 'Staff'

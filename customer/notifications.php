@@ -10,19 +10,29 @@ require_once __DIR__ . '/../includes/functions.php';
 require_role('Customer');
 
 $customer_id = get_user_id();
+$base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
 
 // Mark notification as read
 if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
     db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND customer_id = ?", 'ii', [$notification_id, $customer_id]);
+    if (!empty($_GET['next'])) {
+        $next = (string)$_GET['next'];
+        $path = parse_url($next, PHP_URL_PATH);
+        $host = parse_url($next, PHP_URL_HOST);
+        $base_path = parse_url($base_url, PHP_URL_PATH) ?: $base_url;
+        if (!$host && $path && strpos($path, rtrim($base_path, '/') . '/') === 0) {
+            redirect($next);
+        }
+    }
     $back_filter = isset($_GET['filter']) ? '?filter=' . urlencode($_GET['filter']) : '';
-    redirect('/printflow/customer/notifications.php' . $back_filter);
+    redirect($base_url . '/customer/notifications.php' . $back_filter);
 }
 
 // Mark all as read
 if (isset($_GET['mark_all_read'])) {
     db_execute("UPDATE notifications SET is_read = 1 WHERE customer_id = ? AND is_read = 0", 'i', [$customer_id]);
-    redirect('/printflow/customer/notifications.php');
+    redirect($base_url . '/customer/notifications.php');
 }
 
 // Pagination settings
