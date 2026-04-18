@@ -133,23 +133,22 @@ if ($active_tab !== 'all' && isset($tab_status_map[$active_tab])) {
 }
 
 // Pagination settings
-// "All" tab must always show the complete list (no LIMIT).
 $items_per_page = 10;
-$current_page = ($active_tab === 'all') ? 1 : max(1, (int)($_GET['page'] ?? 1));
+$current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 $total_result = db_query($count_sql, $count_types, $count_params);
 $total_items = (int)($total_result[0]['total'] ?? 0);
-$total_pages = ($active_tab === 'all') ? 1 : max(1, (int)ceil($total_items / $items_per_page));
-
-// Use inline LIMIT/OFFSET for filtered tabs.
-if ($active_tab === 'all') {
-    $sql .= " ORDER BY o.order_date DESC";
-} else {
-    $limit = (int)$items_per_page;
-    $offset_val = (int)$offset;
-    $sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
+$total_pages = max(1, (int)ceil($total_items / $items_per_page));
+if ($current_page > $total_pages) {
+    $current_page = $total_pages;
+    $offset = ($current_page - 1) * $items_per_page;
 }
+
+// Use inline LIMIT/OFFSET for all tabs, including "All".
+$limit = (int)$items_per_page;
+$offset_val = (int)$offset;
+$sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
 
 $orders_raw = db_query($sql, $types, $params);
 $orders = is_array($orders_raw) ? $orders_raw : [];
@@ -662,11 +661,9 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-            <?php if ($active_tab !== 'all'): ?>
-                <div class="mt-12">
-                    <?php echo get_pagination_links($current_page, $total_pages, ['tab' => $active_tab]); ?>
-                </div>
-            <?php endif; ?>
+            <div class="mt-12">
+                <?php echo get_pagination_links($current_page, $total_pages, ['tab' => $active_tab]); ?>
+            </div>
     </div>
 </div>
 
