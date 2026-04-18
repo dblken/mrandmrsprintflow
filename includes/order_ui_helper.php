@@ -4,6 +4,42 @@
  * PrintFlow - Neubrutalism Design System
  */
 
+if (!function_exists('pf_order_ui_value_to_text')) {
+    function pf_order_ui_value_to_text($value): string {
+        if (is_array($value)) {
+            $parts = [];
+            $is_list = array_keys($value) === range(0, count($value) - 1);
+
+            foreach ($value as $key => $inner_value) {
+                if ($inner_value === '' || $inner_value === null) {
+                    continue;
+                }
+
+                $text = pf_order_ui_value_to_text($inner_value);
+                if ($text === '') {
+                    continue;
+                }
+
+                $parts[] = $is_list
+                    ? $text
+                    : ucwords(str_replace(['_', '-'], ' ', (string)$key)) . ': ' . $text;
+            }
+
+            return implode(', ', $parts);
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        return (string)$value;
+    }
+}
+
 /**
  * Renders a single order item card in the Neubrutalism style.
  * Supports both cart items (session) and database items (order_items table).
@@ -14,6 +50,12 @@
 function render_order_item_neubrutalism($item, $is_cart_item = false, $show_price = true) {
     // 1. Data Normalization
     $custom = $is_cart_item ? ($item['customization'] ?? []) : json_decode($item['customization_data'] ?? '{}', true);
+    if (is_string($custom)) {
+        $decoded_custom = json_decode($custom, true);
+        $custom = is_array($decoded_custom) ? $decoded_custom : [];
+    } elseif (!is_array($custom)) {
+        $custom = [];
+    }
     $name = $item['name'] ?? ($item['product_name'] ?? null);
 
     // Dynamic naming for Sintra Board or generic names
@@ -24,9 +66,12 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     }
     $name = normalize_service_name($name, 'Order Item');
     $category = $item['category'] ?? 'General';
-    $unit_price = $is_cart_item ? $item['price'] : $item['unit_price'];
-    $quantity = $item['quantity'];
+    $unit_price = $is_cart_item
+        ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
+        : (float)($item['unit_price'] ?? $item['price'] ?? 0);
+    $quantity = max(1, (int)($item['quantity'] ?? 1));
     $subtotal = $unit_price * $quantity;
+    $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     // Design previews
     $design_url = null;
@@ -44,13 +89,13 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     } else {
         $has_design = !empty($item['design_image']) || !empty($item['design_file']);
         if ($has_design) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
+            $design_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
             $design_url = $item['product_image'];
         }
 
         if (!empty($item['reference_image_file'])) {
-            $ref_url = "<?php echo BASE_PATH; ?>/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
+            $ref_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'] . "&field=reference";
         }
     }
 
@@ -58,11 +103,11 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     if (!$design_url) {
         $cat_comb = strtolower(($item['category'] ?? '') . ' ' . ($name ?? ''));
         if (strpos($cat_comb, 't-shirt') !== false || strpos($cat_comb, 'tshirt') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_31.jpg";
+            $design_url = $base_url . "/public/images/products/product_31.jpg";
         } else if (strpos($cat_comb, 'tarpaulin') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_42.jpg";
+            $design_url = $base_url . "/public/images/products/product_42.jpg";
         } else if (strpos($cat_comb, 'reflectorized') !== false || strpos($cat_comb, 'signage') !== false || strpos($cat_comb, 'sticker') !== false || strpos($cat_comb, 'decal') !== false) {
-            $design_url = "<?php echo BASE_PATH; ?>/public/images/products/product_21.jpg";
+            $design_url = $base_url . "/public/images/products/product_21.jpg";
         }
     }
 
@@ -144,7 +189,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
-                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
                     <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff; min-width: 0;">
                         <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
@@ -164,7 +209,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
             ?>
                 <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border: 1px solid #000; border-radius: 8px; min-width: 0;">
                     <div style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #92400e; margin-bottom: 4px;">Notes</div>
-                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars(pf_order_ui_value_to_text($notes))); ?></div>
                 </div>
             <?php endif; ?>
         </div>
@@ -192,6 +237,12 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
 function render_order_item_clean($item, $is_cart_item = false, $show_price = true, $show_quantity = true) {
     // 1. Data Normalization
     $custom = $is_cart_item ? ($item['customization'] ?? []) : json_decode($item['customization_data'] ?? '{}', true);
+    if (is_string($custom)) {
+        $decoded_custom = json_decode($custom, true);
+        $custom = is_array($decoded_custom) ? $decoded_custom : [];
+    } elseif (!is_array($custom)) {
+        $custom = [];
+    }
     $name = $item['name'] ?? ($item['product_name'] ?? 'Order Item');
     
     // Dynamic naming for Sintra Board or generic names
@@ -203,9 +254,12 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $name = normalize_service_name($name, 'Order Item');
     
     $category = $item['category'] ?? 'General';
-    $unit_price = $is_cart_item ? $item['price'] : $item['unit_price'];
-    $quantity = $item['quantity'];
+    $unit_price = $is_cart_item
+        ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
+        : (float)($item['unit_price'] ?? $item['price'] ?? 0);
+    $quantity = max(1, (int)($item['quantity'] ?? 1));
     $subtotal = $unit_price * $quantity;
+    $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     $design_url = null;
     $ref_url = null;
@@ -323,7 +377,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
-                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : $cv));
+                    $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s;">
                         <div style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em;"><?php echo $label; ?></div>
@@ -345,7 +399,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     <div style="font-size: 0.75rem; font-weight: 800; color: #53c5e0; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                         Special Instructions & Notes
                     </div>
-                    <div style="font-size: 0.95rem; color: #eaf6fb; line-height: 1.6; font-weight: 600; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; transition: color 0.2s;"><?php echo nl2br(htmlspecialchars($notes)); ?></div>
+                    <div style="font-size: 0.95rem; color: #eaf6fb; line-height: 1.6; font-weight: 600; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; transition: color 0.2s;"><?php echo nl2br(htmlspecialchars(pf_order_ui_value_to_text($notes))); ?></div>
                 </div>
             <?php endif; ?>
         </div>

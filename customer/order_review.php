@@ -12,6 +12,24 @@ require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
 
+function review_item_unit_price(array $item): float {
+    return (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0);
+}
+
+function review_item_quantity(array $item): int {
+    return max(1, (int)($item['quantity'] ?? 1));
+}
+
+function review_item_customization(array $item): array {
+    $custom = $item['customization'] ?? [];
+    if (is_string($custom)) {
+        $decoded = json_decode($custom, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    return is_array($custom) ? $custom : [];
+}
+
 // ── Accept the "buy_now" item key(s) from session ──────────────────
 $item_key = $_REQUEST['item'] ?? '';
 $cart     = $_SESSION['cart'] ?? [];
@@ -106,17 +124,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             $all_notes = [];
             
             foreach ($items_to_review as $item) {
-                $subtotal = $item['price'] * $item['quantity'];
+                $custom = review_item_customization($item);
+                $subtotal = review_item_unit_price($item) * review_item_quantity($item);
                 $grand_total += $subtotal;
                 
                 if ($reference_id === null && !empty($item['product_id'])) {
                     $reference_id = $item['product_id'];
                 }
                 
-                if (!empty($item['customization'])) {
+                if (!empty($custom)) {
                     $order_type = 'custom';
-                    $note = $item['customization']['notes'] ?? $item['customization']['additional_notes'] ?? null;
-                    if ($note) $all_notes[] = $note;
+                    $note = $custom['notes'] ?? $custom['additional_notes'] ?? null;
+                    if ($note) $all_notes[] = function_exists('pf_order_ui_value_to_text') ? pf_order_ui_value_to_text($note) : (string)$note;
                 }
             }
             
@@ -153,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     
                     // 3. Process each item and insert into order_items
                     foreach ($items_to_review as $key => $item) {
-                        $custom = $item['customization'] ?? [];
+                        $custom = review_item_customization($item);
                         if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
                             $custom['service_type'] = $item['name'];
                         }
@@ -202,8 +221,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                         // FIXED: Save estimated price to order_items so it displays correctly
                         // For service/custom orders, save estimated unit_price (staff can update later)
                         // For product orders, use the price as-is (it's already per-item unit price)
-                        $unit_price = (float)$item['price'];
-                        $quantity_val = (int)$item['quantity'];
+                        $unit_price = review_item_unit_price($item);
+                        $quantity_val = review_item_quantity($item);
 
                         if ($design_binary) {
                             $stmt = $conn->prepare(
@@ -213,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                             );
                             if ($stmt) {
                                 $null = NULL;
-                                $stmt->bind_param('iiidssssss', $order_id, $product_id, $item['quantity'], $unit_price, $custom_data, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
+                                $stmt->bind_param('iiidssssss', $order_id, $product_id, $quantity_val, $unit_price, $custom_data, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
                                 $stmt->send_long_data(5, $design_binary);
                                 $stmt->execute();
                                 $stmt->close();
@@ -223,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                                 "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file, reference_image_file) 
                                  VALUES (?, ?, ?, ?, ?, ?, ?)",
                                 'iiidsss',
-                                [$order_id, $product_id, $item['quantity'], $unit_price, $custom_data, $design_file_path, $reference_file_path]
+                                [$order_id, $product_id, $quantity_val, $unit_price, $custom_data, $design_file_path, $reference_file_path]
                             );
                         }
 
@@ -274,13 +293,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
 $grand_total = 0;
 foreach ($items_to_review as $key => $item) {
     // Use the price as-is for service/custom orders (it's already the estimated_price)
-    $grand_total += $item['price'] * $item['quantity'];
+    $grand_total += review_item_unit_price($item) * review_item_quantity($item);
 }
 
 // Determine if any item has customization
 $is_product_order = true;
 foreach ($items_to_review as $item) {
-    if (!empty($item['customization']) && is_array($item['customization']) && count($item['customization']) > 0) {
+    $custom = review_item_customization($item);
+    if (!empty($custom)) {
         $is_product_order = false;
         break;
     }
