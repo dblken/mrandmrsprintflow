@@ -103,17 +103,18 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 }
                 $html .= '</select>';
             } else {
-                $html .= '<select name="' . htmlspecialchars($field_key) . '" class="shopee-opt-btn" ' . $required_attr . ' style="width: 175px; cursor: pointer;">';
+                $html .= '<select name="' . htmlspecialchars($field_key) . '" class="shopee-opt-btn pricing-field" ' . $required_attr . ' style="width: 175px; cursor: pointer;">';
                 $html .= '<option value="">Select ' . $label . '</option>';
                 foreach ($config['options'] ?? [] as $option) {
                     $optionValue = is_array($option) ? ($option['value'] ?? '') : $option;
+                    $optionPrice = is_array($option) ? ($option['price'] ?? 0) : 0;
                     if ($optionValue === '') continue;
                     
                     // Skip if this option is already defined in a nested field
                     if (isset($nestedValuesSet[strtolower(trim($optionValue))])) continue;
                     
                     $value = htmlspecialchars($optionValue);
-                    $html .= '<option value="' . $value . '">' . $value . '</option>';
+                    $html .= '<option value="' . $value . '" data-price="' . htmlspecialchars((string)$optionPrice) . '">' . $value . '</option>';
                 }
                 $html .= '</select>';
             }
@@ -130,8 +131,9 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 
                 $value = htmlspecialchars($optionValue);
                 $is_checked = ($saved_value == $optionValue) ? ' checked' : '';
+                $optionPrice = is_array($option) ? ($option['price'] ?? 0) : 0;
                 $html .= '<label class="shopee-opt-btn' . ($is_checked ? ' active' : '') . '">';
-                $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \'' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
+                $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="' . htmlspecialchars((string)$optionPrice) . '" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
                 $html .= '<span>' . $value . '</span>';
                 $html .= '</label>';
             }
@@ -293,6 +295,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             if (!empty($config['options']) && is_array($config['options'])) {
                 foreach ($config['options'] as $option) {
                     $option_value = is_array($option) ? ($option['value'] ?? '') : $option;
+                    $option_price = is_array($option) ? ($option['price'] ?? 0) : 0;
                     $option_value = trim((string)$option_value);
                     if ($option_value === '') {
                         continue;
@@ -306,7 +309,7 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                         if ($w && $h) {
                             $displayLabel = $w . '×' . $h;
                             $is_active = (!$is_custom_dimension && $saved_width == $w && $saved_height == $h) ? ' active' : '';
-                            $html .= '<button type="button" class="shopee-opt-btn' . $is_active . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1" onclick="var r=this.closest(\'.shopee-form-row\');if(r){r.querySelectorAll(\'.shopee-opt-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\');var o=r.querySelector(\'.dim-others-inputs\');if(o)o.style.display=\'none\';var cw=r.querySelector(\'.custom-dim-width\');var ch=r.querySelector(\'.custom-dim-height\');if(cw)cw.value=\'\';if(ch)ch.value=\'\';var w=r.querySelector(\'[data-dimension-role=width]\')||r.querySelector(\'input[name=width]\');var h=r.querySelector(\'[data-dimension-role=height]\')||r.querySelector(\'input[name=height]\');if(w)w.value=this.dataset.width||\'\';if(h)h.value=this.dataset.height||\'\';var lw=r.querySelector(\'input[name=width]\');var lh=r.querySelector(\'input[name=height]\');if(lw)lw.value=this.dataset.width||\'\';if(lh)lh.value=this.dataset.height||\'\';}if(window.calculateEstimatedPrice)window.calculateEstimatedPrice();return false;">' . $displayLabel . '</button>';
+                            $html .= '<button type="button" class="shopee-opt-btn pricing-field' . $is_active . '" data-price="' . htmlspecialchars((string)$option_price) . '" data-width="' . htmlspecialchars($w) . '" data-height="' . htmlspecialchars($h) . '" data-dimension-key="' . htmlspecialchars($field_key) . '" data-dimension-choice="1" onclick="var r=this.closest(\'.shopee-form-row\');if(r){r.querySelectorAll(\'.shopee-opt-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\');var o=r.querySelector(\'.dim-others-inputs\');if(o)o.style.display=\'none\';var cw=r.querySelector(\'.custom-dim-width\');var ch=r.querySelector(\'.custom-dim-height\');if(cw)cw.value=\'\';if(ch)ch.value=\'\';var w=r.querySelector(\'[data-dimension-role=width]\')||r.querySelector(\'input[name=width]\');var h=r.querySelector(\'[data-dimension-role=height]\')||r.querySelector(\'input[name=height]\');if(w)w.value=this.dataset.width||\'\';if(h)h.value=this.dataset.height||\'\';var lw=r.querySelector(\'input[name=width]\');var lh=r.querySelector(\'input[name=height]\');if(lw)lw.value=this.dataset.width||\'\';if(lh)lh.value=this.dataset.height||\'\';}if(window.calculateEstimatedPrice)window.calculateEstimatedPrice();return false;">' . $displayLabel . '</button>';
                         }
                     }
                 }
