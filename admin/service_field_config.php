@@ -883,6 +883,7 @@ window.confirmDeleteField = function() {
         input.value = '1';
         form.appendChild(input);
     }
+    form.dataset.skipCollector = '1';
     form.submit();
 };
 
@@ -1107,6 +1108,7 @@ window.addNewField = function() {
     input.name = 'save_config';
     input.value = '1';
     form.appendChild(input);
+    form.dataset.skipCollector = '1';
     form.submit();
 };
 
@@ -1226,10 +1228,21 @@ window.saveEditField = function() {
     input.name = 'save_config';
     input.value = '1';
     form.appendChild(input);
+    form.dataset.skipCollector = '1';
     form.submit();
 };
 
 document.getElementById('configForm')?.addEventListener('submit', function(e) {
+    if (this.dataset.skipCollector === '1') {
+        if (!this.querySelector('input[name="save_config"]')) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'save_config';
+            input.value = '1';
+            this.appendChild(input);
+        }
+        return;
+    }
     // Check if we are already submitting with a specific config
     const configsInput = document.getElementById('fieldConfigsInput');
     
