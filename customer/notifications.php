@@ -73,7 +73,7 @@ require_once __DIR__ . '/../includes/header.php';
 <style>
     /* Container */
     .notif-container {
-        max-width: 900px;
+        max-width: 1100px;
         margin: 0 auto;
         padding: 0 1rem;
     }
@@ -89,27 +89,27 @@ require_once __DIR__ . '/../includes/header.php';
     .notif-page-title {
         font-size: 1.75rem;
         font-weight: 800;
-        color: #eaf6fb;
+        color: #0f172a;
         display: flex;
         align-items: center;
         gap: 0.75rem;
     }
     .notif-mark-all-btn {
         padding: 0.65rem 1.25rem;
-        border-radius: 0;
+        border-radius: 8px;
         font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
-        background: rgba(83, 197, 224, 0.1);
-        border: none;
-        color: #53c5e0;
+        background: rgba(14, 116, 144, 0.08);
+        border: 1px solid rgba(14, 116, 144, 0.25);
+        color: #0e7490;
         text-decoration: none;
         transition: all 0.2s;
         white-space: nowrap;
     }
     .notif-mark-all-btn:hover {
-        background: rgba(83, 197, 224, 0.2);
+        background: rgba(14, 116, 144, 0.14);
         transform: translateY(-1px);
     }
 
@@ -117,7 +117,7 @@ require_once __DIR__ . '/../includes/header.php';
     .notif-group-label {
         font-size: 0.7rem;
         font-weight: 800;
-        color: rgba(83, 197, 224, 0.6);
+        color: #0e7490;
         text-transform: uppercase;
         letter-spacing: 0.1em;
         margin: 2rem 0 0.75rem;
@@ -129,9 +129,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Notification Card */
     .notif-card {
-        background: #0a2530;
-        border: none;
-        border-radius: 0;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
         padding: 1rem;
         margin-bottom: 0.75rem;
         transition: all 0.2s;
@@ -139,12 +139,12 @@ require_once __DIR__ . '/../includes/header.php';
         display: block;
     }
     .notif-card:hover {
-        background: #0d3240;
+        background: #f8fafc;
         transform: translateX(4px);
     }
     .notif-card.unread {
-        background: #0d3240;
-        border-left: 3px solid #53c5e0;
+        background: #f8fafc;
+        border-left: 3px solid #0e7490;
     }
 
     /* Desktop Layout */
@@ -157,10 +157,10 @@ require_once __DIR__ . '/../includes/header.php';
         width: 48px;
         height: 48px;
         min-width: 48px;
-        border-radius: 0;
+        border-radius: 8px;
         overflow: hidden;
-        background: rgba(0, 0, 0, 0.2);
-        border: none;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
         flex-shrink: 0;
     }
     .notif-image {
@@ -174,17 +174,17 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .notif-title {
         font-size: 0.9rem;
-        font-weight: 700;
-        color: #eaf6fb;
+        font-weight: 800;
+        color: #0f172a;
         margin-bottom: 0.35rem;
     }
     .notif-card.unread .notif-title {
-        color: #53c5e0;
+        color: #0e7490;
     }
     .notif-description {
         font-size: 0.85rem;
         line-height: 1.5;
-        color: #9fc4d4;
+        color: #334155;
         margin-bottom: 0.5rem;
         word-wrap: break-word;
     }
@@ -196,32 +196,35 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .notif-time {
         font-size: 0.75rem;
-        color: rgba(83, 197, 224, 0.6);
+        color: #64748b;
         font-weight: 600;
     }
     .notif-view-btn {
         padding: 0.4rem 0.9rem;
-        border-radius: 0;
+        border-radius: 8px;
         font-size: 0.7rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        background: rgba(83, 197, 224, 0.1);
-        border: none;
-        color: #53c5e0;
+        background: rgba(14, 116, 144, 0.08);
+        border: 1px solid rgba(14, 116, 144, 0.25);
+        color: #0e7490;
         transition: all 0.2s;
         white-space: nowrap;
     }
     .notif-card:hover .notif-view-btn {
-        background: #53c5e0;
-        color: #030d11;
+        background: #0e7490;
+        color: #ffffff;
     }
 
     /* Empty State */
     .notif-empty {
         text-align: center;
         padding: 4rem 2rem;
-        color: rgba(255, 255, 255, 0.4);
+        color: #64748b;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
     }
     .notif-empty-icon {
         font-size: 3rem;
