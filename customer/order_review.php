@@ -12,6 +12,25 @@ require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
 
+function review_render_item_summary(array $item): void {
+    $name = trim((string)($item['name'] ?? 'Order Item'));
+    $category = trim((string)($item['category'] ?? 'Service'));
+    $quantity = review_item_quantity($item);
+    $unit_price = review_item_unit_price($item);
+    $subtotal = $unit_price * $quantity;
+    ?>
+    <div style="background:#0a2530;border:1px solid rgba(83,197,224,0.24);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;color:#eaf6fb;">
+        <h3 style="font-size:0.95rem;font-weight:700;margin:0 0 0.35rem;"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></h3>
+        <div style="font-size:0.72rem;font-weight:700;color:#53c5e0;text-transform:uppercase;margin-bottom:1rem;"><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?></div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Quantity</span><br><strong><?php echo $quantity; ?></strong></div>
+            <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Unit Price</span><br><strong><?php echo format_currency($unit_price); ?></strong></div>
+            <div><span style="color:#53c5e0;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Total</span><br><strong style="color:#53c5e0;"><?php echo format_currency($subtotal); ?></strong></div>
+        </div>
+    </div>
+    <?php
+}
+
 function review_item_unit_price(array $item): float {
     return (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0);
 }
@@ -871,7 +890,14 @@ require_once __DIR__ . '/../includes/header.php';
                     $is_hidden = ($item_index > 3);
                 ?>
                 <div class="review-order-item <?php echo $is_hidden ? 'items-hidden' : ''; ?>" style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; <?php echo $key !== array_key_last($items_to_review) ? 'border-bottom: 1px solid #e5e7eb;' : ''; ?>">
-                    <?php render_order_item_clean($item, true, true, true); ?>
+                    <?php
+                    try {
+                        render_order_item_clean($item, true, true, true);
+                    } catch (Throwable $e) {
+                        error_log('Order review item render failed for ' . $key . ': ' . $e->getMessage());
+                        review_render_item_summary($item);
+                    }
+                    ?>
                 </div>
                 <?php endforeach; ?>
                 

@@ -64,6 +64,12 @@ if (!function_exists('pf_order_ui_temp_preview_url')) {
     }
 }
 
+if (!function_exists('pf_order_ui_escape')) {
+    function pf_order_ui_escape($value): string {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
 /**
  * Renders a single order item card in the Neubrutalism style.
  * Supports both cart items (session) and database items (order_items table).
@@ -170,9 +176,9 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
             </div>
             
             <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 1.5rem; font-weight: 900; margin-bottom: 0.25rem; word-wrap: break-word;"><?php echo htmlspecialchars($name); ?></div>
+                <div style="font-size: 1.5rem; font-weight: 900; margin-bottom: 0.25rem; word-wrap: break-word;"><?php echo pf_order_ui_escape($name); ?></div>
                 <div style="font-size: 0.75rem; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; word-wrap: break-word;">
-                    <?php echo htmlspecialchars($category); ?>
+                    <?php echo pf_order_ui_escape($category); ?>
                 </div>
                 
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
@@ -206,12 +212,12 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                 foreach ($custom as $ck => $cv): 
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
-                    $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
+                    $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', (string)$ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
                     <div style="border: 1px solid #000; padding: 0.75rem; border-radius: 6px; background: #fff; min-width: 0;">
-                        <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.9rem; font-weight: 800; color: #000; overflow-wrap: break-word; word-break: break-word;"><?php echo htmlspecialchars($display_val); ?></div>
+                        <div style="font-size: 0.6rem; font-weight: 800; color: #6b7280; text-transform: uppercase; margin-bottom: 2px;"><?php echo pf_order_ui_escape($label); ?></div>
+                        <div style="font-size: 0.9rem; font-weight: 800; color: #000; overflow-wrap: break-word; word-break: break-word;"><?php echo pf_order_ui_escape($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 
@@ -227,7 +233,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
             ?>
                 <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border: 1px solid #000; border-radius: 8px; min-width: 0;">
                     <div style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #92400e; margin-bottom: 4px;">Notes</div>
-                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(htmlspecialchars(pf_order_ui_value_to_text($notes))); ?></div>
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #b45309; line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;"><?php echo nl2br(pf_order_ui_escape(pf_order_ui_value_to_text($notes))); ?></div>
                 </div>
             <?php endif; ?>
         </div>
@@ -349,9 +355,9 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
             </div>
             
             <div class="order-item-content" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
-                <h3 style="font-size: 0.95rem; line-height: 1.3rem; font-weight: 600; color: #ffffff !important; margin: 0 0 0.3rem 0; word-wrap: break-word;"><?php echo htmlspecialchars($name); ?></h3>
+                <h3 style="font-size: 0.95rem; line-height: 1.3rem; font-weight: 600; color: #ffffff !important; margin: 0 0 0.3rem 0; word-wrap: break-word;"><?php echo pf_order_ui_escape($name); ?></h3>
                 <div style="display: inline-flex; font-size: 0.72rem; font-weight: 700; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 20px; background: rgba(83, 197, 224, 0.12); border: 1px solid rgba(83, 197, 224, 0.18); margin-bottom: 1.25rem; align-self: flex-start;">
-                    <?php echo htmlspecialchars($category); ?>
+                    <?php echo pf_order_ui_escape($category); ?>
                 </div>
                 
                 <div class="order-item-details" style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: auto;">
@@ -388,12 +394,12 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                 foreach ($custom as $ck => $cv): 
                     if (empty($cv) || in_array($ck, $skip) || strpos($ck, 'description') !== false) continue;
                     $has_specs = true;
-                    $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', $ck));
+                    $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', (string)$ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s;">
-                        <div style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em;"><?php echo $label; ?></div>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: #eaf6fb; overflow-wrap: break-word; word-break: break-word;"><?php echo htmlspecialchars($display_val); ?></div>
+                        <div style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em;"><?php echo pf_order_ui_escape($label); ?></div>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #eaf6fb; overflow-wrap: break-word; word-break: break-word;"><?php echo pf_order_ui_escape($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 
@@ -411,7 +417,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     <div style="font-size: 0.75rem; font-weight: 800; color: #53c5e0; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                         Special Instructions & Notes
                     </div>
-                    <div style="font-size: 0.95rem; color: #eaf6fb; line-height: 1.6; font-weight: 600; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; transition: color 0.2s;"><?php echo nl2br(htmlspecialchars(pf_order_ui_value_to_text($notes))); ?></div>
+                    <div style="font-size: 0.95rem; color: #eaf6fb; line-height: 1.6; font-weight: 600; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; transition: color 0.2s;"><?php echo nl2br(pf_order_ui_escape(pf_order_ui_value_to_text($notes))); ?></div>
                 </div>
             <?php endif; ?>
         </div>
