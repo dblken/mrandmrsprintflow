@@ -770,7 +770,11 @@ $page_title = 'Configure Input Fields - ' . $service['name'];
 
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
-<script src="nested_field_functions.js"></script>
+<?php
+    $nested_fields_js = __DIR__ . '/nested_field_functions.js';
+    $nested_fields_ver = file_exists($nested_fields_js) ? filemtime($nested_fields_js) : time();
+?>
+<script src="nested_field_functions.js?v=<?php echo $nested_fields_ver; ?>"></script>
 </body>
 </html>
 
