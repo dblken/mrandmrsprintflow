@@ -330,13 +330,15 @@ require_once __DIR__ . '/../includes/header.php';
         margin-bottom: 2px;
     }
     .review-input-disabled {
-        background: rgba(0,49,61,0.5) !important;
-        border: 1px solid rgba(83,197,224,0.2) !important;
-        color: #e0f2fe !important;
+        background: #ffffff !important;
+        border: 1px solid #d1d5db !important;
+        color: #374151 !important;
         font-weight: 600;
         font-size: 0.85rem;
         font-family: inherit !important;
         padding: 8px 12px;
+        opacity: 1 !important;
+        -webkit-text-fill-color: #374151;
     }
     .review-input-disabled-textarea {
         min-height: 44px;
@@ -979,4 +981,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-

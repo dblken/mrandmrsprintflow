@@ -606,6 +606,19 @@ function loadConvs() {
                 </div>
             </div>`;
         }).join('');
+
+        const initialId = parseInt(window.__initialOrderId || 0, 10);
+        if (initialId && !window.__initialOrderOpened && !activeId) {
+            const target = res.conversations.find(c => parseInt(c.order_id, 10) === initialId);
+            if (target) {
+                const name = target.staff_name || 'PrintFlow Team';
+                window.__initialOrderOpened = true;
+                openChat(target.order_id, name, target.product_name || 'Order', target.is_archived ? 1 : 0, target.staff_avatar || '');
+            } else if (!isArchView && !window.__initialOrderArchiveTried) {
+                window.__initialOrderArchiveTried = true;
+                switchTab(true);
+            }
+        }
     });
 }
 
