@@ -180,7 +180,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 .orders-theme-page .unified-dashboard {
     background: rgba(0, 49, 61, 0.88);
-    border: 0 !important;
+    border: 1px solid rgba(83,197,224,0.18) !important;
     border-radius: 12px !important;
     overflow: hidden;
     margin-bottom: 3rem;

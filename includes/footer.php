@@ -220,6 +220,15 @@ function _ft_detect_social(string $url): array {
 
     <!-- Scroll to Top (all non-admin pages) -->
     <?php if (!is_admin() && !is_staff()): ?>
+    <?php
+    $current_script_name = strtolower(basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+    $chatbot_allowed_pages = ['services.php', 'products.php'];
+    $is_customer_user = function_exists('get_user_type') ? get_user_type() === 'Customer' : false;
+    $show_chatbot_widget = empty($hide_chatbot)
+        && !empty($is_logged_in)
+        && $is_customer_user
+        && in_array($current_script_name, $chatbot_allowed_pages, true);
+    ?>
     <?php if (empty($use_landing_css)): ?>
     <style>
     </style>
@@ -232,11 +241,10 @@ function _ft_detect_social(string $url): array {
     </a>
 
     <!-- Support chat button (RIGHT) -->
-    <?php if (empty($hide_chatbot) && !is_admin() && !is_staff()): ?>
+    <?php if ($show_chatbot_widget): ?>
     <div id="chatbot-btn" class="ft-bubble ft-bubble-right" title="Open support chat">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width: 32px; height: 32px; color: #00232b; transition: all 0.3s ease;"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
     </div>
-    <?php endif; ?>
 
     <!-- Support chat window -->
     <div id="chatbot-window" class="lp-chatbot-hidden" style="position: fixed; bottom: 90px; right: 20px; width: 380px; max-width: calc(100vw - 40px); max-height: 85vh; background: white; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 9998; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; opacity: 0; transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;">
@@ -299,6 +307,7 @@ function _ft_detect_social(string $url): array {
             </div>
         </div>
     </div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <style>
@@ -392,8 +401,35 @@ function _ft_detect_social(string $url): array {
     }
     </style>
 
+    <?php if (!is_admin() && !is_staff()): ?>
+    <script>
+    if (!window.__pfFooterScrollTopInit) {
+        window.__pfFooterScrollTopInit = true;
+        (function() {
+            var scrollTop = document.getElementById('lp-scroll-top');
+            if (!scrollTop) return;
+
+            function updateScrollVisibility() {
+                if (window.scrollY > 200) {
+                    scrollTop.classList.remove('ft-bubble-hidden');
+                } else {
+                    scrollTop.classList.add('ft-bubble-hidden');
+                }
+            }
+
+            setTimeout(updateScrollVisibility, 100);
+            window.addEventListener('scroll', updateScrollVisibility, { passive: true });
+            scrollTop.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        })();
+    }
+    </script>
+    <?php endif; ?>
+
     <!-- Support chat widget script -->
-    <?php if (empty($hide_chatbot) && !is_admin() && !is_staff()): ?>
+    <?php if (!empty($show_chatbot_widget)): ?>
     <script>
     // Define BASE_PATH for JavaScript
     window.BASE_PATH = <?php echo json_encode($base_url ?? '/printflow'); ?>;
@@ -405,7 +441,6 @@ function _ft_detect_social(string $url): array {
         var ques = document.getElementById('chatbot-questions');
         var input = document.getElementById('chatbot-input');
         var sendBtn = document.getElementById('chatbot-send');
-        var scrollTop = document.getElementById('lp-scroll-top');
         var loaded = false;
         var isOpen = false;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
@@ -425,30 +460,6 @@ function _ft_detect_social(string $url): array {
         var chatbotCustomerId = <?php echo $chatbot_customer_id ? (int)$chatbot_customer_id : 'null'; ?>;
         var chatbotCustomerName = <?php echo json_encode($chatbot_customer_name); ?>;
         var chatbotCustomerEmail = <?php echo json_encode($chatbot_customer_email); ?>;
-
-        // Initialize scroll button visibility
-        function updateScrollVisibility() {
-            if (!scrollTop) return;
-            if (window.scrollY > 200) {
-                scrollTop.classList.remove('ft-bubble-hidden');
-            } else {
-                scrollTop.classList.add('ft-bubble-hidden');
-            }
-        }
-
-        // Run on page load
-        setTimeout(updateScrollVisibility, 100);
-
-        // Run on scroll
-        window.addEventListener('scroll', updateScrollVisibility, { passive: true });
-
-        // Scroll to top with smooth animation
-        if (scrollTop) {
-            scrollTop.addEventListener('click', function(e) {
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
-        }
 
         // Toggle support chat on button click
         var checkInterval = null;
