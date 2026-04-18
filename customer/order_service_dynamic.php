@@ -864,6 +864,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .service-action-buttons { flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: 0.75rem; flex-wrap: nowrap; min-width: 0; }
 .service-action-buttons > a,
 .service-action-buttons > button { flex: 0 0 auto; }
+.service-action-buttons > button[name="action"][value="inquire_now"] { flex: 1 1 auto; }
 @media (max-width: 760px) {
     .service-action-row > div:first-child { display: none; }
     .service-action-buttons { justify-content: stretch; flex-wrap: wrap; }
