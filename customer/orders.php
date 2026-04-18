@@ -252,7 +252,7 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 .orders-theme-page .orders-list-content {
-    background: rgba(52, 87, 96, 0.78);
+    background: #ffffff;
     min-height: 500px;
 }
 .orders-theme-page .ct-order-card {
@@ -268,8 +268,8 @@ require_once __DIR__ . '/../includes/header.php';
 @media (max-width: 640px) {
     .orders-theme-page .ct-order-card { padding: 1.25rem 1rem; }
 }
-.orders-theme-page .ct-order-card + .ct-order-card { border-top: 1px solid rgba(224,242,254,0.18) !important; }
-.orders-theme-page .ct-order-card:hover { background: rgba(83,197,224,0.08) !important; }
+.orders-theme-page .ct-order-card + .ct-order-card { border-top: 1px solid #e2e8f0 !important; }
+.orders-theme-page .ct-order-card:hover { background: #f8fafc !important; }
 
 .orders-theme-page .card-top-row {
     display: flex;
@@ -277,7 +277,7 @@ require_once __DIR__ . '/../includes/header.php';
     align-items: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(224,242,254,0.58);
+    border-bottom: 1px solid #e2e8f0;
 }
 @media (max-width: 640px) {
     .orders-theme-page .card-top-row { margin-bottom: 1rem; padding-bottom: 1rem; }
@@ -285,8 +285,8 @@ require_once __DIR__ . '/../includes/header.php';
 .orders-theme-page .order-id-chip {
     font-size: 0.7rem;
     font-weight: 900;
-    color: #06a5c9;
-    background: rgba(6,165,201,0.08);
+    color: #0e7490;
+    background: rgba(14,116,144,0.08);
     padding: 4px 10px;
     border-radius: 6px !important;
     text-transform: uppercase;
@@ -302,8 +302,8 @@ require_once __DIR__ . '/../includes/header.php';
 .orders-theme-page .img-preview-box {
     width: 70px; height: 70px; flex-shrink: 0;
     border-radius: 8px !important; overflow: hidden;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(224,242,254,0.35);
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
 }
 @media (max-width: 640px) {
     .orders-theme-page .img-preview-box { width: 80px; height: 80px; }
@@ -318,18 +318,18 @@ require_once __DIR__ . '/../includes/header.php';
 .orders-theme-page .order-title {
     font-size: 1rem;
     font-weight: 800;
-    color: #061827;
+    color: #0f172a;
     margin-bottom: 0.35rem;
     line-height: 1.3;
 }
 @media (max-width: 640px) {
     .orders-theme-page .order-title { font-size: 1.05rem; }
 }
-.orders-theme-page .qty-tag { font-size: 0.75rem; color: #0798ba; font-weight: 800; }
+.orders-theme-page .qty-tag { font-size: 0.75rem; color: #0e7490; font-weight: 800; }
 @media (max-width: 640px) {
     .orders-theme-page .qty-tag { font-size: 0.8rem; }
 }
-.orders-theme-page .timestamp-text { font-size: 0.72rem; color: #a9bdc8; margin-top: 0.4rem; font-weight: 700; }
+.orders-theme-page .timestamp-text { font-size: 0.72rem; color: #64748b; margin-top: 0.4rem; font-weight: 700; }
 @media (max-width: 640px) {
     .orders-theme-page .timestamp-text { font-size: 0.75rem; margin-top: 0.5rem; }
 }
@@ -338,11 +338,11 @@ require_once __DIR__ . '/../includes/header.php';
 @media (max-width: 640px) {
     .orders-theme-page .pricing-column { text-align: left; align-items: flex-start; min-width: unset; width: 100%; gap: 1rem; }
 }
-.orders-theme-page .final-price { font-size: 1.25rem; font-weight: 900; color: #061827; line-height: 1; }
+.orders-theme-page .final-price { font-size: 1.25rem; font-weight: 900; color: #0f172a; line-height: 1; }
 @media (max-width: 640px) {
     .orders-theme-page .final-price { font-size: 1.4rem; }
 }
-.orders-theme-page .hidden-price-msg { font-size: 0.72rem; color: #d8e7ee; font-style: italic; line-height: 1.4; margin-bottom: 0.25rem; }
+.orders-theme-page .hidden-price-msg { font-size: 0.72rem; color: #64748b; font-style: italic; line-height: 1.4; margin-bottom: 0.25rem; }
 @media (max-width: 640px) {
     .orders-theme-page .hidden-price-msg { font-size: 0.78rem; }
 }
@@ -376,24 +376,24 @@ require_once __DIR__ . '/../includes/header.php';
     .orders-theme-page .action-button svg { width: 16px; height: 16px; }
 }
 .orders-theme-page .btn-chat {
-    background: rgba(83, 197, 224, 0.1) !important;
-    color: #eaf6fb !important;
-    border: 1px solid rgba(83, 197, 224, 0.4) !important;
-    box-shadow: 0 0 10px rgba(83, 197, 224, 0.1);
+    background: rgba(14, 116, 144, 0.08) !important;
+    color: #0e7490 !important;
+    border: 1px solid rgba(14, 116, 144, 0.32) !important;
+    box-shadow: none;
 }
 .orders-theme-page .btn-chat:hover {
-    background: #53c5e0 !important;
-    color: #00151b !important;
-    box-shadow: 0 0 20px rgba(83, 197, 224, 0.4);
+    background: #0e7490 !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(14, 116, 144, 0.18);
 }
 .orders-theme-page .btn-main-blue {
     background: transparent !important;
-    color: #eaf6fb !important;
-    border: 1px solid #53c5e0 !important;
+    color: #0f172a !important;
+    border: 1px solid #0e7490 !important;
 }
 .orders-theme-page .btn-main-blue:hover {
-    background: rgba(83, 197, 224, 0.1) !important;
-    box-shadow: 0 0 15px rgba(83, 197, 224, 0.2);
+    background: rgba(14, 116, 144, 0.08) !important;
+    box-shadow: 0 8px 18px rgba(14, 116, 144, 0.14);
 }
 .orders-theme-page .btn-rate-order {
     background: rgba(249, 115, 22, 0.1) !important;
