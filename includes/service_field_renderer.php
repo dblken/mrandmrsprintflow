@@ -195,7 +195,12 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                                 
                                 $html .= '<div class="shopee-opt-group mb-3">';
                                 foreach ($nestedField['options'] ?? [] as $nOpt) {
-                                    $parts = explode('×', $nOpt);
+                                    $nOptValue = is_array($nOpt) ? ($nOpt['value'] ?? '') : $nOpt;
+                                    $nOptValue = trim((string)$nOptValue);
+                                    if ($nOptValue === '') {
+                                        continue;
+                                    }
+                                    $parts = explode('×', $nOptValue);
                                     if (count($parts) === 2) {
                                         $w = trim($parts[0]);
                                         $h = trim($parts[1]);
@@ -268,7 +273,12 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                     // Check if it's a preset or custom
                     $is_preset = false;
                     foreach ($config['options'] ?? [] as $option) {
-                        $opt_normalized = str_replace(['×', 'X', '*', '-'], 'x', trim($option));
+                        $option_value = is_array($option) ? ($option['value'] ?? '') : $option;
+                        $option_value = trim((string)$option_value);
+                        if ($option_value === '') {
+                            continue;
+                        }
+                        $opt_normalized = str_replace(['×', 'X', '*', '-'], 'x', $option_value);
                         if (strtolower($opt_normalized) === strtolower($saved_width . 'x' . $saved_height)) {
                             $is_preset = true;
                             break;
@@ -282,8 +292,12 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
             
             if (!empty($config['options']) && is_array($config['options'])) {
                 foreach ($config['options'] as $option) {
-                    $option = trim($option);
-                    $normalized = str_replace(['x', 'X', '*', '-', '×'], '|', $option);
+                    $option_value = is_array($option) ? ($option['value'] ?? '') : $option;
+                    $option_value = trim((string)$option_value);
+                    if ($option_value === '') {
+                        continue;
+                    }
+                    $normalized = str_replace(['x', 'X', '*', '-', '×'], '|', $option_value);
                     $parts = explode('|', $normalized);
                     
                     if (count($parts) === 2) {
