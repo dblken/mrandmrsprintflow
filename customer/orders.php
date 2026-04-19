@@ -704,8 +704,9 @@ const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 // ── Highlight + scroll to a specific order card from notification ──
 window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
-    const highlightId = params.get('highlight');
-    if (highlightId) {
+    const highlightIdRaw = params.get('highlight');
+    const highlightId = highlightIdRaw ? parseInt(highlightIdRaw, 10) : 0;
+    if (highlightId > 0) {
         // Open the details modal immediately for maximum responsiveness
         if (typeof openItemsModal === 'function') {
             openItemsModal(highlightId);
