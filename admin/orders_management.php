@@ -951,6 +951,10 @@ if (isset($_GET['ajax'])) {
                         console.log('[orders] filterOpen value:', this.filterOpen);
                         
                         window.addEventListener('open-order-modal', e => this.openModal(e.detail.orderId));
+                        const openOrderId = printflowGetOpenOrderId();
+                        if (openOrderId) {
+                            this.$nextTick(() => this.openModal(openOrderId));
+                        }
                         window.addEventListener('sort-changed', e => { 
                             this.activeSort = e.detail.sortKey; 
                             this.sortOpen = false; 
@@ -1063,15 +1067,22 @@ if (isset($_GET['ajax'])) {
             });
 
             function openOrderModal(orderId) { window.dispatchEvent(new CustomEvent('open-order-modal', { detail: { orderId } })); }
-
-            function printflowOpenOrderFromQuery() {
+            function printflowGetOpenOrderId() {
                 var oo = new URLSearchParams(window.location.search).get('open_order');
-                if (!oo) return;
+                if (!oo) return 0;
                 var oid = parseInt(oo, 10);
-                if (!(oid > 0)) return;
+                return oid > 0 ? oid : 0;
+            }
+            function printflowOpenOrderFromQuery() {
+                var oid = printflowGetOpenOrderId();
+                if (!oid) return;
+                var main = document.querySelector('main[x-data="ordersPage()"]');
+                if (main && main._x_dataStack && main._x_dataStack[0] && typeof main._x_dataStack[0].openModal === 'function') {
+                    main._x_dataStack[0].openModal(oid);
+                    return;
+                }
                 requestAnimationFrame(function () { openOrderModal(oid); });
             }
-            printflowOpenOrderFromQuery();
             document.addEventListener('printflow:page-init', printflowOpenOrderFromQuery);
         </script>
         <header class="pf-mobile-branch-inline">
