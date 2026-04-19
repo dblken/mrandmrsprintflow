@@ -905,9 +905,9 @@ function reportsPrintInPlace(url) {
 }
 
 /* ── KPI (modern SaaS) ───────────────── */
-.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
+.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch !important; }
 @media(max-width:900px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
-.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; height:100%; display:flex; flex-direction:column; }
+.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; height:100% !important; display:flex; flex-direction:column; }
 .kpi-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.08); }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
 .kpi-ind::before  { background:linear-gradient(90deg,#00232b,#53C5E0); }
