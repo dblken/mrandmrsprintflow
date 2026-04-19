@@ -121,9 +121,9 @@ require_once __DIR__ . '/../includes/header.php';
 <style>
     /* === PAYMENT PAGE — WIDE TWO-COLUMN LAYOUT === */
     .payment-container {
-        max-width: 1280px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding-bottom: 4rem;
+        padding: 2rem 1rem 4rem;
     }
     .payment-layout {
         display: grid;
@@ -136,13 +136,13 @@ require_once __DIR__ . '/../includes/header.php';
         .payment-sidebar { order: -1; }
     }
     .payment-card {
-        background: rgba(0,49,61,0.88) !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 4px !important;
+        box-shadow: 0 1px 1px 0 rgba(0,0,0,.05);
         overflow: hidden;
         margin-bottom: 1.25rem;
-        backdrop-filter: blur(10px);
+        backdrop-filter: none;
     }
     /* Fix all dark section titles → white */
     .payment-section-title {
@@ -264,6 +264,72 @@ require_once __DIR__ . '/../includes/header.php';
     .show-more-btn svg   { transition: transform 0.3s; }
     .show-more-btn.expanded svg { transform: rotate(180deg); }
     .items-hidden { display: none; }
+    .payment-page-shell {
+        background: #ffffff;
+        color: #0f172a;
+    }
+    .payment-page-shell .payment-topbar a { color: #374151 !important; }
+    .payment-page-shell .payment-topbar a:hover { color: #111827 !important; }
+    .payment-page-shell .payment-topbar h1 { color: #111827 !important; }
+    .payment-page-shell .payment-card,
+    .payment-page-shell .payment-card [style*="background: linear-gradient"],
+    .payment-page-shell .payment-card [style*="background: rgba"],
+    .payment-page-shell .payment-card [style*="background:#0a2530"],
+    .payment-page-shell .payment-card [style*="background: #0a2530"] {
+        background: #ffffff !important;
+        box-shadow: none !important;
+    }
+    .payment-page-shell .payment-section-title,
+    .payment-page-shell .items-heading,
+    .payment-page-shell .dropzone .dz-title,
+    .payment-page-shell .payment-card h2,
+    .payment-page-shell .payment-card h3,
+    .payment-page-shell .payment-card h4,
+    .payment-page-shell .payment-card [style*="color: #eaf6fb"],
+    .payment-page-shell .payment-card [style*="color:#eaf6fb"],
+    .payment-page-shell .payment-card [style*="color: #ffffff"],
+    .payment-page-shell .payment-card [style*="color:#ffffff"] {
+        color: #111827 !important;
+    }
+    .payment-page-shell .input-label,
+    .payment-page-shell .dropzone .dz-sub,
+    .payment-page-shell .payment-card [style*="color: #9fc4d4"],
+    .payment-page-shell .payment-card [style*="color:#9fc4d4"],
+    .payment-page-shell .payment-card [style*="color: #64748b"],
+    .payment-page-shell .payment-card [style*="color:#64748b"] {
+        color: #64748b !important;
+    }
+    .payment-page-shell .payment-card [style*="color: #53c5e0"],
+    .payment-page-shell .payment-card [style*="color:#53c5e0"] {
+        color: #00232b !important;
+    }
+    .payment-page-shell .pm-tab-btn {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+        border-radius: 4px;
+    }
+    .payment-page-shell .pm-tab-btn.active {
+        background: #00232b;
+        border-color: #00232b;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0,35,43,0.18);
+    }
+    .payment-page-shell .dropzone {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        border-radius: 4px;
+    }
+    .payment-page-shell .dropzone:hover {
+        background: #f0f9ff;
+        border-color: #53c5e0;
+    }
+    .payment-page-shell .show-more-btn {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 4px;
+        color: #00232b !important;
+    }
     /* Compact specs in item card */
     .order-spec-grid {
         display: grid;
@@ -276,10 +342,10 @@ require_once __DIR__ . '/../includes/header.php';
     }
 </style>
 
-<div class="min-h-screen py-8">
+<div class="min-h-screen payment-page-shell">
     <div class="container mx-auto px-4 payment-container">
             
-            <div style="display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 2rem;">
+            <div class="payment-topbar" style="display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 2rem;">
                 <?php 
                 $back_url = 'orders.php';
                 if (!empty($_SESSION['last_order_item_key'])) {

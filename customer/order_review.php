@@ -385,8 +385,15 @@ foreach ($items_to_review as $key => $item) {
 // Determine if any item has customization
 $is_product_order = true;
 foreach ($items_to_review as $item) {
+    $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
+    $item_type = strtolower(trim((string)($item['type'] ?? '')));
+    $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
+    if ($source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
+        continue;
+    }
+
     $custom = review_item_customization($item);
-    if (!empty($custom)) {
+    if ($source_page === 'services' || $item_type === 'service' || !empty($custom)) {
         $is_product_order = false;
         break;
     }
@@ -1059,7 +1066,7 @@ require_once __DIR__ . '/../includes/header.php';
                         Back to Cart
                     </a>
                     
-                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;">Inquire Now</button>
+                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;"><?php echo $is_product_order ? 'Buy Now' : 'Inquire Now'; ?></button>
                 </div>
             </div>
         </form>
