@@ -122,22 +122,37 @@ $review_comment_expr = isset($review_columns['comment']) ? 'r.comment' : (isset(
 $review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
 $review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
 $review_created_expr = isset($review_columns['created_at']) ? 'r.created_at' : 'NOW()';
+$review_order_expr = isset($review_columns['order_id']) ? 'r.order_id' : 'NULL';
 $review_ref_expr = isset($review_columns['reference_id']) ? 'r.reference_id' : 'NULL';
 $review_type_expr = isset($review_columns['review_type']) ? 'r.review_type' : "''";
 
-$review_where = "{$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci";
-$review_params = [$product['name']];
-$review_types = 's';
+$review_where_parts = [];
+$review_params = [];
+$review_types = '';
 if (isset($review_columns['reference_id']) && isset($review_columns['review_type'])) {
-    $review_where = "({$review_type_expr} = 'product' AND {$review_ref_expr} = ?) OR {$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci";
-    $review_params = [$product_id, $product['name']];
-    $review_types = 'is';
+    $review_where_parts[] = "({$review_type_expr} = 'product' AND {$review_ref_expr} = ?)";
+    $review_params[] = $product_id;
+    $review_types .= 'i';
 }
+if (isset($review_columns['order_id'])) {
+    $review_where_parts[] = "EXISTS (
+        SELECT 1
+        FROM order_items oi
+        WHERE oi.order_id = {$review_order_expr}
+          AND oi.product_id = ?
+    )";
+    $review_params[] = $product_id;
+    $review_types .= 'i';
+}
+$review_where_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci";
+$review_params[] = $product['name'];
+$review_types .= 's';
+$review_where = '(' . implode(' OR ', $review_where_parts) . ')';
 
 $reviews = order_create_optional_query(
     "SELECT
      r.id,
-     r.order_id,
+     {$review_order_expr} AS order_id,
      {$review_customer_expr} AS user_id,
      {$review_service_expr} AS service_type,
      r.rating,
