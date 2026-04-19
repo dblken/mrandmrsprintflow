@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             db_execute("UPDATE orders SET payment_status = 'Pending Verification', payment_method = ?, payment_reference = ?, payment_proof_path = ?, updated_at = NOW() WHERE order_id = ?",
                 'sssi', [$payment_method, $reference_number, $file_path, $order_id]);
             
-            create_notification(null, 'Admin', "Payment proof uploaded for Order #{$order_id}", 'Payment', true, false);
+            notify_shop_users("Payment proof uploaded for Order #{$order_id}", 'Payment', true, false, $order_id);
             
             $success = 'Payment proof uploaded successfully! Admin will verify shortly.';
         } else {
@@ -125,4 +125,3 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-

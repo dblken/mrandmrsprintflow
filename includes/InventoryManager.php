@@ -132,12 +132,9 @@ class InventoryManager {
         if ($result && !empty($item['reorder_level']) && (float)$item['reorder_level'] > 0) {
             $newSoh = self::getStockOnHand($itemId);
             if ($newSoh <= (float)$item['reorder_level']) {
-                if (function_exists('create_notification')) {
+                if (function_exists('notify_shop_users')) {
                     $msg = "Low stock: {$item['name']} is at {$newSoh} {$item['unit_of_measure']} (reorder at {$item['reorder_level']})";
-                    $admins = db_query("SELECT user_id FROM users WHERE user_type IN ('Admin','Manager') AND status = 'Activated'", '', []);
-                    foreach ((array)$admins as $u) {
-                        create_notification((int)$u['user_id'], 'Admin', $msg, 'Stock', false, false, $itemId);
-                    }
+                    notify_shop_users($msg, 'Stock', false, false, $itemId, ['Admin', 'Manager']);
                 }
             }
         }

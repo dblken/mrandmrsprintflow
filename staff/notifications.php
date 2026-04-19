@@ -11,6 +11,50 @@ require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $staff_id = get_user_id();
 
+function pf_staff_backfill_legacy_notifications(int $staff_id): void {
+    static $done = false;
+    if ($done || $staff_id <= 0) {
+        return;
+    }
+    $done = true;
+
+    $shop_types = ['Order', 'Stock', 'System', 'Payment', 'Design', 'Job Order', 'Rating', 'Review', 'Status', 'Payment Issue'];
+    $placeholders = implode(',', array_fill(0, count($shop_types), '?'));
+    $orphans = db_query(
+        "SELECT notification_id, message, type
+         FROM notifications
+         WHERE user_id IS NULL
+           AND customer_id IS NULL
+           AND type IN ($placeholders)
+         ORDER BY notification_id DESC
+         LIMIT 50",
+        str_repeat('s', count($shop_types)),
+        $shop_types
+    );
+
+    foreach ((array)$orphans as $orphan) {
+        $exists = db_query(
+            "SELECT notification_id FROM notifications WHERE user_id = ? AND type = ? AND message = ? LIMIT 1",
+            'iss',
+            [$staff_id, (string)$orphan['type'], (string)$orphan['message']]
+        );
+        if (!empty($exists)) {
+            continue;
+        }
+
+        db_execute(
+            "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms, created_at)
+             SELECT ?, NULL, message, type, data_id, is_read, 0, 0, created_at
+             FROM notifications
+             WHERE notification_id = ?",
+            'ii',
+            [$staff_id, (int)$orphan['notification_id']]
+        );
+    }
+}
+
+pf_staff_backfill_legacy_notifications((int)$staff_id);
+
 // Handle actions (same pattern as admin/notifications.php)
 if (isset($_GET['action'])) {
     $action = $_GET['action'];
@@ -24,9 +68,21 @@ if (isset($_GET['action'])) {
     }
 
     if ($action === 'get_unread_count') {
-        $r = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
+        $r = db_query(
+            "SELECT
+                COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) as count,
+                COALESCE(MAX(notification_id), 0) as latest_id
+             FROM notifications
+             WHERE user_id = ?",
+            'i',
+            [$staff_id]
+        );
         header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'count' => (int)($r[0]['count'] ?? 0)]);
+        echo json_encode([
+            'success' => true,
+            'count' => (int)($r[0]['count'] ?? 0),
+            'latest_id' => (int)($r[0]['latest_id'] ?? 0),
+        ]);
         exit;
     }
 
@@ -51,9 +107,11 @@ $where = "user_id = ?";
 $params = [$staff_id];
 $types = 'i';
 
+$notification_type_filters = ['Order', 'Stock', 'System', 'Payment', 'Design', 'Job Order', 'Rating', 'Review', 'Status', 'Message', 'Payment Issue'];
+
 if ($filter === 'unread') {
     $where .= " AND is_read = 0";
-} elseif (in_array($filter, ['Order', 'Stock', 'System'], true)) {
+} elseif (in_array($filter, $notification_type_filters, true)) {
     $where .= " AND type = ?";
     $params[] = $filter;
     $types .= 's';
@@ -82,6 +140,8 @@ $notifications = db_query(
 
 $unread_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
 $unread_count = (int)($unread_result[0]['count'] ?? 0);
+$latest_result = db_query("SELECT COALESCE(MAX(notification_id), 0) as latest_id FROM notifications WHERE user_id = ?", 'i', [$staff_id]);
+$latest_notification_id = (int)($latest_result[0]['latest_id'] ?? 0);
 
 $notif_filter_badge = ($filter !== 'all' ? 1 : 0) + ($search !== '' ? 1 : 0);
 $notif_pagination_params = ['filter' => $filter];
@@ -364,7 +424,12 @@ $page_title = 'Notifications - Staff';
                                                 <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All notifications</option>
                                                 <option value="unread" <?php echo $filter === 'unread' ? 'selected' : ''; ?>>Unread only</option>
                                                 <option value="Order" <?php echo $filter === 'Order' ? 'selected' : ''; ?>>Orders</option>
+                                                <option value="Payment" <?php echo $filter === 'Payment' ? 'selected' : ''; ?>>Payments</option>
+                                                <option value="Design" <?php echo $filter === 'Design' ? 'selected' : ''; ?>>Design uploads</option>
+                                                <option value="Job Order" <?php echo $filter === 'Job Order' ? 'selected' : ''; ?>>Job orders</option>
                                                 <option value="Stock" <?php echo $filter === 'Stock' ? 'selected' : ''; ?>>Inventory</option>
+                                                <option value="Rating" <?php echo $filter === 'Rating' ? 'selected' : ''; ?>>Ratings</option>
+                                                <option value="Review" <?php echo $filter === 'Review' ? 'selected' : ''; ?>>Reviews</option>
                                                 <option value="System" <?php echo $filter === 'System' ? 'selected' : ''; ?>>System</option>
                                             </select>
                                         </div>
@@ -467,6 +532,8 @@ $page_title = 'Notifications - Staff';
 </div>
 
 <script>
+window.PF_STAFF_NOTIF_LATEST_ID = <?php echo $latest_notification_id; ?>;
+
 function notifFilterPanel() {
     return {
         filterOpen: false,
@@ -524,7 +591,7 @@ function stopAutoRefresh() {
     if (autoRefreshInterval) clearInterval(autoRefreshInterval);
 }
 function checkForNewNotifications() {
-    // Silently fetch unread count and update badge — do NOT reload the full page
+    // Silently fetch unread count and refresh when a newer notification exists.
     fetch('?action=get_unread_count', { credentials: 'include' })
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
@@ -532,6 +599,12 @@ function checkForNewNotifications() {
                 // Update badge if PFNotifications is available
                 if (window.PFNotifications && window.PFNotifications.updateBadge) {
                     window.PFNotifications.updateBadge(data.count);
+                }
+
+                var latestId = parseInt(data.latest_id || 0, 10);
+                var currentLatestId = parseInt(window.PF_STAFF_NOTIF_LATEST_ID || 0, 10);
+                if (latestId > currentLatestId) {
+                    window.location.reload();
                 }
             }
         })

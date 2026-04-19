@@ -260,8 +260,34 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
 }
 
 /**
+ * Notify activated shop users and use each user's role for push subscription matching.
+ */
+function notify_shop_users(string $message, string $type = 'System', bool $send_email = false, bool $send_sms = false, $data_id = null, array $roles = ['Staff', 'Admin', 'Manager']): void {
+    $allowed_roles = ['Staff', 'Admin', 'Manager'];
+    $roles = array_values(array_unique(array_intersect($roles, $allowed_roles)));
+    if (empty($roles)) {
+        $roles = $allowed_roles;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($roles), '?'));
+    $users = db_query(
+        "SELECT user_id, role FROM users WHERE role IN ($placeholders) AND status = 'Activated'",
+        str_repeat('s', count($roles)),
+        $roles
+    );
+
+    foreach ((array)$users as $u) {
+        $role = $u['role'] ?? 'Staff';
+        if (!in_array($role, $allowed_roles, true)) {
+            $role = 'Staff';
+        }
+
+        create_notification((int)$u['user_id'], $role, $message, $type, $send_email, $send_sms, $data_id);
+    }
+}
+
+/**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
- * Uses each user's role for web push subscription matching.
  */
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
     // Get service name and order type from context
@@ -283,24 +309,11 @@ function notify_staff_new_order(int $order_id, string $customer_first_name): voi
         $is_service_order = true;
     }
 
-    $users = db_query(
-        "SELECT user_id, role FROM users WHERE role IN ('Staff', 'Admin', 'Manager') AND status = 'Activated'"
-    );
-    if (empty($users)) {
-        return;
-    }
-    
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
     // Format: "Customer Name placed an order for Service Name"
     $msg = "{$name} placed an order for {$service_name}";
-    
-    foreach ($users as $u) {
-        $role = $u['role'] ?? 'Staff';
-        if (!in_array($role, ['Staff', 'Admin', 'Manager'], true)) {
-            $role = 'Staff';
-        }
-        create_notification((int)$u['user_id'], $role, $msg, 'Order', false, false, $order_id);
-    }
+
+    notify_shop_users($msg, 'Order', false, false, $order_id);
 }
 
 /**

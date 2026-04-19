@@ -221,12 +221,13 @@ function _ft_detect_social(string $url): array {
     <!-- Scroll to Top (all non-admin pages) -->
     <?php if (!is_admin() && !is_staff()): ?>
     <?php
-    $current_script_name = strtolower(basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
-    $chatbot_allowed_pages = ['services.php', 'products.php'];
-    $is_customer_user = function_exists('get_user_type') ? get_user_type() === 'Customer' : false;
+    $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+    $current_script_name = strtolower(basename($request_path));
+    if ($current_script_name === '' || substr($current_script_name, -4) !== '.php') {
+        $current_script_name = strtolower(basename($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
+    }
+    $chatbot_allowed_pages = ['index.php', 'about.php', 'services.php', 'products.php'];
     $show_chatbot_widget = empty($hide_chatbot)
-        && !empty($is_logged_in)
-        && $is_customer_user
         && in_array($current_script_name, $chatbot_allowed_pages, true);
     ?>
     <?php if (empty($use_landing_css)): ?>
@@ -631,12 +632,6 @@ function _ft_detect_social(string $url): array {
         if (sendBtn) {
         sendBtn.addEventListener('click', function() {
             if (input.value.trim()) {
-                if (!isLoggedIn) {
-                    showLoginPrompt();
-                    input.value = '';
-                    return;
-                }
-
                 var q = input.value.trim();
                 input.value = '';
 
@@ -702,11 +697,6 @@ function _ft_detect_social(string $url): array {
         if (input) {
         input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && input.value.trim()) {
-                if (!isLoggedIn) {
-                    showLoginPrompt();
-                    input.value = '';
-                    return;
-                }
                 sendBtn.click();
             }
         });
