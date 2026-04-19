@@ -126,11 +126,67 @@
     }
     html.printflow-staff .kpi-label,
     html.printflow-staff .kpi-lbl {
-        background: linear-gradient(90deg, #023d3d, #06A1A1) !important;
+        background: linear-gradient(90deg, #00232b, #53C5E0) !important;
         -webkit-background-clip: text !important;
         background-clip: text !important;
         color: transparent !important;
         -webkit-text-fill-color: transparent !important;
+    }
+
+    /* Match admin KPI typography across all staff pages. */
+    html.printflow-staff .kpi-card,
+    html.printflow-staff .kpi-card-v2,
+    html.printflow-staff .stat-card {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+    }
+    html.printflow-staff .kpi-label,
+    html.printflow-staff .kpi-lbl {
+        display: block !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+        text-transform: capitalize !important;
+    }
+    html.printflow-staff .kpi-value,
+    html.printflow-staff .kpi-val,
+    html.printflow-staff .kpi-v2-value {
+        display: block !important;
+        max-width: 100% !important;
+        color: #1f2937 !important;
+        font-size: 26px !important;
+        font-weight: 800 !important;
+        font-variant-numeric: tabular-nums !important;
+        line-height: 1.15 !important;
+        letter-spacing: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+    html.printflow-staff .kpi-value small,
+    html.printflow-staff .kpi-val small,
+    html.printflow-staff .kpi-v2-value small {
+        color: #64748b !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0 !important;
+    }
+    html.printflow-staff .kpi-sub {
+        display: block !important;
+        color: #64748b !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        line-height: 1.35 !important;
+        letter-spacing: 0 !important;
+    }
+    html.printflow-staff .stats-grid .stat-value,
+    html.printflow-staff .stat-card > .stat-value {
+        color: #1f2937 !important;
+        font-size: 32px !important;
+        font-weight: 800 !important;
+        font-variant-numeric: tabular-nums !important;
+        line-height: 1.15 !important;
+        letter-spacing: 0 !important;
     }
 
     html.printflow-staff .stats-grid .stat-card::before,
@@ -140,6 +196,11 @@
 
     html.printflow-staff .stat-label {
         color: #047676;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+        text-transform: capitalize !important;
     }
 
     /* Shared filter / sort controls used across staff pages */
