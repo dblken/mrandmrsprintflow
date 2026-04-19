@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
 
+$base_path = defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
+
 $order_id = (int)($_GET['id'] ?? 0);
 $customer_id = get_user_id();
 
@@ -268,9 +270,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div style="margin-bottom:1.5rem;">
                                     <label style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.6rem;">Design Image</label>
                                     <div style="display:flex; align-items:center; gap:1rem;">
-                                        <?php if (!empty($item['design_image'])): ?>
+                                        <?php if (!empty($item['design_image']) || !empty($item['design_file'])): ?>
                                             <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #e5e7eb;">
-                                                <img src="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$item['order_item_id']; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Old Design">
+                                                <img src="<?php echo htmlspecialchars($base_path . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']); ?>" style="width:100%; height:100%; object-fit:cover;" alt="Old Design">
                                                 <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.6); color:white; font-size:0.6rem; text-align:center; padding:2px;">Current</div>
                                             </div>
                                         <?php endif; ?>

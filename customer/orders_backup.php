@@ -11,7 +11,7 @@ require_role('Customer');
 ensure_ratings_table_exists();
 
 $customer_id = get_user_id();
-if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+if (!defined('BASE_URL')) define('BASE_URL', function_exists('pf_app_base_path') ? pf_app_base_path() : '');
 // Mark notification as read if parameter present
 if (isset($_GET['mark_read'])) {
     $notification_id = (int)$_GET['mark_read'];
@@ -393,7 +393,7 @@ body.customer-theme.orders-page footer.ft-footer {
                             $fallback_img = '/printflow/public/assets/images/services/default.png';
 
                             if ($show_design) {
-                                $order_img_src = "/printflow/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
+                                $order_img_src = BASE_URL . "/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
                             } else {
                                 $product_img = "";
                                 $pn = trim($order['first_product_name'] ?? '');
@@ -412,7 +412,7 @@ body.customer-theme.orders-page footer.ft-footer {
                             ?>
 
                             <?php if ($show_design): ?>
-                                <a href="/printflow/public/serve_design.php?type=order_item&id=<?php echo (int)$order['first_item_id']; ?>" target="_blank" style="display:block; <?php echo $img_wrapper; ?>">
+                                <a href="<?php echo htmlspecialchars(BASE_URL . '/public/serve_design.php?type=order_item&id=' . (int)$order['first_item_id']); ?>" target="_blank" style="display:block; <?php echo $img_wrapper; ?>">
                                     <img src="<?php echo htmlspecialchars($order_img_src); ?>" style="<?php echo $img_style; ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo $fallback_img; ?>';">
                                 </a>
                             <?php else: ?>
@@ -1348,5 +1348,4 @@ function escIM(str) {
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-
 

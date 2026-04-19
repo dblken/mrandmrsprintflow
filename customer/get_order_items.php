@@ -11,6 +11,8 @@ require_role('Customer');
 
 header('Content-Type: application/json');
 
+$base_path = defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
+
 $order_id = (int)($_GET['id'] ?? 0);
 $customer_id = get_user_id();
 
@@ -95,10 +97,10 @@ foreach ($items as $item) {
         'has_design'    => !empty($item['design_image']) || !empty($item['design_file']),
         'has_reference' => !empty($item['reference_image_file']),
         'design_url'    => (!empty($item['design_image']) || !empty($item['design_file']))
-                            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
+                            ? $base_path . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
                             : null,
         'reference_url' => !empty($item['reference_image_file'])
-                            ? '/printflow/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
+                            ? $base_path . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
                             : null,
     ];
 }

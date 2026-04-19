@@ -8,10 +8,104 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
 
-// Base directory: two levels up from /public/ gets us to /htdocs/
-// design_file paths are stored as /printflow/uploads/... so this is correct
+// Base directories used by older and newer upload code.
 $htdocs_root = realpath(__DIR__ . '/../../');
 $printflow_root = realpath(__DIR__ . '/..');
+
+function pf_serve_design_file_candidates(?string $storedPath): array {
+    global $htdocs_root, $printflow_root;
+
+    $path = trim((string)$storedPath);
+    if ($path === '') {
+        return [];
+    }
+
+    $path = str_replace('\\', '/', $path);
+    $pathOnly = parse_url($path, PHP_URL_PATH);
+    if (is_string($pathOnly) && $pathOnly !== '') {
+        $path = $pathOnly;
+    }
+
+    $basePath = '';
+    if (defined('BASE_PATH')) {
+        $basePath = trim((string)BASE_PATH);
+    } elseif (function_exists('pf_app_base_path')) {
+        $basePath = trim((string)pf_app_base_path());
+    }
+    $basePath = '/' . trim($basePath, '/');
+    if ($basePath === '/') {
+        $basePath = '';
+    }
+
+    $variants = [$path];
+    if ($basePath !== '' && str_starts_with($path, $basePath . '/')) {
+        $variants[] = substr($path, strlen($basePath));
+    }
+    if (str_starts_with($path, '/printflow/')) {
+        $variants[] = substr($path, strlen('/printflow'));
+    }
+    if (preg_match('#/uploads/#', $path, $m, PREG_OFFSET_CAPTURE)) {
+        $variants[] = substr($path, $m[0][1]);
+    }
+    if (preg_match('#/public/#', $path, $m, PREG_OFFSET_CAPTURE)) {
+        $variants[] = substr($path, $m[0][1]);
+    }
+
+    $candidates = [];
+    foreach (array_unique(array_filter($variants, fn($v) => trim((string)$v) !== '')) as $variant) {
+        $variant = str_replace('\\', '/', (string)$variant);
+        if (preg_match('#^[A-Za-z]:/#', $variant) || str_starts_with($variant, '//')) {
+            $candidates[] = $variant;
+            continue;
+        }
+
+        $relative = ltrim($variant, '/');
+        if ($printflow_root) {
+            $candidates[] = $printflow_root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        }
+        if ($htdocs_root) {
+            $candidates[] = $htdocs_root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+            $candidates[] = rtrim($htdocs_root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim(str_replace('/', DIRECTORY_SEPARATOR, $variant), DIRECTORY_SEPARATOR);
+        }
+    }
+
+    return array_values(array_unique($candidates));
+}
+
+function pf_serve_design_read_file(?string $storedPath): bool {
+    global $htdocs_root, $printflow_root;
+
+    $allowedRoots = array_values(array_filter([
+        $printflow_root ? realpath($printflow_root) : null,
+        $htdocs_root ? realpath($htdocs_root) : null,
+    ]));
+
+    foreach (pf_serve_design_file_candidates($storedPath) as $candidate) {
+        $real = realpath($candidate);
+        if (!$real || !is_file($real)) {
+            continue;
+        }
+
+        $allowed = false;
+        foreach ($allowedRoots as $root) {
+            if ($root !== '' && str_starts_with($real, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+                $allowed = true;
+                break;
+            }
+        }
+        if (!$allowed) {
+            continue;
+        }
+
+        $mime = mime_content_type($real) ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: inline; filename="' . basename($real) . '"');
+        readfile($real);
+        return true;
+    }
+
+    return false;
+}
 
 // Role-based access (Customers can only see their own, Staff can see all)
 if (!is_logged_in()) {
@@ -50,12 +144,7 @@ if ($type === 'order_item') {
     }
 
     if ($field === 'reference') {
-        $path = $item['reference_image_file'];
-        if ($path && file_exists($htdocs_root . $path)) {
-            $full_path = $htdocs_root . $path;
-            $mime = mime_content_type($full_path);
-            header("Content-Type: $mime");
-            readfile($full_path);
+        if (pf_serve_design_read_file($item['reference_image_file'] ?? '')) {
             exit;
         }
     } else {
@@ -67,11 +156,7 @@ if ($type === 'order_item') {
             exit;
         }
         // Then try File
-        if ($item['design_file'] && file_exists($htdocs_root . $item['design_file'])) {
-            $full_path = $htdocs_root . $item['design_file'];
-            $mime = mime_content_type($full_path);
-            header("Content-Type: $mime");
-            readfile($full_path);
+        if (pf_serve_design_read_file($item['design_file'] ?? '')) {
             exit;
         }
     }
@@ -109,23 +194,8 @@ if ($type === 'service_file') {
 
     $rel = $row['file_path'] ?? '';
     if ($rel !== '') {
-        $relNorm = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($rel, '/\\'));
-        $candidates = [];
-        if ($htdocs_root) {
-            $candidates[] = $htdocs_root . DIRECTORY_SEPARATOR . $relNorm;
-            $candidates[] = $htdocs_root . $rel;
-            $candidates[] = $htdocs_root . '/' . ltrim($rel, '/');
-        }
-        if ($printflow_root) {
-            $candidates[] = $printflow_root . DIRECTORY_SEPARATOR . $relNorm;
-        }
-        foreach ($candidates as $full_path) {
-            if ($full_path && is_file($full_path)) {
-                $mime = mime_content_type($full_path) ?: 'application/octet-stream';
-                header('Content-Type: ' . $mime);
-                readfile($full_path);
-                exit;
-            }
+        if (pf_serve_design_read_file($rel)) {
+            exit;
         }
     }
 }
