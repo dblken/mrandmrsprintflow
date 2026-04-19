@@ -427,8 +427,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div style="margin-bottom:0.75rem;">
                                     <button type="button" class="poc-media-trigger" data-media-type="video" data-media-src="<?php echo htmlspecialchars($vpath); ?>" aria-label="View review video">
                                         <span class="poc-video-thumb">
-                                            <video src="<?php echo htmlspecialchars($vpath); ?>" muted playsinline preload="metadata" class="poc-video-preview"></video>
-                                            <span class="poc-video-play">Play</span>
+                                            <video src="<?php echo htmlspecialchars($vpath); ?>" controls playsinline preload="metadata" class="poc-video-preview"></video>
                                         </span>
                                     </button>
                                 </div>
@@ -526,7 +525,6 @@ require_once __DIR__ . '/../includes/header.php';
 .poc-media-thumb { display: block; }
 .poc-video-thumb { position: relative; display: inline-block; max-width: 240px; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; background: #0f172a; }
 .poc-video-preview { display: block; width: 100%; height: auto; }
-.poc-video-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.7); color: #fff; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.35rem 0.6rem; border-radius: 999px; }
 
 .poc-media-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: none; align-items: center; justify-content: center; padding: 1.5rem; z-index: 100000; }
 .poc-media-modal.is-open { display: flex; }
