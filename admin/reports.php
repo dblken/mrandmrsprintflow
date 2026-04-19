@@ -1569,7 +1569,7 @@ a.export-dd-link:hover { background: #f9fafb; }
     <div class="main-content">
         <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Reports <span class="pf-mobile-title-extra">& Analytics</span></h1>
-            <?php render_branch_selector($branchCtx); ?>
+            <?php if (!defined('MANAGER_PANEL') || !MANAGER_PANEL) { render_branch_selector($branchCtx); } ?>
         </header>
         <main>
             <?php render_branch_context_banner($branchCtx['branch_name']); ?>
