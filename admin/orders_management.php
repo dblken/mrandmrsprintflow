@@ -1087,7 +1087,7 @@ if (isset($_GET['ajax'])) {
         </script>
         <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Orders <span class="pf-mobile-title-extra">Management</span></h1>
-            <?php render_branch_selector($branchCtx); ?>
+            <?php if (!defined('MANAGER_PANEL') || !MANAGER_PANEL) { render_branch_selector($branchCtx); } ?>
         </header>
 
         <main x-data="ordersPage()" x-init="console.log('[orders] Alpine x-init called'); console.log('[orders] Component data:', $data)">
