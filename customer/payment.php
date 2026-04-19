@@ -116,14 +116,46 @@ if (!empty($order_result)) {
 $page_title = "Payment - Order #{$order_id}";
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
+
+if (!function_exists('pf_payment_qr_url')) {
+    function pf_payment_qr_url($file): string {
+        $file = trim((string)$file);
+        if ($file === '') {
+            return '';
+        }
+
+        $base_path = function_exists('pf_app_base_path')
+            ? rtrim((string)pf_app_base_path(), '/')
+            : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '');
+
+        $file = str_replace('\\', '/', $file);
+        if (preg_match('#^https?://#i', $file)) {
+            $parts = parse_url($file);
+            if (empty($parts['path'])) {
+                return $file;
+            }
+            $file = $parts['path'];
+        }
+
+        $marker = '/public/assets/uploads/qr/';
+        $pos = strpos($file, $marker);
+        if ($pos !== false) {
+            $file = substr($file, $pos + strlen($marker));
+        }
+
+        $file = basename($file);
+        return ($base_path !== '' ? $base_path : '') . '/public/assets/uploads/qr/' . rawurlencode($file);
+    }
+}
 ?>
 
 <style>
     /* === PAYMENT PAGE — WIDE TWO-COLUMN LAYOUT === */
     .payment-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1rem 4rem;
+        width: min(1100px, calc(100vw - 2rem)) !important;
+        max-width: 1100px !important;
+        margin: 0 auto !important;
+        padding: 2rem 0 4rem !important;
     }
     .payment-layout {
         display: grid;
@@ -532,8 +564,9 @@ require_once __DIR__ . '/../includes/header.php';
                             <div id="pm-details-container" style="background: rgba(0,28,36,0.7); border: none; border-radius: 0; padding: 1.75rem; margin-bottom: 2.25rem; text-align: center; backdrop-filter: blur(8px);">
                                 <?php $first = true; foreach ($enabled_methods as $index => $pm): ?>
                                     <div id="pm-info-<?php echo $index; ?>" style="display: <?php echo $first ? 'block' : 'none'; ?>;">
-                                        <?php if (!empty($pm['file'])): ?>
-                                            <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>" style="width: 170px; height: 170px; object-fit: contain; margin: 0 auto 1.25rem; display: block; border-radius: 0; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                        <?php $qr_url = pf_payment_qr_url($pm['file'] ?? ''); ?>
+                                        <?php if ($qr_url !== ''): ?>
+                                            <img src="<?php echo htmlspecialchars($qr_url, ENT_QUOTES, 'UTF-8'); ?>" style="width: 170px; height: 170px; object-fit: contain; margin: 0 auto 1.25rem; display: block; border-radius: 0; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" alt="<?php echo htmlspecialchars(($pm['provider'] ?? 'Payment') . ' QR', ENT_QUOTES, 'UTF-8'); ?>">
                                         <?php endif; ?>
                                         <div style="font-weight: 800; color: #eaf6fb; font-size: 1.05rem; letter-spacing: 0.01em;"><?php echo htmlspecialchars($pm['provider']); ?></div>
                                         <div style="color: #9fc4d4; font-size: 0.875rem; font-weight: 600; margin-top: 6px;"><?php echo htmlspecialchars($pm['label']); ?></div>
