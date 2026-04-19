@@ -297,7 +297,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <span style="font-weight: 600;">You have already submitted a review for this order.</span>
                 </div>
                 <div class="rate-actions">
-                    <a class="rate-btn-primary" href="/printflow/customer/reviews.php?order_id=<?php echo $order_id; ?>">View Your Review</a>
+                    <a class="rate-btn-primary" href="<?php echo BASE_URL; ?>/customer/orders.php?tab=completed&highlight=<?php echo $order_id; ?>">View Your Review</a>
                     <a class="rate-btn-secondary" href="/printflow/customer/orders.php?tab=completed">Back to Orders</a>
                 </div>
             <?php else: ?>
