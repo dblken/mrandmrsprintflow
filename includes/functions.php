@@ -1174,7 +1174,7 @@ function customer_notification_target_url(array $notification) {
             return $base . '/customer/rate_order.php?order_id=' . $data_id;
         }
         if ($type === 'Payment' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
-            return $base . '/customer/payment.php?order_id=' . $data_id;
+            return $base . '/customer/orders.php?highlight=' . $data_id;
         }
         return $base . '/customer/orders.php?highlight=' . $data_id;
     }
