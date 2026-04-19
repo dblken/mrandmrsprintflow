@@ -366,8 +366,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php foreach ($reviews_paged as $review):
                     $reviewer_name = htmlspecialchars(trim(($review['first_name'] ?? '') . ' ' . ($review['last_name'] ?? '')));
                     $profile_pic = !empty($review['profile_picture'])
-                        ? '/printflow/public/assets/uploads/profiles/' . htmlspecialchars($review['profile_picture'])
+                        ? get_profile_image($review['profile_picture'])
                         : '';
+                    $profile_pic_fallback = rtrim(defined('BASE_PATH') ? BASE_PATH : '', '/') . '/public/assets/uploads/profiles/default.png';
                     $rating      = (int)$review['rating'];
                     $comment     = htmlspecialchars($review['comment'] ?? '');
                     $variation   = htmlspecialchars($review['variation'] ?? '');
@@ -380,7 +381,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div style="display: flex; gap: 1rem;">
                         <div style="flex-shrink: 0;">
                             <?php if ($profile_pic): ?>
-                                <img src="<?php echo $profile_pic; ?>" alt="<?php echo $reviewer_name; ?>" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+                                <img src="<?php echo htmlspecialchars($profile_pic); ?>" alt="<?php echo $reviewer_name; ?>" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($profile_pic_fallback); ?>';" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
                             <?php else: ?>
                                 <div style="width: 48px; height: 48px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #6b7280;">
                                     <?php echo strtoupper(substr($reviewer_name, 0, 1) ?: '?'); ?>
