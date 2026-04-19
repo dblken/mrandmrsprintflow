@@ -322,8 +322,14 @@ try {
              ) dc ON dc.order_id = o.order_id
              WHERE 1=1 {$bSql}
              GROUP BY p.product_id, p.name
-             HAVING (custom_count + template_count) > 0
-             ORDER BY (custom_count + template_count) DESC LIMIT 8",
+             HAVING (
+                 SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 1 THEN oi.quantity ELSE 0 END) +
+                 SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 0 THEN oi.quantity ELSE 0 END)
+             ) > 0
+             ORDER BY (
+                 SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 1 THEN oi.quantity ELSE 0 END) +
+                 SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 0 THEN oi.quantity ELSE 0 END)
+             ) DESC LIMIT 8",
             $bTypes,
             $bParams
         ) ?: [];
