@@ -383,6 +383,9 @@ if (!function_exists('pf_payment_qr_url')) {
         .dropzone .dz-sub { font-size: 0.72rem; }
         #submitBtn { font-size: 0.82rem; padding: 0.7rem; }
         #submitError { font-size: 0.75rem; }
+        .order-item-header { flex-direction: column !important; align-items: stretch !important; }
+        .order-item-image { width: 100% !important; height: auto !important; aspect-ratio: 1 / 1; }
+        .order-item-image img { width: 100% !important; height: 100% !important; object-fit: cover; }
     }
 </style>
 
