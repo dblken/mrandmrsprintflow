@@ -467,16 +467,16 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
         .btn-action.red { color:#ef4444; border-color:#ef4444; } .btn-action.red:hover { background:#ef4444; color:#fff; }
         .btn-action.gray { color:#6b7280; border-color:#d1d5db; } .btn-action.gray:hover { background:#6b7280; color:#fff; }
         a.btn-action[style*="#059669"]:hover { background:#059669 !important; color:#fff !important; border-color:#059669 !important; }
-        .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+        .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; align-items:stretch; }
         @media(max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
-        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; height:100%; display:flex; flex-direction:column; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-card.slate::before { background:linear-gradient(90deg,#64748b,#94a3b8); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:auto; }
         [x-cloak] { display:none !important; }
         .toolbar-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-size:13px; font-weight:500; color:#374151; cursor:pointer; white-space:nowrap; }
         .toolbar-btn:hover { border-color:#9ca3af; background:#f9fafb; }
