@@ -868,22 +868,29 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
     }
 
     /*
-     * Compact KPI height.
-     * Many admin pages redeclare .kpi-card in page-local styles after this include.
-     * The !important flags keep the KPI cards content-sized across those pages.
+     * Equal-height KPI cards across admin/manager pages (desktop + mobile).
+     * Page-local overrides can still apply, but these defaults keep rows aligned.
      */
     .kpi-row {
-        align-items: start !important;
+        align-items: stretch !important;
     }
     .kpi-card,
     .kpi-card-v2 {
         min-height: 0 !important;
-        height: auto !important;
+        height: 100% !important;
         padding-bottom: 16px !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
     .kpi-card-inner {
         min-height: 0 !important;
-        height: auto !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .kpi-sub,
+    .kpi-card-cta {
+        margin-top: auto !important;
     }
 
     .kpi-card::before,
