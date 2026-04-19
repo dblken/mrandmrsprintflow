@@ -425,11 +425,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/')) $vpath = '/printflow/' . $vpath;
                             ?>
                                 <div style="margin-bottom:0.75rem;">
-                                    <button type="button" class="poc-media-trigger" data-media-type="video" data-media-src="<?php echo htmlspecialchars($vpath); ?>" aria-label="View review video">
-                                        <span class="poc-video-thumb">
-                                            <video src="<?php echo htmlspecialchars($vpath); ?>" controls playsinline preload="metadata" class="poc-video-preview"></video>
-                                        </span>
-                                    </button>
+                                    <div class="poc-video-thumb">
+                                        <video src="<?php echo htmlspecialchars($vpath); ?>" controls playsinline preload="metadata" class="poc-video-preview"></video>
+                                    </div>
                                 </div>
                             <?php endif; ?>
 
