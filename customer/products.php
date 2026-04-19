@@ -12,16 +12,26 @@ require_role('Customer');
 // Reviews table columns vary across deployments
 $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
 $review_service_expr = isset($review_cols['service_type']) ? 'r.service_type' : "''";
+$review_order_expr = isset($review_cols['order_id']) ? 'r.order_id' : 'NULL';
 $review_ref_expr = isset($review_cols['reference_id']) ? 'r.reference_id' : 'NULL';
 $review_type_expr = isset($review_cols['review_type']) ? 'r.review_type' : "''";
-$use_ref_lookup = isset($review_cols['reference_id']) && isset($review_cols['review_type']);
+$review_match_parts = [];
+if (isset($review_cols['reference_id']) && isset($review_cols['review_type'])) {
+    $review_match_parts[] = "({$review_type_expr} = 'product' AND {$review_ref_expr} = p.product_id)";
+}
+if (isset($review_cols['order_id'])) {
+    $review_match_parts[] = "EXISTS (
+        SELECT 1
+        FROM order_items oi_rating
+        WHERE oi_rating.order_id = {$review_order_expr}
+          AND oi_rating.product_id = p.product_id
+    )";
+}
+$review_match_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci";
+$review_match_sql = '(' . implode(' OR ', $review_match_parts) . ')';
 
-$avg_rating_sql = $use_ref_lookup
-    ? "(SELECT AVG(rating) FROM reviews r WHERE (" . $review_type_expr . " = 'product' AND " . $review_ref_expr . " = p.product_id) OR (" . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci)) as avg_rating"
-    : "(SELECT AVG(rating) FROM reviews r WHERE " . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as avg_rating";
-$review_count_sql = $use_ref_lookup
-    ? "(SELECT COUNT(*) FROM reviews r WHERE (" . $review_type_expr . " = 'product' AND " . $review_ref_expr . " = p.product_id) OR (" . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci)) as review_count"
-    : "(SELECT COUNT(*) FROM reviews r WHERE " . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as review_count";
+$avg_rating_sql = "(SELECT AVG(rating) FROM reviews r WHERE {$review_match_sql}) as avg_rating";
+$review_count_sql = "(SELECT COUNT(*) FROM reviews r WHERE {$review_match_sql}) as review_count";
 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
