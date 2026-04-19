@@ -856,7 +856,9 @@ function custom_payment_badge($status) {
         </script>
         <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Customizations</h1>
-            <?php render_branch_selector($branchCtx); ?>
+            <?php if (empty($GLOBALS['MANAGER_PANEL'])): ?>
+                <?php render_branch_selector($branchCtx); ?>
+            <?php endif; ?>
         </header>
 
         <main x-data="custModal()">
