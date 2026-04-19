@@ -2457,7 +2457,6 @@ $dashData = [
                         Business Insights &amp; <?php echo $next_month_label; ?> Forecast
                     </span>
                     <div style="display:flex;align-items:center;gap:12px;" class="no-print">
-                        <a href="#pf-forecast-section" class="toolbar-btn" style="height:36px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;">View Detailed Forecast</a>
                         <button type="button" class="toolbar-btn" style="height:36px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;padding:0 12px;" onclick='reportsPrintInPlace(<?php echo json_encode($pfRptUrl("reports_print.php", ["report"=>"insights"]), $je); ?>)' title="Print Business Insights Report">
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>Print</button>
                     </div>

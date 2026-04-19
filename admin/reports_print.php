@@ -102,6 +102,9 @@ $status_counts = []; $daily_sales = []; $trend_labels = []; $trend_rev = []; $tr
 $forecast_data = []; $best_selling = []; $rev_dist = []; $heatmap_matrix = []; $heatmap_months = [];
 $locations = []; $custom_usage = []; $branch_perf = []; $top_customers = []; $insights = [];
 $totalCust = 0; $activeCust = 0; $customers = []; $totalSpentSum = 0;
+$forecast_revenue = 0; $forecast_orders = 0; $next_month_label = date('M Y', strtotime('+1 month'));
+$top_kpi_product = null; $customer_locations = []; $insight_branch_perf = [];
+$top_products_insight = []; $insight_custom_usage = []; $revenue_delta = null; $active_events = [];
 
 try {
     [$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
@@ -178,13 +181,60 @@ try {
         }
     }
     if ($show_sales_trend || $show_insights) {
-        $raw_store = db_query("SELECT DATE_FORMAT(o.order_date,'%Y-%m') AS mon, COUNT(*) AS ord, SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) AS rev FROM orders o WHERE o.order_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 11 MONTH),'%Y-%m-01'){$bSql} GROUP BY DATE_FORMAT(o.order_date,'%Y-%m') ORDER BY mon", $bTypes, $bParams) ?: [];
-        foreach($raw_store as $r) {
-            $m = (string)$r['mon'];
-            $trend_labels[$m] = date('M Y', strtotime($m.'-01'));
-            $trend_rev[$m] = (float)$r['rev'];
-            $trend_ord[$m] = (int)$r['ord'];
+        [$bo, $bto, $bpo] = branch_where_parts('o', $branchId);
+        [$bj, $btj, $bpj] = branch_where_parts('jo', $branchId);
+        $trend_start_key = date('Y-m', strtotime('-11 months'));
+
+        $raw_store = db_query(
+            "SELECT DATE_FORMAT(o.order_date,'%Y-%m') AS mon,
+                    COUNT(*) AS orders_store,
+                    SUM(CASE WHEN (o.payment_status='Paid' OR o.status='Completed') THEN o.total_amount ELSE 0 END) AS revenue_store
+             FROM orders o
+             WHERE 1=1{$bo}
+             GROUP BY DATE_FORMAT(o.order_date,'%Y-%m')
+             ORDER BY mon",
+            $bto,
+            $bpo
+        ) ?: [];
+        $raw_job = db_query(
+            "SELECT DATE_FORMAT(COALESCE(jo.payment_verified_at, jo.created_at),'%Y-%m') AS mon,
+                    COUNT(*) AS orders_custom,
+                    SUM(CASE WHEN (jo.payment_status='PAID' OR jo.status='COMPLETED')
+                             THEN COALESCE(NULLIF(jo.amount_paid,0), jo.estimated_total, 0)
+                             ELSE 0 END) AS revenue_custom
+             FROM job_orders jo
+             WHERE 1=1{$bj}
+             GROUP BY DATE_FORMAT(COALESCE(jo.payment_verified_at, jo.created_at),'%Y-%m')
+             ORDER BY mon",
+            $btj,
+            $bpj
+        ) ?: [];
+
+        $storeByMonth = [];
+        foreach ($raw_store as $r) $storeByMonth[$r['mon']] = $r;
+        $jobByMonth = [];
+        foreach ($raw_job as $r) $jobByMonth[$r['mon']] = $r;
+
+        $trend12_revenues = [];
+        $trend12_orders = [];
+        $curr_m = $trend_start_key;
+        $end_m = date('Y-m');
+        while ($curr_m <= $end_m) {
+            $s = $storeByMonth[$curr_m] ?? [];
+            $j = $jobByMonth[$curr_m] ?? [];
+            $orders = (int)($s['orders_store'] ?? 0) + (int)($j['orders_custom'] ?? 0);
+            $revenue = (float)($s['revenue_store'] ?? 0) + (float)($j['revenue_custom'] ?? 0);
+
+            $trend_labels[$curr_m] = date('M Y', strtotime($curr_m . '-01'));
+            $trend_rev[$curr_m] = $revenue;
+            $trend_ord[$curr_m] = $orders;
+            $trend12_revenues[] = $revenue;
+            $trend12_orders[] = $orders;
+
+            $curr_m = date('Y-m', strtotime($curr_m . '-01 +1 month'));
         }
+        $forecast_revenue = !empty($trend12_revenues) ? pf_linreg($trend12_revenues) : 0;
+        $forecast_orders = !empty($trend12_orders) ? (int) pf_linreg($trend12_orders) : 0;
     }
     if ($show_forecast) {
         $top_p = pf_reports_top_products_merged($from, $toEnd, $branchId, 5);
@@ -233,17 +283,105 @@ try {
         $top_customers = db_query("SELECT c.customer_id, CONCAT(c.first_name,' ',c.last_name) as name, COUNT(o.order_id) as orders, SUM(o.total_amount) as spent FROM orders o JOIN customers c ON o.customer_id=c.customer_id WHERE o.order_date BETWEEN ? AND ?$bSql GROUP BY c.customer_id ORDER BY spent DESC LIMIT 10", 'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)) ?: [];
     }
     if ($show_insights) {
-        $revenue_delta = 0;
-        $activeBranches = count(array_filter($branch_perf, fn($b) => (($b['orders_store']??0) + ($b['orders_jobs']??0)) > 0));
-        $insights = [
-            "Revenue is currenty analyzed against the selected period.",
-            "Top performing service: " . ($best_selling[0]['product_name'] ?? 'None'),
-            "Active branch count: " . $activeBranches,
-            "Demand is projected to stay stable for the next month based on historical data."
-        ];
+        $top_products_insight = pf_reports_top_products_merged('', '', $branchId, 10);
+        $insight_branch_perf = pf_reports_branch_performance_merged('', '') ?: [];
+
+        $top_kpi_product = db_query(
+            "SELECT p.name, SUM(oi.quantity) as qty
+             FROM order_items oi
+             JOIN products p ON oi.product_id=p.product_id
+             JOIN orders o ON oi.order_id=o.order_id
+             WHERE o.order_date BETWEEN ? AND ?{$bSql}
+             GROUP BY p.product_id, p.name
+             ORDER BY qty DESC LIMIT 1",
+            'ss' . $bTypes,
+            array_merge([$from, $toEnd], $bParams)
+        )[0] ?? null;
+
+        $customer_locations = db_query(
+            "SELECT TRIM(c.city) as city, COUNT(DISTINCT o.order_id) as orders
+             FROM orders o JOIN customers c ON o.customer_id=c.customer_id
+             WHERE c.city IS NOT NULL AND TRIM(c.city) != ''{$bSql}
+             GROUP BY c.city HAVING LENGTH(TRIM(c.city)) > 2
+             ORDER BY orders DESC LIMIT 12",
+            $bTypes,
+            $bParams
+        ) ?: [];
+
+        $insight_custom_usage = db_query(
+            "SELECT p.name AS product,
+                    SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 1 THEN oi.quantity ELSE 0 END) AS custom_count,
+                    SUM(CASE WHEN COALESCE(dc.has_upload, 0) = 0 THEN oi.quantity ELSE 0 END) AS template_count
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.product_id
+             JOIN orders o ON oi.order_id = o.order_id
+             LEFT JOIN (
+                 SELECT order_id, 1 AS has_upload
+                 FROM order_designs
+                 GROUP BY order_id
+             ) dc ON dc.order_id = o.order_id
+             WHERE 1=1 {$bSql}
+             GROUP BY p.product_id, p.name
+             HAVING (custom_count + template_count) > 0
+             ORDER BY (custom_count + template_count) DESC LIMIT 8",
+            $bTypes,
+            $bParams
+        ) ?: [];
+
+        $days = max(1, (int)((strtotime($to) - strtotime($from)) / 86400) + 1);
+        $prevFrom = date('Y-m-d', strtotime($from) - $days * 86400);
+        $prevToEnd = date('Y-m-d', strtotime($from) - 86400) . ' 23:59:59';
+        $prev = db_query(
+            "SELECT SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as revenue
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?{$bSql}",
+            'ss' . $bTypes,
+            array_merge([$prevFrom, $prevToEnd], $bParams)
+        )[0] ?? [];
+        $prev_revenue = (float)($prev['revenue'] ?? 0);
+        $revenue_delta = $prev_revenue > 0 ? round((($grandTotalRev - $prev_revenue) / $prev_revenue) * 100, 1) : null;
+
+        if (!empty($top_products_insight)) {
+            $insights[] = "<strong>" . htmlspecialchars((string)$top_products_insight[0]['product_name']) . "</strong> is the top-selling service with <strong>" . number_format((int)$top_products_insight[0]['qty_sold']) . "</strong> units to date.";
+        }
+        if (!empty($customer_locations)) {
+            $insights[] = "Most orders originate from <strong>" . htmlspecialchars(trim((string)$customer_locations[0]['city'])) . "</strong> (" . number_format((int)$customer_locations[0]['orders']) . " orders).";
+        }
+        if ($forecast_revenue > 0) {
+            $insights[] = "Next month (<strong>" . htmlspecialchars($next_month_label) . "</strong>) revenue forecast: <strong>&#8369;" . number_format($forecast_revenue, 0) . "</strong> based on 12-month trend.";
+        }
+        if (!empty($insight_custom_usage) && (int)$insight_custom_usage[0]['custom_count'] > (int)$insight_custom_usage[0]['template_count']) {
+            $insights[] = "<strong>" . htmlspecialchars((string)$insight_custom_usage[0]['product']) . "</strong> shows the highest custom design upload rate.";
+        }
+        if (!empty($insight_branch_perf) && count($insight_branch_perf) > 1) {
+            $insights[] = "<strong>" . htmlspecialchars((string)$insight_branch_perf[0]['branch_name']) . "</strong> leads all branches with &#8369;" . number_format((float)$insight_branch_perf[0]['revenue'], 0) . " revenue.";
+        }
+        if ($revenue_delta !== null) {
+            if ($revenue_delta > 10) {
+                $insights[] = "Revenue is up <strong>{$revenue_delta}%</strong> vs. the previous period &mdash; strong growth momentum.";
+            } elseif ($revenue_delta < -10) {
+                $insights[] = "Revenue dropped <strong>" . abs($revenue_delta) . "%</strong> vs. the previous period &mdash; consider a promotional push.";
+            }
+        }
     }
 } catch (Throwable $e) {
     echo "<h1>Report Error</h1><pre>".htmlspecialchars($e->getMessage())."</pre>"; die();
+}
+
+$month_now = (int)date('n');
+$seasonal_events = [
+    ['months'=>[3,4,5],  'icon'=>'', 'event'=>'Graduation Season',    'services'=>['Tarpaulin Printing','Layouts / Graphic Layout Services']],
+    ['months'=>[4,5],    'icon'=>'', 'event'=>'Election Season',       'services'=>['Tarpaulin Printing','Reflectorized Stickers / Signages']],
+    ['months'=>[11,12],  'icon'=>'', 'event'=>'Holiday Season',        'services'=>['Souvenirs','Stickers on Sintraboard']],
+    ['months'=>[2],      'icon'=>'', 'event'=>"Valentine's Season",    'services'=>['Stickers','Transparent Stickers']],
+    ['months'=>[6,10],   'icon'=>'', 'event'=>'School Opening Season', 'services'=>['Layouts / Graphic Layout Services','T-shirt Printing']],
+    ['months'=>[7,8,9],  'icon'=>'', 'event'=>'Midyear Peak',          'services'=>['Decals / Stickers (Print & Cut)','Sintraboard Standees']],
+];
+foreach ($seasonal_events as $ev) {
+    if (in_array($month_now, $ev['months'], true)) {
+        $active_events[] = $ev;
+        $svcs = implode(' and ', array_map(fn($s) => "<strong>" . htmlspecialchars($s) . "</strong>", $ev['services']));
+        $insights[] = "<strong>" . htmlspecialchars($ev['event']) . "</strong> is active &mdash; expect increased demand for {$svcs}.";
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -600,10 +738,28 @@ try {
         <div class="section">
             <h2 class="section-title">Strategic Insights & Projections</h2>
             <div class="insight-box">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Predicted Revenue</th>
+                            <th class="num">Predicted Orders</th>
+                            <th>Top Forecast Service</th>
+                            <th class="num">Avg Order Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="zebra">
+                            <td><strong>&#8369;<?php echo number_format($forecast_revenue, 0); ?></strong><br><span style="font-size:11px;color:#6b7280;"><?php echo htmlspecialchars($next_month_label); ?></span></td>
+                            <td class="num"><strong><?php echo number_format($forecast_orders); ?></strong><br><span style="font-size:11px;color:#6b7280;"><?php echo htmlspecialchars($next_month_label); ?></span></td>
+                            <td><strong><?php echo htmlspecialchars((string)($top_kpi_product['name'] ?? ($top_products_insight[0]['product_name'] ?? 'No data for period'))); ?></strong><br><span style="font-size:11px;color:#6b7280;">Highest historical demand</span></td>
+                            <td class="num"><strong>&#8369;<?php echo number_format($avgOrderVal, 0); ?></strong><br><span style="font-size:11px;color:#6b7280;">This period</span></td>
+                        </tr>
+                    </tbody>
+                </table>
                 <ul style="margin:0; padding-left:20px; color:#374151;">
-                    <?php foreach ($insights as $insight) echo "<li style='margin-bottom:10px;'>".htmlspecialchars($insight)."</li>"; ?>
+                    <?php foreach ($insights as $insight) echo "<li style='margin-bottom:10px;'>".$insight."</li>"; ?>
                 </ul>
-                <p style="font-size:11px; color:#6b7280; border-top:1px solid #f3f4f6; margin-top:20px; padding-top:10px;">* Projections are based on rolling 12-month linear regression and seasonal weights. Actual results may vary based on market conditions.</p>
+                <p style="font-size:11px; color:#6b7280; border-top:1px solid #f3f4f6; margin-top:20px; padding-top:10px;">* Projections are based on the rolling 12-month revenue and order trend. Seasonal notes are listed separately when active.</p>
             </div>
         </div>
         <?php endif; ?>
