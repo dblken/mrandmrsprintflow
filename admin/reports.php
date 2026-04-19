@@ -1269,11 +1269,17 @@ a.export-dd-link:hover { background: #f9fafb; }
 .badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
 .b-green  { background:#d1fae5; color:#059669; }
 .b-yellow { background:#fef3c7; color:#d97706; }
+.b-amber  { background:#fef9c3; color:#854d0e; }
+.b-orange { background:#ffedd5; color:#c2410c; }
 .b-blue   { background:#dbeafe; color:#2563eb; }
+.b-indigo { background:#e0e7ff; color:#4338ca; }
 .b-cyan   { background:#cffafe; color:#0e7490; }
+.b-teal   { background:#ccfbf1; color:#0f766e; }
 .b-red    { background:#fee2e2; color:#dc2626; }
+.b-rose   { background:#ffe4e6; color:#b91c1c; }
 .b-gray   { background:#f3f4f6; color:#6b7280; }
 .b-purple { background:#ede9fe; color:#7c3aed; }
+.b-pink   { background:#fce7f3; color:#be185d; }
 
 /* ── Insights ───────────────────────── */
 .ins-panel { background:linear-gradient(135deg,#001018 0%,#00232b 38%,#0F4C5C 68%,#3A86A8 100%); border-radius:14px; padding:22px 26px; color:#fff; }
@@ -2571,8 +2577,31 @@ $dashData = [
                             <thead><tr><th>Order #</th><th>Customer</th><th>Date</th><th class="num">Amount</th><th>Payment</th><th>Status</th></tr></thead>
                             <tbody>
                             <?php foreach ($recent_orders as $ro):
-                                $pb = match($ro['payment_status']) { 'Paid'=>'b-green','Pending'=>'b-yellow', default=>'b-red' };
-                                $sb = match($ro['status']) { 'Completed'=>'b-green','Processing'=>'b-blue','Pending'=>'b-yellow','Ready for Pickup'=>'b-cyan','Cancelled'=>'b-red','Design Approved'=>'b-purple', default=>'b-gray' };
+                                $paymentStatus = (string)($ro['payment_status'] ?? 'Unpaid');
+                                $orderStatus = (string)($ro['status'] ?? 'Pending');
+                                $paymentKey = strtolower(trim($paymentStatus));
+                                $statusKey = strtolower(trim($orderStatus));
+                                $pb = match($paymentKey) {
+                                    'paid' => 'b-green',
+                                    'pending', 'pending verification' => 'b-amber',
+                                    'partially paid', 'partial' => 'b-orange',
+                                    'refunded' => 'b-gray',
+                                    default => 'b-red'
+                                };
+                                $sb = match($statusKey) {
+                                    'completed', 'rated' => 'b-green',
+                                    'ready for pickup', 'to receive' => 'b-teal',
+                                    'processing' => 'b-indigo',
+                                    'in production', 'printing' => 'b-cyan',
+                                    'pending', 'pending review', 'revision submitted' => 'b-yellow',
+                                    'approved', 'design approved', 'to pay' => 'b-blue',
+                                    'to verify', 'pending verification' => 'b-amber',
+                                    'downpayment submitted' => 'b-pink',
+                                    'for revision' => 'b-rose',
+                                    'cancelled', 'rejected' => 'b-red',
+                                    'to rate' => 'b-purple',
+                                    default => 'b-gray'
+                                };
                                 $orderUrl = '<?php echo $base_path; ?>/admin/orders_management.php?order_id='.(int)$ro['order_id'];
                             ?>
                             <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
@@ -2580,8 +2609,8 @@ $dashData = [
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
                                 <td style="color:#6b7280;white-space:nowrap;"><?php echo date('M d, Y',strtotime($ro['order_date'])); ?></td>
                                 <td class="num">₱<?php echo number_format((float)$ro['total_amount'],2); ?></td>
-                                <td><span class="badge <?php echo $pb; ?>"><?php echo $ro['payment_status']; ?></span></td>
-                                <td><span class="badge <?php echo $sb; ?>"><?php echo $ro['status']; ?></span></td>
+                                <td><span class="badge <?php echo $pb; ?>"><?php echo htmlspecialchars($paymentStatus); ?></span></td>
+                                <td><span class="badge <?php echo $sb; ?>"><?php echo htmlspecialchars($orderStatus); ?></span></td>
                             </tr>
                             <?php endforeach; ?>
                             </tbody>
