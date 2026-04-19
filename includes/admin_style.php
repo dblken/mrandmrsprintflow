@@ -813,7 +813,7 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
         border: 1px solid var(--border-color);
         border-radius: 16px;
         padding: 18px;
-        min-height: 148px;
+        min-height: 0;
         color: var(--text-main);
         text-decoration: none;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -838,7 +838,7 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
 
     .kpi-card-inner {
         display: flex;
-        min-height: 112px;
+        min-height: 0;
         flex-direction: column;
         gap: 8px;
     }
