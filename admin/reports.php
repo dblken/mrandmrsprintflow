@@ -2602,13 +2602,20 @@ $dashData = [
                                     'to rate' => 'b-purple',
                                     default => 'b-gray'
                                 };
-                                $orderUrl = '<?php echo $base_path; ?>/admin/orders_management.php?order_id='.(int)$ro['order_id'];
+                                $orderUrl = $base_path . '/admin/orders_management.php?open_order=' . (int)$ro['order_id'];
                             ?>
                             <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
                                 <td style="font-weight:700;color:#00232b;">#<?php echo $ro['order_id']; ?></td>
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
                                 <td style="color:#6b7280;white-space:nowrap;"><?php echo date('M d, Y',strtotime($ro['order_date'])); ?></td>
-                                <td class="num">₱<?php echo number_format((float)$ro['total_amount'],2); ?></td>
+                                <td class="num">
+                                    <a href="<?php echo htmlspecialchars($orderUrl); ?>"
+                                       onclick="event.stopPropagation();"
+                                       title="Open Order #<?php echo (int)$ro['order_id']; ?>"
+                                       style="color:#00232b;font-weight:800;text-decoration:none;">
+                                        ₱<?php echo number_format((float)$ro['total_amount'],2); ?>
+                                    </a>
+                                </td>
                                 <td><span class="badge <?php echo $pb; ?>"><?php echo htmlspecialchars($paymentStatus); ?></span></td>
                                 <td><span class="badge <?php echo $sb; ?>"><?php echo htmlspecialchars($orderStatus); ?></span></td>
                             </tr>
