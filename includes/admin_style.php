@@ -867,6 +867,25 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
         line-height: 1.2;
     }
 
+    /*
+     * Compact KPI height.
+     * Many admin pages redeclare .kpi-card in page-local styles after this include.
+     * The !important flags keep the KPI cards content-sized across those pages.
+     */
+    .kpi-row {
+        align-items: start !important;
+    }
+    .kpi-card,
+    .kpi-card-v2 {
+        min-height: 0 !important;
+        height: auto !important;
+        padding-bottom: 16px !important;
+    }
+    .kpi-card-inner {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
     .kpi-card::before,
     .kpi-card.indigo::before,
     .kpi-card.emerald::before,
