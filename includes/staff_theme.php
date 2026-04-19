@@ -133,7 +133,7 @@
         -webkit-text-fill-color: transparent !important;
     }
 
-    /* Match admin KPI typography across all staff pages. */
+    /* Match admin dashboard KPI typography across all staff pages. */
     html.printflow-staff .kpi-card,
     html.printflow-staff .kpi-card-v2,
     html.printflow-staff .stat-card {
@@ -147,22 +147,23 @@
     html.printflow-staff .kpi-label,
     html.printflow-staff .kpi-lbl {
         display: block !important;
-        font-size: 13px !important;
-        font-weight: 800 !important;
+        margin-bottom: 6px !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
         line-height: 1.25 !important;
-        letter-spacing: 0 !important;
-        text-transform: capitalize !important;
+        letter-spacing: .5px !important;
+        text-transform: uppercase !important;
     }
     html.printflow-staff .kpi-value,
     html.printflow-staff .kpi-val,
     html.printflow-staff .kpi-v2-value {
         display: block !important;
         max-width: 100% !important;
-        color: #1f2937 !important;
-        font-size: 26px !important;
-        font-weight: 800 !important;
+        color: #111827 !important;
+        font-size: 28px !important;
+        font-weight: 700 !important;
         font-variant-numeric: tabular-nums !important;
-        line-height: 1.15 !important;
+        line-height: 1.2 !important;
         letter-spacing: 0 !important;
         white-space: normal !important;
         overflow-wrap: anywhere !important;
@@ -178,11 +179,12 @@
     }
     html.printflow-staff .kpi-sub {
         display: block !important;
-        color: #64748b !important;
+        color: #6b7280 !important;
         font-size: 12px !important;
-        font-weight: 600 !important;
-        line-height: 1.35 !important;
+        font-weight: 400 !important;
+        line-height: 1.4 !important;
         letter-spacing: 0 !important;
+        margin-top: 4px !important;
     }
     html.printflow-staff .stats-grid .stat-value,
     html.printflow-staff .stat-card > .stat-value {
