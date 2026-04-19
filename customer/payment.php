@@ -371,6 +371,18 @@ if (!function_exists('pf_payment_qr_url')) {
     @media (max-width: 640px) {
         h1 { font-size: 1rem !important; }
         .payment-card { margin-bottom: 0.5rem !important; }
+        .payment-container { width: calc(100vw - 1.25rem) !important; padding: 1.25rem 0 2.5rem !important; }
+        .payment-layout { gap: 1rem; }
+        .payment-topbar { flex-direction: column; gap: 0.75rem; align-items: flex-start !important; }
+        .payment-topbar h1 { position: static !important; transform: none !important; }
+        .pm-tab-btn { font-size: 0.78rem; padding: 10px; }
+        #pm-details-container { padding: 1.1rem !important; margin-bottom: 1.25rem !important; }
+        #pm-details-container img { width: 140px !important; height: 140px !important; }
+        .dropzone { padding: 1.25rem 1rem; }
+        .dropzone .dz-title { font-size: 0.85rem; }
+        .dropzone .dz-sub { font-size: 0.72rem; }
+        #submitBtn { font-size: 0.82rem; padding: 0.7rem; }
+        #submitError { font-size: 0.75rem; }
     }
 </style>
 
