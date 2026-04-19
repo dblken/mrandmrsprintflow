@@ -149,6 +149,10 @@
         var isStaff = (USER_TYPE.toLowerCase() === 'admin' || USER_TYPE.toLowerCase() === 'staff' || USER_TYPE.toLowerCase() === 'manager');
         var msg = (message || '').toLowerCase();
         var did = (dataId != null && dataId !== '') ? parseInt(dataId, 10) : 0;
+        if (!did && msg) {
+            var match = msg.match(/#(\d+)/);
+            if (match && match[1]) did = parseInt(match[1], 10) || 0;
+        }
         var url = base + '/';
 
         if (isStaff && t === 'system' && did > 0 && (msg.indexOf('ready for admin review') !== -1 || msg.indexOf('completed their profile') !== -1)) {
