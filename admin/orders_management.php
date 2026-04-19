@@ -261,15 +261,16 @@ if (isset($_GET['ajax'])) {
     <?php render_branch_css(); ?>
     <style>
         /* KPI Row - matches reports page */
-        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; align-items:start; }
         @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
-        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px 16px; position:relative; overflow:hidden; min-height:0; box-sizing:border-box; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
         .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
         .kpi-card.blue::before { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#6366f1,#818cf8); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
+        .kpi-value { margin:0; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
         /* Modal */
         [x-cloak] { display: none !important; }
