@@ -133,6 +133,13 @@ if ($conn->connect_error) {
 $conn->set_charset("utf8mb4");
 
 /**
+ * Keep MySQL NOW()/CURRENT_TIMESTAMP aligned with the app timezone.
+ * Without this, some hosts default the DB session to UTC, which makes new
+ * notifications look about 8 hours old when PHP formats them in Manila time.
+ */
+$conn->query("SET time_zone = '+08:00'");
+
+/**
  * ==========================
  * HELPER FUNCTIONS
  * ==========================
