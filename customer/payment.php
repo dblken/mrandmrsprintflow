@@ -596,9 +596,10 @@ if (!function_exists('pf_payment_qr_url')) {
                             </div>
                         </div>
 
-                        <button type="submit" id="submitBtn" class="shopee-btn-primary" data-methods-disabled="<?php echo empty($enabled_methods) ? '1' : '0'; ?>" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #001820 !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : 'disabled style="opacity:0.6; cursor:not-allowed;"'; ?> onmouseover="this.style.background='#32a1c4'" onmouseout="this.style.background='#53c5e0'">
+                        <button type="submit" id="submitBtn" class="shopee-btn-primary" data-methods-disabled="<?php echo empty($enabled_methods) ? '1' : '0'; ?>" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #001820 !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''; ?> onmouseover="this.style.background='#32a1c4'" onmouseout="this.style.background='#53c5e0'">
                             Submit Payment Proof
                         </button>
+                        <div id="submitError" style="display:none; margin-top:0.6rem; font-size:0.8rem; font-weight:700; color:#b91c1c;">Please upload your reference receipt before submitting.</div>
                     </form>
                 <?php endif; ?>
                 </div><!-- end payment-card sidebar -->
@@ -646,16 +647,17 @@ if (!function_exists('pf_payment_qr_url')) {
     function updateSubmitState() {
         const btn = document.getElementById('submitBtn');
         if (!btn) return;
+        const errorEl = document.getElementById('submitError');
         if (btn.dataset.methodsDisabled === '1') {
             btn.disabled = true;
             btn.style.opacity = '0.5';
             btn.style.cursor = 'not-allowed';
             return;
         }
-        const hasFile = !!(proofInput && proofInput.files && proofInput.files.length > 0);
-        btn.disabled = !hasFile;
-        btn.style.opacity = hasFile ? '1' : '0.6';
-        btn.style.cursor = hasFile ? 'pointer' : 'not-allowed';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        if (errorEl) errorEl.style.display = 'none';
     }
 
     if (proofInput) {
@@ -682,7 +684,8 @@ if (!function_exists('pf_payment_qr_url')) {
         paymentForm.addEventListener('submit', function(e) {
             e.preventDefault();
             if (!proofInput || !proofInput.files || proofInput.files.length === 0) {
-                showToast('Please upload your reference receipt before submitting.');
+                const errorEl = document.getElementById('submitError');
+                if (errorEl) errorEl.style.display = 'block';
                 if (proofInput) proofInput.click();
                 return;
             }
