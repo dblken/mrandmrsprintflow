@@ -538,7 +538,13 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
 </head>
 <body>
 <div class="dashboard-container">
-    <?php include __DIR__ . '/../includes/admin_sidebar.php'; ?>
+    <?php
+    if (defined('MANAGER_PANEL') && MANAGER_PANEL) {
+        include __DIR__ . '/../includes/manager_sidebar.php';
+    } else {
+        include __DIR__ . '/../includes/admin_sidebar.php';
+    }
+    ?>
     <div class="main-content">
         <header><h1 class="page-title">Services Management</h1></header>
         <main>
