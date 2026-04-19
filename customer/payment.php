@@ -582,7 +582,6 @@ if (!function_exists('pf_payment_qr_url')) {
                         <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem; color: #eaf6fb;">2. Upload Reference Receipt</h2>
                         
                         <div class="input-group">
-                            <label class="input-label" style="color: #9fc4d4;">Upload Reference Receipt</label>
                             <input type="file" name="payment_proof" id="proofInput" style="display: none;" accept="image/*" required>
                             <div id="dropzone" class="dropzone" onclick="document.getElementById('proofInput').click()">
                                 <div id="placeholder" style="display: block;">
@@ -597,7 +596,7 @@ if (!function_exists('pf_payment_qr_url')) {
                             </div>
                         </div>
 
-                        <button type="submit" id="submitBtn" class="shopee-btn-primary" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #001820 !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5;"' : ''; ?> onmouseover="this.style.background='#32a1c4'" onmouseout="this.style.background='#53c5e0'">
+                        <button type="submit" id="submitBtn" class="shopee-btn-primary" data-methods-disabled="<?php echo empty($enabled_methods) ? '1' : '0'; ?>" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #001820 !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : 'disabled style="opacity:0.6; cursor:not-allowed;"'; ?> onmouseover="this.style.background='#32a1c4'" onmouseout="this.style.background='#53c5e0'">
                             Submit Payment Proof
                         </button>
                     </form>
@@ -644,6 +643,21 @@ if (!function_exists('pf_payment_qr_url')) {
     const previewImg = document.getElementById('previewImg');
     const fileName = document.getElementById('fileName');
 
+    function updateSubmitState() {
+        const btn = document.getElementById('submitBtn');
+        if (!btn) return;
+        if (btn.dataset.methodsDisabled === '1') {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            return;
+        }
+        const hasFile = !!(proofInput && proofInput.files && proofInput.files.length > 0);
+        btn.disabled = !hasFile;
+        btn.style.opacity = hasFile ? '1' : '0.6';
+        btn.style.cursor = hasFile ? 'pointer' : 'not-allowed';
+    }
+
     if (proofInput) {
         proofInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -658,8 +672,10 @@ if (!function_exists('pf_payment_qr_url')) {
                 };
                 reader.readAsDataURL(file);
             }
+            updateSubmitState();
         });
     }
+    updateSubmitState();
 
     const paymentForm = document.getElementById('paymentForm');
     if (paymentForm) {
