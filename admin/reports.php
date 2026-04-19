@@ -905,9 +905,9 @@ function reportsPrintInPlace(url) {
 }
 
 /* ── KPI (modern SaaS) ───────────────── */
-.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.kpi-row  { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
 @media(max-width:900px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
-.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; }
+.kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px 22px; position:relative; overflow:hidden; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.04); cursor:help; height:100%; display:flex; flex-direction:column; }
 .kpi-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.08); }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
 .kpi-ind::before  { background:linear-gradient(90deg,#00232b,#53C5E0); }
@@ -916,8 +916,7 @@ function reportsPrintInPlace(url) {
 .kpi-vio::before  { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
 .kpi-lbl  { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#6b7280; margin-bottom:6px; }
 .kpi-val  { font-size:26px; font-weight:800; color:#111827; line-height:1.15; margin-bottom:6px; letter-spacing:-.02em; }
-.kpi-sub  { font-size:12px; color:#6b7280; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.4; }
-.kpi-updated { font-size:10px; color:#9ca3af; margin-top:10px; }
+.kpi-sub  { font-size:12px; color:#6b7280; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.4; margin-top:auto; }
 .t-up     { color:#059669; font-weight:700; }
 .t-dn     { color:#dc2626; font-weight:700; }
 .t-fl     { color:#6b7280; font-weight:500; }
@@ -1543,7 +1542,7 @@ a.export-dd-link:hover { background: #f9fafb; }
     .kpi-card::before{ display:none !important; }
     .kpi-lbl{ color:#555 !important; }
     .kpi-val{ color:#111 !important; }
-    .kpi-sub,.kpi-updated{ color:#666 !important; }
+    .kpi-sub{ color:#666 !important; }
     .t-up,.t-dn{ color:#333 !important; }
     .rpt-tbl th,.rpt-tbl td{ padding:10px 12px !important; font-size:12px !important; color:#222 !important; }
     .rpt-tbl th{ background:#f0f0f0 !important; color:#333 !important; }
@@ -1922,7 +1921,6 @@ $dashData = [
                             All-time cumulative total
                         <?php endif; ?>
                     </div>
-                    <div class="kpi-updated">Last updated: <?php echo $last_updated; ?></div>
                 </div>
                 <!-- Revenue -->
                 <div class="kpi-card kpi-ind" title="Revenue for the selected date range and branch context">
