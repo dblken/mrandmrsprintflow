@@ -584,7 +584,7 @@ try { $cust_total = (int)(db_query("SELECT COUNT(*) as cnt FROM customers")[0]['
 
 // ── Variables required by footer.php ──────────────────────────────────────────
 $base_url = '/printflow';
-$url_products = '<?php echo $base_path; ?>/public/products.php';
+$url_products = $base_path . '/public/products.php';
 $is_logged_in = true;
 
 // ── 17. Seasonal event insights ───────────────────────────────────────────────
@@ -632,7 +632,7 @@ $last_updated = date('M j, Y g:i A');
 
 // Required variables for footer.php
 $base_url = '/printflow';
-$url_products = '<?php echo $base_path; ?>/public/products.php';
+$url_products = $base_path . '/public/products.php';
 $is_logged_in = true;
 
 // ── Period empty (branch has orders but none in date range) ─────────────────
@@ -1669,8 +1669,8 @@ a.export-dd-link:hover { background: #f9fafb; }
                                 'to' => $to,
                                 'branch_id' => $branchId === 'all' ? 'all' : (int)$branchId,
                             ];
-                            $pfRptUrl = function (string $file, array $extra = []) use ($rptQs) {
-                                return '<?php echo $base_path; ?>/admin/' . $file . '?' . http_build_query(array_merge($rptQs, $extra));
+                            $pfRptUrl = function (string $file, array $extra = []) use ($rptQs, $base_path) {
+                                return rtrim($base_path, '/') . '/admin/' . $file . '?' . http_build_query(array_merge($rptQs, $extra));
                             };
                             $printOrdersUrl = $pfRptUrl('reports_print.php', ['report' => 'orders']);
                             $printSalesUrl = $pfRptUrl('reports_print.php', ['report' => 'sales']);
@@ -1684,7 +1684,7 @@ a.export-dd-link:hover { background: #f9fafb; }
                             $csvDailyUrl = $pfRptUrl('reports_export.php', ['report' => 'daily_sales', 'date' => $to]);
                             $csvShopInvUrl = $pfRptUrl('reports_export.php', ['report' => 'shop_inventory']);
                             $csvMaterialsUrl = $pfRptUrl('reports_export.php', ['report' => 'inventory']);
-                            $activityLogsPrintUrl = '<?php echo $base_path; ?>/admin/activity_logs.php?' . http_build_query([
+                            $activityLogsPrintUrl = rtrim($base_path, '/') . '/admin/activity_logs.php?' . http_build_query([
                                 'print_all' => '1',
                                 'date_from' => $from,
                                 'date_to' => $to,
