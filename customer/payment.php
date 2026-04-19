@@ -343,7 +343,7 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
 <div class="min-h-screen payment-page-shell">
-    <div class="container mx-auto px-4 payment-container">
+    <div class="payment-container">
             
             <div class="payment-topbar" style="display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 2rem;">
                 <?php 

@@ -70,6 +70,69 @@ if (!function_exists('pf_order_ui_escape')) {
     }
 }
 
+if (!function_exists('pf_order_ui_asset_url')) {
+    function pf_order_ui_asset_url($path): ?string {
+        $path = trim((string)$path);
+        if ($path === '') {
+            return null;
+        }
+
+        $base = defined('BASE_URL') ? rtrim((string)BASE_URL, '/') : (function_exists('pf_app_base_path') ? rtrim((string)pf_app_base_path(), '/') : '');
+        $path = str_replace('\\', '/', $path);
+
+        if (preg_match('#^https?://#i', $path)) {
+            $parts = parse_url($path);
+            if (empty($parts['path'])) {
+                return $path;
+            }
+            $path = $parts['path'];
+        }
+
+        if (preg_match('#^[A-Za-z]:/#', $path)) {
+            $path = preg_replace('#^[A-Za-z]:#', '', $path);
+        }
+
+        foreach (['/public/', '/uploads/'] as $marker) {
+            $pos = strpos($path, $marker);
+            if ($pos !== false) {
+                $path = substr($path, $pos);
+                break;
+            }
+        }
+
+        if ($base === '' && strpos($path, '/printflow/') === 0) {
+            $path = substr($path, strlen('/printflow'));
+        }
+
+        if ($base !== '' && strpos($path, $base . '/') === 0) {
+            return $path;
+        }
+
+        if ($path !== '' && $path[0] !== '/') {
+            if (strpos($path, 'uploads/') === 0 || strpos($path, 'public/') === 0) {
+                $path = '/' . $path;
+            } else {
+                $filename = basename($path);
+                $public_product = __DIR__ . '/../public/images/products/' . $filename;
+                $uploaded_product = __DIR__ . '/../uploads/products/' . $filename;
+                $path = is_file($public_product)
+                    ? '/public/images/products/' . $filename
+                    : '/uploads/products/' . $filename;
+                if (!is_file($public_product) && !is_file($uploaded_product) && preg_match('/^product_\d+$/', $filename)) {
+                    foreach (['jpg', 'png', 'jpeg', 'webp'] as $ext) {
+                        if (is_file(__DIR__ . '/../public/images/products/' . $filename . '.' . $ext)) {
+                            $path = '/public/images/products/' . $filename . '.' . $ext;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return ($base !== '' ? $base : '') . $path;
+    }
+}
+
 /**
  * Renders a single order item card in the Neubrutalism style.
  * Supports both cart items (session) and database items (order_items table).
@@ -115,7 +178,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
         if ($has_design) {
             $design_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
-            $design_url = $item['product_image'];
+            $design_url = pf_order_ui_asset_url($item['product_image']);
         }
 
         if (!empty($item['reference_image_file'])) {
@@ -296,7 +359,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         if ($has_design) {
             $design_url = $base_url . "/public/serve_design.php?type=order_item&id=" . (int)$item['order_item_id'];
         } else if (!empty($item['product_image'])) {
-            $design_url = $item['product_image'];
+            $design_url = pf_order_ui_asset_url($item['product_image']);
         }
 
         if (!empty($item['reference_image_file'])) {
