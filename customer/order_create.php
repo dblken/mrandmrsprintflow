@@ -591,21 +591,28 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function markHelpful(reviewId, btn) {
-    const voted = btn.dataset.voted === '1';
+    const basePath = <?php echo json_encode(rtrim(defined('BASE_PATH') ? BASE_PATH : '', '/')); ?>;
+    btn.disabled = true;
     try {
-        const res = await fetch('/printflow/public/api/review_helpful.php', {
+        const res = await fetch(basePath + '/public/api/review_helpful.php', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'review_id=' + reviewId
+            body: 'review_id=' + encodeURIComponent(reviewId)
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({success: false, error: 'Invalid server response'}));
         if (data.success) {
-            const newVoted = !voted;
-            btn.dataset.voted = newVoted ? '1' : '0';
-            btn.classList.toggle('voted', newVoted);
-            btn.querySelector('.helpful-label').textContent = newVoted ? data.count : 'Helpful';
+            btn.dataset.voted = data.voted ? '1' : '0';
+            btn.classList.toggle('voted', !!data.voted);
+            btn.querySelector('.helpful-label').textContent = data.voted ? data.count : 'Helpful';
+        } else {
+            console.error('Helpful vote failed:', data.error || res.statusText);
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('Helpful vote failed:', e);
+    } finally {
+        btn.disabled = false;
+    }
 }
 </script>
 
