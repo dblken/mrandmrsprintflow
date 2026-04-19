@@ -1201,7 +1201,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const widthHidden = row.querySelector('[data-dimension-role="width"], #width_hidden');
             const heightHidden = row.querySelector('[data-dimension-role="height"], #height_hidden');
+            const activeDimensionButton = row.querySelector('[data-dimension-choice="1"].active[data-width][data-height]');
             const nestedDimension = row.querySelector('input[id^="nested-hidden-"]');
+            if (activeDimensionButton) {
+                hasControls = true;
+                if (widthHidden) widthHidden.value = activeDimensionButton.dataset.width || '';
+                if (heightHidden) heightHidden.value = activeDimensionButton.dataset.height || '';
+                if (activeDimensionButton.dataset.width && activeDimensionButton.dataset.height) rowHasValue = true;
+            }
             if (widthHidden && heightHidden) {
                 hasControls = true;
                 if (widthHidden.value && heightHidden.value) rowHasValue = true;
@@ -1301,6 +1308,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => clearRowErrorIfSatisfied(row), 0);
             });
         });
+
+        document.addEventListener('click', function(e) {
+            const dimensionButton = e.target.closest('[data-dimension-choice="1"], [data-dimension-others="1"]');
+            if (!dimensionButton || !form.contains(dimensionButton)) return;
+            const row = dimensionButton.closest('.shopee-form-row');
+            setTimeout(() => clearRowErrorIfSatisfied(row), 0);
+        }, true);
     }
     
     function showFieldError(element, message) {
