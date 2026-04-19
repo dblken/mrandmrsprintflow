@@ -139,6 +139,11 @@
     html.printflow-staff .stat-card {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
     }
+    html.printflow-staff .kpi-card *,
+    html.printflow-staff .kpi-card-v2 *,
+    html.printflow-staff .stat-card * {
+        font-family: inherit !important;
+    }
     html.printflow-staff .kpi-label,
     html.printflow-staff .kpi-lbl {
         display: block !important;
