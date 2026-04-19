@@ -873,6 +873,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 }
 .field-error { display: flex !important; align-items: center; gap: 0.375rem; color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; padding-left: 0; width: 100% !important; min-width: 100% !important; flex-basis: 100% !important; order: 999; clear: both; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
+.field-invalid { border-color: #ef4444 !important; }
 .input-field, .shopee-opt-group, .shopee-qty-control { margin-top: 0; }
 </style>
 
@@ -1183,9 +1184,69 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('serviceForm');
     
     if (form) {
+        const getRowValueState = (row) => {
+            let rowHasValue = false;
+            let hasControls = false;
+
+            row.querySelectorAll('select').forEach(select => {
+                hasControls = true;
+                if (select.value && select.value !== '') rowHasValue = true;
+            });
+
+            const radios = row.querySelectorAll('input[type="radio"]');
+            if (radios.length > 0) {
+                hasControls = true;
+                if (row.querySelector('input[type="radio"]:checked')) rowHasValue = true;
+            }
+
+            const widthHidden = row.querySelector('[data-dimension-role="width"], #width_hidden');
+            const heightHidden = row.querySelector('[data-dimension-role="height"], #height_hidden');
+            const nestedDimension = row.querySelector('input[id^="nested-hidden-"]');
+            if (widthHidden && heightHidden) {
+                hasControls = true;
+                if (widthHidden.value && heightHidden.value) rowHasValue = true;
+            }
+            if (nestedDimension) {
+                hasControls = true;
+                if (String(nestedDimension.value || '').trim() !== '') rowHasValue = true;
+            }
+
+            row.querySelectorAll('input[type="date"]').forEach(date => {
+                hasControls = true;
+                if (date.value) rowHasValue = true;
+            });
+
+            row.querySelectorAll('input[type="file"]').forEach(file => {
+                hasControls = true;
+                if (file.files && file.files.length > 0) rowHasValue = true;
+            });
+
+            row.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(input => {
+                if (input.type === 'hidden' || input.dataset.dimensionRole || input.id === 'width_hidden' || input.id === 'height_hidden') return;
+                hasControls = true;
+                if (input.value && input.value.trim() !== '') rowHasValue = true;
+            });
+
+            return { hasControls, rowHasValue };
+        };
+
+        const removeRowErrors = (row) => {
+            if (!row) return;
+            row.querySelectorAll('.field-error').forEach(el => el.remove());
+            row.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+        };
+
+        const clearRowErrorIfSatisfied = (row) => {
+            if (!row || row.offsetParent === null) return;
+            const labelEl = row.querySelector('.shopee-form-label');
+            if (!labelEl || !labelEl.innerText.includes('*')) return;
+            if (getRowValueState(row).rowHasValue) removeRowErrors(row);
+        };
+
         form.addEventListener('submit', function(e) {
             // Clear all previous field errors
             document.querySelectorAll('.field-error').forEach(el => el.remove());
+            form.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
             
             let hasError = false;
             let firstErrorField = null;
@@ -1199,6 +1260,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Process every form row to check for required fields (*)
             const rows = form.querySelectorAll('.shopee-form-row');
             rows.forEach(row => {
+                if (row.offsetParent === null) return;
+
                 const labelEl = row.querySelector('.shopee-form-label');
                 if (!labelEl) return;
 
@@ -1208,55 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Extract a clean field name for the error message
                 const fieldName = labelText.replace('*', '').replace('id', '').replace('ID', '').trim();
-                
-                let rowHasValue = false;
-                let hasControls = false;
-
-                // Check all possible control types in the row
-                // 1. SELECTS (includes Branch selection)
-                const selects = row.querySelectorAll('select');
-                selects.forEach(select => {
-                    hasControls = true;
-                    if (select.value && select.value !== '') rowHasValue = true;
-                });
-
-                // 2. RADIO BUTTONS (includes Color, Size buttons)
-                const radios = row.querySelectorAll('input[type="radio"]');
-                if (radios.length > 0) {
-                    hasControls = true;
-                    const checkedRadio = row.querySelector('input[type="radio"]:checked');
-                    if (checkedRadio) rowHasValue = true;
-                }
-
-                // 3. DIMENSIONS (hidden width/height fields)
-                const widthHidden = row.querySelector('[data-dimension-role="width"], #width_hidden');
-                const heightHidden = row.querySelector('[data-dimension-role="height"], #height_hidden');
-                if (widthHidden && heightHidden) {
-                    hasControls = true;
-                    if (widthHidden.value && heightHidden.value) rowHasValue = true;
-                }
-
-                // 4. DATE INPUTS
-                const dates = row.querySelectorAll('input[type="date"]');
-                dates.forEach(date => {
-                    hasControls = true;
-                    if (date.value) rowHasValue = true;
-                });
-
-                // 5. FILE UPLOADS
-                const files = row.querySelectorAll('input[type="file"]');
-                files.forEach(file => {
-                    hasControls = true;
-                    if (file.files && file.files.length > 0) rowHasValue = true;
-                });
-
-                // 6. TEXT / NUMBER / TEXTAREA
-                const genericInputs = row.querySelectorAll('input[type="text"], input[type="number"], textarea');
-                genericInputs.forEach(input => {
-                    if (input.type === 'hidden' || input.dataset.dimensionRole || input.id === 'width_hidden' || input.id === 'height_hidden') return;
-                    hasControls = true;
-                    if (input.value && input.value.trim() !== '') rowHasValue = true;
-                });
+                const { hasControls, rowHasValue } = getRowValueState(row);
 
                 // Final check: If row is required (*) but has NO value detected in ANY control
                 if (hasControls && !rowHasValue) {
@@ -1278,18 +1293,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (topError) topError.style.display = 'none';
             }
         });
+
+        ['input', 'change', 'click'].forEach(eventName => {
+            form.addEventListener(eventName, function(e) {
+                const row = e.target.closest('.shopee-form-row');
+                if (!row) return;
+                setTimeout(() => clearRowErrorIfSatisfied(row), 0);
+            });
+        });
     }
     
     function showFieldError(element, message) {
         if (!element) return;
         
-        const errorSpan = document.createElement('span');
-        errorSpan.className = 'field-error';
-        errorSpan.textContent = message;
-        
         // Find the top-most field container for this row to ensure it appears at the absolute bottom
         const row = element.closest('.shopee-form-row');
         const container = row ? row.querySelector('.shopee-form-field') : element.closest('.shopee-form-field');
+        if (row) {
+            row.querySelectorAll('.field-error').forEach(el => el.remove());
+            row.querySelectorAll('select, input, textarea, .shopee-opt-btn').forEach(el => el.classList.remove('field-invalid'));
+        }
+
+        const errorSpan = document.createElement('span');
+        errorSpan.className = 'field-error';
+        errorSpan.textContent = message;
+        element.classList.add('field-invalid');
         
         if (container) {
             // Force it to the absolute end of the flex-column container
