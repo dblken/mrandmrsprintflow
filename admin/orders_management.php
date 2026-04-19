@@ -49,6 +49,16 @@ $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.e
         WHERE 1=1";
 $params = [];
 $types = '';
+$order_code_search_sql = "CONCAT(
+    COALESCE(NULLIF((
+        SELECT GROUP_CONCAT(DISTINCT p2.sku ORDER BY p2.sku SEPARATOR '-')
+        FROM order_items oi2
+        LEFT JOIN products p2 ON oi2.product_id = p2.product_id
+        WHERE oi2.order_id = o.order_id
+    ), ''), 'ORD'),
+    '-',
+    o.order_id
+)";
 
 // ── Branch filter ──────────────────────────────────
 if ($branch_filter !== '') {
@@ -77,13 +87,15 @@ if (!empty($date_to)) {
 
 if (!empty($search)) {
     $search_term = '%' . $search . '%';
-    $sql .= " AND (o.order_id LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR o.notes LIKE ?)";
+    $sql .= " AND (o.order_id LIKE ? OR {$order_code_search_sql} LIKE ? OR p.sku LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR o.notes LIKE ?)";
     $params[] = $search_term;
     $params[] = $search_term;
     $params[] = $search_term;
     $params[] = $search_term;
     $params[] = $search_term;
-    $types .= 'sssss';
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $types .= 'sssssss';
 }
 
 // Count total results - wrap the grouped query as subquery
@@ -114,7 +126,7 @@ if (!empty($date_to)) {
 
 if (!empty($search)) {
     $search_term = $conn->real_escape_string($search);
-    $count_sql .= " AND (o.order_id LIKE '%{$search_term}%' OR c.first_name LIKE '%{$search_term}%' OR c.last_name LIKE '%{$search_term}%' OR CONCAT(c.first_name, ' ', c.last_name) LIKE '%{$search_term}%' OR o.notes LIKE '%{$search_term}%')";
+    $count_sql .= " AND (o.order_id LIKE '%{$search_term}%' OR {$order_code_search_sql} LIKE '%{$search_term}%' OR p.sku LIKE '%{$search_term}%' OR c.first_name LIKE '%{$search_term}%' OR c.last_name LIKE '%{$search_term}%' OR CONCAT(c.first_name, ' ', c.last_name) LIKE '%{$search_term}%' OR o.notes LIKE '%{$search_term}%')";
 }
 
 $count_sql .= " GROUP BY o.order_id
