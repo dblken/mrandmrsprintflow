@@ -494,10 +494,15 @@ $page_title = 'Notifications - Staff';
                                     default => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
                                 };
                                 ?>
-                            <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>" data-id="<?php echo (int)$notif['notification_id']; ?>">
+                            <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>"
+                                 role="button"
+                                 tabindex="0"
+                                 data-id="<?php echo (int)$notif['notification_id']; ?>"
+                                 data-unread="<?php echo $is_unread ? '1' : '0'; ?>"
+                                 data-target-url="<?php echo htmlspecialchars($target_url, ENT_QUOTES, 'UTF-8'); ?>">
                                 <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
                                 <div class="notif-body" style="padding-left: 12px; border-left: 2px solid #eef2f3;">
-                                    <a href="<?php echo htmlspecialchars($target_url); ?>" class="notif-msg" style="text-decoration:none;display:block;" data-turbo="false" onclick="handleNotifClick(event, <?php echo (int)$notif['notification_id']; ?>, <?php echo json_encode($target_url, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>, <?php echo $is_unread ? 'true' : 'false'; ?>)">
+                                    <a href="<?php echo htmlspecialchars($target_url); ?>" class="notif-msg" style="text-decoration:none;display:block;" data-turbo="false">
                                         <?php 
                                         // Remove common emojis to keep look professional
                                         $clean_msg = (string)$notif['message'];
@@ -613,6 +618,45 @@ function checkForNewNotifications() {
 function refreshNotifications() {
     window.location.reload();
 }
+function bindNotifRowNavigation() {
+    var container = document.getElementById('notifications-container');
+    if (!container || container._pf_notif_rows) return;
+    container._pf_notif_rows = true;
+
+    container.addEventListener('click', function (e) {
+        var row = e.target.closest('.notif-item');
+        if (!row || !container.contains(row)) return;
+        if (e.target.closest('.notif-actions-wrap')) return;
+
+        var url = row.getAttribute('data-target-url') || '';
+        var notifId = parseInt(row.getAttribute('data-id'), 10);
+        var isUnread = row.getAttribute('data-unread') === '1';
+
+        e.preventDefault();
+        if (isUnread) {
+            markAsRead(notifId, url);
+        } else if (url && url !== '#') {
+            pfNavigate(url);
+        }
+    });
+
+    container.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var row = e.target.closest('.notif-item');
+        if (!row || !container.contains(row) || document.activeElement !== row) return;
+
+        var url = row.getAttribute('data-target-url') || '';
+        var notifId = parseInt(row.getAttribute('data-id'), 10);
+        var isUnread = row.getAttribute('data-unread') === '1';
+
+        e.preventDefault();
+        if (isUnread) {
+            markAsRead(notifId, url);
+        } else if (url && url !== '#') {
+            pfNavigate(url);
+        }
+    });
+}
 function handleNotifClick(e, notifId, url, isUnread) {
     if (isUnread) {
         e.preventDefault();
@@ -661,6 +705,7 @@ function markAsRead(notifId, redirectUrl) {
                 var item = document.querySelector('[data-id="' + notifId + '"]');
                 if (item) {
                     item.classList.add('read');
+                    item.setAttribute('data-unread', '0');
                     var dot = item.querySelector('.notif-dot');
                     if (dot) dot.classList.add('read');
                     var readBtn = item.querySelector('.notif-action-btn:not(.danger)');
@@ -695,6 +740,7 @@ function deleteNotification(notifId) {
         .catch(function (err) { console.error(err); });
 }
 startAutoRefresh();
+bindNotifRowNavigation();
 document.addEventListener('visibilitychange', function () {
     if (document.hidden) stopAutoRefresh();
     else startAutoRefresh();
