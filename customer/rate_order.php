@@ -13,6 +13,18 @@ ensure_order_status_values(['To Rate', 'Rated']);
 $customer_id = get_user_id();
 $order_id = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
 
+$review_cols_raw = db_query("SHOW COLUMNS FROM reviews") ?: [];
+$review_cols = array_map(static function ($col) {
+    return (string)($col['Field'] ?? '');
+}, $review_cols_raw);
+$review_cols = array_filter($review_cols, static fn($v) => $v !== '');
+$review_user_col = in_array('user_id', $review_cols, true) ? 'user_id' : (in_array('customer_id', $review_cols, true) ? 'customer_id' : 'user_id');
+$review_message_col = in_array('comment', $review_cols, true) ? 'comment' : (in_array('message', $review_cols, true) ? 'message' : 'comment');
+$review_has_video = in_array('video_path', $review_cols, true);
+$review_has_type = in_array('review_type', $review_cols, true);
+$review_has_ref = in_array('reference_id', $review_cols, true);
+$review_has_service = in_array('service_type', $review_cols, true);
+
 if (isset($_GET['mark_read'])) {
     $notif_id = (int)$_GET['mark_read'];
     if ($notif_id > 0) {
@@ -46,12 +58,12 @@ if (!in_array((string)$order['status'], ['Completed', 'To Rate', 'Rated'], true)
     redirect('/printflow/customer/orders.php');
 }
 
-// Check if already rated in the new reviews table
-$existing = db_query("SELECT id, rating, comment, created_at FROM reviews WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
+// Check if already rated in the reviews table
+$existing = db_query("SELECT id, rating, {$review_message_col} AS review_message, created_at FROM reviews WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
 $already_rated = !empty($existing);
 $review_id = $already_rated ? (int)$existing[0]['id'] : 0;
 $existing_rating = $already_rated ? (int)$existing[0]['rating'] : 0;
-$existing_message = $already_rated ? (string)($existing[0]['comment'] ?? '') : '';
+$existing_message = $already_rated ? (string)($existing[0]['review_message'] ?? '') : '';
 // Allow re-edit if message was never properly saved
 $needs_message_update = $already_rated && (trim($existing_message) === '' || $existing_message === '(No comment provided)');
 
@@ -156,19 +168,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if ($needs_message_update) {
                         // Update existing review
+                        $update_cols = "rating = ?, {$review_message_col} = ?";
+                        $update_types = 'is';
+                        $update_vals = [$rating, $message];
+                        if ($review_has_video) {
+                            $update_cols .= ", video_path = COALESCE(?, video_path)";
+                            $update_types .= 's';
+                            $update_vals[] = $video_path;
+                        }
+                        $update_cols .= " WHERE id = ?";
+                        $update_types .= 'i';
+                        $update_vals[] = $review_id;
+
                         db_execute(
-                            "UPDATE reviews SET rating = ?, comment = ?, video_path = COALESCE(?, video_path) WHERE id = ?",
-                            'issi',
-                            [$rating, $message, $video_path, $review_id]
+                            "UPDATE reviews SET {$update_cols}",
+                            $update_types,
+                            $update_vals
                         );
                         $new_review_id = $review_id;
                     } else {
-                        // Insert new review
+                        // Insert new review (columns vary across deployments)
+                        $cols = ['order_id', $review_user_col, 'rating', $review_message_col, 'created_at'];
+                        $vals = [$order_id, $customer_id, $rating, $message];
+                        $types = 'iiss';
+
+                        if ($review_has_service) {
+                            $cols[] = 'service_type';
+                            $vals[] = $service_type_label;
+                            $types .= 's';
+                        }
+                        if ($review_has_video) {
+                            $cols[] = 'video_path';
+                            $vals[] = $video_path;
+                            $types .= 's';
+                        }
+                        if ($review_has_type) {
+                            $cols[] = 'review_type';
+                            $vals[] = $rev_type;
+                            $types .= 's';
+                        }
+                        if ($review_has_ref) {
+                            $cols[] = 'reference_id';
+                            $vals[] = $ref_id;
+                            $types .= 'i';
+                        }
+
+                        $placeholders = implode(',', array_fill(0, count($cols) - 1, '?'));
                         db_execute(
-                            "INSERT INTO reviews (order_id, user_id, service_type, rating, comment, video_path, review_type, reference_id, created_at)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                            'iisisssi',
-                            [$order_id, $customer_id, $service_type_label, $rating, $message, $video_path, $rev_type, $ref_id]
+                            "INSERT INTO reviews (" . implode(', ', $cols) . ") VALUES ({$placeholders}, NOW())",
+                            $types,
+                            $vals
                         );
                         $new_review_id = db_query("SELECT LAST_INSERT_ID() as id")[0]['id'];
                     }
