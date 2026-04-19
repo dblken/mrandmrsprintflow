@@ -857,12 +857,10 @@ function custom_payment_badge($status) {
         <header class="pf-mobile-branch-inline">
             <h1 class="page-title">Customizations</h1>
             <?php render_branch_selector($branchCtx); ?>
-        <header>
-            <h1 class="page-title">Customizations</h1>
-            <?php if (!defined('MANAGER_PANEL') || !MANAGER_PANEL): ?>
-                <?php render_branch_selector($branchCtx); ?>
-            <?php endif; ?>
         </header>
+
+        <main x-data="custModal()">
+            <?php render_branch_context_banner($branchCtx['branch_name']); ?>
             <!-- KPI Row -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
