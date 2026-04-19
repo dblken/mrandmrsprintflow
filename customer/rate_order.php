@@ -236,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $_SESSION['success'] = 'Thank you! Your review has been submitted.';
-                    redirect('/printflow/customer/reviews.php?order_id=' . $order_id);
+                    redirect('/printflow/customer/orders.php?tab=completed&highlight=' . $order_id);
                 } catch (Throwable $e) {
                     $error = 'Could not submit your review: ' . $e->getMessage();
                 }
