@@ -638,6 +638,7 @@ class JobOrderService {
                        CONCAT(c.first_name, ' ', c.last_name) as customer_name,
                        c.email as customer_email,
                        c.profile_picture,
+                       c.profile_picture AS customer_profile_picture,
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
                        COALESCE(jo.branch_id, ord.branch_id) AS branch_display_id,
@@ -658,6 +659,7 @@ class JobOrderService {
         } else {
             $order['customer_picture'] = '';
         }
+        $order['customer_profile_picture'] = $order['customer_profile_picture'] ?? ($order['profile_picture'] ?? '');
 
         $storeOid = (int)($order['order_id'] ?? 0);
         if ($storeOid > 0) {

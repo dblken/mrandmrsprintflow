@@ -7,7 +7,9 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+if (!defined('BASE_URL')) {
+    define('BASE_URL', defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : ''));
+}
 require_role(['Admin', 'Staff', 'Manager']);
 $page_title = 'Customizations - PrintFlow';
 
@@ -1169,10 +1171,19 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/default.png';
                 }
                 if (typeof image !== 'string') return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/default.png';
-                if (image.startsWith('/') || image.startsWith('http')) {
+                image = image.trim();
+                if (!image || image === 'null' || image === 'undefined') {
+                    return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/default.png';
+                }
+                if (image.startsWith('http')) {
                     return image;
                 }
-                return (document.body.getAttribute('data-base-url') || '') + '/public/assets/uploads/profiles/' + image;
+                const base = document.body.getAttribute('data-base-url') || '';
+                if (image.startsWith(base + '/')) return image;
+                if (image.startsWith('/public/') || image.startsWith('/uploads/')) return base + image;
+                if (image.startsWith('public/') || image.startsWith('uploads/')) return base + '/' + image;
+                if (image.startsWith('/')) return image;
+                return base + '/public/assets/uploads/profiles/' + image.split('/').pop();
             },
 
             getItemCount(name, list) {
@@ -1845,6 +1856,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_customization&id=${id}`)).json();
                         if (detailRes.success) {
                             this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
+                            this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
                         } else {
                             this.showStaffAlert('Error', 'Customization details could not be loaded.');
@@ -1874,6 +1886,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         return;
                     }
                     this.currentJo = { ...order, order_type: 'ORDER' };
+                    this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                     this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
                     if (!this.currentJo.job_order_id) {
                         await this.resolveEffectiveJobId();
@@ -1892,6 +1905,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         const res = await (await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
                         if (res.success) {
                             this.currentJo = { ...res.data, order_type: 'JOB' };
+                            this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
                             this.resetMaterialForm();
                             this.resetInkForm();
@@ -1903,6 +1917,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             const fallbackRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${jid}`)).json();
                             if (fallbackRes.success) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                                 this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
                                 if (!this.currentJo.job_order_id) {
                                     await this.resolveEffectiveJobId();

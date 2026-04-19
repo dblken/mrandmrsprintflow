@@ -57,6 +57,7 @@ try {
         case 'list_orders':
             $status = sanitize($_GET['status'] ?? '');
             $sql = "SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count,
+                           c.profile_picture AS customer_profile_picture,
                            TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
                            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact
                     FROM job_orders jo 
@@ -219,6 +220,7 @@ try {
                         o.customer_id,
                         c.first_name,
                         c.last_name,
+                        c.profile_picture AS customer_profile_picture,
                         c.customer_type,
                         c.transaction_count,
                         CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
@@ -318,6 +320,7 @@ try {
                     cust.customer_id,
                     c.first_name,
                     c.last_name,
+                    c.profile_picture AS customer_profile_picture,
                     c.customer_type,
                     c.transaction_count,
                     TRIM(CONCAT(COALESCE(c.first_name, ''), ' ', COALESCE(c.last_name, ''))) AS customer_full_name,
@@ -372,6 +375,7 @@ try {
                     so.customer_id,
                     c.first_name,
                     c.last_name,
+                    c.profile_picture AS customer_profile_picture,
                     c.customer_type,
                     c.transaction_count,
                     TRIM(CONCAT(COALESCE(c.first_name, ''), ' ', COALESCE(c.last_name, ''))) AS customer_full_name,
@@ -512,6 +516,7 @@ try {
             $cust_row = db_query("
                 SELECT cust.*,
                        c.first_name, c.last_name, c.customer_type, c.contact_number, c.email, c.transaction_count,
+                       c.profile_picture AS customer_profile_picture,
                        CONCAT(c.first_name, ' ', c.last_name) AS customer_full_name,
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
@@ -572,6 +577,7 @@ try {
                 'order_id'                 => $cust['order_id'],
                 'order_type'               => 'CUSTOMIZATION',
                 'customer_full_name'       => $cust['customer_full_name'] ?? '',
+                'customer_profile_picture' => $cust['customer_profile_picture'] ?? '',
                 'customer_contact'         => $cust['customer_contact'] ?? '',
                 'customer_address'         => $cust['customer_address'] ?? '',
                 'customer_type'            => ($cust['transaction_count'] ?? 0) <= 1 ? 'NEW' : 'RETURNING',
@@ -609,6 +615,7 @@ try {
             if (!$order_id) throw new Exception("Order ID required.");
             $order_row = db_query("
                 SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,
+                       c.profile_picture AS customer_profile_picture,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) as customer_contact,
                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address
@@ -650,6 +657,7 @@ try {
                 'order_id'             => $o['order_id'],
                 'order_type'           => 'ORDER',
                 'customer_full_name'   => $o['customer_full_name'] ?? trim(($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')),
+                'customer_profile_picture' => $o['customer_profile_picture'] ?? '',
                 'customer_contact'     => $o['customer_contact'] ?? '',
                 'customer_type'        => ($o['transaction_count'] ?? 0) <= 1 ? 'NEW' : 'RETURNING',
                 'service_type'         => $service_name,
