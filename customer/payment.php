@@ -596,7 +596,7 @@ if (!function_exists('pf_payment_qr_url')) {
                             </div>
                         </div>
 
-                        <button type="submit" id="submitBtn" class="shopee-btn-primary" data-methods-disabled="<?php echo empty($enabled_methods) ? '1' : '0'; ?>" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #001820 !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''; ?> onmouseover="this.style.background='#32a1c4'" onmouseout="this.style.background='#53c5e0'">
+                        <button type="submit" id="submitBtn" class="shopee-btn-primary" data-methods-disabled="<?php echo empty($enabled_methods) ? '1' : '0'; ?>" style="width: 100%; padding: 0.75rem; white-space: nowrap; text-decoration: none; text-align: center; display: block; font-weight: 700; font-size: 0.9rem; border-radius: 0; border: none; background: #53c5e0 !important; color: #ffffff !important; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 4px 12px rgba(83, 197, 224, 0.3); transition: all 0.2s;" <?php echo empty($enabled_methods) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''; ?> onmouseover="this.style.background='#32a1c4'; this.style.color='#ffffff'" onmouseout="this.style.background='#53c5e0'; this.style.color='#ffffff'">
                             Submit Payment Proof
                         </button>
                         <div id="submitError" style="display:none; margin-top:0.6rem; font-size:0.8rem; font-weight:700; color:#b91c1c;">Please upload your reference receipt before submitting.</div>
@@ -686,7 +686,6 @@ if (!function_exists('pf_payment_qr_url')) {
             if (!proofInput || !proofInput.files || proofInput.files.length === 0) {
                 const errorEl = document.getElementById('submitError');
                 if (errorEl) errorEl.style.display = 'block';
-                if (proofInput) proofInput.click();
                 return;
             }
             const btn = document.getElementById('submitBtn');
