@@ -665,6 +665,11 @@ if (!function_exists('pf_payment_qr_url')) {
     if (paymentForm) {
         paymentForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            if (!proofInput || !proofInput.files || proofInput.files.length === 0) {
+                showToast('Please upload your reference receipt before submitting.');
+                if (proofInput) proofInput.click();
+                return;
+            }
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerHTML = '<span style="display:flex; align-items:center; justify-content:center; gap:8px;">Uploading...</span>';
