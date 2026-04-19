@@ -122,6 +122,17 @@ $review_comment_expr = isset($review_columns['comment']) ? 'r.comment' : (isset(
 $review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
 $review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
 $review_created_expr = isset($review_columns['created_at']) ? 'r.created_at' : 'NOW()';
+$review_ref_expr = isset($review_columns['reference_id']) ? 'r.reference_id' : 'NULL';
+$review_type_expr = isset($review_columns['review_type']) ? 'r.review_type' : "''";
+
+$review_where = "{$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci";
+$review_params = [$product['name']];
+$review_types = 's';
+if (isset($review_columns['reference_id']) && isset($review_columns['review_type'])) {
+    $review_where = "({$review_type_expr} = 'product' AND {$review_ref_expr} = ?) OR {$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci";
+    $review_params = [$product_id, $product['name']];
+    $review_types = 'is';
+}
 
 $reviews = order_create_optional_query(
     "SELECT
@@ -140,9 +151,9 @@ $reviews = order_create_optional_query(
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
-     WHERE {$review_service_expr} COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+     WHERE {$review_where}
      ORDER BY {$review_created_expr} DESC",
-    'is', [$current_user_id, $product['name']]
+    'i' . $review_types, array_merge([$current_user_id], $review_params)
 ) ?: [];
 
 $total_reviews = count($reviews);

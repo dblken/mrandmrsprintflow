@@ -9,17 +9,31 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
 
+// Reviews table columns vary across deployments
+$review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+$review_service_expr = isset($review_cols['service_type']) ? 'r.service_type' : "''";
+$review_ref_expr = isset($review_cols['reference_id']) ? 'r.reference_id' : 'NULL';
+$review_type_expr = isset($review_cols['review_type']) ? 'r.review_type' : "''";
+$use_ref_lookup = isset($review_cols['reference_id']) && isset($review_cols['review_type']);
+
+$avg_rating_sql = $use_ref_lookup
+    ? "(SELECT AVG(rating) FROM reviews r WHERE (" . $review_type_expr . " = 'product' AND " . $review_ref_expr . " = p.product_id) OR (" . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci)) as avg_rating"
+    : "(SELECT AVG(rating) FROM reviews r WHERE " . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as avg_rating";
+$review_count_sql = $use_ref_lookup
+    ? "(SELECT COUNT(*) FROM reviews r WHERE (" . $review_type_expr . " = 'product' AND " . $review_ref_expr . " = p.product_id) OR (" . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci)) as review_count"
+    : "(SELECT COUNT(*) FROM reviews r WHERE " . $review_service_expr . " COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as review_count";
+
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 
 // Build query — show all Activated products
 $sql = "SELECT p.*, 
-        (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count,
-        (SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE oi.product_id = p.product_id AND o.status != 'Cancelled' AND (oi.customization_data IS NULL OR oi.customization_data = '' OR oi.customization_data NOT LIKE '%\"service_type\"%')) as sold_count,
-        (SELECT AVG(rating) FROM reviews r WHERE r.service_type COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as avg_rating,
-        (SELECT COUNT(*) FROM reviews r WHERE r.service_type COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci) as review_count
-        FROM products p 
-        WHERE p.status = 'Activated'";
+    (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count,
+    (SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE oi.product_id = p.product_id AND o.status != 'Cancelled' AND (oi.customization_data IS NULL OR oi.customization_data = '' OR oi.customization_data NOT LIKE '%\"service_type\"%')) as sold_count,
+    {$avg_rating_sql},
+    {$review_count_sql}
+    FROM products p 
+    WHERE p.status = 'Activated'";
 $params = [];
 $types = '';
 
