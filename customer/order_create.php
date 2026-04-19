@@ -448,6 +448,7 @@ require_once __DIR__ . '/../includes/header.php';
 .qty-input-field[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .shopee-form-field { flex: 1; position: relative; display: flex !important; flex-direction: column !important; min-width: 0; gap: 4px; }
 .field-error { display: flex !important; align-items: center; gap: 0.375rem; color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; width: 100% !important; flex-basis: 100% !important; order: 999; }
+.field-invalid { border-color: #ef4444 !important; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
 
 /* Ratings section */
@@ -494,16 +495,31 @@ function hideStockWarning() {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('productOrderForm');
     if (form) {
+        const removeFieldError = (field) => {
+            const container = field.closest('.shopee-form-field') || field.parentNode;
+            container?.querySelectorAll('.field-error').forEach(el => el.remove());
+            field.classList.remove('field-invalid');
+        };
+
+        const fieldHasValue = (field) => {
+            if (!field) return true;
+            if (field.type === 'checkbox' || field.type === 'radio') return field.checked;
+            if (field.type === 'file') return field.files && field.files.length > 0;
+            return String(field.value || '').trim() !== '';
+        };
+
         form.addEventListener('submit', function(e) {
             document.querySelectorAll('.field-error').forEach(el => el.remove());
             let hasError = false, firstErrorField = null;
 
             const setError = (field, message) => {
+                removeFieldError(field);
                 const errorSpan = document.createElement('span');
                 errorSpan.className = 'field-error';
                 errorSpan.textContent = message;
                 const container = field.closest('.shopee-form-field') || field.parentNode;
                 container.appendChild(errorSpan);
+                field.classList.add('field-invalid');
                 if (!firstErrorField) firstErrorField = field;
                 hasError = true;
             };
@@ -515,6 +531,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 if (firstErrorField) firstErrorField.closest('.shopee-form-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
+        });
+
+        form.querySelectorAll('[required]').forEach(field => {
+            const clearIfValid = () => {
+                if (fieldHasValue(field)) removeFieldError(field);
+            };
+            field.addEventListener('input', clearIfValid);
+            field.addEventListener('change', clearIfValid);
         });
     }
 });
