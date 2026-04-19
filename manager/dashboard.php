@@ -162,16 +162,16 @@ $page_title = 'Dashboard - Manager | PrintFlow';
     <?php render_branch_css(); ?>
     <style>
         /* KPI Row */
-        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; align-items:stretch; }
         @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
-        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; height:100%; display:flex; flex-direction:column; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#00232b,#53C5E0); }
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:auto; }
         .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
         .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; }
