@@ -149,7 +149,7 @@ if ($payment_method !== 'Cash' && empty($reference_number)) {
     exit;
 }
 if ($amount_tendered > 1000000) {
-    echo json_encode(['success' => false, 'message' => 'Amount tendered exceeds maximum limit of ₱1,000,000.']);
+    echo json_encode(['success' => false, 'message' => 'Amount paid exceeds maximum limit of ₱1,000,000.']);
     exit;
 }
 

@@ -1136,7 +1136,7 @@ try {
                             </div>
 
                             <div class="pos-tender-group" id="tender-group">
-                                <span style="font-weight: 600; font-size: 14px; color: #475569;">Tendered</span>
+                                <span style="font-weight: 600; font-size: 14px; color: #475569;">Amount Paid</span>
                                 <div style="position: relative;">
                                     <span
                                         style="position: absolute; left: 12px; top: 12px; font-weight: 600; color: #94a3b8;">₱</span>
@@ -1381,6 +1381,14 @@ try {
         const STAFF_BASE_PATH = <?php echo json_encode(BASE_PATH); ?>;
         function staffUrl(path) {
             return (STAFF_BASE_PATH || '') + '/' + String(path || '').replace(/^\/+/, '');
+        }
+        function formatMoney(value) {
+            const amount = Number.parseFloat(value);
+            const safeAmount = Number.isFinite(amount) ? amount : 0;
+            return '₱' + safeAmount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         }
 
         // Initialize Select2 for customer dropdown
@@ -1866,13 +1874,13 @@ try {
                 card.className = `pos-card ${outOfStock ? 'no-stock' : ''}`;
                 if (!outOfStock) card.onclick = () => addToCart(p);
 
-                const priceFormatted = parseFloat(p.price || 0).toFixed(2);
+                const priceFormatted = formatMoney(p.price || 0);
                 const productName = p.product_name || 'Unnamed Product';
                 const stockQty = parseInt(p.stock_quantity) || 0;
 
                 card.innerHTML = `
             <div class="pos-card-icon-container">
-                <div class="pos-card-price-top">₱${priceFormatted}</div>
+                <div class="pos-card-price-top">${priceFormatted}</div>
                 <div class="pos-card-product-name">${productName}</div>
             </div>
             <div class="pos-card-body">
@@ -2364,7 +2372,7 @@ try {
                         ? `<button onclick="redirectToSetPrice(${index})" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:5px;font-size:12px;font-weight:700;color:#d97706;text-decoration:none;cursor:pointer;border:none;" title="Click to set price in Customizations">
                     <i class="fas fa-tag" style="font-size:10px;"></i> Set Price
                   </button>`
-                        : `<div class="pos-item-price" style="margin-top:2px;">₱${item.price.toFixed(2)}</div>`;
+                        : `<div class="pos-item-price" style="margin-top:2px;">${formatMoney(item.price)}</div>`;
 
                     div.innerHTML = `
                 <div class="pos-item-details" style="flex:1;">
@@ -2377,14 +2385,14 @@ try {
                     <input class="pos-qty-val" value="${item.qty}" readonly>
                     <button class="pos-qty-btn" style="font-size:16px; line-height:1; font-weight:bold;" onclick="updateQtyByCartIndex(${index}, 1)">&plus;</button>
                 </div>
-                <div class="pos-item-total" style="width:70px; text-align:right;">₱${rowTotal.toFixed(2)}</div>
+                <div class="pos-item-total" style="width:70px; text-align:right;">${formatMoney(rowTotal)}</div>
                 <button class="pos-item-remove" style="font-size:18px; line-height:1; font-weight:bold;" onclick="removeByCartIndex(${index})">&times;</button>
             `;
                     cont.appendChild(div);
                 });
             }
 
-            const fTotal = '₱' + currentTotal.toFixed(2);
+            const fTotal = formatMoney(currentTotal);
             document.getElementById('pos-subtotal').textContent = fTotal;
             document.getElementById('pos-total').textContent = fTotal;
 
@@ -2412,7 +2420,7 @@ try {
 
         function calculateChange() {
             if (currentTotal === 0) {
-                document.getElementById('pos-change').textContent = '₱0.00';
+                document.getElementById('pos-change').textContent = formatMoney(0);
                 return;
             }
             const tenderedInput = document.getElementById('pos-tendered');
@@ -2427,7 +2435,7 @@ try {
             if (change < 0) change = 0; // Must never be negative on display
 
             const changeEl = document.getElementById('pos-change');
-            changeEl.textContent = `₱${change.toFixed(2)}`;
+            changeEl.textContent = formatMoney(change);
             changeEl.style.color = (tendered < currentTotal && tendered > 0) ? '#ef4444' : '#06A1A1';
 
             updateCheckoutState();
@@ -2514,12 +2522,12 @@ try {
             const tendered = parseFloat(document.getElementById('pos-tendered').value) || 0;
 
             if (tendered < currentTotal || tendered > 1000000) {
-                await showPOSAlert('Invalid Amount', "Amount tendered must be at least ₱" + currentTotal.toFixed(2) + " and not exceed ₱1,000,000.", 'warning');
+                await showPOSAlert('Invalid Amount', "Amount paid must be at least " + formatMoney(currentTotal) + " and not exceed ₱1,000,000.", 'warning');
                 return;
             }
 
-            const changeAmount = (tendered - currentTotal).toFixed(2);
-            const confirmMsg = `Confirm sale of ₱${currentTotal.toFixed(2)} using ${pm}?\nChange due: ₱${changeAmount}`;
+            const changeAmount = tendered - currentTotal;
+            const confirmMsg = `Confirm sale of ${formatMoney(currentTotal)} using ${pm}?\nChange due: ${formatMoney(changeAmount)}`;
 
             if (!(await showPOSConfirm('Confirm Transaction', confirmMsg))) {
                 return;
