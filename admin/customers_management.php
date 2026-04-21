@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -53,6 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verif
 
 $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id'];
+$activeBranchOptions = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active' ORDER BY id ASC") ?: [];
+if (!empty($activeBranchOptions)) {
+    $branchCtx['branches_list'] = $activeBranchOptions;
+}
 
 $current_user = get_logged_in_user();
 $can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
@@ -154,8 +159,8 @@ if (isset($_GET['ajax'])) {
                             </div>
                         </td>
                         <td class="email-cell">
-                            <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['email']); ?>">
-                                <?php echo htmlspecialchars($customer['email']); ?>
+                            <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>">
+                                <?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>
                             </div>
                         </td>
                         <td>
@@ -178,7 +183,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params); 
     $pagination_html = ob_get_clean();
 
@@ -263,6 +268,7 @@ $page_title = 'Customers Management - Admin';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         /* KPI Row - matches dashboard page */
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
@@ -535,7 +541,10 @@ $page_title = 'Customers Management - Admin';
     <div class="main-content">
 
         <header>
-            <h1 class="page-title">Customers Management</h1>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                <h1 class="page-title">Customers Management</h1>
+                <?php render_branch_selector($branchCtx); ?>
+            </div>
         </header>
 
         <script>
@@ -961,8 +970,8 @@ $page_title = 'Customers Management - Admin';
                                             </div>
                                         </td>
                                         <td class="email-cell">
-                                            <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['email']); ?>">
-                                                <?php echo htmlspecialchars($customer['email']); ?>
+                                            <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>">
+                                                <?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>
                                             </div>
                                         </td>
                                         <td>
@@ -984,7 +993,7 @@ $page_title = 'Customers Management - Admin';
                 </div>
                 <div id="customersPagination">
                     <?php 
-                    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+                    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
