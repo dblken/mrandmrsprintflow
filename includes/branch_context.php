@@ -100,7 +100,21 @@ function get_user_allowed_branches(int $user_id, string $role) {
 function normalize_selected_branch($selected, $allowed, bool $requires_branch = false) {
     if ($allowed === 'all') {
         if ($requires_branch) {
-            // Force a specific branch; default to first available
+            // Keep the explicitly selected branch when it is valid.
+            if ($selected !== 'all' && $selected !== null) {
+                $selected_int = (int)$selected;
+                foreach (get_all_branches() as $branch) {
+                    if ((int)($branch['id'] ?? 0) === $selected_int) {
+                        return $selected_int;
+                    }
+                }
+            }
+
+            // Otherwise fall back to the configured main/default branch.
+            if (function_exists('printflow_get_default_admin_branch_id')) {
+                return (int)printflow_get_default_admin_branch_id();
+            }
+
             $branches = get_all_branches();
             return !empty($branches) ? (int)$branches[0]['id'] : 1;
         }
