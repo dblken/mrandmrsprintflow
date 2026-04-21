@@ -287,7 +287,7 @@ if (isset($_GET['ajax'])) {
             <tr class="border-b" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">
                 <td class="py-3"><?php echo $user['user_id']; ?></td>
                 <td class="py-3 font-medium"><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
-                <td class="py-3"><?php echo htmlspecialchars(strtolower((string)($user['email'] ?? ''))); ?></td>
+                <td class="py-3" style="text-transform:lowercase;"><?php echo htmlspecialchars(strtolower((string)($user['email'] ?? ''))); ?></td>
                 <td class="py-3"><?php
                     $rs = match($user['role']) { 'Admin' => 'background:#fee2e2;color:#991b1b;', 'Manager' => 'background:#ede9fe;color:#5b21b6;', default => 'background:#dbeafe;color:#1e40af;' };
                     ?><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;<?php echo $rs; ?>"><?php echo $user['role']; ?></span></td>
@@ -833,7 +833,7 @@ if (isset($_GET['ajax'])) {
                                     <td class="py-3 font-medium">
                                         <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
                                     </td>
-                                    <td class="py-3"><?php echo htmlspecialchars(strtolower((string)($user['email'] ?? ''))); ?></td>
+                                    <td class="py-3" style="text-transform:lowercase;"><?php echo htmlspecialchars(strtolower((string)($user['email'] ?? ''))); ?></td>
                                     <td class="py-3">
                                         <?php
                                             $role_style = match($user['role']) {

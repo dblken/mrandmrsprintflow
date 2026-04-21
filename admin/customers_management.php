@@ -158,7 +158,7 @@ if (isset($_GET['ajax'])) {
                                 <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                             </div>
                         </td>
-                        <td class="email-cell">
+                        <td class="email-cell" style="text-transform:lowercase;">
                             <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>">
                                 <?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>
                             </div>
@@ -969,7 +969,7 @@ $page_title = 'Customers Management - Admin';
                                                 <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                                             </div>
                                         </td>
-                                        <td class="email-cell">
+                                        <td class="email-cell" style="text-transform:lowercase;">
                                             <div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>">
                                                 <?php echo htmlspecialchars(strtolower((string)($customer['email'] ?? ''))); ?>
                                             </div>
