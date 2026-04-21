@@ -451,10 +451,6 @@ if (isset($_GET['ajax'])) {
             </div>
             <div style="display:flex; align-items:center; gap:12px;">
                 <?php render_branch_selector($branchCtx); ?>
-                <a href="inv_items_management.php?branch_id=<?php echo $branchId; ?>" class="btn-secondary" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                    Manage Items
-                </a>
             </div>
         </header>
 
