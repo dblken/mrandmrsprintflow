@@ -19,6 +19,16 @@ if (!isset($base_path)) {
 
 // Handle ID verification approval/rejection
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
+    if (($_SESSION['user_type'] ?? '') !== 'Admin') {
+        if (!empty($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Only admins can verify or reject customer IDs.']);
+            exit;
+        }
+        http_response_code(403);
+        exit;
+    }
+
     $cid = (int)($_POST['cid'] ?? 0);
     $action = $_POST['id_action'];
     if ($cid > 0 && in_array($action, ['approve','reject'])) {
@@ -45,6 +55,7 @@ $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id'];
 
 $current_user = get_logged_in_user();
+$can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
 
 // Get filter parameters
 $search  = $_GET['search']  ?? '';
@@ -647,6 +658,7 @@ $page_title = 'Customers Management - Admin';
                     },
 
                     async submitIdAction(action) {
+                        if (!<?php echo $can_manage_customer_verification ? 'true' : 'false'; ?>) return;
                         if (!this.customer?.customer_id) return;
                         if (action === 'reject' && !this.idRejectReason.trim()) {
                             if (!confirm('No reject reason entered. Proceed with default reason?')) return;
@@ -1077,13 +1089,16 @@ $page_title = 'Customers Management - Admin';
 
                         <p x-show="customer?.id_reject_reason" style="font-size:12px;color:#dc2626;margin:0 0 12px;">Rejection reason: <span x-text="customer?.id_reject_reason"></span></p>
 
-                        <!-- Verify / Reject actions via AJAX -->
+                        <?php if ($can_manage_customer_verification): ?>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
                             <button type="button" class="btn-action" style="color:#16a34a;border-color:#16a34a;" x-show="customer?.id_status !== 'Verified'" @click="submitIdAction('approve')" onmouseover="this.style.background='#16a34a';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#16a34a'">&#10003; Verify ID</button>
                             <span x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;">&#10003; ID Verified</span>
                             <input type="text" x-model="idRejectReason" placeholder="Reject reason (optional)..." style="flex:1;min-width:160px;height:32px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
                             <button type="button" class="btn-action red" @click="submitIdAction('reject')">&#10005; Reject</button>
                         </div>
+                        <?php else: ?>
+                        <p style="font-size:12px;color:#6b7280;margin:0;">Only admins can verify or reject customer IDs.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
 
