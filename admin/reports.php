@@ -159,37 +159,37 @@ if ($heatmap_available_years === []) {
 $total_orders = $revenue = $paid_orders = $avg_val = 0;
 if (!$gaBranchEmpty) {
     try {
-        [$b, $bt, $bp] = branch_where_parts('o', $globalAnalyticsBranchId);
-        [$dw, $dt, $dp] = $getDateWhere('o', 'order_date'); // Use filtered date range
-        $row = db_query(
+        [$bo, $bto, $bpo] = branch_where_parts('o', $globalAnalyticsBranchId);
+        [$dw, $dt, $dp] = $getDateWhere('o', 'order_date');
+        $orderRow = db_query(
             "SELECT COUNT(*) as total_orders,
-                    SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as revenue,
-                    SUM(CASE WHEN o.payment_status='Paid' THEN 1 ELSE 0 END) as paid,
-                    AVG(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE NULL END) as avg_val
-             FROM orders o WHERE 1=1 {$dw} {$b}",
-            $dt . $bt, array_merge($dp, $bp)
+                    SUM(CASE WHEN (o.payment_status='Paid' OR o.status='Completed') THEN o.total_amount ELSE 0 END) as revenue,
+                    SUM(CASE WHEN (o.payment_status='Paid' OR o.status='Completed') THEN 1 ELSE 0 END) as paid
+             FROM orders o WHERE 1=1 {$dw} {$bo}",
+            $dt . $bto,
+            array_merge($dp, $bpo)
         )[0] ?? [];
-        $total_orders = (int)   ($row['total_orders'] ?? 0);
-        $revenue      = (float) ($row['revenue']      ?? 0);
-        $paid_orders  = (int)   ($row['paid']         ?? 0);
-        $avg_val      = (float) ($row['avg_val']      ?? 0);
-    } catch(Throwable $e){}
-}
 
-$period_job_count = 0;
-if (!$gaBranchEmpty) {
-    try {
         [$bj, $btj, $bpj] = branch_where_parts('jo', $globalAnalyticsBranchId);
-        [$dwj, $dtj, $dpj] = $getDateWhere('jo', 'created_at'); // Use filtered date range for jobs
-        $period_job_count = (int) (db_query(
-            "SELECT COUNT(*) as c FROM job_orders jo WHERE 1=1 {$dwj} {$bj}",
+        [$dwj, $dtj, $dpj] = $getDateWhere('jo', 'created_at');
+        $jobRow = db_query(
+            "SELECT COUNT(*) as total_orders,
+                    SUM(CASE WHEN (jo.payment_status='PAID' OR jo.status='COMPLETED')
+                             THEN COALESCE(NULLIF(jo.amount_paid,0), jo.estimated_total, 0)
+                             ELSE 0 END) as revenue,
+                    SUM(CASE WHEN (jo.payment_status='PAID' OR jo.status='COMPLETED') THEN 1 ELSE 0 END) as paid
+             FROM job_orders jo WHERE 1=1 {$dwj} {$bj}",
             $dtj . $btj,
             array_merge($dpj, $bpj)
-        )[0]['c'] ?? 0);
-    } catch (Exception $e) {
-    }
+        )[0] ?? [];
+
+        $total_orders = (int)($orderRow['total_orders'] ?? 0) + (int)($jobRow['total_orders'] ?? 0);
+        $revenue = (float)($orderRow['revenue'] ?? 0) + (float)($jobRow['revenue'] ?? 0);
+        $paid_orders = (int)($orderRow['paid'] ?? 0) + (int)($jobRow['paid'] ?? 0);
+        $avg_val = $paid_orders > 0 ? ($revenue / $paid_orders) : 0;
+    } catch(Throwable $e){}
 }
-$period_has_activity = ($total_orders > 0 || $period_job_count > 0);
+$period_has_activity = ($total_orders > 0);
 
 // Previous period for trend arrows — only if a specific date range is set
 $orders_delta = $revenue_delta = null;
@@ -197,17 +197,31 @@ if ($from !== '' && $to !== '' && !$gaBranchEmpty) {
     $days     = max(1, (int)((strtotime($to) - strtotime($from)) / 86400) + 1);
     $prevFrom = date('Y-m-d', strtotime($from) - $days * 86400);
     $prevToEnd = date('Y-m-d', strtotime($from) - 86400) . ' 23:59:59';
-    $prev_orders = $prev_revenue = 0;
+    $prev_orders = $prev_revenue = $prev_paid = 0;
     try {
-        [$b,$bt,$bp] = branch_where_parts('o', $globalAnalyticsBranchId);
-        $pr = db_query(
+        [$bo,$bto,$bpo] = branch_where_parts('o', $globalAnalyticsBranchId);
+        $prevOrderRow = db_query(
             "SELECT COUNT(*) as total_orders,
-                    SUM(CASE WHEN o.payment_status='Paid' THEN o.total_amount ELSE 0 END) as revenue
-             FROM orders o WHERE o.order_date BETWEEN ? AND ?$b",
-            'ss'.$bt, array_merge([$prevFrom,$prevToEnd],$bp)
+                    SUM(CASE WHEN (o.payment_status='Paid' OR o.status='Completed') THEN o.total_amount ELSE 0 END) as revenue,
+                    SUM(CASE WHEN (o.payment_status='Paid' OR o.status='Completed') THEN 1 ELSE 0 END) as paid
+             FROM orders o WHERE o.order_date BETWEEN ? AND ?{$bo}",
+            'ss' . $bto,
+            array_merge([$prevFrom, $prevToEnd], $bpo)
         )[0] ?? [];
-        $prev_orders  = (int)($pr['total_orders'] ?? 0);
-        $prev_revenue = (float)($pr['revenue']    ?? 0);
+        [$bj,$btj,$bpj] = branch_where_parts('jo', $globalAnalyticsBranchId);
+        $prevJobRow = db_query(
+            "SELECT COUNT(*) as total_orders,
+                    SUM(CASE WHEN (jo.payment_status='PAID' OR jo.status='COMPLETED')
+                             THEN COALESCE(NULLIF(jo.amount_paid,0), jo.estimated_total, 0)
+                             ELSE 0 END) as revenue,
+                    SUM(CASE WHEN (jo.payment_status='PAID' OR jo.status='COMPLETED') THEN 1 ELSE 0 END) as paid
+             FROM job_orders jo WHERE jo.created_at BETWEEN ? AND ?{$bj}",
+            'ss' . $btj,
+            array_merge([$prevFrom, $prevToEnd], $bpj)
+        )[0] ?? [];
+        $prev_orders = (int)($prevOrderRow['total_orders'] ?? 0) + (int)($prevJobRow['total_orders'] ?? 0);
+        $prev_revenue = (float)($prevOrderRow['revenue'] ?? 0) + (float)($prevJobRow['revenue'] ?? 0);
+        $prev_paid = (int)($prevOrderRow['paid'] ?? 0) + (int)($prevJobRow['paid'] ?? 0);
         
         $orders_delta  = $prev_orders  > 0 ? round((($total_orders - $prev_orders)  / $prev_orders)  * 100, 1) : null;
         $revenue_delta = $prev_revenue > 0 ? round((($revenue      - $prev_revenue) / $prev_revenue) * 100, 1) : null;
@@ -1908,7 +1922,7 @@ $dashData = [
             <div class="kpi-row">
                 <?php foreach ([
                     ['kpi-em',  'Total Orders',           '0',         'No transactions recorded'],
-                    ['kpi-ind', 'Total Revenue',          '₱0',        'No paid orders'],
+                    ['kpi-ind', 'Total Revenue',          '₱0',        'No completed transactions'],
                     ['kpi-amb', 'Top Selling Service',    '—',         'No orders yet'],
                     ['kpi-vio', 'Top Customer Location',  '—',         'No location data'],
                 ] as [$cls,$lbl,$val,$sub]): ?>
@@ -1959,7 +1973,7 @@ $dashData = [
                     </div>
                     <div class="kpi-val">₱<?php echo number_format($revenue, 0); ?></div>
                     <div class="kpi-sub">
-                        <?php echo $paid_orders; ?> paid orders <?php echo ($from !== '' || $to !== '') ? 'in period' : 'total'; ?>
+                        <?php echo $paid_orders; ?> completed transactions <?php echo ($from !== '' || $to !== '') ? 'in period' : 'total'; ?>
                     </div>
                 </div>
                 <!-- Top Product -->

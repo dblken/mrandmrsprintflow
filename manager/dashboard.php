@@ -252,7 +252,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 <div class="kpi-card emerald">
                     <div class="kpi-label">Branch Revenue</div>
                     <div class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></div>
-                    <div class="kpi-sub">From paid orders</div>
+                    <div class="kpi-sub">Orders + customization</div>
                 </div>
                 <div class="kpi-card amber">
                     <div class="kpi-label">Total Orders</div>
