@@ -567,11 +567,11 @@ if (isset($_GET['ajax'])) {
         <header>
             <h1 class="page-title">Inventory Master</h1>
             <div style="display: flex; gap: 12px;">
+                <?php render_branch_selector($branchCtx); ?>
                 <a href="inv_transactions_ledger.php?branch_id=<?php echo $branchId; ?>" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     Transaction Ledger
                 </a>
-                <?php render_branch_selector($branchCtx); ?>
             </div>
         </header>
 
