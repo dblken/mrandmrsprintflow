@@ -62,10 +62,20 @@ if (!empty($activeBranchOptions)) {
 $current_user = get_logged_in_user();
 $can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
 
+function pf_customer_id_status_normalize($status): string {
+    $raw = trim((string)$status);
+    return match (strtolower($raw)) {
+        'verified' => 'Verified',
+        'rejected' => 'Rejected',
+        default => 'Pending',
+    };
+}
+
 // Get filter parameters
 $search  = $_GET['search']  ?? '';
 $date_from = $_GET['date_from'] ?? '';
 $date_to   = $_GET['date_to']   ?? '';
+$status_filter = trim((string)($_GET['status_filter'] ?? ''));
 $sort_by = $_GET['sort']    ?? 'newest';
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
@@ -98,6 +108,16 @@ if (!empty($date_to)) {
     $sql .= " AND DATE(created_at) <= ?";
     $params[] = $date_to;
     $types .= 's';
+}
+
+if ($status_filter !== '') {
+    if ($status_filter === 'Verified' || $status_filter === 'Rejected') {
+        $sql .= " AND COALESCE(NULLIF(id_status, ''), 'Pending') = ?";
+        $params[] = $status_filter;
+        $types .= 's';
+    } elseif ($status_filter === 'Pending') {
+        $sql .= " AND (id_status IS NULL OR id_status = '' OR id_status IN ('Pending', 'None', 'Unverified'))";
+    }
 }
 
 // Count total results
@@ -143,7 +163,7 @@ if (isset($_GET['ajax'])) {
                     <td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No customers found</td>
                 </tr>
                 <?php foreach ($customers as $customer): 
-                    $id_status = $customer['id_status'] ?? 'Unverified';
+                    $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
                     $status_style = match($id_status) {
                         'Verified'   => 'background:#dcfce7;color:#166534;',
                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -183,7 +203,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params); 
     $pagination_html = ob_get_clean();
 
@@ -192,7 +212,7 @@ if (isset($_GET['ajax'])) {
         'table'      => $table_html,
         'pagination' => $pagination_html,
         'count'      => number_format($total_filtered),
-        'badge'      => count(array_filter([$search, $date_from, $date_to]))
+        'badge'      => count(array_filter([$search, $date_from, $date_to, $status_filter]))
     ]);
     exit;
 }
@@ -556,6 +576,7 @@ $page_title = 'Customers Management - Admin';
                     search: () => document.getElementById('fp_search')?.value || '',
                     date_from: () => document.getElementById('fp_date_from')?.value || '',
                     date_to: () => document.getElementById('fp_date_to')?.value || '',
+                    status_filter: () => document.getElementById('fp_status_filter')?.value || '',
                 };
                 for (const [key, getter] of Object.entries(fields)) {
                     const val = (overrides[key] !== undefined) ? overrides[key] : getter();
@@ -621,7 +642,7 @@ $page_title = 'Customers Management - Admin';
 
             /* var: safe when Turbo re-executes this inline script */
             var _activeSortKey = '<?php echo $sort_by; ?>';
-            var _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to)) ? 'true' : 'false'; ?>;
+            var _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to) || !empty($status_filter)) ? 'true' : 'false'; ?>;
 
             function customerModal() {
                 return {
@@ -778,8 +799,8 @@ $page_title = 'Customers Management - Admin';
                     } 
                 }
                 /* #customersTableContainer has no x-data; initTree here double-binds after Alpine.start / turbo-init(.main-content). */
-                ['fp_date_from', 'fp_date_to'].forEach(id => {
-                    const el = document.getElementById(id);
+                        ['fp_date_from', 'fp_date_to', 'fp_status_filter'].forEach(id => {
+                            const el = document.getElementById(id);
                     if (el && !el._pf_bound) {
                         el._pf_bound = true;
                         el.addEventListener('change', () => fetchUpdatedTable());
@@ -883,7 +904,7 @@ $page_title = 'Customers Management - Admin';
                                 Filter
                                 <span id="filterBadgeContainer">
                                     <?php
-                                    $active_filters_count = count(array_filter([$search, $date_from, $date_to], function($v) { return $v !== null && $v !== ''; }));
+                                    $active_filters_count = count(array_filter([$search, $date_from, $date_to, $status_filter], function($v) { return $v !== null && $v !== ''; }));
                                     if ($active_filters_count > 0): ?>
                                     <span class="filter-badge"><?php echo $active_filters_count; ?></span>
                                     <?php endif; ?>
@@ -910,6 +931,19 @@ $page_title = 'Customers Management - Admin';
                                             <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to ?? ''); ?>">
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="filter-section">
+                                    <div class="filter-section-head">
+                                        <span class="filter-section-label">Verification status</span>
+                                        <button class="filter-reset-link" onclick="resetFilterField(['status_filter'])">Reset</button>
+                                    </div>
+                                    <select id="fp_status_filter" class="filter-input">
+                                        <option value="">All statuses</option>
+                                        <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                        <option value="Verified" <?php echo $status_filter === 'Verified' ? 'selected' : ''; ?>>Verified</option>
+                                        <option value="Rejected" <?php echo $status_filter === 'Rejected' ? 'selected' : ''; ?>>Rejected</option>
+                                    </select>
                                 </div>
 
                                 <!-- Keyword Search -->
@@ -954,7 +988,7 @@ $page_title = 'Customers Management - Admin';
                                     <td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No customers found</td>
                                 </tr>
                                 <?php foreach ($customers as $customer):
-                                    $id_status = $customer['id_status'] ?? 'Unverified';
+                                    $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
                                     $status_style = match($id_status) {
                                         'Verified'   => 'background:#dcfce7;color:#166534;',
                                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -993,7 +1027,7 @@ $page_title = 'Customers Management - Admin';
                 </div>
                 <div id="customersPagination">
                     <?php 
-                    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+                    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
@@ -1082,7 +1116,7 @@ $page_title = 'Customers Management - Admin';
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;">ID Verification</label>
                             <template x-if="customer">
-                                <span :style="customer.id_status === 'Verified' ? 'background:#dcfce7;color:#166534;' : (customer.id_status === 'Rejected' ? 'background:#fee2e2;color:#991b1b;' : (customer.id_status === 'Pending' ? 'background:#fef9c3;color:#854d0e;' : 'background:#f3f4f6;color:#6b7280;'))" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;" x-text="customer.id_status || 'Unverified'"></span>
+                                <span :style="(customer.id_status === 'Verified') ? 'background:#dcfce7;color:#166534;' : ((customer.id_status === 'Rejected') ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef9c3;color:#854d0e;')" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;" x-text="(['Verified','Rejected'].includes(customer.id_status) ? customer.id_status : 'Pending')"></span>
                             </template>
                         </div>
 
