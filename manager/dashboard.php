@@ -26,9 +26,21 @@ $bSql = branch_where('o', $branchId, $bTypes, $bParams);
 // ── KPI: Total Customers (branch-filtered via orders) ─────────
 try {
     [$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
+    [$jSqlFrag, $jT, $jP] = branch_where_parts('jo', $branchId);
+    $customerTypes = ($bT ?: '') . ($jT ?: '');
+    $customerParams = array_merge($bP ?: [], $jP ?: []);
     $total_customers = db_query(
-        "SELECT COUNT(DISTINCT o.customer_id) as cnt FROM orders o WHERE 1=1" . $bSqlFrag,
-        $bT ?: null, $bP ?: null
+        "SELECT COUNT(DISTINCT src.customer_id) as cnt
+         FROM (
+             SELECT o.customer_id
+             FROM orders o
+             WHERE o.customer_id IS NOT NULL {$bSqlFrag}
+             UNION
+             SELECT jo.customer_id
+             FROM job_orders jo
+             WHERE jo.customer_id IS NOT NULL {$jSqlFrag}
+         ) src",
+        $customerTypes ?: null, $customerParams ?: null
     )[0]['cnt'] ?? 0;
 } catch (Exception $e) { $total_customers = 0; }
 
@@ -54,8 +66,17 @@ try {
 // ── KPI: Total Orders (branch-filtered) ───────────────────────
 try {
     [$bSqlFrag, $bT3, $bP3] = branch_where_parts('o', $branchId);
-    $ord_sql = "SELECT COUNT(*) as cnt FROM orders o WHERE 1=1" . $bSqlFrag;
-    $total_orders = db_query($ord_sql, $bT3 ?: null, $bP3 ?: null)[0]['cnt'] ?? 0;
+    [$jSqlFrag, $jT3, $jP3] = branch_where_parts('j', $branchId);
+    $orderTypes = ($bT3 ?: '') . ($jT3 ?: '');
+    $orderParams = array_merge($bP3 ?: [], $jP3 ?: []);
+    $total_orders = db_query(
+        "SELECT (
+             (SELECT COUNT(*) FROM orders o WHERE 1=1 {$bSqlFrag}) +
+             (SELECT COUNT(*) FROM job_orders j WHERE 1=1 {$jSqlFrag})
+         ) AS cnt",
+        $orderTypes ?: null,
+        $orderParams ?: null
+    )[0]['cnt'] ?? 0;
 } catch (Exception $e) { $total_orders = 0; }
 
 // ── KPI: Pending Orders (branch-filtered) ────────────────────

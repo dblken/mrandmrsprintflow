@@ -13,10 +13,17 @@ require_role(['Admin', 'Manager']);
 header('Content-Type: application/json');
 
 try {
-    // Get branch filter
-    $branchId = $_GET['branch_id'] ?? 'all';
-    if ($branchId !== 'all') {
-        $branchId = (int)$branchId;
+    $currentUser = get_logged_in_user();
+    $isManager = (($currentUser['role'] ?? '') === 'Manager');
+
+    // Managers are always locked to their assigned branch.
+    if ($isManager) {
+        $branchId = printflow_branch_filter_for_user() ?? ($_SESSION['branch_id'] ?? 'all');
+    } else {
+        $branchId = $_GET['branch_id'] ?? 'all';
+        if ($branchId !== 'all') {
+            $branchId = (int)$branchId;
+        }
     }
 
     // Build branch SQL filter

@@ -27,7 +27,7 @@ try {
     $lowSel = 'COALESCE(p.low_stock_level, 10)';
     if ($staffBranch > 0) {
         $join = ' LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ? ';
-        $stockSel = 'COALESCE(pbs.stock_quantity, p.stock_quantity)';
+        $stockSel = 'COALESCE(pbs.stock_quantity, 0)';
         $lowSel = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
         $params[] = $staffBranch;
         $types = 'i';

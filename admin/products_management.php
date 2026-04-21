@@ -394,7 +394,7 @@ $sqlTypes   = '';
 
 if ($is_manager && $mgr_branch_id > 0) {
     $branchJoin = ' LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ? ';
-    $stockExpr  = 'COALESCE(pbs.stock_quantity, p.stock_quantity)';
+    $stockExpr  = 'COALESCE(pbs.stock_quantity, 0)';
     $lowExpr    = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
     $sqlParams[] = $mgr_branch_id;
     $sqlTypes   .= 'i';
@@ -473,7 +473,7 @@ if ($is_manager && $mgr_branch_id > 0) {
         "SELECT COUNT(*) as c FROM products p
          LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
          WHERE p.status != 'Archived'
-         AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)",
+         AND COALESCE(pbs.stock_quantity, 0) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)",
         'i',
         [$mgr_branch_id]
     )[0]['c'] ?? 0;

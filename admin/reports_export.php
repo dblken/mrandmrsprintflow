@@ -12,6 +12,8 @@ ini_set('display_errors', 0);
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Admin', 'Manager']);
 
@@ -53,6 +55,30 @@ function writeReportHeader($output, $reportType, $from, $to, $branchName = 'All 
     fputcsv($output, ['Date Range', date('F j, Y', strtotime($from)) . ' – ' . date('F j, Y', strtotime($to))]);
     fputcsv($output, ['Generated On', date('F j, Y, g:i A', strtotime('now'))]);
     fputcsv($output, []);
+}
+
+function pf_report_inventory_soh(int $itemId, bool $trackByRoll, $branchId): float {
+    InventoryManager::ensureBranchScopedSchema();
+    if ($branchId === 'all') {
+        if ($trackByRoll) {
+            return (float)(db_query(
+                "SELECT COALESCE(SUM(remaining_length_ft), 0) AS soh
+                 FROM inv_rolls
+                 WHERE item_id = ? AND status = 'OPEN'",
+                'i',
+                [$itemId]
+            )[0]['soh'] ?? 0);
+        }
+        return (float)(db_query(
+            "SELECT COALESCE(SUM(CASE WHEN direction='IN' THEN quantity ELSE -quantity END), 0) AS soh
+             FROM inventory_transactions
+             WHERE item_id = ?",
+            'i',
+            [$itemId]
+        )[0]['soh'] ?? 0);
+    }
+
+    return (float)InventoryManager::getStockOnHand($itemId, (int)$branchId);
 }
 
 switch ($report) {
@@ -345,15 +371,40 @@ switch ($report) {
     // ═══════════════════════════════════════════════════════
     case 'shop_inventory':
         writeReportHeader($output, 'Products & Materials Inventory', $from, $to, $branchName);
+        printflow_ensure_product_branch_stock_table();
 
         fputcsv($output, ['PRODUCT CATALOG']);
         fputcsv($output, ['Product', 'SKU', 'Category', 'Stock', 'Price', 'Status']);
 
-        $products = db_query("SELECT name, sku, category, stock_quantity, price, status FROM products WHERE status = 'Activated' ORDER BY category, name");
+        $productSql = "SELECT p.name, p.sku, p.category, p.price, p.status,
+                              p.stock_quantity,
+                              p.low_stock_level";
+        $productTypes = '';
+        $productParams = [];
+        if ($branchId !== 'all') {
+            $productSql .= ", COALESCE(pbs.stock_quantity, 0) AS branch_stock_quantity,
+                             COALESCE(pbs.low_stock_level, p.low_stock_level, 10) AS branch_low_stock_level
+                             FROM products p
+                             LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+                             WHERE p.status = 'Activated'
+                             ORDER BY p.category, p.name";
+            $productTypes = 'i';
+            $productParams = [(int)$branchId];
+        } else {
+            $productSql .= " FROM products p
+                             WHERE p.status = 'Activated'
+                             ORDER BY p.category, p.name";
+        }
+        $products = db_query($productSql, $productTypes ?: null, $productParams ?: null);
         if ($products) {
             foreach ($products as $p) {
-                $sq = (int)($p['stock_quantity'] ?? 0);
-                $stock_status = $sq <= 0 ? 'OUT OF STOCK' : ($sq < 20 ? 'LOW STOCK' : 'In Stock');
+                $sq = ($branchId !== 'all')
+                    ? (int)($p['branch_stock_quantity'] ?? 0)
+                    : (int)($p['stock_quantity'] ?? 0);
+                $lowLevel = ($branchId !== 'all')
+                    ? (int)($p['branch_low_stock_level'] ?? 10)
+                    : (int)($p['low_stock_level'] ?? 10);
+                $stock_status = $sq <= 0 ? 'OUT OF STOCK' : ($sq <= $lowLevel ? 'LOW STOCK' : 'In Stock');
                 fputcsv($output, [
                     csvVal($p['name']),
                     csvVal($p['sku'] ?? ''),
@@ -370,18 +421,18 @@ switch ($report) {
         fputcsv($output, ['Item name', 'Category', 'Current stock', 'UOM', 'Roll-based']);
 
         $inv_items = db_query(
-            "SELECT i.name, ic.name as category_name, i.unit_of_measure, i.track_by_roll,
-                    (SELECT COALESCE(SUM(IF(direction='IN', quantity, -quantity)), 0) FROM inventory_transactions WHERE item_id = i.id) as current_stock
+            "SELECT i.id, i.name, ic.name as category_name, i.unit_of_measure, i.track_by_roll
              FROM inv_items i
              LEFT JOIN inv_categories ic ON i.category_id = ic.id
              ORDER BY ic.name, i.name"
         );
         if ($inv_items) {
             foreach ($inv_items as $i) {
+                $currentStock = pf_report_inventory_soh((int)$i['id'], !empty($i['track_by_roll']), $branchId);
                 fputcsv($output, [
                     csvVal($i['name']),
                     csvVal($i['category_name'] ?? ''),
-                    number_format((float)($i['current_stock'] ?? 0), 2, '.', ''),
+                    number_format($currentStock, 2, '.', ''),
                     csvVal($i['unit_of_measure'] ?? ''),
                     !empty($i['track_by_roll']) ? 'Yes' : 'No',
                 ]);

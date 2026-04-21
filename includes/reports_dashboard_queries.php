@@ -331,13 +331,26 @@ function pf_reports_top_products_merged(string $from, string $toEnd, $branchId, 
  *   revenue_jobs:float
  * }>
  */
-function pf_reports_branch_performance_merged(string $from, string $toEnd): array {
+function pf_reports_branch_performance_merged(string $from, string $toEnd, $branchId = 'all'): array {
     $map = [];
     $names = [];
+    $branchIdInt = ($branchId === 'all' || $branchId === null) ? 0 : (int)$branchId;
+    $branchWhere = '';
+    $branchTypes = '';
+    $branchParams = [];
+    if ($branchIdInt > 0) {
+        $branchWhere = ' AND id = ?';
+        $branchTypes = 'i';
+        $branchParams = [$branchIdInt];
+    }
 
     // 1. Initialize map with ALL registered branches
     try {
-        $allBranches = db_query('SELECT id, branch_name FROM branches ORDER BY id') ?: [];
+        $allBranches = db_query(
+            'SELECT id, branch_name FROM branches WHERE 1=1' . $branchWhere . ' ORDER BY id',
+            $branchTypes ?: null,
+            $branchParams ?: null
+        ) ?: [];
         foreach ($allBranches as $b) {
             $bid = (int) $b['id'];
             $rawName = (string) $b['branch_name'];
@@ -369,6 +382,11 @@ function pf_reports_branch_performance_merged(string $from, string $toEnd): arra
             $oDatePart = " AND o.order_date <= ?";
             $odParams = [$toEnd];
             $odTypes = "s";
+        }
+        if ($branchIdInt > 0) {
+            $oDatePart .= " AND o.branch_id = ?";
+            $odParams[] = $branchIdInt;
+            $odTypes .= "i";
         }
 
         $oRows = db_query(
@@ -408,6 +426,11 @@ function pf_reports_branch_performance_merged(string $from, string $toEnd): arra
             $jDatePart = " AND jo.created_at <= ?";
             $jdParams = [$toEnd];
             $jdTypes = "s";
+        }
+        if ($branchIdInt > 0) {
+            $jDatePart .= " AND jo.branch_id = ?";
+            $jdParams[] = $branchIdInt;
+            $jdTypes .= "i";
         }
 
         $jRows = db_query(

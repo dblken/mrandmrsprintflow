@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
 require_once __DIR__ . '/../includes/reports_dashboard_queries.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -20,6 +21,8 @@ if (!isset($base_path)) {
     $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 }
 $current_user = get_logged_in_user();
+$is_manager = (($current_user['role'] ?? '') === 'Manager');
+$is_admin = (($current_user['role'] ?? '') === 'Admin');
 
 $reports_href_base = rtrim(AUTH_REDIRECT_BASE, '/') . '/admin/reports.php';
 
@@ -511,7 +514,7 @@ if (!$gaBranchEmpty) {
 }
 
 // ── 12. Branch performance (orders + job_orders, all-time) ─────────────────
-$branch_perf = pf_reports_branch_performance_merged('', '');
+$branch_perf = pf_reports_branch_performance_merged('', '', $is_manager ? $globalAnalyticsBranchId : 'all');
 if ($chart_sort === 'value_asc') {
     $branch_perf = array_reverse($branch_perf);
 }
@@ -538,17 +541,43 @@ if (!$gaBranchEmpty) {
 // ── 14. Inventory alerts ──────────────────────────────────────────────────────
 $low_stock = [];
 try {
-    $low_stock = db_query(
-        "SELECT i.name, i.unit_of_measure as unit,
-                COALESCE((SELECT SUM(IF(t.direction='IN',t.quantity,-t.quantity))
-                          FROM inventory_transactions t WHERE t.item_id=i.item_id),0) as soh,
-                i.reorder_level
-         FROM inventory_items i
-         WHERE i.reorder_level > 0
-           AND COALESCE((SELECT SUM(IF(t.direction='IN',t.quantity,-t.quantity))
-                         FROM inventory_transactions t WHERE t.item_id=i.item_id),0) <= i.reorder_level
-         ORDER BY soh ASC LIMIT 8"
+    InventoryManager::ensureBranchScopedSchema();
+    $reportInventoryBranchId = ($branchId === 'all') ? null : (int)$branchId;
+    $invItems = db_query(
+        "SELECT i.id, i.name, i.unit_of_measure as unit, i.reorder_level, i.track_by_roll
+         FROM inv_items i
+         WHERE i.status = 'ACTIVE' AND i.reorder_level > 0
+         ORDER BY i.name ASC"
     ) ?: [];
+    foreach ($invItems as $item) {
+        if ($reportInventoryBranchId === null) {
+            if (!empty($item['track_by_roll'])) {
+                $soh = (float)(db_query(
+                    "SELECT COALESCE(SUM(remaining_length_ft), 0) AS soh
+                     FROM inv_rolls
+                     WHERE item_id = ? AND status = 'OPEN'",
+                    'i',
+                    [(int)$item['id']]
+                )[0]['soh'] ?? 0);
+            } else {
+                $soh = (float)(db_query(
+                    "SELECT COALESCE(SUM(CASE WHEN direction='IN' THEN quantity ELSE -quantity END), 0) AS soh
+                     FROM inventory_transactions
+                     WHERE item_id = ?",
+                    'i',
+                    [(int)$item['id']]
+                )[0]['soh'] ?? 0);
+            }
+        } else {
+            $soh = (float)InventoryManager::getStockOnHand((int)$item['id'], $reportInventoryBranchId);
+        }
+        if ($soh <= (float)$item['reorder_level']) {
+            $item['soh'] = $soh;
+            $low_stock[] = $item;
+        }
+    }
+    usort($low_stock, static fn($a, $b) => ((float)$a['soh'] <=> (float)$b['soh']));
+    $low_stock = array_slice($low_stock, 0, 8);
 } catch(Exception $e){}
 
 // ── 15. Recent transactions ───────────────────────────────────────────────────
@@ -2288,8 +2317,8 @@ $dashData = [
             ?>
             <div class="ana-card">
                 <div class="ana-hd">
-                    <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>Branch Performance Comparison
-                        <span style="margin-left:8px;padding:3px 8px;background:#F7FAFC;color:#4A5568;border:1px solid #E2E8F0;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">All branches</span>
+                    <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><?php echo $is_manager ? 'Current Branch Performance' : 'Branch Performance Comparison'; ?>
+                        <span style="margin-left:8px;padding:3px 8px;background:#F7FAFC;color:#4A5568;border:1px solid #E2E8F0;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;"><?php echo $is_manager ? 'This branch' : 'All branches'; ?></span>
                     </h3>
                     <div class="no-print">
                         <button type="button" class="toolbar-btn" style="height:32px;padding:0 10px;font-size:11px;" onclick='reportsPrintInPlace(<?php echo json_encode($pfRptUrl("reports_print.php", ["report"=>"branch_perf"]), $je); ?>)' title="Print Branch Performance Comparison Report">

@@ -13,7 +13,11 @@ require_role(['Admin', 'Manager']);
 header('Content-Type: application/json');
 
 try {
-    $branchId = $_GET['branch_id'] ?? 'all';
+    $currentUser = get_logged_in_user();
+    $isManager = (($currentUser['role'] ?? '') === 'Manager');
+    $branchId = $isManager
+        ? (printflow_branch_filter_for_user() ?? ($_SESSION['branch_id'] ?? 'all'))
+        : ($_GET['branch_id'] ?? 'all');
     $period = $_GET['period'] ?? 'monthly';
     
     // Build branch filter

@@ -259,12 +259,12 @@ $recent_orders = db_query("
 
 // Get low-stock products (view-only)
 $low_stock = db_query("
-    SELECT p.name, p.sku, COALESCE(pbs.stock_quantity, p.stock_quantity) AS stock_quantity, p.category
+    SELECT p.name, p.sku, COALESCE(pbs.stock_quantity, 0) AS stock_quantity, p.category
     FROM products p
     LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
     WHERE p.status = 'Activated'
-      AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)
-    ORDER BY COALESCE(pbs.stock_quantity, p.stock_quantity) ASC
+      AND COALESCE(pbs.stock_quantity, 0) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)
+    ORDER BY COALESCE(pbs.stock_quantity, 0) ASC
     LIMIT 5
 ", 'i', [$staffBranchId]);
 

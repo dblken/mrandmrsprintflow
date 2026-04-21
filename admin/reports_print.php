@@ -277,14 +277,14 @@ try {
         $custom_usage = db_query("SELECT COALESCE(NULLIF(TRIM(p.name), ''), 'Customization') as product, SUM(CASE WHEN (COALESCE(CHAR_LENGTH(oi.design_image),0) > 0 OR COALESCE(CHAR_LENGTH(oi.design_file),0) > 0) THEN 1 ELSE 0 END) as custom_count, SUM(CASE WHEN (COALESCE(CHAR_LENGTH(oi.design_image),0) = 0 AND COALESCE(CHAR_LENGTH(oi.design_file),0) = 0) THEN 1 ELSE 0 END) as template_count FROM orders o JOIN order_items oi ON o.order_id=oi.order_id JOIN products p ON oi.product_id=p.product_id WHERE o.order_date BETWEEN ? AND ?$bSql GROUP BY p.product_id LIMIT 10", 'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)) ?: [];
     }
     if ($show_branch_perf || $show_insights) {
-        $branch_perf = pf_reports_branch_performance_merged($from, $toEnd) ?: [];
+        $branch_perf = pf_reports_branch_performance_merged($from, $toEnd, is_manager() ? $branchId : 'all') ?: [];
     }
     if ($show_top_customers) {
         $top_customers = db_query("SELECT c.customer_id, CONCAT(c.first_name,' ',c.last_name) as name, COUNT(o.order_id) as orders, SUM(o.total_amount) as spent FROM orders o JOIN customers c ON o.customer_id=c.customer_id WHERE o.order_date BETWEEN ? AND ?$bSql GROUP BY c.customer_id ORDER BY spent DESC LIMIT 10", 'ss'.$bTypes, array_merge([$from, $toEnd], $bParams)) ?: [];
     }
     if ($show_insights) {
         $top_products_insight = pf_reports_top_products_merged('', '', $branchId, 10);
-        $insight_branch_perf = pf_reports_branch_performance_merged('', '') ?: [];
+        $insight_branch_perf = pf_reports_branch_performance_merged('', '', is_manager() ? $branchId : 'all') ?: [];
 
         $top_kpi_product = db_query(
             "SELECT p.name, SUM(oi.quantity) as qty

@@ -1,7 +1,8 @@
 <?php
 /**
  * Per-branch stock for catalog products (products table stays canonical for admins).
- * Staff POS / manager UI use branch rows when present; otherwise fall back to products.stock_quantity.
+ * Staff POS / manager UI use branch rows only. If a branch has no stock row yet,
+ * that branch should see zero stock rather than inheriting another branch's quantity.
  */
 
 if (!defined('PRODUCT_BRANCH_STOCK_LOADED')) {
@@ -41,17 +42,31 @@ function printflow_ensure_product_branch_stock_table(): void {
  */
 function printflow_product_effective_stock(int $productId, int $branchId): array {
     printflow_ensure_product_branch_stock_table();
-    if ($productId <= 0 || $branchId <= 0) {
+    if ($productId <= 0) {
         return [0, 10];
     }
-    $pbs = db_query(
-        'SELECT stock_quantity, low_stock_level FROM product_branch_stock WHERE product_id = ? AND branch_id = ? LIMIT 1',
-        'ii',
-        [$productId, $branchId]
-    );
-    if (!empty($pbs)) {
-        return [(int)$pbs[0]['stock_quantity'], (int)$pbs[0]['low_stock_level']];
+
+    if ($branchId > 0) {
+        $pbs = db_query(
+            'SELECT stock_quantity, low_stock_level FROM product_branch_stock WHERE product_id = ? AND branch_id = ? LIMIT 1',
+            'ii',
+            [$productId, $branchId]
+        );
+        if (!empty($pbs)) {
+            return [(int)$pbs[0]['stock_quantity'], (int)$pbs[0]['low_stock_level']];
+        }
+
+        $p = db_query(
+            'SELECT COALESCE(low_stock_level, 10) AS low_stock_level FROM products WHERE product_id = ? LIMIT 1',
+            'i',
+            [$productId]
+        );
+        if (empty($p)) {
+            return [0, 10];
+        }
+        return [0, (int)$p[0]['low_stock_level']];
     }
+
     $p = db_query(
         'SELECT stock_quantity, COALESCE(low_stock_level, 10) AS low_stock_level FROM products WHERE product_id = ? LIMIT 1',
         'i',
@@ -82,7 +97,9 @@ function printflow_product_branch_stock_upsert(int $productId, int $branchId, in
 }
 
 /**
- * Deduct sold quantity at branch: branch row if exists, else products.stock_quantity.
+ * Deduct sold quantity at branch.
+ * Branch-scoped users may only deduct from their own branch row.
+ * Global/admin flows without a branch continue using products.stock_quantity.
  */
 function printflow_product_deduct_stock_for_branch(int $productId, int $branchId, int $qty): bool {
     printflow_ensure_product_branch_stock_table();
@@ -107,7 +124,10 @@ function printflow_product_deduct_stock_for_branch(int $productId, int $branchId
             );
             return $u !== false;
         }
+
+        return false;
     }
+
     $p = db_query('SELECT stock_quantity FROM products WHERE product_id = ? LIMIT 1', 'i', [$productId]);
     if (empty($p) || (int)$p[0]['stock_quantity'] < $qty) {
         return false;

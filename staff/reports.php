@@ -139,7 +139,7 @@ $stock_res = db_query("
     FROM products p
     LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
     WHERE p.status = 'Activated'
-      AND COALESCE(pbs.stock_quantity, p.stock_quantity) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 20)
+      AND COALESCE(pbs.stock_quantity, 0) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 20)
 ", 'i', [$staffBranchId]);
 $low_stock_count = $stock_res[0]['count'] ?? 0;
 

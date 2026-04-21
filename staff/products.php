@@ -21,7 +21,7 @@ $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Build query
-$stockExpr = 'COALESCE(pbs.stock_quantity, p.stock_quantity)';
+$stockExpr = 'COALESCE(pbs.stock_quantity, 0)';
 $lowStockExpr = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
 $sql = "SELECT p.product_id, p.sku, p.name, p.category, p.product_type, p.price, p.status,
                {$stockExpr} AS stock_quantity, {$lowStockExpr} AS low_stock_level
