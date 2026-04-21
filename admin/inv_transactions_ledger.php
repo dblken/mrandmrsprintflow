@@ -6,9 +6,13 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role('Admin');
 $current_user = get_logged_in_user();
+$branchCtx = init_branch_context(true);
+$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
 $page_title = 'Inventory Ledger - Admin';
 
 /** Safe JSON for onclick="viewTransaction(...)" — never emit empty / broken JS */
@@ -49,6 +53,10 @@ $sql = "SELECT t.*,
         WHERE (i.id IS NOT NULL OR p.product_id IS NOT NULL)";
 $params = [];
 $types = '';
+[$branchSql, $branchTypes, $branchParams] = InventoryManager::branchClause('t.branch_id', $branchId);
+$sql .= $branchSql;
+$types .= $branchTypes;
+$params = array_merge($params, $branchParams);
 
 if ($item_id) {
     $sql .= " AND t.item_id = ?";
@@ -154,7 +162,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $p = array_filter(['item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
+    $p = array_filter(['branch_id'=>$branchId, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $p);
     $pagination_html = ob_get_clean();
 
@@ -181,6 +189,7 @@ if (isset($_GET['ajax'])) {
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
 
     <style>
         :root {
@@ -440,10 +449,13 @@ if (isset($_GET['ajax'])) {
             <div>
                 <h1 class="page-title" style="margin-bottom: 4px;">Stock Movement Ledger</h1>
             </div>
-            <a href="inv_items_management" class="btn-secondary" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                Manage Items
-            </a>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <?php render_branch_selector($branchCtx); ?>
+                <a href="inv_items_management.php?branch_id=<?php echo $branchId; ?>" class="btn-secondary" style="display:inline-flex; align-items:center; gap:10px; padding: 12px 20px; border-radius: 12px;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                    Manage Items
+                </a>
+            </div>
         </header>
 
         <main>
@@ -637,7 +649,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="ledgerPagination">
                     <?php 
-                        $p = array_filter(['item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
+                        $p = array_filter(['branch_id'=>$branchId, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
                         echo render_pagination($page, $total_pages, $p); 
                     ?>
                 </div>
@@ -901,7 +913,11 @@ if (isset($_GET['ajax'])) {
 
     function applyFilters(reset = false) {
         if (reset) {
-            window.location.href = window.location.pathname;
+            const resetUrl = new URL(window.location.href);
+            const branch = resetUrl.searchParams.get('branch_id');
+            resetUrl.search = '';
+            if (branch) resetUrl.searchParams.set('branch_id', branch);
+            window.location.href = resetUrl.pathname + (resetUrl.search ? '?' + resetUrl.searchParams.toString() : '');
         } else {
             fetchUpdatedTable({ page: 1 });
         }

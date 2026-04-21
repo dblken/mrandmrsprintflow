@@ -5,22 +5,113 @@
  */
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth.php';
 
 class InventoryManager {
+    private static $branchSchemaEnsured = false;
+
+    /**
+     * Ensure branch-aware columns exist for inventory transactions and rolls.
+     */
+    public static function ensureBranchScopedSchema(): void {
+        if (self::$branchSchemaEnsured) {
+            return;
+        }
+
+        try {
+            $txnCols = db_query("SHOW COLUMNS FROM inventory_transactions LIKE 'branch_id'") ?: [];
+            if (empty($txnCols)) {
+                db_execute("ALTER TABLE inventory_transactions ADD COLUMN branch_id INT NULL AFTER item_id");
+                db_execute("ALTER TABLE inventory_transactions ADD INDEX idx_inv_tx_branch_item_date (branch_id, item_id, transaction_date)");
+            }
+        } catch (Throwable $e) {
+            // Ignore schema race/permission issues here and let downstream queries fail loudly if needed.
+        }
+
+        try {
+            $rollCols = db_query("SHOW COLUMNS FROM inv_rolls LIKE 'branch_id'") ?: [];
+            if (empty($rollCols)) {
+                db_execute("ALTER TABLE inv_rolls ADD COLUMN branch_id INT NULL AFTER item_id");
+                db_execute("ALTER TABLE inv_rolls ADD INDEX idx_inv_rolls_branch_item_status (branch_id, item_id, status)");
+            }
+        } catch (Throwable $e) {
+            // Ignore schema race/permission issues here and let downstream queries fail loudly if needed.
+        }
+
+        self::$branchSchemaEnsured = true;
+    }
+
+    /**
+     * Resolve the active operational branch for branch-scoped inventory pages.
+     */
+    public static function getCurrentBranchId(): int {
+        if (function_exists('printflow_branch_filter_for_user')) {
+            $locked = printflow_branch_filter_for_user();
+            if ($locked !== null && (int)$locked > 0) {
+                return (int)$locked;
+            }
+        }
+
+        $selected = $_SESSION['selected_branch_id'] ?? null;
+        if ($selected !== null && $selected !== 'all' && (int)$selected > 0) {
+            return (int)$selected;
+        }
+
+        if (function_exists('printflow_get_default_admin_branch_id')) {
+            return (int)printflow_get_default_admin_branch_id();
+        }
+
+        $sessionBranch = (int)($_SESSION['branch_id'] ?? 0);
+        return $sessionBranch > 0 ? $sessionBranch : 1;
+    }
+
+    /**
+     * Legacy inventory rows without a branch belong to the main branch.
+     */
+    public static function isMainBranch(int $branchId): bool {
+        if ($branchId <= 0 || !function_exists('printflow_get_default_admin_branch_id')) {
+            return false;
+        }
+        return $branchId === (int)printflow_get_default_admin_branch_id();
+    }
+
+    /**
+     * Build a branch filter SQL fragment for branch-scoped inventory tables.
+     *
+     * @return array{0:string,1:string,2:array}
+     */
+    public static function branchClause(string $column, ?int $branchId = null): array {
+        self::ensureBranchScopedSchema();
+
+        $resolvedBranchId = $branchId ?: self::getCurrentBranchId();
+        if ($resolvedBranchId <= 0) {
+            return ['', '', []];
+        }
+
+        if (self::isMainBranch($resolvedBranchId)) {
+            return [" AND ({$column} = ? OR {$column} IS NULL)", 'i', [$resolvedBranchId]];
+        }
+
+        return [" AND {$column} = ?", 'i', [$resolvedBranchId]];
+    }
 
     /**
      * Records a new inventory transaction and enforces idempotency.
      */
-    public static function recordTransaction($itemId, $direction, $quantity, $uom, $refType, $refId, $rollId = null, $notes = '', $userId = null, $date = null) {
+    public static function recordTransaction($itemId, $direction, $quantity, $uom, $refType, $refId, $rollId = null, $notes = '', $userId = null, $date = null, $branchId = null) {
         global $conn;
-        
+
+        self::ensureBranchScopedSchema();
+
         $date = $date ?: date('Y-m-d');
         $quantity = abs((float)$quantity);
         $userId = $userId ?: ($_SESSION['user_id'] ?? null);
+        $branchId = $branchId ?: self::getCurrentBranchId();
 
         // Core fields
         $fields = [
             'item_id'          => ['type' => 'i', 'val' => $itemId],
+            'branch_id'        => ['type' => 'i', 'val' => $branchId],
             'direction'        => ['type' => 's', 'val' => $direction],
             'quantity'         => ['type' => 's', 'val' => (string)$quantity],
             'uom'              => ['type' => 's', 'val' => $uom],
@@ -64,11 +155,14 @@ class InventoryManager {
     /**
      * Receives new stock (IN).
      */
-    public static function receiveStock($itemId, $quantity, $uom = null, $rollData = null, $refType = 'PURCHASE', $refId = null, $notes = '', $transactionDate = null) {
+    public static function receiveStock($itemId, $quantity, $uom = null, $rollData = null, $refType = 'PURCHASE', $refId = null, $notes = '', $transactionDate = null, $branchId = null) {
         global $conn;
-        
+
+        self::ensureBranchScopedSchema();
+
         $item = self::getItem($itemId);
         if (!$item) throw new Exception("Item not found.");
+        $branchId = $branchId ?: self::getCurrentBranchId();
 
         $conn->begin_transaction();
         try {
@@ -88,13 +182,14 @@ class InventoryManager {
                     $quantity, // For new reception, total length = quantity received
                     $rollCode, 
                     $rollDataSafe['supplier'] ?? null,
-                    $rollDataSafe['width_ft'] ?? 0
+                    $rollDataSafe['width_ft'] ?? 0,
+                    $branchId
                 );
             }
 
             // Record transaction
             $refType = strtoupper($refType ?: 'PURCHASE');
-            self::recordTransaction($itemId, 'IN', $quantity, $uom, $refType, $refId, $rollId, $notes, null, $transactionDate);
+            self::recordTransaction($itemId, 'IN', $quantity, $uom, $refType, $refId, $rollId, $notes, null, $transactionDate, $branchId);
 
             $conn->commit();
             return true;
@@ -109,28 +204,31 @@ class InventoryManager {
      * For roll-tracked items, uses FIFO deduction across rolls automatically.
      * For non-roll items, records a simple OUT transaction.
      */
-    public static function issueStock($itemId, $quantity, $uom = null, $refType = 'ADJUSTMENT', $refId = null, $notes = '', $ignoreRollCheck = false, $allowNegativeBypass = false) {
+    public static function issueStock($itemId, $quantity, $uom = null, $refType = 'ADJUSTMENT', $refId = null, $notes = '', $ignoreRollCheck = false, $allowNegativeBypass = false, $branchId = null) {
+        self::ensureBranchScopedSchema();
+
         $item = self::getItem($itemId);
         if (!$item) throw new Exception("Item not found.");
+        $branchId = $branchId ?: self::getCurrentBranchId();
         
         // For roll-tracked items, route through FIFO deduction
         if ($item['track_by_roll'] && !$ignoreRollCheck) {
             require_once __DIR__ . '/RollService.php';
-            return RollService::deductFIFO($itemId, $quantity, $refType, $refId, $notes);
+            return RollService::deductFIFO($itemId, $quantity, $refType, $refId, $notes, $branchId);
         }
 
-        $soh = self::getStockOnHand($itemId);
+        $soh = self::getStockOnHand($itemId, $branchId);
         // For roll-based items used with ignoreRollCheck, skip the SOH check since stock lives in inv_rolls
         $skipSohCheck = ($item['track_by_roll'] && $ignoreRollCheck) || $allowNegativeBypass;
         if (!$skipSohCheck && $soh < $quantity && !$item['allow_negative_stock']) {
             throw new Exception("Insufficient stock for '{$item['name']}'. Have: $soh, Need: $quantity");
         }
 
-        $result = self::recordTransaction($itemId, 'OUT', $quantity, $uom ?: $item['unit_of_measure'], $refType, $refId, null, $notes);
+        $result = self::recordTransaction($itemId, 'OUT', $quantity, $uom ?: $item['unit_of_measure'], $refType, $refId, null, $notes, null, null, $branchId);
 
         // Fire a low-stock push notification when SOH drops to or below the reorder level
         if ($result && !empty($item['reorder_level']) && (float)$item['reorder_level'] > 0) {
-            $newSoh = self::getStockOnHand($itemId);
+            $newSoh = self::getStockOnHand($itemId, $branchId);
             if ($newSoh <= (float)$item['reorder_level']) {
                 if (function_exists('notify_shop_users')) {
                     $msg = "Low stock: {$item['name']} is at {$newSoh} {$item['unit_of_measure']} (reorder at {$item['reorder_level']})";
@@ -145,19 +243,24 @@ class InventoryManager {
     /**
      * Gets accurate Stock On Hand based on v2 rules.
      */
-    public static function getStockOnHand($itemId) {
+    public static function getStockOnHand($itemId, $branchId = null) {
+        self::ensureBranchScopedSchema();
+
         $item = self::getItem($itemId);
         if (!$item) return 0;
+        $branchId = $branchId ?: self::getCurrentBranchId();
 
         if ($item['track_by_roll']) {
             // Stock is the sum of remaining lengths of all OPEN rolls
-            $sql = "SELECT SUM(remaining_length_ft) as soh FROM inv_rolls WHERE item_id = ? AND status = 'OPEN'";
-            $res = db_query($sql, 'i', [$itemId]);
+            [$branchSql, $branchTypes, $branchParams] = self::branchClause('branch_id', $branchId);
+            $sql = "SELECT SUM(remaining_length_ft) as soh FROM inv_rolls WHERE item_id = ? AND status = 'OPEN'{$branchSql}";
+            $res = db_query($sql, 'i' . $branchTypes, array_merge([$itemId], $branchParams));
             return (float)($res[0]['soh'] ?? 0);
         } else {
             // Stock is the sum of IN - sum of OUT transactions
-            $sql = "SELECT SUM(IF(direction='IN', quantity, -quantity)) as soh FROM inventory_transactions WHERE item_id = ?";
-            $res = db_query($sql, 'i', [$itemId]);
+            [$branchSql, $branchTypes, $branchParams] = self::branchClause('branch_id', $branchId);
+            $sql = "SELECT SUM(IF(direction='IN', quantity, -quantity)) as soh FROM inventory_transactions WHERE item_id = ?{$branchSql}";
+            $res = db_query($sql, 'i' . $branchTypes, array_merge([$itemId], $branchParams));
             return (float)($res[0]['soh'] ?? 0);
         }
     }

@@ -7,6 +7,7 @@ ob_start(); // Prevent accidental output from corrupting JSON
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 ob_end_clean();
@@ -14,6 +15,8 @@ header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $user = get_logged_in_user();
+$branchCtx = init_branch_context(true);
+$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
 
 try {
     switch ($action) {
@@ -44,6 +47,10 @@ try {
                     WHERE 1=1";
             $params = [];
             $types = '';
+            [$branchSql, $branchTypes, $branchParams] = InventoryManager::branchClause('t.branch_id', $branchId);
+            $sql .= $branchSql;
+            $types .= $branchTypes;
+            $params = array_merge($params, $branchParams);
             
             $search     = sanitize($_GET['search'] ?? '');
             
@@ -135,14 +142,14 @@ try {
                 $q_old = null;
                 $c_old = null;
                 if ($unit_cost_new !== null && $unit_cost_new > 0) {
-                    $q_old = InventoryManager::getStockOnHand($item_id);
+                    $q_old = InventoryManager::getStockOnHand($item_id, $branchId);
                     $itemForCost = InventoryManager::getItem($item_id);
                     $c_old = (float)($itemForCost['unit_cost'] ?? 0);
                     $notes = trim($notes . ($notes ? ' | ' : '') . 'Unit cost used: ' . number_format($unit_cost_new, 2, '.', ''));
                 }
 
                 // For IN transactions, use receiveStock to handle roll tracking logic
-                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $refType, $ref_id, $notes, $transaction_date);
+                $success = InventoryManager::receiveStock($item_id, $quantity, $_POST['uom'] ?? null, $rollData, $refType, $ref_id, $notes, $transaction_date, $branchId);
                 $transactionId = 0; 
                 $fifoResult = null;
 
@@ -164,7 +171,10 @@ try {
                     $_POST['uom'] ?? null,
                     $refType ?: 'ADJUSTMENT',
                     $ref_id,
-                    $notes
+                    $notes,
+                    false,
+                    false,
+                    $branchId
                 );
                 
                 // issueStock returns an array of roll deductions for roll items, or a transaction ID for non-roll
@@ -187,7 +197,7 @@ try {
         case 'get_current_stock':
             $item_id = (int)($_GET['item_id'] ?? 0);
             if (!$item_id) throw new Exception("Item ID required");
-            $soh = InventoryManager::getStockOnHand($item_id);
+            $soh = InventoryManager::getStockOnHand($item_id, $branchId);
             echo json_encode(['success' => true, 'soh' => $soh]);
             break;
 
@@ -205,9 +215,13 @@ try {
             $end = $days[29];
             
             // 1. Get initial stock BEFORE the 30-day window
+            [$histBranchSql, $histBranchTypes, $histBranchParams] = InventoryManager::branchClause('branch_id', $branchId);
             $preBalance = db_query(
-                "SELECT SUM(IF(direction='IN', quantity, -quantity)) as balance FROM inventory_transactions WHERE item_id = ? AND transaction_date < ?",
-                'is', [$item_id, $start]
+                "SELECT SUM(IF(direction='IN', quantity, -quantity)) as balance
+                 FROM inventory_transactions
+                 WHERE item_id = ? AND transaction_date < ?{$histBranchSql}",
+                'is' . $histBranchTypes,
+                array_merge([$item_id, $start], $histBranchParams)
             );
             $runningBalance = (float)$preBalance[0]['balance'];
             
@@ -215,9 +229,9 @@ try {
             $movements = db_query(
                 "SELECT transaction_date as t_date, SUM(IF(direction='IN', quantity, -quantity)) as daily_total 
                  FROM inventory_transactions 
-                 WHERE item_id = ? AND transaction_date BETWEEN ? AND ? 
+                 WHERE item_id = ? AND transaction_date BETWEEN ? AND ?{$histBranchSql}
                  GROUP BY t_date ORDER BY t_date ASC",
-                'iss', [$item_id, $start, $end]
+                'iss' . $histBranchTypes, array_merge([$item_id, $start, $end], $histBranchParams)
             );
             
             $movementMap = [];

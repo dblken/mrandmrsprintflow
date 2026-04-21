@@ -12,14 +12,18 @@ class RollService {
     /**
      * Create a new roll record.
      */
-    public static function createRoll($itemId, $totalLength, $rollCode = null, $supplier = null, $widthFt = 0) {
+    public static function createRoll($itemId, $totalLength, $rollCode = null, $supplier = null, $widthFt = 0, $branchId = null) {
         global $conn;
-        
-        $sql = "INSERT INTO inv_rolls (item_id, roll_code, width_ft, total_length_ft, remaining_length_ft, status, supplier, received_at) 
-                VALUES (?, ?, ?, ?, ?, 'OPEN', ?, NOW())";
+
+        require_once __DIR__ . '/InventoryManager.php';
+        InventoryManager::ensureBranchScopedSchema();
+        $branchId = $branchId ?: InventoryManager::getCurrentBranchId();
+
+        $sql = "INSERT INTO inv_rolls (item_id, branch_id, roll_code, width_ft, total_length_ft, remaining_length_ft, status, supplier, received_at) 
+                VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?, NOW())";
         
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("isddds", $itemId, $rollCode, $widthFt, $totalLength, $totalLength, $supplier);
+        $stmt->bind_param("iisddds", $itemId, $branchId, $rollCode, $widthFt, $totalLength, $totalLength, $supplier);
         
         if ($stmt->execute()) {
             $id = $stmt->insert_id;
@@ -96,11 +100,14 @@ class RollService {
     /**
      * Get available rolls for an item.
      */
-    public static function getAvailableRolls($itemId) {
+    public static function getAvailableRolls($itemId, $branchId = null) {
+        require_once __DIR__ . '/InventoryManager.php';
+        InventoryManager::ensureBranchScopedSchema();
+        [$branchSql, $branchTypes, $branchParams] = InventoryManager::branchClause('branch_id', $branchId);
         return db_query(
-            "SELECT * FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' AND remaining_length_ft > 0 ORDER BY received_at ASC",
-            'i',
-            [$itemId]
+            "SELECT * FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' AND remaining_length_ft > 0{$branchSql} ORDER BY received_at ASC",
+            'i' . $branchTypes,
+            array_merge([$itemId], $branchParams)
         ) ?: [];
     }
 
@@ -116,7 +123,7 @@ class RollService {
      * @return array Details of deductions made from each roll
      * @throws Exception If insufficient roll inventory
      */
-    public static function deductFIFO($itemId, $totalLength, $refType = 'ADJUSTMENT', $refId = null, $notes = '') {
+    public static function deductFIFO($itemId, $totalLength, $refType = 'ADJUSTMENT', $refId = null, $notes = '', $branchId = null) {
         global $conn;
 
         $totalLength = abs((float)$totalLength);
@@ -125,7 +132,7 @@ class RollService {
         }
 
         // 1. Get available rolls ordered by oldest first (FIFO)
-        $rolls = self::getAvailableRolls($itemId);
+        $rolls = self::getAvailableRolls($itemId, $branchId);
 
         // 2. Safety check: ensure enough total stock across all rolls
         $totalAvailable = 0;
@@ -196,7 +203,10 @@ class RollService {
                     $refType,
                     $refId,
                     $rollId,
-                    $ledgerNote
+                    $ledgerNote,
+                    null,
+                    null,
+                    $branchId
                 );
 
                 $deductions[] = [

@@ -5,9 +5,13 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 header('Content-Type: application/json; charset=utf-8');
+
+$branchCtx = init_branch_context(true);
+$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
 
 $item_id = (int)($_GET['item_id'] ?? 0);
 if (!$item_id) {
@@ -31,7 +35,15 @@ function fmtQty($val, $isPcs) {
 // Rolls (for roll-based items)
 $rolls = [];
 if ($item['track_by_roll']) {
-    $rollRows = db_query("SELECT id, roll_code, total_length_ft as original_length, remaining_length_ft as current_length FROM inv_rolls WHERE item_id = ? AND status = 'OPEN' ORDER BY received_at ASC", 'i', [$item_id]);
+    [$rollBranchSql, $rollBranchTypes, $rollBranchParams] = InventoryManager::branchClause('branch_id', $branchId);
+    $rollRows = db_query(
+        "SELECT id, roll_code, total_length_ft as original_length, remaining_length_ft as current_length
+         FROM inv_rolls
+         WHERE item_id = ? AND status = 'OPEN'{$rollBranchSql}
+         ORDER BY received_at ASC",
+        'i' . $rollBranchTypes,
+        array_merge([$item_id], $rollBranchParams)
+    );
     foreach ($rollRows ?: [] as $r) {
         $rolls[] = [
             'roll_code'       => $r['roll_code'],
@@ -42,7 +54,15 @@ if ($item['track_by_roll']) {
 }
 
 // Ledger (recent 10 with running balance) - fetch chronological, build balance
-$txnsAsc = db_query("SELECT id, direction, ref_type, quantity, transaction_date FROM inventory_transactions WHERE item_id = ? ORDER BY transaction_date ASC, id ASC", 'i', [$item_id]) ?: [];
+[$txnBranchSql, $txnBranchTypes, $txnBranchParams] = InventoryManager::branchClause('branch_id', $branchId);
+$txnsAsc = db_query(
+    "SELECT id, direction, ref_type, quantity, transaction_date
+     FROM inventory_transactions
+     WHERE item_id = ?{$txnBranchSql}
+     ORDER BY transaction_date ASC, id ASC",
+    'i' . $txnBranchTypes,
+    array_merge([$item_id], $txnBranchParams)
+) ?: [];
 $running = 0;
 $ledgerAsc = [];
 foreach ($txnsAsc as $t) {
@@ -84,7 +104,13 @@ $usageValues = [];
 for ($i = 6; $i >= 0; $i--) {
     $d = date('Y-m-d', strtotime("-$i days"));
     $usageLabels[] = date('M j', strtotime($d));
-    $row = db_query("SELECT COALESCE(SUM(quantity), 0) as outq FROM inventory_transactions WHERE item_id = ? AND direction = 'OUT' AND DATE(transaction_date) = ?", 'is', [$item_id, $d]);
+    $row = db_query(
+        "SELECT COALESCE(SUM(quantity), 0) as outq
+         FROM inventory_transactions
+         WHERE item_id = ? AND direction = 'OUT' AND DATE(transaction_date) = ?{$txnBranchSql}",
+        'is' . $txnBranchTypes,
+        array_merge([$item_id, $d], $txnBranchParams)
+    );
     $usageValues[] = (float)($row[0]['outq'] ?? 0);
 }
 $usage_stats = ['labels' => $usageLabels, 'values' => $usageValues];

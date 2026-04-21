@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -12,6 +14,8 @@ if (!isset($base_path)) {
     $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 }
 $current_user = get_logged_in_user();
+$branchCtx = init_branch_context(true);
+$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
 $page_title = 'Inventory Items - Admin';
 
 // Get parameters
@@ -122,7 +126,7 @@ if ($stock_status) {
     // Add stock info and apply stock status filter
     $filtered_items = [];
     foreach ($all_items as $item) {
-        $item['current_stock'] = InventoryManager::getStockOnHand($item['id']);
+        $item['current_stock'] = InventoryManager::getStockOnHand($item['id'], $branchId);
         
         $stock = (float)$item['current_stock'];
         $reorder = (float)$item['reorder_level'];
@@ -160,7 +164,7 @@ if ($stock_status) {
     
     // Add stock info
     foreach ($items as &$item) {
-        $item['current_stock'] = InventoryManager::getStockOnHand($item['id']);
+        $item['current_stock'] = InventoryManager::getStockOnHand($item['id'], $branchId);
     }
     unset($item);
 }
@@ -223,7 +227,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
+    $p = array_filter(['branch_id'=>$branchId, 'category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $p);
     $pagination_html = ob_get_clean();
 
@@ -252,6 +256,7 @@ if (isset($_GET['ajax'])) {
     <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <?php render_branch_css(); ?>
     <style>
         [x-cloak] { display: none !important; }
         :root {
@@ -562,7 +567,8 @@ if (isset($_GET['ajax'])) {
         <header>
             <h1 class="page-title">Inventory Master</h1>
             <div style="display: flex; gap: 12px;">
-                <a href="inv_transactions_ledger" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
+                <?php render_branch_selector($branchCtx); ?>
+                <a href="inv_transactions_ledger.php?branch_id=<?php echo $branchId; ?>" class="btn-secondary pf-inventory-mobile-hide" style="display:inline-flex; align-items:center; gap:8px; padding: 12px 20px; border-radius: 12px;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     Transaction Ledger
                 </a>
@@ -757,7 +763,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="itemsPagination">
                     <?php 
-                        $p = array_filter(['category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
+                        $p = array_filter(['branch_id'=>$branchId, 'category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
                         echo render_pagination($page, $total_pages, $p); 
                     ?>
                 </div>
@@ -1595,7 +1601,11 @@ if (isset($_GET['ajax'])) {
 
     function applyFilters(reset = false) {
         if (reset) {
-            window.location.href = window.location.pathname;
+            const resetUrl = new URL(window.location.href);
+            const branch = resetUrl.searchParams.get('branch_id');
+            resetUrl.search = '';
+            if (branch) resetUrl.searchParams.set('branch_id', branch);
+            window.location.href = resetUrl.pathname + (resetUrl.search ? '?' + resetUrl.searchParams.toString() : '');
         } else {
             fetchUpdatedTable({ page: 1 });
         }
@@ -1704,8 +1714,9 @@ if (isset($_GET['ajax'])) {
         document.getElementById('scTrackType').textContent = item.track_by_roll == 1 ? 'Roll-Based' : 'Standard';
         document.getElementById('scLastUpdated').textContent = item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '\u2014';
         
-        document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?item_id=${item.id}`;
-        const ledgerUrl = `inv_transactions_ledger.php?item_id=${item.id}`;
+        const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo $branchId; ?>';
+        document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`;
+        const ledgerUrl = `inv_transactions_ledger.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`;
         const seeAllLink = document.getElementById('scSeeAllLedgerLink');
         if (seeAllLink) { seeAllLink.href = ledgerUrl; }
         document.getElementById('stockCardModal').style.display = 'flex';
@@ -1713,7 +1724,8 @@ if (isset($_GET['ajax'])) {
         document.getElementById('scLedgerBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#9ca3af;">Loading...</td></tr>';
 
         try {
-            const res = await fetch(ADMIN_API_BASE + `inventory_stock_card_api.php?item_id=${item.id}`);
+            const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo $branchId; ?>';
+            const res = await fetch(ADMIN_API_BASE + `inventory_stock_card_api.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`);
             const data = await res.json();
             if (data.success) {
                 document.getElementById('scRoll').textContent = (data.rolls || []).length;
