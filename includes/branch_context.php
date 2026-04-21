@@ -150,7 +150,10 @@ function init_branch_context(bool $page_requires_branch = false): array {
         $_SESSION['selected_branch_id'] = $switch;
     }
 
-    $raw_selected = $_SESSION['selected_branch_id'] ?? 'all';
+    $default_selected = ($role === 'Admin')
+        ? printflow_get_default_admin_branch_id()
+        : 'all';
+    $raw_selected = $_SESSION['selected_branch_id'] ?? $default_selected;
     $selected = normalize_selected_branch($raw_selected, $allowed, $page_requires_branch);
     $_SESSION['selected_branch_id'] = $selected;
 

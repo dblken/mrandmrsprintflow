@@ -162,6 +162,61 @@ function get_logged_in_user() {
 }
 
 /**
+ * Resolve the default admin branch.
+ * Prefers an active Cabuyao branch because it is the main branch,
+ * then falls back to the first active branch, then branch id 1.
+ *
+ * @return int
+ */
+function printflow_get_default_admin_branch_id(): int {
+    static $cached_branch_id = null;
+    if ($cached_branch_id !== null) {
+        return $cached_branch_id;
+    }
+
+    try {
+        $match = db_query(
+            "SELECT id
+             FROM branches
+             WHERE status != 'Archived'
+               AND (
+                   LOWER(branch_name) LIKE '%cabuyao%'
+                   OR LOWER(city) LIKE '%cabuyao%'
+                   OR LOWER(address) LIKE '%cabuyao%'
+               )
+             ORDER BY
+                 CASE
+                     WHEN LOWER(branch_name) = 'cabuyao branch' THEN 0
+                     WHEN LOWER(branch_name) = 'cabuyao' THEN 1
+                     WHEN LOWER(branch_name) LIKE 'cabuyao%' THEN 2
+                     ELSE 3
+                 END,
+                 id ASC
+             LIMIT 1"
+        );
+        $matched_branch_id = (int)($match[0]['id'] ?? 0);
+        if ($matched_branch_id > 0) {
+            $cached_branch_id = $matched_branch_id;
+            return $cached_branch_id;
+        }
+
+        $fallback = db_query(
+            "SELECT id
+             FROM branches
+             WHERE status != 'Archived'
+             ORDER BY id ASC
+             LIMIT 1"
+        );
+        $fallback_branch_id = (int)($fallback[0]['id'] ?? 0);
+        $cached_branch_id = $fallback_branch_id > 0 ? $fallback_branch_id : 1;
+        return $cached_branch_id;
+    } catch (Exception $e) {
+        $cached_branch_id = 1;
+        return $cached_branch_id;
+    }
+}
+
+/**
  * Login user (Admin/Staff)
  * @param string $email
  * @param string $password
@@ -207,10 +262,8 @@ function login_user($email, $password, $remember_me = false) {
     if ($user['role'] === 'Manager' || $user['role'] === 'Staff') {
         $_SESSION['selected_branch_id'] = $user['branch_id'] ?? null;
     } else {
-        // Admin: leave selected_branch_id alone (keep previous or default 'all')
-        if (!isset($_SESSION['selected_branch_id'])) {
-            $_SESSION['selected_branch_id'] = 'all';
-        }
+        // Admin: default to the main Cabuyao branch on login.
+        $_SESSION['selected_branch_id'] = printflow_get_default_admin_branch_id();
     }
 
     // Determine redirect based on role and status
