@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
+require_once __DIR__ . '/../includes/reports_dashboard_queries.php';
 
 // Only Managers allowed here
 require_role('Manager');
@@ -109,6 +110,79 @@ try {
     ) ?: [];
 } catch (Exception $e) { $order_status = []; }
 
+// ── Sales by Product Category ──────────────────────────────────
+try {
+    [$bSqlFrag_cs, $bT_cs, $bP_cs] = branch_where_parts('o', $branchId);
+    $category_sales = db_query(
+        "SELECT p.category, COUNT(oi.order_item_id) as items_sold, SUM(oi.quantity * oi.unit_price) as total
+         FROM order_items oi
+         JOIN products p ON oi.product_id = p.product_id
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.payment_status = 'Paid' {$bSqlFrag_cs}
+         GROUP BY p.category ORDER BY total DESC",
+        $bT_cs ?: null, $bP_cs ?: null
+    ) ?: [];
+} catch (Exception $e) { $category_sales = []; }
+
+// ── Top Customers (by spending) ────────────────────────────────
+try {
+    [$bSqlFrag_c, $bT_c, $bP_c] = branch_where_parts('o', $branchId);
+    [$bSqlFrag_j, $bT_j, $bP_j] = branch_where_parts('j', $branchId);
+    $types = ($bT_c ?: '') . ($bT_j ?: '');
+    $params = array_merge($bP_c ?: [], $bP_j ?: []);
+    $top_customers = db_query(
+        "SELECT customer_name as name, COUNT(id) as orders, SUM(spent) as spent
+         FROM (
+             SELECT CONCAT(c.first_name, ' ', c.last_name) COLLATE utf8mb4_unicode_ci as customer_name, o.order_id as id, o.total_amount as spent
+             FROM customers c JOIN orders o ON c.customer_id = o.customer_id
+             WHERE o.payment_status = 'Paid' {$bSqlFrag_c}
+             UNION ALL
+             SELECT j.customer_name COLLATE utf8mb4_unicode_ci, j.id, j.amount_paid as spent
+             FROM job_orders j
+             WHERE j.payment_status = 'PAID' AND j.customer_name IS NOT NULL AND j.customer_name != '' {$bSqlFrag_j}
+         ) as all_orders
+         GROUP BY customer_name ORDER BY spent DESC LIMIT 5",
+        $types ?: null, $params ?: null
+    ) ?: [];
+} catch (Exception $e) { $top_customers = []; }
+
+// ── Top Selling Products (by quantity sold) ────────────────────
+try {
+    [$bSqlFrag_tp, $bT_tp, $bP_tp] = branch_where_parts('o', $branchId);
+    $top_products = db_query(
+        "SELECT p.name as product_name, p.sku,
+                SUM(oi.quantity) as qty_sold,
+                SUM(oi.quantity * oi.unit_price) as revenue
+         FROM order_items oi
+         JOIN products p ON oi.product_id = p.product_id
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.payment_status = 'Paid' {$bSqlFrag_tp}
+         GROUP BY p.product_id, p.name, p.sku
+         ORDER BY qty_sold DESC LIMIT 5",
+        $bT_tp ?: null, $bP_tp ?: null
+    ) ?: [];
+} catch (Exception $e) { $top_products = []; }
+
+try {
+    $top_products_full = pf_reports_top_products_merged('', '', $branchId, 10);
+} catch (Exception $e) {
+    $top_products_full = [];
+}
+
+$customer_locations = [];
+try {
+    [$b,$bt,$bp] = branch_where_parts('o', $branchId);
+    $customer_locations = db_query(
+        "SELECT TRIM(c.city) as city, COUNT(DISTINCT o.order_id) as orders
+         FROM orders o JOIN customers c ON o.customer_id=c.customer_id
+         WHERE o.order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND c.city IS NOT NULL AND TRIM(c.city) != ''{$b}
+         GROUP BY c.city HAVING LENGTH(TRIM(c.city)) > 2
+         ORDER BY orders DESC LIMIT 8",
+        $bt ?: null, $bp ?: null
+    ) ?: [];
+} catch (Exception $e) {}
+
 $statusColors = [
     // Keep this in sync with Admin Reports status donut palette.
     'Completed'            => '#22c55e',
@@ -179,6 +253,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <?php render_branch_css(); ?>
     <style>
@@ -225,6 +300,22 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         .stock-bar-fill { height:100%; border-radius:3px; }
         .stock-bar-fill.danger { background:#ef4444; }
         .stock-bar-fill.warning { background:#f59e0b; }
+        .pf-wide-chart-canvas { position:relative; width:100%; height:100%; min-width:0; }
+        .pf-wide-chart-canvas canvas { width:100% !important; height:100% !important; display:block; }
+        .loc-list { display:flex; flex-direction:column; gap:12px; }
+        .loc-row { display:flex; flex-direction:column; gap:6px; }
+        .loc-header { display:flex; justify-content:space-between; align-items:center; }
+        .loc-name { display:flex; align-items:center; gap:8px; flex:1; }
+        .loc-rank { font-size:11px; font-weight:800; color:#9ca3af; }
+        .loc-city { font-size:13px; font-weight:600; color:#1f2937; }
+        .loc-value { font-size:13px; font-weight:700; color:#0f172a; }
+        .loc-bar-wrap { width:100%; height:24px; background:#f1f5f9; border-radius:6px; overflow:hidden; }
+        .loc-bar { height:100%; background:linear-gradient(90deg, #00232b 0%, #0F4C5C 50%, #53C5E0 100%); border-radius:6px; }
+        .products-chart { height:300px; }
+        .performer-toggle { display:flex; gap:4px; background:#f3f4f6; padding:4px; border-radius:8px; }
+        .performer-btn { padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s; color:#6b7280; background:transparent; }
+        .performer-btn.is-active { background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b; }
+        .performer-panel[hidden] { display:none !important; }
     </style>
 </head>
 <body>
@@ -269,7 +360,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             <!-- Sales Chart + Order Status -->
             <div class="dash-grid">
                 <!-- Sales Revenue -->
-                <div class="dash-card">
+                <div class="dash-card dash-full">
                     <div class="dash-card-title chart-header-row">
                         <span class="chart-title-nowrap">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#53C5E0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
@@ -306,7 +397,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                             <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                             <span>No sales data for this period</span>
                         </div>
-                        <canvas id="salesChart"></canvas>
+                        <div class="pf-wide-chart-canvas"><canvas id="salesChart"></canvas></div>
                     </div>
                 </div>
 
@@ -316,7 +407,8 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Order Status Breakdown
                     </div>
-                    <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;"><canvas id="statusChart"></canvas></div>
+                    <div id="status-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
                 </div>
             </div>
 
@@ -398,6 +490,112 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                     <?php endif; ?>
                 </div>
             </div>
+
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Top Customer Locations
+                    </div>
+                    <?php if (!empty($customer_locations)): ?>
+                    <?php $max_orders = max(array_column($customer_locations, 'orders')); ?>
+                    <div class="loc-list">
+                        <?php foreach (array_slice($customer_locations, 0, 5) as $index => $loc): $pct = $max_orders > 0 ? ($loc['orders'] / $max_orders) * 100 : 0; ?>
+                        <div class="loc-row">
+                            <div class="loc-header">
+                                <div class="loc-name"><span class="loc-rank">#<?php echo $index + 1; ?></span><span class="loc-city"><?php echo htmlspecialchars(trim($loc['city'])); ?></span></div>
+                                <div class="loc-value"><?php echo $loc['orders']; ?></div>
+                            </div>
+                            <div class="loc-bar-wrap"><div class="loc-bar" style="width:<?php echo $pct; ?>%;"></div></div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php else: ?>
+                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No location data yet</div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="dash-card">
+                    <div class="dash-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
+                        Best Selling Services
+                    </div>
+                    <?php if (!empty($top_products_full)): ?>
+                    <div class="products-chart"><div id="productsChart"></div></div>
+                    <?php else: ?>
+                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product data</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                        Sales by Product Category
+                    </div>
+                    <?php if (!empty($category_sales)): ?>
+                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;"><canvas id="categoryChart"></canvas></div>
+                    <div id="category-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
+                    <?php else: ?>
+                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product sales data yet</div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="dash-card">
+                    <div class="dash-card-title" style="justify-content: space-between;">
+                        <span style="display:flex; align-items:center; gap:8px;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                            Top Performers
+                        </span>
+                        <div class="performer-toggle">
+                            <button type="button" class="performer-btn is-active" data-perf-target="products">Products</button>
+                            <button type="button" class="performer-btn" data-perf-target="customers">Customers</button>
+                        </div>
+                    </div>
+                    <div class="performer-panel" data-perf-panel="products">
+                        <?php if (!empty($top_products)): ?>
+                        <table class="mini-table">
+                            <thead><tr><th>#</th><th>Product</th><th>Qty Sold</th><th style="text-align:right;">Revenue</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($top_products as $i => $tp): ?>
+                                <tr>
+                                    <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
+                                    <td style="font-weight:600;" title="<?php echo htmlspecialchars($tp['product_name']); ?>">
+                                        <?php echo mb_strlen($tp['product_name']) > 25 ? htmlspecialchars(mb_substr($tp['product_name'], 0, 25)) . '...' : htmlspecialchars($tp['product_name']); ?>
+                                        <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($tp['sku'] ?? ''); ?></div>
+                                    </td>
+                                    <td><?php echo (int)$tp['qty_sold']; ?></td>
+                                    <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tp['revenue'], 2); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product sales data yet</div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="performer-panel" data-perf-panel="customers" hidden>
+                        <?php if (!empty($top_customers)): ?>
+                        <table class="mini-table">
+                            <thead><tr><th>#</th><th>Customer</th><th>Orders</th><th style="text-align:right;">Spent</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($top_customers as $i => $tc): ?>
+                                <tr>
+                                    <td style="font-weight:700; color:#9ca3af;"><?php echo $i + 1; ?></td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($tc['name']); ?></td>
+                                    <td><?php echo $tc['orders']; ?></td>
+                                    <td style="text-align:right; font-weight:700; color:#059669;">₱<?php echo number_format((float)$tc['spent'], 2); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No customer sales data yet</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 </div>
@@ -452,6 +650,10 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         if (window.__pfDashStatusChart) {
             try { window.__pfDashStatusChart.destroy(); } catch (e) {}
             window.__pfDashStatusChart = null;
+        }
+        if (window.__pfDashCategoryChart) {
+            try { window.__pfDashCategoryChart.destroy(); } catch (e) {}
+            window.__pfDashCategoryChart = null;
         }
     };
     window.printflowInitDashboardCharts = function () {
@@ -672,22 +874,112 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         }]
                     },
                     options: {
-                        responsive: true, maintainAspectRatio: false, cutout: '60%',
+                        responsive: true, maintainAspectRatio: false, cutout: '70%',
                         animation: doughnutAnim,
                         plugins: {
-                            legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } },
+                            legend: { display: false },
                             tooltip: { animation: { duration: 160 }, cornerRadius: 8 }
                         }
                     }
                 });
+                updateStatusLegend(statusLabels, statusValues, statusColorsResolved);
             });
         })();
         <?php endif; ?>
 
+        function updateStatusLegend(labels, counts, colors) {
+            var legendContainer = document.getElementById('status-legend');
+            if (!legendContainer) return;
+            var html = '';
+            labels.forEach(function(label, i) {
+                html += '<div style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">';
+                html += '<span style="width:10px; height:10px; border-radius:50%; background:' + colors[i] + ';"></span>';
+                html += '<span style="font-weight:600; color:#374151;">' + label + '</span>';
+                html += '</div>';
+            });
+            legendContainer.innerHTML = html;
+        }
+
+        <?php if (!empty($category_sales)): ?>
+        (function () {
+            var cv = document.getElementById('categoryChart');
+            var w = cv ? cv.parentElement : null;
+            var catColors = ['#00232b', '#53C5E0', '#0F4C5C', '#3498DB', '#6C5CE7', '#3A86A8', '#F39C12', '#2ECC71'];
+            var catLabels = <?php echo json_encode(array_map(fn($c) => $c['category'] ?? 'Uncategorized', $category_sales)); ?>;
+            bindWhenVisible(w, function () {
+                window.__pfDashCategoryChart = new Chart(cv.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: <?php echo json_encode(array_map(fn($c) => (float)$c['total'], $category_sales)); ?>,
+                            backgroundColor: catColors.slice(0, <?php echo count($category_sales); ?>),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        animation: doughnutAnim,
+                        plugins: { legend: { display: false }, tooltip: { animation: { duration: 160 }, cornerRadius: 8 } }
+                    }
+                });
+                var legendContainer = document.getElementById('category-legend');
+                if (legendContainer) {
+                    var html = '';
+                    catLabels.forEach(function(label, i) {
+                        html += '<div style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">';
+                        html += '<span style="width:10px; height:10px; border-radius:50%; background:' + catColors[i % catColors.length] + ';"></span>';
+                        html += '<span style="font-weight:600; color:#374151;">' + label + '</span>';
+                        html += '</div>';
+                    });
+                    legendContainer.innerHTML = html;
+                }
+            });
+        })();
+        <?php endif; ?>
+
+        <?php if (!empty($top_products_full)): ?>
+        (function () {
+            var el = document.getElementById('productsChart');
+            if (!el || typeof ApexCharts === 'undefined') return;
+            bindWhenVisible(el.parentElement, function () {
+                var chart = new ApexCharts(el, {
+                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                    series: [{ name: 'Quantity Sold', data: <?php echo json_encode(array_map(fn($p) => (int)$p['qty_sold'], array_slice($top_products_full, 0, 8))); ?> }],
+                    xaxis: {
+                        categories: <?php echo json_encode(array_map(fn($p) => mb_substr($p['product_name'], 0, 20), array_slice($top_products_full, 0, 8))); ?>,
+                        labels: { style: { fontSize: '11px' } }
+                    },
+                    yaxis: { labels: { maxWidth: 160, style: { fontSize: '11px' } } },
+                    colors: ['#00232b'],
+                    plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '64%' } },
+                    dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 700 } },
+                    grid: { borderColor: '#f3f4f6', padding: { left: 8, right: 12 } },
+                    tooltip: { theme: 'dark' }
+                });
+                chart.render();
+            });
+        })();
+        <?php endif; ?>
+
+        document.querySelectorAll('.performer-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var target = btn.getAttribute('data-perf-target');
+                document.querySelectorAll('.performer-btn').forEach(function (b) {
+                    b.classList.toggle('is-active', b === btn);
+                });
+                document.querySelectorAll('.performer-panel').forEach(function (panel) {
+                    panel.hidden = panel.getAttribute('data-perf-panel') !== target;
+                });
+            });
+        });
+
         (function attachDashboardChartLayout() {
             var mainEl = document.querySelector('.main-content');
             function runDashResize() {
-                ['__pfDashSalesChart', '__pfDashStatusChart'].forEach(function (k) {
+                ['__pfDashSalesChart', '__pfDashStatusChart', '__pfDashCategoryChart'].forEach(function (k) {
                     var c = window[k];
                     if (c && typeof c.resize === 'function') {
                         try { c.resize(); } catch (e) {}

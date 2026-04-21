@@ -2312,7 +2312,7 @@ $dashData = [
             </div>
 
             <!-- ══ BRANCH PERFORMANCE COMPARISON (Dual-Axis) ══════════════════ -->
-            <?php if (count($branch_perf) > 0): ?>
+            <?php if (!$is_manager && count($branch_perf) > 0): ?>
             <?php
                 $perf_revArr = array_map(fn($b) => (float)$b['revenue'], $branch_perf);
                 $maxRev = max(100, ...$perf_revArr);
