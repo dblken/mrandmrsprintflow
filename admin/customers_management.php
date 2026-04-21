@@ -6,8 +6,6 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/branch_context.php';
-require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -52,13 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verif
     exit;
 }
 
-$branchCtx = init_branch_context(false);
-$branchId  = $branchCtx['selected_branch_id'];
-$activeBranchOptions = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active' ORDER BY id ASC") ?: [];
-if (!empty($activeBranchOptions)) {
-    $branchCtx['branches_list'] = $activeBranchOptions;
-}
-
 $current_user = get_logged_in_user();
 $can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
 
@@ -80,14 +71,10 @@ $sort_by = $_GET['sort']    ?? 'newest';
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
-[$custBranchSql, $custBranchTypes, $custBranchParams] = ($branchId !== 'all')
-    ? branch_customers_belong_where_sql((int)$branchId, 'customers')
-    : ['', '', []];
-
 // Build query
-$sql = "SELECT * FROM customers WHERE 1=1" . $custBranchSql;
-$params = $custBranchParams;
-$types = $custBranchTypes;
+$sql = "SELECT * FROM customers WHERE 1=1";
+$params = [];
+$types = '';
 
 if (!empty($search)) {
     $search_term = '%' . $search . '%';
@@ -203,7 +190,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $pagination_params); 
     $pagination_html = ob_get_clean();
 
@@ -219,62 +206,29 @@ if (isset($_GET['ajax'])) {
 
 // ── KPI Queries ──────────────────────────────────────
 
-if ($branchId === 'all') {
-    // 1. Total Customers
-    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0);
+// 1. Total Customers
+$total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0);
 
-    // 2. New This Month
-    $new_this_month = (int)(db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0);
+// 2. New This Month
+$new_this_month = (int)(db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0);
 
-    // 3. Active (Last 30 Days)
-    $active_30_days = (int)(db_query("
-        SELECT COUNT(DISTINCT customer_id) as count FROM (
-            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-            UNION
-            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
-        ) active_customers
-    ")[0]['count'] ?? 0);
+// 3. Active (Last 30 Days)
+$active_30_days = (int)(db_query("
+    SELECT COUNT(DISTINCT customer_id) as count FROM (
+        SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        UNION
+        SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
+    ) active_customers
+")[0]['count'] ?? 0);
 
-    // 4. Average Spent per Customer
-    $total_revenue_stats = (float)(db_query("
-        SELECT COALESCE(SUM(amount), 0) as total FROM (
-            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
-            UNION ALL
-            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
-        ) rev
-    ")[0]['total'] ?? 0);
-} else {
-    $bid = (int)$branchId;
-    [$w, $t, $p] = branch_customers_belong_where_sql($bid, 'c');
-
-    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers c WHERE 1=1" . $w, $t, $p)[0]['count'] ?? 0);
-
-    $new_this_month = (int)(db_query(
-        "SELECT COUNT(*) as count FROM customers c WHERE MONTH(c.created_at) = MONTH(CURRENT_DATE()) AND YEAR(c.created_at) = YEAR(CURRENT_DATE())" . $w,
-        $t,
-        $p
-    )[0]['count'] ?? 0);
-
-    $active_30_days = (int)(db_query(
-        "SELECT COUNT(DISTINCT customer_id) as count FROM (
-            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND branch_id = ?
-            UNION
-            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL AND branch_id = ?
-        ) active_customers",
-        'ii',
-        [$bid, $bid]
-    )[0]['count'] ?? 0);
-
-    $total_revenue_stats = (float)(db_query(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM (
-            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid' AND branch_id = ?
-            UNION ALL
-            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL AND branch_id = ?
-        ) rev",
-        'ii',
-        [$bid, $bid]
-    )[0]['total'] ?? 0);
-}
+// 4. Average Spent per Customer
+$total_revenue_stats = (float)(db_query("
+    SELECT COALESCE(SUM(amount), 0) as total FROM (
+        SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
+        UNION ALL
+        SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
+    ) rev
+")[0]['total'] ?? 0);
 
 $avg_spent = $total_customers > 0 ? ($total_revenue_stats / $total_customers) : 0;
 
@@ -288,7 +242,6 @@ $page_title = 'Customers Management - Admin';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="<?php echo $base_path; ?>/public/assets/css/output.css">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
-    <?php render_branch_css(); ?>
     <style>
         /* KPI Row - matches dashboard page */
         .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
@@ -563,7 +516,6 @@ $page_title = 'Customers Management - Admin';
         <header>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
                 <h1 class="page-title">Customers Management</h1>
-                <?php render_branch_selector($branchCtx); ?>
             </div>
         </header>
 
@@ -572,6 +524,7 @@ $page_title = 'Customers Management - Admin';
 
             function buildFilterURL(overrides = {}, isAjax = false) {
                 const params = new URLSearchParams(window.location.search);
+                params.delete('branch_id');
                 const fields = {
                     search: () => document.getElementById('fp_search')?.value || '',
                     date_from: () => document.getElementById('fp_date_from')?.value || '',
@@ -620,10 +573,7 @@ $page_title = 'Customers Management - Admin';
 
             function applyFilters(resetAll = false) {
                 if (resetAll) {
-                    const base = window.location.pathname;
-                    const branch = new URLSearchParams(window.location.search).get('branch_id');
-                    const target = base + (branch ? '?branch_id=' + encodeURIComponent(branch) : '');
-                    window.location.href = target;
+                    window.location.href = window.location.pathname;
                 } else { fetchUpdatedTable(); }
             }
 
@@ -1027,7 +977,7 @@ $page_title = 'Customers Management - Admin';
                 </div>
                 <div id="customersPagination">
                     <?php 
-                    $pagination_params = array_filter(['branch_id'=>$branchId, 'search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
+                    $pagination_params = array_filter(['search'=>$search, 'date_from'=>$date_from, 'date_to'=>$date_to, 'status_filter'=>$status_filter, 'sort'=>$sort_by], function($v) { return $v !== null && $v !== ''; });
                     echo render_pagination($page, $total_pages, $pagination_params); 
                     ?>
                 </div>
