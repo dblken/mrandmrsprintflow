@@ -5,11 +5,9 @@
  */
 header('Content-Type: application/json');
 
-$cfg_file = __DIR__ . '/../../../includes/vapid_config.php';
-$pub = '';
-if (file_exists($cfg_file)) {
-    $cfg = require $cfg_file;
-    $pub = $cfg['public_key'] ?? '';
-}
+require_once __DIR__ . '/../../../includes/vapid_bootstrap.php';
+
+$cfg = printflow_vapid_config();
+$pub = $cfg['public_key'] ?? '';
 
 echo json_encode(['public_key' => $pub]);
