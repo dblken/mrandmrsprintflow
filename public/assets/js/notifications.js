@@ -205,12 +205,12 @@
 
         if (state === 'unsupported') {
             btn.textContent = 'Notifications unsupported';
-            btn.disabled = true;
+            btn.disabled = false;
             return;
         }
         if (state === 'blocked') {
             btn.textContent = 'Notifications blocked';
-            btn.disabled = true;
+            btn.disabled = false;
             return;
         }
         if (state === 'enabled') {
@@ -247,6 +247,10 @@
 
         btn.addEventListener('click', function() {
             var state = btn.dataset.state || 'disabled';
+            if (state === 'unsupported') {
+                alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
+                return;
+            }
             if (state === 'blocked') {
                 alert('Notifications are blocked in your browser settings. Please allow them to enable alerts.');
                 return;
