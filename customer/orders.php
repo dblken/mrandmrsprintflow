@@ -1036,6 +1036,15 @@ function escIM(str) {
     const activeTab = '<?php echo addslashes($active_tab); ?>';
     if (window.__ordersPollingInterval) return;
 
+    function notifyNewOrder(orderId) {
+        const lastNotified = parseInt(localStorage.getItem('pf_last_order_notice_id') || '0', 10);
+        if (orderId <= lastNotified) return;
+        localStorage.setItem('pf_last_order_notice_id', String(orderId));
+        if (typeof showToast === 'function') {
+            showToast(`Order #${orderId} placed successfully! Our team will review and price your order shortly.`);
+        }
+    }
+
     const statusMap = {
         'Pending': 'st-pending', 'Pending Approval': 'st-pending', 'Pending Review': 'st-pending',
         'Approved': 'st-approved', 'To Pay': 'st-pending', 'To Verify': 'st-pending',
@@ -1053,10 +1062,12 @@ function escIM(str) {
             const now = Date.now();
             const cards = Array.from(document.querySelectorAll('.ct-order-card'));
             const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
-            const hasNewOrder = data.orders.some(order => !existingIds.has(order.order_id));
+            const newOrder = data.orders.find(order => !existingIds.has(order.order_id));
+            const hasNewOrder = Boolean(newOrder);
             if (hasNewOrder && now - lastReloadAt > 3000) {
+                notifyNewOrder(newOrder.order_id);
                 lastReloadAt = now;
-                window.location.reload();
+                setTimeout(() => { window.location.reload(); }, 1200);
                 return;
             }
             data.orders.forEach(order => {
@@ -1084,7 +1095,8 @@ function escIM(str) {
             });
         });
     }
-    window.__ordersPollingInterval = setInterval(poll, 8000);
+    poll();
+    window.__ordersPollingInterval = setInterval(poll, 6000);
 })();
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeItemsModal(); });
