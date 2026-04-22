@@ -773,11 +773,11 @@ if ($initials === '') {
                 <?php else: ?>
                     <a href="#" data-auth-modal="login" class="font-medium transition-colors duration-200" style="color:inherit;">Login</a>
                     <a href="#" data-auth-modal="register" class="btn-gradient-primary pf-auth-cta pf-register-cta">Register</a>
+                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app" class="pf-auth-cta" style="display:none;align-items:center;gap:0.45rem;white-space:nowrap;">
+                        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Install App
+                    </button>
                 <?php endif; ?>
-                <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app" class="pf-auth-cta" style="display:none;align-items:center;gap:0.45rem;white-space:nowrap;">
-                    <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Install App
-                </button>
 
             </div>
         </div>

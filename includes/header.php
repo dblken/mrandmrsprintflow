@@ -154,6 +154,36 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
         .pwa-install-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.8); background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
         .pwa-install-btn:hover { color: #53C5E0; border-color: #53C5E0; background: rgba(83,197,224,0.05); }
         .pwa-install-btn.hidden { display: none !important; }
+        .modal,
+        .modal-overlay,
+        .modal-backdrop,
+        .modal-content,
+        .modal-panel,
+        .modal-box,
+        .auth-modal,
+        .cart-info-modal-card,
+        [role="dialog"] {
+            min-width: 0;
+        }
+        .modal *:not(svg):not(path),
+        .modal-overlay *:not(svg):not(path),
+        .modal-backdrop *:not(svg):not(path),
+        .modal-content *:not(svg):not(path),
+        .modal-panel *:not(svg):not(path),
+        .modal-box *:not(svg):not(path),
+        .auth-modal *:not(svg):not(path),
+        .cart-info-modal-card *:not(svg):not(path),
+        [role="dialog"] *:not(svg):not(path) {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .modal-content [style*="white-space:nowrap"],
+        .modal-panel [style*="white-space:nowrap"],
+        .modal-box [style*="white-space:nowrap"],
+        [role="dialog"] [style*="white-space:nowrap"] {
+            white-space: normal !important;
+        }
         /* Landing-page nav needs flex layout too */
         #main-header nav > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
         #main-header nav > div > div:last-child { display: flex; align-items: center; gap: 1rem; }

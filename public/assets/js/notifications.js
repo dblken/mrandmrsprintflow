@@ -7,12 +7,14 @@
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
     var PUSH_PROMPT_HIDE_KEY   = 'pf_push_prompt_hide_until';
+    var TOAST_DEDUPE_WINDOW_MS = 15000;
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
     var pollTimer   = null;
     var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
+    var recentToastMap = {};
 
     /* ── Export Early ────────────────────────────────────────────────────── */
     // Using simple var to ensure global access without modern scoping issues
@@ -705,6 +707,19 @@
     }
 
     function showToast(title, body, url) {
+        var toastKey = [String(body || ''), String(url || ''), String(title || '')].join('|');
+        var now = Date.now();
+        var recentKeys = Object.keys(recentToastMap);
+        for (var r = 0; r < recentKeys.length; r++) {
+            if ((now - recentToastMap[recentKeys[r]]) > TOAST_DEDUPE_WINDOW_MS) {
+                delete recentToastMap[recentKeys[r]];
+            }
+        }
+        if (recentToastMap[toastKey] && (now - recentToastMap[toastKey]) < TOAST_DEDUPE_WINDOW_MS) {
+            return;
+        }
+        recentToastMap[toastKey] = now;
+
         var container = document.getElementById('pf-toast-container');
         if (!container) {
             container = document.createElement('div');

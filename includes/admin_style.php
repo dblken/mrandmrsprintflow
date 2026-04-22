@@ -1762,6 +1762,29 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
             max-width: 100% !important;
             height: auto;
         }
+        .modal-content,
+        .modal-panel,
+        .modal-box,
+        .details-modal-panel,
+        .details-modal-content {
+            min-width: 0 !important;
+        }
+        .modal-content *:not(svg):not(path),
+        .modal-panel *:not(svg):not(path),
+        .modal-box *:not(svg):not(path),
+        .details-modal-panel *:not(svg):not(path),
+        .details-modal-content *:not(svg):not(path) {
+            min-width: 0 !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+        }
+        .modal-content [style*="white-space:nowrap"],
+        .modal-panel [style*="white-space:nowrap"],
+        .modal-box [style*="white-space:nowrap"],
+        .details-modal-panel [style*="white-space:nowrap"],
+        .details-modal-content [style*="white-space:nowrap"] {
+            white-space: normal !important;
+        }
         .branch-dropdown,
         .sort-dropdown,
         .export-dropdown-wide,
