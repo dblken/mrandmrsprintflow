@@ -97,7 +97,7 @@
     }
 
     var SW_PATH                = buildAppUrl('public/sw.js');
-    var SW_SCOPE               = buildAppUrl('public') + '/';
+    var SW_SCOPE               = buildAppUrl('') || '/';
     var SW_REGISTER_PATH       = buildAppUrl('public/sw.php');
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
     var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
@@ -111,9 +111,12 @@
     function ensureServiceWorker(isUserAction) {
         if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
 
-        return navigator.serviceWorker.getRegistration().then(function(reg) {
+        return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
             if (reg) return reg;
-            return navigator.serviceWorker.register(SW_REGISTER_PATH, { updateViaCache: 'none' });
+            return navigator.serviceWorker.register(SW_REGISTER_PATH, {
+                scope: SW_SCOPE,
+                updateViaCache: 'none'
+            });
         }).catch(function(err) {
             if (isUserAction) {
                 alert('Service worker registration failed: ' + (err && err.message ? err.message : 'unknown error'));
@@ -143,7 +146,17 @@
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify(payload)
-        }).catch(function() {});
+        }).then(function(res) {
+            if (!res.ok) {
+                throw new Error('Subscription request failed with status ' + res.status);
+            }
+            return res.json().catch(function() { return {}; });
+        }).then(function(data) {
+            if (data && data.success === false) {
+                throw new Error(data.error || 'Subscription request failed');
+            }
+            return data || {};
+        });
     }
 
     function unsubscribeFromPush() {
@@ -180,8 +193,9 @@
                 }
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
-                        sendSubscription(existing, 'subscribe');
-                        return existing;
+                        return sendSubscription(existing, 'subscribe').then(function() {
+                            return existing;
+                        });
                     }
 
                     if (isUserAction) {
@@ -212,14 +226,20 @@
                                 userVisibleOnly: true,
                                 applicationServerKey: urlB64ToUint8Array(pubKey)
                             }).then(function(sub) {
-                                sendSubscription(sub, 'subscribe');
-                                return sub;
+                                return sendSubscription(sub, 'subscribe').then(function() {
+                                    return sub;
+                                });
                             });
                         });
                     });
                 });
             })
-            .catch(function() { return null; })
+            .catch(function(err) {
+                if (isUserAction) {
+                    alert('Notification setup failed: ' + (err && err.message ? err.message : 'unknown error'));
+                }
+                return null;
+            })
             .finally(function() {
                 if (watchdog) clearTimeout(watchdog);
             });

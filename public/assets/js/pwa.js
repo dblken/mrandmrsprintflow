@@ -8,6 +8,7 @@ if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
     window.__pfPwaRegistered = true;
     window.addEventListener('load', () => {
         navigator.serviceWorker.register((window.PFConfig?.basePath || '') + '/public/sw.php', {
+            scope: (window.PFConfig?.basePath || '') + '/',
             updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
         })
             .then((registration) => {
