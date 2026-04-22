@@ -6,6 +6,7 @@
     var POLL_INTERVAL_HIDDEN   = 60000;
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
+    var PUSH_PROMPT_HIDE_KEY   = 'pf_push_prompt_hide_until';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
@@ -180,17 +181,13 @@
 
         var watchdog = null;
         if (isUserAction) {
-            alert('Starting push setup...');
             watchdog = setTimeout(function() {
-                alert('Push setup is taking too long. Please check your internet and try again.');
+                showToast('Still working', 'Push setup is taking longer than expected. Please keep this page open a bit longer.');
             }, 6000);
         }
 
         return ensureServiceWorker(isUserAction)
             .then(function(reg) {
-                if (isUserAction && reg && reg.scope) {
-                    alert('Service worker scope: ' + reg.scope);
-                }
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
                         return sendSubscription(existing, 'subscribe').then(function() {
@@ -198,9 +195,6 @@
                         });
                     }
 
-                    if (isUserAction) {
-                        alert('Fetching VAPID key...');
-                    }
                     return fetchVapidPublicKey().then(function(pubKey) {
                         if (!pubKey) {
                             if (isUserAction) {
@@ -209,9 +203,6 @@
                             return null;
                         }
 
-                        if (isUserAction) {
-                            alert('Requesting permission...');
-                        }
                         return Notification.requestPermission().then(function(permission) {
                             if (permission !== 'granted') {
                                 if (isUserAction && permission === 'denied') {
@@ -227,6 +218,7 @@
                                 applicationServerKey: urlB64ToUint8Array(pubKey)
                             }).then(function(sub) {
                                 return sendSubscription(sub, 'subscribe').then(function() {
+                                    dismissPushPrompt(false);
                                     return sub;
                                 });
                             });
@@ -255,16 +247,156 @@
         }
 
         if (Notification.permission === 'default') {
-            try {
-                var asked = localStorage.getItem(PERM_ASKED_KEY);
-                if (!asked) {
-                    localStorage.setItem(PERM_ASKED_KEY, '1');
-                    subscribeToPush(false);
-                }
-            } catch (e) {
-                subscribeToPush(false);
-            }
+            showPushPrompt();
         }
+    }
+
+    function isStandaloneApp() {
+        try {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function shouldShowPushPrompt() {
+        if (!isPushSupported()) return false;
+        if (getUserId() <= 0) return false;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'default') return false;
+
+        try {
+            var hideUntil = parseInt(localStorage.getItem(PUSH_PROMPT_HIDE_KEY) || '0', 10);
+            if (hideUntil && hideUntil > Date.now()) return false;
+        } catch (e) {}
+
+        return true;
+    }
+
+    function getPushPromptElement() {
+        return document.getElementById('pf-push-prompt');
+    }
+
+    function dismissPushPrompt(remember) {
+        var prompt = getPushPromptElement();
+        if (prompt && prompt.parentNode) {
+            prompt.parentNode.removeChild(prompt);
+        }
+
+        if (remember) {
+            try {
+                localStorage.setItem(PUSH_PROMPT_HIDE_KEY, String(Date.now() + (24 * 60 * 60 * 1000)));
+            } catch (e) {}
+        } else {
+            try {
+                localStorage.removeItem(PUSH_PROMPT_HIDE_KEY);
+            } catch (e) {}
+        }
+    }
+
+    function showPushPrompt() {
+        if (!shouldShowPushPrompt()) {
+            dismissPushPrompt(false);
+            return;
+        }
+
+        var existing = getPushPromptElement();
+        if (existing) return;
+        if (!document.body) return;
+
+        var prompt = document.createElement('section');
+        prompt.id = 'pf-push-prompt';
+        prompt.setAttribute('role', 'dialog');
+        prompt.setAttribute('aria-live', 'polite');
+        prompt.style.position = 'fixed';
+        prompt.style.right = '20px';
+        prompt.style.bottom = '20px';
+        prompt.style.width = 'min(360px, calc(100vw - 24px))';
+        prompt.style.maxWidth = 'calc(100vw - 24px)';
+        prompt.style.background = '#ffffff';
+        prompt.style.border = '1px solid #dbe4ea';
+        prompt.style.borderRadius = '16px';
+        prompt.style.boxShadow = '0 18px 45px rgba(15, 23, 42, 0.18)';
+        prompt.style.padding = '16px';
+        prompt.style.zIndex = '100000';
+        prompt.style.color = '#0f172a';
+        prompt.style.fontFamily = 'inherit';
+
+        var title = document.createElement('div');
+        title.textContent = isStandaloneApp() ? 'Turn on app notifications' : 'Turn on browser notifications';
+        title.style.fontSize = '15px';
+        title.style.fontWeight = '700';
+        title.style.marginBottom = '6px';
+
+        var body = document.createElement('div');
+        body.textContent = 'Get real-time order and system updates on this device, even when PrintFlow is in the background.';
+        body.style.fontSize = '13px';
+        body.style.lineHeight = '1.5';
+        body.style.color = '#475569';
+        body.style.marginBottom = '14px';
+
+        var actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '8px';
+        actions.style.alignItems = 'center';
+
+        var enableBtn = document.createElement('button');
+        enableBtn.type = 'button';
+        enableBtn.textContent = 'Enable notifications';
+        enableBtn.style.flex = '1';
+        enableBtn.style.height = '40px';
+        enableBtn.style.border = 'none';
+        enableBtn.style.borderRadius = '10px';
+        enableBtn.style.background = '#06A1A1';
+        enableBtn.style.color = '#ffffff';
+        enableBtn.style.fontSize = '13px';
+        enableBtn.style.fontWeight = '700';
+        enableBtn.style.cursor = 'pointer';
+
+        var laterBtn = document.createElement('button');
+        laterBtn.type = 'button';
+        laterBtn.textContent = 'Not now';
+        laterBtn.style.height = '40px';
+        laterBtn.style.padding = '0 14px';
+        laterBtn.style.border = '1px solid #dbe4ea';
+        laterBtn.style.borderRadius = '10px';
+        laterBtn.style.background = '#ffffff';
+        laterBtn.style.color = '#475569';
+        laterBtn.style.fontSize = '13px';
+        laterBtn.style.fontWeight = '600';
+        laterBtn.style.cursor = 'pointer';
+
+        enableBtn.addEventListener('click', function() {
+            enableBtn.disabled = true;
+            enableBtn.textContent = 'Enabling...';
+            try {
+                localStorage.setItem(PERM_ASKED_KEY, '1');
+            } catch (e) {}
+
+            subscribeToPush(true).then(function(sub) {
+                if (sub) {
+                    dismissPushPrompt(false);
+                    showToast('Notifications enabled', 'This device will now receive PrintFlow alerts.');
+                    return;
+                }
+
+                enableBtn.disabled = false;
+                enableBtn.textContent = 'Enable notifications';
+                if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+                    dismissPushPrompt(true);
+                }
+            });
+        });
+
+        laterBtn.addEventListener('click', function() {
+            dismissPushPrompt(true);
+        });
+
+        actions.appendChild(enableBtn);
+        actions.appendChild(laterBtn);
+        prompt.appendChild(title);
+        prompt.appendChild(body);
+        prompt.appendChild(actions);
+        document.body.appendChild(prompt);
     }
 
     function updatePushToggle(btn, state) {
@@ -320,7 +452,6 @@
 
     function handlePushToggleClick(btn) {
         if (!btn) return;
-        alert('Checking notification permission...');
         var state = btn.dataset.state || 'disabled';
         if (state === 'unsupported') {
             alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
@@ -338,10 +469,8 @@
             return;
         }
             subscribeToPush(true).then(function(sub) {
-                var perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
-                alert('Permission status: ' + perm);
                 updatePushToggle(btn, sub ? 'enabled' : 'disabled');
-                if (!sub && perm === 'granted') {
+                if (!sub && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                     alert('Notifications are allowed, but subscription failed. Please reload and try again.');
                 }
         });
