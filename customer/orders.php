@@ -1055,6 +1055,34 @@ function escIM(str) {
         'To Rate': 'st-completed', 'Rated': 'st-completed', 'Cancelled': 'st-cancelled'
     };
 
+    const statusToTab = {
+        'Pending': 'pending',
+        'Pending Approval': 'pending',
+        'Pending Review': 'pending',
+        'For Revision': 'pending',
+        'Approved': 'approved',
+        'To Pay': 'topay',
+        'To Verify': 'toverify',
+        'Downpayment Submitted': 'toverify',
+        'Pending Verification': 'toverify',
+        'In Production': 'production',
+        'Processing': 'production',
+        'Printing': 'production',
+        'Ready for Pickup': 'pickup',
+        'To Receive': 'pickup',
+        'Completed': 'completed',
+        'To Rate': 'torate',
+        'Rated': 'torate',
+        'Cancelled': 'cancelled'
+    };
+
+    function shouldReloadForNewOrder(order) {
+        if (!order) return false;
+        if (activeTab === 'all') return true;
+        const mapped = statusToTab[order.status] || 'pending';
+        return mapped === activeTab;
+    }
+
     let lastReloadAt = 0;
     function poll() {
         fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php`)
@@ -1065,7 +1093,7 @@ function escIM(str) {
             const cards = Array.from(document.querySelectorAll('.ct-order-card'));
             const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
             const newOrder = data.orders.find(order => !existingIds.has(order.order_id));
-            const hasNewOrder = Boolean(newOrder);
+            const hasNewOrder = Boolean(newOrder) && shouldReloadForNewOrder(newOrder);
             if (hasNewOrder && now - lastReloadAt > 3000) {
                 notifyNewOrder(newOrder.order_id);
                 lastReloadAt = now;
