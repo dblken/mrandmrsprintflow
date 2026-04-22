@@ -236,7 +236,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         foreach ($orders as $order) {
             ?>
             <tr class="staff-order-row" onclick="openOrderModal(<?php echo $order['order_id']; ?>)">
-                <td>
+                <td class="pl-6 pr-4 py-4 relative">
+                    <div class="row-indicator"></div>
                     <div class="order-info-cell">
                         <div class="order-id-wrap">
                             <?php echo htmlspecialchars($order['order_code']); ?>
@@ -253,7 +254,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                             <?php endif; ?>
                         </div>
                         <?php if (!empty($order['item_names'])): ?>
-                            <div class="order-items-sub">
+                            <div class="order-items-sub table-text-sub">
                                 <?php 
                                     $display_items = $order['item_names'];
                                     if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
@@ -269,10 +270,22 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         <?php endif; ?>
                     </div>
                 </td>
-                <td style="color: #334155; font-weight: 500;"><?php echo htmlspecialchars($order['customer_name']); ?></td>
-                <td style="color: #64748b; font-size: 13px;"><?php echo format_date($order['order_date']); ?></td>
-                <td style="font-weight: 700; color: #1e293b;"><?php echo format_currency($order['total_amount']); ?></td>
-                <td>
+                <td class="px-4 py-4">
+                    <div class="table-text-main" style="color:#334155; font-weight:600;">
+                        <?php echo htmlspecialchars($order['customer_name']); ?>
+                    </div>
+                </td>
+                <td class="px-4 py-4">
+                    <div class="table-text-sub" style="color:#64748b;">
+                        <?php echo format_date($order['order_date']); ?>
+                    </div>
+                </td>
+                <td class="px-4 py-4">
+                    <div class="table-text-main" style="font-weight:700; color:#1e293b;">
+                        <?php echo format_currency($order['total_amount']); ?>
+                    </div>
+                </td>
+                <td class="px-4 py-4 text-center">
                     <?php
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
                     $display_order_status = $order['status'];
@@ -290,8 +303,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         <div style="margin-top:6px;"><?php echo status_badge($order['payment_status'], 'payment'); ?></div>
                     <?php endif; ?>
                 </td>
-                <td>
-                    <div class="action-cell">
+                <td class="px-4 py-4 text-right">
+                    <div class="action-cell" style="justify-content:flex-end;">
                         <button
                             onclick="event.stopPropagation(); window.openStaffOrderManage(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['status']); ?>');"
                             class="btn-staff-action btn-staff-action-emerald"
@@ -492,26 +505,45 @@ $page_title = 'Orders - Staff';
             font-weight: 700;
         }
 
-        /* ── Table improvements (match products management) ─── */
-        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
-        .orders-table th {
-            padding: 12px 16px;
-            font-size: 13px;
+        /* ── Table improvements (match customizations table) ─── */
+        .orders-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: auto; }
+        .orders-table thead th {
+            padding: 16px 16px;
+            font-size: 11px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: #6b7280;
             text-align: left;
-            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-bottom: 2px solid #f3f4f6;
             white-space: nowrap;
         }
         .orders-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f3f4f6;
+            padding: 16px 16px;
+            border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
             color: #374151;
         }
-        .orders-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .orders-table tbody tr { cursor: pointer; transition: background 0.15s; }
         .orders-table tbody tr:hover { background: #f9fafb; }
         .orders-table tbody tr:last-child td { border-bottom: none; }
+
+        .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
+        .table-text-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
+
+        .row-indicator {
+            position: absolute;
+            left: 0;
+            top: 2px;
+            bottom: 2px;
+            width: 3px;
+            background: #4f46e5;
+            border-radius: 0 4px 4px 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .orders-table tbody tr:hover .row-indicator { opacity: 1; }
 
         .action-cell { display: flex; justify-content: flex-end; gap: 4px; }
         .order-info-cell { display: flex; flex-direction: column; gap: 4px; }
@@ -666,7 +698,7 @@ $page_title = 'Orders - Staff';
         .badge-purple { background: #ede9fe; color: #5b21b6; }
 
         /* Table hover + clickable rows */
-        .orders-table tbody tr { transition: background 0.1s; }
+        .orders-table tbody tr { transition: background 0.15s; }
         .orders-table tbody tr:hover td { background: #f9fafb; }
 
         /* ── Centered Status Overlay ───────────────────────── */
@@ -1616,22 +1648,23 @@ $page_title = 'Orders - Staff';
 
             <!-- Orders Table -->
             <div class="card staff-orders-table-card">
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
                     <table class="orders-table">
                         <thead>
                             <tr>
-                                <th>Order #</th>
-                                <th>Customer</th>
-                                <th>Date</th>
-                                <th>Total</th>
-                                <th>Status</th>
-                                <th style="text-align: right;">Actions</th>
+                                <th class="pl-6 pr-4 py-4 w-[20%] border-b border-gray-100">Order #</th>
+                                <th class="px-4 py-4 w-[20%] border-b border-gray-100">Customer</th>
+                                <th class="px-4 py-4 w-[14%] border-b border-gray-100">Date</th>
+                                <th class="px-4 py-4 w-[12%] border-b border-gray-100">Total</th>
+                                <th class="px-4 py-4 w-[22%] border-b border-gray-100 text-center">Status</th>
+                                <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($orders as $order): ?>
-                                <tr class="staff-order-row" onclick="openOrderModal(<?php echo $order['order_id']; ?>)" style="border-bottom: 1px solid #f1f5f9; cursor: pointer;">
-                                    <td>
+                                <tr class="staff-order-row" onclick="openOrderModal(<?php echo $order['order_id']; ?>)">
+                                    <td class="pl-6 pr-4 py-4 relative">
+                                        <div class="row-indicator"></div>
                                         <div class="order-info-cell">
                                             <div class="order-id-wrap">
                                                 <?php echo htmlspecialchars($order['order_code']); ?>
@@ -1648,7 +1681,7 @@ $page_title = 'Orders - Staff';
                                                 <?php endif; ?>
                                             </div>
                                             <?php if (!empty($order['item_names'])): ?>
-                                                <div class="order-items-sub">
+                                                <div class="order-items-sub table-text-sub">
                                                     <?php 
                                                         $display_items = $order['item_names'];
                                                         if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
@@ -1664,10 +1697,22 @@ $page_title = 'Orders - Staff';
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td style="color: #334155; font-weight: 500;"><?php echo htmlspecialchars($order['customer_name']); ?></td>
-                                    <td style="color: #64748b; font-size: 13px;"><?php echo format_date($order['order_date']); ?></td>
-                                    <td style="font-weight: 700; color: #1e293b;"><?php echo format_currency($order['total_amount']); ?></td>
-                                    <td>
+                                    <td class="px-4 py-4">
+                                        <div class="table-text-main" style="color:#334155; font-weight:600;">
+                                            <?php echo htmlspecialchars($order['customer_name']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="table-text-sub" style="color:#64748b;">
+                                            <?php echo format_date($order['order_date']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="table-text-main" style="font-weight:700; color:#1e293b;">
+                                            <?php echo format_currency($order['total_amount']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
                                         <?php
                                         $display_order_status2 = $order['status'];
                                         if (in_array($display_order_status2, ['Processing', 'In Production', 'Printing', 'Approved Design'])) {
@@ -1683,8 +1728,8 @@ $page_title = 'Orders - Staff';
                                             <div style="margin-top:6px;"><?php echo status_badge($order['payment_status'], 'payment'); ?></div>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
-                                        <div class="action-cell">
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="action-cell" style="justify-content:flex-end;">
                                             <button onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)" 
                                                     class="btn-staff-action btn-staff-action-emerald">
                                                 Manage
