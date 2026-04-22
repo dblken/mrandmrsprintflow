@@ -441,6 +441,15 @@ $page_title = 'Orders - Staff';
         }
         .filter-btn-reset:hover { background: #f9fafb; border-color: #d1d5db; }
 
+        .kpi-row {
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .staff-orders-table-card {
+            margin-top: 12px;
+        }
+
         /* ── Sort Dropdown ─── */
         .sort-dropdown {
             position: absolute;
@@ -483,28 +492,26 @@ $page_title = 'Orders - Staff';
             font-weight: 700;
         }
 
-        /* ── Table improvements ─── */
-        .staff-orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
-        .staff-orders-table th {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
-            font-weight: 700 !important;
+        /* ── Table improvements (match products management) ─── */
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        .orders-table th {
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
             color: #6b7280;
             text-align: left;
-            border-bottom: 2px solid #e5e7eb !important;
-            background: #f8fafc !important;
+            border-bottom: 1px solid #e5e7eb;
             white-space: nowrap;
         }
-        .staff-orders-table td {
-            padding: 16px 12px !important;
-            border-bottom: 1px solid #f1f5f9;
+        .orders-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
             vertical-align: middle;
+            color: #374151;
         }
-        .staff-orders-table tbody tr {
-            cursor: pointer;
-            transition: background 0.1s;
-        }
-        .staff-orders-table tbody tr:hover td { background: #f9fafb !important; }
+        .orders-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .orders-table tbody tr:hover { background: #f9fafb; }
+        .orders-table tbody tr:last-child td { border-bottom: none; }
 
         .action-cell { display: flex; justify-content: flex-end; gap: 4px; }
         .order-info-cell { display: flex; flex-direction: column; gap: 4px; }
@@ -659,8 +666,8 @@ $page_title = 'Orders - Staff';
         .badge-purple { background: #ede9fe; color: #5b21b6; }
 
         /* Table hover + clickable rows */
-        .staff-orders-table tbody tr { transition: background 0.1s; }
-        .staff-orders-table tbody tr:hover td { background: #f9fafb; }
+        .orders-table tbody tr { transition: background 0.1s; }
+        .orders-table tbody tr:hover td { background: #f9fafb; }
 
         /* ── Centered Status Overlay ───────────────────────── */
         .om-status-overlay {
@@ -800,7 +807,7 @@ $page_title = 'Orders - Staff';
 
     async function fetchUpdatedTable(overrides = {}) {
         const url = buildFilterURL(overrides, true);
-        const container = document.querySelector('.staff-orders-table tbody');
+        const container = document.querySelector('.orders-table tbody');
         if (!container) return;
 
         container.style.opacity = '0.5';
@@ -920,7 +927,7 @@ $page_title = 'Orders - Staff';
     const originalFetchUpdatedTable = fetchUpdatedTable;
     fetchUpdatedTable = async function(overrides = {}) {
         const url = buildFilterURL(overrides, true);
-        const container = document.querySelector('.staff-orders-table tbody');
+        const container = document.querySelector('.orders-table tbody');
         if (!container) return;
 
         container.style.opacity = '0.5';
@@ -1534,8 +1541,8 @@ $page_title = 'Orders - Staff';
                                 $sorts = [
                                     'newest' => 'Newest to Oldest',
                                     'oldest' => 'Oldest to Newest',
-                                    'az'     => 'A → Z',
-                                    'za'     => 'Z → A',
+                                    'az'     => 'A to Z',
+                                    'za'     => 'Z to A',
                                 ];
                                 foreach ($sorts as $key => $label): ?>
                                 <div class="sort-option" 
@@ -1608,9 +1615,9 @@ $page_title = 'Orders - Staff';
                 </div>
 
             <!-- Orders Table -->
-            <div class="card">
+            <div class="card staff-orders-table-card">
                 <div class="overflow-x-auto">
-                    <table class="staff-orders-table">
+                    <table class="orders-table">
                         <thead>
                             <tr>
                                 <th>Order #</th>
