@@ -695,15 +695,21 @@ if ($initials === '') {
 
                         <!-- Notification Dropdown -->
                         <div data-pf-notif-menu class="pf-notif-dropdown" style="position: absolute; top: calc(100% + 10px); right: 0; width: 320px; max-height: 480px; background: #0a2530; border: 1px solid rgba(83,197,224,0.3); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); flex-direction: column; overflow: hidden;">
+                            <?php
+                            $notif_page_url = $base_url . '/' . strtolower($user_type) . '/notifications.php';
+                            $notif_mark_all_url = is_customer()
+                                ? ($notif_page_url . '?mark_all_read=1')
+                                : ($notif_page_url . '?action=mark_all_read');
+                            ?>
                             <div class="pf-notif-header">
                                 <span>Notifications</span>
-                                <a href="?mark_all_read=1" style="font-size:0.7rem !important; color:#53c5e0; text-decoration:none; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Mark all read</a>
+                                <a href="<?php echo htmlspecialchars($notif_mark_all_url); ?>" style="font-size:0.7rem !important; color:#53c5e0; text-decoration:none; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Mark all read</a>
                             </div>
                             <div class="pf-notif-list" data-pf-notif-list>
                                 <div class="pf-notif-empty">Loading notifications...</div>
                             </div>
                             <div class="pf-notif-footer">
-                                <a href="<?php echo $base_url; ?>/<?php echo strtolower($user_type); ?>/notifications.php" style="font-size:0.7rem !important; color:#53c5e0; font-weight:800 !important; text-decoration:none; text-transform:uppercase; letter-spacing:0.05em;">View All Notifications</a>
+                                <a href="<?php echo htmlspecialchars($notif_page_url); ?>" style="font-size:0.7rem !important; color:#53c5e0; font-weight:800 !important; text-decoration:none; text-transform:uppercase; letter-spacing:0.05em;">View All Notifications</a>
                             </div>
                         </div>
                     </div>
