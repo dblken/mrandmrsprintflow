@@ -1542,10 +1542,20 @@ $page_title = 'Orders - Staff';
 
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
-                <div class="toolbar-container" style="display:block;">
-                    <div style="display:flex; align-items:center; width:100%;">
-                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Orders List</h3>
-                        <div class="toolbar-group" style="margin-left: auto;">
+                <div class="toolbar-container" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
+                    <div class="pf-custom-tabs" style="margin:0; padding-bottom:0; border-bottom:0;">
+                        <template x-for="(label, key) in statusTabs" :key="key">
+                            <button type="button" 
+                                    class="pill-tab" 
+                                    :class="{ 'active': activeTab === key }"
+                                    @click="switchStatusTab(key)">
+                                <span x-text="label"></span>
+                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <div class="toolbar-group" style="margin-left: auto;">
 
                             <!-- Sort Button -->
                             <div style="position:relative;">
@@ -1629,19 +1639,6 @@ $page_title = 'Orders - Staff';
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="pf-custom-tabs">
-                        <template x-for="(label, key) in statusTabs" :key="key">
-                            <button type="button" 
-                                    class="pill-tab" 
-                                    :class="{ 'active': activeTab === key }"
-                                    @click="switchStatusTab(key)">
-                                <span x-text="label"></span>
-                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
-                            </button>
-                        </template>
-                    </div>
                 </div>
 
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
