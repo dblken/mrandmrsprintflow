@@ -362,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     if ($order_type === 'custom') {
                         error_log('Service order placed, redirecting to orders page: ' . $order_id);
                         $_SESSION['order_success'] = "Order #$order_id placed successfully! Our team will review and price your order shortly.";
-                        header("Location: orders.php?order_success_id=$order_id");
+                        header("Location: orders.php");
                         exit();
                     } else {
                         error_log('Redirecting to payment page for order: ' . $order_id);
