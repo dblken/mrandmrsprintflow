@@ -270,7 +270,12 @@ $low_stock = db_query("
 
 // Define missing variables for KPI cards (Staff Dashboard)
 $active_orders_count = $pending_orders + $processing_orders + $ready_orders;
-$all_products_count = db_query("SELECT COUNT(*) as cnt FROM products WHERE status = 'Activated'")[0]['cnt'] ?? 0;
+$all_products_count = db_query("
+    SELECT COUNT(*) as cnt
+    FROM products p
+    LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+    WHERE p.status = 'Activated'
+", 'i', [$staffBranchId])[0]['cnt'] ?? 0;
 $pending_reviews_count = db_query("
     SELECT COUNT(*) as cnt
     FROM reviews r

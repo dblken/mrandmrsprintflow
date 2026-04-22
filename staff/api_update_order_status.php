@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
 require_role(['Admin', 'Staff', 'Manager']);
@@ -55,6 +56,8 @@ if (!$order_id || !in_array($new_status, $allowed)) {
     echo json_encode(['success' => false, 'error' => 'Invalid order or status']);
     exit;
 }
+
+printflow_assert_order_branch_access($order_id);
 
 $order = db_query("SELECT order_id, status, customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order)) {

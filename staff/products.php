@@ -121,7 +121,12 @@ $page_title = 'Products & Inventory - Staff';
         <main x-data="{ filterOpen: false, sortOpen: false, hasActiveFilters: <?php echo (!empty($search) || !empty($category)) ? 'true' : 'false'; ?> }">
             <?php
             // Calculate KPIs for products
-            $total_products = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated'")[0]['count'] ?? 0;
+            $total_products = db_query("
+                SELECT COUNT(*) as count
+                FROM products p
+                LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+                WHERE p.status = 'Activated'
+            ", 'i', [$staffBranchId])[0]['count'] ?? 0;
             $low_stock_count = db_query("
                 SELECT COUNT(*) as count
                 FROM products p
@@ -129,8 +134,18 @@ $page_title = 'Products & Inventory - Staff';
                 WHERE p.status = 'Activated'
                   AND {$stockExpr} <= {$lowStockExpr}
             ", 'i', [$staffBranchId])[0]['count'] ?? 0;
-            $fixed_count = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND product_type = 'fixed'")[0]['count'] ?? 0;
-            $variable_count = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND product_type = 'variable'")[0]['count'] ?? 0;
+            $fixed_count = db_query("
+                SELECT COUNT(*) as count
+                FROM products p
+                LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+                WHERE p.status = 'Activated' AND p.product_type = 'fixed'
+            ", 'i', [$staffBranchId])[0]['count'] ?? 0;
+            $variable_count = db_query("
+                SELECT COUNT(*) as count
+                FROM products p
+                LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+                WHERE p.status = 'Activated' AND p.product_type = 'variable'
+            ", 'i', [$staffBranchId])[0]['count'] ?? 0;
             ?>
 
             <!-- Standardized KPI Row -->

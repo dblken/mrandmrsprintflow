@@ -6,10 +6,17 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
-// Requires Staff or Admin role
-if (!in_array($_SESSION['user_type'] ?? '', ['Staff', 'Admin', 'Manager'])) {
+// Requires Staff, Manager, or Admin role
+$userType = $_SESSION['user_type'] ?? '';
+if (!in_array($userType, ['Staff', 'Admin', 'Manager'], true)) {
     die("Unauthorized access.");
+}
+
+$staffBranchId = null;
+if (in_array($userType, ['Staff', 'Manager'], true)) {
+    $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 }
 
 // Load PhpSpreadsheet via Composer Autoloader
@@ -70,6 +77,18 @@ $sql = "
 
 $params = [];
 $types = '';
+
+if ($staffBranchId !== null) {
+    $sql .= " AND o.branch_id = ?";
+    $params[] = $staffBranchId;
+    $types .= 'i';
+}
+
+if ($staffBranchId !== null) {
+    $sql .= " AND o.branch_id = ?";
+    $params[] = $staffBranchId;
+    $types .= 'i';
+}
 
 if ($status_filter !== 'ALL' && $status_filter !== '') {
     $sql .= " AND o.status = ?";

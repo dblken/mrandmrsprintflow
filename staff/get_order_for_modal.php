@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 header('Content-Type: application/json');
@@ -20,6 +21,8 @@ if (!$order_id) {
     echo json_encode(['success' => false, 'error' => 'Order ID required']);
     exit;
 }
+
+printflow_assert_order_branch_access($order_id);
 
 $order_row = db_query("
     SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,

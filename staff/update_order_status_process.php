@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Staff', 'Admin', 'Manager']);
@@ -29,6 +30,8 @@ if (!$order_id || !$new_status) {
     exit;
 }
 
+printflow_assert_order_branch_access($order_id);
+
 // 1. Get current status to avoid double-deduction
 $order_row = db_query("SELECT status, branch_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order_row)) {
@@ -38,16 +41,7 @@ if (empty($order_row)) {
 
 $old_status = $order_row[0]['status'];
 
-// 2. Access control (Staff must be in same branch)
-if (get_user_type() === 'Staff') {
-    $staff_branch = $_SESSION['branch_id'] ?? 0;
-    if ($order_row[0]['branch_id'] != $staff_branch) {
-        echo json_encode(['success' => false, 'error' => 'Permission denied: Order belongs to another branch']);
-        exit;
-    }
-}
-
-// 3. Update Status
+// 2. Update Status
 $update_sql = "UPDATE orders SET status = ?, updated_at = NOW() WHERE order_id = ?";
 $result = db_execute($update_sql, 'si', [$new_status, $order_id]);
 
@@ -57,7 +51,7 @@ if (!$result) {
 }
 
 
-// 4. Stock Deduction Logic
+// 3. Stock Deduction Logic
 if ($new_status === 'Completed' && $old_status !== 'Completed') {
     $branch_id = (int)$order_row[0]['branch_id'];
     $items = db_query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", 'i', [$order_id]);
@@ -80,7 +74,7 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
     }
 }
 
-// 5. System Message
+// 4. System Message
 add_order_system_message($order_id, "Order status updated to '{$new_status}' by " . $_SESSION['user_name']);
 
 echo json_encode(['success' => true, 'message' => "Order #$order_id marked as $new_status"]);

@@ -99,7 +99,13 @@ if ($report === 'daily_sales') {
     fputcsv($output, ['PRODUCT INVENTORY']);
     fputcsv($output, ['Product', 'SKU', 'Category', 'Stock', 'Price', 'Status']);
     
-    $products = db_query("SELECT name, sku, category, stock_quantity, price, status FROM products WHERE status = 'Activated' ORDER BY category, name");
+    $products = db_query("
+        SELECT p.name, p.sku, p.category, COALESCE(pbs.stock_quantity, 0) AS stock_quantity, p.price, p.status
+        FROM products p
+        LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
+        WHERE p.status = 'Activated'
+        ORDER BY p.category, p.name
+    ", 'i', [$staffBranchId]);
     foreach ($products as $p) {
         $stock_status = ($p['stock_quantity'] <= 0) ? 'OUT OF STOCK' : (($p['stock_quantity'] < 20) ? 'LOW STOCK' : 'In Stock');
         fputcsv($output, [
@@ -118,11 +124,11 @@ if ($report === 'daily_sales') {
     
     $inv_items = db_query("
         SELECT i.name, ic.name as category_name, i.unit_of_measure, i.track_by_roll,
-               (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = i.id) as current_stock
+               (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = i.id AND branch_id = ?) as current_stock
         FROM inv_items i
         LEFT JOIN inv_categories ic ON i.category_id = ic.id
         ORDER BY ic.name, i.name
-    ");
+    ", 'i', [$staffBranchId]);
     
     if ($inv_items) {
         foreach ($inv_items as $i) {
