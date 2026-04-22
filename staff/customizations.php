@@ -1313,8 +1313,17 @@ foreach ($service_rows as $row) {
 </div><!-- /.dashboard-container -->
 
 <script src="<?php echo htmlspecialchars((defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/js/staff_service_order_modal.js'); ?>"></script>
+<?php
+$preloaded_customization_rows_json = json_encode(
+    $preloaded_customization_rows,
+    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+);
+if ($preloaded_customization_rows_json === false) {
+    $preloaded_customization_rows_json = '[]';
+}
+?>
 <script>
-window.pfCustomizationPreloadedOrders = <?php echo json_encode($preloaded_customization_rows, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+window.pfCustomizationPreloadedOrders = <?php echo $preloaded_customization_rows_json; ?>;
 </script>
 <script>
     document.addEventListener('alpine:init', function () {
