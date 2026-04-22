@@ -21,7 +21,8 @@
         poll: poll,
         loadDropdown: loadDropdown,
         subscribeToPush: subscribeToPush,
-        unsubscribeFromPush: unsubscribeFromPush
+        unsubscribeFromPush: unsubscribeFromPush,
+        handlePushToggleClick: handlePushToggleClick
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -246,25 +247,30 @@
             });
 
         btn.addEventListener('click', function() {
-            var state = btn.dataset.state || 'disabled';
-            if (state === 'unsupported') {
-                alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
-                return;
-            }
-            if (state === 'blocked') {
-                alert('Notifications are blocked in your browser settings. Please allow them to enable alerts.');
-                return;
-            }
-            if (state === 'enabled') {
-                if (!confirm('Disable notifications on this device?')) return;
-                unsubscribeFromPush().then(function() {
-                    updatePushToggle(btn, 'disabled');
-                });
-                return;
-            }
-            subscribeToPush().then(function(sub) {
-                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            handlePushToggleClick(btn);
+        });
+    }
+
+    function handlePushToggleClick(btn) {
+        if (!btn) return;
+        var state = btn.dataset.state || 'disabled';
+        if (state === 'unsupported') {
+            alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
+            return;
+        }
+        if (state === 'blocked') {
+            alert('Notifications are blocked in your browser settings. Please allow them to enable alerts.');
+            return;
+        }
+        if (state === 'enabled') {
+            if (!confirm('Disable notifications on this device?')) return;
+            unsubscribeFromPush().then(function() {
+                updatePushToggle(btn, 'disabled');
             });
+            return;
+        }
+        subscribeToPush().then(function(sub) {
+            updatePushToggle(btn, sub ? 'enabled' : 'disabled');
         });
     }
 
