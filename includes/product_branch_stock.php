@@ -46,6 +46,15 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
         return [0, 10];
     }
 
+    $isMainBranch = false;
+    if ($branchId > 0) {
+        if (function_exists('printflow_get_default_admin_branch_id')) {
+            $isMainBranch = ($branchId === (int)printflow_get_default_admin_branch_id());
+        } else {
+            $isMainBranch = ($branchId === 1);
+        }
+    }
+
     if ($branchId > 0) {
         $pbs = db_query(
             'SELECT stock_quantity, low_stock_level FROM product_branch_stock WHERE product_id = ? AND branch_id = ? LIMIT 1',
@@ -63,6 +72,9 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
         );
         if (empty($p)) {
             return [0, 10];
+        }
+        if ($isMainBranch) {
+            return [(int)($p[0]['stock_quantity'] ?? 0), (int)$p[0]['low_stock_level']];
         }
         return [0, (int)$p[0]['low_stock_level']];
     }
