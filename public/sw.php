@@ -3,8 +3,10 @@
 if (file_exists(__DIR__ . '/../config.php')) {
     require_once __DIR__ . '/../config.php';
 }
+require_once __DIR__ . '/../includes/shop_config.php';
 
 $base_path = defined('BASE_PATH') ? BASE_PATH : '';
+$app_icon = !empty($shop_logo_url) ? $shop_logo_url : ($base_path . '/public/assets/images/icon-192.png');
 
 header('Content-Type: application/javascript');
 header('Service-Worker-Allowed: /');
@@ -15,7 +17,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -25,8 +27,7 @@ const APP_SHELL = [
     BASE_PATH + '/public/offline.html',
     BASE_PATH + '/public/assets/css/output.css',
     BASE_PATH + '/public/assets/js/pwa.js',
-    BASE_PATH + '/public/assets/images/icon-192.png',
-    BASE_PATH + '/public/assets/images/icon-512.png',
+    '<?php echo addslashes($app_icon); ?>',
     BASE_PATH + '/public/manifest.php',
 ];
 
@@ -186,8 +187,8 @@ self.addEventListener('push', (event) => {
     const defaults = {
         title: 'PrintFlow',
         body:  'You have a new update',
-        icon:  BASE_PATH + '/public/assets/images/icon-192.png',
-        badge: BASE_PATH + '/public/assets/images/icon-72.png',
+        icon:  '<?php echo addslashes($app_icon); ?>',
+        badge: '<?php echo addslashes($app_icon); ?>',
         tag:   'pf-general',
         url:   BASE_PATH + '/',
     };
@@ -202,13 +203,18 @@ self.addEventListener('push', (event) => {
         (async () => {
             const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
             const targetUrl = new URL(normalizeTargetUrl(payload.url), self.location.origin).href;
+            let matchingVisibleClient = null;
 
             for (const client of windowClients) {
                 const clientUrl = new URL(client.url, self.location.origin).href;
                 if (clientUrl === targetUrl && client.visibilityState === 'visible') {
-                    client.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
-                    return;
+                    matchingVisibleClient = client;
+                    break;
                 }
+            }
+
+            if (matchingVisibleClient) {
+                matchingVisibleClient.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
             }
 
             await self.registration.showNotification(payload.title, {
