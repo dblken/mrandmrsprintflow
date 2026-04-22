@@ -1811,6 +1811,13 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             findOrder(id, orderType = 'JOB') {
                 return this.orders.find(o => this.sameId(o.id, id) && (o.order_type || 'JOB') === (orderType || 'JOB'));
             },
+            resolveViewOrderType(id, requestedType = 'JOB') {
+                const normalizedRequested = requestedType || 'JOB';
+                const exact = this.findOrder(id, normalizedRequested);
+                if (exact) return normalizedRequested;
+                const anyMatch = this.orders.find(o => this.sameId(o.id, id));
+                return anyMatch ? (anyMatch.order_type || 'JOB') : normalizedRequested;
+            },
 
             getCorrectServiceType(jo) {
                 const combined = ((jo.job_title || '') + ' ' + (jo.service_type || '')).toUpperCase();
@@ -1964,6 +1971,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             },
 
             async viewDetails(id, orderType = 'JOB') {
+                orderType = this.resolveViewOrderType(id, orderType);
                 let order = this.findOrder(id, orderType);
                 if (orderType === 'SERVICE' || order?.order_type === 'SERVICE') {
                     await this.openSvcModal(id);
