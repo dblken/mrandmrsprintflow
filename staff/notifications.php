@@ -10,6 +10,7 @@ require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $staff_id = get_user_id();
+$base_url = defined('BASE_URL') ? BASE_URL : (defined('BASE_PATH') ? BASE_PATH : '/printflow');
 $staffBranchId = function_exists('printflow_branch_filter_for_user')
     ? (printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 0))
     : (int)($_SESSION['branch_id'] ?? 0);
@@ -21,6 +22,22 @@ function pf_staff_backfill_legacy_notifications(int $staff_id): void {
 }
 
 pf_staff_backfill_legacy_notifications((int)$staff_id);
+
+// Mark notification as read then redirect to target if provided.
+if (isset($_GET['mark_read'])) {
+    $notification_id = (int)$_GET['mark_read'];
+    db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $staff_id]);
+    if (!empty($_GET['next'])) {
+        $next = (string)$_GET['next'];
+        $path = parse_url($next, PHP_URL_PATH);
+        $host = parse_url($next, PHP_URL_HOST);
+        $base_path = parse_url($base_url, PHP_URL_PATH) ?: $base_url;
+        if (!$host && $path && strpos($path, rtrim($base_path, '/') . '/') === 0) {
+            redirect($next);
+        }
+    }
+    redirect($base_url . '/staff/notifications.php');
+}
 
 // Handle actions (same pattern as admin/notifications.php)
 if (isset($_GET['action'])) {

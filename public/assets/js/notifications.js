@@ -72,14 +72,24 @@
 
     function appendMarkRead(url, notifId) {
         if (!url || !notifId) return url;
+
+        var role = String(USER_TYPE || '').toLowerCase();
+        var notifPath = 'customer/notifications.php';
+        if (role === 'admin') notifPath = 'admin/notifications.php';
+        else if (role === 'manager') notifPath = 'manager/notifications.php';
+        else if (role === 'staff') notifPath = 'staff/notifications.php';
+
+        var markBase = buildAppUrl(notifPath);
+        var safeTarget = normalizeNotificationTarget(url);
+
         try {
-            var target = new URL(normalizeNotificationTarget(url), window.location.origin);
-            if (!target.searchParams.has('mark_read')) {
-                target.searchParams.set('mark_read', notifId);
-            }
-            return target.pathname + target.search + target.hash;
+            var target = new URL(safeTarget, window.location.origin);
+            var mark = new URL(markBase, window.location.origin);
+            mark.searchParams.set('mark_read', notifId);
+            mark.searchParams.set('next', target.pathname + target.search + target.hash);
+            return mark.pathname + mark.search + mark.hash;
         } catch (e) {
-            return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'mark_read=' + notifId;
+            return markBase + '?mark_read=' + encodeURIComponent(notifId) + '&next=' + encodeURIComponent(safeTarget);
         }
     }
 

@@ -19,6 +19,7 @@ if (!isset($base_path)) {
 
 $current_user = get_logged_in_user();
 $admin_id = get_user_id();
+$base_url = defined('BASE_URL') ? BASE_URL : (defined('BASE_PATH') ? BASE_PATH : '/printflow');
 $viewer_role = (string)($current_user['role'] ?? get_user_type());
 $viewer_branch_id = $viewer_role === 'Manager'
     ? (int)(printflow_branch_filter_for_user() ?? 0)
@@ -26,6 +27,25 @@ $viewer_branch_id = $viewer_role === 'Manager'
 
 // Auto-delete notifications older than 1 month
 db_execute("DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+
+// Mark notification as read then redirect to target if provided.
+if (isset($_GET['mark_read'])) {
+    $notification_id = (int)$_GET['mark_read'];
+    db_execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ? AND user_id = ?", 'ii', [$notification_id, $admin_id]);
+    if (!empty($_GET['next'])) {
+        $next = (string)$_GET['next'];
+        $path = parse_url($next, PHP_URL_PATH);
+        $host = parse_url($next, PHP_URL_HOST);
+        $base_path = parse_url($base_url, PHP_URL_PATH) ?: $base_url;
+        if (!$host && $path && strpos($path, rtrim($base_path, '/') . '/') === 0) {
+            redirect($next);
+        }
+    }
+    $redirect_base = $viewer_role === 'Manager'
+        ? $base_url . '/manager/notifications.php'
+        : $base_url . '/admin/notifications.php';
+    redirect($redirect_base);
+}
 
 // Handle actions
 if (isset($_GET['action'])) {
