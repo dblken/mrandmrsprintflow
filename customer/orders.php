@@ -588,6 +588,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $c_json = !empty($order['first_item_customization']) ? json_decode($order['first_item_customization'], true) : [];
                             $d_name = printflow_resolve_order_item_name($order['first_product_name'] ?? 'Order Item', $c_json, 'Order Item');
                             $preview_url = get_preview_image_for_order_ui($order, $d_name);
+                            $timestamp_meta = printflow_customer_order_timestamp_meta($order);
                         ?>
                         <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
                             <div class="card-top-row">
@@ -600,7 +601,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="details-column">
                                     <h3 class="order-title"><?php echo htmlspecialchars($d_name); ?></h3>
                                     <div class="qty-tag"><?php echo max(1, (int)($order['total_quantity'] ?? 0)); ?> Items</div>
-                                    <p class="timestamp-text"><?php echo format_datetime($order['order_date']); ?></p>
+                                    <p class="timestamp-text"><?php echo htmlspecialchars($timestamp_meta['text']); ?></p>
                                 </div>
                                 <div class="pricing-column">
                                     <div class="mb-1">
@@ -1044,6 +1045,10 @@ function escIM(str) {
                 if (pill) {
                     pill.textContent = order.status;
                     pill.className = 'status-pill ' + (statusMap[order.status] || 'st-pending');
+                }
+                const timestampEl = card.querySelector('.timestamp-text');
+                if (timestampEl && order.display_timestamp_text) {
+                    timestampEl.textContent = order.display_timestamp_text;
                 }
                 const priceEl = card.querySelector('.final-price');
                 if (priceEl && order.total_amount) {

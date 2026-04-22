@@ -1084,6 +1084,51 @@ function format_datetime($datetime, $format = 'F j, Y g:i A') {
 }
 
 /**
+ * Choose the customer-facing timestamp for an order card/list row.
+ * Pending rows use the purchase time; progressed rows use the latest real status time.
+ */
+function printflow_customer_order_timestamp_meta(array $order): array {
+    $status = strtolower(trim((string)($order['status'] ?? '')));
+    $orderDate = (string)($order['order_date'] ?? '');
+    $updatedAt = (string)($order['updated_at'] ?? '');
+    $cancelledAt = (string)($order['cancelled_at'] ?? '');
+
+    $label = 'Ordered on';
+    $chosen = $orderDate;
+
+    if ($status === 'cancelled' && $cancelledAt !== '') {
+        $label = 'Cancelled on';
+        $chosen = $cancelledAt;
+    } elseif (in_array($status, ['completed', 'to rate', 'rated'], true) && $updatedAt !== '') {
+        $label = 'Completed on';
+        $chosen = $updatedAt;
+    } elseif (in_array($status, ['ready for pickup', 'to receive', 'ready'], true) && $updatedAt !== '') {
+        $label = 'Ready on';
+        $chosen = $updatedAt;
+    } elseif (in_array($status, ['in production', 'processing', 'printing', 'paid – in process', 'paid - in process'], true) && $updatedAt !== '') {
+        $label = 'Started on';
+        $chosen = $updatedAt;
+    } elseif (in_array($status, ['approved'], true) && $updatedAt !== '') {
+        $label = 'Approved on';
+        $chosen = $updatedAt;
+    } elseif (!in_array($status, ['pending', 'pending approval', 'pending review'], true) && $updatedAt !== '') {
+        $label = 'Updated on';
+        $chosen = $updatedAt;
+    }
+
+    if ($chosen === '') {
+        $chosen = $orderDate;
+    }
+
+    return [
+        'label' => $label,
+        'datetime' => $chosen,
+        'formatted' => $chosen !== '' ? format_datetime($chosen) : '',
+        'text' => trim($label . ' ' . ($chosen !== '' ? format_datetime($chosen) : '')),
+    ];
+}
+
+/**
  * Get time ago
  * @param string $datetime
  * @return string

@@ -17,7 +17,7 @@ $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For 
 
 try {
     $orders = db_query(
-        "SELECT o.order_id, o.status, o.total_amount, o.order_date, o.updated_at,
+        "SELECT o.order_id, o.status, o.total_amount, o.order_date, o.updated_at, o.cancelled_at,
                 (SELECT COALESCE(p.name, 'Order Item')
                  FROM order_items oi
                  LEFT JOIN products p ON oi.product_id = p.product_id
@@ -47,6 +47,7 @@ try {
 
         // Price visibility control
         $show_price = !in_array($o['status'], $HIDDEN_PRICE_STATUSES);
+        $timestampMeta = printflow_customer_order_timestamp_meta($o);
 
         $result[] = [
             'order_id'     => (int)$o['order_id'],
@@ -56,6 +57,9 @@ try {
             'price_hidden' => !$show_price,
             'order_date'   => $o['order_date'],
             'updated_at'   => $o['updated_at'],
+            'display_timestamp' => $timestampMeta['datetime'],
+            'display_timestamp_label' => $timestampMeta['label'],
+            'display_timestamp_text' => $timestampMeta['text'],
         ];
     }
 
