@@ -101,10 +101,9 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
         .toolbar-container {
             display: flex;
-            align-items: center;
-            gap: 14px;
-            justify-content: space-between;
-            flex-wrap: nowrap;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
             overflow: hidden;
         }
 
@@ -124,6 +123,15 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         .toolbar-group--actions {
             flex: 0 0 auto;
             margin-left: auto;
+            justify-content: flex-end;
+        }
+        .pf-staff-customizations-root .kpi-row {
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .pf-staff-customizations-root .pf-customizations-table-card {
+            margin-top: 8px;
         }
 
         .pf-custom-tabs {
@@ -261,7 +269,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         </header>
 
         <main>
-            <div class="kpi-row">
+                <div class="kpi-row">
                 <div class="kpi-card indigo">
                     <span class="kpi-card-inner">
                         <span class="kpi-label">Total Customizations</span>
@@ -293,50 +301,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             </div>
 
             <!-- Jobs List & Filters (matching Enterprise reference) -->
-            <div class="card overflow-visible">
+            <div class="card overflow-visible pf-customizations-table-card">
                 <div class="toolbar-container">
-                    <div class="toolbar-group toolbar-group--tabs">
-                        <div class="pf-custom-tabs">
-                            <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab">
-                                <span>ALL</span>
-                                <span class="tab-count" x-text="getStatusCount('ALL')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'PENDING'" :class="activeStatus === 'PENDING' ? 'active' : ''" class="pill-tab">
-                                <span>PENDING</span>
-                                <span class="tab-count" x-text="getStatusCount('PENDING')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'APPROVED'" :class="activeStatus === 'APPROVED' ? 'active' : ''" class="pill-tab">
-                                <span>APPROVED</span>
-                                <span class="tab-count" x-text="getStatusCount('APPROVED')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_PAY'" :class="activeStatus === 'TO_PAY' ? 'active' : ''" class="pill-tab">
-                                <span>TO PAY</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab">
-                                <span>TO VERIFY</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
-                                <span x-show="getStatusCount('TO_VERIFY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab">
-                                <span>IN PRODUCTION</span>
-                                <span class="tab-count" x-text="getStatusCount('IN_PRODUCTION')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_RECEIVE'" :class="activeStatus === 'TO_RECEIVE' ? 'active' : ''" class="pill-tab">
-                                <span>TO PICKUP</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_RECEIVE')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'COMPLETED'" :class="activeStatus === 'COMPLETED' ? 'active' : ''" class="pill-tab">
-                                <span>COMPLETED</span>
-                                <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab">
-                                <span>CANCELLED</span>
-                                <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="toolbar-group toolbar-group--actions">
     
                         <!-- Sort Menu -->
@@ -355,11 +321,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                     <svg x-show="sortOrder === 'oldest'" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" style="margin-left: auto; color: #0d9488;"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <div class="sort-option" :class="sortOrder === 'az' ? 'active' : ''" @click="sortOrder = 'az'; sortOpen = false">
-                                    <span>A → Z</span>
+                                    <span>A to Z</span>
                                     <svg x-show="sortOrder === 'az'" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" style="margin-left: auto; color: #0d9488;"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <div class="sort-option" :class="sortOrder === 'za' ? 'active' : ''" @click="sortOrder = 'za'; sortOpen = false">
-                                    <span>Z → A</span>
+                                    <span>Z to A</span>
                                     <svg x-show="sortOrder === 'za'" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" style="margin-left: auto; color: #0d9488;"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                             </div>
@@ -434,6 +400,49 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             </div>
                         </div>
                     </div>
+
+                    <div class="toolbar-group toolbar-group--tabs">
+                        <div class="pf-custom-tabs">
+                            <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab">
+                                <span>ALL</span>
+                                <span class="tab-count" x-text="getStatusCount('ALL')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'PENDING'" :class="activeStatus === 'PENDING' ? 'active' : ''" class="pill-tab">
+                                <span>PENDING</span>
+                                <span class="tab-count" x-text="getStatusCount('PENDING')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'APPROVED'" :class="activeStatus === 'APPROVED' ? 'active' : ''" class="pill-tab">
+                                <span>APPROVED</span>
+                                <span class="tab-count" x-text="getStatusCount('APPROVED')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'TO_PAY'" :class="activeStatus === 'TO_PAY' ? 'active' : ''" class="pill-tab">
+                                <span>TO PAY</span>
+                                <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab">
+                                <span>TO VERIFY</span>
+                                <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
+                                <span x-show="getStatusCount('TO_VERIFY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab">
+                                <span>IN PRODUCTION</span>
+                                <span class="tab-count" x-text="getStatusCount('IN_PRODUCTION')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'TO_RECEIVE'" :class="activeStatus === 'TO_RECEIVE' ? 'active' : ''" class="pill-tab">
+                                <span>TO PICKUP</span>
+                                <span class="tab-count" x-text="getStatusCount('TO_RECEIVE')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'COMPLETED'" :class="activeStatus === 'COMPLETED' ? 'active' : ''" class="pill-tab">
+                                <span>COMPLETED</span>
+                                <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
+                            </button>
+                            <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab">
+                                <span>CANCELLED</span>
+                                <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
@@ -2074,7 +2083,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.closeRejectPaymentModal();
                 this.showDetailsModal = false;
                 await this.rejectPayment(finalReason);
-            },
+            },
+
             async rejectPayment(reasonOverride = null) {
                 let reason = reasonOverride;
                 if (!reason) {
@@ -2601,7 +2611,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 } finally {
                     this.endModalAction();
                 }
-            },
+            },
+
             async completeOrder(machineId = null) {
                 if (!this.beginModalAction()) return;
                 try {
