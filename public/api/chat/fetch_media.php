@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Global Output Buffer to trap notices
@@ -37,6 +38,10 @@ if ($user_type === 'Customer') {
         echo json_encode([]);
         exit();
     }
+} else {
+    ob_end_clean();
+    ob_start();
+    printflow_assert_order_branch_access($order_id);
 }
 
 // Fetch all media using proper columns

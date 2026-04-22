@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 ob_start();
@@ -19,11 +20,17 @@ if ($message_id <= 0) {
     exit;
 }
 
-$row = db_query('SELECT is_pinned FROM order_messages WHERE message_id = ?', 'i', [$message_id]);
+$row = db_query('SELECT message_id, order_id, is_pinned FROM order_messages WHERE message_id = ?', 'i', [$message_id]);
 if (empty($row)) {
     ob_end_clean();
     echo json_encode(['success' => false, 'error' => 'Message not found']);
     exit;
+}
+
+if (get_user_type() !== 'Customer') {
+    ob_end_clean();
+    ob_start();
+    printflow_assert_order_branch_access((int)$row[0]['order_id']);
 }
 
 $next = empty($row[0]['is_pinned']) ? 1 : 0;

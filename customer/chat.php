@@ -36,7 +36,7 @@ require_once __DIR__ . '/../includes/header.php';
     /* Layout — fill viewport below the site header */
     .hidden { display: none !important; }
     body.chat-page { overflow: hidden !important; background: var(--pf-navy); }
-    body.chat-page #main-content { padding: 0 1rem !important; min-height: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; align-items: center; }
+    body.chat-page #main-content { padding: 0 !important; min-height: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; }
     body.chat-page #main-header { position: sticky; top: 0; z-index: 100; }
     body.chat-page .text-white { color: #0f172a !important; }
 
@@ -46,16 +46,11 @@ require_once __DIR__ . '/../includes/header.php';
 
     #chat-root {
         display: grid;
-        grid-template-columns: 330px minmax(0, 1fr);
-        width: 100%;
-        max-width: 1100px;
-        height: calc(100vh - 96px);
-        margin: 1rem auto;
+        grid-template-columns: 350px 1fr;
+        height: calc(100vh - 65px);
         overflow: hidden;
         background: var(--pf-navy);
         font-family: 'Inter', sans-serif;
-        border: 1px solid var(--pf-border);
-        border-radius: 12px;
     }
 
     /* ── Sidebar ── */
@@ -75,16 +70,9 @@ require_once __DIR__ . '/../includes/header.php';
     .cs-list::-webkit-scrollbar { width:3px; }
     .cs-list::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
 
-    .conv-card { display:flex; gap:11px; padding:12px 14px; border-radius:14px; margin-bottom:3px; cursor:pointer; border:1px solid transparent; border-left:4px solid transparent; transition:.18s; }
+    .conv-card { display:flex; gap:11px; padding:12px 14px; border-radius:14px; margin-bottom:3px; cursor:pointer; border:1px solid transparent; transition:.18s; }
     .conv-card:hover { background:#f1f5f9; }
-    .conv-card.active {
-        background:#ffffff;
-        border-color:rgba(14,116,144,0.28);
-        border-left-color:#0e7490;
-        box-shadow:0 8px 20px rgba(14,116,144,0.14);
-    }
-    .conv-card.active .conv-name,
-    .conv-card.active .conv-sub { color:#0e7490; }
+    .conv-card.active { background:#fff; border-color:var(--pf-border); box-shadow:0 4px 12px rgba(15,23,42,0.06); }
     .conv-av { width:44px; height:44px; border-radius:11px; background:#f1f5f9; border:1px solid var(--pf-border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem; color:var(--pf-cyan); flex-shrink:0; overflow:hidden; }
     .conv-av img { width:100%; height:100%; object-fit:cover; }
     .conv-info { flex:1; min-width:0; }
@@ -311,64 +299,6 @@ require_once __DIR__ . '/../includes/header.php';
         display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(15,23,42,0.12);
     }
     #galleryPanel.show { display: flex; }
-
-    .chat-welcome {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
-        text-align: center;
-        background: #f8fafc;
-    }
-    .chat-welcome-card {
-        width: 100%;
-        max-width: 440px;
-        background: #ffffff;
-        border: 1px solid var(--pf-border);
-        border-radius: 12px;
-        padding: 2rem;
-    }
-    .chat-welcome-icon {
-        width: 72px;
-        height: 72px;
-        margin: 0 auto 1.25rem;
-        border-radius: 18px;
-        background: rgba(14,116,144,0.08);
-        border: 1px solid rgba(14,116,144,0.18);
-        color: #0e7490;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-    }
-    .chat-welcome-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 1.65rem;
-        font-weight: 900;
-    }
-    .chat-welcome-copy {
-        color: #475569;
-        max-width: 340px;
-        margin: 0.75rem auto 0;
-        font-size: 0.98rem;
-        font-weight: 600;
-        line-height: 1.6;
-    }
-
-    @media (max-width: 768px) {
-        body.chat-page #main-content { padding: 0 !important; }
-        #chat-root {
-            grid-template-columns: 1fr;
-            height: calc(100vh - 65px);
-            margin: 0;
-            border-radius: 0;
-            border-left: 0;
-            border-right: 0;
-        }
-        .cs-sidebar { display: none; }
-    }
 </style>
 
 <div id="chat-root">
@@ -384,13 +314,13 @@ require_once __DIR__ . '/../includes/header.php';
 
     <!-- ══ Chat Window ── -->
     <section class="cs-window">
-        <div id="welcome" class="chat-welcome">
-            <div class="chat-welcome-card">
-                <div class="chat-welcome-icon"><i class="bi bi-chat-heart-fill"></i></div>
-                <h3 class="chat-welcome-title">Get in Touch</h3>
-                <p class="chat-welcome-copy">Select an order from your messages to start chatting with our team. We are here to help with updates, questions, and order concerns.</p>
-            </div>
+        <div id="welcome" class="flex-1 flex items-center justify-center text-left p-12">
+        <div>
+            <div class="text-5xl opacity-20 text-white mb-6"><i class="bi bi-chat-heart-fill"></i></div>
+            <h3 class="text-3xl font-black text-white letter-spacing-tight">Get in Touch</h3>
+            <p class="text-white opacity-50 max-w-xs mt-3 font-bold text-lg leading-snug">Please select an order to start chatting. You can contact our admin or staff directly if you encounter any issues.</p>
         </div>
+    </div>
         
         <div id="chatInterface" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
             <header class="cs-header">
@@ -418,7 +348,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div id="messagesArea"></div>
 
             <div id="galleryPanel">
-                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#0f172a;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:var(--pf-dim);font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
+                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#fff;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:var(--pf-dim);font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
                 <div class="gal-grid" id="galleryGrid"></div>
             </div>
 
@@ -441,7 +371,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <input type="file" id="customerMediaInput" multiple style="display:none;" onchange="onImgSelected()">
                             <i class="bi bi-image"></i>
                         </label>
-                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#0f172a; flex:1; resize:none; font-family:inherit; padding:10px 0;"></textarea>
+                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#fff; flex:1; resize:none; font-family:inherit; padding:10px 0;"></textarea>
                         <span id="customerCharCount" class="char-counter">0/500</span>
                     </div>
 
@@ -451,7 +381,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="rec-timer" id="timerMain" style="font-family:monospace; font-weight:700; color:#ef4444; font-size:0.85rem;">0:00</span>
                     </div>
 
-                    <div id="voicePreviewAreaMain" style="display:none; align-items:center; gap:10px; background:#fff; border:1px solid var(--pf-border); border-radius:14px; padding:6px 12px; margin:0 4px; flex:1;">
+                    <div id="voicePreviewAreaMain" style="display:none; align-items:center; gap:10px; background:rgba(255,255,255,0.05); border:1px solid var(--pf-border); border-radius:14px; padding:6px 12px; margin:0 4px; flex:1;">
                         <button type="button" class="play-pause-btn" onclick="togglePreviewPlayback()">
                             <i class="bi bi-play-fill" id="previewPlayIconMain"></i>
                         </button>
@@ -604,7 +534,7 @@ function loadConvs() {
             const name = c.staff_name || 'PrintFlow Team';
             const active = activeId === c.order_id ? 'active' : '';
             return `
-            <div class="conv-card ${active}" data-order-id="${c.order_id}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
+            <div class="conv-card ${active}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
                 <div class="conv-av">${c.staff_avatar ? `<img src="${resolveProfileUrl(c.staff_avatar)}" onerror="${PROFILE_IMAGE_ONERROR}">` : (name === 'PrintFlow Team' ? `<img src="${BASE}/public/assets/images/favicon.png" style="width:24px;height:24px;object-fit:contain;opacity:0.8;">` : `<span>${name[0].toUpperCase()}</span>`)}</div>
                 <div class="conv-info">
                     <div class="conv-top"><span class="conv-name">${esc(name)}</span><span class="conv-time">${fmtTimeAgo(c.last_message_at)}</span></div>
@@ -613,27 +543,11 @@ function loadConvs() {
                 </div>
             </div>`;
         }).join('');
-
-        const initialId = parseInt(window.__initialOrderId || 0, 10);
-        if (initialId && !window.__initialOrderOpened && !activeId) {
-            const target = res.conversations.find(c => parseInt(c.order_id, 10) === initialId);
-            if (target) {
-                const name = target.staff_name || 'PrintFlow Team';
-                window.__initialOrderOpened = true;
-                openChat(target.order_id, name, target.product_name || 'Order', target.is_archived ? 1 : 0, target.staff_avatar || '');
-            } else if (!isArchView && !window.__initialOrderArchiveTried) {
-                window.__initialOrderArchiveTried = true;
-                switchTab(true);
-            }
-        }
     });
 }
 
 function openChat(id, name, meta, archived, avatar = '') {
     activeId = id; lastId = 0; isConvArch = !!archived; partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : '';
-    document.querySelectorAll('.conv-card').forEach(card => card.classList.remove('active'));
-    const activeCard = document.querySelector(`.conv-card[data-order-id="${id}"]`);
-    if (activeCard) activeCard.classList.add('active');
     document.getElementById('welcome').style.display = 'none';
     document.getElementById('chatInterface').style.display = 'flex';
     document.getElementById('hName').textContent = name;
@@ -725,7 +639,7 @@ function appendMsgUI(m) {
             <span class="v-duration" id="v-dur-${m.id}">0:00</span>
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
-        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(10,37,48,0.6)'), 50);
+        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
     } else {
         contentHtml = `
             ${m.image_path ? `<img class="chat-img" src="${m.image_path}" onclick="window.open(this.src)" style="max-width:250px; border-radius:12px; margin-bottom:5px; display:block; cursor:pointer;">` : ''}
@@ -1033,7 +947,7 @@ async function drawWaveformPreview(blob, canvasId) {
         const w = canvas.width / samples;
         filtered.forEach((n,i) => {
             const h = n * mult * canvas.height;
-            ctx.fillStyle = '#0a2530';
+            ctx.fillStyle = '#53c5e0';
             ctx.fillRect(i * w, (canvas.height - h) / 2, w - 1, h);
         });
     } catch (e) {
@@ -1079,7 +993,7 @@ function drawDataToCanvas(id, data, color, prog = 0) {
     const w = cvs.width / data.length;
     ctx.clearRect(0,0,cvs.width,cvs.height);
     data.forEach((n,i) => {
-        ctx.fillStyle = (i / data.length) < prog ? '#0a2530' : color;
+        ctx.fillStyle = (i / data.length) < prog ? '#53c5e0' : color;
         const h = n * cvs.height;
         ctx.fillRect(i * w, (cvs.height - h) / 2, w - 1, h);
     });
@@ -1099,7 +1013,7 @@ window.updateVoiceProgress = function(id) {
     if (dur) dur.textContent = fmtDuration(audio.currentTime);
     const row = cvs.closest('.brow');
     const isSelf = row ? row.classList.contains('self') : false;
-    drawDataToCanvas(cvs.id, vCache[audio.src], isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(10,37,48,0.6)', prog);
+    drawDataToCanvas(cvs.id, vCache[audio.src], isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)', prog);
 };
 window.resetVoicePlayer = id => { const i = document.getElementById(`v-icon-${id}`); if(i) i.className="bi bi-play-fill"; };
 window.initVoiceDuration = id => { const a = document.getElementById(`v-audio-${id}`), d = document.getElementById(`v-dur-${id}`); if(a && d) d.textContent = fmtDuration(a.duration); };

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Prevent accidental output
@@ -25,6 +26,18 @@ if (!$message_id || !$reaction_type) {
 }
 
 $db_sender = ($user_type === 'Customer') ? 'Customer' : 'Staff';
+
+if ($user_type !== 'Customer') {
+    $messageRow = db_query('SELECT order_id FROM order_messages WHERE message_id = ? LIMIT 1', 'i', [$message_id]);
+    if (empty($messageRow)) {
+        ob_end_clean();
+        echo json_encode(['success' => false, 'error' => 'Message not found']);
+        exit();
+    }
+    ob_end_clean();
+    ob_start();
+    printflow_assert_order_branch_access((int)$messageRow[0]['order_id']);
+}
 
 // Check if reaction exists
 $sql_check = "SELECT reaction_id, reaction_type FROM message_reactions WHERE message_id = ? AND sender = ? AND sender_id = ?";

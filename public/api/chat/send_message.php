@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 // Prevent accidental output (notices, etc.) from breaking JSON
@@ -23,6 +24,12 @@ $user_type = get_user_type();
 if (!$order_id) {
     echo json_encode(['success' => false, 'error' => 'Missing order ID']);
     exit();
+}
+
+if ($user_type !== 'Customer') {
+    ob_end_clean();
+    ob_start();
+    printflow_assert_order_branch_access($order_id);
 }
 
 // Map Admin/Manager/Staff to 'Staff'

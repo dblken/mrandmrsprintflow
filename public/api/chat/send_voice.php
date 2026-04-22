@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
 header('Content-Type: application/json');
@@ -25,6 +26,10 @@ $file = $_FILES['voice'];
 $user_id = get_user_id();
 $user_type = get_user_type();
 $db_sender = ($user_type === 'Customer') ? 'Customer' : 'Staff';
+
+if ($user_type !== 'Customer') {
+    printflow_assert_order_branch_access($order_id);
+}
 
 // Validate size (max ~10MB)
 if ($file['size'] > 10000000) {

@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 
 // Prevent accidental output (notices, etc.) from breaking JSON
 ob_start();
@@ -26,10 +27,11 @@ if (!$order_id) {
     exit;
 }
 
-// Access control: Customer = own orders only; Staff/Admin/Manager = any order
+// Access control: Customer = own orders only; Staff/Manager = assigned branch only; Admin = any order
 if ($user_type === 'Customer') {
     $order_result = db_query("SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", 'ii', [$order_id, $user_id]);
 } else {
+    printflow_assert_order_branch_access($order_id);
     $order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
 }
 

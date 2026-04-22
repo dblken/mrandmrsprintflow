@@ -9,6 +9,7 @@ ini_set('display_errors', 0);
 try {
     require_once __DIR__ . '/../../../includes/auth.php';
     require_once __DIR__ . '/../../../includes/functions.php';
+    require_once __DIR__ . '/../../../includes/branch_context.php';
     require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
 
     // Global Output Buffer to trap notices
@@ -32,6 +33,12 @@ if (!$order_id) {
     ob_end_clean();
     echo json_encode(['success' => false, 'error' => 'Missing order ID']);
     exit;
+}
+
+if ($user_type !== 'Customer') {
+    ob_end_clean();
+    ob_start();
+    printflow_assert_order_branch_access($order_id);
 }
 
 function pf_chat_public_url(?string $path): string {
