@@ -170,6 +170,7 @@ if ($product_type_filter !== '') {
 }
 
 $sql = "SELECT o.*, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), 'Walk-in Customer (Guest)') as customer_name,
+        (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku,
         (SELECT GROUP_CONCAT(COALESCE(p.name, 'Custom Product') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names,
         (SELECT oi.customization_data FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_customization
         FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1" . $sql_conditions;
@@ -198,6 +199,10 @@ $params[] = $offset;
 $types .= 'ii';
 
 $orders = db_query($sql, $types, $params);
+foreach ($orders as &$order) {
+    $order['order_code'] = printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? '');
+}
+unset($order);
 
 // Get KPI statistics (branch-specific)
 // Note: o.order_type = 'product' filter from line 108 is preserved in $sql_conditions
@@ -234,7 +239,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                 <td>
                     <div class="order-info-cell">
                         <div class="order-id-wrap">
-                            #<?php echo $order['order_id']; ?>
+                            <?php echo htmlspecialchars($order['order_code']); ?>
                             <?php if (($order['order_source'] ?? '') === 'pos'): ?>
                                 <span style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;margin-left:4px;border:1px solid #fde68a;">POS</span>
                             <?php endif; ?>
@@ -959,7 +964,7 @@ $page_title = 'Orders - Staff';
     function openOrderModal(orderId) {
         currentOrderId = orderId;
         var modal = document.getElementById('orderModal');
-        document.getElementById('omTitle').textContent = 'Order #' + orderId;
+        document.getElementById('omTitle').textContent = 'Order Details';
         document.getElementById('omSubtitle').textContent = 'Loading…';
         document.getElementById('omBody').innerHTML =
             '<div class="om-loader"><div class="om-spinner"></div>' +
@@ -1000,6 +1005,8 @@ $page_title = 'Orders - Staff';
                     '<div class="om-alert om-alert-error">Error: ' + data.error + '</div>';
                 return;
             }
+            var orderCode = data.order_code || ('ORD-' + orderId);
+            document.getElementById('omSubtitle').textContent = orderCode + (data.order_date ? ' • ' + data.order_date : '');
             try { renderOrderModal(data); }
             catch (err) {
                 console.error('Render Error:', err);
@@ -1620,7 +1627,7 @@ $page_title = 'Orders - Staff';
                                     <td>
                                         <div class="order-info-cell">
                                             <div class="order-id-wrap">
-                                                #<?php echo $order['order_id']; ?>
+                                                <?php echo htmlspecialchars($order['order_code']); ?>
                                                 <?php if (($order['order_source'] ?? '') === 'pos'): ?>
                                                     <span style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;margin-left:4px;border:1px solid #fde68a;">POS</span>
                                                 <?php endif; ?>

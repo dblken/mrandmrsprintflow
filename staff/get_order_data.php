@@ -106,6 +106,7 @@ $action = $_GET['action'] ?? 'get_order';
 if ($action === 'list_orders') {
     $status = $_GET['status'] ?? '';
     $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku,
             (SELECT GROUP_CONCAT(COALESCE(p.name, 'Custom Product') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names
             FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE 1=1";
     $params = [];
@@ -130,6 +131,7 @@ if ($action === 'list_orders') {
     foreach ($orders as &$o) {
         $o['order_date_fmt'] = format_date($o['order_date']);
         $o['total_amount_fmt'] = format_currency($o['total_amount']);
+        $o['order_code'] = printflow_format_order_code($o['order_id'] ?? 0, $o['order_sku'] ?? '');
     }
     
     staff_order_data_json(['success' => true, 'orders' => $orders]);
@@ -154,6 +156,7 @@ $customer_select = "
 if ($branchFilter !== null) {
     $order_result = db_query("
         SELECT o.*,
+               (SELECT GROUP_CONCAT(DISTINCT p2.sku ORDER BY p2.sku SEPARATOR '-') FROM order_items oi2 LEFT JOIN products p2 ON oi2.product_id = p2.product_id WHERE oi2.order_id = o.order_id) as order_sku,
                {$customer_select}
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.customer_id
@@ -162,6 +165,7 @@ if ($branchFilter !== null) {
 } else {
     $order_result = db_query("
         SELECT o.*,
+               (SELECT GROUP_CONCAT(DISTINCT p2.sku ORDER BY p2.sku SEPARATOR '-') FROM order_items oi2 LEFT JOIN products p2 ON oi2.product_id = p2.product_id WHERE oi2.order_id = o.order_id) as order_sku,
                {$customer_select}
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.customer_id
@@ -271,6 +275,7 @@ if (!empty($order['payment_proof'])) {
 
 staff_order_data_json([
     'order_id'            => $order['order_id'],
+    'order_code'          => printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? ''),
     'order_date'          => format_datetime($order['order_date']),
     'total_amount'        => format_currency($order['total_amount']),
     'total_raw'           => (float)$order['total_amount'],
