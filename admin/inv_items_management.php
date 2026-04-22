@@ -20,6 +20,19 @@ $branchCtx = init_branch_context(true);
 $branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
 $page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
+function normalize_inventory_uom(?string $uom, ?string $categoryName = null): string {
+    $normalized = strtolower(trim((string)$uom));
+    $categoryNormalized = strtoupper(trim((string)$categoryName));
+
+    if ($categoryNormalized === 'INK L120' || $categoryNormalized === 'INK L130') {
+        return 'l';
+    }
+
+    if ($normalized === 'btl') return 'l';
+    if (in_array($normalized, ['pcs', 'ft', 'l'], true)) return $normalized;
+    return 'pcs';
+}
+
 // Get parameters
 $cat_id   = (int)($_GET['category_id'] ?? 0);
 $search   = trim($_GET['search'] ?? '');
@@ -226,7 +239,7 @@ if (isset($_GET['ajax'])) {
                 <td><?php echo htmlspecialchars($catDisp ?: 'Uncategorized'); ?></td>
                 <td><?php echo $trackBadge; ?></td>
                 <td><span class="font-semibold" style="white-space:nowrap;">&#8369;<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                <?php $displayUom = strtolower(trim((string)($item['unit_of_measure'] ?? ''))) ?: 'pcs'; ?>
+                <?php $displayUom = normalize_inventory_uom($item['unit_of_measure'] ?? '', $item['category_name'] ?? ''); ?>
                 <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo $displayUom === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                 <td style="color:#6b7280;font-size:12px;"><?php echo $displayUom === 'l' ? 'Liter (L)' : htmlspecialchars($displayUom); ?></td>
                 <td class="no-truncate" style="text-align:right;">
@@ -734,7 +747,7 @@ if (isset($_GET['ajax'])) {
                                     $isOut = $stock <= 0;
                                     $isLow = !$isOut && $stock <= $minStock;
                                     
-                                    $displayUom = strtolower(trim((string)($item['unit_of_measure'] ?? ''))) ?: 'pcs';
+                                    $displayUom = normalize_inventory_uom($item['unit_of_measure'] ?? '', $item['category_name'] ?? '');
                                     $displayTrackByRoll = (int)($item['track_by_roll'] ?? 0);
                                     
                                     $stockColor = '#1f2937';
@@ -1066,7 +1079,7 @@ if (isset($_GET['ajax'])) {
                                     $catNameDisp = preg_replace('/\\s*\\((pcs|ft|btl)\\)\\s*$/i', '', $catNameRaw) ?: $catNameRaw;
                                 ?>
                                 <option value="<?php echo $cat['id']; ?>" 
-                                        data-uom="<?php echo htmlspecialchars($cat['default_uom'] ?? ''); ?>"
+                                        data-uom="<?php echo htmlspecialchars(normalize_inventory_uom($cat['default_uom'] ?? '', $cat['name'] ?? '')); ?>"
                                         data-roll="<?php echo $cat['default_track_by_roll'] ?? 0; ?>">
                                     <?php echo htmlspecialchars($catNameDisp); ?>
                                 </option>
@@ -1675,8 +1688,9 @@ if (isset($_GET['ajax'])) {
         
         const stock = parseFloat(item.current_stock || 0);
         const reorder = parseFloat(item.reorder_level || 0);
-        const uom = (item.unit_of_measure || 'pcs').toUpperCase();
-        const isPcs = (item.unit_of_measure || '').toLowerCase() === 'pcs';
+        const normalizedUom = normalizeInventoryUomValue(item.unit_of_measure, item.category_name);
+        const uom = normalizedUom.toUpperCase();
+        const isPcs = normalizedUom === 'pcs';
         
         // Stock status (computed dynamically)
         let statusText, statusBg, statusColor, statusBorder;
@@ -1797,10 +1811,7 @@ if (isset($_GET['ajax'])) {
         const isCreate = document.getElementById('actionType').value === 'create_item';
         if (isCreate) {
             if (uom) {
-                const normalized = String(uom || '').toLowerCase();
-                // Bottles (btl) is no longer a selectable UOM; map to Liters instead.
-                const mappedUom = normalized === 'btl' ? 'l' : normalized;
-                document.getElementById('itemUnit').value = mappedUom;
+                document.getElementById('itemUnit').value = normalizeInventoryUomValue(uom, selectedOpt.textContent || '');
             }
             if (isPrintedSticker) {
                 document.getElementById('itemUnit').value = 'pcs';
@@ -2104,7 +2115,7 @@ if (isset($_GET['ajax'])) {
             if (itemId2) itemId2.value = item.id;
             if (itemName2) itemName2.value = item.name;
             if (itemCategory2) itemCategory2.value = item.category_id || '';
-            if (itemUnit2) itemUnit2.value = item.unit_of_measure;
+            if (itemUnit2) itemUnit2.value = normalizeInventoryUomValue(item.unit_of_measure, item.category_name);
             if (itemUnitCost2) itemUnitCost2.value = item.unit_cost || '0.00';
             // Tracking is auto-generated from UOM; keep UI consistent.
             const track2 = document.getElementById('itemTrackByRoll');
@@ -2149,7 +2160,7 @@ if (isset($_GET['ajax'])) {
             const track3 = document.getElementById('itemTrackByRoll');
             if (track3) { track3.disabled = true; track3.style.background = '#fcfcfd'; }
 
-            if (item.unit_of_measure === 'ft') {
+            if (normalizeInventoryUomValue(item.unit_of_measure, item.category_name) === 'ft') {
                 document.getElementById('itemRollLength').value = item.default_roll_length_ft || '';
             }
             // Ensure roll/stock sections match current UOM.
@@ -2329,8 +2340,11 @@ if (isset($_GET['ajax'])) {
         if (item) openAddStockModal(item);
     }
 
-    function normalizeInventoryUomValue(rawUom) {
+    function normalizeInventoryUomValue(rawUom, categoryName = '') {
         const uom = String(rawUom || '').trim().toLowerCase();
+        const normalizedCategory = String(categoryName || '').trim().toUpperCase();
+        if (normalizedCategory === 'INK L120' || normalizedCategory === 'INK L130') return 'l';
+        if (uom === 'btl') return 'l';
         if (uom === 'l') return 'l';
         if (uom === 'ft') return 'ft';
         return 'pcs';
@@ -2343,7 +2357,7 @@ if (isset($_GET['ajax'])) {
 
     function openAddStockModal(item) {
         const currentStock = parseFloat(item.current_stock || 0);
-        const modalUom = normalizeInventoryUomValue(item.unit_of_measure);
+        const modalUom = normalizeInventoryUomValue(item.unit_of_measure, item.category_name);
         document.getElementById('addStockItemName').textContent = item.name;
         document.getElementById('addStockItemId').value = item.id;
         document.getElementById('addStockIsRoll').value = item.track_by_roll;
@@ -2722,7 +2736,7 @@ if (isset($_GET['ajax'])) {
     function openDeductStockModal(item) {
         document.getElementById('deductStockItemName').textContent = item.name;
         document.getElementById('deductStockItemId').value = item.id;
-        document.getElementById('deductStockUom').value = item.unit_of_measure || 'pcs';
+        document.getElementById('deductStockUom').value = normalizeInventoryUomValue(item.unit_of_measure, item.category_name);
         document.getElementById('deductStockQty').value = '';
         document.getElementById('deductStockNotes').value = '';
         document.getElementById('deductStockModal').style.display = 'flex';

@@ -16,6 +16,21 @@ header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+function normalize_inventory_api_uom(string $unit, int $categoryId = 0): string {
+    $normalized = strtolower(trim($unit));
+    if ($normalized === 'btl') $normalized = 'l';
+
+    if ($categoryId > 0) {
+        $rows = db_query("SELECT name FROM inv_categories WHERE id = ? LIMIT 1", 'i', [$categoryId]);
+        $categoryName = strtoupper(trim((string)($rows[0]['name'] ?? '')));
+        if ($categoryName === 'INK L120' || $categoryName === 'INK L130') {
+            return 'l';
+        }
+    }
+
+    return in_array($normalized, ['pcs', 'ft', 'l'], true) ? $normalized : 'pcs';
+}
+
 try {
     switch ($action) {
         case 'get_items':
@@ -85,7 +100,7 @@ try {
             $cat_id = (int)($_POST['category_id'] ?? 0);
             if (!$cat_id) $errors['category_id'] = 'Please select a category.';
 
-            $unit = sanitize($_POST['unit'] ?? '');
+            $unit = normalize_inventory_api_uom(sanitize($_POST['unit'] ?? ''), $cat_id);
             if (empty($unit)) $errors['unit'] = 'Please select a unit of measure.';
 
             $sku = sanitize($_POST['sku'] ?? '') ?: null;
