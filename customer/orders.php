@@ -1083,22 +1083,16 @@ function escIM(str) {
         return mapped === activeTab;
     }
 
-    let lastReloadAt = 0;
     function poll() {
         fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php`)
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            const now = Date.now();
             const cards = Array.from(document.querySelectorAll('.ct-order-card'));
             const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
             const newOrder = data.orders.find(order => !existingIds.has(order.order_id));
-            const hasNewOrder = Boolean(newOrder) && shouldReloadForNewOrder(newOrder);
-            if (hasNewOrder && now - lastReloadAt > 3000) {
+            if (newOrder && shouldReloadForNewOrder(newOrder)) {
                 notifyNewOrder(newOrder.order_id);
-                lastReloadAt = now;
-                setTimeout(() => { window.location.reload(); }, 1200);
-                return;
             }
             data.orders.forEach(order => {
                 const card = document.getElementById('order-card-' + order.order_id);
