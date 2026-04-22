@@ -991,6 +991,15 @@ function format_currency($amount, $currency = '₱') {
 }
 
 /**
+ * Build the visible order code from SKU(s) plus order id.
+ */
+function printflow_format_order_code($order_id, $order_sku = '') {
+    $order_id = (int)$order_id;
+    $order_sku = trim((string)$order_sku);
+    return $order_sku !== '' ? ($order_sku . '-' . $order_id) : ('ORD-' . $order_id);
+}
+
+/**
  * Format date
  * @param string $date
  * @param string $format

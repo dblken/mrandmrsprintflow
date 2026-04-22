@@ -152,6 +152,10 @@ $sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
 
 $orders_raw = db_query($sql, $types, $params);
 $orders = is_array($orders_raw) ? $orders_raw : [];
+foreach ($orders as &$order) {
+    $order['order_code'] = printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? '');
+}
+unset($order);
 
 $page_title = 'My Orders - PrintFlow';
 $use_customer_css = true;
@@ -602,7 +606,7 @@ require_once __DIR__ . '/../includes/header.php';
                         ?>
                         <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
                             <div class="card-top-row">
-                                <span class="order-id-chip">Order #<?php echo $order['order_id']; ?></span>
+                                <span class="order-id-chip"><?php echo htmlspecialchars($order['order_code']); ?></span>
                                 <div class="status-pill <?php echo $st_cls; ?>"><?php echo htmlspecialchars($order['status']); ?></div>
                             </div>
 
@@ -801,7 +805,7 @@ function imBadge(val) {
 
 function openItemsModal(orderId) {
     const modal = document.getElementById('itemsModal');
-    document.getElementById('imTitle').textContent = `Order #${orderId}`;
+    document.getElementById('imTitle').textContent = `Order`;
     document.getElementById('imSubtitle').textContent = 'Fetching data...';
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -814,7 +818,7 @@ function openItemsModal(orderId) {
             return;
         }
 
-        document.getElementById('imSubtitle').textContent = 'Order placed on ' + data.order_date;
+        document.getElementById('imSubtitle').textContent = data.order_code + ' • Order placed on ' + data.order_date;
 
         // Safety check for items
         const itemsList = Array.isArray(data.items) ? data.items : [];

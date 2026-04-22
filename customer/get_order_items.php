@@ -23,7 +23,8 @@ if (!$order_id) {
 
 // Verify order belongs to this customer
 $order_result = db_query("
-    SELECT o.*, b.branch_name 
+    SELECT o.*, b.branch_name,
+           (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku
     FROM orders o 
     LEFT JOIN branches b ON o.branch_id = b.id 
     WHERE o.order_id = ? AND o.customer_id = ?
@@ -116,17 +117,17 @@ $restriction_msg = '';
 if (!$can_cancel && !in_array($order['status'], ['Cancelled', 'Completed'])) {
     switch ($order['status']) {
         case 'To Pay':
-            $restriction_msg = "Order #" . $order['order_id'] . " is already ready for payment.";
+            $restriction_msg = printflow_format_order_code($order['order_id'], $order['order_sku'] ?? '') . " is already ready for payment.";
             break;
         case 'In Production':
         case 'Printing':
-            $restriction_msg = "Order #" . $order['order_id'] . " is already in production.";
+            $restriction_msg = printflow_format_order_code($order['order_id'], $order['order_sku'] ?? '') . " is already in production.";
             break;
         case 'Ready for Pickup':
-            $restriction_msg = "Order #" . $order['order_id'] . " is already ready for pickup.";
+            $restriction_msg = printflow_format_order_code($order['order_id'], $order['order_sku'] ?? '') . " is already ready for pickup.";
             break;
         default:
-            $restriction_msg = "Order #" . $order['order_id'] . " is already being processed.";
+            $restriction_msg = printflow_format_order_code($order['order_id'], $order['order_sku'] ?? '') . " is already being processed.";
             break;
     }
 }
@@ -151,6 +152,7 @@ if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)) {
 
 echo json_encode([
     'order_id'         => $order['order_id'],
+    'order_code'       => printflow_format_order_code($order['order_id'], $order['order_sku'] ?? ''),
     'order_date'       => format_datetime($order['order_date']),
     'total_amount'     => format_currency($order['total_amount']),
     'status'           => $order['status'],

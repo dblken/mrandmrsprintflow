@@ -24,7 +24,9 @@ if (!$order_id) {
 
 // Get order details (ensure it belongs to the customer)
 $order_result = db_query("
-    SELECT * FROM orders 
+    SELECT o.*,
+           (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku
+    FROM orders o
     WHERE order_id = ? AND customer_id = ?
 ", 'ii', [$order_id, $customer_id]);
 
@@ -33,6 +35,7 @@ if (empty($order_result)) {
     redirect('orders.php');
 }
 $order = $order_result[0];
+$order_code = printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? '');
 
 // Get order items
 $has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
@@ -71,9 +74,9 @@ if (!empty($items)) {
         
         // Clean up generic names
         if (empty($itemName) || $itemName === 'Customer Order' || $itemName === 'Custom Order' || $itemName === 'Custom Item' || $itemName === 'Order Item') {
-            $itemName = get_service_name_from_customization($custom, 'Order #' . $order_id);
+                        $itemName = get_service_name_from_customization($custom, $order_code);
         }
-        $itemName = normalize_service_name($itemName, 'Order #' . $order_id);
+        $itemName = normalize_service_name($itemName, $order_code);
 
         if (!in_array($itemName, $names)) {
             $names[] = $itemName;
@@ -126,7 +129,7 @@ require_once __DIR__ . '/../includes/header.php';
             
             <!-- 1. Order Status & Date Alert -->
             <div style="padding:1rem; background:#000; color:#fff; border-radius:12px; font-weight:700; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;">
-                <span>Placed on: <?php echo format_datetime($order['order_date']); ?></span>
+                <span><?php echo htmlspecialchars($order_code); ?> • Placed on: <?php echo format_datetime($order['order_date']); ?></span>
                 <a href="<?php echo BASE_URL; ?>/customer/chat.php?order_id=<?php echo $order_id; ?>" style="background:#fff; color:#000; border:none; padding:5px 12px; border-radius:6px; font-weight:800; font-size:0.75rem; text-decoration:none; display:inline-block;">
                     💬 Chat Support
                 </a>
@@ -326,7 +329,7 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Cancellation Modal -->
         <div id="cancelModal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center; padding:20px;">
             <div class="card" style="max-width:500px; width:100%; position:relative;">
-                <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:1rem; color:#111827;">Cancel Order #<?php echo $order_id; ?></h2>
+                <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:1rem; color:#111827;">Cancel <?php echo htmlspecialchars($order_code); ?></h2>
                 <p style="color:#6b7280; font-size:0.875rem; margin-bottom:1.5rem;">Please tell us why you want to cancel this order. This cannot be undone.</p>
                 
                 <form action="cancel_order.php" method="POST">
@@ -655,4 +658,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-
