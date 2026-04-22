@@ -360,9 +360,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     
                     // For service orders (custom), redirect to orders page instead of payment
                     if ($order_type === 'custom') {
-                        error_log('Service order placed, redirecting to services page: ' . $order_id);
+                        error_log('Service order placed, redirecting to orders page: ' . $order_id);
                         $_SESSION['order_success'] = "Order #$order_id placed successfully! Our team will review and price your order shortly.";
-                        header("Location: services.php");
+                        header("Location: orders.php");
                         exit();
                     } else {
                         error_log('Redirecting to payment page for order: ' . $order_id);
