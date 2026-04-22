@@ -8,6 +8,23 @@ if (!class_exists('WebPush')) {
     require_once __DIR__ . '/WebPush.php';
 }
 
+if (!defined('BASE_PATH') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+
+function push_base_path(): string
+{
+    $base = defined('BASE_PATH') ? (string) BASE_PATH : '';
+    $base = rtrim(trim($base), '/');
+
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host !== '' && strpos($host, 'mrandmrsprintflow.com') !== false && $base === '/printflow') {
+        $base = '';
+    }
+
+    return $base === '/' ? '' : $base;
+}
+
 /**
  * Return a WebPush instance using the stored VAPID config.
  * Returns null if VAPID keys are not configured yet.
@@ -36,44 +53,87 @@ function get_webpush(): ?WebPush
  */
 function push_url_for_type(string $type, ?int $data_id, string $user_type): string
 {
-    $base = '/printflow';
+    $base = push_base_path();
+    $isCustomer = $user_type === 'Customer';
+    $isStaff = $user_type === 'Staff';
+    $isManager = $user_type === 'Manager';
+    $panelBase = $isManager ? ($base . '/manager') : ($base . '/admin');
+
     switch ($type) {
         case 'Order':
         case 'New Order':
-            // Redirect to chat when order-related (data_id = order_id)
-            if ($data_id && $user_type === 'Customer') {
+        case 'Payment':
+            if ($data_id && $isCustomer) {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
-            if ($user_type === 'Customer') {
+            if ($isCustomer) {
                 return $base . '/customer/orders.php';
             }
-            if ($user_type === 'Staff' || $user_type === 'Manager') {
-                if ($data_id) {
-                    return $base . '/staff/order_details.php?id=' . (int)$data_id;
-                }
-                return $base . '/staff/notifications.php';
+            if ($isStaff) {
+                return $data_id
+                    ? $base . '/staff/orders.php?order_id=' . (int) $data_id
+                    : $base . '/staff/notifications.php';
             }
-            return $base . '/admin/orders_management.php';
+
+            return $data_id
+                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
+                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
+
         case 'Job Order':
-            return $user_type === 'Customer'
-                ? $base . '/customer/new_job_order.php'
-                : $base . '/admin/orders_management.php';
+        case 'Payment Issue':
+            if ($isCustomer) {
+                return $base . '/customer/new_job_order.php';
+            }
+            if ($isStaff) {
+                return $data_id
+                    ? $base . '/staff/customizations.php?order_id=' . (int) $data_id . '&job_type=JOB'
+                    : $base . '/staff/customizations.php';
+            }
+            return $data_id
+                ? $panelBase . '/job_orders.php?open_job=' . (int) $data_id
+                : $panelBase . '/job_orders.php';
+
         case 'Chat':
         case 'Message':
+            if ($isCustomer) {
+                return $data_id
+                    ? $base . '/customer/chat.php?order_id=' . $data_id
+                    : $base . '/customer/orders.php';
+            }
+            if ($isStaff) {
+                return $data_id
+                    ? $base . '/staff/chats.php?order_id=' . (int) $data_id
+                    : $base . '/staff/chats.php';
+            }
             return $data_id
-                ? $base . '/customer/order_chat.php?order_id=' . $data_id
-                : $base . '/customer/orders.php';
+                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
+                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
+
         case 'Stock':
         case 'Inventory':
-            return $base . '/admin/inv_items_management.php';
+            if ($isStaff) {
+                return $base . '/staff/notifications.php';
+            }
+            return $panelBase . '/inv_transactions_ledger.php' . ($data_id ? '?item_id=' . (int) $data_id : '');
+
         case 'Design':
         case 'Customization':
-            if ($data_id && $user_type === 'Customer') {
+            if ($data_id && $isCustomer) {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
-            return $base . '/admin/orders_management.php';
+            if ($isStaff) {
+                return $data_id
+                    ? $base . '/staff/customizations.php?order_id=' . (int) $data_id . '&job_type=ORDER'
+                    : $base . '/staff/customizations.php';
+            }
+            return $data_id
+                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
+                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
+
         case 'Profile':
-            return $base . '/admin/user_staff_management.php';
+            return $isManager
+                ? $panelBase . '/notifications.php'
+                : $panelBase . '/user_staff_management.php';
         default:
             return $base . '/';
     }

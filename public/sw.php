@@ -15,7 +15,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -35,6 +35,25 @@ const PRE_CACHE_PAGES = [
     BASE_PATH + '/',
     BASE_PATH + '/public/index.php',
 ];
+
+function normalizeTargetUrl(target) {
+    const fallback = BASE_PATH + '/';
+    const rawTarget = target || fallback;
+
+    try {
+        const url = new URL(rawTarget, self.location.origin);
+        const host = String(self.location.hostname || '').toLowerCase();
+        if (!BASE_PATH && host.includes('mrandmrsprintflow.com') && url.pathname.startsWith('/printflow/')) {
+            url.pathname = url.pathname.replace(/^\/printflow(?=\/)/, '');
+        }
+        return url.pathname + url.search + url.hash;
+    } catch (e) {
+        if (!BASE_PATH && String(self.location.hostname || '').toLowerCase().includes('mrandmrsprintflow.com')) {
+            return String(rawTarget).replace(/^\/printflow(?=\/)/, '');
+        }
+        return rawTarget;
+    }
+}
 
 // ── Install: cache shell + pages immediately ─────────────────────────────────
 self.addEventListener('install', (event) => {
@@ -182,7 +201,7 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
         (async () => {
             const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-            const targetUrl = new URL(payload.url, self.location.origin).href;
+            const targetUrl = new URL(normalizeTargetUrl(payload.url), self.location.origin).href;
 
             for (const client of windowClients) {
                 const clientUrl = new URL(client.url, self.location.origin).href;
@@ -198,7 +217,7 @@ self.addEventListener('push', (event) => {
                 badge:   payload.badge,
                 tag:     payload.tag,
                 renotify: false,
-                data:    { url: payload.url },
+                data:    { url: normalizeTargetUrl(payload.url) },
             });
         })()
     );
@@ -206,7 +225,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const target = event.notification.data?.url || BASE_PATH + '/';
+    const target = normalizeTargetUrl(event.notification.data?.url || BASE_PATH + '/');
 
     event.waitUntil(
         (async () => {

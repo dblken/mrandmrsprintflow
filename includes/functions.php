@@ -244,7 +244,7 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                 if ($type === 'System' && $data_id !== null && $data_id !== '' && (int)$data_id > 0) {
                     $ml = strtolower((string)$message);
                     if (strpos($ml, 'ready for admin review') !== false || strpos($ml, 'completed their profile') !== false) {
-                        $push_url = (defined('BASE_URL') ? BASE_URL : '/printflow') . '/admin/user_staff_management.php?open_user=' . (int)$data_id;
+                        $push_url = printflow_notification_base_path() . '/admin/user_staff_management.php?open_user=' . (int)$data_id;
                     }
                 }
                 push_notify_user((int)$user_id, $user_type, [

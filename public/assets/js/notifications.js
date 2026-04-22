@@ -50,10 +50,30 @@
         return cleanPath ? (base + '/' + cleanPath) : (base || '');
     }
 
+    function normalizeNotificationTarget(url) {
+        if (!url) return url;
+
+        var base = getBasePath();
+        var host = String(window.location.hostname || '').toLowerCase();
+
+        try {
+            var target = new URL(url, window.location.origin);
+            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1 && target.pathname.indexOf('/printflow/') === 0) {
+                target.pathname = target.pathname.replace(/^\/printflow(?=\/)/, '');
+            }
+            return target.pathname + target.search + target.hash;
+        } catch (e) {
+            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1) {
+                return String(url).replace(/^\/printflow(?=\/)/, '');
+            }
+            return url;
+        }
+    }
+
     function appendMarkRead(url, notifId) {
         if (!url || !notifId) return url;
         try {
-            var target = new URL(url, window.location.origin);
+            var target = new URL(normalizeNotificationTarget(url), window.location.origin);
             if (!target.searchParams.has('mark_read')) {
                 target.searchParams.set('mark_read', notifId);
             }
@@ -155,7 +175,7 @@
                 var html = '';
                 for (var j = 0; j < data.notifications.length; j++) {
                     var n = data.notifications[j];
-                    var target = getNotifUrl(n);
+                    var target = normalizeNotificationTarget(getNotifUrl(n));
                     var unreadClass = n.is_read == 0 ? 'unread' : '';
                     var type = (n.type || '').toLowerCase();
                     var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
@@ -191,7 +211,7 @@
         var orderType = notification && notification.order_type ? notification.order_type : '';
         var directTarget = notification && notification.target_url ? String(notification.target_url) : '';
         if (directTarget) {
-            return appendMarkRead(directTarget, notifId);
+            return appendMarkRead(normalizeNotificationTarget(directTarget), notifId);
         }
 
         var t = String(type || '').toLowerCase();
@@ -266,7 +286,7 @@
                     var sid = String(n.id);
                     if (seen.has(sid)) continue;
                     markSeen(sid);
-                    var targetUrl = getNotifUrl(n);
+                    var targetUrl = normalizeNotificationTarget(getNotifUrl(n));
                     if (window.location.pathname + window.location.search === targetUrl) continue;
                     showToast('PrintFlow', n.message, targetUrl);
                 }
@@ -336,7 +356,7 @@
         toast.appendChild(close);
         container.appendChild(toast);
 
-        if (url) toast.onclick = function() { window.location.href = url; };
+        if (url) toast.onclick = function() { window.location.href = normalizeNotificationTarget(url); };
         setTimeout(function() { if (toast.parentNode) toast.remove(); }, 6000);
     }
 
