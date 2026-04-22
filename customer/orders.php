@@ -562,46 +562,6 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <script>
                 window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
-                (function () {
-                    if (!window.__pfOrderSuccessMessage || window.__pfOrderSuccessMessageShown) return;
-                    const msg = window.__pfOrderSuccessMessage;
-                    const showNow = () => {
-                        if (!document.body) return false;
-                        const toast = document.createElement('div');
-                        toast.textContent = msg;
-                        toast.style.position = 'fixed';
-                        toast.style.top = '18px';
-                        toast.style.right = '18px';
-                        toast.style.zIndex = '99999';
-                        toast.style.background = '#111827';
-                        toast.style.color = '#ffffff';
-                        toast.style.padding = '12px 16px';
-                        toast.style.borderRadius = '10px';
-                        toast.style.fontSize = '14px';
-                        toast.style.fontWeight = '600';
-                        toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
-                        toast.style.maxWidth = '360px';
-                        toast.style.lineHeight = '1.4';
-                        toast.style.opacity = '0';
-                        toast.style.transform = 'translateY(-6px)';
-                        toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-                        document.body.appendChild(toast);
-                        requestAnimationFrame(() => {
-                            toast.style.opacity = '1';
-                            toast.style.transform = 'translateY(0)';
-                        });
-                        setTimeout(() => {
-                            toast.style.opacity = '0';
-                            toast.style.transform = 'translateY(-6px)';
-                            setTimeout(() => { toast.remove(); }, 220);
-                        }, 3500);
-                        window.__pfOrderSuccessMessageShown = true;
-                        return true;
-                    };
-                    if (!showNow()) {
-                        requestAnimationFrame(showNow);
-                    }
-                })();
             </script>
         <?php endif; ?>
         <div class="mb-8 mt-2"></div>
@@ -752,8 +712,34 @@ const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 // ── Highlight + scroll to a specific order card from notification ──
 function fireOrderSuccessToast() {
     if (!window.__pfOrderSuccessMessage) return;
-    if (window.__pfOrderSuccessMessageShown) return;
     const message = window.__pfOrderSuccessMessage;
+    const showFallbackToast = () => {
+        let toast = document.getElementById('pf-success-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'pf-success-toast';
+            toast.style.position = 'fixed';
+            toast.style.top = '16px';
+            toast.style.right = '16px';
+            toast.style.zIndex = '100000';
+            toast.style.background = '#dcfce7';
+            toast.style.border = '1px solid #bbf7d0';
+            toast.style.color = '#166534';
+            toast.style.padding = '12px 16px';
+            toast.style.borderRadius = '10px';
+            toast.style.boxShadow = '0 8px 20px rgba(34, 197, 94, 0.15)';
+            toast.style.fontWeight = '600';
+            toast.style.maxWidth = '420px';
+            toast.style.fontSize = '13px';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        clearTimeout(toast.__pfTimer);
+        toast.__pfTimer = setTimeout(() => {
+            if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 4500);
+    };
+
     let attempts = 0;
     const maxAttempts = 20;
     const tryShow = () => {
@@ -762,6 +748,7 @@ function fireOrderSuccessToast() {
             window.__pfOrderSuccessMessage = '';
             return;
         }
+        showFallbackToast();
         attempts += 1;
         if (attempts < maxAttempts) {
             setTimeout(tryShow, 150);
@@ -771,6 +758,12 @@ function fireOrderSuccessToast() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    if (window.__pfOrderSuccessMessage) {
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     fireOrderSuccessToast();
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
