@@ -47,6 +47,57 @@ class JobOrderService {
         return $branchId > 0 ? $branchId : null;
     }
 
+    private static function getLinkedStoreOrderId(int $jobId): int {
+        $row = db_query(
+            "SELECT order_id FROM job_orders WHERE id = ? LIMIT 1",
+            'i',
+            [$jobId]
+        );
+        return (int)($row[0]['order_id'] ?? 0);
+    }
+
+    private static function getScopedMaterials(int $jobId, bool $onlyUndeducted = false): array {
+        $storeOrderId = self::getLinkedStoreOrderId($jobId);
+        $sql = "SELECT *
+                FROM job_order_materials
+                WHERE (job_order_id = ?";
+        $params = [$jobId];
+        $types = 'i';
+
+        if ($storeOrderId > 0) {
+            $sql .= " OR (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))";
+            $params[] = $storeOrderId;
+            $types .= 'i';
+        }
+
+        $sql .= ")";
+
+        if ($onlyUndeducted) {
+            $sql .= " AND deducted_at IS NULL";
+        }
+
+        return db_query($sql, $types, $params) ?: [];
+    }
+
+    private static function getScopedInkUsage(int $jobId): array {
+        $storeOrderId = self::getLinkedStoreOrderId($jobId);
+        $sql = "SELECT *
+                FROM job_order_ink_usage
+                WHERE (job_order_id = ?";
+        $params = [$jobId];
+        $types = 'i';
+
+        if ($storeOrderId > 0) {
+            $sql .= " OR (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))";
+            $params[] = $storeOrderId;
+            $types .= 'i';
+        }
+
+        $sql .= ")";
+
+        return db_query($sql, $types, $params) ?: [];
+    }
+
     private static function itemUsesLiters(array $item): bool {
         $uom = strtolower(trim((string)($item['unit_of_measure'] ?? '')));
         return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || str_contains($uom, 'liter') || str_contains($uom, '(l)');
@@ -405,13 +456,13 @@ class JobOrderService {
      * Calculate internal material cost for a job.
      */
     public static function calculateJobCost($orderId) {
-        $sql = "SELECT SUM(
-                    (CASE WHEN computed_required_length_ft > 0 THEN computed_required_length_ft ELSE quantity END) 
-                    * unit_cost_at_assignment
-                ) as total_cost 
-                FROM job_order_materials WHERE job_order_id = ?";
-        $res = db_query($sql, 'i', [$orderId]);
-        return $res[0]['total_cost'] ?? 0;
+        $materials = self::getScopedMaterials((int)$orderId, false);
+        $total = 0.0;
+        foreach ($materials as $m) {
+            $qty = (float)((float)($m['computed_required_length_ft'] ?? 0) > 0 ? $m['computed_required_length_ft'] : $m['quantity']);
+            $total += $qty * (float)($m['unit_cost_at_assignment'] ?? 0);
+        }
+        return $total;
     }
 
     /**
@@ -512,7 +563,7 @@ class JobOrderService {
      */
     private static function processDeductions($orderId) {
         $branchId = self::getJobBranchId((int)$orderId);
-        $materials = db_query("SELECT * FROM job_order_materials WHERE job_order_id = ? AND deducted_at IS NULL", 'i', [$orderId]);
+        $materials = self::getScopedMaterials((int)$orderId, true);
         
         if ($materials) {
             foreach ($materials as $m) {
@@ -605,7 +656,7 @@ class JobOrderService {
         }
 
         // Process Ink Deductions
-        $inks = db_query("SELECT * FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$orderId]);
+        $inks = self::getScopedInkUsage((int)$orderId);
         if ($inks) {
             foreach ($inks as $ink) {
                 // Determine item from inventory
@@ -774,15 +825,22 @@ class JobOrderService {
             $order['items'] = [];
         }
 
-        $order['materials'] = db_query(
-            "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
-                    (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
-             FROM job_order_materials m 
-             JOIN inv_items i ON m.item_id = i.id 
-             LEFT JOIN inv_rolls r ON m.roll_id = r.id 
-             WHERE m.job_order_id = ?", 
-            'i', [$id]
-        ) ?: [];
+        $storeOrderId = (int)($order['order_id'] ?? 0);
+        $materialSql = "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
+                               (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
+                        FROM job_order_materials m
+                        JOIN inv_items i ON m.item_id = i.id
+                        LEFT JOIN inv_rolls r ON m.roll_id = r.id
+                        WHERE (m.job_order_id = ?";
+        $materialParams = [$id];
+        $materialTypes = 'i';
+        if ($storeOrderId > 0) {
+            $materialSql .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+            $materialParams[] = $storeOrderId;
+            $materialTypes .= 'i';
+        }
+        $materialSql .= ")";
+        $order['materials'] = db_query($materialSql, $materialTypes, $materialParams) ?: [];
 
         // Parse JSON metadata for each material
         foreach ($order['materials'] as &$m) {
@@ -794,13 +852,19 @@ class JobOrderService {
             'i', [$id]
         ) ?: [];
 
-        $order['ink_usage'] = db_query(
-            "SELECT u.*, i.name as item_name
-             FROM job_order_ink_usage u
-             JOIN inv_items i ON u.item_id = i.id
-             WHERE job_order_id = ?",
-             'i', [$id]
-        ) ?: [];
+        $inkSql = "SELECT u.*, i.name as item_name
+                   FROM job_order_ink_usage u
+                   JOIN inv_items i ON u.item_id = i.id
+                   WHERE (u.job_order_id = ?";
+        $inkParams = [$id];
+        $inkTypes = 'i';
+        if ($storeOrderId > 0) {
+            $inkSql .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+            $inkParams[] = $storeOrderId;
+            $inkTypes .= 'i';
+        }
+        $inkSql .= ")";
+        $order['ink_usage'] = db_query($inkSql, $inkTypes, $inkParams) ?: [];
 
         return $order;
     }
