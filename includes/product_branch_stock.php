@@ -144,6 +144,19 @@ function printflow_product_deduct_stock_for_branch(int $productId, int $branchId
         return false;
     }
     if ($branchId > 0) {
+        if (printflow_product_branch_uses_base_stock($branchId)) {
+            $p = db_query('SELECT stock_quantity FROM products WHERE product_id = ? LIMIT 1', 'i', [$productId]);
+            if (empty($p) || (int)$p[0]['stock_quantity'] < $qty) {
+                return false;
+            }
+            $u = db_execute(
+                'UPDATE products SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND stock_quantity >= ?',
+                'iii',
+                [$qty, $productId, $qty]
+            );
+            return $u !== false;
+        }
+
         $row = db_query(
             'SELECT stock_quantity FROM product_branch_stock WHERE product_id = ? AND branch_id = ? LIMIT 1',
             'ii',
