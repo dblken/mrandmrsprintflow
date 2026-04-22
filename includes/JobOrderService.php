@@ -11,6 +11,28 @@ require_once __DIR__ . '/RollService.php';
 require_once __DIR__ . '/NotificationService.php';
 
 class JobOrderService {
+    private static function resolveBranchIdForOrderData(array $orderData): ?int {
+        $branchId = (int)($orderData['branch_id'] ?? 0);
+        if ($branchId > 0) {
+            return $branchId;
+        }
+
+        $linkedOrderId = (int)($orderData['order_id'] ?? 0);
+        if ($linkedOrderId > 0) {
+            $row = db_query(
+                "SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1",
+                'i',
+                [$linkedOrderId]
+            );
+            $resolved = (int)($row[0]['branch_id'] ?? 0);
+            if ($resolved > 0) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
     private static function getJobBranchId(int $orderId): ?int {
         $row = db_query(
             "SELECT COALESCE(jo.branch_id, ord.branch_id) AS branch_id
@@ -51,15 +73,17 @@ class JobOrderService {
         
         $conn->begin_transaction();
         try {
+            $branchId = self::resolveBranchIdForOrderData((array)$orderData) ?? (int)($_SESSION['branch_id'] ?? 0);
             // 1. Insert Job Order (with explicit PENDING status)
             $requiredPayment = self::calculateRequiredPayment($orderData['customer_id'], $orderData['estimated_total']);
-            $sql = "INSERT INTO job_orders (order_id, customer_id, job_title, service_type, width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece, estimated_total, required_payment, notes, due_date, priority, artwork_path, status, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)";
+            $sql = "INSERT INTO job_orders (order_id, customer_id, branch_id, job_title, service_type, width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece, estimated_total, required_payment, notes, due_date, priority, artwork_path, status, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("iisssddiddddssssi", 
+            $stmt->bind_param("iiisssddiddddssssi", 
                 $orderData['order_id'],
                 $orderData['customer_id'], 
+                $branchId,
                 $orderData['job_title'],
                 $orderData['service_type'], 
                 $orderData['width_ft'], 
@@ -156,6 +180,7 @@ class JobOrderService {
         $order = $order[0];
         $customerId = (int)$order['customer_id'];
         $notes = $order['notes'] ?? '';
+        $branchId = (int)($order['branch_id'] ?? 0);
 
         $items = db_query(
             "SELECT oi.*, p.name AS product_name, p.category AS product_category
@@ -200,6 +225,7 @@ class JobOrderService {
                 $jid = self::createOrder([
                     'order_id'        => $orderId,
                     'customer_id'     => $customerId,
+                    'branch_id'       => $branchId,
                     'job_title'       => $job_title,
                     'service_type'    => $service_type,
                     'width_ft'        => $width_ft,

@@ -31,6 +31,11 @@ if (empty($job)) {
 }
 
 $job = $job[0];
+$resolvedBranchId = (int)($job['branch_id'] ?? 0);
+if ($resolvedBranchId <= 0 && !empty($job['order_id'])) {
+    $branchRow = db_query("SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [(int)$job['order_id']]);
+    $resolvedBranchId = (int)($branchRow[0]['branch_id'] ?? 0);
+}
 $viewerBranch = printflow_branch_filter_for_user();
 if (get_user_type() !== 'Admin' && $viewerBranch) {
     $jobBranchRow = db_query(
@@ -147,6 +152,9 @@ if ($action === 'verify_payment') {
         // stock deduction happens exactly at the production stage.
         if ($should_move_to_production) {
             require_once __DIR__ . '/../includes/JobOrderService.php';
+            if ($resolvedBranchId > 0) {
+                db_execute("UPDATE job_orders SET branch_id = ? WHERE id = ?", 'ii', [$resolvedBranchId, $job_id]);
+            }
             JobOrderService::updateStatus($job_id, 'IN_PRODUCTION');
         }
 

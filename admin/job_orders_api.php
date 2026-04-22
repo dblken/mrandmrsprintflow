@@ -128,13 +128,29 @@ try {
                 if (!empty($item_ids_needed)) {
                     $unique_items = array_unique($item_ids_needed);
                     $items_str = implode(',', array_map('intval', $unique_items));
+                    $branchFilterSql = '';
+                    $branchFilterTypes = '';
+                    $branchFilterParams = [];
+                    if ($joStaffBranch !== null) {
+                        $branchFilterSql = " AND branch_id = ?";
+                        $branchFilterTypes = 'i';
+                        $branchFilterParams = [$joStaffBranch];
+                    }
                     
                     // From rolls
-                    $rollStocks = db_query("SELECT item_id, SUM(remaining_length_ft) as soh FROM inv_rolls WHERE item_id IN ($items_str) AND status = 'OPEN' GROUP BY item_id") ?: [];
+                    $rollStocks = db_query(
+                        "SELECT item_id, SUM(remaining_length_ft) as soh FROM inv_rolls WHERE item_id IN ($items_str) AND status = 'OPEN'{$branchFilterSql} GROUP BY item_id",
+                        $branchFilterTypes ?: null,
+                        $branchFilterParams ?: null
+                    ) ?: [];
                     foreach ($rollStocks as $rs) $stockMap[$rs['item_id']] = (float)$rs['soh'];
                     
                     // From transactions (for non-roll items)
-                    $transStocks = db_query("SELECT item_id, SUM(IF(direction='IN', quantity, -quantity)) as soh FROM inventory_transactions WHERE item_id IN ($items_str) GROUP BY item_id") ?: [];
+                    $transStocks = db_query(
+                        "SELECT item_id, SUM(IF(direction='IN', quantity, -quantity)) as soh FROM inventory_transactions WHERE item_id IN ($items_str){$branchFilterSql} GROUP BY item_id",
+                        $branchFilterTypes ?: null,
+                        $branchFilterParams ?: null
+                    ) ?: [];
                     foreach ($transStocks as $ts) {
                         if (!isset($stockMap[$ts['item_id']])) $stockMap[$ts['item_id']] = (float)$ts['soh'];
                     }

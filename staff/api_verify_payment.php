@@ -41,6 +41,7 @@ if (empty($order_result)) {
     exit;
 }
 $order = $order_result[0];
+$orderBranchId = (int)($order['branch_id'] ?? 0);
 
 $staff_id = get_user_id();
 $new_status = '';
@@ -88,6 +89,13 @@ try {
             // Update linked job_orders and trigger inventory deduction via JobOrderService
             if ($hasProductionJobs) {
                 foreach ($jobs as $job) {
+                    if ($orderBranchId > 0) {
+                        db_execute(
+                            "UPDATE job_orders SET branch_id = ? WHERE id = ?",
+                            'ii',
+                            [$orderBranchId, (int)$job['id']]
+                        );
+                    }
                     // Update payment fields first
                     db_execute(
                         "UPDATE job_orders SET payment_proof_status = 'VERIFIED', payment_status = 'PAID', amount_paid = estimated_total WHERE id = ?",
