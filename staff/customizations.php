@@ -1328,7 +1328,12 @@ window.pfCustomizationPreloadedOrders = <?php echo json_encode($preloaded_custom
             activeStatus: defaultStatus || 'ALL',
             currentPage: 1,
             itemsPerPage: 15,
-            orders: [],
+            orders: Array.isArray(window.pfCustomizationPreloadedOrders)
+                ? window.pfCustomizationPreloadedOrders.map(o => ({
+                    ...o,
+                    _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                }))
+                : [],
             sortOrder: 'newest',
             sortOpen: false,
             filterOpen: false,
