@@ -154,8 +154,21 @@ $orders_raw = db_query($sql, $types, $params);
 $orders = is_array($orders_raw) ? $orders_raw : [];
 foreach ($orders as &$order) {
     $order['order_code'] = printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? '');
+    $order['_display_timestamp_meta'] = printflow_customer_order_timestamp_meta($order);
+    $order['_display_ts'] = !empty($order['_display_timestamp_meta']['datetime'])
+        ? (strtotime((string)$order['_display_timestamp_meta']['datetime']) ?: 0)
+        : 0;
 }
 unset($order);
+
+usort($orders, static function (array $a, array $b): int {
+    $ta = (int)($a['_display_ts'] ?? 0);
+    $tb = (int)($b['_display_ts'] ?? 0);
+    if ($ta === $tb) {
+        return (int)($b['order_id'] ?? 0) <=> (int)($a['order_id'] ?? 0);
+    }
+    return $tb <=> $ta;
+});
 
 $page_title = 'My Orders - PrintFlow';
 $use_customer_css = true;
@@ -588,7 +601,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $c_json = !empty($order['first_item_customization']) ? json_decode($order['first_item_customization'], true) : [];
                             $d_name = printflow_resolve_order_item_name($order['first_product_name'] ?? 'Order Item', $c_json, 'Order Item');
                             $preview_url = get_preview_image_for_order_ui($order, $d_name);
-                            $timestamp_meta = printflow_customer_order_timestamp_meta($order);
+                            $timestamp_meta = $order['_display_timestamp_meta'] ?? printflow_customer_order_timestamp_meta($order);
                         ?>
                         <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
                             <div class="card-top-row">

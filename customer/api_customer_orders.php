@@ -60,8 +60,18 @@ try {
             'display_timestamp' => $timestampMeta['datetime'],
             'display_timestamp_label' => $timestampMeta['label'],
             'display_timestamp_text' => $timestampMeta['text'],
+            '_display_ts' => !empty($timestampMeta['datetime']) ? (strtotime((string)$timestampMeta['datetime']) ?: 0) : 0,
         ];
     }
+
+    usort($result, static function (array $a, array $b): int {
+        $ta = (int)($a['_display_ts'] ?? 0);
+        $tb = (int)($b['_display_ts'] ?? 0);
+        if ($ta === $tb) {
+            return (int)($b['order_id'] ?? 0) <=> (int)($a['order_id'] ?? 0);
+        }
+        return $tb <=> $ta;
+    });
 
     // Also return notification count so the bell can update
     $notif_count = db_query(

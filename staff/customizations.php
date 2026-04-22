@@ -99,44 +99,49 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
 
 
-        /* Multi-Row Toolbar: Separating Stages from Filters */
-        .pf-custom-toolbar {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid #f1f5f9;
-            padding-bottom: 20px;
-        }
-        
-        .pf-custom-tabs-row {
+        .toolbar-container {
             display: flex;
             align-items: center;
-            width: 100%;
-            border-bottom: 1px solid #f8fafc;
-            padding-bottom: 12px;
+            gap: 14px;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            overflow: hidden;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .toolbar-group--tabs {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .toolbar-group--actions {
+            flex: 0 0 auto;
+            margin-left: auto;
         }
 
         .pf-custom-tabs {
             display: flex;
-            flex-wrap: wrap; /* Allow wrapping so all categories are visible */
+            flex-wrap: nowrap;
             align-items: center;
-            gap: 10px;
-            flex: 1;
+            gap: 8px;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 4px;
         }
 
-        .pf-custom-filters-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 12px;
-            width: 100%;
-        }
-
-        .pf-custom-search {
-            flex: 1;
-            min-width: 200px;
+        .pf-custom-tabs::-webkit-scrollbar {
+            display: none;
         }
 
         .filter-select {
@@ -159,7 +164,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
         .pill-tab { 
             position: relative;
-            padding: 8px 14px; 
+            padding: 8px 12px; 
             font-weight: 600; 
             font-size: 11px; 
             font-family: inherit;
@@ -224,6 +229,17 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         @keyframes pf-tab-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         [x-cloak] { display: none !important; }
 
+        @media (max-width: 1100px) {
+            .toolbar-container {
+                gap: 10px;
+            }
+
+            .pill-tab {
+                padding: 7px 10px;
+                font-size: 10px;
+            }
+        }
+
     </style>
 </head>
 <body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
@@ -279,7 +295,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             <!-- Jobs List & Filters (matching Enterprise reference) -->
             <div class="card overflow-visible">
                 <div class="toolbar-container">
-                    <div class="toolbar-group">
+                    <div class="toolbar-group toolbar-group--tabs">
                         <div class="pf-custom-tabs">
                             <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab">
                                 <span>ALL</span>
@@ -321,7 +337,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         </div>
                     </div>
 
-                    <div class="toolbar-group" style="margin-left: auto;">
+                    <div class="toolbar-group toolbar-group--actions">
     
                         <!-- Sort Menu -->
                         <div style="position: relative;">
