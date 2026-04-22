@@ -767,7 +767,13 @@ function _ft_detect_social(string $url): array {
         $_pf_uid   = function_exists('get_user_id')   ? (int)(get_user_id() ?? 0)    : 0;
         $_pf_utype = function_exists('get_user_type') ? (get_user_type() ?? 'Customer') : 'Customer';
     ?>
-    <script>window.PFConfig = { userId: <?php echo $_pf_uid; ?>, userType: <?php echo json_encode($_pf_utype); ?> };</script>
+    <script>
+    window.PFConfig = Object.assign({}, window.PFConfig || {}, {
+        userId: <?php echo $_pf_uid; ?>,
+        userType: <?php echo json_encode($_pf_utype); ?>,
+        basePath: <?php echo json_encode(isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')); ?>
+    });
+    </script>
     <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js" defer></script>
     <script src="<?php echo $base_url; ?>/public/assets/js/inactivity_logout.js" defer></script>
     <?php endif; ?>

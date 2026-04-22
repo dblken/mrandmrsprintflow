@@ -38,7 +38,10 @@
     }
 
     function getBasePath() {
-        return normalizeBasePath((window.PFConfig && window.PFConfig.basePath) || window.BASE_PATH || '');
+        if (window.PFConfig && Object.prototype.hasOwnProperty.call(window.PFConfig, 'basePath')) {
+            return normalizeBasePath(window.PFConfig.basePath);
+        }
+        return normalizeBasePath(window.BASE_PATH || '');
     }
 
     function buildAppUrl(path) {

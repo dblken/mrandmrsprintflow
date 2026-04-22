@@ -423,6 +423,10 @@ function printflow_notification_base_path(): string {
     }
 
     $base = rtrim(trim($base), '/');
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host !== '' && strpos($host, 'mrandmrsprintflow.com') !== false && $base === '/printflow') {
+        $base = '';
+    }
     return $base === '/' ? '' : $base;
 }
 
@@ -1854,7 +1858,12 @@ function contact_phone_in_use_across_accounts($raw, $exclude_customer_id = null,
  * Application base path (e.g. /printflow). Uses AUTH_REDIRECT_BASE when defined.
  */
 function pf_app_base_path(): string {
-    return rtrim(defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow', '/');
+    $base = rtrim(defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow', '/');
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host !== '' && strpos($host, 'mrandmrsprintflow.com') !== false && $base === '/printflow') {
+        return '';
+    }
+    return $base;
 }
 
 /**
