@@ -551,9 +551,19 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="orders-theme-page min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
         <div id="orderSuccessBannerHost">
-            <?php if (isset($_SESSION['order_success'])):
-                $order_success_msg = $_SESSION['order_success'];
-                unset($_SESSION['order_success']);
+            <?php
+                $order_success_msg = null;
+                if (isset($_SESSION['order_success'])) {
+                    $order_success_msg = $_SESSION['order_success'];
+                    unset($_SESSION['order_success']);
+                } elseif (isset($_GET['order_success_id'])) {
+                    $oid = (int)$_GET['order_success_id'];
+                    if ($oid > 0) {
+                        $order_success_msg = "Order #{$oid} placed successfully! Our team will review and price your order shortly.";
+                    }
+                }
+            ?>
+            <?php if (!empty($order_success_msg)):
             ?>
                 <div style="background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; padding: 1rem 1.5rem; border-radius: 12px; margin: 0.75rem 0 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);">
                     <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink: 0;">
