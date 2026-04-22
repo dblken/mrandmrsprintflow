@@ -226,8 +226,9 @@ if (isset($_GET['ajax'])) {
                 <td><?php echo htmlspecialchars($catDisp ?: 'Uncategorized'); ?></td>
                 <td><?php echo $trackBadge; ?></td>
                 <td><span class="font-semibold" style="white-space:nowrap;">&#8369;<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($item['unit_of_measure'] ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
-                <td style="color:#6b7280;font-size:12px;"><?php echo (($item['unit_of_measure'] ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($item['unit_of_measure'] ?? ''); ?></td>
+                <?php $displayUom = strtolower(trim((string)($item['unit_of_measure'] ?? ''))) ?: 'pcs'; ?>
+                <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo $displayUom === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
+                <td style="color:#6b7280;font-size:12px;"><?php echo $displayUom === 'l' ? 'Liter (L)' : htmlspecialchars($displayUom); ?></td>
                 <td class="no-truncate" style="text-align:right;">
                     <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                     <?php if ($can_manage_item_master): ?>
@@ -733,17 +734,14 @@ if (isset($_GET['ajax'])) {
                                     $isOut = $stock <= 0;
                                     $isLow = !$isOut && $stock <= $minStock;
                                     
-                                    $catNameRaw = (string)($item['category_name'] ?? '');
-                                    $catNameUpper = strtoupper($catNameRaw);
-                                    $isPrintedSticker = str_contains($catNameUpper, 'PRINTED') && (str_contains($catNameUpper, 'STKR') || str_contains($catNameUpper, 'STICKER'));
-                                    $effectiveUom = $isPrintedSticker ? 'pcs' : ($item['unit_of_measure'] ?? '');
-                                    $effectiveTrackByRoll = $isPrintedSticker ? 0 : (int)($item['track_by_roll'] ?? 0);
+                                    $displayUom = strtolower(trim((string)($item['unit_of_measure'] ?? ''))) ?: 'pcs';
+                                    $displayTrackByRoll = (int)($item['track_by_roll'] ?? 0);
                                     
                                     $stockColor = '#1f2937';
                                     if ($isOut) $stockColor = '#991b1b';
                                     else if ($isLow) $stockColor = '#d97706';
                                     
-                                    $trackBadge = $effectiveTrackByRoll == 1
+                                    $trackBadge = $displayTrackByRoll == 1
                                         ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eef2ff;color:#4338ca;">Roll-Based</span>'
                                         : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4f6;color:#4b5563;">Standard</span>';
                                     
@@ -761,8 +759,8 @@ if (isset($_GET['ajax'])) {
                                         <td class="truncate" title="<?php echo htmlspecialchars($catDisp2 ?: 'Uncategorized'); ?>"><?php echo htmlspecialchars($catDisp2 ?: 'Uncategorized'); ?></td>
                                         <td><?php echo $trackBadge; ?></td>
                                         <td style="white-space:nowrap;"><span class="font-semibold">&#8369;<?php echo number_format($item['unit_cost'], 2); ?></span></td>
-                                        <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo strtolower($effectiveUom ?? '') === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
-                                        <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo (strtolower($effectiveUom ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($effectiveUom ?? ''); ?></td>
+                                        <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo $displayUom === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
+                                        <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo $displayUom === 'l' ? 'Liter (L)' : htmlspecialchars($displayUom); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
                                             <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
                                             <?php if ($can_manage_item_master): ?>
@@ -1282,6 +1280,12 @@ if (isset($_GET['ajax'])) {
             addStockQty._pf_bound = true;
             addStockQty.addEventListener('input', updateAddStockUI);
             addStockQty.addEventListener('change', updateAddStockUI);
+        }
+        var addStockUnitCost = document.getElementById('addStockUnitCost');
+        if (addStockUnitCost && !addStockUnitCost._pf_bound) {
+            addStockUnitCost._pf_bound = true;
+            addStockUnitCost.addEventListener('input', updateAddStockUI);
+            addStockUnitCost.addEventListener('change', updateAddStockUI);
         }
         ['itemName', 'itemCategory', 'itemUnit', 'itemUnitCost', 'itemMinStock', 'itemTrackByRoll', 'itemStatus', 'itemStartingStock', 'startingRolls', 'startingFeet', 'itemRollLength'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -2325,34 +2329,39 @@ if (isset($_GET['ajax'])) {
         if (item) openAddStockModal(item);
     }
 
+    function normalizeInventoryUomValue(rawUom) {
+        const uom = String(rawUom || '').trim().toLowerCase();
+        if (uom === 'l') return 'l';
+        if (uom === 'ft') return 'ft';
+        return 'pcs';
+    }
+
+    function getInventoryUomLabel(rawUom) {
+        const uom = normalizeInventoryUomValue(rawUom);
+        return uom === 'l' ? 'Liter (L)' : uom;
+    }
+
     function openAddStockModal(item) {
         const currentStock = parseFloat(item.current_stock || 0);
+        const modalUom = normalizeInventoryUomValue(item.unit_of_measure);
         document.getElementById('addStockItemName').textContent = item.name;
         document.getElementById('addStockItemId').value = item.id;
         document.getElementById('addStockIsRoll').value = item.track_by_roll;
-        const catLabel = String(item.category_name || '').toUpperCase();
-        const isPrintedSticker = catLabel.includes('PRINTED') && (catLabel.includes('STKR') || catLabel.includes('STICKER'));
-        // Printed stickers must be handled in PCS in the Stock Intake modal.
-        document.getElementById('addStockUom').value = isPrintedSticker ? 'pcs' : (item.unit_of_measure || 'pcs');
+        document.getElementById('addStockUom').value = modalUom;
         document.getElementById('addStockCurrentStock').value = currentStock;
-        const uom = String(item.unit_of_measure || 'pcs').toLowerCase();
         const qtyUomLabelEl = document.getElementById('addStockQtyUomLabel');
-        if (qtyUomLabelEl) {
-            const effectiveUom = isPrintedSticker ? 'pcs' : uom;
-            const label = (effectiveUom === 'l') ? 'Liter (L)' : ((effectiveUom === 'ft') ? 'ft' : 'pcs');
-            qtyUomLabelEl.textContent = label;
-        }
+        if (qtyUomLabelEl) qtyUomLabelEl.textContent = getInventoryUomLabel(modalUom);
         const qtyInputEl = document.getElementById('addStockQty');
         if (qtyInputEl) {
             // Keep HTML constraints aligned with strict JS validation.
-            if (isPrintedSticker || uom === 'pcs') {
+            if (modalUom === 'pcs') {
                 qtyInputEl.step = '1';
                 qtyInputEl.min = '1';
                 qtyInputEl.placeholder = 'e.g. 10 pcs';
             } else {
                 qtyInputEl.step = '0.01';
                 qtyInputEl.min = '0';
-                qtyInputEl.placeholder = (uom === 'l') ? 'e.g. 1.50 L' : 'e.g. 12.25 ft';
+                qtyInputEl.placeholder = modalUom === 'l' ? 'e.g. 1.50 L' : 'e.g. 12.25 ft';
             }
         }
         const currentUnitCost = parseFloat(item.unit_cost || 0);
