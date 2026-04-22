@@ -1540,8 +1540,8 @@ $page_title = 'Orders - Staff';
                 </div>
             </div>
 
-            <!-- Orders List & Standardized Toolbar -->
-            <div class="card overflow-visible">
+            <!-- Orders Table -->
+            <div class="card staff-orders-table-card overflow-visible">
                 <div class="toolbar-container" style="display:block;">
                     <div class="pf-custom-tabs">
                         <template x-for="(label, key) in statusTabs" :key="key">
@@ -1556,98 +1556,94 @@ $page_title = 'Orders - Staff';
                     </div>
 
                     <div style="display:flex; align-items:center; width:100%;">
-                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
-                        Orders List
-                    </h3>
-                    <div class="toolbar-group" style="margin-left: auto;">
+                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Orders List</h3>
+                        <div class="toolbar-group" style="margin-left: auto;">
 
-
-                        <!-- Sort Button -->
-                        <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: sortOpen || (activeSort !== 'newest') }" @click="sortOpen = !sortOpen; filterOpen = false">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
-                                Sort by
-                            </button>
-                            <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                                <?php
-                                $sorts = [
-                                    'newest' => 'Newest to Oldest',
-                                    'oldest' => 'Oldest to Newest',
-                                    'az'     => 'A to Z',
-                                    'za'     => 'Z to A',
-                                ];
-                                foreach ($sorts as $key => $label): ?>
-                                <div class="sort-option" 
-                                     :class="{ 'active': activeSort === '<?php echo $key; ?>' }"
-                                     @click="applySortFilter('<?php echo $key; ?>')">
-                                    <?php echo htmlspecialchars($label); ?>
-                                    <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <!-- Sort Button -->
+                            <div style="position:relative;">
+                                <button class="toolbar-btn" :class="{ active: sortOpen || (activeSort !== 'newest') }" @click="sortOpen = !sortOpen; filterOpen = false">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+                                    Sort by
+                                </button>
+                                <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                                    <?php
+                                    $sorts = [
+                                        'newest' => 'Newest to Oldest',
+                                        'oldest' => 'Oldest to Newest',
+                                        'az'     => 'A to Z',
+                                        'za'     => 'Z to A',
+                                    ];
+                                    foreach ($sorts as $key => $label): ?>
+                                    <div class="sort-option" 
+                                         :class="{ 'active': activeSort === '<?php echo $key; ?>' }"
+                                         @click="applySortFilter('<?php echo $key; ?>')">
+                                        <?php echo htmlspecialchars($label); ?>
+                                        <svg x-show="activeSort === '<?php echo $key; ?>'" class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
-                                <?php endforeach; ?>
                             </div>
-                        </div>
 
-                        <!-- Filter Button -->
-                        <div style="position:relative;">
-                            <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                                Filter
-                                <template x-if="hasActiveFilters">
-                                    <span class="filter-badge"><?php echo count($active_filters); ?></span>
-                                </template>
-                            </button>
+                            <!-- Filter Button -->
+                            <div style="position:relative;">
+                                <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                    Filter
+                                    <template x-if="hasActiveFilters">
+                                        <span class="filter-badge"><?php echo count($active_filters); ?></span>
+                                    </template>
+                                </button>
 
-                            <!-- Filter Panel -->
-                            <div class="dropdown-panel filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
-                                <div class="filter-header">Filter</div>
-                                
-                                <!-- Date Range -->
-                                <div class="filter-section">
-                                    <div class="filter-section-head">
-                                        <span class="filter-label" style="margin:0;">Date range</span>
-                                        <button @click="resetFilterField(['date_from','date_to'])" class="filter-reset-link">Reset</button>
+                                <!-- Filter Panel -->
+                                <div class="dropdown-panel filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                                    <div class="filter-header">Filter</div>
+                                    
+                                    <!-- Date Range -->
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Date range</span>
+                                            <button @click="resetFilterField(['date_from','date_to'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                            <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from_filter); ?>" @change="applyFilters()">
+                                            <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to_filter); ?>" @change="applyFilters()">
+                                        </div>
                                     </div>
-                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                                        <input type="date" id="fp_date_from" class="filter-input" value="<?php echo htmlspecialchars($date_from_filter); ?>" @change="applyFilters()">
-                                        <input type="date" id="fp_date_to" class="filter-input" value="<?php echo htmlspecialchars($date_to_filter); ?>" @change="applyFilters()">
-                                    </div>
-                                </div>
 
-                                <!-- Status -->
-                                <div class="filter-section">
-                                    <div class="filter-section-head">
-                                        <span class="filter-label" style="margin:0;">Status</span>
-                                        <button @click="resetFilterField(['status'])" class="filter-reset-link">Reset</button>
+                                    <!-- Status -->
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Status</span>
+                                            <button @click="resetFilterField(['status'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <select id="fp_status" class="filter-select" @change="applyFilters()">
+                                            <option value="">All statuses</option>
+                                            <option value="Pending"               <?php echo $status_filter === 'Pending'               ? 'selected' : ''; ?>>TO VERIFY</option>
+                                            <option value="Downpayment Submitted" <?php echo $status_filter === 'Downpayment Submitted' ? 'selected' : ''; ?>>ToCheck</option>
+                                            <option value="Ready for Pickup"      <?php echo $status_filter === 'Ready for Pickup'      ? 'selected' : ''; ?>>TO PICK UP</option>
+                                            <option value="Completed"             <?php echo $status_filter === 'Completed'             ? 'selected' : ''; ?>>COMPLETED</option>
+                                            <option value="Cancelled"             <?php echo $status_filter === 'Cancelled'             ? 'selected' : ''; ?>>CANCELLED</option>
+                                        </select>
                                     </div>
-                                    <select id="fp_status" class="filter-select" @change="applyFilters()">
-                                        <option value="">All statuses</option>
-                                        <option value="Pending"               <?php echo $status_filter === 'Pending'               ? 'selected' : ''; ?>>TO VERIFY</option>
-                                        <option value="Downpayment Submitted" <?php echo $status_filter === 'Downpayment Submitted' ? 'selected' : ''; ?>>ToCheck</option>
-                                        <option value="Ready for Pickup"      <?php echo $status_filter === 'Ready for Pickup'      ? 'selected' : ''; ?>>TO PICK UP</option>
-                                        <option value="Completed"             <?php echo $status_filter === 'Completed'             ? 'selected' : ''; ?>>COMPLETED</option>
-                                        <option value="Cancelled"             <?php echo $status_filter === 'Cancelled'             ? 'selected' : ''; ?>>CANCELLED</option>
-                                    </select>
-                                </div>
 
-                                <!-- Keyword Search -->
-                                <div class="filter-section">
-                                    <div class="filter-section-head">
-                                        <span class="filter-label" style="margin:0;">Keyword search</span>
-                                        <button @click="resetFilterField(['customer'])" class="filter-reset-link">Reset</button>
+                                    <!-- Keyword Search -->
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Keyword search</span>
+                                            <button @click="resetFilterField(['customer'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <input type="text" id="fp_customer" class="filter-input" placeholder="Search..." value="<?php echo htmlspecialchars($customer_filter); ?>" @change="applyFilters()">
                                     </div>
-                                    <input type="text" id="fp_customer" class="filter-input" placeholder="Search..." value="<?php echo htmlspecialchars($customer_filter); ?>" @change="applyFilters()">
-                                </div>
 
-                                <div class="filter-footer">
-                                    <button class="filter-btn-reset" style="width:100%;" @click="applyFilters(true)">Reset all filters</button>
+                                    <div class="filter-footer">
+                                        <button class="filter-btn-reset" style="width:100%;" @click="applyFilters(true)">Reset all filters</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-            <!-- Orders Table -->
-            <div class="card staff-orders-table-card">
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
                     <table class="orders-table">
                         <thead>
