@@ -562,6 +562,46 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <script>
                 window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
+                (function () {
+                    if (!window.__pfOrderSuccessMessage || window.__pfOrderSuccessMessageShown) return;
+                    const msg = window.__pfOrderSuccessMessage;
+                    const showNow = () => {
+                        if (!document.body) return false;
+                        const toast = document.createElement('div');
+                        toast.textContent = msg;
+                        toast.style.position = 'fixed';
+                        toast.style.top = '18px';
+                        toast.style.right = '18px';
+                        toast.style.zIndex = '99999';
+                        toast.style.background = '#111827';
+                        toast.style.color = '#ffffff';
+                        toast.style.padding = '12px 16px';
+                        toast.style.borderRadius = '10px';
+                        toast.style.fontSize = '14px';
+                        toast.style.fontWeight = '600';
+                        toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+                        toast.style.maxWidth = '360px';
+                        toast.style.lineHeight = '1.4';
+                        toast.style.opacity = '0';
+                        toast.style.transform = 'translateY(-6px)';
+                        toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                        document.body.appendChild(toast);
+                        requestAnimationFrame(() => {
+                            toast.style.opacity = '1';
+                            toast.style.transform = 'translateY(0)';
+                        });
+                        setTimeout(() => {
+                            toast.style.opacity = '0';
+                            toast.style.transform = 'translateY(-6px)';
+                            setTimeout(() => { toast.remove(); }, 220);
+                        }, 3500);
+                        window.__pfOrderSuccessMessageShown = true;
+                        return true;
+                    };
+                    if (!showNow()) {
+                        requestAnimationFrame(showNow);
+                    }
+                })();
             </script>
         <?php endif; ?>
         <div class="mb-8 mt-2"></div>
@@ -712,6 +752,7 @@ const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 // ── Highlight + scroll to a specific order card from notification ──
 function fireOrderSuccessToast() {
     if (!window.__pfOrderSuccessMessage) return;
+    if (window.__pfOrderSuccessMessageShown) return;
     const message = window.__pfOrderSuccessMessage;
     let attempts = 0;
     const maxAttempts = 20;
