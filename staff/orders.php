@@ -508,7 +508,7 @@ $page_title = 'Orders - Staff';
         /* ── Table improvements (match customizations table) ─── */
         .orders-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: auto; }
         .orders-table thead th {
-            padding: 16px 16px;
+            padding: 18px 20px;
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
@@ -520,7 +520,7 @@ $page_title = 'Orders - Staff';
             white-space: nowrap;
         }
         .orders-table td {
-            padding: 16px 16px;
+            padding: 18px 20px;
             border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
             color: #374151;
@@ -1543,18 +1543,6 @@ $page_title = 'Orders - Staff';
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
                 <div class="toolbar-container" style="display:block;">
-                    <div class="pf-custom-tabs">
-                        <template x-for="(label, key) in statusTabs" :key="key">
-                            <button type="button" 
-                                    class="pill-tab" 
-                                    :class="{ 'active': activeTab === key }"
-                                    @click="switchStatusTab(key)">
-                                <span x-text="label"></span>
-                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
-                            </button>
-                        </template>
-                    </div>
-
                     <div style="display:flex; align-items:center; width:100%;">
                         <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Orders List</h3>
                         <div class="toolbar-group" style="margin-left: auto;">
@@ -1641,6 +1629,18 @@ $page_title = 'Orders - Staff';
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="pf-custom-tabs">
+                        <template x-for="(label, key) in statusTabs" :key="key">
+                            <button type="button" 
+                                    class="pill-tab" 
+                                    :class="{ 'active': activeTab === key }"
+                                    @click="switchStatusTab(key)">
+                                <span x-text="label"></span>
+                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
+                            </button>
+                        </template>
                     </div>
                 </div>
 
