@@ -1674,8 +1674,20 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         'TO_PAY': 'TO_PAY',
                         'PENDING': 'PENDING',
                         'PENDING_REVIEW': 'PENDING',
+                        'PENDING_APPROVAL': 'PENDING',
+                        'FOR_REVISION': 'PENDING',
+                        'DESIGN_APPROVED': 'APPROVED',
                         'APPROVED': 'APPROVED',
-                        'PROCESSING': 'IN_PRODUCTION'
+                        'PROCESSING': 'IN_PRODUCTION',
+                        'IN_PRODUCTION': 'IN_PRODUCTION',
+                        'PRINTING': 'IN_PRODUCTION',
+                        'PAID_-_IN_PROCESS': 'IN_PRODUCTION',
+                        'PAID_–_IN_PROCESS': 'IN_PRODUCTION',
+                        'READY_FOR_PICKUP': 'TO_RECEIVE',
+                        'READY_TO_COLLECT': 'TO_RECEIVE',
+                        'TO_RECEIVE': 'TO_RECEIVE',
+                        'COMPLETED': 'COMPLETED',
+                        'CANCELLED': 'CANCELLED'
                     };
                     const mapped = statusMap[initialStatus.toUpperCase().replace(/\s+/g, '_')] || initialStatus;
                     if (this.statuses.includes(mapped)) {
