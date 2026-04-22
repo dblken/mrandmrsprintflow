@@ -21,8 +21,7 @@ if (isset($_SESSION['user_id'])) {
     }
 
     // Get unread notification count
-    $unread_notif_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$_SESSION['user_id']]);
-    $unread_notif_count = $unread_notif_result[0]['count'] ?? 0;
+    $unread_notif_count = get_unread_notification_count((int)$_SESSION['user_id'], 'Manager');
 } else {
     $unread_notif_count = 0;
 }

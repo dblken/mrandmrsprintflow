@@ -7,6 +7,7 @@ ini_set('display_errors', 0);
 
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 
 header('Content-Type: application/json');
 
@@ -32,7 +33,7 @@ try {
         );
     } else {
         $rows = db_query(
-            "SELECT notification_id AS id, message, type, is_read, created_at
+            "SELECT notification_id AS id, notification_id, message, type, data_id, is_read, created_at
              FROM notifications
              WHERE user_id = ?
              ORDER BY created_at DESC
@@ -40,6 +41,10 @@ try {
             'i',
             [$user_id]
         );
+        $branchId = in_array($user_type, ['Staff', 'Manager'], true)
+            ? (printflow_branch_filter_for_user() ?? 0)
+            : 0;
+        $rows = printflow_filter_notifications_for_user($rows ?: [], (string)$user_type, $branchId > 0 ? (int)$branchId : null);
     }
 
     // Return rows with unread count

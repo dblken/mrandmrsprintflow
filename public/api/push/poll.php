@@ -11,6 +11,7 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/branch_context.php';
 
 header('Content-Type: application/json');
 
@@ -46,6 +47,10 @@ if ($user_type === 'Customer') {
         'ii',
         [$user_id, $since]
     );
+    $branchId = in_array($user_type, ['Staff', 'Manager'], true)
+        ? (printflow_branch_filter_for_user() ?? 0)
+        : 0;
+    $rows = printflow_filter_notifications_for_user($rows ?: [], (string)$user_type, $branchId > 0 ? (int)$branchId : null);
 }
 
 // Unread count

@@ -35,20 +35,28 @@ if (isset($_GET['action'])) {
     }
 
     if ($action === 'get_unread_count') {
-        $r = db_query(
-            "SELECT
-                COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) as count,
-                COALESCE(MAX(notification_id), 0) as latest_id
+        $rows = db_query(
+            "SELECT notification_id, user_id, message, type, data_id, is_read, created_at
              FROM notifications
-             WHERE user_id = ?",
+             WHERE user_id = ?
+             ORDER BY created_at DESC, notification_id DESC",
             'i',
             [$staff_id]
-        );
+        ) ?: [];
+        $visibleRows = printflow_filter_notifications_for_user($rows, 'Staff', is_int($staffBranchId) ? $staffBranchId : null);
+        $count = 0;
+        $latestId = 0;
+        foreach ($visibleRows as $row) {
+            if ((int)($row['is_read'] ?? 0) === 0) {
+                $count++;
+            }
+            $latestId = max($latestId, (int)($row['notification_id'] ?? 0));
+        }
         header('Content-Type: application/json');
         echo json_encode([
             'success' => true,
-            'count' => (int)($r[0]['count'] ?? 0),
-            'latest_id' => (int)($r[0]['latest_id'] ?? 0),
+            'count' => $count,
+            'latest_id' => $latestId,
         ]);
         exit;
     }
@@ -97,9 +105,7 @@ $all_notifications = db_query(
     $types,
     $params
 ) ?: [];
-$filtered_notifications = array_values(array_filter($all_notifications, function ($n) use ($staffBranchId) {
-    return printflow_staff_notification_visible($n, $staffBranchId);
-}));
+$filtered_notifications = printflow_filter_notifications_for_user($all_notifications, 'Staff', is_int($staffBranchId) ? $staffBranchId : null);
 
 $total_count = count($filtered_notifications);
 $total_pages = max(1, (int)ceil(max(1, $total_count) / $per_page));
@@ -114,9 +120,7 @@ $all_staff_rows = db_query(
     'i',
     [$staff_id]
 ) ?: [];
-$filtered_staff_rows = array_values(array_filter($all_staff_rows, function ($n) use ($staffBranchId) {
-    return printflow_staff_notification_visible($n, $staffBranchId);
-}));
+$filtered_staff_rows = printflow_filter_notifications_for_user($all_staff_rows, 'Staff', is_int($staffBranchId) ? $staffBranchId : null);
 $unread_count = 0;
 $latest_notification_id = 0;
 foreach ($filtered_staff_rows as $row) {

@@ -387,6 +387,29 @@ function printflow_admin_notification_visible(array $notification, ?int $branchI
 }
 
 /**
+ * Filter raw notification rows to those visible for the current user role/branch.
+ */
+function printflow_filter_notifications_for_user(array $rows, string $userType, ?int $branchId = null): array {
+    if (empty($rows)) {
+        return [];
+    }
+
+    if ($userType === 'Staff') {
+        return array_values(array_filter($rows, static function (array $row) use ($branchId): bool {
+            return printflow_staff_notification_visible($row, $branchId);
+        }));
+    }
+
+    if ($userType === 'Manager') {
+        return array_values(array_filter($rows, static function (array $row) use ($branchId): bool {
+            return printflow_admin_notification_visible($row, $branchId, 'Manager');
+        }));
+    }
+
+    return array_values($rows);
+}
+
+/**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
@@ -1210,13 +1233,7 @@ function get_unread_notification_count($user_id, $user_type) {
             $branchId = printflow_branch_filter_for_user();
         }
 
-        $count = 0;
-        foreach ($rows as $row) {
-            if (!in_array($user_type, ['Staff', 'Manager'], true) || printflow_staff_notification_visible($row, $branchId)) {
-                $count++;
-            }
-        }
-        return $count;
+        return count(printflow_filter_notifications_for_user($rows, (string)$user_type, is_int($branchId) ? $branchId : null));
     }
     
     return (!empty($result) && isset($result[0]['count'])) ? (int)$result[0]['count'] : 0;

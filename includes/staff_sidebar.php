@@ -22,8 +22,7 @@ if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 
 if (!function_exists('db_query')) require_once __DIR__ . '/db.php';
 $_staff_unread_notif = 0;
 if (isset($_SESSION['user_id'])) {
-    $r = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$_SESSION['user_id']]);
-    $_staff_unread_notif = (int)($r[0]['count'] ?? 0);
+    $_staff_unread_notif = get_unread_notification_count((int)$_SESSION['user_id'], 'Staff');
 }
 ?>
 <div id="printflow-persistent-sidebar" data-turbo-permanent>
