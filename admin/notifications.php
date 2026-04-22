@@ -390,7 +390,7 @@ $page_title = 'Notifications - Admin';
                 <h1 class="page-title" style="margin-bottom:4px;">Notifications</h1>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-                <button type="button" id="pf-push-toggle" class="btn-secondary mobile-hidden" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;" onclick="return window.PFNotifications && window.PFNotifications.handlePushToggleClick ? (window.PFNotifications.handlePushToggleClick(this), false) : false;">
+                <button type="button" id="pf-push-toggle" class="btn-secondary mobile-hidden" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;position:relative;z-index:5;pointer-events:auto;" onclick="return window.PFNotifications && window.PFNotifications.handlePushToggleClick ? (window.PFNotifications.handlePushToggleClick(this), false) : false;">
                     Enable notifications
                 </button>
                 <button onclick="refreshNotifications()" class="btn-secondary mobile-hidden" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">

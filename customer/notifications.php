@@ -277,7 +277,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             </h1>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <button type="button" id="pf-push-toggle" class="notif-mark-all-btn" style="border:none;cursor:pointer;" onclick="return window.PFNotifications && window.PFNotifications.handlePushToggleClick ? (window.PFNotifications.handlePushToggleClick(this), false) : false;">
+                <button type="button" id="pf-push-toggle" class="notif-mark-all-btn" style="border:none;cursor:pointer;position:relative;z-index:5;pointer-events:auto;" onclick="return window.PFNotifications && window.PFNotifications.handlePushToggleClick ? (window.PFNotifications.handlePushToggleClick(this), false) : false;">
                     Enable notifications
                 </button>
                 <?php if ($unread_total > 0): ?>
