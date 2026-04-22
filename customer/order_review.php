@@ -347,11 +347,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     $_SESSION['last_order_item_key'] = implode(',', $item_keys_to_clear);
                     sync_cart_to_db($customer_id);
                     
-                    // Create notification for all staff members
+                    // Notify shop users immediately only for custom/service orders.
+                    // Product orders still need payment submission first.
                     $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
                     if (empty($customer_name)) $customer_name = 'Customer';
-                    
-                    notify_staff_new_order($order_id, $customer_name);
+                    if ($order_type === 'custom') {
+                        notify_staff_new_order($order_id, $customer_name);
+                    }
                     
                     // Log activity (skip for customers as log_activity only works for staff users)
                     // log_activity($customer_id, 'Order Placed', "Customer placed order #$order_id");
@@ -1066,7 +1068,7 @@ require_once __DIR__ . '/../includes/header.php';
                         Back to Cart
                     </a>
                     
-                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;"><?php echo $is_product_order ? 'Buy Now' : 'Inquire Now'; ?></button>
+                    <button type="submit" name="confirm_order" value="1" class="shopee-btn-primary" style="width: 150px; white-space: nowrap;"><?php echo $is_product_order ? 'Pay Now' : 'Inquire Now'; ?></button>
                 </div>
             </div>
         </form>
