@@ -2062,7 +2062,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             async rejectPayment(reasonOverride = null) {
                 let reason = reasonOverride;
                 if (!reason) {
-                    reason = prompt(\"Enter reason for rejection (e.g., Unclear image, Incorrect amount):\");
+                    reason = prompt("Enter reason for rejection (e.g., Unclear image, Incorrect amount):");
                 }
                 if (!reason) return;
                 if (!this.beginModalAction()) return;
