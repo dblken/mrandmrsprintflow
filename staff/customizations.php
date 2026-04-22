@@ -2308,6 +2308,49 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.newMaterialNotes = '';
                 this.newMaterialMetadata = {};
             },
+            buildCurrentMaterialPayload() {
+                if (!this.newMaterialId || !this.newMaterialQty) return null;
+                const item = this.allInventoryItems.find(i => i.id == this.newMaterialId);
+                if (!item) return null;
+
+                let meta = {};
+                if (this.isTarpaulin(this.newMaterialId)) {
+                    meta.height_ft = this.newMaterialHeight;
+                    meta.finishing = this.newMaterialMetadata.finishing || '';
+                } else if (this.isSticker(this.newMaterialId)) {
+                    const orderedHeight = parseFloat(this.currentJo.height_ft || 0) > 0 ? parseFloat(this.currentJo.height_ft || 0) : 1;
+                    meta.waste_length_ft = Math.max(0, (parseFloat(this.newMaterialQty) || 0) - orderedHeight);
+                    if (this.newMaterialMetadata.lamination) {
+                        meta.lamination_item_id = this.newMaterialMetadata.lamination;
+                        meta.lamination_roll_id = this.newMaterialMetadata.lamination_roll_id || null;
+                        meta.lamination_length_ft = this.newMaterialQty;
+                    }
+                }
+
+                return {
+                    item_id: this.newMaterialId,
+                    qty: this.newMaterialQty,
+                    uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
+                    roll_id: this.newMaterialRollId || '',
+                    notes: this.newMaterialNotes || '',
+                    metadata: meta
+                };
+            },
+            buildInkPayload() {
+                if (!this.useInk || !this.inkCategorySelected || !this.inkTypes[this.inkCategorySelected]) return [];
+                const mappedInks = this.inkTypes[this.inkCategorySelected];
+                const inkPayload = [];
+                if (this.inkBlue > 0) inkPayload.push({ item_id: mappedInks['BLUE'], color: 'BLUE', quantity: this.inkBlue });
+                if (this.inkRed > 0) inkPayload.push({ item_id: mappedInks['RED'], color: 'RED', quantity: this.inkRed });
+                if (this.inkBlack > 0) inkPayload.push({ item_id: mappedInks['BLACK'], color: 'BLACK', quantity: this.inkBlack });
+                if (this.inkYellow > 0) inkPayload.push({ item_id: mappedInks['YELLOW'], color: 'YELLOW', quantity: this.inkYellow });
+                return inkPayload;
+            },
+            hasProductionAssignments(extraMaterials = [], extraInks = []) {
+                const savedMaterials = Array.isArray(this.currentJo.materials) ? this.currentJo.materials.length : 0;
+                const savedInks = Array.isArray(this.currentJo.ink_usage) ? this.currentJo.ink_usage.length : 0;
+                return savedMaterials > 0 || savedInks > 0 || extraMaterials.length > 0 || extraInks.length > 0;
+            },
             async submitToPay() {
                 console.log('submitToPay called');
                 console.log('jobPriceInput value:', this.jobPriceInput);
@@ -2382,10 +2425,17 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 const urlParams = new URLSearchParams(window.location.search);
                 const returnToPOS = urlParams.get('return_to_pos') === '1';
                 const fromPOS = returnToPOS || (this.currentJo.order_type === 'ORDER' && this.currentJo.order_source === 'pos') || (this.currentJo.order_type === 'CUSTOMIZATION' && this.currentJo.order_source === 'pos');
-                for (const pm of this.pendingMaterials) {
+                const materialsToSave = [...this.pendingMaterials];
+                const currentMaterial = this.buildCurrentMaterialPayload();
+                if (currentMaterial) {
+                    materialsToSave.push(currentMaterial);
+                }
+                const inkPayload = this.buildInkPayload();
+                for (const pm of materialsToSave) {
                     const fd = new FormData();
                     fd.append('action', 'add_material');
                     fd.append('order_id', jid);
+                    fd.append('order_type', 'JOB');
                     fd.append('item_id', pm.item_id);
                     fd.append('quantity', pm.qty);
                     fd.append('uom', pm.uom);
@@ -2396,31 +2446,21 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     if (!res.success) { this.showStaffAlert('Material Error', 'Failed to save material: ' + res.error); return; }
                 }
                 this.pendingMaterials = [];
-                if (this.newMaterialId) {
-                    await this.addMaterial();
-                }
-                if (this.useInk && this.inkCategorySelected) {
-                    const mappedInks = this.inkTypes[this.inkCategorySelected];
-                    const inkPayload = [];
-                    if (this.inkBlue > 0) inkPayload.push({ item_id: mappedInks['BLUE'], color: 'BLUE', quantity: this.inkBlue });
-                    if (this.inkRed > 0) inkPayload.push({ item_id: mappedInks['RED'], color: 'RED', quantity: this.inkRed });
-                    if (this.inkBlack > 0) inkPayload.push({ item_id: mappedInks['BLACK'], color: 'BLACK', quantity: this.inkBlack });
-                    if (this.inkYellow > 0) inkPayload.push({ item_id: mappedInks['YELLOW'], color: 'YELLOW', quantity: this.inkYellow });
-                    if (inkPayload.length > 0) {
-                        const fdInk = new FormData();
-                        fdInk.append('action', 'save_ink_usage');
-                        fdInk.append('order_id', jid);
-                        fdInk.append('ink_data', JSON.stringify(inkPayload));
-                        const resInk = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fdInk })).json();
-                        if (!resInk.success) {
-                            this.showStaffAlert('Ink Error', 'Failed to save ink usage: ' + resInk.error);
-                            return;
-                        }
+                if (inkPayload.length > 0) {
+                    const fdInk = new FormData();
+                    fdInk.append('action', 'save_ink_usage');
+                    fdInk.append('order_id', jid);
+                    fdInk.append('order_type', 'JOB');
+                    fdInk.append('ink_data', JSON.stringify(inkPayload));
+                    const resInk = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fdInk })).json();
+                    if (!resInk.success) {
+                        this.showStaffAlert('Ink Error', 'Failed to save ink usage: ' + resInk.error);
+                        return;
                     }
                 }
                 await this.refreshMaterials();
                 console.log('Price before materials check:', userEnteredPrice);
-                if ((!this.currentJo.materials || this.currentJo.materials.length === 0) && (!this.currentJo.ink_usage || this.currentJo.ink_usage.length === 0)) {
+                if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
                     this.showStaffAlert('Production Required', 'Please add at least one production material or ink before submitting to pay.');
                     return;
                 }
@@ -2725,7 +2765,14 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 if (!jid) return;
                 const res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
                 if(res.success) {
-                    this.currentJo = { ...res.data, order_type: 'JOB' };
+                    const previousJo = this.currentJo || {};
+                    this.currentJo = {
+                        ...previousJo,
+                        ...res.data,
+                        order_type: previousJo.order_type || 'JOB',
+                        order_id: previousJo.order_id || res.data.order_id,
+                        job_order_id: jid
+                    };
                     for(const m of (this.currentJo.materials || [])) {
                         if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
                     }
