@@ -117,7 +117,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
         .toolbar-group--tabs {
             flex: 1 1 auto;
             min-width: 0;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .toolbar-group--actions {
@@ -142,10 +142,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             flex: 1 1 auto;
             min-width: 0;
             overflow-x: auto;
-            overflow-y: hidden;
+            overflow-y: visible;
             scrollbar-width: none;
             -ms-overflow-style: none;
             margin: 8px 0 12px;
+            padding-top: 6px;
             padding-bottom: 4px;
         }
 
