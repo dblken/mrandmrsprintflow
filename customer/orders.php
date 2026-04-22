@@ -550,16 +550,21 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="orders-theme-page min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
-        <div class="mb-8 mt-4"></div>
-        
-        <?php if (isset($_SESSION['order_success'])): ?>
-            <div style="background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);">
+        <?php if (isset($_SESSION['order_success'])):
+            $order_success_msg = $_SESSION['order_success'];
+            unset($_SESSION['order_success']);
+        ?>
+            <div style="background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; padding: 1rem 1.5rem; border-radius: 12px; margin: 0.75rem 0 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);">
                 <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink: 0;">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
-                <span><?php echo htmlspecialchars($_SESSION['order_success']); unset($_SESSION['order_success']); ?></span>
+                <span><?php echo htmlspecialchars($order_success_msg); ?></span>
             </div>
+            <script>
+                window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
+            </script>
         <?php endif; ?>
+        <div class="mb-8 mt-2"></div>
         
         <!-- Unified Dashboard Container -->
         <div class="unified-dashboard">
@@ -706,6 +711,9 @@ const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
 window.addEventListener('DOMContentLoaded', () => {
+    if (window.__pfOrderSuccessMessage && typeof showToast === 'function') {
+        showToast(window.__pfOrderSuccessMessage);
+    }
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
     const highlightId = highlightIdRaw ? parseInt(highlightIdRaw, 10) : 0;
