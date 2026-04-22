@@ -7,6 +7,29 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/product_branch_stock.php';
+require_once __DIR__ . '/../../includes/JobOrderService.php';
+
+/**
+ * POS customization rows must resolve to real job_orders, but JobOrderService
+ * manages its own transactions, so run this only after the outer POS checkout
+ * transaction has committed.
+ */
+function pos_sync_customization_jobs_after_commit(int $orderId, string $targetStatus): void {
+    if ($orderId <= 0 || $targetStatus === '') {
+        return;
+    }
+
+    JobOrderService::ensureJobsForStoreOrder($orderId);
+    $jobs = db_query(
+        "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
+        'i',
+        [$orderId]
+    ) ?: [];
+
+    foreach ($jobs as $job) {
+        JobOrderService::updateStatus((int)$job['id'], $targetStatus);
+    }
+}
 
 // Require staff or admin role
 if (!has_role(['Admin', 'Staff'])) {
@@ -28,6 +51,8 @@ if (!$data) {
 // Handle create_pending_customization action
 if (isset($data['action']) && $data['action'] === 'create_pending_customization') {
     $customer_id = $data['customer_id'] === 'guest' ? null : (int)$data['customer_id'];
+    $post_commit_order_id = 0;
+    $transaction_open = false;
     
     if ($customer_id === null) {
         global $conn;
@@ -52,6 +77,7 @@ if (isset($data['action']) && $data['action'] === 'create_pending_customization'
     try {
         global $conn;
         $conn->begin_transaction();
+        $transaction_open = true;
         
         $branch_id = (int)($_SESSION['branch_id'] ?? 1);
         if ($branch_id < 1) $branch_id = 1;
@@ -110,13 +136,28 @@ if (isset($data['action']) && $data['action'] === 'create_pending_customization'
         }
         
         $customization_id = $conn->insert_id;
-        
+
         $conn->commit();
+        $transaction_open = false;
+        $post_commit_order_id = $order_id;
+        pos_sync_customization_jobs_after_commit($post_commit_order_id, 'APPROVED');
         echo json_encode(['success' => true, 'customization_id' => $customization_id, 'order_id' => $order_id]);
         exit;
         
     } catch (Exception $e) {
-        if (isset($conn)) $conn->rollback();
+        if ($transaction_open && isset($conn)) {
+            $conn->rollback();
+        }
+        if ($post_commit_order_id > 0) {
+            error_log('PrintFlow POS customization sync failed for order #' . $post_commit_order_id . ': ' . $e->getMessage());
+            echo json_encode([
+                'success' => true,
+                'customization_id' => $customization_id ?? null,
+                'order_id' => $post_commit_order_id,
+                'warning' => 'Customization was created, but production sync needs follow-up.'
+            ]);
+            exit;
+        }
         echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
         exit;
     }
@@ -193,7 +234,10 @@ foreach ($items as $item) {
 
 try {
     global $conn;
+    $post_commit_job_sync = [];
+    $transaction_open = false;
     $conn->begin_transaction();
+    $transaction_open = true;
 
     // Create Order
     // For POS walk-ins, we use status 'In Production' and payment_status 'Paid', skipping 'To Pay' and 'To Verify'
@@ -263,6 +307,8 @@ try {
                 exit;
             }
             $last_customization_id = $conn->insert_id;
+
+            $post_commit_job_sync[$order_id] = 'IN_PRODUCTION';
             
             // Update any existing pending customization orders for this item to mark as paid
             if (isset($_SESSION['pos_pending_orders'][$product_id])) {
@@ -286,9 +332,26 @@ try {
     }
 
     $conn->commit();
+    $transaction_open = false;
+    foreach ($post_commit_job_sync as $sync_order_id => $sync_status) {
+        pos_sync_customization_jobs_after_commit((int)$sync_order_id, (string)$sync_status);
+    }
     echo json_encode(['success' => true, 'order_id' => $order_id, 'customization_id' => $last_customization_id ?? null, 'message' => 'Sale completed successfully.']);
 
 } catch (Exception $e) {
-    if (isset($conn)) $conn->rollback();
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    if ($transaction_open && isset($conn)) {
+        $conn->rollback();
+    }
+    if (!empty($order_id) && !$transaction_open) {
+        error_log('PrintFlow POS checkout post-commit sync failed for order #' . (int)$order_id . ': ' . $e->getMessage());
+        echo json_encode([
+            'success' => true,
+            'order_id' => (int)$order_id,
+            'customization_id' => $last_customization_id ?? null,
+            'message' => 'Sale completed successfully.',
+            'warning' => 'Production sync needs follow-up.'
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }

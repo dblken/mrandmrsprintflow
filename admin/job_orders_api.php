@@ -333,6 +333,7 @@ try {
             $custom_sql = "SELECT 
                     cust.customization_id AS id,
                     cust.order_id,
+                    (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = cust.order_id) AS job_order_id,
                     cust.customer_id,
                     c.first_name,
                     c.last_name,
@@ -495,6 +496,43 @@ try {
                 $new_status = 'Pending Verification';
             }
 
+            $linked_job_ids = [];
+            if ($linked_order_id) {
+                JobOrderService::ensureJobsForStoreOrder($linked_order_id);
+                $linked_jobs = db_query(
+                    "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
+                    'i',
+                    [$linked_order_id]
+                ) ?: [];
+                $linked_job_ids = array_map(static fn(array $row): int => (int)$row['id'], $linked_jobs);
+            }
+
+            $job_status_sync = [
+                'Approved'              => 'APPROVED',
+                'To Pay'                => 'TO_PAY',
+                'Pending Verification'  => 'VERIFY_PAY',
+                'Processing'            => 'IN_PRODUCTION',
+                'Ready for Pickup'      => 'TO_RECEIVE',
+                'Completed'             => 'COMPLETED',
+                'Cancelled'             => 'CANCELLED',
+            ];
+
+            if (!empty($linked_job_ids) && isset($job_status_sync[$new_status])) {
+                $targetJobStatus = $job_status_sync[$new_status];
+                foreach ($linked_job_ids as $jobId) {
+                    if ($price !== null) {
+                        db_execute(
+                            "UPDATE job_orders SET estimated_total = ?, required_payment = ? WHERE id = ?",
+                            'ddi',
+                            [$price, $price, $jobId]
+                        );
+                    }
+                    JobOrderService::updateStatus($jobId, $targetJobStatus);
+                }
+            } elseif ($new_status === 'Processing' && empty($linked_job_ids)) {
+                throw new Exception('Cannot move customization to Processing without a linked production job.');
+            }
+
             db_execute('UPDATE customizations SET status = ?, updated_at = NOW() WHERE customization_id = ?', 'si', [$new_status, $cust_id]);
 
             if ($price !== null && $linked_order_id) {
@@ -580,6 +618,20 @@ try {
 
             // Use order total if set (price was already approved)
             $estimated_total = (float)($cust['order_total'] ?? 0);
+            $linked_job_id = 0;
+            $linked_job = null;
+            if (!empty($cust['order_id'])) {
+                JobOrderService::ensureJobsForStoreOrder((int)$cust['order_id']);
+                $linked_job_rows = db_query(
+                    "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+                    'i',
+                    [(int)$cust['order_id']]
+                );
+                $linked_job_id = (int)($linked_job_rows[0]['id'] ?? 0);
+                if ($linked_job_id > 0) {
+                    $linked_job = JobOrderService::getOrder($linked_job_id);
+                }
+            }
 
             $items = [[
                 'order_item_id' => $cust['order_item_id'] ?? null,
@@ -605,17 +657,18 @@ try {
                 'status'                   => $mapped_status,
                 'estimated_total'          => $estimated_total,
                 'amount_paid'              => 0,
+                'job_order_id'             => $linked_job_id > 0 ? $linked_job_id : null,
                 'notes'                    => '',
                 'store_order_notes'        => '',
                 'payment_proof_status'     => $payment_proof_status,
                 'payment_proof_path'       => $cust['payment_proof_path'] ?? null,
                 'payment_submitted_amount' => (float)($cust['downpayment_amount'] ?? 0),
                 'payment_status'           => 'NO',
-                'readiness'                => 'READY',
+                'readiness'                => $linked_job['readiness'] ?? 'READY',
                 'order_source'             => $cust['order_source'] ?? 'pos',
                 'items'                    => $items,
-                'materials'                => [],
-                'ink_usage'                => [],
+                'materials'                => $linked_job['materials'] ?? [],
+                'ink_usage'                => $linked_job['ink_usage'] ?? [],
                 'customization_details'    => $details,
             ];
 
