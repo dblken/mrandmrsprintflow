@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role(['Staff', 'Admin', 'Manager']);
 
@@ -63,11 +64,21 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
         if ($pid > 0 && $qty > 0) {
             // Use branch-aware deduction
             if (printflow_product_deduct_stock_for_branch($pid, $branch_id, $qty)) {
-                // Log in inventory_ledger
+                // Log in the same inventory_transactions table used by the ledger UI.
                 try {
-                    db_execute("INSERT INTO inventory_ledger (product_id, branch_id, transaction_type, quantity, details, created_at) 
-                               VALUES (?, ?, 'Deduction', ?, ?, NOW())", 'iiis', 
-                               [$pid, $branch_id, $qty, "Automated deduction for Order #$order_id completion"]);
+                    InventoryManager::recordTransaction(
+                        $pid,
+                        'OUT',
+                        $qty,
+                        'pcs',
+                        'order',
+                        $order_id,
+                        null,
+                        "Automated deduction for Order #$order_id completion",
+                        (int)($_SESSION['user_id'] ?? 0),
+                        date('Y-m-d'),
+                        $branch_id
+                    );
                 } catch (Throwable $e) { }
             }
         }
