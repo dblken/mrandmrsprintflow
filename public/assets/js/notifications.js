@@ -265,6 +265,7 @@
 
     function handlePushToggleClick(btn) {
         if (!btn) return;
+        alert('Checking notification permission...');
         var state = btn.dataset.state || 'disabled';
         if (state === 'unsupported') {
             alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
