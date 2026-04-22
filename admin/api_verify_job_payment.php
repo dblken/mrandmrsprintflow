@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 // Staff, Manager, Admin (same as customizations page)
 if (!in_array($_SESSION['user_type'] ?? '', ['Admin', 'Staff', 'Manager'], true)) {
@@ -30,6 +31,23 @@ if (empty($job)) {
 }
 
 $job = $job[0];
+$viewerBranch = printflow_branch_filter_for_user();
+if (get_user_type() !== 'Admin' && $viewerBranch) {
+    $jobBranchRow = db_query(
+        "SELECT COALESCE(jo.branch_id, o.branch_id) AS branch_id
+         FROM job_orders jo
+         LEFT JOIN orders o ON o.order_id = jo.order_id
+         WHERE jo.id = ? LIMIT 1",
+        'i',
+        [$job_id]
+    );
+    $jobBranchId = (int)($jobBranchRow[0]['branch_id'] ?? 0);
+    if ($jobBranchId !== (int)$viewerBranch) {
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
+
 $user_id = $_SESSION['user_id'];
 $user_first = $_SESSION['user_first_name'] ?? '';
 $user_last = $_SESSION['user_last_name'] ?? '';

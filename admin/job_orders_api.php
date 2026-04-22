@@ -613,6 +613,9 @@ try {
             }
             $order_id = (int)($_GET['id'] ?? 0);
             if (!$order_id) throw new Exception("Order ID required.");
+            if ($joStaffBranch !== null && !printflow_order_in_branch($order_id, $joStaffBranch)) {
+                throw new Exception("Unauthorized");
+            }
             $order_row = db_query("
                 SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,
                        c.profile_picture AS customer_profile_picture,
@@ -710,6 +713,9 @@ try {
             $order_id = (int)($_POST['order_id'] ?? 0);
             $price = (float)($_POST['price'] ?? 0);
             if (!$order_id) throw new Exception("Order ID required.");
+            if ($joStaffBranch !== null && !printflow_order_in_branch($order_id, $joStaffBranch)) {
+                throw new Exception("Unauthorized");
+            }
             $sql = "UPDATE orders SET total_amount = ? WHERE order_id = ?";
             $res = db_execute($sql, 'di', [$price, $order_id]);
             echo json_encode(['success' => $res]);

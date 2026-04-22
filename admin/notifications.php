@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -18,6 +19,10 @@ if (!isset($base_path)) {
 
 $current_user = get_logged_in_user();
 $admin_id = get_user_id();
+$viewer_role = (string)($current_user['role'] ?? get_user_type());
+$viewer_branch_id = $viewer_role === 'Manager'
+    ? (int)(printflow_branch_filter_for_user() ?? 0)
+    : 0;
 
 // Auto-delete notifications older than 1 month
 db_execute("DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)");
@@ -66,31 +71,39 @@ if (!empty($search)) {
     $types .= 's';
 }
 
-$per_page = 15;
-$page = max(1, (int)($_GET['page'] ?? 1));
-$count_row = db_query("SELECT COUNT(*) as cnt FROM notifications WHERE $where", $types, $params);
-$total_count = (int)($count_row[0]['cnt'] ?? 0);
-$total_pages = max(1, (int)ceil(max(1, $total_count) / $per_page));
-if ($page > $total_pages) {
-    $page = $total_pages;
-}
-$offset = ($page - 1) * $per_page;
-
 // Sort order
 $order_clause = match($sort_by) {
     'oldest' => "created_at ASC",
     default  => "created_at DESC"
 };
 
-$notifications = db_query(
-    "SELECT * FROM notifications WHERE $where ORDER BY $order_clause LIMIT ? OFFSET ?",
-    $types . 'ii',
-    array_merge($params, [$per_page, $offset])
+$all_notifications = db_query(
+    "SELECT * FROM notifications WHERE $where ORDER BY $order_clause",
+    $types,
+    $params
 ) ?: [];
 
-// Get unread count (global)
-$unread_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$admin_id]);
-$unread_count = $unread_result[0]['count'] ?? 0;
+if ($viewer_role === 'Manager' && $viewer_branch_id > 0) {
+    $all_notifications = array_values(array_filter(
+        $all_notifications,
+        static fn(array $notif): bool => printflow_admin_notification_visible($notif, $viewer_branch_id, 'Manager')
+    ));
+}
+
+$per_page = 15;
+$page = max(1, (int)($_GET['page'] ?? 1));
+$total_count = count($all_notifications);
+$total_pages = max(1, (int)ceil(max(1, $total_count) / $per_page));
+if ($page > $total_pages) {
+    $page = $total_pages;
+}
+$offset = ($page - 1) * $per_page;
+$notifications = array_slice($all_notifications, $offset, $per_page);
+
+$unread_count = count(array_filter(
+    $all_notifications,
+    static fn(array $notif): bool => (int)($notif['is_read'] ?? 0) === 0
+));
 
 $notif_filter_badge = ($filter !== 'all' ? 1 : 0) + ($search !== '' ? 1 : 0);
 $notif_pagination_params = ['filter' => $filter, 'sort' => $sort_by];

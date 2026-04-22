@@ -375,6 +375,18 @@ function printflow_staff_notification_visible(array $notification, ?int $branchI
 }
 
 /**
+ * True when a notification should be visible to the current admin/manager viewer.
+ */
+function printflow_admin_notification_visible(array $notification, ?int $branchId = null, ?string $viewerRole = null): bool {
+    $viewerRole = $viewerRole ?: (function_exists('get_user_type') ? (string)get_user_type() : '');
+    if ($viewerRole !== 'Manager') {
+        return true;
+    }
+
+    return printflow_staff_notification_visible($notification, $branchId);
+}
+
+/**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
@@ -495,17 +507,28 @@ function staff_notification_item_href(array $n): string {
  */
 function admin_notification_target_url(array $n): string {
     $base = defined('BASE_URL') ? BASE_URL : '/printflow';
-    $admin = $base . '/admin';
+    $viewerRole = function_exists('get_user_type') ? (string)get_user_type() : '';
+    $viewerBranch = function_exists('printflow_branch_filter_for_user') ? printflow_branch_filter_for_user() : null;
+    $panelBase = $viewerRole === 'Manager' ? ($base . '/manager') : ($base . '/admin');
+    $ordersPage = $viewerRole === 'Manager' ? ($panelBase . '/orders.php') : ($panelBase . '/orders_management.php');
+    $notificationsPage = $panelBase . '/notifications.php';
     $type = isset($n['type']) ? (string)$n['type'] : '';
     $msg = isset($n['message']) ? strtolower((string)$n['message']) : '';
     $dataId = isset($n['data_id']) && $n['data_id'] !== null && $n['data_id'] !== ''
         ? (int)$n['data_id'] : 0;
 
+    if (!printflow_admin_notification_visible($n, is_int($viewerBranch) ? $viewerBranch : null, $viewerRole)) {
+        return $notificationsPage;
+    }
+
     if ($type === 'System' && (
         strpos($msg, 'chatbot') !== false ||
         strpos($msg, 'support chat') !== false
     )) {
-        return $admin . '/faq_chatbot_management.php?tab=inquiries';
+        if ($viewerRole === 'Manager') {
+            return $notificationsPage;
+        }
+        return $panelBase . '/faq_chatbot_management.php?tab=inquiries';
     }
 
     // Staff submitted profile for activation (data_id = users.user_id)
@@ -513,29 +536,32 @@ function admin_notification_target_url(array $n): string {
         strpos($msg, 'ready for admin review') !== false ||
         strpos($msg, 'completed their profile') !== false
     )) {
-        return $admin . '/user_staff_management.php?open_user=' . $dataId;
+        if ($viewerRole === 'Manager') {
+            return $notificationsPage;
+        }
+        return $panelBase . '/user_staff_management.php?open_user=' . $dataId;
     }
 
     if ($dataId > 0) {
         if (in_array($type, ['Order', 'Design', 'Message'], true)) {
-            return $admin . '/orders_management.php?open_order=' . $dataId;
+            return $ordersPage . '?open_order=' . $dataId;
         }
         if (in_array($type, ['Job Order', 'Payment Issue'], true)) {
-            return $admin . '/job_orders.php?open_job=' . $dataId;
+            return $panelBase . '/job_orders.php?open_job=' . $dataId;
         }
         if ($type === 'Stock') {
-            return $admin . '/inv_transactions_ledger.php?item_id=' . $dataId;
+            return $panelBase . '/inv_transactions_ledger.php?item_id=' . $dataId;
         }
         if ($type === 'Payment') {
-            return $admin . '/orders_management.php?open_order=' . $dataId;
+            return $ordersPage . '?open_order=' . $dataId;
         }
     }
 
     if ($type === 'Payment') {
-        return $admin . '/orders_management.php';
+        return $ordersPage;
     }
 
-    return $admin . '/dashboard.php';
+    return $panelBase . '/dashboard.php';
 }
 
 /**
