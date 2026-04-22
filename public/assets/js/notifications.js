@@ -98,6 +98,7 @@
 
     var SW_PATH                = buildAppUrl('public/sw.js');
     var SW_SCOPE               = buildAppUrl('public') + '/';
+    var SW_REGISTER_PATH       = buildAppUrl('public/sw.php');
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
     var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
@@ -105,6 +106,15 @@
 
     function isPushSupported() {
         return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+    }
+
+    function ensureServiceWorker() {
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
+
+        return navigator.serviceWorker.getRegistration().then(function(reg) {
+            if (reg) return reg;
+            return navigator.serviceWorker.register(SW_REGISTER_PATH, { updateViaCache: 'none' });
+        });
     }
 
     function getUserId() {
@@ -134,7 +144,7 @@
     function unsubscribeFromPush() {
         if (!isPushSupported()) return Promise.resolve(false);
 
-        return navigator.serviceWorker.ready
+        return ensureServiceWorker()
             .then(function(reg) {
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (!existing) return false;
@@ -266,7 +276,7 @@
             return;
         }
 
-        navigator.serviceWorker.ready
+        ensureServiceWorker()
             .then(function(reg) { return reg.pushManager.getSubscription(); })
             .then(function(sub) {
                 updatePushToggle(btn, sub ? 'enabled' : 'disabled');
