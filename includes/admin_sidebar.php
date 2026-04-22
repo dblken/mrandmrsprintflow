@@ -393,7 +393,8 @@ window.pfUrl = function(path) {
     return base + '/' + path;
 };
 </script>
-<script src="<?php echo $base_path; ?>/public/assets/js/notifications.js" defer></script>
+<?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
+<script src="<?php echo $base_path; ?>/public/assets/js/notifications.js?v=<?php echo $notif_js_ver; ?>" defer></script>
 <script src="<?php echo $base_path; ?>/public/assets/js/inactivity_logout.js" defer></script>
 </div>
 

@@ -774,7 +774,8 @@ function _ft_detect_social(string $url): array {
         basePath: <?php echo json_encode(isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')); ?>
     });
     </script>
-    <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js" defer></script>
+    <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
+    <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js?v=<?php echo $notif_js_ver; ?>" defer></script>
     <script src="<?php echo $base_url; ?>/public/assets/js/inactivity_logout.js" defer></script>
     <?php endif; ?>
     <script src="<?php echo $base_url ?? '/printflow'; ?>/public/assets/js/order_validation.js?v=<?php echo time(); ?>" defer></script>

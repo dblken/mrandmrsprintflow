@@ -344,6 +344,10 @@
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';
         icon.style.flexShrink = '0';
+        icon.onerror = function() {
+            this.onerror = null;
+            this.src = buildAppUrl('public/assets/images/icon-192.png');
+        };
 
         var text = document.createElement('div');
         text.innerHTML = '<div style="font-weight:600;font-size:.875rem;color:#111827;margin-bottom:2px">' + escHtml(title) + '</div>' +
