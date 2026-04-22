@@ -25,6 +25,29 @@ $shop_logo_url  = !empty($shop_logo_file)
     ? $base_path . '/public/assets/uploads/' . $shop_logo_file
     : '';
 
+function printflow_logo_version(): string {
+    static $version = null;
+    if ($version !== null) {
+        return $version;
+    }
+
+    $cfgPath = __DIR__ . '/../public/assets/uploads/shop_config.json';
+    $logoPath = '';
+    if (is_file($cfgPath)) {
+        $cfg = json_decode((string) file_get_contents($cfgPath), true);
+        $logoFile = is_array($cfg) ? (string) ($cfg['logo'] ?? '') : '';
+        if ($logoFile !== '') {
+            $logoPath = __DIR__ . '/../public/assets/uploads/' . basename($logoFile);
+        }
+    }
+
+    $parts = [];
+    $parts[] = is_file($cfgPath) ? (string) filemtime($cfgPath) : '0';
+    $parts[] = ($logoPath !== '' && is_file($logoPath)) ? (string) filemtime($logoPath) : '0';
+    $version = implode('-', $parts);
+    return $version;
+}
+
 /**
  * Returns the logo HTML:
  * - If a logo is uploaded: <img> tag

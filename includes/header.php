@@ -57,7 +57,7 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <!-- Turbo: disable page cache to prevent double-encoded HTML on restore -->
     <meta name="turbo-cache-control" content="no-cache">
     <!-- PWA Manifest -->
-    <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.php">
+    <link rel="manifest" href="<?php echo $asset_base; ?>/manifest.php?v=<?php echo rawurlencode(printflow_logo_version()); ?>">
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/output.css?v=<?php echo $ver; ?>">
     <?php if (!empty($use_landing_css)): ?>

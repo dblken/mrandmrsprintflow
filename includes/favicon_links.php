@@ -5,8 +5,7 @@
  */
 require_once __DIR__ . '/shop_config.php';
 /* Stable cache key — avoid time() so the tab icon URL does not change every request (fixes missing/blinking favicon). */
-$cfg_path = __DIR__ . '/shop_config.php';
-$fv = (string) (is_file($cfg_path) ? (int) filemtime($cfg_path) : 1);
+$fv = printflow_logo_version();
 
 if (!defined('BASE_PATH')) {
     if (file_exists(__DIR__ . '/../config.php')) {

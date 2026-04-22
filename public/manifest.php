@@ -7,8 +7,9 @@ require_once __DIR__ . '/../includes/shop_config.php';
 
 $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_path = $base_path . '/public/assets/images';
-$svg_logo_src = $base_path . '/public/app-icon.php';
-$uploaded_logo_src = !empty($shop_logo_url) ? $shop_logo_url : '';
+$logo_version = rawurlencode(printflow_logo_version());
+$svg_logo_src = $base_path . '/public/app-icon.php?v=' . $logo_version;
+$uploaded_logo_src = !empty($shop_logo_url) ? ($shop_logo_url . '?v=' . $logo_version) : '';
 $uploaded_logo_type = 'image/png';
 
 if ($uploaded_logo_src !== '') {
