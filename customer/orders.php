@@ -560,6 +560,9 @@ require_once __DIR__ . '/../includes/header.php';
                 </svg>
                 <span><?php echo htmlspecialchars($order_success_msg); ?></span>
             </div>
+            <script>
+                window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
+            </script>
         <?php endif; ?>
         <div class="mb-8 mt-2"></div>
         
@@ -666,6 +669,17 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- Order Success Modal -->
+        <div id="orderSuccessModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:16px; z-index:100001;">
+            <div style="position:absolute; inset:0; background:rgba(15, 23, 42, 0.55);"></div>
+            <div style="position:relative; background:#ffffff; border-radius:16px; padding:24px; max-width:420px; width:100%; box-shadow:0 25px 60px rgba(0,0,0,0.35);">
+                <div style="width:54px; height:54px; border-radius:50%; background:#dcfce7; color:#166534; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; margin:0 auto 12px;">✓</div>
+                <h3 style="text-align:center; font-size:18px; font-weight:800; color:#111827; margin:0 0 8px;">Order Placed</h3>
+                <p id="orderSuccessModalMsg" style="text-align:center; font-size:13px; color:#4b5563; margin:0 0 16px;"></p>
+                <button type="button" onclick="closeOrderSuccessModal()" style="width:100%; padding:10px 14px; border:none; border-radius:10px; background:#0f172a; color:#ffffff; font-weight:700; cursor:pointer;">OK</button>
+            </div>
+        </div>
+
             <div class="mt-12">
                 <?php echo get_pagination_links($current_page, $total_pages, ['tab' => $active_tab]); ?>
             </div>
@@ -707,7 +721,27 @@ document.body.classList.add('orders-page');
 const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
+function openOrderSuccessModal(message) {
+    const modal = document.getElementById('orderSuccessModal');
+    const msg = document.getElementById('orderSuccessModalMsg');
+    if (!modal || !msg) return;
+    msg.textContent = message || 'Your order was placed successfully.';
+    modal.style.display = 'flex';
+}
+
+function closeOrderSuccessModal() {
+    const modal = document.getElementById('orderSuccessModal');
+    if (modal) modal.style.display = 'none';
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+    if (window.__pfOrderSuccessMessage) {
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        openOrderSuccessModal(window.__pfOrderSuccessMessage);
+    }
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
     const highlightId = highlightIdRaw ? parseInt(highlightIdRaw, 10) : 0;
