@@ -50,7 +50,8 @@ $error_message = '';
 
 try {
     if ($action === 'Approve') {
-        $new_status = 'Ready for Pickup';
+        $is_product = ($order['order_type'] === 'product');
+        $new_status = $is_product ? 'Ready for Pickup' : 'Processing';
         $payment_status = 'Paid';
         
         // Update order
@@ -63,7 +64,6 @@ try {
         }
         
         if ($success) {
-            $is_product = ($order['order_type'] === 'product');
             $msg = $is_product 
                 ? "Your payment has been verified. Your order is now ready for pickup!" 
                 : "Your payment has been verified. Your order is now in production!";
@@ -75,7 +75,7 @@ try {
             
             $log_desc = $is_product 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
-                : "Approved payment for Order #{$order_id}, moved to Processing";
+                : "Approved payment for Order #{$order_id}, moved to In Production";
             log_activity($staff_id, 'Payment Approved', $log_desc);
             
             // Update linked job_orders and trigger inventory deduction via JobOrderService
