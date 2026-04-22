@@ -147,7 +147,7 @@
             .catch(function() { return false; });
     }
 
-    function subscribeToPush() {
+    function subscribeToPush(isUserAction) {
         if (!isPushSupported()) return Promise.resolve(null);
 
         return navigator.serviceWorker.ready
@@ -159,10 +159,22 @@
                     }
 
                     return fetchVapidPublicKey().then(function(pubKey) {
-                        if (!pubKey) return null;
+                        if (!pubKey) {
+                            if (isUserAction) {
+                                alert('Push is not configured yet. Missing VAPID public key.');
+                            }
+                            return null;
+                        }
 
                         return Notification.requestPermission().then(function(permission) {
-                            if (permission !== 'granted') return null;
+                            if (permission !== 'granted') {
+                                if (isUserAction && permission === 'denied') {
+                                    alert('Notifications are blocked in your browser settings.');
+                                } else if (isUserAction) {
+                                    alert('Notification permission was dismissed. Please allow it to enable alerts.');
+                                }
+                                return null;
+                            }
 
                             return reg.pushManager.subscribe({
                                 userVisibleOnly: true,
@@ -183,7 +195,7 @@
         if (getUserId() <= 0) return;
 
         if (Notification.permission === 'granted') {
-            subscribeToPush();
+            subscribeToPush(false);
             return;
         }
 
@@ -192,10 +204,10 @@
                 var asked = localStorage.getItem(PERM_ASKED_KEY);
                 if (!asked) {
                     localStorage.setItem(PERM_ASKED_KEY, '1');
-                    subscribeToPush();
+                    subscribeToPush(false);
                 }
             } catch (e) {
-                subscribeToPush();
+                subscribeToPush(false);
             }
         }
     }
@@ -269,8 +281,11 @@
             });
             return;
         }
-        subscribeToPush().then(function(sub) {
+        subscribeToPush(true).then(function(sub) {
             updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            if (!sub && Notification.permission === 'granted') {
+                alert('Notifications are allowed, but subscription failed. Please reload and try again.');
+            }
         });
     }
 
