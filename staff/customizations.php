@@ -729,7 +729,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                                         <input type="number" x-model.number="newMaterialHeight" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
                                                     </div>
                                                 </template>
-                                                <button @click="addMaterialToQueue()" class="btn-staff-action btn-staff-action-indigo" style="grid-column: span 2; padding:8px; font-size:12px; font-weight:600;">Add to Order Content</button>
+                                                <div x-show="selectedMaterialStockError" style="grid-column: span 2; padding:8px 10px; border-radius:8px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-size:11px; font-weight:700; line-height:1.4;" x-text="selectedMaterialStockError"></div>
+                                                <button @click="addMaterialToQueue()" :disabled="!!selectedMaterialStockError" class="btn-staff-action btn-staff-action-indigo" :style="selectedMaterialStockError ? 'grid-column: span 2; padding:8px; font-size:12px; font-weight:600; opacity:0.55; cursor:not-allowed;' : 'grid-column: span 2; padding:8px; font-size:12px; font-weight:600;'">Add to Order Content</button>
                                             </div>
                                         </template>
 
@@ -819,6 +820,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div x-show="inkStockIssues.length > 0" style="margin-top:12px; padding:10px 12px; border-radius:8px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-size:11px; font-weight:700; line-height:1.45;">
+                                                            <template x-for="(issue, idx) in inkStockIssues" :key="idx">
+                                                                <div x-text="issue"></div>
+                                                            </template>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -851,7 +857,12 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                         <span style="font-size:11px; color:#059669; font-weight:600;">This is the total amount the customer will pay</span>
                                     </div>
                                 </div>
-                                <button @click="submitToPay()" class="btn-action" style="width:100%; padding:16px; height:auto; font-size:16px; background:#06A1A1; color:#fff; border:none; font-weight:800; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:0 10px 20px rgba(6, 161, 161, 0.3); transition:all 0.2s; cursor:pointer;"
+                                <div x-show="approvalStockErrors.length > 0" style="margin-bottom:12px; padding:12px 14px; border-radius:10px; border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; font-size:12px; font-weight:700; line-height:1.5;">
+                                    <template x-for="(issue, idx) in approvalStockErrors" :key="idx">
+                                        <div x-text="issue"></div>
+                                    </template>
+                                </div>
+                                <button @click="submitToPay()" :disabled="approvalStockErrors.length > 0" class="btn-action" :style="approvalStockErrors.length > 0 ? 'width:100%; padding:16px; height:auto; font-size:16px; background:#99d8d8; color:#fff; border:none; font-weight:800; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:none; transition:all 0.2s; cursor:not-allowed;' : 'width:100%; padding:16px; height:auto; font-size:16px; background:#06A1A1; color:#fff; border:none; font-weight:800; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:0 10px 20px rgba(6, 161, 161, 0.3); transition:all 0.2s; cursor:pointer;'"
                                         onmouseover="this.style.background='#0d9488'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 12px 24px rgba(6, 161, 161, 0.4)'"
                                         onmouseout="this.style.background='#06A1A1'; this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(6, 161, 161, 0.3)'">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -1234,7 +1245,80 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 }).join(", ");
                 return summary + " deducted from inventory.";
             },
-            
+            getInventoryItem(itemId) {
+                return this.allInventoryItems.find(i => String(i.id) === String(itemId)) || null;
+            },
+            getMaterialRequiredStock(itemId, qty = 0, height = 0) {
+                const parsedQty = parseFloat(qty || 0);
+                if (parsedQty <= 0) return 0;
+                if (this.isTarpaulin(itemId)) {
+                    const parsedHeight = parseFloat(height || 0);
+                    return parsedHeight > 0 ? parsedQty * parsedHeight : parsedQty;
+                }
+                return parsedQty;
+            },
+            getQueuedMaterialRequiredStock(itemId) {
+                return this.pendingMaterials
+                    .filter(m => String(m.item_id) === String(itemId))
+                    .reduce((sum, m) => sum + this.getMaterialRequiredStock(m.item_id, m.qty, m.metadata?.height_ft || 0), 0);
+            },
+            get selectedMaterialStockError() {
+                if (!this.newMaterialId) return '';
+                const item = this.getInventoryItem(this.newMaterialId);
+                if (!item) return '';
+                const available = parseFloat(item.current_stock || 0);
+                const queued = this.getQueuedMaterialRequiredStock(this.newMaterialId);
+                const needed = this.getMaterialRequiredStock(this.newMaterialId, this.newMaterialQty, this.newMaterialHeight);
+                if (needed <= 0) return '';
+                const remaining = Math.max(0, available - queued);
+                if (needed > remaining) {
+                    return `${item.name} has only ${remaining} ${item.unit_of_measure || 'pcs'} left in this branch, but ${needed} is needed.`;
+                }
+                return '';
+            },
+            getInkInputValue(color) {
+                const map = {
+                    RED: parseFloat(this.inkRed || 0),
+                    BLUE: parseFloat(this.inkBlue || 0),
+                    BLACK: parseFloat(this.inkBlack || 0),
+                    YELLOW: parseFloat(this.inkYellow || 0),
+                };
+                return map[color] || 0;
+            },
+            get inkStockIssues() {
+                if (!this.useInk || !this.inkCategorySelected || !this.inkTypes[this.inkCategorySelected]) return [];
+                const mapped = this.inkTypes[this.inkCategorySelected];
+                const issues = [];
+                ['RED', 'BLUE', 'BLACK', 'YELLOW'].forEach(color => {
+                    const needed = this.getInkInputValue(color);
+                    if (needed <= 0) return;
+                    const item = this.getInventoryItem(mapped[color]);
+                    const available = parseFloat(item?.current_stock || 0);
+                    if (needed > available) {
+                        issues.push(`${color} ink has only ${available} ml available in this branch, but ${needed} ml is needed.`);
+                    }
+                });
+                return issues;
+            },
+            get approvalStockErrors() {
+                const errors = [];
+                if (this.selectedMaterialStockError) errors.push(this.selectedMaterialStockError);
+                this.pendingMaterials.forEach(pm => {
+                    const item = this.getInventoryItem(pm.item_id);
+                    if (!item) return;
+                    const available = parseFloat(item.current_stock || 0);
+                    const needed = this.getQueuedMaterialRequiredStock(pm.item_id);
+                    if (needed > available) {
+                        const message = `${item.name} has only ${available} ${item.unit_of_measure || 'pcs'} available in this branch, but queued materials need ${needed}.`;
+                        if (!errors.includes(message)) errors.push(message);
+                    }
+                });
+                this.inkStockIssues.forEach(issue => {
+                    if (!errors.includes(issue)) errors.push(issue);
+                });
+                return errors;
+            },
+             
             // Ink Settings
             inkCategorySelected: '',
             inkBlue: '',
@@ -2151,6 +2235,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 if (!this.newMaterialId) return;
                 const item = this.allInventoryItems.find(i => i.id == this.newMaterialId);
                 if (!item) return;
+                if (this.selectedMaterialStockError) {
+                    this.showStaffAlert('Insufficient Stock', this.selectedMaterialStockError);
+                    return;
+                }
 
                 // Check if already in pending queue
                 const existing = this.pendingMaterials.find(m => m.item_id == this.newMaterialId);
@@ -2305,6 +2393,10 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 }
                 if (!userEnteredPrice || userEnteredPrice <= 0 || isNaN(userEnteredPrice)) {
                     this.showStaffAlert('Price Required', 'Please enter a valid price before submitting to pay.');
+                    return;
+                }
+                if (this.approvalStockErrors.length > 0) {
+                    this.showStaffAlert('Insufficient Stock', this.approvalStockErrors.join('\n'));
                     return;
                 }
                 if (!this.beginModalAction()) return;
@@ -2642,4 +2734,3 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 </script>
 </body>
 </html>
-
