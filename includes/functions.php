@@ -1385,12 +1385,29 @@ function customer_notification_image_url(array $notification, string $fallback) 
         return $fallback;
     }
 
+    $has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
+    $has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+    $product_image_expr = "'' AS product_image";
+    if ($has_product_image && $has_photo_path) {
+        $product_image_expr = "COALESCE(p.photo_path, p.product_image) AS product_image";
+    } elseif ($has_product_image) {
+        $product_image_expr = "p.product_image AS product_image";
+    } elseif ($has_photo_path) {
+        $product_image_expr = "p.photo_path AS product_image";
+    }
+
     $item = db_query(
         "SELECT oi.order_item_id,
-                IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) AS has_design,
+                IF(
+                    (oi.design_image IS NOT NULL AND oi.design_image != '')
+                    OR (oi.design_file IS NOT NULL AND oi.design_file != ''),
+                    1,
+                    0
+                ) AS has_design,
                 oi.customization_data,
                 p.name AS product_name,
-                p.product_id
+                p.product_id,
+                {$product_image_expr}
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.product_id
          WHERE oi.order_id = ?
@@ -1406,10 +1423,27 @@ function customer_notification_image_url(array $notification, string $fallback) 
         }
 
         $custom = !empty($item[0]['customization_data']) ? json_decode((string)$item[0]['customization_data'], true) : [];
-        $display_name = get_service_name_from_customization(
+        $display_name = printflow_resolve_order_item_name(
+            (string)($item[0]['product_name'] ?? 'Order Item'),
             is_array($custom) ? $custom : [],
-            (string)($item[0]['product_name'] ?? 'Order Item')
+            'Order Item'
         );
+
+        $product_image = trim((string)($item[0]['product_image'] ?? ''));
+        if ($product_image !== '') {
+            if (preg_match('#^https?://#i', $product_image)) {
+                return $product_image;
+            }
+            if ($product_image[0] === '/') {
+                return $product_image;
+            }
+            if (file_exists(__DIR__ . '/../uploads/products/' . $product_image)) {
+                return $base . '/uploads/products/' . $product_image;
+            }
+            if (file_exists(__DIR__ . '/../public/images/products/' . $product_image)) {
+                return $base . '/public/images/products/' . $product_image;
+            }
+        }
 
         return get_service_image_url($display_name);
     }

@@ -55,6 +55,13 @@ if ($user_type === 'Customer') {
 
 foreach ($rows as &$row) {
     $row['target_url'] = printflow_notification_target_url_for_user((string)$user_type, $row);
+    if ($user_type === 'Customer') {
+        $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+        $fallback = $base . '/public/assets/images/services/default.png';
+        $row['title'] = customer_notification_title((string)($row['type'] ?? ''), (string)($row['message'] ?? ''));
+        $row['image'] = customer_notification_image_url($row, $fallback);
+        $row['fallback'] = $fallback;
+    }
 }
 unset($row);
 

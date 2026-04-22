@@ -585,6 +585,7 @@
                     var unreadClass = n.is_read == 0 ? 'unread' : '';
                     var type = (n.type || '').toLowerCase();
                     var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
+                    var mediaHtml = '';
                     
                     if (type.indexOf('order') !== -1 || type.indexOf('status') !== -1) {
                         iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>';
@@ -594,8 +595,14 @@
                         iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
                     }
 
+                    if (n.image) {
+                        mediaHtml = '<img src="' + escAttr(n.image) + '" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" onerror="this.onerror=null;this.src=\'' + escJsString(n.fallback || buildAppUrl('public/assets/images/icon-192.png')) + '\'">';
+                    } else {
+                        mediaHtml = iconSvg;
+                    }
+
                     html += '<a href="' + target + '" class="pf-notif-item ' + unreadClass + '">' +
-                            '  <div class="pf-notif-item-icon">' + iconSvg + '</div>' +
+                            '  <div class="pf-notif-item-icon">' + mediaHtml + '</div>' +
                             '  <div class="pf-notif-item-content">' +
                             '    <div class="pf-notif-item-text">' + escHtml(n.message) + '</div>' +
                             '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + '</div>' +
@@ -694,7 +701,7 @@
                     markSeen(sid);
                     var targetUrl = normalizeNotificationTarget(getNotifUrl(n));
                     if (window.location.pathname + window.location.search === targetUrl) continue;
-                    showToast('PrintFlow', n.message, targetUrl);
+                    showToast(n.title || 'PrintFlow', n.message, targetUrl, n.image || '', n.fallback || '');
                 }
             })
             .catch(function(){});
@@ -706,7 +713,7 @@
         pollTimer = setTimeout(function() { poll(); schedulePoll(); }, delay);
     }
 
-    function showToast(title, body, url) {
+    function showToast(title, body, url, imageUrl, fallbackImage) {
         var toastKey = [String(body || ''), String(url || ''), String(title || '')].join('|');
         var now = Date.now();
         var recentKeys = Object.keys(recentToastMap);
@@ -749,14 +756,15 @@
 
         var icon = document.createElement('img');
         var logoUrl = (window.PFConfig && window.PFConfig.logoUrl) ? String(window.PFConfig.logoUrl) : '';
-        icon.src = logoUrl || buildAppUrl('public/assets/images/icon-72.png');
+        icon.src = imageUrl || logoUrl || buildAppUrl('public/assets/images/icon-72.png');
         icon.style.width = '32px';
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';
+        icon.style.objectFit = 'cover';
         icon.style.flexShrink = '0';
         icon.onerror = function() {
             this.onerror = null;
-            this.src = buildAppUrl('public/assets/images/icon-192.png');
+            this.src = fallbackImage || logoUrl || buildAppUrl('public/assets/images/icon-192.png');
         };
 
         var text = document.createElement('div');
@@ -787,6 +795,15 @@
     function escHtml(str) {
         if (str === null || str === undefined) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escAttr(str) {
+        return escHtml(str);
+    }
+
+    function escJsString(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
     function init() {
