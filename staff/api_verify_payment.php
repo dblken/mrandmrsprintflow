@@ -50,8 +50,15 @@ $error_message = '';
 
 try {
     if ($action === 'Approve') {
-        $is_product = ($order['order_type'] === 'product');
-        $new_status = $is_product ? 'Ready for Pickup' : 'Processing';
+        require_once __DIR__ . '/../includes/JobOrderService.php';
+        $jobs = db_query(
+            "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')",
+            'i',
+            [$order_id]
+        ) ?: [];
+        $hasProductionJobs = !empty($jobs);
+        $isPlainProductOrder = (($order['order_type'] ?? '') === 'product') && !$hasProductionJobs;
+        $new_status = $isPlainProductOrder ? 'Ready for Pickup' : 'Processing';
         $payment_status = 'Paid';
         
         // Update order
@@ -64,7 +71,7 @@ try {
         }
         
         if ($success) {
-            $msg = $is_product 
+            $msg = $isPlainProductOrder 
                 ? "Your payment has been verified. Your order is now ready for pickup!" 
                 : "Your payment has been verified. Your order is now in production!";
             
@@ -73,20 +80,13 @@ try {
             }
             add_order_system_message($order_id, $msg);
             
-            $log_desc = $is_product 
+            $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
                 : "Approved payment for Order #{$order_id}, moved to In Production";
             log_activity($staff_id, 'Payment Approved', $log_desc);
             
             // Update linked job_orders and trigger inventory deduction via JobOrderService
-            require_once __DIR__ . '/../includes/JobOrderService.php';
-            $jobs = db_query(
-                "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')",
-                'i',
-                [$order_id]
-            );
-            
-            if (!empty($jobs)) {
+            if ($hasProductionJobs) {
                 foreach ($jobs as $job) {
                     // Update payment fields first
                     db_execute(
@@ -94,7 +94,7 @@ try {
                         'i',
                         [$job['id']]
                     );
-                    if ($is_product) {
+                    if ($isPlainProductOrder) {
                         // Move product jobs straight to READY_TO_COLLECT
                         db_execute("UPDATE job_orders SET status = 'READY_TO_COLLECT' WHERE id = ?", 'i', [$job['id']]);
                     } else {
