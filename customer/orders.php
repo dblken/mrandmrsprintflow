@@ -586,22 +586,7 @@ require_once __DIR__ . '/../includes/header.php';
                             elseif (strpos($s, 'cancelled') !== false) $st_cls = 'st-cancelled';
                             
                             $c_json = !empty($order['first_item_customization']) ? json_decode($order['first_item_customization'], true) : [];
-                            $d_name = '';
-                            if (!empty($c_json['sintra_type'])) $d_name = 'Sintra Board - ' . $c_json['sintra_type'];
-                            elseif (!empty($c_json['tarp_size'])) $d_name = 'Tarpaulin Printing - ' . $c_json['tarp_size'];
-                            elseif (!empty($c_json['width']) && !empty($c_json['height'])) $d_name = 'Tarpaulin Printing - ' . $c_json['width'] . 'x' . $c_json['height'] . 'ft';
-                            elseif (!empty($c_json['vinyl_type'])) $d_name = 'T-Shirt (Vinyl)';
-                            elseif (!empty($c_json['sticker_type'])) $d_name = 'Decals/Stickers';
-                            
-                            if (!$d_name) {
-                                $raw_name = $order['first_product_name'] ?? 'Order Item';
-                                $genericNames = ['custom order', 'customer order', 'service order', 'order item', 'sticker pack', 'merchandise'];
-                                if (empty($raw_name) || in_array(strtolower(trim($raw_name)), $genericNames)) {
-                                    $d_name = get_service_name_from_customization($c_json, 'Order Item');
-                                } else {
-                                    $d_name = normalize_service_name($raw_name, 'Order Item');
-                                }
-                            }
+                            $d_name = printflow_resolve_order_item_name($order['first_product_name'] ?? 'Order Item', $c_json, 'Order Item');
                             $preview_url = get_preview_image_for_order_ui($order, $d_name);
                         ?>
                         <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">

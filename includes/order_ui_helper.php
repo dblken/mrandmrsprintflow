@@ -149,15 +149,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     } elseif (!is_array($custom)) {
         $custom = [];
     }
-    $name = $item['name'] ?? ($item['product_name'] ?? null);
-
-    // Dynamic naming for Sintra Board or generic names
-    if (!empty($custom['sintra_type'])) {
-        $name = 'Sintra Board - ' . $custom['sintra_type'];
-    } elseif (empty($name) || in_array(strtolower(trim((string)$name)), ['custom order', 'customer order', 'service order', 'order item', 'sticker pack'])) {
-        $name = get_service_name_from_customization($custom, $name ?: 'Order Item');
-    }
-    $name = normalize_service_name($name, 'Order Item');
+    $name = printflow_resolve_order_item_name($item['name'] ?? ($item['product_name'] ?? null), $custom, 'Order Item');
     $category = $item['category'] ?? 'General';
     $unit_price = $is_cart_item
         ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
@@ -330,15 +322,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     } elseif (!is_array($custom)) {
         $custom = [];
     }
-    $name = $item['name'] ?? ($item['product_name'] ?? 'Order Item');
-    
-    // Dynamic naming for Sintra Board or generic names
-    if (!empty($custom['sintra_type'])) {
-        $name = 'Sintra Board - ' . $custom['sintra_type'];
-    } elseif (empty($name) || in_array(strtolower(trim((string)$name)), ['custom order', 'customer order', 'service order', 'order item', 'sticker pack'])) {
-        $name = get_service_name_from_customization($custom, $name ?: 'Order Item');
-    }
-    $name = normalize_service_name($name, 'Order Item');
+    $name = printflow_resolve_order_item_name($item['name'] ?? ($item['product_name'] ?? 'Order Item'), $custom, 'Order Item');
     
     $category = $item['category'] ?? 'General';
     $unit_price = $is_cart_item

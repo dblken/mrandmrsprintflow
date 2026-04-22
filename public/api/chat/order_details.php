@@ -123,13 +123,7 @@ foreach ($items ?: [] as $item) {
         : [];
     unset($custom_data['design_upload'], $custom_data['reference_upload']);
 
-    $product_name = get_service_name_from_customization($custom_data, 'Order Item');
-    $product_name = normalize_service_name($product_name, 'Order Item');
-    if ((empty($item['product_name']) || in_array(strtolower(trim($item['product_name'])), ['custom order', 'customer order', 'service order', 'order item'])) && !empty($custom_data['service_type'])) {
-        $product_name = normalize_service_name($custom_data['service_type'], 'Order Item');
-    } elseif (!empty($item['product_name']) && !in_array(strtolower(trim($item['product_name'])), ['custom order', 'customer order', 'service order', 'order item'])) {
-        $product_name = normalize_service_name($item['product_name'], 'Order Item');
-    }
+    $product_name = printflow_resolve_order_item_name($item['product_name'] ?? 'Order Item', $custom_data, 'Order Item');
 
     $design_url = null;
     $ref_url = null;

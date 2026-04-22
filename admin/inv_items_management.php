@@ -889,11 +889,11 @@ if (isset($_GET['ajax'])) {
             <h3 class="modal-title" id="itemStatusConfirmTitle">Confirm Archive</h3>
             <button class="close-btn" onclick="closeItemArchiveConfirmModal()">&times;</button>
         </div>
-        <div style="padding:0 0 20px; font-size:14px; color:#374151;">
+        <div class="modal-body" style="padding:24px !important; font-size:14px; color:#374151;">
             <p style="margin-bottom:12px;">You are about to <strong id="itemStatusConfirmAction">archive</strong>: <strong id="itemArchiveConfirmName">—</strong></p>
             <p id="itemStatusConfirmInfoText" style="margin-top:16px; color:#6b7280;">Archived materials are hidden from new orders and POS.</p>
         </div>
-        <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:20px; margin-top:20px; border-top:1px solid #f3f4f6;">
             <button type="button" onclick="closeItemArchiveConfirmModal()" class="btn-secondary" style="height:44px;border-radius:10px;padding:0 24px;">Cancel</button>
             <button type="button" id="itemArchiveConfirmBtn" class="btn-primary" style="height:44px;border-radius:10px;padding:0 24px;background:#6b7280;border:none;">Archive</button>
         </div>

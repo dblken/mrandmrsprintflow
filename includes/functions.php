@@ -1738,6 +1738,71 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     return normalize_service_name($fallback, $fallback);
 }
 
+function printflow_resolve_order_item_name($raw_name, $custom, $fallback = 'Order Item') {
+    $custom = is_string($custom) ? json_decode($custom, true) : $custom;
+    if (!is_array($custom)) {
+        $custom = [];
+    }
+
+    $raw_name = trim((string)$raw_name);
+    $generic_names = ['custom order', 'customer order', 'service order', 'order item', 'sticker pack', 'merchandise'];
+    $raw_lower = strtolower($raw_name);
+    $custom_name = normalize_service_name(get_service_name_from_customization($custom, $fallback), $fallback);
+
+    if (!empty($custom['sintra_type'])) {
+        return 'Sintra Board - ' . $custom['sintra_type'];
+    }
+
+    if (!empty($custom['tarp_size'])) {
+        return 'Tarpaulin Printing - ' . $custom['tarp_size'];
+    }
+
+    if (!empty($custom['width']) && !empty($custom['height']) && $custom_name === 'Tarpaulin Printing') {
+        return 'Tarpaulin Printing - ' . $custom['width'] . 'x' . $custom['height'] . 'ft';
+    }
+
+    if (!empty($custom['vinyl_type'])) {
+        return 'T-Shirt Printing (Vinyl)';
+    }
+
+    if (!empty($custom['sticker_type'])) {
+        return 'Decals/Stickers (Print/Cut)';
+    }
+
+    if ($raw_name === '' || in_array($raw_lower, $generic_names, true)) {
+        return $custom_name;
+    }
+
+    if ($custom_name !== '' && $custom_name !== normalize_service_name($fallback, $fallback)) {
+        $service_keywords = [
+            'Tarpaulin Printing' => ['tarpaulin', 'tarp'],
+            'T-Shirt Printing' => ['t-shirt', 'tshirt', 'shirt', 'vinyl'],
+            'T-Shirt Printing (Vinyl)' => ['t-shirt', 'tshirt', 'shirt', 'vinyl'],
+            'Decals/Stickers (Print/Cut)' => ['sticker', 'stickers', 'decal', 'decals'],
+            'Sintraboard Standees' => ['sintra', 'standee', 'sintraboard'],
+            'Glass/Wall Stickers' => ['glass', 'wall', 'frosted', 'sticker'],
+            'Transparent Stickers' => ['transparent', 'sticker'],
+            'Reflectorized' => ['reflectorized', 'signage'],
+            'Souvenirs' => ['souvenir', 'mug', 'pin', 'merchandise'],
+        ];
+        $keywords = $service_keywords[$custom_name] ?? [];
+        if ($keywords !== []) {
+            $matches_expected_service = false;
+            foreach ($keywords as $keyword) {
+                if (strpos($raw_lower, $keyword) !== false) {
+                    $matches_expected_service = true;
+                    break;
+                }
+            }
+            if (!$matches_expected_service) {
+                return $custom_name;
+            }
+        }
+    }
+
+    return normalize_service_name($raw_name, $fallback);
+}
+
 /**
  * Service image mapping - SAME as Services page ($core_services).
  * Source of truth: /customer/services.php

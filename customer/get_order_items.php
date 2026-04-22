@@ -51,45 +51,7 @@ foreach ($items as $item) {
 
     $items_out[] = [
         'order_item_id' => (int)$item['order_item_id'],
-        'product_name'  => (function() use ($item, $custom_data) {
-            // Priority 1: Sintra Board
-            if (!empty($custom_data['sintra_type'])) {
-                return 'Sintra Board - ' . $custom_data['sintra_type'];
-            }
-            
-            // Priority 2: Tarpaulin
-            if (!empty($custom_data['tarp_size']) || (!empty($custom_data['width']) && !empty($custom_data['height']))) {
-                $size = $custom_data['tarp_size'] ?? ($custom_data['width'] . 'x' . $custom_data['height'] . 'ft');
-                return 'Tarpaulin Printing - ' . $size;
-            }
-            
-            // Priority 3: Vinyl T-Shirt
-            if (!empty($custom_data['vinyl_type'])) {
-                return 'T-Shirt Printing (Vinyl)';
-            }
-            
-            // Priority 4: Stickers
-            if (!empty($custom_data['sticker_type'])) {
-                return 'Decals/Stickers';
-            }
-
-            // Priority 5: Pre-defined Product Name (if not generic)
-            $genericNames = ['custom order', 'customer order', 'service order', 'order item', 'sticker pack', 'merchandise'];
-            if (!empty($item['product_name']) && !in_array(strtolower(trim($item['product_name'])), $genericNames)) {
-                return normalize_service_name($item['product_name'], 'Order Item');
-            }
-
-            // Priority 6: Service Type from Customization
-            if (!empty($custom_data['service_type'])) {
-                $name = normalize_service_name($custom_data['service_type'], 'Order Item');
-                if (!empty($custom_data['product_type'])) {
-                    $name .= " (" . $custom_data['product_type'] . ")";
-                }
-                return $name;
-            }
-
-            return 'Order Item';
-        })(),
+        'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Order Item', $custom_data, 'Order Item'),
         'category'      => (strtolower($item['category'] ?? '') === 'merchandise') ? '' : ($item['category'] ?? ''),
         'quantity'      => (int)$item['quantity'],
         'unit_price'    => format_currency($item['unit_price']),
