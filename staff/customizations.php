@@ -1290,7 +1290,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 const stock = parseFloat(item.current_stock || 0);
                 if (stock <= 0) return 0;
                 const uom = String(item.unit_of_measure || '').trim().toLowerCase();
-                if (uom === 'l' || uom === 'liter' || uom === 'liters') {
+                if (uom === 'l' || uom === 'liter' || uom === 'liters' || uom.includes('liter') || uom.includes('(l)')) {
                     return stock * 1000;
                 }
                 return stock;
