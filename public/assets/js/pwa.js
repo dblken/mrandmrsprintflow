@@ -3,18 +3,14 @@
  * PrintFlow - Printing Shop PWA
  */
 
-// Register service worker
 if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
     window.__pfPwaRegistered = true;
     window.addEventListener('load', () => {
         navigator.serviceWorker.register((window.PFConfig?.basePath || '') + '/public/sw.php', {
             scope: (window.PFConfig?.basePath || '') + '/',
-            updateViaCache: 'none'   // Always fetch fresh SW — picks up new cache versions immediately
+            updateViaCache: 'none'
         })
             .then((registration) => {
-                // Service Worker registered (no console log to avoid noise)
-
-                // If a new SW is waiting, activate it right away
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                 }
@@ -34,7 +30,6 @@ if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
     });
 }
 
-// Show update notification
 if (typeof showUpdateNotification === 'undefined') {
     window.showUpdateNotification = function() {
         if (confirm('A new version of PrintFlow is available. Reload to update?')) {
@@ -43,31 +38,37 @@ if (typeof showUpdateNotification === 'undefined') {
     };
 }
 
-// Install prompt handling
-// This file can be loaded multiple times; keep state on `window` to avoid redeclare errors.
 var deferredPrompt = window.deferredPrompt || null;
 var _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 var _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-// Capture the install prompt when the browser fires it (prevents default banner; show via Install button)
+function getInstallButtons() {
+    return [
+        document.getElementById('pwa-install-btn'),
+        document.getElementById('pwa-install-btn-mobile')
+    ].filter(Boolean);
+}
+
+function syncInstallButtons() {
+    var canShow = !_isStandalone && (!!window.deferredPrompt || _isIOS);
+    getInstallButtons().forEach(function(btn) {
+        btn.style.display = canShow ? 'inline-flex' : 'none';
+    });
+}
+
 if (!window.__pfPwaBeforeInstallAdded) {
     window.__pfPwaBeforeInstallAdded = true;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        // Avoid capturing multiple times.
+    window.addEventListener('beforeinstallprompt', function(e) {
         if (window.__pfPwaBeforeInstallCaptured) return;
         window.__pfPwaBeforeInstallCaptured = true;
 
-        // Prevent default browser banner. We will show our install UI (or prompt immediately if needed).
         e.preventDefault();
         window.deferredPrompt = e;
         deferredPrompt = e;
-
-        // If there's no install button on this page, we can't show the prompt automatically (requires user gesture).
-        // We'll just keep the event for when the user might encounter a button later or use the browser's own UI.
+        syncInstallButtons();
     });
 
-    // Hide button once app is installed
-    window.addEventListener('appinstalled', () => {
+    window.addEventListener('appinstalled', function() {
         window.deferredPrompt = null;
         deferredPrompt = null;
         window.__pfPwaBeforeInstallCaptured = false;
@@ -77,62 +78,56 @@ if (!window.__pfPwaBeforeInstallAdded) {
 
 if (typeof hideInstallButton === 'undefined') {
     window.hideInstallButton = function() {
-        const btn = document.getElementById('pwa-install-btn');
-        if (btn) btn.style.display = 'none';
+        getInstallButtons().forEach(function(btn) {
+            btn.style.display = 'none';
+        });
     };
 }
 
-// Wire up click handler once DOM is ready
 if (!window.__pfPwaDomBound) {
     window.__pfPwaDomBound = true;
-    const bindPwaInstall = () => {
-        const btn = document.getElementById('pwa-install-btn');
-        if (!btn) return;
-
-        // Already running as installed PWA → hide button
+    var bindPwaInstall = function() {
+        syncInstallButtons();
         if (_isStandalone) {
             hideInstallButton();
             return;
         }
 
-        // Remove old listeners if any (though Turbo re-executions make this tricky, better to just bind once or use a delegation)
-        btn.onclick = async () => {
-            if (window.deferredPrompt) {
-                window.deferredPrompt.prompt();
-                const { outcome } = await window.deferredPrompt.userChoice;
-                window.deferredPrompt = null;
-                deferredPrompt = null;
-                window.__pfPwaBeforeInstallCaptured = false;
-                if (outcome === 'accepted') hideInstallButton();
-            } else if (_isIOS) {
-                // iOS Safari — show manual instruction
-                alert('To install PrintFlow on iOS:\n\n1. Tap the Share button (\uf0e4) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
-            } else {
-                // Fallback for browsers where prompt hasn't fired yet
-                alert('To install PrintFlow:\n\nOpen this page in Chrome or Edge and look for the install icon in the address bar, or revisit this page in a supported browser.');
-            }
-        };
+        getInstallButtons().forEach(function(btn) {
+            btn.onclick = async function() {
+                if (window.deferredPrompt) {
+                    window.deferredPrompt.prompt();
+                    var choice = await window.deferredPrompt.userChoice;
+                    window.deferredPrompt = null;
+                    deferredPrompt = null;
+                    window.__pfPwaBeforeInstallCaptured = false;
+                    if (choice.outcome === 'accepted') {
+                        hideInstallButton();
+                    } else {
+                        syncInstallButtons();
+                    }
+                } else if (_isIOS) {
+                    alert('To install PrintFlow on iOS:\n\n1. Tap the Share button in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+                }
+            };
+        });
     };
+
     document.addEventListener('DOMContentLoaded', bindPwaInstall);
     document.addEventListener('turbo:load', bindPwaInstall);
 }
 
-// Push notification subscription (optional)
 async function subscribeToPushNotifications() {
     if ('PushManager' in window && 'serviceWorker' in navigator) {
         try {
-            const registration = await navigator.serviceWorker.ready;
-
-            // Check if already subscribed
-            let subscription = await registration.pushManager.getSubscription();
+            var registration = await navigator.serviceWorker.ready;
+            var subscription = await registration.pushManager.getSubscription();
 
             if (!subscription) {
-                // Request permission
-                const permission = await Notification.requestPermission();
+                var permission = await Notification.requestPermission();
 
                 if (permission === 'granted') {
-                    // TODO: Replace with your VAPID public key
-                    const vapidPublicKey = 'YOUR_VAPID_PUBLIC_KEY';
+                    var vapidPublicKey = 'YOUR_VAPID_PUBLIC_KEY';
 
                     subscription = await registration.pushManager.subscribe({
                         userVisibleOnly: true,
@@ -140,8 +135,6 @@ async function subscribeToPushNotifications() {
                     });
 
                     console.log('[PWA] Push subscription:', subscription);
-
-                    // Send subscription to server
                     await sendSubscriptionToServer(subscription);
                 }
             }
@@ -153,24 +146,22 @@ async function subscribeToPushNotifications() {
     }
 }
 
-// Convert VAPID key
 function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
 
-    for (let i = 0; i < rawData.length; ++i) {
+    for (var i = 0; i < rawData.length; ++i) {
         outputArray[i] = rawData.charCodeAt(i);
     }
 
     return outputArray;
 }
 
-// Send subscription to server
 async function sendSubscriptionToServer(subscription) {
     try {
-        const response = await fetch((window.PFConfig?.basePath || '') + '/api/push-subscribe.php', {
+        var response = await fetch((window.PFConfig?.basePath || '') + '/api/push-subscribe.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -186,17 +177,16 @@ async function sendSubscriptionToServer(subscription) {
     }
 }
 
-// Offline detection
-window.addEventListener('online', () => {
+window.addEventListener('online', function() {
     hideOfflineNotification();
 });
 
-window.addEventListener('offline', () => {
+window.addEventListener('offline', function() {
     showOfflineNotification();
 });
 
 function showOfflineNotification() {
-    let notification = document.getElementById('offline-notification');
+    var notification = document.getElementById('offline-notification');
 
     if (!notification) {
         notification = document.createElement('div');
@@ -215,7 +205,7 @@ function showOfflineNotification() {
 }
 
 function hideOfflineNotification() {
-    const notification = document.getElementById('offline-notification');
+    var notification = document.getElementById('offline-notification');
     if (notification) {
         notification.remove();
     }

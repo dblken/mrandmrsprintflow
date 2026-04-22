@@ -773,7 +773,7 @@ if ($initials === '') {
                 <?php else: ?>
                     <a href="#" data-auth-modal="login" class="font-medium transition-colors duration-200" style="color:inherit;">Login</a>
                     <a href="#" data-auth-modal="register" class="btn-gradient-primary pf-auth-cta pf-register-cta">Register</a>
-                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app" class="pf-auth-cta" style="display:inline-flex;align-items:center;gap:0.45rem;white-space:nowrap;">
+                    <button type="button" id="pwa-install-btn" aria-label="Install PrintFlow app" class="pf-auth-cta" style="display:none;align-items:center;gap:0.45rem;white-space:nowrap;">
                         <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         Install App
                     </button>
@@ -832,7 +832,7 @@ if ($initials === '') {
     <div class="pf-burger-actions">
         <a href="#" data-auth-modal="login" class="pf-burger-btn-login" onclick="closeBurgerMenu()">Login</a>
         <a href="#" data-auth-modal="register" class="pf-burger-btn-register" onclick="closeBurgerMenu()">Register</a>
-        <button type="button" id="pwa-install-btn-mobile" class="pf-burger-btn-install" aria-label="Install PrintFlow app">
+        <button type="button" id="pwa-install-btn-mobile" class="pf-burger-btn-install" aria-label="Install PrintFlow app" style="display:none;">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
@@ -927,7 +927,7 @@ if ($initials === '') {
     var pwaInstallMobile = document.getElementById('pwa-install-btn-mobile');
     if (pwaInstallMobile) {
         // Show by default
-        pwaInstallMobile.style.display = 'flex';
+        pwaInstallMobile.style.display = 'none';
         
         // Show when PWA is installable
         window.addEventListener('beforeinstallprompt', function(e) {

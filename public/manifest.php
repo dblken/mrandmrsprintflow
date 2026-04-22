@@ -7,16 +7,7 @@ require_once __DIR__ . '/../includes/shop_config.php';
 
 $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_path = $base_path . '/public/assets/images';
-$logo_src = !empty($shop_logo_url) ? $shop_logo_url : ($asset_path . '/icon-192.png');
-$logo_ext = strtolower(pathinfo(parse_url($logo_src, PHP_URL_PATH) ?: $logo_src, PATHINFO_EXTENSION));
-$logo_type = 'image/png';
-if ($logo_ext === 'jpg' || $logo_ext === 'jpeg') {
-    $logo_type = 'image/jpeg';
-} elseif ($logo_ext === 'svg') {
-    $logo_type = 'image/svg+xml';
-} elseif ($logo_ext === 'webp') {
-    $logo_type = 'image/webp';
-}
+$svg_logo_src = $base_path . '/public/app-icon.php';
 
 header('Content-Type: application/json');
 
@@ -31,51 +22,57 @@ $manifest = [
     'orientation' => 'portrait-primary',
     'icons' => [
         [
-            'src' => $logo_src,
+            'src' => $svg_logo_src,
+            'sizes' => 'any',
+            'type' => 'image/svg+xml',
+            'purpose' => 'any maskable'
+        ],
+        [
+            'src' => $asset_path . '/icon-72.png',
             'sizes' => '72x72',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-96.png',
             'sizes' => '96x96',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-128.png',
             'sizes' => '128x128',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-144.png',
             'sizes' => '144x144',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-152.png',
             'sizes' => '152x152',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-192.png',
             'sizes' => '192x192',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-384.png',
             'sizes' => '384x384',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ],
         [
-            'src' => $logo_src,
+            'src' => $asset_path . '/icon-512.png',
             'sizes' => '512x512',
-            'type' => $logo_type,
+            'type' => 'image/png',
             'purpose' => 'any maskable'
         ]
     ],
