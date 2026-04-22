@@ -145,6 +145,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             overflow-y: hidden;
             scrollbar-width: none;
             -ms-overflow-style: none;
+            margin: 8px 0 12px;
             padding-bottom: 4px;
         }
 
