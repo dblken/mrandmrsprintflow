@@ -316,10 +316,12 @@ $page_title = 'Notifications - Staff';
         .notif-icon-wrap {
             width: 38px; height: 38px; border-radius: 10px;
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            overflow: hidden;
         }
         .notif-icon-wrap.order { background: #dbeafe; color: #1e40af; }
         .notif-icon-wrap.stock { background: #fef3c7; color: #b45309; }
         .notif-icon-wrap.system { background: #f3f4f6; color: #374151; }
+        .notif-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
         .notif-body { flex: 1; min-width: 0; }
         .notif-msg {
             font-size: 13px; font-weight: 500; color: #111827;
@@ -492,11 +494,9 @@ $page_title = 'Notifications - Staff';
                                 $is_unread = !(int)$notif['is_read'];
                                 $target_url = staff_notification_target_url($notif);
 
-                                $iconSvg = match ($type_slug) {
-                                    'order' => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>',
-                                    'stock' => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
-                                    default => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-                                };
+                                $defaultNotifImage = $base_url . '/public/assets/images/services/default.png';
+                                $notifImage = staff_admin_notification_image_url($notif, $defaultNotifImage);
+                                $displayMessage = printflow_notification_display_message($notif);
                                 ?>
                             <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>"
                                  role="button"
@@ -505,14 +505,12 @@ $page_title = 'Notifications - Staff';
                                  data-unread="<?php echo $is_unread ? '1' : '0'; ?>"
                                  data-target-url="<?php echo htmlspecialchars($target_url, ENT_QUOTES, 'UTF-8'); ?>">
                                 <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
+                                <div class="notif-icon-wrap <?php echo htmlspecialchars($type_slug); ?>">
+                                    <img src="<?php echo htmlspecialchars($notifImage); ?>" alt="" class="notif-thumb" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($defaultNotifImage, ENT_QUOTES); ?>';">
+                                </div>
                                 <div class="notif-body" style="padding-left: 12px; border-left: 2px solid #eef2f3;">
                                     <a href="<?php echo htmlspecialchars($target_url); ?>" class="notif-msg" style="text-decoration:none;display:block;" data-turbo="false">
-                                        <?php 
-                                        // Remove common emojis to keep look professional
-                                        $clean_msg = (string)$notif['message'];
-                                        $clean_msg = preg_replace('/[\x{1F300}-\x{1F64F}\x{1F680}-\x{1F6FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]/u', '', $clean_msg);
-                                        echo htmlspecialchars(trim($clean_msg)); 
-                                        ?>
+                                        <?php echo htmlspecialchars(trim((string)$displayMessage)); ?>
                                     </a>
                                     <div class="notif-time">
                                         <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>

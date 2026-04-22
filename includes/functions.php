@@ -445,25 +445,8 @@ function printflow_notification_target_url_for_user(string $userType, array $not
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
-    // Get service name and order type from context
-    $first_item = db_query("SELECT customization_data FROM order_items WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
-    $service_name = 'Product Order';
-    $is_service_order = false;
-    
-    if (!empty($first_item)) {
-        $custom_data = !empty($first_item[0]['customization_data']) ? json_decode($first_item[0]['customization_data'], true) : [];
-        $service_name = get_service_name_from_customization($custom_data, 'Product Order');
-        
-        // Check if this is a service order (has customization data)
-        $is_service_order = !empty($custom_data) && is_array($custom_data) && count($custom_data) > 0;
-    }
-    
-    // Also check order_type field
-    $order_data = db_query("SELECT order_type FROM orders WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
-    if (!empty($order_data) && $order_data[0]['order_type'] === 'custom') {
-        $is_service_order = true;
-    }
-
+    $preview = printflow_order_notification_preview($order_id);
+    $service_name = $preview['display_name'] ?? 'Product Order';
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
     // Format: "Customer Name placed an order for Service Name"
     $msg = "{$name} placed an order for {$service_name}";
@@ -1379,12 +1362,54 @@ function customer_notification_target_url(array $notification) {
 }
 
 function customer_notification_image_url(array $notification, string $fallback) {
-    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
     $data_id = (int)($notification['data_id'] ?? 0);
     if ($data_id <= 0) {
         return $fallback;
     }
+    $preview = printflow_order_notification_preview($data_id);
+    return $preview['image_url'] ?: $fallback;
+}
 
+function staff_admin_notification_image_url(array $notification, string $fallback): string {
+    $data_id = (int)($notification['data_id'] ?? 0);
+    $type = strtolower((string)($notification['type'] ?? ''));
+    if ($data_id <= 0) {
+        return $fallback;
+    }
+    if (!in_array($type, ['order', 'design', 'payment', 'payment issue', 'message', 'job order'], true)) {
+        return $fallback;
+    }
+    $preview = printflow_order_notification_preview($data_id);
+    return $preview['image_url'] ?: $fallback;
+}
+
+function printflow_notification_display_message(array $notification): string {
+    $message = (string)($notification['message'] ?? '');
+    $data_id = (int)($notification['data_id'] ?? 0);
+    $type = strtolower((string)($notification['type'] ?? ''));
+
+    if ($data_id > 0 && $type === 'order' && stripos($message, 'placed an order for ') !== false) {
+        $preview = printflow_order_notification_preview($data_id);
+        if (!empty($preview['display_name'])) {
+            return preg_replace('/placed an order for .+$/i', 'placed an order for ' . $preview['display_name'], $message) ?: $message;
+        }
+    }
+
+    return $message;
+}
+
+function printflow_order_notification_preview(int $order_id): array {
+    static $cache = [];
+
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) {
+        return ['display_name' => '', 'image_url' => ''];
+    }
+    if (isset($cache[$order_id])) {
+        return $cache[$order_id];
+    }
+
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
     $has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
     $has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
     $product_image_expr = "'' AS product_image";
@@ -1414,41 +1439,46 @@ function customer_notification_image_url(array $notification, string $fallback) 
          ORDER BY oi.order_item_id ASC
          LIMIT 1",
         'i',
-        [$data_id]
+        [$order_id]
     );
 
-    if (!empty($item[0])) {
-        if (!empty($item[0]['has_design']) && !empty($item[0]['order_item_id'])) {
-            return $base . '/public/serve_design.php?type=order_item&id=' . (int)$item[0]['order_item_id'];
-        }
-
-        $custom = !empty($item[0]['customization_data']) ? json_decode((string)$item[0]['customization_data'], true) : [];
-        $display_name = printflow_resolve_order_item_name(
-            (string)($item[0]['product_name'] ?? 'Order Item'),
-            is_array($custom) ? $custom : [],
-            'Order Item'
-        );
-
-        $product_image = trim((string)($item[0]['product_image'] ?? ''));
-        if ($product_image !== '') {
-            if (preg_match('#^https?://#i', $product_image)) {
-                return $product_image;
-            }
-            if ($product_image[0] === '/') {
-                return $product_image;
-            }
-            if (file_exists(__DIR__ . '/../uploads/products/' . $product_image)) {
-                return $base . '/uploads/products/' . $product_image;
-            }
-            if (file_exists(__DIR__ . '/../public/images/products/' . $product_image)) {
-                return $base . '/public/images/products/' . $product_image;
-            }
-        }
-
-        return get_service_image_url($display_name);
+    $preview = ['display_name' => '', 'image_url' => ''];
+    if (empty($item[0])) {
+        $cache[$order_id] = $preview;
+        return $preview;
     }
 
-    return $fallback;
+    $row = $item[0];
+    $custom = !empty($row['customization_data']) ? json_decode((string)$row['customization_data'], true) : [];
+    $preview['display_name'] = printflow_resolve_order_item_name(
+        (string)($row['product_name'] ?? 'Order Item'),
+        is_array($custom) ? $custom : [],
+        'Order Item'
+    );
+
+    if (!empty($row['has_design']) && !empty($row['order_item_id'])) {
+        $preview['image_url'] = $base . '/public/serve_design.php?type=order_item&id=' . (int)$row['order_item_id'];
+        $cache[$order_id] = $preview;
+        return $preview;
+    }
+
+    $product_image = trim((string)($row['product_image'] ?? ''));
+    if ($product_image !== '') {
+        if (preg_match('#^https?://#i', $product_image) || $product_image[0] === '/') {
+            $preview['image_url'] = $product_image;
+        } elseif (file_exists(__DIR__ . '/../uploads/products/' . $product_image)) {
+            $preview['image_url'] = $base . '/uploads/products/' . $product_image;
+        } elseif (file_exists(__DIR__ . '/../public/images/products/' . $product_image)) {
+            $preview['image_url'] = $base . '/public/images/products/' . $product_image;
+        }
+    }
+
+    if ($preview['image_url'] === '') {
+        $preview['image_url'] = get_service_image_url($preview['display_name']);
+    }
+
+    $cache[$order_id] = $preview;
+    return $preview;
 }
 
 /**

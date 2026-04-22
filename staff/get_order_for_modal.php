@@ -83,7 +83,7 @@ foreach ($items as $item) {
             $height_ft = '';
         }
     }
-    $name = $item['product_name'] ?: get_service_name_from_customization($custom, 'Custom Order');
+    $name = printflow_resolve_order_item_name($item['product_name'] ?? 'Custom Order', $custom, 'Custom Order');
     $items_out[] = [
         'order_item_id'   => $item['order_item_id'],
         'product_name'    => $name,
@@ -96,7 +96,7 @@ foreach ($items as $item) {
     ];
 }
 
-$service_name = get_service_name_from_customization($first_custom, $items_out[0]['product_name'] ?? 'Standard Order');
+$service_name = printflow_resolve_order_item_name($items_out[0]['product_name'] ?? 'Standard Order', $first_custom, 'Standard Order');
 $transaction_count = (int)($o['transaction_count'] ?? 0);
 
 $materials = db_query(

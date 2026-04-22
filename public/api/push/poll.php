@@ -61,6 +61,12 @@ foreach ($rows as &$row) {
         $row['title'] = customer_notification_title((string)($row['type'] ?? ''), (string)($row['message'] ?? ''));
         $row['image'] = customer_notification_image_url($row, $fallback);
         $row['fallback'] = $fallback;
+    } else {
+        $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+        $fallback = $base . '/public/assets/images/services/default.png';
+        $row['message'] = printflow_notification_display_message($row);
+        $row['image'] = staff_admin_notification_image_url($row, $fallback);
+        $row['fallback'] = $fallback;
     }
 }
 unset($row);

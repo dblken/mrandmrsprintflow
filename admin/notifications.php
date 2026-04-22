@@ -324,10 +324,12 @@ $page_title = 'Notifications - Admin';
         .notif-icon-wrap {
             width: 38px; height: 38px; border-radius: 10px;
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            overflow: hidden;
         }
         .notif-icon-wrap.order { background: #dbeafe; color: #1e40af; }
         .notif-icon-wrap.stock { background: #fef3c7; color: #b45309; }
         .notif-icon-wrap.system { background: #f3f4f6; color: #374151; }
+        .notif-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
         .notif-body { flex: 1; min-width: 0; }
         .notif-msg {
             font-size: 13px; font-weight: 500; color: #111827;
@@ -508,6 +510,9 @@ $page_title = 'Notifications - Admin';
                                 $type     = strtolower($notif['type']);
                                 $is_unread = !$notif['is_read'];
                                 $target_url = admin_notification_target_url($notif);
+                                $defaultNotifImage = $base_url . '/public/assets/images/services/default.png';
+                                $notifImage = staff_admin_notification_image_url($notif, $defaultNotifImage);
+                                $displayMessage = printflow_notification_display_message($notif);
                                 $iconSvg = match($type) {
                                     'order'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>',
                                     'stock'  => '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
@@ -521,9 +526,11 @@ $page_title = 'Notifications - Admin';
                                  data-unread="<?php echo $is_unread ? '1' : '0'; ?>"
                                  data-target-url="<?php echo htmlspecialchars($target_url, ENT_QUOTES, 'UTF-8'); ?>">
                                 <div class="notif-dot <?php echo $is_unread ? '' : 'read'; ?>"></div>
-                                <div class="notif-icon-wrap <?php echo $type; ?>"><?php echo $iconSvg; ?></div>
+                                <div class="notif-icon-wrap <?php echo $type; ?>">
+                                    <img src="<?php echo htmlspecialchars($notifImage); ?>" alt="" class="notif-thumb" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($defaultNotifImage, ENT_QUOTES); ?>';">
+                                </div>
                                 <div class="notif-body">
-                                    <div class="notif-msg"><?php echo htmlspecialchars($notif['message']); ?></div>
+                                    <div class="notif-msg"><?php echo htmlspecialchars($displayMessage); ?></div>
                                     <div class="notif-time">
                                         <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <?php echo time_ago($notif['created_at']); ?>

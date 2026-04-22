@@ -206,14 +206,7 @@ foreach ($items as $item) {
 
     $items_out[] = [
         'order_item_id' => $item['order_item_id'],
-        'product_name'  => (function() use ($item, $custom_data) {
-            if (!empty($item['product_name'])) return $item['product_name'];
-            $name = get_service_name_from_customization($custom_data, 'Custom Order');
-            if (!empty($custom_data['product_type']) && $custom_data['product_type'] !== $name) {
-                $name .= " (" . $custom_data['product_type'] . ")";
-            }
-            return $name;
-        })(),
+        'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Custom Order', $custom_data, 'Custom Order'),
         'sku'           => $item['sku'] ?? '',
         'category'      => $item['category'] ?? '',
         'quantity'      => (int)$item['quantity'],
