@@ -6,40 +6,55 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/RollService.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
-require_role(['Admin', 'Manager']);
+require_role(['Admin', 'Manager', 'Staff']);
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 try {
     switch ($action) {
+        case 'list':
         case 'list_rolls':
             $itemId = (int)($_GET['item_id'] ?? 0);
             $status = sanitize($_GET['status'] ?? '');
-
-            $where = ['1=1'];
-            $types = '';
-            $params = [];
-
-            if ($itemId) {
-                $where[] = 'r.item_id = ?';
-                $types .= 'i';
-                $params[] = $itemId;
-            }
-            if ($status !== '') {
-                $where[] = 'r.status = ?';
-                $types .= 's';
-                $params[] = $status;
+            $branchId = null;
+            if (is_staff() || get_user_type() === 'Manager') {
+                $branchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 0);
             }
 
-            $sql = "SELECT r.*, i.name AS item_name
-                    FROM inv_rolls r
-                    JOIN inv_items i ON i.id = r.item_id
-                    WHERE " . implode(' AND ', $where) . "
-                    ORDER BY r.status ASC, r.received_at ASC";
+            if ($itemId > 0) {
+                $rolls = RollService::getAvailableRolls($itemId, $branchId);
+                if ($status !== '' && strtoupper($status) !== 'OPEN') {
+                    $rolls = array_values(array_filter($rolls, function ($r) use ($status) {
+                        return (string)($r['status'] ?? '') === $status;
+                    }));
+                }
+            } else {
+                $where = ['1=1'];
+                $types = '';
+                $params = [];
 
-            $rolls = $types ? db_query($sql, $types, $params) : db_query($sql);
+                if ($status !== '') {
+                    $where[] = 'r.status = ?';
+                    $types .= 's';
+                    $params[] = $status;
+                }
+                if ($branchId !== null && $branchId > 0) {
+                    $where[] = 'r.branch_id = ?';
+                    $types .= 'i';
+                    $params[] = $branchId;
+                }
+
+                $sql = "SELECT r.*, i.name AS item_name
+                        FROM inv_rolls r
+                        JOIN inv_items i ON i.id = r.item_id
+                        WHERE " . implode(' AND ', $where) . "
+                        ORDER BY r.status ASC, r.received_at ASC";
+
+                $rolls = $types ? db_query($sql, $types, $params) : db_query($sql);
+            }
             echo json_encode(['success' => true, 'data' => $rolls ?: []]);
             break;
 

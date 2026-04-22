@@ -10,47 +10,14 @@ require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 $staff_id = get_user_id();
+$staffBranchId = function_exists('printflow_branch_filter_for_user')
+    ? (printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 0))
+    : (int)($_SESSION['branch_id'] ?? 0);
 
 function pf_staff_backfill_legacy_notifications(int $staff_id): void {
-    static $done = false;
-    if ($done || $staff_id <= 0) {
-        return;
-    }
-    $done = true;
-
-    $shop_types = ['Order', 'Stock', 'System', 'Payment', 'Design', 'Job Order', 'Rating', 'Review', 'Status', 'Payment Issue'];
-    $placeholders = implode(',', array_fill(0, count($shop_types), '?'));
-    $orphans = db_query(
-        "SELECT notification_id, message, type
-         FROM notifications
-         WHERE user_id IS NULL
-           AND customer_id IS NULL
-           AND type IN ($placeholders)
-         ORDER BY notification_id DESC
-         LIMIT 50",
-        str_repeat('s', count($shop_types)),
-        $shop_types
-    );
-
-    foreach ((array)$orphans as $orphan) {
-        $exists = db_query(
-            "SELECT notification_id FROM notifications WHERE user_id = ? AND type = ? AND message = ? LIMIT 1",
-            'iss',
-            [$staff_id, (string)$orphan['type'], (string)$orphan['message']]
-        );
-        if (!empty($exists)) {
-            continue;
-        }
-
-        db_execute(
-            "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms, created_at)
-             SELECT ?, NULL, message, type, data_id, is_read, 0, 0, created_at
-             FROM notifications
-             WHERE notification_id = ?",
-            'ii',
-            [$staff_id, (int)$orphan['notification_id']]
-        );
-    }
+    // Legacy orphan notification backfill was copying shop events across branches.
+    // Keep disabled for staff pages to avoid polluting branch-scoped notifications.
+    return;
 }
 
 pf_staff_backfill_legacy_notifications((int)$staff_id);
@@ -125,23 +92,39 @@ if ($search !== '') {
 
 $per_page = 15;
 $page = max(1, (int)($_GET['page'] ?? 1));
-$count_row = db_query("SELECT COUNT(*) as cnt FROM notifications WHERE $where", $types, $params);
-$total_count = (int)($count_row[0]['cnt'] ?? 0);
+$all_notifications = db_query(
+    "SELECT * FROM notifications WHERE $where ORDER BY created_at DESC, notification_id DESC",
+    $types,
+    $params
+) ?: [];
+$filtered_notifications = array_values(array_filter($all_notifications, function ($n) use ($staffBranchId) {
+    return printflow_staff_notification_visible($n, $staffBranchId);
+}));
+
+$total_count = count($filtered_notifications);
 $total_pages = max(1, (int)ceil(max(1, $total_count) / $per_page));
 if ($page > $total_pages) {
     $page = $total_pages;
 }
 $offset = ($page - 1) * $per_page;
-$notifications = db_query(
-    "SELECT * FROM notifications WHERE $where ORDER BY created_at DESC, notification_id DESC LIMIT ? OFFSET ?",
-    $types . 'ii',
-    array_merge($params, [$per_page, $offset])
-) ?: [];
+$notifications = array_slice($filtered_notifications, $offset, $per_page);
 
-$unread_result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$staff_id]);
-$unread_count = (int)($unread_result[0]['count'] ?? 0);
-$latest_result = db_query("SELECT COALESCE(MAX(notification_id), 0) as latest_id FROM notifications WHERE user_id = ?", 'i', [$staff_id]);
-$latest_notification_id = (int)($latest_result[0]['latest_id'] ?? 0);
+$all_staff_rows = db_query(
+    "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC, notification_id DESC",
+    'i',
+    [$staff_id]
+) ?: [];
+$filtered_staff_rows = array_values(array_filter($all_staff_rows, function ($n) use ($staffBranchId) {
+    return printflow_staff_notification_visible($n, $staffBranchId);
+}));
+$unread_count = 0;
+$latest_notification_id = 0;
+foreach ($filtered_staff_rows as $row) {
+    if (!(int)($row['is_read'] ?? 0)) {
+        $unread_count++;
+    }
+    $latest_notification_id = max($latest_notification_id, (int)($row['notification_id'] ?? 0));
+}
 
 $notif_filter_badge = ($filter !== 'all' ? 1 : 0) + ($search !== '' ? 1 : 0);
 $notif_pagination_params = ['filter' => $filter];

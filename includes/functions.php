@@ -271,10 +271,19 @@ function notify_shop_users(string $message, string $type = 'System', bool $send_
 
     $placeholders = implode(',', array_fill(0, count($roles), '?'));
     $users = db_query(
-        "SELECT user_id, role FROM users WHERE role IN ($placeholders) AND status = 'Activated'",
+        "SELECT user_id, role, branch_id FROM users WHERE role IN ($placeholders) AND status = 'Activated'",
         str_repeat('s', count($roles)),
         $roles
     );
+
+    $targetBranchId = null;
+    if (function_exists('printflow_notification_branch_id')) {
+        $targetBranchId = printflow_notification_branch_id([
+            'type' => $type,
+            'data_id' => $data_id,
+            'message' => $message,
+        ]);
+    }
 
     foreach ((array)$users as $u) {
         $role = $u['role'] ?? 'Staff';
@@ -282,8 +291,87 @@ function notify_shop_users(string $message, string $type = 'System', bool $send_
             $role = 'Staff';
         }
 
+        if ($targetBranchId !== null && in_array($role, ['Staff', 'Manager'], true)) {
+            if ((int)($u['branch_id'] ?? 0) !== $targetBranchId) {
+                continue;
+            }
+        }
+
         create_notification((int)$u['user_id'], $role, $message, $type, $send_email, $send_sms, $data_id);
     }
+}
+
+/**
+ * Resolve the related branch for a notification payload when possible.
+ */
+function printflow_notification_branch_id(array $notification): ?int {
+    static $cache = [];
+
+    $type = (string)($notification['type'] ?? '');
+    $dataId = (int)($notification['data_id'] ?? 0);
+    $cacheKey = $type . ':' . $dataId;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    if ($dataId <= 0) {
+        return $cache[$cacheKey] = null;
+    }
+
+    $branchId = null;
+
+    $orderRow = db_query('SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1', 'i', [$dataId]);
+    if (!empty($orderRow)) {
+        $branchId = (int)($orderRow[0]['branch_id'] ?? 0);
+        return $cache[$cacheKey] = ($branchId > 0 ? $branchId : null);
+    }
+
+    $jobRow = db_query(
+        'SELECT COALESCE(jo.branch_id, o.branch_id) AS branch_id
+         FROM job_orders jo
+         LEFT JOIN orders o ON o.order_id = jo.order_id
+         WHERE jo.id = ? LIMIT 1',
+        'i',
+        [$dataId]
+    );
+    if (!empty($jobRow)) {
+        $branchId = (int)($jobRow[0]['branch_id'] ?? 0);
+        return $cache[$cacheKey] = ($branchId > 0 ? $branchId : null);
+    }
+
+    $serviceRow = db_query('SELECT branch_id FROM service_orders WHERE id = ? LIMIT 1', 'i', [$dataId]);
+    if (!empty($serviceRow)) {
+        $branchId = (int)($serviceRow[0]['branch_id'] ?? 0);
+        return $cache[$cacheKey] = ($branchId > 0 ? $branchId : null);
+    }
+
+    return $cache[$cacheKey] = null;
+}
+
+/**
+ * True when a notification should be visible to the given staff/manager branch.
+ */
+function printflow_staff_notification_visible(array $notification, ?int $branchId): bool {
+    if ($branchId === null || $branchId <= 0) {
+        return true;
+    }
+
+    $type = (string)($notification['type'] ?? '');
+    $shopScopedTypes = ['Order', 'Payment', 'Design', 'Job Order', 'Payment Issue'];
+    if (in_array($type, $shopScopedTypes, true)) {
+        $notificationBranch = printflow_notification_branch_id($notification);
+        return $notificationBranch !== null && $notificationBranch === $branchId;
+    }
+
+    if ($type === 'Stock') {
+        $notificationBranch = printflow_notification_branch_id($notification);
+        if ($notificationBranch === null) {
+            return false;
+        }
+        return $notificationBranch === $branchId;
+    }
+
+    return true;
 }
 
 /**
@@ -1073,7 +1161,27 @@ function get_unread_notification_count($user_id, $user_type) {
     if ($user_type === 'Customer') {
         $result = db_query("SELECT COUNT(*) as count FROM notifications WHERE customer_id = ? AND is_read = 0", 'i', [$user_id]);
     } else {
-        $result = db_query("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0", 'i', [$user_id]);
+        $rows = db_query(
+            "SELECT notification_id, user_id, message, type, data_id, is_read, created_at
+             FROM notifications
+             WHERE user_id = ? AND is_read = 0
+             ORDER BY created_at DESC, notification_id DESC",
+            'i',
+            [$user_id]
+        ) ?: [];
+
+        $branchId = null;
+        if (in_array($user_type, ['Staff', 'Manager'], true) && function_exists('printflow_branch_filter_for_user')) {
+            $branchId = printflow_branch_filter_for_user();
+        }
+
+        $count = 0;
+        foreach ($rows as $row) {
+            if (!in_array($user_type, ['Staff', 'Manager'], true) || printflow_staff_notification_visible($row, $branchId)) {
+                $count++;
+            }
+        }
+        return $count;
     }
     
     return (!empty($result) && isset($result[0]['count'])) ? (int)$result[0]['count'] : 0;

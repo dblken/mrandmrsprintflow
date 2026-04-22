@@ -11,6 +11,9 @@ if (!defined('BASE_URL')) {
     define('BASE_URL', defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : ''));
 }
 require_role(['Admin', 'Staff', 'Manager']);
+if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
+    require_once __DIR__ . '/../includes/staff_pending_check.php';
+}
 $page_title = 'Customizations - PrintFlow';
 
 $branchFilter = printflow_branch_filter_for_user();
