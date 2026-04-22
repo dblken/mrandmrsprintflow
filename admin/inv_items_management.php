@@ -17,7 +17,8 @@ $current_user = get_logged_in_user();
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
 $can_manage_item_master = !$is_manager;
 $branchCtx = init_branch_context(true);
-$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
+$selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+$branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
 function normalize_inventory_uom(?string $uom, ?string $categoryName = null): string {

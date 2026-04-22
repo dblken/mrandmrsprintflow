@@ -83,7 +83,11 @@ class InventoryManager {
     public static function branchClause(string $column, ?int $branchId = null): array {
         self::ensureBranchScopedSchema();
 
-        $resolvedBranchId = $branchId ?: self::getCurrentBranchId();
+        if ($branchId !== null && (int)$branchId <= 0) {
+            return ['', '', []];
+        }
+
+        $resolvedBranchId = $branchId ?? self::getCurrentBranchId();
         if ($resolvedBranchId <= 0) {
             return ['', '', []];
         }
@@ -248,7 +252,9 @@ class InventoryManager {
 
         $item = self::getItem($itemId);
         if (!$item) return 0;
-        $branchId = $branchId ?: self::getCurrentBranchId();
+        if ($branchId === null) {
+            $branchId = self::getCurrentBranchId();
+        }
 
         if ($item['track_by_roll']) {
             // Stock is the sum of remaining lengths of all OPEN rolls

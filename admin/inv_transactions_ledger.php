@@ -12,7 +12,8 @@ require_once __DIR__ . '/../includes/branch_ui.php';
 require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
 $branchCtx = init_branch_context(true);
-$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
+$selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+$branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
 $page_title = $is_manager ? 'Inventory Ledger - Manager' : 'Inventory Ledger - Admin';
 

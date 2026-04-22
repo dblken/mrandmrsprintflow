@@ -11,7 +11,8 @@ require_role(['Admin', 'Manager']);
 header('Content-Type: application/json; charset=utf-8');
 
 $branchCtx = init_branch_context(true);
-$branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
+$selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+$branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 
 $item_id = (int)($_GET['item_id'] ?? 0);
 if (!$item_id) {

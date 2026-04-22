@@ -10,11 +10,20 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
-require_role(['Admin', 'Staff']);
+require_role(['Admin', 'Staff', 'Manager']);
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+$branchId = null;
+if (is_admin() || is_manager()) {
+    $branchCtx = init_branch_context(true);
+    $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+    $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
+} elseif (is_staff()) {
+    $branchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 0);
+}
 
 function normalize_inventory_api_uom(string $unit, int $categoryId = 0): string {
     $normalized = strtolower(trim($unit));
@@ -74,7 +83,7 @@ try {
             $sql .= " ORDER BY $orderBy $dir";
             $items = db_query($sql, $types ?: null, $params ?: null) ?: [];
             foreach ($items as &$item) {
-                $item['current_stock'] = InventoryManager::getStockOnHand($item['id']);
+                $item['current_stock'] = InventoryManager::getStockOnHand($item['id'], $branchId);
                 if ($item['track_by_roll'] && $item['default_roll_length_ft'] > 0) {
                     $item['roll_equivalent'] = round($item['current_stock'] / $item['default_roll_length_ft'], 2);
                 } else { $item['roll_equivalent'] = null; }
