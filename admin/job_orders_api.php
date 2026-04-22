@@ -288,15 +288,7 @@ try {
                     . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
                     GROUP BY o.order_id
                     ORDER BY o.order_date DESC
-                    LIMIT 50";
-            
-            $sql = preg_replace(
-                "/'Ready for Pickup'\\s*\\)\"/m",
-                "'Ready for Pickup', 'Completed', 'Cancelled'\n                    )\"",
-                $sql,
-                1
-            );
-            $sql = str_replace('LIMIT 50";', 'LIMIT 200";', $sql);
+                    LIMIT 200";
 
             $pending_orders = $joStaffBranch !== null
                 ? (db_query($sql, 'i', [$joStaffBranch]) ?: [])
@@ -379,15 +371,10 @@ try {
                 FROM customizations cust
                 LEFT JOIN customers c ON cust.customer_id = c.customer_id
                 LEFT JOIN orders o ON cust.order_id = o.order_id
-                WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup')"
+                WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')"
                 . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
                 ORDER BY cust.created_at DESC
                 LIMIT 50";
-            $custom_sql = str_replace(
-                "WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup')",
-                "WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')",
-                $custom_sql
-            );
             $custom_sql = str_replace('LIMIT 50";', 'LIMIT 200";', $custom_sql);
 
             $custom_orders = $joStaffBranch !== null
@@ -421,7 +408,9 @@ try {
                     CASE 
                         WHEN so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
                         WHEN so.status = 'Approved' THEN 'APPROVED'
-                        WHEN so.status = 'Processing' THEN 'IN_PRODUCTION'
+                        WHEN so.status = 'To Pay' THEN 'TO_PAY'
+                        WHEN so.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
+                        WHEN so.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
                         WHEN so.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
                         WHEN so.status = 'Completed' THEN 'COMPLETED'
                         WHEN so.status IN ('Rejected', 'Cancelled') THEN 'CANCELLED'
@@ -437,19 +426,9 @@ try {
                     so.total_price AS estimated_total
                 FROM service_orders so
                 LEFT JOIN customers c ON so.customer_id = c.customer_id
-                WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')
+                WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'To Verify', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')
                 ORDER BY so.created_at DESC
                 LIMIT 50";
-            $svc_sql = str_replace(
-                "WHEN so.status = 'Approved' THEN 'APPROVED'\n                        WHEN so.status = 'Processing' THEN 'IN_PRODUCTION'",
-                "WHEN so.status = 'Approved' THEN 'APPROVED'\n                        WHEN so.status = 'To Pay' THEN 'TO_PAY'\n                        WHEN so.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'\n                        WHEN so.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'",
-                $svc_sql
-            );
-            $svc_sql = str_replace(
-                "WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')",
-                "WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'To Verify', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')",
-                $svc_sql
-            );
             $svc_sql = str_replace('LIMIT 50";', 'LIMIT 200";', $svc_sql);
 
             $svc_orders = db_query($svc_sql) ?: [];
@@ -979,3 +958,5 @@ try {
 
 // Flush clean JSON output
 ob_end_flush();
+
+

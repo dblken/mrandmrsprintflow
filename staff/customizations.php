@@ -1707,8 +1707,8 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             async loadOrders() {
                 try {
                     const [joRes, ordersRes] = await Promise.all([
-                        fetch('../admin/job_orders_api.php?action=list_orders&per_page=200').then(r => r.json()),
-                        fetch('../admin/job_orders_api.php?action=list_pending_orders').then(r => r.json())
+                        fetch('../admin/job_orders_api.php?action=list_orders&per_page=200').then(r => this.parseJsonResponse(r)),
+                        fetch('../admin/job_orders_api.php?action=list_pending_orders').then(r => this.parseJsonResponse(r))
                     ]);
 
                     const jobOrders = joRes.success ? joRes.data : [];
