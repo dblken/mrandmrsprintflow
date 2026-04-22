@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_id_verified.php';
@@ -44,20 +45,41 @@ $product = db_query(
 );
 if (empty($product)) { header('Location: products.php'); exit; }
 $product = $product[0];
+$main_branch_id = function_exists('printflow_get_default_admin_branch_id')
+    ? (int)printflow_get_default_admin_branch_id()
+    : 1;
 
 $error = '';
+$branches = order_create_optional_query("SELECT id, branch_name FROM branches WHERE status = 'Active'") ?: [];
+$branch_stock_map = [];
+foreach ($branches as $branch_row) {
+    $bid = (int)($branch_row['id'] ?? 0);
+    if ($bid <= 0) {
+        continue;
+    }
+    [$branch_stock_qty] = printflow_product_effective_stock($product_id, $bid);
+    $branch_stock_map[$bid] = [
+        'stock' => (int)$branch_stock_qty,
+        'name' => (string)($branch_row['branch_name'] ?? ('Branch #' . $bid)),
+    ];
+}
+$main_branch_stock = $branch_stock_map[$main_branch_id]['stock'] ?? 0;
+$initial_branch_id = (int)($existing_data['branch_id'] ?? $_POST['branch_id'] ?? 0);
+$initial_stock_branch_id = $initial_branch_id > 0 ? $initial_branch_id : $main_branch_id;
+$initial_stock_qty = $branch_stock_map[$initial_stock_branch_id]['stock'] ?? $main_branch_stock;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     $branch_id  = (int)($_POST['branch_id'] ?? 0);
     $quantity   = max(1, min(999, (int)($_POST['quantity'] ?? 1)));
     $needed_date = trim($_POST['needed_date'] ?? '');
     $notes      = trim($_POST['notes'] ?? '');
+    [$branch_stock_qty] = printflow_product_effective_stock($product_id, $branch_id);
 
     if ($branch_id < 1) {
         $error = 'Please select a branch.';
-    } elseif ($quantity > (int)$product['stock_quantity']) {
+    } elseif ($quantity > (int)$branch_stock_qty) {
         $error = 'Quantity exceeds available stock.';
-    } elseif ((int)$product['stock_quantity'] <= 0) {
+    } elseif ((int)$branch_stock_qty <= 0) {
         $error = 'This product is currently out of stock.';
     } else {
         $item_key = 'product_' . $product_id . '_' . time() . '_' . rand(100, 999);
@@ -206,8 +228,6 @@ $sold_count = order_create_optional_query(
 $sold_count = (int)($sold_count[0]['cnt'] ?? 0);
 $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k' : $sold_count;
 
-$branches = order_create_optional_query("SELECT id, branch_name FROM branches WHERE status = 'Active'") ?: [];
-
 $page_title = 'Order ' . $product['name'] . ' - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
@@ -271,16 +291,23 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="shopee-form-row">
                         <div class="shopee-form-label">Branch *</div>
                         <div class="shopee-form-field">
-                            <select name="branch_id" class="shopee-opt-btn" required style="width: 175px; cursor: pointer;">
+                            <select name="branch_id" id="poc-branch-select" class="shopee-opt-btn" required style="width: 175px; cursor: pointer;">
                                 <option value="">Select Branch</option>
                                 <?php 
-                                $saved_branch = $existing_data['branch_id'] ?? '';
+                                $saved_branch = $existing_data['branch_id'] ?? ($_POST['branch_id'] ?? '');
                                 foreach ($branches as $b): 
                                     $selected = ($saved_branch == $b['id']) ? ' selected' : '';
                                 ?>
                                     <option value="<?php echo $b['id']; ?>"<?php echo $selected; ?>><?php echo htmlspecialchars($b['branch_name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <div id="poc-stock-display" style="font-size: 0.8rem; color: #475569; margin-top: 0.5rem; font-weight: 600;">
+                                Available stock:
+                                <span id="poc-stock-count"><?php echo number_format($initial_stock_qty); ?></span>
+                                <span id="poc-stock-branch" style="color: #64748b;">
+                                    (<?php echo htmlspecialchars($branch_stock_map[$initial_stock_branch_id]['name'] ?? 'Cabuyao Branch'); ?>)
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -289,9 +316,9 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="shopee-form-field">
                             <div class="shopee-opt-group">
                                 <div class="quantity-container shopee-opt-btn" style="display: inline-flex; justify-content: space-between; gap: 1rem; width: 175px; cursor: default;">
-                                    <button type="button" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="const i=document.getElementById('poc-qty');if(parseInt(i.value)>1){i.value=parseInt(i.value)-1;hideStockWarning();}">&minus;</button>
-                                    <input type="number" id="poc-qty" name="quantity" class="qty-input-field" style="border: none; text-align: center; width: 60px; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; outline: none; -moz-appearance: textfield;" min="1" max="<?php echo (int)$product['stock_quantity']; ?>" value="<?php echo (int)($existing_data['quantity'] ?? $_POST['quantity'] ?? $_GET['qty'] ?? 1); ?>" onwheel="return false;" oninput="const max=<?php echo (int)$product['stock_quantity']; ?>;if(parseInt(this.value)>max){this.value=max;showStockWarning(max);}else{hideStockWarning();}">
-                                    <button type="button" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="const i=document.getElementById('poc-qty');const max=<?php echo (int)$product['stock_quantity']; ?>;if(parseInt(i.value)<max){i.value=parseInt(i.value)+1;hideStockWarning();}else{showStockWarning(max);}">+</button>
+                                    <button type="button" id="poc-qty-minus" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="const i=document.getElementById('poc-qty');if(parseInt(i.value)>1){i.value=parseInt(i.value)-1;hideStockWarning();}">&minus;</button>
+                                    <input type="number" id="poc-qty" name="quantity" class="qty-input-field" style="border: none; text-align: center; width: 60px; font-size: 0.875rem; font-weight: 500; color: #374151; background: transparent; outline: none; -moz-appearance: textfield;" min="1" max="<?php echo (int)$initial_stock_qty; ?>" value="<?php echo (int)($existing_data['quantity'] ?? $_POST['quantity'] ?? $_GET['qty'] ?? 1); ?>" onwheel="return false;">
+                                    <button type="button" id="poc-qty-plus" style="background: none; border: none; color: #6b7280; font-size: 1.125rem; font-weight: 600; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;" onclick="window.pfIncreaseQty && window.pfIncreaseQty()">+</button>
                                 </div>
                             </div>
                             <div id="stock-warning" style="display: none; font-size: 0.75rem; color: #dc2626; margin-top: 0.5rem; font-weight: 600;"></div>
@@ -302,19 +329,19 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="width: 130px;"></div>
                         <div class="flex gap-4 flex-1">
                             <a href="products.php" class="shopee-btn-outline" style="flex: 1; min-width: 0;">Back</a>
-                            <?php if ((int)$product['stock_quantity'] > 0): ?>
-                                <button type="submit" name="action" value="add_to_cart" class="shopee-btn-outline" style="flex: 1.2; min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; padding: 0.5rem 1.25rem;" title="Add to Cart">
+                            <?php if ((int)$initial_stock_qty > 0): ?>
+                                <button type="submit" name="action" value="add_to_cart" id="poc-add-cart-btn" class="shopee-btn-outline" style="flex: 1.2; min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; padding: 0.5rem 1.25rem;" title="Add to Cart">
                                     <svg style="width: 1.125rem; height: 1.125rem; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                     </svg>
                                     <span>Add to Cart</span>
                                 </button>
-                                <button type="submit" name="action" value="buy_now" class="shopee-btn-primary" style="flex: 1; min-width: 0; white-space: nowrap; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1.25rem;">
+                                <button type="submit" name="action" value="buy_now" id="poc-buy-now-btn" class="shopee-btn-primary" style="flex: 1; min-width: 0; white-space: nowrap; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1.25rem;">
                                     <span>Buy Now</span>
                                 </button>
                             <?php else: ?>
-                                <button type="button" disabled class="shopee-btn-outline" style="flex: 1.2; min-width: 140px; opacity: 0.5; cursor: not-allowed; padding: 0.5rem 1.25rem;">Out of Stock</button>
-                                <button type="button" disabled class="shopee-btn-primary" style="flex: 1; min-width: 0; opacity: 0.5; cursor: not-allowed; padding: 0.5rem 1.25rem;">Out of Stock</button>
+                                <button type="button" disabled id="poc-add-cart-btn" class="shopee-btn-outline" style="flex: 1.2; min-width: 140px; opacity: 0.5; cursor: not-allowed; padding: 0.5rem 1.25rem;">Out of Stock</button>
+                                <button type="button" disabled id="poc-buy-now-btn" class="shopee-btn-primary" style="flex: 1; min-width: 0; opacity: 0.5; cursor: not-allowed; padding: 0.5rem 1.25rem;">Out of Stock</button>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -532,6 +559,9 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
 <script>
+window.pfProductBranchStocks = <?php echo json_encode($branch_stock_map, JSON_UNESCAPED_SLASHES); ?>;
+window.pfDefaultStockBranchId = <?php echo (int)$main_branch_id; ?>;
+
 function showStockWarning(max) {
     const warning = document.getElementById('stock-warning');
     if (warning) {
@@ -548,6 +578,85 @@ function hideStockWarning() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    const branchStocks = window.pfProductBranchStocks || {};
+    const defaultBranchId = String(window.pfDefaultStockBranchId || '');
+    const branchSelect = document.getElementById('poc-branch-select');
+    const qtyInput = document.getElementById('poc-qty');
+    const stockCount = document.getElementById('poc-stock-count');
+    const stockBranch = document.getElementById('poc-stock-branch');
+    const addToCartBtn = document.getElementById('poc-add-cart-btn');
+    const buyNowBtn = document.getElementById('poc-buy-now-btn');
+
+    const setButtonState = (button, enabled) => {
+        if (!button) return;
+        button.disabled = !enabled;
+        button.style.opacity = enabled ? '1' : '0.5';
+        button.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        const label = button.querySelector('span') || button;
+        if (button.id === 'poc-buy-now-btn') {
+            label.textContent = enabled ? 'Buy Now' : 'Out of Stock';
+        } else if (button.id === 'poc-add-cart-btn') {
+            const span = button.querySelector('span');
+            if (span) span.textContent = enabled ? 'Add to Cart' : 'Out of Stock';
+            else button.textContent = enabled ? 'Add to Cart' : 'Out of Stock';
+        }
+    };
+
+    const currentStockForBranch = () => {
+        const branchId = String((branchSelect && branchSelect.value) ? branchSelect.value : defaultBranchId);
+        return branchStocks[branchId] || branchStocks[String(defaultBranchId)] || { stock: 0, name: 'Cabuyao Branch' };
+    };
+
+    const syncQtyWithStock = () => {
+        if (!qtyInput) return;
+        const stockInfo = currentStockForBranch();
+        const max = Math.max(0, parseInt(stockInfo.stock || 0, 10));
+        qtyInput.max = max;
+        if (max <= 0) {
+            qtyInput.value = 1;
+        } else if ((parseInt(qtyInput.value || '1', 10) || 1) > max) {
+            qtyInput.value = max;
+            showStockWarning(max);
+        } else {
+            hideStockWarning();
+        }
+        if (stockCount) stockCount.textContent = max;
+        if (stockBranch) stockBranch.textContent = '(' + (stockInfo.name || 'Selected Branch') + ')';
+        setButtonState(addToCartBtn, max > 0);
+        setButtonState(buyNowBtn, max > 0);
+    };
+
+    window.pfIncreaseQty = function() {
+        if (!qtyInput) return;
+        const max = Math.max(0, parseInt(qtyInput.max || '0', 10));
+        const current = parseInt(qtyInput.value || '1', 10) || 1;
+        if (max > 0 && current < max) {
+            qtyInput.value = current + 1;
+            hideStockWarning();
+        } else {
+            showStockWarning(max);
+        }
+    };
+
+    if (qtyInput) {
+        qtyInput.addEventListener('input', function() {
+            const max = Math.max(0, parseInt(this.max || '0', 10));
+            const current = parseInt(this.value || '1', 10) || 1;
+            if (max > 0 && current > max) {
+                this.value = max;
+                showStockWarning(max);
+            } else {
+                hideStockWarning();
+            }
+        });
+    }
+
+    if (branchSelect) {
+        branchSelect.addEventListener('change', syncQtyWithStock);
+    }
+
+    syncQtyWithStock();
+
     const form = document.getElementById('productOrderForm');
     if (form) {
         const removeFieldError = (field) => {
