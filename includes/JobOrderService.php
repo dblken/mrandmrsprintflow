@@ -11,6 +11,37 @@ require_once __DIR__ . '/RollService.php';
 require_once __DIR__ . '/NotificationService.php';
 
 class JobOrderService {
+    private static function getJobBranchId(int $orderId): ?int {
+        $row = db_query(
+            "SELECT COALESCE(jo.branch_id, ord.branch_id) AS branch_id
+             FROM job_orders jo
+             LEFT JOIN orders ord ON ord.order_id = jo.order_id
+             WHERE jo.id = ?
+             LIMIT 1",
+            'i',
+            [$orderId]
+        );
+        $branchId = (int)($row[0]['branch_id'] ?? 0);
+        return $branchId > 0 ? $branchId : null;
+    }
+
+    private static function itemUsesLiters(array $item): bool {
+        $uom = strtolower(trim((string)($item['unit_of_measure'] ?? '')));
+        return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || str_contains($uom, 'liter') || str_contains($uom, '(l)');
+    }
+
+    private static function convertInkMlToItemUom(float $quantityMl, array $item): float {
+        if ($quantityMl <= 0) return 0.0;
+        return self::itemUsesLiters($item) ? ($quantityMl / 1000) : $quantityMl;
+    }
+
+    private static function formatInkNeedForError(float $quantityMl, array $item): string {
+        if (self::itemUsesLiters($item)) {
+            $liters = $quantityMl / 1000;
+            return number_format($liters, 4) . ' L (' . number_format($quantityMl, 0) . ' ml)';
+        }
+        return number_format($quantityMl, 4) . ' ' . ($item['unit_of_measure'] ?? 'ml');
+    }
 
     /**
      * Create a new job order with materials.
@@ -302,10 +333,11 @@ class JobOrderService {
     public static function getMaterialReadiness($orderId) {
         $order = self::getOrder($orderId);
         if (!$order) return 'MISSING';
+        $branchId = self::getJobBranchId((int)$orderId);
 
         $status = 'READY';
         foreach ($order['materials'] as $m) {
-            $stock = InventoryManager::getStockOnHand($m['item_id']);
+            $stock = InventoryManager::getStockOnHand($m['item_id'], $branchId);
             $required = $m['track_by_roll'] ? $m['computed_required_length_ft'] : $m['quantity'];
             
             if ($stock <= 0) {
@@ -316,7 +348,7 @@ class JobOrderService {
 
             // Check lamination stock readiness if printing sticker
             if (isset($m['metadata']['lamination_item_id']) && $m['metadata']['lamination_length_ft'] > 0) {
-                $lamStock = InventoryManager::getStockOnHand($m['metadata']['lamination_item_id']);
+                $lamStock = InventoryManager::getStockOnHand($m['metadata']['lamination_item_id'], $branchId);
                 if ($lamStock <= 0) {
                     return 'MISSING';
                 } elseif ($lamStock < $m['metadata']['lamination_length_ft']) {
@@ -328,8 +360,13 @@ class JobOrderService {
         if (isset($order['ink_usage']) && !empty($order['ink_usage'])) {
             // Check ink stock readiness
             foreach ($order['ink_usage'] as $ink) {
-                $stock = InventoryManager::getStockOnHand($ink['item_id']);
-                if ($stock < $ink['quantity_used']) {
+                $inkItem = InventoryManager::getItem((int)$ink['item_id']);
+                if (!$inkItem) {
+                    return 'MISSING';
+                }
+                $stock = InventoryManager::getStockOnHand($ink['item_id'], $branchId);
+                $requiredInk = self::convertInkMlToItemUom((float)$ink['quantity_used'], $inkItem);
+                if ($stock < $requiredInk) {
                     return 'MISSING'; // Missing ink should block completion
                 }
             }
@@ -448,6 +485,7 @@ class JobOrderService {
      * Idempotent deduction for all materials in an order.
      */
     private static function processDeductions($orderId) {
+        $branchId = self::getJobBranchId((int)$orderId);
         $materials = db_query("SELECT * FROM job_order_materials WHERE job_order_id = ? AND deducted_at IS NULL", 'i', [$orderId]);
         
         if ($materials) {
@@ -471,7 +509,8 @@ class JobOrderService {
                             $lengthNeeded,
                             'JOB_ORDER',
                             $orderId,
-                            "Deducted for Job #{$orderId}"
+                            "Deducted for Job #{$orderId}",
+                            $branchId
                         );
                     } catch (Exception $e) {
                         // FIFO failed (e.g. insufficient rolls) — propagate error to prevent
@@ -494,7 +533,8 @@ class JobOrderService {
                                         $metadata['lamination_length_ft'],
                                         'JOB_ORDER',
                                         $orderId,
-                                        "Lamination deducted for Job #{$orderId}"
+                                        "Lamination deducted for Job #{$orderId}",
+                                        $branchId
                                     );
                                 } else {
                                     InventoryManager::issueStock(
@@ -503,7 +543,10 @@ class JobOrderService {
                                         $lamItem['unit_of_measure'], 
                                         'JOB_ORDER', 
                                         $orderId, 
-                                        "Lamination deducted for Job #{$orderId}"
+                                        "Lamination deducted for Job #{$orderId}",
+                                        false,
+                                        false,
+                                        $branchId
                                     );
                                 }
                             } catch (Exception $e) {
@@ -524,7 +567,10 @@ class JobOrderService {
                         $m['uom'], 
                         'JOB_ORDER', 
                         $orderId, 
-                        "Deducted for Job #{$orderId}"
+                        "Deducted for Job #{$orderId}",
+                        false,
+                        false,
+                        $branchId
                     );
                     // Mark as deducted
                     db_execute("UPDATE job_order_materials SET deducted_at = NOW() WHERE id = ?", 'i', [$m['id']]);
@@ -539,14 +585,18 @@ class JobOrderService {
                 // Determine item from inventory
                 $inkItem = InventoryManager::getItem($ink['item_id']);
                 if (!$inkItem) continue;
+                $inkQtyForInventory = self::convertInkMlToItemUom((float)$ink['quantity_used'], $inkItem);
 
                 InventoryManager::issueStock(
                     $ink['item_id'],
-                    $ink['quantity_used'],
+                    $inkQtyForInventory,
                     $inkItem['unit_of_measure'] ?? 'bottle',
                     'JOB_ORDER',
                     $orderId,
-                    "{$ink['ink_color']} ink used for Job #{$orderId}"
+                    "{$ink['ink_color']} ink used for Job #{$orderId}",
+                    false,
+                    false,
+                    $branchId
                 );
             }
         }
