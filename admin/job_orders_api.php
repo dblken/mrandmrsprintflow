@@ -724,6 +724,18 @@ try {
             $height_ft = $payload['height_ft'];
             $total_qty = (int)($payload['line_qty'] ?? 0);
             $service_name = $payload['service_type'] ?: 'Custom Order';
+            $linked_job_id = 0;
+            $linked_job = null;
+            JobOrderService::ensureJobsForStoreOrder($order_id);
+            $linked_job_rows = db_query(
+                "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+                'i',
+                [$order_id]
+            );
+            $linked_job_id = (int)($linked_job_rows[0]['id'] ?? 0);
+            if ($linked_job_id > 0) {
+                $linked_job = JobOrderService::getOrder($linked_job_id);
+            }
             $data = [
                 'id'                   => $o['order_id'],
                 'order_id'             => $o['order_id'],
@@ -740,6 +752,7 @@ try {
                 'status'               => $mapped_status,
                 'estimated_total'      => (float)($o['total_amount'] ?? 0),
                 'amount_paid'          => (($o['payment_status'] ?? '') === 'Paid') ? (float)($o['total_amount'] ?? 0) : (float)($o['amount_paid'] ?? 0),
+                'job_order_id'         => $linked_job_id > 0 ? $linked_job_id : null,
                 'notes'                => $o['notes'] ?? '',
                 'store_order_notes'    => $o['notes'] ?? '',
                 'revision_reason'      => $o['revision_reason'] ?? '',
@@ -749,9 +762,11 @@ try {
                 'payment_submitted_amount' => (float)($o['downpayment_amount'] ?? 0),
                 'payment_proof_uploaded_at' => $o['payment_submitted_at'] ?? null,
                 'payment_status'       => 'NO',
-                'readiness'            => 'READY',
+                'readiness'            => $linked_job['readiness'] ?? 'READY',
                 'order_source'         => $o['order_source'] ?? 'customer',
                 'items'                => $items_out,
+                'materials'            => $linked_job['materials'] ?? [],
+                'ink_usage'            => $linked_job['ink_usage'] ?? [],
             ];
             echo json_encode(['success' => true, 'data' => $data]);
             break;
