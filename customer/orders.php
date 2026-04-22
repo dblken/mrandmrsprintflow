@@ -563,6 +563,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <script>
                     window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
+                    try { localStorage.setItem('pf_order_success_msg', window.__pfOrderSuccessMessage); } catch (e) {}
                 </script>
             <?php endif; ?>
         </div>
@@ -714,12 +715,16 @@ const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
 window.addEventListener('DOMContentLoaded', () => {
+    if (!window.__pfOrderSuccessMessage) {
+        try { window.__pfOrderSuccessMessage = localStorage.getItem('pf_order_success_msg') || ''; } catch (e) {}
+    }
     if (window.__pfOrderSuccessMessage) {
         if ('scrollRestoration' in history) {
             history.scrollRestoration = 'manual';
         }
         window.scrollTo({ top: 0, behavior: 'auto' });
         renderOrderSuccessBanner(window.__pfOrderSuccessMessage);
+        try { localStorage.removeItem('pf_order_success_msg'); } catch (e) {}
     }
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
