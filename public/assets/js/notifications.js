@@ -108,12 +108,17 @@
         return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
     }
 
-    function ensureServiceWorker() {
+    function ensureServiceWorker(isUserAction) {
         if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
 
         return navigator.serviceWorker.getRegistration().then(function(reg) {
             if (reg) return reg;
             return navigator.serviceWorker.register(SW_REGISTER_PATH, { updateViaCache: 'none' });
+        }).catch(function(err) {
+            if (isUserAction) {
+                alert('Service worker registration failed: ' + (err && err.message ? err.message : 'unknown error'));
+            }
+            throw err;
         });
     }
 
@@ -144,7 +149,7 @@
     function unsubscribeFromPush() {
         if (!isPushSupported()) return Promise.resolve(false);
 
-        return ensureServiceWorker()
+        return ensureServiceWorker(false)
             .then(function(reg) {
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (!existing) return false;
@@ -168,8 +173,11 @@
             }, 6000);
         }
 
-        return navigator.serviceWorker.ready
+        return ensureServiceWorker(isUserAction)
             .then(function(reg) {
+                if (isUserAction && reg && reg.scope) {
+                    alert('Service worker scope: ' + reg.scope);
+                }
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
                         sendSubscription(existing, 'subscribe');
@@ -276,7 +284,7 @@
             return;
         }
 
-        ensureServiceWorker()
+        ensureServiceWorker(false)
             .then(function(reg) { return reg.pushManager.getSubscription(); })
             .then(function(sub) {
                 updatePushToggle(btn, sub ? 'enabled' : 'disabled');
