@@ -710,10 +710,27 @@ document.body.classList.add('orders-page');
 const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
+function fireOrderSuccessToast() {
+    if (!window.__pfOrderSuccessMessage) return;
+    const message = window.__pfOrderSuccessMessage;
+    let attempts = 0;
+    const maxAttempts = 20;
+    const tryShow = () => {
+        if (typeof showToast === 'function') {
+            showToast(message);
+            window.__pfOrderSuccessMessage = '';
+            return;
+        }
+        attempts += 1;
+        if (attempts < maxAttempts) {
+            setTimeout(tryShow, 150);
+        }
+    };
+    tryShow();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-    if (window.__pfOrderSuccessMessage && typeof showToast === 'function') {
-        showToast(window.__pfOrderSuccessMessage);
-    }
+    fireOrderSuccessToast();
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
     const highlightId = highlightIdRaw ? parseInt(highlightIdRaw, 10) : 0;
