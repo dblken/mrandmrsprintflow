@@ -1542,9 +1542,9 @@ $page_title = 'Orders - Staff';
 
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
-                <div class="toolbar-container" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="toolbar-container" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
-                    <div class="pf-custom-tabs" style="margin:0; padding-bottom:0; border-bottom:0;">
+                    <div class="pf-custom-tabs" style="margin:0 auto; padding-bottom:0; border-bottom:0; justify-content:center; flex:1 1 auto;">
                         <template x-for="(label, key) in statusTabs" :key="key">
                             <button type="button" 
                                     class="pill-tab" 
