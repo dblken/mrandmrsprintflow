@@ -1034,7 +1034,7 @@ function escIM(str) {
 // ── Polling Logic (Updated for New Classes) ───────────────────
 (function startOrdersPolling() {
     const activeTab = '<?php echo addslashes($active_tab); ?>';
-    if (activeTab === 'all' || window.__ordersPollingInterval) return;
+    if (window.__ordersPollingInterval) return;
 
     const statusMap = {
         'Pending': 'st-pending', 'Pending Approval': 'st-pending', 'Pending Review': 'st-pending',
@@ -1044,11 +1044,21 @@ function escIM(str) {
         'To Rate': 'st-completed', 'Rated': 'st-completed', 'Cancelled': 'st-cancelled'
     };
 
+    let lastReloadAt = 0;
     function poll() {
         fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php`)
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
+            const now = Date.now();
+            const cards = Array.from(document.querySelectorAll('.ct-order-card'));
+            const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
+            const hasNewOrder = data.orders.some(order => !existingIds.has(order.order_id));
+            if (hasNewOrder && now - lastReloadAt > 3000) {
+                lastReloadAt = now;
+                window.location.reload();
+                return;
+            }
             data.orders.forEach(order => {
                 const card = document.getElementById('order-card-' + order.order_id);
                 if (!card || card.dataset.status === order.status) return;
@@ -1074,7 +1084,7 @@ function escIM(str) {
             });
         });
     }
-    window.__ordersPollingInterval = setInterval(poll, 10000);
+    window.__ordersPollingInterval = setInterval(poll, 8000);
 })();
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeItemsModal(); });
