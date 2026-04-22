@@ -86,6 +86,175 @@ $completed_orders = db_query(
     $ordBranchParams ?: null
 )[0]['count'];
 $completed_jobs = $completed_jobs_jobs + $completed_orders;
+
+$preloaded_customization_rows = [];
+
+$job_rows = db_query(
+    "SELECT jo.id,
+            jo.order_id,
+            jo.job_title,
+            jo.service_type,
+            jo.width_ft,
+            jo.height_ft,
+            jo.quantity,
+            jo.status,
+            jo.created_at,
+            jo.due_date,
+            c.first_name,
+            c.last_name,
+            c.customer_type,
+            c.transaction_count,
+            c.profile_picture AS customer_profile_picture,
+            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+            COALESCE(ord.order_source, 'customer') AS order_source
+     FROM job_orders jo
+     LEFT JOIN customers c ON jo.customer_id = c.customer_id
+     LEFT JOIN orders ord ON ord.order_id = jo.order_id
+     WHERE 1=1" . $joBranchSql . "
+     ORDER BY jo.created_at DESC
+     LIMIT 200",
+    $joBranchTypes ?: null,
+    $joBranchParams ?: null
+) ?: [];
+
+foreach ($job_rows as $row) {
+    $row['order_type'] = 'JOB';
+    $preloaded_customization_rows[] = $row;
+}
+
+$order_rows = db_query(
+    "SELECT o.order_id AS id,
+            o.order_id,
+            o.customer_id,
+            c.first_name,
+            c.last_name,
+            c.profile_picture AS customer_profile_picture,
+            c.customer_type,
+            c.transaction_count,
+            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+            'ORDER' AS order_type,
+            COALESCE(MAX(p.category), 'Custom Order') AS service_type,
+            GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') AS job_title,
+            '1' AS width_ft,
+            '1' AS height_ft,
+            SUM(oi.quantity) AS quantity,
+            CASE
+                WHEN o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision') THEN 'PENDING'
+                WHEN o.status IN ('Design Approved', 'Approved') THEN 'APPROVED'
+                WHEN o.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
+                WHEN o.status = 'To Pay' THEN 'TO_PAY'
+                WHEN o.status IN ('Paid - In Process', 'Paid â€“ In Process', 'Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
+                WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
+                WHEN o.status = 'Completed' THEN 'COMPLETED'
+                WHEN o.status = 'Cancelled' THEN 'CANCELLED'
+                ELSE o.status
+            END AS status,
+            o.order_date AS created_at,
+            o.total_amount AS estimated_total,
+            COALESCE(o.order_source, 'customer') AS order_source
+     FROM orders o
+     LEFT JOIN order_items oi ON o.order_id = oi.order_id
+     LEFT JOIN products p ON oi.product_id = p.product_id
+     LEFT JOIN customers c ON o.customer_id = c.customer_id
+     WHERE (o.order_type IS NULL OR o.order_type = 'product' OR o.order_type = 'custom')
+       AND o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Approved', 'Design Approved', 'To Pay', 'Downpayment Submitted', 'Pending Verification', 'To Verify', 'Processing', 'In Production', 'Printing', 'Paid - In Process', 'Paid â€“ In Process', 'Ready for Pickup')
+       " . $ordBranchSql . "
+     GROUP BY o.order_id
+     ORDER BY o.order_date DESC
+     LIMIT 200",
+    $ordBranchTypes ?: null,
+    $ordBranchParams ?: null
+) ?: [];
+
+foreach ($order_rows as $row) {
+    $preloaded_customization_rows[] = $row;
+}
+
+$custom_branch_sql = '';
+$custom_branch_types = '';
+$custom_branch_params = [];
+if ($branchFilter !== null) {
+    $custom_branch_sql = " AND o.branch_id = ?";
+    $custom_branch_types = 'i';
+    $custom_branch_params = [(int)$branchFilter];
+}
+
+$customization_rows = db_query(
+    "SELECT cust.customization_id AS id,
+            cust.order_id,
+            (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = cust.order_id) AS job_order_id,
+            c.first_name,
+            c.last_name,
+            c.profile_picture AS customer_profile_picture,
+            c.customer_type,
+            c.transaction_count,
+            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+            'CUSTOMIZATION' AS order_type,
+            cust.service_type AS service_type,
+            cust.service_type AS job_title,
+            '1' AS width_ft,
+            '1' AS height_ft,
+            1 AS quantity,
+            CASE
+                WHEN cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
+                WHEN cust.status = 'Approved' THEN 'APPROVED'
+                WHEN cust.status = 'To Pay' THEN 'TO_PAY'
+                WHEN cust.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'VERIFY_PAY'
+                WHEN cust.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
+                WHEN cust.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
+                ELSE 'PENDING'
+            END AS status,
+            cust.created_at,
+            'pos' AS order_source
+     FROM customizations cust
+     LEFT JOIN customers c ON cust.customer_id = c.customer_id
+     LEFT JOIN orders o ON cust.order_id = o.order_id
+     WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup')
+       " . $custom_branch_sql . "
+     ORDER BY cust.created_at DESC
+     LIMIT 200",
+    $custom_branch_types ?: null,
+    $custom_branch_params ?: null
+) ?: [];
+
+foreach ($customization_rows as $row) {
+    $preloaded_customization_rows[] = $row;
+}
+
+$service_rows = db_query(
+    "SELECT so.id,
+            so.id AS order_id,
+            c.first_name,
+            c.last_name,
+            c.profile_picture AS customer_profile_picture,
+            c.customer_type,
+            c.transaction_count,
+            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+            'SERVICE' AS order_type,
+            so.service_name AS service_type,
+            so.service_name AS job_title,
+            '1' AS width_ft,
+            '1' AS height_ft,
+            1 AS quantity,
+            CASE
+                WHEN so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
+                WHEN so.status = 'Approved' THEN 'APPROVED'
+                WHEN so.status = 'Processing' THEN 'IN_PRODUCTION'
+                WHEN so.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
+                ELSE 'PENDING'
+            END AS status,
+            so.created_at,
+            'customer' AS order_source
+     FROM service_orders so
+     LEFT JOIN customers c ON so.customer_id = c.customer_id
+     WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')
+     ORDER BY so.created_at DESC
+     LIMIT 200"
+) ?: [];
+
+foreach ($service_rows as $row) {
+    $preloaded_customization_rows[] = $row;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1145,6 +1314,9 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 
 <script src="<?php echo htmlspecialchars((defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/js/staff_service_order_modal.js'); ?>"></script>
 <script>
+window.pfCustomizationPreloadedOrders = <?php echo json_encode($preloaded_customization_rows, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+</script>
+<script>
     document.addEventListener('alpine:init', function () {
         Alpine.data('joManager', function (defaultStatus) {
             defaultStatus = defaultStatus || 'ALL';
@@ -1760,9 +1932,21 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                             ...o,
                             _ts: new Date(o.created_at || o.order_date || 0).getTime()
                         }));
+
+                    if (this.orders.length === 0 && Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
+                        this.orders = window.pfCustomizationPreloadedOrders.map(o => ({
+                            ...o,
+                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                        }));
+                    }
                 } catch(err) {
                     console.error('Error loading orders:', err);
-                    this.orders = [];
+                    this.orders = Array.isArray(window.pfCustomizationPreloadedOrders)
+                        ? window.pfCustomizationPreloadedOrders.map(o => ({
+                            ...o,
+                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                        }))
+                        : [];
                 }
             },
 
