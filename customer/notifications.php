@@ -276,9 +276,14 @@ require_once __DIR__ . '/../includes/header.php';
                     <span style="background: #53c5e0; color: #030d11; padding: 4px 12px; border-radius: 0; font-size: 0.75rem; font-weight: 900; box-shadow: 0 0 15px rgba(83, 197, 224, 0.4);"><?php echo $unread_total; ?></span>
                 <?php endif; ?>
             </h1>
-            <?php if ($unread_total > 0): ?>
-                <a href="?mark_all_read=1" class="notif-mark-all-btn">Mark all as read</a>
-            <?php endif; ?>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button type="button" id="pf-push-toggle" class="notif-mark-all-btn" style="border:none;cursor:pointer;">
+                    Enable notifications
+                </button>
+                <?php if ($unread_total > 0): ?>
+                    <a href="?mark_all_read=1" class="notif-mark-all-btn">Mark all as read</a>
+                <?php endif; ?>
+            </div>
         </div>
 
         <?php if (empty($notifications)): ?>

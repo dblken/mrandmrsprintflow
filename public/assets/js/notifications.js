@@ -19,7 +19,9 @@
         markSeen: markSeen,
         updateBadge: updateBadge,
         poll: poll,
-        loadDropdown: loadDropdown
+        loadDropdown: loadDropdown,
+        subscribeToPush: subscribeToPush,
+        unsubscribeFromPush: unsubscribeFromPush
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -128,6 +130,22 @@
         }).catch(function() {});
     }
 
+    function unsubscribeFromPush() {
+        if (!isPushSupported()) return Promise.resolve(false);
+
+        return navigator.serviceWorker.ready
+            .then(function(reg) {
+                return reg.pushManager.getSubscription().then(function(existing) {
+                    if (!existing) return false;
+                    return existing.unsubscribe().then(function() {
+                        sendSubscription({ endpoint: existing.endpoint }, 'unsubscribe');
+                        return true;
+                    });
+                });
+            })
+            .catch(function() { return false; });
+    }
+
     function subscribeToPush() {
         if (!isPushSupported()) return Promise.resolve(null);
 
@@ -179,6 +197,71 @@
                 subscribeToPush();
             }
         }
+    }
+
+    function updatePushToggle(btn, state) {
+        if (!btn) return;
+        btn.dataset.state = state;
+
+        if (state === 'unsupported') {
+            btn.textContent = 'Notifications unsupported';
+            btn.disabled = true;
+            return;
+        }
+        if (state === 'blocked') {
+            btn.textContent = 'Notifications blocked';
+            btn.disabled = true;
+            return;
+        }
+        if (state === 'enabled') {
+            btn.textContent = 'Disable notifications';
+            btn.disabled = false;
+            return;
+        }
+        btn.textContent = 'Enable notifications';
+        btn.disabled = false;
+    }
+
+    function initPushToggle() {
+        var btn = document.getElementById('pf-push-toggle');
+        if (!btn) return;
+
+        if (!isPushSupported()) {
+            updatePushToggle(btn, 'unsupported');
+            return;
+        }
+
+        if (Notification.permission === 'denied') {
+            updatePushToggle(btn, 'blocked');
+            return;
+        }
+
+        navigator.serviceWorker.ready
+            .then(function(reg) { return reg.pushManager.getSubscription(); })
+            .then(function(sub) {
+                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            })
+            .catch(function() {
+                updatePushToggle(btn, 'disabled');
+            });
+
+        btn.addEventListener('click', function() {
+            var state = btn.dataset.state || 'disabled';
+            if (state === 'blocked') {
+                alert('Notifications are blocked in your browser settings. Please allow them to enable alerts.');
+                return;
+            }
+            if (state === 'enabled') {
+                if (!confirm('Disable notifications on this device?')) return;
+                unsubscribeFromPush().then(function() {
+                    updatePushToggle(btn, 'disabled');
+                });
+                return;
+            }
+            subscribeToPush().then(function(sub) {
+                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            });
+        });
     }
 
     function bindPushMessages() {
@@ -482,6 +565,7 @@
     function init() {
         bindPushMessages();
         maybeInitPush();
+        initPushToggle();
         poll();
         schedulePoll();
     }
