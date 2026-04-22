@@ -12,6 +12,27 @@ if (!defined('PRODUCT_BRANCH_STOCK_LOADED')) {
 require_once __DIR__ . '/db.php';
 
 /**
+ * The main branch (Cabuyao) keeps its canonical stock in products.stock_quantity.
+ */
+function printflow_product_branch_uses_base_stock(int $branchId): bool {
+    static $cache = [];
+    if ($branchId <= 0) {
+        return false;
+    }
+    if (array_key_exists($branchId, $cache)) {
+        return $cache[$branchId];
+    }
+
+    if (function_exists('printflow_get_default_admin_branch_id') && $branchId === (int)printflow_get_default_admin_branch_id()) {
+        return $cache[$branchId] = true;
+    }
+
+    $row = db_query('SELECT branch_name FROM branches WHERE id = ? LIMIT 1', 'i', [$branchId]);
+    $name = strtolower(trim((string)($row[0]['branch_name'] ?? '')));
+    return $cache[$branchId] = ($name !== '' && strpos($name, 'cabuyao') !== false);
+}
+
+/**
  * Create product_branch_stock if missing (idempotent).
  */
 function printflow_ensure_product_branch_stock_table(): void {
@@ -46,16 +67,19 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
         return [0, 10];
     }
 
-    $isMainBranch = false;
     if ($branchId > 0) {
-        if (function_exists('printflow_get_default_admin_branch_id')) {
-            $isMainBranch = ($branchId === (int)printflow_get_default_admin_branch_id());
-        } else {
-            $isMainBranch = ($branchId === 1);
+        if (printflow_product_branch_uses_base_stock($branchId)) {
+            $p = db_query(
+                'SELECT stock_quantity, COALESCE(low_stock_level, 10) AS low_stock_level FROM products WHERE product_id = ? LIMIT 1',
+                'i',
+                [$productId]
+            );
+            if (empty($p)) {
+                return [0, 10];
+            }
+            return [(int)($p[0]['stock_quantity'] ?? 0), (int)$p[0]['low_stock_level']];
         }
-    }
 
-    if ($branchId > 0) {
         $pbs = db_query(
             'SELECT stock_quantity, low_stock_level FROM product_branch_stock WHERE product_id = ? AND branch_id = ? LIMIT 1',
             'ii',
@@ -72,9 +96,6 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
         );
         if (empty($p)) {
             return [0, 10];
-        }
-        if ($isMainBranch) {
-            return [(int)($p[0]['stock_quantity'] ?? 0), (int)$p[0]['low_stock_level']];
         }
         return [0, (int)$p[0]['low_stock_level']];
     }
