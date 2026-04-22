@@ -1100,24 +1100,6 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             </div>
         </div>
 
-        <!-- Custom Staff Confirm Modal -->
-        <div x-show="confirmModal.show" x-cloak style="position:fixed; inset:0; z-index:90000; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(4px);">
-            <div @click.self="closeStaffConfirm(false)" style="position:fixed; inset:0; background:rgba(17,24,39,0.7);"></div>
-            <div style="background:white; border-radius:24px; width:100%; max-width:420px; position:relative; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); animation:modalIn 0.3s ease-out; margin:auto;">
-                <div style="padding:32px 32px 24px; text-align:center;">
-                    <div style="width:56px; height:56px; background:#fff7ed; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
-                        <svg width="28" height="28" fill="none" stroke="#ea580c" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    </div>
-                    <h3 x-text="confirmModal.title" style="font-size:20px; font-weight:800; color:#111827; margin:0 0 8px;"></h3>
-                    <p x-text="confirmModal.message" style="font-size:15px; color:#4b5563; line-height:1.6; margin:0;"></p>
-                </div>
-                <div style="padding:0 32px 32px; display:flex; gap:12px;">
-                    <button @click="closeStaffConfirm(false)" x-text="confirmModal.cancelText" style="flex:1; background:#f3f4f6; color:#4b5563; border:none; border-radius:14px; padding:14px; font-weight:700; font-size:15px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'"></button>
-                    <button @click="closeStaffConfirm(true)" x-text="confirmModal.confirmText" style="flex:1; background:#00A1A1; color:white; border:none; border-radius:14px; padding:14px; font-weight:700; font-size:15px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(6,161,161,0.25)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'"></button>
-                </div>
-            </div>
-        </div>
-
         <?php include __DIR__ . '/partials/service_order_modal.php'; ?>
         </div><!-- /#staffJoCustomizationsPage -->
     </div><!-- /.main-content -->
@@ -1238,20 +1220,12 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             serviceFilter: 'ALL',
             customDateFrom: '',
             customDateTo: '',
+            actionBusy: false,
             alertModal: {
                 show: false,
                 title: 'System Message',
                 message: '',
                 onClose: null
-            },
-            confirmModal: {
-                show: false,
-                title: 'Confirm Action',
-                message: '',
-                confirmText: 'Confirm',
-                cancelText: 'Cancel',
-                onConfirm: null,
-                onCancel: null
             },
             showStaffAlert(title, message, onClose = null) {
                 this.alertModal.title = title;
@@ -1264,22 +1238,14 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.alertModal.show = false;
                 if (typeof cb === 'function') cb();
             },
-            showStaffConfirm(title, message, onConfirm, onCancel = null, confirmText = 'Confirm', cancelText = 'Cancel') {
-                this.confirmModal.title = title;
-                this.confirmModal.message = message;
-                this.confirmModal.confirmText = confirmText;
-                this.confirmModal.cancelText = cancelText;
-                this.confirmModal.onConfirm = onConfirm;
-                this.confirmModal.onCancel = onCancel;
-                this.confirmModal.show = true;
+            beginModalAction() {
+                if (this.actionBusy) return false;
+                this.actionBusy = true;
+                this.showDetailsModal = false;
+                return true;
             },
-            closeStaffConfirm(isConfirm) {
-                this.confirmModal.show = false;
-                if (isConfirm && typeof this.confirmModal.onConfirm === 'function') {
-                    this.confirmModal.onConfirm();
-                } else if (!isConfirm && typeof this.confirmModal.onCancel === 'function') {
-                    this.confirmModal.onCancel();
-                }
+            endModalAction() {
+                this.actionBusy = false;
             },
 
             serviceMapping: {
@@ -2037,49 +2003,43 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     return { success: false, error: 'Server returned an invalid response. Check console or PHP error log.' };
                 }
             },
-
             async verifyPayment() {
-                this.showStaffConfirm(
-                    'Verify Payment & Start Production',
-                    `Verify payment of ₱${this.currentJo.payment_submitted_amount}?\n\nThis will deduct materials from inventory and start production.`,
-                    async () => {
-                        const base = document.body.getAttribute('data-base-url') || '';
-                        const ot = this.currentJo.order_type || 'JOB';
-                        let res;
-
-                        if (ot === 'ORDER') {
-                            const oid = this.currentJo.order_id || this.currentJo.id;
-                            const fd = new FormData();
-                            fd.append('order_id', oid);
-                            fd.append('action', 'Approve');
-                            const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
-                            res = await this.parseJsonResponse(r);
-                        } else {
-                            const jid = await this.resolveEffectiveJobId();
-                            if (!jid) {
-                                this.showStaffAlert('Error', 'No linked production job for payment verification.');
-                                return;
-                            }
-                            const fd = new FormData();
-                            fd.append('action', 'verify_payment');
-                            fd.append('id', jid);
-                            const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
-                            res = await this.parseJsonResponse(r);
+                if (!this.beginModalAction()) return;
+                try {
+                    const base = document.body.getAttribute('data-base-url') || '';
+                    const ot = this.currentJo.order_type || 'JOB';
+                    let res;
+                    if (ot === 'ORDER') {
+                        const oid = this.currentJo.order_id || this.currentJo.id;
+                        const fd = new FormData();
+                        fd.append('order_id', oid);
+                        fd.append('action', 'Approve');
+                        const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                        res = await this.parseJsonResponse(r);
+                    } else {
+                        const jid = await this.resolveEffectiveJobId();
+                        if (!jid) {
+                            this.showStaffAlert('Error', 'No linked production job for payment verification.');
+                            return;
                         }
-
-                        if(res.success) {
-                            this.activeStatus = 'IN_PRODUCTION';
-                            await this.loadOrders();
-                            await this.loadAllInventoryItems();
-                            await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
-                            this.showStaffAlert('Success', 'Payment verified. Materials deducted and production started.');
-                        } else {
-                            this.showStaffAlert('Verification Failed', res.error || 'Verification failed.');
-                        }
+                        const fd = new FormData();
+                        fd.append('action', 'verify_payment');
+                        fd.append('id', jid);
+                        const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                        res = await this.parseJsonResponse(r);
                     }
-                );
+                    if (res.success) {
+                        this.activeStatus = 'IN_PRODUCTION';
+                        await this.loadOrders();
+                        await this.loadAllInventoryItems();
+                        this.showStaffAlert('Success', 'Payment verified. Materials deducted and production started.');
+                    } else {
+                        this.showStaffAlert('Verification Failed', res.error || 'Verification failed.');
+                    }
+                } finally {
+                    this.endModalAction();
+                }
             },
-
             openRejectPaymentModal() {
                 this.rejectPaymentReasonSelect = '';
                 this.rejectPaymentReasonText = '';
@@ -2089,59 +2049,58 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             closeRejectPaymentModal() {
                 this.showRejectPaymentModal = false;
             },
-
             async submitRejectPayment() {
                 const finalReason = this.rejectPaymentReasonSelect === 'Others' ? this.rejectPaymentReasonText : this.rejectPaymentReasonSelect;
                 if (!finalReason) {
                     this.showStaffAlert('Input Required', 'Please select or specify a reason.');
                     return;
                 }
-                await this.rejectPayment(finalReason);
                 this.closeRejectPaymentModal();
-            },
-
+                this.showDetailsModal = false;
+                await this.rejectPayment(finalReason);
+            },
             async rejectPayment(reasonOverride = null) {
                 let reason = reasonOverride;
                 if (!reason) {
-                    reason = prompt("Enter reason for rejection (e.g., Unclear image, Incorrect amount):");
+                    reason = prompt(\"Enter reason for rejection (e.g., Unclear image, Incorrect amount):\");
                 }
-                if(!reason) return;
-
-                const base = document.body.getAttribute('data-base-url') || '';
-                const ot = this.currentJo.order_type || 'JOB';
-                let res;
-
-                if (ot === 'ORDER') {
-                    const oid = this.currentJo.order_id || this.currentJo.id;
-                    const fd = new FormData();
-                    fd.append('order_id', oid);
-                    fd.append('action', 'Reject');
-                    fd.append('reason', reason);
-                    const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
-                    res = await this.parseJsonResponse(r);
-                } else {
-                    const jid = await this.resolveEffectiveJobId();
-                    if (!jid) {
-                        this.showStaffAlert('Error', 'No linked production job.');
-                        return;
+                if (!reason) return;
+                if (!this.beginModalAction()) return;
+                try {
+                    const base = document.body.getAttribute('data-base-url') || '';
+                    const ot = this.currentJo.order_type || 'JOB';
+                    let res;
+                    if (ot === 'ORDER') {
+                        const oid = this.currentJo.order_id || this.currentJo.id;
+                        const fd = new FormData();
+                        fd.append('order_id', oid);
+                        fd.append('action', 'Reject');
+                        fd.append('reason', reason);
+                        const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                        res = await this.parseJsonResponse(r);
+                    } else {
+                        const jid = await this.resolveEffectiveJobId();
+                        if (!jid) {
+                            this.showStaffAlert('Error', 'No linked production job.');
+                            return;
+                        }
+                        const fd = new FormData();
+                        fd.append('action', 'reject_payment');
+                        fd.append('id', jid);
+                        fd.append('reason', reason);
+                        const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                        res = await this.parseJsonResponse(r);
                     }
-                    const fd = new FormData();
-                    fd.append('action', 'reject_payment');
-                    fd.append('id', jid);
-                    fd.append('reason', reason);
-                    const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
-                    res = await this.parseJsonResponse(r);
-                }
-
-                if(res.success) {
-                    await this.loadOrders();
-                    await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
-                    this.showStaffAlert('Success', 'Payment proof rejected.');
-                } else {
-                    this.showStaffAlert('Rejection Failed', res.error || 'Rejection failed.');
+                    if (res.success) {
+                        await this.loadOrders();
+                        this.showStaffAlert('Success', 'Payment proof rejected.');
+                    } else {
+                        this.showStaffAlert('Rejection Failed', res.error || 'Rejection failed.');
+                    }
+                } finally {
+                    this.endModalAction();
                 }
             },
-
             async setJobPrice(id) {
                 if(this.jobPriceInput < 0) return;
                 let jid = id != null ? id : await this.resolveEffectiveJobId();
@@ -2200,43 +2159,38 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 this.newMaterialNotes = '';
                 this.newMaterialMetadata = {};
             },
-
             async submitToPay() {
                 console.log('submitToPay called');
                 console.log('jobPriceInput value:', this.jobPriceInput);
                 console.log('jobPriceInput type:', typeof this.jobPriceInput);
-                
                 if (this.currentJo.order_type === 'CUSTOMIZATION') {
                     const priceValue = parseFloat(this.jobPriceInput);
                     console.log('Parsed price value:', priceValue);
                     console.log('Is NaN?', isNaN(priceValue));
-                    
                     if (!priceValue || priceValue <= 0 || isNaN(priceValue)) {
                         this.showStaffAlert('Price Required', 'Please enter a valid price before approving.');
                         return;
                     }
-                    const fd = new FormData();
-                    fd.append('action', 'update_customization');
-                    fd.append('id', this.currentJo.id);
-                    fd.append('status', 'TO_PAY');
-                    fd.append('price', this.jobPriceInput);
-                    const base = document.body.getAttribute('data-base-url') || '';
-                    const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
-                    if (res.success) {
-                        const hasPaymentProof = this.currentJo.payment_proof_path || this.currentJo.payment_proof;
-                        const paymentAmount = parseFloat(this.currentJo.payment_submitted_amount || 0);
-                        const targetTab = (hasPaymentProof && paymentAmount > 0) ? 'TO_VERIFY' : 'TO_PAY';
-                        const successMessage = targetTab === 'TO_VERIFY'
-                            ? 'Price set! Payment proof detected — order moved to verification.'
-                            : 'Price set and order moved to payment stage.';
-
-                        this.showStaffAlert('Success', successMessage, async () => {
+                    if (!this.beginModalAction()) return;
+                    try {
+                        const fd = new FormData();
+                        fd.append('action', 'update_customization');
+                        fd.append('id', this.currentJo.id);
+                        fd.append('status', 'TO_PAY');
+                        fd.append('price', this.jobPriceInput);
+                        const base = document.body.getAttribute('data-base-url') || '';
+                        const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                        if (res.success) {
+                            const hasPaymentProof = this.currentJo.payment_proof_path || this.currentJo.payment_proof;
+                            const paymentAmount = parseFloat(this.currentJo.payment_submitted_amount || 0);
+                            const targetTab = (hasPaymentProof && paymentAmount > 0) ? 'TO_VERIFY' : 'TO_PAY';
+                            const successMessage = targetTab === 'TO_VERIFY'
+                                ? 'Price set! Payment proof detected and order moved to verification.'
+                                : 'Price set and order moved to payment stage.';
                             const details = this.currentJo.customization_details || {};
                             const urlParams = new URLSearchParams(window.location.search);
                             const returnToPOS = urlParams.get('return_to_pos') === '1';
-
                             if (details.source === 'POS' || returnToPOS) {
-                                // Update the matching cart item price by product_id, then redirect
                                 const savedState = sessionStorage.getItem('pos_cart_state');
                                 if (savedState) {
                                     try {
@@ -2256,14 +2210,16 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                                     sessionStorage.removeItem('pos_cart_state');
                                 }
                                 window.location.href = base + '/staff/pos.php?from_customizations=1';
-                            } else {
-                                this.activeStatus = targetTab;
-                                await this.loadOrders();
-                                this.showDetailsModal = false;
+                                return;
                             }
-                        });
-                    } else {
-                        this.showStaffAlert('Error', res.error || 'Failed.');
+                            this.activeStatus = targetTab;
+                            await this.loadOrders();
+                            this.showStaffAlert('Success', successMessage);
+                        } else {
+                            this.showStaffAlert('Error', res.error || 'Failed.');
+                        }
+                    } finally {
+                        this.endModalAction();
                     }
                     return;
                 }
@@ -2272,17 +2228,11 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     this.showStaffAlert('Error', 'No linked production job for materials and pricing.');
                     return;
                 }
-                
-                // CRITICAL: Capture the price BEFORE any async operations that might reset it
                 const userEnteredPrice = parseFloat(this.jobPriceInput);
                 console.log('User entered price (captured early):', userEnteredPrice);
-                
-                // Check if this order came from POS BEFORE any operations
                 const urlParams = new URLSearchParams(window.location.search);
                 const returnToPOS = urlParams.get('return_to_pos') === '1';
                 const fromPOS = returnToPOS || (this.currentJo.order_type === 'ORDER' && this.currentJo.order_source === 'pos') || (this.currentJo.order_type === 'CUSTOMIZATION' && this.currentJo.order_source === 'pos');
-                
-                // Save all pending materials from the queue
                 for (const pm of this.pendingMaterials) {
                     const fd = new FormData();
                     fd.append('action', 'add_material');
@@ -2297,28 +2247,21 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     if (!res.success) { this.showStaffAlert('Material Error', 'Failed to save material: ' + res.error); return; }
                 }
                 this.pendingMaterials = [];
-
-                // Also save the current form if something is still selected
                 if (this.newMaterialId) {
                     await this.addMaterial();
                 }
-
-                // Handle Ink Usage Check and Submission
                 if (this.useInk && this.inkCategorySelected) {
                     const mappedInks = this.inkTypes[this.inkCategorySelected];
                     const inkPayload = [];
-                    
                     if (this.inkBlue > 0) inkPayload.push({ item_id: mappedInks['BLUE'], color: 'BLUE', quantity: this.inkBlue });
                     if (this.inkRed > 0) inkPayload.push({ item_id: mappedInks['RED'], color: 'RED', quantity: this.inkRed });
                     if (this.inkBlack > 0) inkPayload.push({ item_id: mappedInks['BLACK'], color: 'BLACK', quantity: this.inkBlack });
                     if (this.inkYellow > 0) inkPayload.push({ item_id: mappedInks['YELLOW'], color: 'YELLOW', quantity: this.inkYellow });
-
                     if (inkPayload.length > 0) {
                         const fdInk = new FormData();
                         fdInk.append('action', 'save_ink_usage');
                         fdInk.append('order_id', jid);
                         fdInk.append('ink_data', JSON.stringify(inkPayload));
-
                         const resInk = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fdInk })).json();
                         if (!resInk.success) {
                             this.showStaffAlert('Ink Error', 'Failed to save ink usage: ' + resInk.error);
@@ -2326,81 +2269,60 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         }
                     }
                 }
-
-                // Re-fetch to get latest materials
                 await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
-
-                // IMPORTANT: viewDetails resets jobPriceInput, so use the captured value
                 console.log('Price before materials check:', userEnteredPrice);
-
                 if ((!this.currentJo.materials || this.currentJo.materials.length === 0) && (!this.currentJo.ink_usage || this.currentJo.ink_usage.length === 0)) {
                     this.showStaffAlert('Production Required', 'Please add at least one production material or ink before submitting to pay.');
                     return;
                 }
-
-                // Validate price is set - use the captured value from the beginning
                 if (!userEnteredPrice || userEnteredPrice <= 0 || isNaN(userEnteredPrice)) {
                     this.showStaffAlert('Price Required', 'Please enter a valid price before submitting to pay.');
                     return;
                 }
-                
-                // Restore the price value that was reset by viewDetails
-                this.jobPriceInput = userEnteredPrice;
-
-                // Update price for both job_orders AND orders table
-                const priceUpdated = await this.updatePrice();
-                if (!priceUpdated) {
-                    this.showStaffAlert('Error', 'Failed to update price. Please try again.');
-                    return;
-                }
-                
-                await this.updateStatus(jid, 'TO_PAY');
-                // Refresh the modal to show updated price
-                await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
-                
-                // Close the modal after successful submission
-                this.showDetailsModal = false;
-                
-                // Check if we need to redirect back to POS
-                if (fromPOS) {
-                    const base = document.body.getAttribute('data-base-url') || '';
-                    const savedState = sessionStorage.getItem('pos_cart_state');
-                    
-                    if (savedState) {
-                        try {
-                            const state = JSON.parse(savedState);
-                            const itemIndex = state.item_index;
-                            
-                            // Update cart via API
-                            await fetch(base + '/staff/api/pos_cart_handler.php', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({
-                                    action: 'update_price',
-                                    index: itemIndex,
-                                    price: userEnteredPrice
-                                })
-                            });
-                            
-                            // Redirect back to POS
-                            window.location.href = base + '/staff/pos.php?from_customizations=1';
-                            return; // Exit early to prevent showing alert
-                        } catch (e) {
-                            console.error('Error updating cart:', e);
-                            window.location.href = base + '/staff/pos.php';
-                            return;
+                if (!this.beginModalAction()) return;
+                try {
+                    this.jobPriceInput = userEnteredPrice;
+                    const priceUpdated = await this.updatePrice();
+                    if (!priceUpdated) {
+                        this.showStaffAlert('Error', 'Failed to update price. Please try again.');
+                        return;
+                    }
+                    const statusUpdated = await this.updateStatus(jid, 'TO_PAY');
+                    if (!statusUpdated) {
+                        return;
+                    }
+                    if (fromPOS) {
+                        const base = document.body.getAttribute('data-base-url') || '';
+                        const savedState = sessionStorage.getItem('pos_cart_state');
+                        if (savedState) {
+                            try {
+                                const state = JSON.parse(savedState);
+                                const itemIndex = state.item_index;
+                                await fetch(base + '/staff/api/pos_cart_handler.php', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        action: 'update_price',
+                                        index: itemIndex,
+                                        price: userEnteredPrice
+                                    })
+                                });
+                                window.location.href = base + '/staff/pos.php?from_customizations=1';
+                                return;
+                            } catch (e) {
+                                console.error('Error updating cart:', e);
+                                window.location.href = base + '/staff/pos.php';
+                                return;
+                            }
                         }
-                    } else {
-                        // No saved state, just redirect
                         window.location.href = base + '/staff/pos.php';
                         return;
                     }
+                    this.showStaffAlert('Success', 'Order approved and moved to payment stage!');
+                } finally {
+                    this.endModalAction();
                 }
-                
-                // Show success message (only if not redirecting to POS)
-                this.showStaffAlert('Success', 'Order approved and moved to payment stage!');
             },
-
             async loadAllInventoryItems() {
                 const res = await (await fetch('../admin/inventory_items_api.php?action=get_items&active_only=1')).json();
                 if(res.success) {
@@ -2418,49 +2340,42 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     this.availableLamRollsList = res.data;
                 }
             },
-
             async approveOrder() {
-                this.showStaffConfirm(
-                    'Approve Order',
-                    'Approve this order and request payment?',
-                    async () => {
-                        const id = this.currentJo.id;
-                        const jid = this.effectiveJobId();
-                        const oid = this.currentJo.order_id || this.currentJo.id;
-                        
-                        // Set price first
-                        if (parseFloat(this.jobPriceInput) > 0) {
-                            await this.updatePrice();
-                        }
-
-                        if (this.currentJo.order_type === 'ORDER') {
-                            const fd = new FormData();
-                            fd.append('order_id', oid);
-                            fd.append('status', 'To Pay');
-                            fd.append('update_status', '1');
-                            fd.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
-                            
-                            const res = await (await fetch('orders.php', { 
-                                method: 'POST', 
-                                body: fd, 
-                                headers: {'X-Requested-With': 'XMLHttpRequest'} 
-                            })).json();
-
-                            if (res.success) {
-                                this.showStaffAlert('Success', 'Order approved and moved to To Pay!');
-                                await this.loadOrders();
-                                this.showDetailsModal = false;
-                            } else {
-                                this.showStaffAlert('Error', 'Error: ' + (res.error || 'Failed to update order status'));
-                            }
+                if (!this.beginModalAction()) return;
+                try {
+                    const id = this.currentJo.id;
+                    const oid = this.currentJo.order_id || this.currentJo.id;
+                    if (parseFloat(this.jobPriceInput) > 0) {
+                        const priceUpdated = await this.updatePrice();
+                        if (!priceUpdated) return;
+                    }
+                    if (this.currentJo.order_type === 'ORDER') {
+                        const fd = new FormData();
+                        fd.append('order_id', oid);
+                        fd.append('status', 'To Pay');
+                        fd.append('update_status', '1');
+                        fd.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+                        const res = await (await fetch('orders.php', { 
+                            method: 'POST', 
+                            body: fd, 
+                            headers: {'X-Requested-With': 'XMLHttpRequest'} 
+                        })).json();
+                        if (res.success) {
+                            await this.loadOrders();
+                            this.showStaffAlert('Success', 'Order approved and moved to To Pay!');
                         } else {
-                            // Custom Job Order
-                            await this.updateStatus(id, 'TO_PAY');
+                            this.showStaffAlert('Error', 'Error: ' + (res.error || 'Failed to update order status'));
+                        }
+                    } else {
+                        const ok = await this.updateStatus(id, 'TO_PAY');
+                        if (ok) {
+                            this.showStaffAlert('Success', 'Order approved and moved to To Pay!');
                         }
                     }
-                );
+                } finally {
+                    this.endModalAction();
+                }
             },
-
             async updatePrice() {
                 const jid = this.effectiveJobId();
                 const oid = this.currentJo.order_id || this.currentJo.id;
@@ -2539,35 +2454,28 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
             closeRevisionModal() {
                 this.showRevisionModal = false;
             },
-
             async submitRevision() {
                 const oid = this.effectiveJobId();
                 if (!oid) return;
-                
                 let finalReason = this.revisionReasonSelect;
                 if (finalReason === 'Others' || !finalReason) {
                     finalReason = this.revisionReasonText.trim();
                 }
-                
                 if (!finalReason) {
                     this.showStaffAlert('Input Required', 'Please select or specify a reason for the revision request.');
                     return;
                 }
-
-                this.showStaffConfirm(
-                    'Request Revision',
-                    `Submit revision request?\nReason: ${finalReason}`,
-                    async () => {
-                        const ok = await this.updateStatus(oid, 'For Revision', null, finalReason);
-                        if (ok) {
-                            this.showStaffAlert('Success', 'Revision requested successfully.');
-                            this.showRevisionModal = false;
-                            this.showDetailsModal = false; 
-                        }
+                if (!this.beginModalAction()) return;
+                this.showRevisionModal = false;
+                try {
+                    const ok = await this.updateStatus(oid, 'For Revision', null, finalReason);
+                    if (ok) {
+                        this.showStaffAlert('Success', 'Revision requested successfully.');
                     }
-                );
+                } finally {
+                    this.endModalAction();
+                }
             },
-
             async addMaterial() {
                 if(!this.newMaterialId || !this.newMaterialQty) return;
                 const jid = await this.resolveEffectiveJobId();
@@ -2648,25 +2556,17 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 const item = this.allInventoryItems.find(i => i.id == itemId);
                 return item && item.category_id == 1;
             },
-
             async removeMaterial(jomId) {
-                this.showStaffConfirm(
-                    'Remove Material',
-                    'Remove this material?',
-                    async () => {
-                        const fd = new FormData();
-                        fd.append('action', 'remove_material');
-                        fd.append('id', jomId);
-                        const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
-                        if(res.success) {
-                            await this.refreshMaterials();
-                        } else {
-                            this.showStaffAlert('Error', res.error);
-                        }
-                    }
-                );
+                const fd = new FormData();
+                fd.append('action', 'remove_material');
+                fd.append('id', jomId);
+                const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                if(res.success) {
+                    await this.refreshMaterials();
+                } else {
+                    this.showStaffAlert('Error', res.error);
+                }
             },
-
             async refreshMaterials() {
                 const jid = await this.resolveEffectiveJobId();
                 if (!jid) return;
@@ -2678,33 +2578,29 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     }
                 }
             },
-
             async markReadyForPickup() {
-                this.showStaffConfirm(
-                    'Mark Ready for Pickup',
-                    'Mark this order as ready for customer pickup?',
-                    async () => {
-                        await this.jobAction('TO_RECEIVE');
-                    }
-                );
-            },
-
+                if (!this.beginModalAction()) return;
+                try {
+                    await this.jobAction('TO_RECEIVE');
+                } finally {
+                    this.endModalAction();
+                }
+            },
             async completeOrder(machineId = null) {
-                this.showStaffConfirm(
-                    'Complete Order',
-                    'Mark this order as completed and fulfilled?',
-                    async () => {
-                        const jid = await this.resolveEffectiveJobId();
-                        if (!jid) {
-                            this.showStaffAlert('Error', 'No linked production job for this entry.');
-                            return;
-                        }
-                        const ok = await this.updateStatus(jid, 'COMPLETED', machineId);
-                        if (ok) {
-                            this.showDetailsModal = false;
-                        }
+                if (!this.beginModalAction()) return;
+                try {
+                    const jid = await this.resolveEffectiveJobId();
+                    if (!jid) {
+                        this.showStaffAlert('Error', 'No linked production job for this entry.');
+                        return;
                     }
-                );
+                    const ok = await this.updateStatus(jid, 'COMPLETED', machineId);
+                    if (ok) {
+                        this.showStaffAlert('Success', 'Order marked as completed.');
+                    }
+                } finally {
+                    this.endModalAction();
+                }
             }
         };
         });
@@ -2717,3 +2613,4 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
 </script>
 </body>
 </html>
+
