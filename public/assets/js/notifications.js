@@ -339,7 +339,8 @@
         toast.style.gap = '10px';
 
         var icon = document.createElement('img');
-        icon.src = buildAppUrl('public/assets/images/icon-72.png');
+        var logoUrl = (window.PFConfig && window.PFConfig.logoUrl) ? String(window.PFConfig.logoUrl) : '';
+        icon.src = logoUrl || buildAppUrl('public/assets/images/icon-72.png');
         icon.style.width = '32px';
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';

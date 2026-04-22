@@ -366,6 +366,7 @@ document.addEventListener('click', function(event) {
 </script>
 
 <?php
+require_once __DIR__ . '/shop_config.php';
 $_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
 $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Admin';
 ?>
@@ -375,6 +376,7 @@ window.PFConfig = {
     userId: <?php echo json_encode($_pf_uid); ?>, 
     userType: <?php echo json_encode($_pf_utype); ?>,
     basePath: <?php echo json_encode($base_path); ?>,
+    logoUrl: <?php echo json_encode($shop_logo_url); ?>,
     logoutUrl: <?php echo json_encode($logout_url); ?>,
     loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>,
     apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>,

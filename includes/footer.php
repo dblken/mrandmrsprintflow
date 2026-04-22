@@ -764,6 +764,7 @@ function _ft_detect_social(string $url): array {
         }
     }
     if (function_exists('is_logged_in') && is_logged_in()):
+        require_once __DIR__ . '/shop_config.php';
         $_pf_uid   = function_exists('get_user_id')   ? (int)(get_user_id() ?? 0)    : 0;
         $_pf_utype = function_exists('get_user_type') ? (get_user_type() ?? 'Customer') : 'Customer';
     ?>
@@ -771,7 +772,8 @@ function _ft_detect_social(string $url): array {
     window.PFConfig = Object.assign({}, window.PFConfig || {}, {
         userId: <?php echo $_pf_uid; ?>,
         userType: <?php echo json_encode($_pf_utype); ?>,
-        basePath: <?php echo json_encode(isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')); ?>
+        basePath: <?php echo json_encode(isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')); ?>,
+        logoUrl: <?php echo json_encode($shop_logo_url); ?>
     });
     </script>
     <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
