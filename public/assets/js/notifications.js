@@ -100,6 +100,105 @@
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
     var API_LIST               = buildAppUrl('public/api/notifications/list.php');
 
+    function isPushSupported() {
+        return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+    }
+
+    function getUserId() {
+        return (window.PFConfig && window.PFConfig.userId) ? Number(window.PFConfig.userId) : 0;
+    }
+
+    function fetchVapidPublicKey() {
+        return fetch(API_VAPID_PUB, { credentials: 'include' })
+            .then(function(res) { return res.ok ? res.json() : null; })
+            .then(function(data) { return data && data.public_key ? String(data.public_key) : ''; })
+            .catch(function() { return ''; });
+    }
+
+    function sendSubscription(sub, action) {
+        var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
+        payload = payload || {};
+        payload.action = action || 'subscribe';
+
+        return fetch(API_SUBSCRIBE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        }).catch(function() {});
+    }
+
+    function subscribeToPush() {
+        if (!isPushSupported()) return Promise.resolve(null);
+
+        return navigator.serviceWorker.ready
+            .then(function(reg) {
+                return reg.pushManager.getSubscription().then(function(existing) {
+                    if (existing) {
+                        sendSubscription(existing, 'subscribe');
+                        return existing;
+                    }
+
+                    return fetchVapidPublicKey().then(function(pubKey) {
+                        if (!pubKey) return null;
+
+                        return Notification.requestPermission().then(function(permission) {
+                            if (permission !== 'granted') return null;
+
+                            return reg.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlB64ToUint8Array(pubKey)
+                            }).then(function(sub) {
+                                sendSubscription(sub, 'subscribe');
+                                return sub;
+                            });
+                        });
+                    });
+                });
+            })
+            .catch(function() { return null; });
+    }
+
+    function maybeInitPush() {
+        if (!isPushSupported()) return;
+        if (getUserId() <= 0) return;
+
+        if (Notification.permission === 'granted') {
+            subscribeToPush();
+            return;
+        }
+
+        if (Notification.permission === 'default') {
+            try {
+                var asked = localStorage.getItem(PERM_ASKED_KEY);
+                if (!asked) {
+                    localStorage.setItem(PERM_ASKED_KEY, '1');
+                    subscribeToPush();
+                }
+            } catch (e) {
+                subscribeToPush();
+            }
+        }
+    }
+
+    function bindPushMessages() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.addEventListener('message', function(event) {
+            var data = event.data || {};
+            if (data.type === 'PF_PUSH_RECEIVED' && data.payload) {
+                var payload = data.payload || {};
+                var title = payload.title || 'PrintFlow';
+                var body = payload.body || '';
+                var url = payload.url ? normalizeNotificationTarget(payload.url) : '';
+                showToast(title, body, url);
+                return;
+            }
+            if (data.type === 'PF_NAVIGATE' && data.url) {
+                window.location.href = normalizeNotificationTarget(data.url);
+            }
+        });
+    }
+
     function seenIds() {
         try {
             var data = sessionStorage.getItem(SEEN_STORAGE_KEY);
@@ -381,6 +480,8 @@
     }
 
     function init() {
+        bindPushMessages();
+        maybeInitPush();
         poll();
         schedulePoll();
     }

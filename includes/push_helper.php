@@ -11,6 +11,7 @@ if (!class_exists('WebPush')) {
 if (!defined('BASE_PATH') && file_exists(__DIR__ . '/../config.php')) {
     require_once __DIR__ . '/../config.php';
 }
+require_once __DIR__ . '/shop_config.php';
 
 function push_base_path(): string
 {
@@ -153,6 +154,11 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
     $wp = get_webpush();
     if (!$wp) return 0;
 
+    $base = push_base_path();
+    $icon = !empty($GLOBALS['shop_logo_url']) ? (string)$GLOBALS['shop_logo_url'] : ($base . '/public/assets/images/icon-192.png');
+    $badge = $base . '/public/assets/images/icon-72.png';
+    $home = $base . '/';
+
     $rows = db_query(
         'SELECT id, endpoint, p256dh, auth_key FROM push_subscriptions
          WHERE user_id = ? AND user_type = ?',
@@ -164,9 +170,9 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
     // Defaults
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '<?php echo $base_path; ?>/public/assets/images/icon-192.png',
-        'badge' => '<?php echo $base_path; ?>/public/assets/images/icon-72.png',
-        'url'   => '<?php echo $base_path; ?>/',
+        'icon'  => $icon,
+        'badge' => $badge,
+        'url'   => $home,
     ];
 
     $sent = 0;
@@ -201,6 +207,11 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
     $wp = get_webpush();
     if (!$wp) return 0;
 
+    $base = push_base_path();
+    $icon = !empty($GLOBALS['shop_logo_url']) ? (string)$GLOBALS['shop_logo_url'] : ($base . '/public/assets/images/icon-192.png');
+    $badge = $base . '/public/assets/images/icon-72.png';
+    $home = $base . '/';
+
     $placeholders = implode(',', array_fill(0, count($user_types), '?'));
     $types        = str_repeat('s', count($user_types));
     $rows = db_query(
@@ -213,9 +224,9 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
 
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '<?php echo $base_path; ?>/public/assets/images/icon-192.png',
-        'badge' => '<?php echo $base_path; ?>/public/assets/images/icon-72.png',
-        'url'   => '<?php echo $base_path; ?>/',
+        'icon'  => $icon,
+        'badge' => $badge,
+        'url'   => $home,
     ];
 
     $sent = 0;
