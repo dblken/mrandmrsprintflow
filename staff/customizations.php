@@ -255,6 +255,7 @@ $service_rows = db_query(
 foreach ($service_rows as $row) {
     $preloaded_customization_rows[] = $row;
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1321,9 +1322,22 @@ $preloaded_customization_rows_json = json_encode(
 if ($preloaded_customization_rows_json === false) {
     $preloaded_customization_rows_json = '[]';
 }
+$preloaded_customization_rows_b64 = base64_encode($preloaded_customization_rows_json);
 ?>
+<script id="pf-customization-preloaded" type="application/json"><?php echo htmlspecialchars($preloaded_customization_rows_b64, ENT_QUOTES, 'UTF-8'); ?></script>
 <script>
-window.pfCustomizationPreloadedOrders = <?php echo $preloaded_customization_rows_json; ?>;
+window.pfCustomizationPreloadedOrders = (() => {
+    try {
+        const el = document.getElementById('pf-customization-preloaded');
+        if (!el) return [];
+        const encoded = (el.textContent || '').trim();
+        if (!encoded) return [];
+        return JSON.parse(atob(encoded));
+    } catch (e) {
+        console.error('Failed to parse preloaded customization data', e);
+        return [];
+    }
+})();
 </script>
 <script>
     document.addEventListener('alpine:init', function () {
@@ -1860,20 +1874,8 @@ window.pfCustomizationPreloadedOrders = <?php echo $preloaded_customization_rows
                         'TO_PAY': 'TO_PAY',
                         'PENDING': 'PENDING',
                         'PENDING_REVIEW': 'PENDING',
-                        'PENDING_APPROVAL': 'PENDING',
-                        'FOR_REVISION': 'PENDING',
-                        'DESIGN_APPROVED': 'APPROVED',
                         'APPROVED': 'APPROVED',
-                        'PROCESSING': 'IN_PRODUCTION',
-                        'IN_PRODUCTION': 'IN_PRODUCTION',
-                        'PRINTING': 'IN_PRODUCTION',
-                        'PAID_-_IN_PROCESS': 'IN_PRODUCTION',
-                        'PAID_–_IN_PROCESS': 'IN_PRODUCTION',
-                        'READY_FOR_PICKUP': 'TO_RECEIVE',
-                        'READY_TO_COLLECT': 'TO_RECEIVE',
-                        'TO_RECEIVE': 'TO_RECEIVE',
-                        'COMPLETED': 'COMPLETED',
-                        'CANCELLED': 'CANCELLED'
+                        'PROCESSING': 'IN_PRODUCTION'
                     };
                     const mapped = statusMap[initialStatus.toUpperCase().replace(/\s+/g, '_')] || initialStatus;
                     if (this.statuses.includes(mapped)) {
@@ -2008,13 +2010,6 @@ window.pfCustomizationPreloadedOrders = <?php echo $preloaded_customization_rows
 
             findOrder(id, orderType = 'JOB') {
                 return this.orders.find(o => this.sameId(o.id, id) && (o.order_type || 'JOB') === (orderType || 'JOB'));
-            },
-            resolveViewOrderType(id, requestedType = 'JOB') {
-                const normalizedRequested = requestedType || 'JOB';
-                const exact = this.findOrder(id, normalizedRequested);
-                if (exact) return normalizedRequested;
-                const anyMatch = this.orders.find(o => this.sameId(o.id, id));
-                return anyMatch ? (anyMatch.order_type || 'JOB') : normalizedRequested;
             },
 
             getCorrectServiceType(jo) {
@@ -2169,7 +2164,6 @@ window.pfCustomizationPreloadedOrders = <?php echo $preloaded_customization_rows
             },
 
             async viewDetails(id, orderType = 'JOB') {
-                orderType = this.resolveViewOrderType(id, orderType);
                 let order = this.findOrder(id, orderType);
                 if (orderType === 'SERVICE' || order?.order_type === 'SERVICE') {
                     await this.openSvcModal(id);
