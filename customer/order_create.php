@@ -603,8 +603,15 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     const currentStockForBranch = () => {
-        const branchId = String((branchSelect && branchSelect.value) ? branchSelect.value : defaultBranchId);
-        return branchStocks[branchId] || branchStocks[String(defaultBranchId)] || { stock: 0, name: 'Cabuyao Branch' };
+        const selectedBranchId = String((branchSelect && branchSelect.value) ? branchSelect.value : '');
+        if (selectedBranchId && branchStocks[selectedBranchId]) {
+            return branchStocks[selectedBranchId];
+        }
+        if (selectedBranchId) {
+            const selectedName = branchSelect?.options?.[branchSelect.selectedIndex]?.text || 'Selected Branch';
+            return { stock: 0, name: selectedName };
+        }
+        return branchStocks[defaultBranchId] || { stock: 0, name: 'Cabuyao Branch' };
     };
 
     const syncQtyWithStock = () => {

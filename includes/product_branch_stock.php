@@ -90,7 +90,7 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
         }
 
         $p = db_query(
-            'SELECT stock_quantity, COALESCE(low_stock_level, 10) AS low_stock_level FROM products WHERE product_id = ? LIMIT 1',
+            'SELECT COALESCE(low_stock_level, 10) AS low_stock_level FROM products WHERE product_id = ? LIMIT 1',
             'i',
             [$productId]
         );
@@ -98,14 +98,9 @@ function printflow_product_effective_stock(int $productId, int $branchId): array
             return [0, 10];
         }
 
-        // Legacy fallback:
-        // Some deployments still keep sellable quantity in products.stock_quantity
-        // until a dedicated product_branch_stock row is created for that branch.
-        $legacyQty = (int)($p[0]['stock_quantity'] ?? 0);
-        if ($legacyQty > 0) {
-            return [$legacyQty, (int)$p[0]['low_stock_level']];
-        }
-
+        // Non-main branches must only see their own branch row.
+        // If no branch stock row exists yet, treat the branch as zero stock
+        // instead of inheriting the Cabuyao/base product quantity.
         return [0, (int)$p[0]['low_stock_level']];
     }
 
