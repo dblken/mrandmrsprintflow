@@ -560,9 +560,6 @@ require_once __DIR__ . '/../includes/header.php';
                 </svg>
                 <span><?php echo htmlspecialchars($order_success_msg); ?></span>
             </div>
-            <script>
-                window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
-            </script>
         <?php endif; ?>
         <div class="mb-8 mt-2"></div>
         
@@ -710,61 +707,7 @@ document.body.classList.add('orders-page');
 const CUSTOMER_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 
 // ── Highlight + scroll to a specific order card from notification ──
-function fireOrderSuccessToast() {
-    if (!window.__pfOrderSuccessMessage) return;
-    const message = window.__pfOrderSuccessMessage;
-    const showFallbackToast = () => {
-        let toast = document.getElementById('pf-success-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'pf-success-toast';
-            toast.style.position = 'fixed';
-            toast.style.top = '16px';
-            toast.style.right = '16px';
-            toast.style.zIndex = '100000';
-            toast.style.background = '#dcfce7';
-            toast.style.border = '1px solid #bbf7d0';
-            toast.style.color = '#166534';
-            toast.style.padding = '12px 16px';
-            toast.style.borderRadius = '10px';
-            toast.style.boxShadow = '0 8px 20px rgba(34, 197, 94, 0.15)';
-            toast.style.fontWeight = '600';
-            toast.style.maxWidth = '420px';
-            toast.style.fontSize = '13px';
-            document.body.appendChild(toast);
-        }
-        toast.textContent = message;
-        clearTimeout(toast.__pfTimer);
-        toast.__pfTimer = setTimeout(() => {
-            if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
-        }, 4500);
-    };
-
-    let attempts = 0;
-    const maxAttempts = 20;
-    const tryShow = () => {
-        if (typeof showToast === 'function') {
-            showToast(message);
-            window.__pfOrderSuccessMessage = '';
-            return;
-        }
-        showFallbackToast();
-        attempts += 1;
-        if (attempts < maxAttempts) {
-            setTimeout(tryShow, 150);
-        }
-    };
-    tryShow();
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-    if (window.__pfOrderSuccessMessage) {
-        if ('scrollRestoration' in history) {
-            history.scrollRestoration = 'manual';
-        }
-        window.scrollTo({ top: 0, behavior: 'auto' });
-    }
-    fireOrderSuccessToast();
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
     const highlightId = highlightIdRaw ? parseInt(highlightIdRaw, 10) : 0;
