@@ -1285,15 +1285,38 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 };
                 return map[color] || 0;
             },
-            getInkAvailableMl(item) {
-                if (!item) return 0;
-                const stock = parseFloat(item.current_stock || 0);
-                if (stock <= 0) return 0;
+            isLiterBasedInkItem(item) {
+                if (!item) return false;
                 const uom = String(item.unit_of_measure || '').trim().toLowerCase();
+                const category = String(item.category_name || '').trim().toUpperCase();
+                const name = String(item.name || '').trim().toUpperCase();
                 if (uom === 'l' || uom === 'liter' || uom === 'liters' || uom.includes('liter') || uom.includes('(l)')) {
-                    return stock * 1000;
+                    return true;
                 }
-                return stock;
+                if (category === 'INK L120' || category === 'INK L130') {
+                    return true;
+                }
+                return name.includes('INK L120') || name.includes('INK L130');
+            },
+            getInkStockMeta(item) {
+                if (!item) {
+                    return { availableMl: 0, displayStock: '0 ml' };
+                }
+                const stock = parseFloat(item.current_stock || 0);
+                if (stock <= 0) {
+                    return { availableMl: 0, displayStock: '0 ml' };
+                }
+                if (this.isLiterBasedInkItem(item)) {
+                    const availableMl = stock * 1000;
+                    return {
+                        availableMl,
+                        displayStock: `${stock} L (${availableMl} ml)`
+                    };
+                }
+                return {
+                    availableMl: stock,
+                    displayStock: `${stock} ${item.unit_of_measure || 'ml'}`
+                };
             },
             get inkStockIssues() {
                 if (!this.useInk || !this.inkCategorySelected || !this.inkTypes[this.inkCategorySelected]) return [];
@@ -1303,9 +1326,9 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     const needed = this.getInkInputValue(color);
                     if (needed <= 0) return;
                     const item = this.getInventoryItem(mapped[color]);
-                    const available = this.getInkAvailableMl(item);
-                    if (needed > available) {
-                        issues.push(`${color} ink has only ${available} ml available in this branch, but ${needed} ml is needed.`);
+                    const stockMeta = this.getInkStockMeta(item);
+                    if (needed > stockMeta.availableMl) {
+                        issues.push(`${color} ink has only ${stockMeta.displayStock} available in this branch, but ${needed} ml is needed.`);
                     }
                 });
                 return issues;
