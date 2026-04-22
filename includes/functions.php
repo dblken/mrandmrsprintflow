@@ -410,6 +410,34 @@ function printflow_filter_notifications_for_user(array $rows, string $userType, 
 }
 
 /**
+ * Resolve the current app base path without forcing legacy /printflow fallbacks.
+ */
+function printflow_notification_base_path(): string {
+    $base = '';
+    if (defined('BASE_PATH')) {
+        $base = (string)BASE_PATH;
+    } elseif (defined('BASE_URL')) {
+        $base = (string)BASE_URL;
+    } elseif (function_exists('pf_app_base_path')) {
+        $base = (string)pf_app_base_path();
+    }
+
+    $base = rtrim(trim($base), '/');
+    return $base === '/' ? '' : $base;
+}
+
+/**
+ * Resolve the correct notification destination URL for the current user role.
+ */
+function printflow_notification_target_url_for_user(string $userType, array $notification): string {
+    return match ($userType) {
+        'Staff' => staff_notification_target_url($notification),
+        'Admin', 'Manager' => admin_notification_target_url($notification),
+        default => customer_notification_target_url($notification),
+    };
+}
+
+/**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
@@ -443,7 +471,7 @@ function notify_staff_new_order(int $order_id, string $customer_first_name): voi
  * Target URL when a staff user opens a notification (dashboard, list, etc.).
  */
 function staff_notification_target_url(array $n): string {
-    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $base = printflow_notification_base_path();
     $msg = isset($n['message']) ? (string)$n['message'] : '';
     $msg_lower = strtolower($msg);
     
@@ -529,7 +557,7 @@ function staff_notification_item_href(array $n): string {
  * Target URL when an admin/manager opens a notification.
  */
 function admin_notification_target_url(array $n): string {
-    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $base = printflow_notification_base_path();
     $viewerRole = function_exists('get_user_type') ? (string)get_user_type() : '';
     $viewerBranch = function_exists('printflow_branch_filter_for_user') ? printflow_branch_filter_for_user() : null;
     $panelBase = $viewerRole === 'Manager' ? ($base . '/manager') : ($base . '/admin');
@@ -1323,7 +1351,7 @@ function customer_notification_title($type, $message) {
 }
 
 function customer_notification_target_url(array $notification) {
-    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $base = printflow_notification_base_path();
     $type = (string)($notification['type'] ?? '');
     $message = (string)($notification['message'] ?? '');
     $data_id = (int)($notification['data_id'] ?? 0);

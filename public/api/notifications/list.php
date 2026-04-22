@@ -23,7 +23,7 @@ $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 15;
 try {
     if ($user_type === 'Customer') {
         $rows = db_query(
-            "SELECT notification_id AS id, message, type, is_read, created_at
+            "SELECT notification_id AS id, notification_id, message, type, data_id, is_read, created_at
              FROM notifications
              WHERE customer_id = ?
              ORDER BY created_at DESC
@@ -48,6 +48,11 @@ try {
     }
 
     // Return rows with unread count
+    foreach ($rows as &$row) {
+        $row['target_url'] = printflow_notification_target_url_for_user((string)$user_type, $row);
+    }
+    unset($row);
+
     $unread = get_unread_notification_count($user_id, $user_type);
 
     echo json_encode([

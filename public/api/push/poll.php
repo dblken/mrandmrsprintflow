@@ -27,7 +27,7 @@ $since     = isset($_GET['since']) ? (int) $_GET['since'] : (time() - 30);
 // Pull notifications newer than the timestamp
 if ($user_type === 'Customer') {
     $rows = db_query(
-        "SELECT notification_id AS id, message, type, data_id, is_read,
+        "SELECT notification_id AS id, notification_id, message, type, data_id, is_read,
                 UNIX_TIMESTAMP(created_at) AS ts
          FROM notifications
          WHERE customer_id = ? AND UNIX_TIMESTAMP(created_at) > ?
@@ -52,6 +52,11 @@ if ($user_type === 'Customer') {
         : 0;
     $rows = printflow_filter_notifications_for_user($rows ?: [], (string)$user_type, $branchId > 0 ? (int)$branchId : null);
 }
+
+foreach ($rows as &$row) {
+    $row['target_url'] = printflow_notification_target_url_for_user((string)$user_type, $row);
+}
+unset($row);
 
 // Unread count
 $unread = get_unread_notification_count($user_id, $user_type);

@@ -4,12 +4,6 @@
     /* ── Config ──────────────────────────────────────────────────────────── */
     var POLL_INTERVAL_MS       = 15000;
     var POLL_INTERVAL_HIDDEN   = 60000;
-    var SW_PATH                = (window.PFConfig?.basePath || '') + '/public/sw.js';
-    var SW_SCOPE               = (window.PFConfig?.basePath || '') + '/public/';
-    var API_VAPID_PUB          = (window.PFConfig?.basePath || '') + '/public/api/push/vapid_public_key.php';
-    var API_SUBSCRIBE          = (window.PFConfig?.basePath || '') + '/public/api/push/subscribe.php';
-    var API_POLL               = (window.PFConfig?.basePath || '') + '/public/api/push/poll.php';
-    var API_LIST               = (window.PFConfig?.basePath || '') + '/public/api/notifications/list.php';
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
@@ -29,6 +23,49 @@
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
+
+    function normalizeBasePath(rawBase) {
+        var base = String(rawBase || '').trim();
+        if (!base || base === '/') return '';
+        if (base.charAt(0) !== '/') base = '/' + base;
+        base = base.replace(/\/+$/, '');
+
+        var path = window.location.pathname || '';
+        if (base && path !== base && path.indexOf(base + '/') !== 0) {
+            return '';
+        }
+        return base;
+    }
+
+    function getBasePath() {
+        return normalizeBasePath((window.PFConfig && window.PFConfig.basePath) || window.BASE_PATH || '');
+    }
+
+    function buildAppUrl(path) {
+        var cleanPath = String(path || '').replace(/^\/+/, '');
+        var base = getBasePath();
+        return cleanPath ? (base + '/' + cleanPath) : (base || '');
+    }
+
+    function appendMarkRead(url, notifId) {
+        if (!url || !notifId) return url;
+        try {
+            var target = new URL(url, window.location.origin);
+            if (!target.searchParams.has('mark_read')) {
+                target.searchParams.set('mark_read', notifId);
+            }
+            return target.pathname + target.search + target.hash;
+        } catch (e) {
+            return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'mark_read=' + notifId;
+        }
+    }
+
+    var SW_PATH                = buildAppUrl('public/sw.js');
+    var SW_SCOPE               = buildAppUrl('public') + '/';
+    var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
+    var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
+    var API_POLL               = buildAppUrl('public/api/push/poll.php');
+    var API_LIST               = buildAppUrl('public/api/notifications/list.php');
 
     function seenIds() {
         try {
@@ -115,7 +152,7 @@
                 var html = '';
                 for (var j = 0; j < data.notifications.length; j++) {
                     var n = data.notifications[j];
-                    var target = getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type);
+                    var target = getNotifUrl(n);
                     var unreadClass = n.is_read == 0 ? 'unread' : '';
                     var type = (n.type || '').toLowerCase();
                     var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
@@ -143,45 +180,69 @@
             });
     }
 
-    function getNotifUrl(type, dataId, message, notifId, orderType) {
-        var base = (window.PFConfig?.basePath || '');
-        var t = (type || '').toLowerCase();
-        var isStaff = (USER_TYPE.toLowerCase() === 'admin' || USER_TYPE.toLowerCase() === 'staff' || USER_TYPE.toLowerCase() === 'manager');
-        var msg = (message || '').toLowerCase();
+    function getNotifUrl(notification) {
+        var type = notification && notification.type ? notification.type : '';
+        var dataId = notification && notification.data_id != null ? notification.data_id : 0;
+        var message = notification && notification.message ? notification.message : '';
+        var notifId = notification && notification.id ? notification.id : 0;
+        var orderType = notification && notification.order_type ? notification.order_type : '';
+        var directTarget = notification && notification.target_url ? String(notification.target_url) : '';
+        if (directTarget) {
+            return appendMarkRead(directTarget, notifId);
+        }
+
+        var t = String(type || '').toLowerCase();
+        var role = String(USER_TYPE || '').toLowerCase();
+        var isAdmin = role === 'admin';
+        var isManager = role === 'manager';
+        var isStaff = role === 'staff';
+        var msg = String(message || '').toLowerCase();
         var did = (dataId != null && dataId !== '') ? parseInt(dataId, 10) : 0;
         if (!did && msg) {
             var match = msg.match(/#(\d+)/);
             if (match && match[1]) did = parseInt(match[1], 10) || 0;
         }
-        var url = base + '/';
+        var url = buildAppUrl('');
 
-        if (isStaff && t === 'system' && did > 0 && (msg.indexOf('ready for admin review') !== -1 || msg.indexOf('completed their profile') !== -1)) {
-            url = base + '/admin/user_staff_management.php?open_user=' + did;
-        } else if (isStaff) {
-            if (t.indexOf('inventory') !== -1) url = base + '/admin/inv_items_management.php';
-            else if (t.indexOf('order') !== -1 || t.indexOf('job') !== -1 || t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) {
-                var oType = (orderType || '').toLowerCase();
-                if (oType === 'custom' || t.indexOf('job') !== -1 || t.indexOf('custom') !== -1) {
-                    url = base + '/staff/customizations.php?order_id=' + did + '&job_type=ORDER';
-                } else {
-                    url = base + '/staff/orders.php?order_id=' + did;
-                }
+        if (isAdmin || isManager) {
+            var panel = isManager ? 'manager' : 'admin';
+            if (t === 'system' && did > 0 && (msg.indexOf('ready for admin review') !== -1 || msg.indexOf('completed their profile') !== -1) && isAdmin) {
+                url = buildAppUrl('admin/user_staff_management.php?open_user=' + did);
+            } else if (t.indexOf('stock') !== -1 || t.indexOf('inventory') !== -1) {
+                url = buildAppUrl(panel + '/inv_transactions_ledger.php' + (did > 0 ? '?item_id=' + did : ''));
+            } else if (t.indexOf('job order') !== -1 || t.indexOf('payment issue') !== -1) {
+                url = buildAppUrl(panel + '/job_orders.php' + (did > 0 ? '?open_job=' + did : ''));
+            } else if (t.indexOf('order') !== -1 || t.indexOf('design') !== -1 || t.indexOf('message') !== -1 || t.indexOf('payment') !== -1) {
+                url = buildAppUrl((isManager ? 'manager/orders.php' : 'admin/orders_management.php') + (did > 0 ? '?open_order=' + did : ''));
+            } else {
+                url = buildAppUrl(panel + '/notifications.php');
             }
-            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/staff/orders.php?order_id=' + did : base + '/staff/orders.php';
-            else url = base + '/staff/dashboard.php';
+        } else if (isStaff) {
+            if (t === 'system') url = buildAppUrl('staff/notifications.php');
+            else if (t.indexOf('rating') !== -1 || t.indexOf('review') !== -1) url = buildAppUrl('staff/reviews.php');
+            else if (t.indexOf('stock') !== -1 || t.indexOf('inventory') !== -1) url = buildAppUrl('staff/notifications.php');
+            else if (t.indexOf('order') !== -1 || t.indexOf('job') !== -1 || t.indexOf('design') !== -1 || t.indexOf('custom') !== -1 || t.indexOf('payment') !== -1) {
+                var oType = String(orderType || '').toLowerCase();
+                if (oType === 'custom' || t.indexOf('job') !== -1 || t.indexOf('custom') !== -1) {
+                    url = buildAppUrl('staff/customizations.php?order_id=' + did + '&job_type=ORDER');
+                } else {
+                    url = buildAppUrl('staff/orders.php' + (did > 0 ? '?order_id=' + did : ''));
+                }
+            } else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) {
+                url = buildAppUrl('staff/chats.php' + (did > 0 ? '?order_id=' + did : ''));
+            } else {
+                url = buildAppUrl('staff/dashboard.php');
+            }
         } else {
             if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1 || t.indexOf('payment') !== -1) {
-                url = did > 0 ? base + '/customer/orders.php?highlight=' + did : base + '/customer/orders.php';
-            } else if (t.indexOf('job') !== -1) url = base + '/customer/new_job_order.php';
-            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
-            else if ((t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) && did) url = base + '/customer/chat.php?order_id=' + did;
-            else url = base + '/customer/notifications.php';
+                url = did > 0 ? buildAppUrl('customer/orders.php?highlight=' + did) : buildAppUrl('customer/orders.php');
+            } else if (t.indexOf('job') !== -1) url = buildAppUrl('customer/new_job_order.php');
+            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? buildAppUrl('customer/chat.php?order_id=' + did) : buildAppUrl('customer/messages.php');
+            else if ((t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) && did) url = buildAppUrl('customer/chat.php?order_id=' + did);
+            else url = buildAppUrl('customer/notifications.php');
         }
 
-        if (notifId) {
-            url += (url.indexOf('?') !== -1 ? '&' : '?') + 'mark_read=' + notifId;
-        }
-        return url;
+        return appendMarkRead(url, notifId);
     }
 
     /* ── Polling ─────────────────────────────────────────────────────────── */
@@ -202,7 +263,7 @@
                     var sid = String(n.id);
                     if (seen.has(sid)) continue;
                     markSeen(sid);
-                    var targetUrl = getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type);
+                    var targetUrl = getNotifUrl(n);
                     if (window.location.pathname + window.location.search === targetUrl) continue;
                     showToast('PrintFlow', n.message, targetUrl);
                 }
@@ -245,7 +306,7 @@
         toast.style.gap = '10px';
 
         var icon = document.createElement('img');
-        icon.src = (window.PFConfig?.basePath || '') + '/public/assets/images/icon-72.png';
+        icon.src = buildAppUrl('public/assets/images/icon-72.png');
         icon.style.width = '32px';
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';
