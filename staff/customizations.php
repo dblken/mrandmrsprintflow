@@ -1285,6 +1285,16 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                 };
                 return map[color] || 0;
             },
+            getInkAvailableMl(item) {
+                if (!item) return 0;
+                const stock = parseFloat(item.current_stock || 0);
+                if (stock <= 0) return 0;
+                const uom = String(item.unit_of_measure || '').trim().toLowerCase();
+                if (uom === 'l' || uom === 'liter' || uom === 'liters') {
+                    return stock * 1000;
+                }
+                return stock;
+            },
             get inkStockIssues() {
                 if (!this.useInk || !this.inkCategorySelected || !this.inkTypes[this.inkCategorySelected]) return [];
                 const mapped = this.inkTypes[this.inkCategorySelected];
@@ -1293,7 +1303,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                     const needed = this.getInkInputValue(color);
                     if (needed <= 0) return;
                     const item = this.getInventoryItem(mapped[color]);
-                    const available = parseFloat(item?.current_stock || 0);
+                    const available = this.getInkAvailableMl(item);
                     if (needed > available) {
                         issues.push(`${color} ink has only ${available} ml available in this branch, but ${needed} ml is needed.`);
                     }
