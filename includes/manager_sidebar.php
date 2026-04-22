@@ -95,11 +95,17 @@ if (isset($_SESSION['user_id'])) {
                 </svg>
                 Services
             </a>
-            <a href="<?php echo $base_path; ?>/manager/inventory.php" class="nav-item <?php echo in_array($current_page, ['inventory.php']) ? 'active' : ''; ?>">
+            <a href="<?php echo $base_path; ?>/manager/inventory_items.php" class="nav-item <?php echo in_array($current_page, ['inventory.php', 'inventory_items.php']) ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
-                Inventory
+                Inventory Items
+            </a>
+            <a href="<?php echo $base_path; ?>/manager/inv_transactions_ledger.php" class="nav-item <?php echo $current_page === 'inv_transactions_ledger.php' ? 'active' : ''; ?>">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Inventory Ledger
             </a>
             <a href="<?php echo $base_path; ?>/manager/reports.php" class="nav-item <?php echo $current_page === 'reports.php' ? 'active' : ''; ?>">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">

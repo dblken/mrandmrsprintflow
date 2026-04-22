@@ -14,9 +14,11 @@ if (!isset($base_path)) {
     $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 }
 $current_user = get_logged_in_user();
+$is_manager = (($current_user['role'] ?? '') === 'Manager');
+$can_manage_item_master = !$is_manager;
 $branchCtx = init_branch_context(true);
 $branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
-$page_title = 'Inventory Items - Admin';
+$page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
 // Get parameters
 $cat_id   = (int)($_GET['category_id'] ?? 0);
@@ -31,6 +33,11 @@ $per_page = 15;
 // Inventory Archive/Restore (AJAX)
 if (isset($_POST['archive_item']) || isset($_POST['restore_item'])) {
     header('Content-Type: application/json');
+    if (!$can_manage_item_master) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Managers cannot archive or restore inventory items.']);
+        exit;
+    }
     $item_id = (int)($_POST['item_id'] ?? 0);
     if (!$item_id) {
         echo json_encode(['success' => false, 'error' => 'Invalid item_id']);
@@ -51,6 +58,11 @@ if (isset($_POST['archive_item']) || isset($_POST['restore_item'])) {
 // Archived Items overlay data (AJAX)
 if (isset($_GET['get_archived_items'])) {
     header('Content-Type: application/json');
+    if (!$can_manage_item_master) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Managers cannot access archived inventory items.']);
+        exit;
+    }
     $archived = db_query(
         "SELECT i.*, c.name as category_name
          FROM inv_items i
@@ -218,7 +230,9 @@ if (isset($_GET['ajax'])) {
                 <td style="color:#6b7280;font-size:12px;"><?php echo (($item['unit_of_measure'] ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($item['unit_of_measure'] ?? ''); ?></td>
                 <td class="no-truncate" style="text-align:right;">
                     <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                    <?php if ($can_manage_item_master): ?>
                     <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                    <?php endif; ?>
                 </td>
             </tr>
     <?php endforeach; ?>
@@ -565,7 +579,7 @@ if (isset($_GET['ajax'])) {
 
     <div class="main-content">
         <header>
-            <h1 class="page-title">Inventory Master</h1>
+            <h1 class="page-title">Inventory Items</h1>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
                 <?php render_branch_selector($branchCtx); ?>
             </div>
@@ -583,11 +597,13 @@ if (isset($_GET['ajax'])) {
                     </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <?php if ($can_manage_item_master): ?>
                         <button type="button" class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
 
                         <button type="button" class="toolbar-btn" onclick="openItemsArchiveModal()" style="height:38px; border-color:#6b7280; color:#6b7280;">
                             Archived Items
                         </button>
+                        <?php endif; ?>
                         
                         <!-- Sort Button -->
                         <div style="position:relative;">
@@ -749,7 +765,9 @@ if (isset($_GET['ajax'])) {
                                         <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo (strtolower($effectiveUom ?? '') === 'l') ? 'Liter (L)' : htmlspecialchars($effectiveUom ?? ''); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
                                             <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                                            <?php if ($can_manage_item_master): ?>
                                             <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -975,7 +993,9 @@ if (isset($_GET['ajax'])) {
         <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
             <button onclick="closeStockCard(); if(selectedItemForStockCard) openAddStockModal(selectedItemForStockCard)" class="btn-action teal" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">+ Add Stock</button>
             <button onclick="closeStockCard(); if(selectedItemForStockCard) openDeductStockModal(selectedItemForStockCard)" class="btn-action red" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">&minus; Deduct Stock</button>
+            <?php if ($can_manage_item_master): ?>
             <button onclick="editFromStockCard()" class="btn-action blue" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px;">Edit Settings</button>
+            <?php endif; ?>
             <a id="scLedgerLink" href="inv_transactions_ledger.php" class="btn-action" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px; border:1px solid #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center; text-decoration:none;">View Full Ledger</a>
         </div>
         </div>

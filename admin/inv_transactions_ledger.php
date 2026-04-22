@@ -9,11 +9,12 @@ require_once __DIR__ . '/../includes/InventoryManager.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
 
-require_role('Admin');
+require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
 $branchCtx = init_branch_context(true);
 $branchId = (int)($branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId());
-$page_title = 'Inventory Ledger - Admin';
+$is_manager = (($current_user['role'] ?? '') === 'Manager');
+$page_title = $is_manager ? 'Inventory Ledger - Manager' : 'Inventory Ledger - Admin';
 
 /** Safe JSON for onclick="viewTransaction(...)" — never emit empty / broken JS */
 function pf_ledger_tx_json_attr(array $row): string {
