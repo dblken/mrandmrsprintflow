@@ -40,6 +40,39 @@ printflow_ensure_product_branch_stock_table();
 $error = '';
 $success = '';
 
+function printflow_products_page_redirect_with_flash(string $message, string $type = 'success'): void {
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        session_start();
+    }
+
+    if ($type === 'error') {
+        $_SESSION['pf_products_flash_error'] = $message;
+        unset($_SESSION['pf_products_flash_success']);
+    } else {
+        $_SESSION['pf_products_flash_success'] = $message;
+        unset($_SESSION['pf_products_flash_error']);
+    }
+
+    $params = $_GET ?? [];
+    unset($params['ajax'], $params['get_archived'], $params['get_next_sku']);
+    $target = strtok($_SERVER['REQUEST_URI'] ?? 'products_management.php', '?');
+    $qs = http_build_query($params);
+    if ($qs !== '') {
+        $target .= '?' . $qs;
+    }
+    header('Location: ' . $target);
+    exit;
+}
+
+if (isset($_SESSION['pf_products_flash_success'])) {
+    $success = (string)$_SESSION['pf_products_flash_success'];
+    unset($_SESSION['pf_products_flash_success']);
+}
+if (isset($_SESSION['pf_products_flash_error'])) {
+    $error = (string)$_SESSION['pf_products_flash_error'];
+    unset($_SESSION['pf_products_flash_error']);
+}
+
 /**
  * Handle product photo upload
  * @param array $file The $_FILES array element
@@ -398,6 +431,15 @@ if ($is_manager && $mgr_branch_id > 0) {
     $lowExpr    = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
     $sqlParams[] = $mgr_branch_id;
     $sqlTypes   .= 'i';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($success !== '') {
+        printflow_products_page_redirect_with_flash($success, 'success');
+    }
+    if ($error !== '') {
+        printflow_products_page_redirect_with_flash($error, 'error');
+    }
 }
 
 $sql    = "SELECT p.*, {$stockExpr} AS eff_stock_qty, {$lowExpr} AS eff_low_stock FROM products p {$branchJoin} WHERE p.status != 'Archived'";
