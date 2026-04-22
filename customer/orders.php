@@ -550,16 +550,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="orders-theme-page min-h-screen py-8">
     <div class="container mx-auto px-4" style="max-width:1100px;">
+        <div id="orderSuccessBannerHost"></div>
         <?php if (isset($_SESSION['order_success'])):
             $order_success_msg = $_SESSION['order_success'];
             unset($_SESSION['order_success']);
         ?>
-            <div style="background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; padding: 1rem 1.5rem; border-radius: 12px; margin: 0.75rem 0 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);">
-                <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink: 0;">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-                <span><?php echo htmlspecialchars($order_success_msg); ?></span>
-            </div>
             <script>
                 window.__pfOrderSuccessMessage = <?php echo json_encode($order_success_msg); ?>;
             </script>
@@ -717,6 +712,7 @@ window.addEventListener('DOMContentLoaded', () => {
             history.scrollRestoration = 'manual';
         }
         window.scrollTo({ top: 0, behavior: 'auto' });
+        renderOrderSuccessBanner(window.__pfOrderSuccessMessage);
     }
     const params = new URLSearchParams(window.location.search);
     const highlightIdRaw = params.get('highlight');
@@ -1043,6 +1039,19 @@ function escIM(str) {
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function renderOrderSuccessBanner(message) {
+    const host = document.getElementById('orderSuccessBannerHost');
+    if (!host || !message) return;
+    host.innerHTML = `
+        <div style="background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; padding: 1rem 1.5rem; border-radius: 12px; margin: 0.75rem 0 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink: 0;">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>${escIM(message)}</span>
+        </div>
+    `;
+}
+
 async function refreshOrdersList() {
     try {
         const resp = await fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } });
@@ -1068,6 +1077,7 @@ async function refreshOrdersList() {
         const lastNotified = parseInt(localStorage.getItem('pf_last_order_notice_id') || '0', 10);
         if (orderId <= lastNotified) return;
         localStorage.setItem('pf_last_order_notice_id', String(orderId));
+        renderOrderSuccessBanner(`Order #${orderId} placed successfully! Our team will review and price your order shortly.`);
         if (typeof showToast === 'function') {
             showToast(`Order #${orderId} placed successfully! Our team will review and price your order shortly.`);
         }
@@ -1147,7 +1157,7 @@ async function refreshOrdersList() {
         });
     }
     poll();
-    window.__ordersPollingInterval = setInterval(poll, 6000);
+    window.__ordersPollingInterval = setInterval(poll, 2000);
 })();
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeItemsModal(); });
