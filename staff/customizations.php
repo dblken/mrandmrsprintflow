@@ -2418,7 +2418,7 @@ $completed_jobs = $completed_jobs_jobs + $completed_orders;
                         }
                     }
                 }
-                await this.viewDetails(this.currentJo.id, this.currentJo.order_type || 'JOB');
+                await this.refreshMaterials();
                 console.log('Price before materials check:', userEnteredPrice);
                 if ((!this.currentJo.materials || this.currentJo.materials.length === 0) && (!this.currentJo.ink_usage || this.currentJo.ink_usage.length === 0)) {
                     this.showStaffAlert('Production Required', 'Please add at least one production material or ink before submitting to pay.');
