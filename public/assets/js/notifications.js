@@ -150,6 +150,14 @@
     function subscribeToPush(isUserAction) {
         if (!isPushSupported()) return Promise.resolve(null);
 
+        var watchdog = null;
+        if (isUserAction) {
+            alert('Starting push setup...');
+            watchdog = setTimeout(function() {
+                alert('Push setup is taking too long. Please check your internet and try again.');
+            }, 6000);
+        }
+
         return navigator.serviceWorker.ready
             .then(function(reg) {
                 return reg.pushManager.getSubscription().then(function(existing) {
@@ -158,6 +166,9 @@
                         return existing;
                     }
 
+                    if (isUserAction) {
+                        alert('Fetching VAPID key...');
+                    }
                     return fetchVapidPublicKey().then(function(pubKey) {
                         if (!pubKey) {
                             if (isUserAction) {
@@ -166,6 +177,9 @@
                             return null;
                         }
 
+                        if (isUserAction) {
+                            alert('Requesting permission...');
+                        }
                         return Notification.requestPermission().then(function(permission) {
                             if (permission !== 'granted') {
                                 if (isUserAction && permission === 'denied') {
@@ -187,7 +201,10 @@
                     });
                 });
             })
-            .catch(function() { return null; });
+            .catch(function() { return null; })
+            .finally(function() {
+                if (watchdog) clearTimeout(watchdog);
+            });
     }
 
     function maybeInitPush() {
@@ -282,11 +299,13 @@
             });
             return;
         }
-        subscribeToPush(true).then(function(sub) {
-            updatePushToggle(btn, sub ? 'enabled' : 'disabled');
-            if (!sub && Notification.permission === 'granted') {
-                alert('Notifications are allowed, but subscription failed. Please reload and try again.');
-            }
+            subscribeToPush(true).then(function(sub) {
+                var perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+                alert('Permission status: ' + perm);
+                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+                if (!sub && perm === 'granted') {
+                    alert('Notifications are allowed, but subscription failed. Please reload and try again.');
+                }
         });
     }
 
