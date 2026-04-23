@@ -2559,117 +2559,7 @@ $dashData = [
             </div>
 
             <!-- ══ INVENTORY ALERTS ════════════════════════════════════════ -->
-            <?php if (!empty($low_stock)): ?>
-            <div class="ana-card print-hide">
-                <div class="ana-hd">
-                    <h3 style="color:#ef4444;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#ef4444;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Low Stock Alerts</h3>
-                    <span style="font-size:11px;color:#ef4444;"><?php echo count($low_stock); ?> item<?php echo count($low_stock)>1?'s':''; ?> need attention</span>
-                </div>
-                <div class="ana-bd ana-bd-0">
-                    <table class="rpt-tbl">
-                        <thead><tr><th>Item</th><th class="num">Stock on Hand</th><th class="num">Reorder Level</th><th style="width:100px;">Level</th></tr></thead>
-                        <tbody>
-                        <?php foreach ($low_stock as $ls):
-                            $soh = (float)$ls['soh']; $rl = (float)$ls['reorder_level'];
-                            $pct = $rl > 0 ? min(100, round($soh/$rl*100)) : 0;
-                            $cls = $soh<=0 ? 'sk-danger' : ($pct<=50?'sk-warn':'sk-good');
-                        ?>
-                        <tr>
-                            <td style="font-weight:600;"><?php echo htmlspecialchars($ls['name']); ?> <span style="font-size:11px;color:#9ca3af;"><?php echo htmlspecialchars($ls['unit']); ?></span></td>
-                            <td class="num" style="color:<?php echo $soh<=0?'#ef4444':'#d97706'; ?>;"><?php echo number_format($soh,1); ?></td>
-                            <td class="num" style="color:#6b7280;"><?php echo number_format($rl,1); ?></td>
-                            <td><div class="sk-bar"><div class="sk-fill <?php echo $cls; ?>" style="width:<?php echo max(3,$pct); ?>%;"></div></div></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <?php endif; ?>
 
-            <!-- ══ RECENT TRANSACTIONS ════════════════════════════════════ -->
-            <div class="ana-card print-page-break" id="recent-transactions">
-                <div class="ana-hd">
-                    <h3><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Recent Transactions
-                        <span style="margin-left:8px;padding:3px 8px;background:#F7FAFC;color:#4A5568;border:1px solid #E2E8F0;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">All-Time</span>
-                    </h3>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <?php
-                        $txn_base = array_merge($_GET, ['txn_page'=>1]);
-                        $tabs = [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['pending','Pending']];
-                        foreach ($tabs as [$k,$l]):
-                            $txn_base['txn_pay'] = $k;
-                            $url = '?'.http_build_query($txn_base);
-                            $act = $txn_payment_filter === $k ? 'active' : '';
-                        ?>
-                        <a href="<?php echo htmlspecialchars($url); ?>" 
-                           class="toolbar-btn <?php echo $act; ?>" 
-                           style="height:32px;font-size:12px;padding:0 12px;" 
-                           data-txn-filter="<?php echo $k; ?>" 
-                           @click.prevent="window.fetchUpdatedDashboard({ txn_pay: '<?php echo $k; ?>', txn_page: 1 })"><?php echo $l; ?></a>
-                        <?php endforeach; ?>
-                        <span style="font-size:12px;color:#6b7280;margin-left:8px;"><?php echo number_format($txn_count); ?> orders</span>
-                    </div>
-                </div>
-                <div class="ana-bd ana-bd-0">
-                    <?php if (!empty($recent_orders)): ?>
-                    <div style="overflow-x:auto;">
-                        <table class="rpt-tbl rpt-tbl-clickable">
-                            <thead><tr><th>Order #</th><th>Customer</th><th>Date</th><th class="num">Amount</th><th>Payment</th><th>Status</th></tr></thead>
-                            <tbody>
-                            <?php foreach ($recent_orders as $ro):
-                                $paymentStatus = (string)($ro['payment_status'] ?? 'Unpaid');
-                                $orderStatus = (string)($ro['status'] ?? 'Pending');
-                                $paymentKey = strtolower(trim($paymentStatus));
-                                $statusKey = strtolower(trim($orderStatus));
-                                $pb = match($paymentKey) {
-                                    'paid' => 'b-green',
-                                    'pending', 'pending verification' => 'b-amber',
-                                    'partially paid', 'partial' => 'b-orange',
-                                    'refunded' => 'b-gray',
-                                    default => 'b-red'
-                                };
-                                $sb = match($statusKey) {
-                                    'completed', 'rated' => 'b-green',
-                                    'ready for pickup', 'to receive' => 'b-teal',
-                                    'processing' => 'b-indigo',
-                                    'in production', 'printing' => 'b-cyan',
-                                    'pending', 'pending review', 'revision submitted' => 'b-yellow',
-                                    'approved', 'design approved', 'to pay' => 'b-blue',
-                                    'to verify', 'pending verification' => 'b-amber',
-                                    'downpayment submitted' => 'b-pink',
-                                    'for revision' => 'b-rose',
-                                    'cancelled', 'rejected' => 'b-red',
-                                    'to rate' => 'b-purple',
-                                    default => 'b-gray'
-                                };
-                                $orderUrl = $base_path . '/admin/orders_management.php?open_order=' . (int)$ro['order_id'];
-                            ?>
-                            <tr onclick="window.location.href='<?php echo htmlspecialchars($orderUrl); ?>'" style="cursor:pointer;">
-                                <td style="font-weight:700;color:#00232b;">#<?php echo $ro['order_id']; ?></td>
-                                <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name']); ?></td>
-                                <td style="color:#6b7280;white-space:nowrap;"><?php echo date('M d, Y',strtotime($ro['order_date'])); ?></td>
-                                <td class="num">
-                                    <a href="<?php echo htmlspecialchars($orderUrl); ?>"
-                                       onclick="event.stopPropagation();"
-                                       title="Open Order #<?php echo (int)$ro['order_id']; ?>"
-                                       style="color:#00232b;font-weight:800;text-decoration:none;">
-                                        ₱<?php echo number_format((float)$ro['total_amount'],2); ?>
-                                    </a>
-                                </td>
-                                <td><span class="badge <?php echo $pb; ?>"><?php echo htmlspecialchars($paymentStatus); ?></span></td>
-                                <td><span class="badge <?php echo $sb; ?>"><?php echo htmlspecialchars($orderStatus); ?></span></td>
-                            </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php echo render_pagination($txn_page, $txn_pages, array_filter(['from'=>$from,'to'=>$to,'txn_pay'=>$txn_payment_filter,'branch_id'=>$branchId !== 'all' ? $branchId : null,'chart_sort'=>$chart_sort,'trend_metric'=>$trend_metric,'heatmap_year'=>$heatmap_year]), 'txn_page'); ?>
-                    <?php else: ?>
-                    <div class="ch-empty">No transactions for this period</div>
-                    <?php endif; ?>
-                </div>
-            </div>
 
             <?php endif; /* gaBranchEmpty */ ?>
 
@@ -2818,27 +2708,6 @@ if (document.readyState === 'loading') {
 }
 document.addEventListener('printflow:page-init', printflowInitReportsPage);
 
-// Handle transaction filter clicks without page reload
-document.addEventListener('click', function(e) {
-    const filterBtn = e.target.closest('[data-txn-filter]');
-    if (filterBtn) {
-        e.preventDefault();
-        // Save that we need to scroll to transactions section
-        sessionStorage.setItem('scrollToTransactions', 'true');
-        window.location.href = filterBtn.href;
-    }
-});
-
-// Scroll to Recent Transactions section after page loads
-if (sessionStorage.getItem('scrollToTransactions')) {
-    sessionStorage.removeItem('scrollToTransactions');
-    window.addEventListener('load', function() {
-        const transactionsSection = document.getElementById('recent-transactions');
-        if (transactionsSection) {
-            transactionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    });
-}
 </script>
 
 <?php include __DIR__ . '/../includes/reports_analytics_scripts.php'; ?>
