@@ -480,10 +480,7 @@ foreach ($service_rows as $row) {
             <div class="card overflow-visible pf-customizations-table-card">
                 <div class="toolbar-container">
                     <div class="toolbar-group toolbar-group--title" style="margin-right:auto;">
-                        <div style="display:flex;flex-direction:column;gap:2px;">
-                            <div style="font-size:16px;font-weight:800;color:#111827;letter-spacing:0.01em;">Customization List</div>
-                            <div style="font-size:12px;color:#6b7280;">Live queue of all customization jobs and store-order custom work</div>
-                        </div>
+                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;white-space:nowrap;">Customization List</h3>
                     </div>
                     <div class="toolbar-group toolbar-group--actions">
     
