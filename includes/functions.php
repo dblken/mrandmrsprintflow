@@ -1074,6 +1074,11 @@ function printflow_format_customization_code($customization_id): string {
 /**
  * Resolve the visible reference label used for job-linked inventory entries.
  *
+ * Priority:
+ * 1. Store order code (e.g. MER-0001-2501) when the job is linked to an order with product SKU(s)
+ * 2. Customization code when the job is linked to a customization-only flow
+ * 3. Raw job code fallback
+ *
  * @return array{type:string,id:int,code:string,label:string}
  */
 function printflow_get_job_inventory_reference(int $job_id): array {
@@ -1084,18 +1089,30 @@ function printflow_get_job_inventory_reference(int $job_id): array {
 
     $row = db_query(
         "SELECT jo.id,
+                jo.order_id,
+                GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') AS order_sku,
                 cust_map.customization_id
          FROM job_orders jo
+         LEFT JOIN order_items oi ON oi.order_id = jo.order_id
+         LEFT JOIN products p ON oi.product_id = p.product_id
          LEFT JOIN (
             SELECT order_id, MIN(customization_id) AS customization_id
             FROM customizations
             GROUP BY order_id
          ) cust_map ON cust_map.order_id = jo.order_id
          WHERE jo.id = ?
+         GROUP BY jo.id, jo.order_id, cust_map.customization_id
          LIMIT 1",
         'i',
         [$job_id]
     );
+
+    $order_id = (int)($row[0]['order_id'] ?? 0);
+    $order_sku = trim((string)($row[0]['order_sku'] ?? ''));
+    if ($order_id > 0 && $order_sku !== '') {
+        $code = printflow_format_order_code($order_id, $order_sku);
+        return ['type' => 'order', 'id' => $order_id, 'code' => $code, 'label' => 'Order #' . $code];
+    }
 
     $customization_id = (int)($row[0]['customization_id'] ?? 0);
     if ($customization_id > 0) {
@@ -1113,7 +1130,10 @@ function printflow_format_inventory_reference_note(string $notes, string $refere
         return $notes;
     }
 
-    return (string)preg_replace('/\bJob\s*#\d+\b/i', $referenceLabel, $notes);
+    $notes = (string)preg_replace('/\bJob\s*#(?:JO-)?\d+\b/i', $referenceLabel, $notes);
+    $notes = (string)preg_replace('/\bCustomization\s*#(?:CUST-)?\d+\b/i', $referenceLabel, $notes);
+    $notes = (string)preg_replace('/\bOrder\s*#(?:ORD-)?[A-Z0-9-]+\b/i', $referenceLabel, $notes);
+    return $notes;
 }
 
 /**
