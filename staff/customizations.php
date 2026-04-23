@@ -1340,8 +1340,14 @@ window.pfCustomizationPreloadedOrders = (() => {
 })();
 </script>
 <script>
-    document.addEventListener('alpine:init', function () {
-        Alpine.data('joManager', function (defaultStatus) {
+    (function registerStaffCustomizationManager() {
+        let registered = false;
+
+        function boot() {
+            if (registered || typeof Alpine === 'undefined') return;
+            registered = true;
+
+            Alpine.data('joManager', function (defaultStatus) {
             defaultStatus = defaultStatus || 'ALL';
             return {
             ...printflowStaffServiceOrderModalMixin({
@@ -3077,8 +3083,15 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
             }
         };
-        });
-    });
+            });
+        }
+
+        if (typeof Alpine !== 'undefined') {
+            boot();
+        } else {
+            document.addEventListener('alpine:init', boot, { once: true });
+        }
+    })();
     /*
      * Do NOT call Alpine.initTree here when document.readyState !== 'loading' (Turbo body swap).
      * Inline scripts run before turbo:load's setTimeout; initTree(root) + initTree(.main-content) double-mounts x-for (tripled tabs, zero counts).
