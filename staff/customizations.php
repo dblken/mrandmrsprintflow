@@ -99,6 +99,7 @@ $job_rows = db_query(
             jo.quantity,
             jo.status,
             jo.created_at,
+            jo.updated_at,
             jo.due_date,
             c.first_name,
             c.last_name,
@@ -150,6 +151,7 @@ $order_rows = db_query(
                 ELSE o.status
             END AS status,
             o.order_date AS created_at,
+            o.updated_at,
             o.total_amount AS estimated_total,
             COALESCE(o.order_source, 'customer') AS order_source
      FROM orders o
@@ -205,6 +207,7 @@ $customization_rows = db_query(
                 ELSE 'PENDING'
             END AS status,
             cust.created_at,
+            cust.updated_at,
             'pos' AS order_source
      FROM customizations cust
      LEFT JOIN customers c ON cust.customer_id = c.customer_id
@@ -244,6 +247,7 @@ $service_rows = db_query(
                 ELSE 'PENDING'
             END AS status,
             so.created_at,
+            so.updated_at,
             'customer' AS order_source
      FROM service_orders so
      LEFT JOIN customers c ON so.customer_id = c.customer_id
@@ -734,7 +738,7 @@ foreach ($service_rows as $row) {
 
 <!-- Customization Details Modal — matching customers_management.php style -->
 <div x-show="showDetailsModal" x-cloak>
-    <div class="modal-overlay" @click.self="showDetailsModal = false">
+    <div class="modal-overlay" @click.self="closeDetailsModal()">
         <div class="modal-panel" @click.stop>
 
             <!-- Loading State -->
@@ -752,7 +756,7 @@ foreach ($service_rows as $row) {
                         <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;" x-text="'Customization #' + currentJo.id"></h3>
                         <p style="font-size:12px;color:#6b7280;margin:2px 0 0;" x-text="getCorrectServiceType(currentJo)"></p>
                     </div>
-                    <button @click="showDetailsModal = false" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
+                    <button @click="closeDetailsModal()" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
@@ -1194,7 +1198,7 @@ foreach ($service_rows as $row) {
                         </div>
                     </div>
                     <!-- Right: Close -->
-                    <button @click="showDetailsModal = false" class="btn-secondary">Close</button>
+                    <button @click="closeDetailsModal()" class="btn-secondary">Close</button>
                 </div>
             </div>
         </div>
@@ -1360,7 +1364,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             orders: Array.isArray(window.pfCustomizationPreloadedOrders)
                 ? window.pfCustomizationPreloadedOrders.map(o => ({
                     ...o,
-                    _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                    _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                 }))
                 : [],
             sortOrder: 'newest',
@@ -1597,10 +1601,23 @@ window.pfCustomizationPreloadedOrders = (() => {
                 this.alertModal.show = false;
                 if (typeof cb === 'function') cb();
             },
+            clearDeepLinkParams() {
+                try {
+                    const url = new URL(window.location.href);
+                    ['order_id', 'status', 'job_type'].forEach(key => url.searchParams.delete(key));
+                    window.history.replaceState({}, document.title, url.toString());
+                } catch (e) {
+                    console.warn('Unable to clear customization deep-link params', e);
+                }
+            },
+            closeDetailsModal() {
+                this.showDetailsModal = false;
+                this.clearDeepLinkParams();
+            },
             beginModalAction() {
                 if (this.actionBusy) return false;
                 this.actionBusy = true;
-                this.showDetailsModal = false;
+                this.closeDetailsModal();
                 return true;
             },
             endModalAction() {
@@ -1852,6 +1869,9 @@ window.pfCustomizationPreloadedOrders = (() => {
             async init() {
                 this.$watch('search', () => { this.currentPage = 1; });
                 this.$watch('activeStatus', () => { this.currentPage = 1; });
+                this.$watch('showDetailsModal', (isOpen) => {
+                    if (!isOpen) this.clearDeepLinkParams();
+                });
                 await this.loadOrders();
                 await this.loadMachines();
                 await this.loadAllInventoryItems();
@@ -1904,6 +1924,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (orderId) {
                     const jobType = params.get('job_type') || 'JOB';
                     await this.viewDetails(parseInt(orderId, 10), jobType);
+                    this.clearDeepLinkParams();
                 }
             },
 
@@ -1923,8 +1944,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                     // Merge then sort newest first
                     const combined = [...jobOrders, ...regularOrders];
                     const sorted = combined.sort((a, b) => {
-                        const ta = new Date(a.created_at || a.order_date || 0).getTime();
-                        const tb = new Date(b.created_at || b.order_date || 0).getTime();
+                        const ta = new Date(a.updated_at || a.created_at || a.order_date || 0).getTime();
+                        const tb = new Date(b.updated_at || b.created_at || b.order_date || 0).getTime();
                         return tb - ta;
                     });
 
@@ -1961,13 +1982,13 @@ window.pfCustomizationPreloadedOrders = (() => {
                         })
                         .map(o => ({
                             ...o,
-                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
 
                     if (this.orders.length === 0 && Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
                         this.orders = window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
-                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
                     }
                 } catch(err) {
@@ -1975,7 +1996,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     this.orders = Array.isArray(window.pfCustomizationPreloadedOrders)
                         ? window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
-                            _ts: new Date(o.created_at || o.order_date || 0).getTime()
+                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }))
                         : [];
                 }
@@ -3071,8 +3092,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             async completeOrder(machineId = null) {
                 if (!this.beginModalAction()) return;
                 try {
-                    const jid = await this.resolveEffectiveJobId();
-                    if (!jid && this.currentJo.order_type === 'ORDER') {
+                    if (this.currentJo.order_type === 'ORDER') {
                         const orderId = this.currentJo.order_id || this.currentJo.id;
                         if (!orderId) {
                             this.showStaffAlert('Error', 'No linked order found for this entry.');
@@ -3100,6 +3120,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         return;
                     }
 
+                    const jid = await this.resolveEffectiveJobId();
                     if (!jid) {
                         this.showStaffAlert('Error', 'No linked production job for this entry.');
                         return;

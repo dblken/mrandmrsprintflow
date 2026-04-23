@@ -266,6 +266,7 @@ try {
                         'NO' as payment_status,
                         '' as materials,
                         o.order_date as created_at,
+                        o.updated_at,
                         o.order_date,
                         NULL as due_date,
                         NULL as priority,
@@ -363,6 +364,7 @@ try {
                     'NO' AS payment_status,
                     '' AS materials,
                     cust.created_at AS created_at,
+                    cust.updated_at AS updated_at,
                     cust.created_at AS order_date,
                     NULL AS due_date,
                     NULL AS priority,
@@ -417,6 +419,7 @@ try {
                     'NO' AS payment_status,
                     '' AS materials,
                     so.created_at AS created_at,
+                    so.updated_at AS updated_at,
                     so.created_at AS order_date,
                     NULL AS due_date,
                     NULL AS priority,
@@ -436,8 +439,8 @@ try {
 
             $merged = array_merge($pending_orders, $custom_orders, $svc_orders);
             usort($merged, function ($a, $b) {
-                $ta = strtotime($a['created_at'] ?? $a['order_date'] ?? 'now');
-                $tb = strtotime($b['created_at'] ?? $b['order_date'] ?? 'now');
+                $ta = strtotime($a['updated_at'] ?? $a['created_at'] ?? $a['order_date'] ?? 'now');
+                $tb = strtotime($b['updated_at'] ?? $b['created_at'] ?? $b['order_date'] ?? 'now');
                 return $tb <=> $ta;
             });
 
