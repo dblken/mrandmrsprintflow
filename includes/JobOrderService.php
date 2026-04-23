@@ -11,6 +11,24 @@ require_once __DIR__ . '/RollService.php';
 require_once __DIR__ . '/NotificationService.php';
 
 class JobOrderService {
+    private static array $columnExistsCache = [];
+
+    private static function tableHasColumn(string $table, string $column): bool {
+        $cacheKey = $table . '.' . $column;
+        if (array_key_exists($cacheKey, self::$columnExistsCache)) {
+            return self::$columnExistsCache[$cacheKey];
+        }
+
+        $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+        $safeColumn = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+        if ($safeTable === '' || $safeColumn === '') {
+            return self::$columnExistsCache[$cacheKey] = false;
+        }
+
+        $rows = db_query("SHOW COLUMNS FROM `{$safeTable}` LIKE ?", 's', [$safeColumn]) ?: [];
+        return self::$columnExistsCache[$cacheKey] = !empty($rows);
+    }
+
     private static function resolveBranchIdForOrderData(array $orderData): ?int {
         $branchId = (int)($orderData['branch_id'] ?? 0);
         if ($branchId > 0) {
@@ -64,7 +82,7 @@ class JobOrderService {
         $params = [$jobId];
         $types = 'i';
 
-        if ($storeOrderId > 0) {
+        if ($storeOrderId > 0 && self::tableHasColumn('job_order_materials', 'std_order_id')) {
             $sql .= " OR (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))";
             $params[] = $storeOrderId;
             $types .= 'i';
@@ -87,7 +105,7 @@ class JobOrderService {
         $params = [$jobId];
         $types = 'i';
 
-        if ($storeOrderId > 0) {
+        if ($storeOrderId > 0 && self::tableHasColumn('job_order_ink_usage', 'std_order_id')) {
             $sql .= " OR (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))";
             $params[] = $storeOrderId;
             $types .= 'i';
@@ -341,7 +359,15 @@ class JobOrderService {
 
         $metaJson = $metadata ? json_encode($metadata) : null;
 
-        $colId = ($orderType === 'ORDER') ? 'std_order_id' : 'job_order_id';
+        $colId = 'job_order_id';
+        if ($orderType === 'ORDER' && self::tableHasColumn('job_order_materials', 'std_order_id')) {
+            $colId = 'std_order_id';
+        } elseif ($orderType === 'ORDER') {
+            $resolvedJobId = self::ensureJobsForStoreOrder((int)$orderId);
+            if ($resolvedJobId) {
+                $orderId = $resolvedJobId;
+            }
+        }
 
         // Check for duplicates
         if ($rollId) {
@@ -835,9 +861,11 @@ class JobOrderService {
         $materialParams = [$id];
         $materialTypes = 'i';
         if ($storeOrderId > 0) {
-            $materialSql .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
-            $materialParams[] = $storeOrderId;
-            $materialTypes .= 'i';
+            if (self::tableHasColumn('job_order_materials', 'std_order_id')) {
+                $materialSql .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+                $materialParams[] = $storeOrderId;
+                $materialTypes .= 'i';
+            }
         }
         $materialSql .= ")";
         $order['materials'] = db_query($materialSql, $materialTypes, $materialParams) ?: [];
@@ -859,9 +887,11 @@ class JobOrderService {
         $inkParams = [$id];
         $inkTypes = 'i';
         if ($storeOrderId > 0) {
-            $inkSql .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
-            $inkParams[] = $storeOrderId;
-            $inkTypes .= 'i';
+            if (self::tableHasColumn('job_order_ink_usage', 'std_order_id')) {
+                $inkSql .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+                $inkParams[] = $storeOrderId;
+                $inkTypes .= 'i';
+            }
         }
         $inkSql .= ")";
         $order['ink_usage'] = db_query($inkSql, $inkTypes, $inkParams) ?: [];
@@ -928,7 +958,15 @@ class JobOrderService {
             $orderType = (!empty($isJob)) ? 'JOB' : 'ORDER';
         }
 
-        $colId = ($orderType === 'ORDER') ? 'std_order_id' : 'job_order_id';
+        $colId = 'job_order_id';
+        if ($orderType === 'ORDER' && self::tableHasColumn('job_order_ink_usage', 'std_order_id')) {
+            $colId = 'std_order_id';
+        } elseif ($orderType === 'ORDER') {
+            $resolvedJobId = self::ensureJobsForStoreOrder((int)$orderId);
+            if ($resolvedJobId) {
+                $orderId = $resolvedJobId;
+            }
+        }
 
         $conn->begin_transaction();
         try {

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 header('Content-Type: application/json');
 
@@ -99,14 +100,19 @@ foreach ($items as $item) {
 $service_name = printflow_resolve_order_item_name($items_out[0]['product_name'] ?? 'Standard Order', $first_custom, 'Standard Order');
 $transaction_count = (int)($o['transaction_count'] ?? 0);
 
-$materials = db_query(
-    "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code
-     FROM job_order_materials m 
-     JOIN inv_items i ON m.item_id = i.id 
-     LEFT JOIN inv_rolls r ON m.roll_id = r.id 
-     WHERE m.std_order_id = ?", 
-    'i', [$order_id]
-) ?: [];
+$linked_job_id = JobOrderService::ensureJobsForStoreOrder($order_id);
+
+$materials = [];
+if ($linked_job_id) {
+    $materials = db_query(
+        "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code
+         FROM job_order_materials m 
+         JOIN inv_items i ON m.item_id = i.id 
+         LEFT JOIN inv_rolls r ON m.roll_id = r.id 
+         WHERE m.job_order_id = ?",
+        'i', [$linked_job_id]
+    ) ?: [];
+}
 
 // Parse JSON metadata for each material
 foreach ($materials as &$m) {
@@ -114,13 +120,16 @@ foreach ($materials as &$m) {
 }
 unset($m);
 
-$ink_usage = db_query(
-    "SELECT u.*, i.name as item_name
-     FROM job_order_ink_usage u
-     JOIN inv_items i ON u.item_id = i.id
-     WHERE std_order_id = ?",
-     'i', [$order_id]
-) ?: [];
+$ink_usage = [];
+if ($linked_job_id) {
+    $ink_usage = db_query(
+        "SELECT u.*, i.name as item_name
+         FROM job_order_ink_usage u
+         JOIN inv_items i ON u.item_id = i.id
+         WHERE u.job_order_id = ?",
+         'i', [$linked_job_id]
+    ) ?: [];
+}
 
 $data = [
     'id'                   => $o['order_id'],
