@@ -350,6 +350,15 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .dash-card-title { font-size:15px; font-weight:700; color:#1f2937; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
         .dash-card-title svg { width:18px; height:18px; color:#53C5E0; }
 
+        /* Reports-style analytics card */
+        .ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:box-shadow .2s; display:flex; flex-direction:column; padding:0; }
+        .ana-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .ana-hd { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; flex-shrink:0; }
+        .ana-hd h3 { margin:0; font-size:14px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+        .ana-hd h3 svg { width:16px; height:16px; color:#53C5E0; flex-shrink:0; }
+        .ana-bd { padding:20px; flex:1; display:flex; flex-direction:column; min-height:0; }
+        .ch-box { width:100%; position:relative; }
+
         /* Full width card */
         .dash-full { grid-column: 1 / -1; }
 
@@ -375,6 +384,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         .chart-filters { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; flex-shrink:0; }
         .chart-filter-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
         .chart-filter-group { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+        .chart-badge { margin-left:8px; padding:3px 8px; background:#EBF8FF; color:#2C5282; border-radius:6px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
         .period-tab { padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid #e5e7eb; background:#f9fafb; color:#6b7280; cursor:pointer; transition:all .15s; }
         .period-tab:hover { border-color:#53C5E0; color:#00232b; }
         .period-tab.active { background:#00232b; border-color:#00232b; color:#fff; }
@@ -702,12 +712,13 @@ $page_title = 'Dashboard - Admin | PrintFlow';
             </div>
 
             <!-- Sales Revenue (Full Width) -->
-            <div class="dash-card dash-full" style="margin-bottom:28px;">
-                    <div class="dash-card-title chart-header-row" style="margin-bottom:20px;">
-                        <span class="chart-title-nowrap">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#53C5E0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            <div class="ana-card dash-full" style="margin-bottom:28px;">
+                    <div class="ana-hd chart-header-row" style="margin-bottom:0;">
+                        <h3 class="chart-title-nowrap">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                             Sales Revenue
-                        </span>
+                            <span class="chart-badge">Live Period</span>
+                        </h3>
                         <div class="chart-filters">
                         <label class="chart-filter-label">Period</label>
                         <select id="dash-chart-period" class="chart-select">
@@ -731,7 +742,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         </span>
                         </div>
                     </div>
-                    <div class="chart-wrap" id="dash-sales-chart-wrap">
+                    <div class="ana-bd">
+                    <div class="chart-wrap ch-box" id="dash-sales-chart-wrap" style="height:320px;">
                         <div class="chart-loading" id="dash-sales-loading">
                             <div class="chart-loading-spinner"></div>
                         </div>
@@ -739,7 +751,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                             <span>No sales data for this period</span>
                         </div>
-                        <div class="pf-wide-chart-canvas"><canvas id="salesChart"></canvas></div>
+                        <div class="pf-wide-chart-canvas"><canvas id="dashSalesChart"></canvas></div>
+                    </div>
                     </div>
                 </div>
 
@@ -1072,7 +1085,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
     };
     window.printflowInitDashboardCharts = function () {
-        if (!document.getElementById('salesChart')) return;
+        if (!document.getElementById('dashSalesChart')) return;
 
         printflowInitDashboardKPIs();
 
@@ -1213,11 +1226,11 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
         bindWhenVisible(document.getElementById('dash-sales-chart-wrap'), function () {
             salesFirstFetch = true;
-            window.__pfDashSalesChart = new Chart(document.getElementById('salesChart').getContext('2d'), {
+            window.__pfDashSalesChart = new Chart(document.getElementById('dashSalesChart').getContext('2d'), {
                 type: 'line',
                 data: { labels: [], datasets: [
                     {
-                        label: 'Store',
+                        label: 'Store Revenue (₱)',
                         data: [],
                         borderColor: '#00232b',
                         backgroundColor: 'rgba(0,35,43,.08)',
@@ -1230,7 +1243,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         yAxisID: 'y'
                     },
                     {
-                        label: 'Custom',
+                        label: 'Customization Revenue (₱)',
                         data: [],
                         borderColor: '#6366F1',
                         backgroundColor: 'transparent',
@@ -1243,7 +1256,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         yAxisID: 'y'
                     },
                     {
-                        label: 'Orders',
+                        label: 'Orders (total)',
                         data: [],
                         borderColor: '#53C5E0',
                         backgroundColor: 'transparent',
@@ -1273,7 +1286,21 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                                 font: { size: isDashMobile() ? 10 : 11, weight: 600 }
                             }
                         },
-                        tooltip: { animation: { duration: 180 }, padding: 10, cornerRadius: 8, displayColors: true }
+                        tooltip: {
+                            animation: { duration: 180 },
+                            padding: 10,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                label: function (ctx) {
+                                    var label = ctx.dataset.label || '';
+                                    if (label.indexOf('Orders') !== -1) {
+                                        return label + ': ' + Math.round(ctx.parsed.y);
+                                    }
+                                    return label + ': ₱' + Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                                }
+                            }
+                        }
                     },
                     scales: {
                         y:  { beginAtZero: true, ticks: { font: { size: isDashMobile() ? 10 : 11 }, maxTicksLimit: isDashMobile() ? 5 : 7, callback: dashMoneyTick }, grid: { color: '#f3f4f6' } },
