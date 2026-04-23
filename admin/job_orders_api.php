@@ -14,14 +14,10 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 
 if (!is_logged_in()) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
+    jo_api_json_response(['success' => false, 'error' => 'Unauthorized'], 401);
 }
 if (!has_role(['Admin', 'Manager', 'Staff', 'Customer'])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Forbidden']);
-    exit;
+    jo_api_json_response(['success' => false, 'error' => 'Forbidden'], 403);
 }
 
 // Clear any buffered output from includes
@@ -31,6 +27,20 @@ ob_end_clean();
 ob_start();
 
 header('Content-Type: application/json');
+
+function jo_api_json_response(array $payload, int $statusCode = 200): never {
+    http_response_code($statusCode);
+    $json = json_encode(
+        $payload,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+    if ($json === false) {
+        http_response_code(500);
+        $json = '{"success":false,"error":"Failed to encode JSON response."}';
+    }
+    echo $json;
+    exit;
+}
 
 /** Staff / Manager only see/manage job orders for their assigned branch. */
 $joStaffBranch = null;
@@ -227,11 +237,11 @@ try {
                 ];
             }
             
-            echo json_encode($response);
+            jo_api_json_response($response);
             break;
 
         case 'resolve_job_for_order':
-            if (!in_array(get_user_type() ?? '', ['Admin', 'Staff'], true)) {
+            if (!in_array(get_user_type() ?? '', ['Admin', 'Staff', 'Manager'], true)) {
                 throw new Exception('Unauthorized');
             }
             $orderId = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
@@ -248,7 +258,7 @@ try {
                 $created = JobOrderService::ensureJobsForStoreOrder($orderId);
                 $jobId = $created !== null ? $created : null;
             }
-            echo json_encode(['success' => true, 'job_id' => $jobId !== null ? (int)$jobId : null]);
+            jo_api_json_response(['success' => true, 'job_id' => $jobId !== null ? (int)$jobId : null]);
             break;
 
         case 'list_pending_orders':
@@ -467,12 +477,12 @@ try {
                 return $tb <=> $ta;
             });
 
-            echo json_encode(['success' => true, 'data' => $merged]);
+            jo_api_json_response(['success' => true, 'data' => $merged]);
             break;
 
         case 'list_machines':
             $machines = db_query("SELECT * FROM machines WHERE status = 'ACTIVE'") ?: [];
-            echo json_encode(['success' => true, 'data' => $machines]);
+            jo_api_json_response(['success' => true, 'data' => $machines]);
             break;
 
         case 'get_order':
@@ -481,7 +491,7 @@ try {
             $order = JobOrderService::getOrder($id);
             if (!$order) throw new Exception("Order not found.");
             $order['readiness'] = JobOrderService::getMaterialReadiness($id);
-            echo json_encode(['success' => true, 'data' => $order]);
+            jo_api_json_response(['success' => true, 'data' => $order]);
             break;
 
         case 'update_customization':
@@ -584,7 +594,7 @@ try {
                 }
             }
 
-            echo json_encode(['success' => true]);
+            jo_api_json_response(['success' => true]);
             break;
 
         case 'get_customization':
@@ -701,7 +711,7 @@ try {
                 'customization_details'    => $details,
             ];
 
-            echo json_encode(['success' => true, 'data' => $data]);
+            jo_api_json_response(['success' => true, 'data' => $data]);
             break;
 
         case 'get_regular_order':
@@ -830,7 +840,7 @@ try {
                 'materials'            => $linked_job_materials,
                 'ink_usage'            => $linked_job_ink_usage,
             ];
-            echo json_encode(['success' => true, 'data' => $data]);
+            jo_api_json_response(['success' => true, 'data' => $data]);
             break;
 
         case 'update_status':
@@ -852,7 +862,7 @@ try {
             }
             
             $res = JobOrderService::updateStatus($id, $status, $machineId, $reason);
-            echo json_encode(['success' => $res]);
+            jo_api_json_response(['success' => $res]);
             break;
 
         case 'update_order_price':
@@ -864,7 +874,7 @@ try {
             }
             $sql = "UPDATE orders SET total_amount = ? WHERE order_id = ?";
             $res = db_execute($sql, 'di', [$price, $order_id]);
-            echo json_encode(['success' => $res]);
+            jo_api_json_response(['success' => $res]);
             break;
 
         case 'create_order':
@@ -929,7 +939,7 @@ try {
                 db_execute('UPDATE job_orders SET branch_id = ? WHERE id = ?', 'ii', [$joStaffBranch, (int)$orderId]);
             }
             
-            echo json_encode(['success' => true, 'id' => $orderId]);
+            jo_api_json_response(['success' => true, 'id' => $orderId]);
             break;
 
         case 'assign_roll':
@@ -940,7 +950,7 @@ try {
             jo_api_require_staff_branch($joStaffBranch, (int)($jomRow[0]['job_order_id'] ?? 0));
             
             $res = JobOrderService::assignRoll($jomId, $rollId);
-            echo json_encode(['success' => $res]);
+            jo_api_json_response(['success' => $res]);
             break;
 
         case 'set_price':
@@ -955,7 +965,7 @@ try {
             if (!empty($job) && !empty($job[0]['order_id'])) {
                 db_execute("UPDATE orders SET total_amount = ? WHERE order_id = ?", 'di', [$price, $job[0]['order_id']]);
             }
-            echo json_encode(['success' => (bool)$res]);
+            jo_api_json_response(['success' => (bool)$res]);
             break;
 
         case 'add_material':
@@ -971,7 +981,7 @@ try {
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
             jo_api_require_staff_branch($joStaffBranch, $orderId);
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata, $orderType);
-            echo json_encode(['success' => true, 'id' => $res]);
+            jo_api_json_response(['success' => true, 'id' => $res]);
             break;
 
         case 'save_ink_usage':
@@ -981,7 +991,7 @@ try {
             
             if (!$orderId) throw new Exception("Order ID required.");
             $res = JobOrderService::saveInkUsage($orderId, $inkData, $orderType);
-            echo json_encode(['success' => true]);
+            jo_api_json_response(['success' => true]);
             break;
 
         case 'preview_impact':
@@ -991,7 +1001,7 @@ try {
             $height = (float)($_GET['height'] ?? 0);
             
             $res = JobOrderService::previewImpact($itemId, $rollId, $qty, $height);
-            echo json_encode(['success' => true, 'data' => $res]);
+            jo_api_json_response(['success' => true, 'data' => $res]);
             break;
 
         case 'remove_material':
@@ -1000,7 +1010,7 @@ try {
             $jomRow = db_query('SELECT job_order_id FROM job_order_materials WHERE id = ?', 'i', [$jomId]);
             jo_api_require_staff_branch($joStaffBranch, (int)($jomRow[0]['job_order_id'] ?? 0));
             $res = JobOrderService::removeMaterial($jomId);
-            echo json_encode(['success' => $res]);
+            jo_api_json_response(['success' => $res]);
             break;
 
         default:
@@ -1009,7 +1019,7 @@ try {
 } catch (Throwable $e) {
     ob_clean(); // Clear any partial output
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    jo_api_json_response(['success' => false, 'error' => $e->getMessage()], 400);
 }
 
 // Flush clean JSON output
