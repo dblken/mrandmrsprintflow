@@ -379,6 +379,9 @@ $page_title = 'Dashboard - Admin | PrintFlow';
 
         /* Period dropdown (legacy tab class removed) */
         .chart-select { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-weight:600; background:#fff; color:#374151; width:auto; min-width:4em; max-width:100%; }
+        .chart-select-period { min-width:160px; }
+        .chart-select-month { min-width:92px; }
+        .chart-select-year { min-width:88px; }
         .chart-header-row { justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:12px; margin-bottom:14px; }
         .chart-title-nowrap { white-space:nowrap; flex-shrink:0; display:flex; align-items:center; gap:8px; }
         .chart-filters { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; flex-shrink:0; }
@@ -563,6 +566,18 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                 width:auto;
                 max-width:130px;
             }
+            .chart-select-period {
+                min-width:136px;
+                max-width:160px;
+            }
+            .chart-select-month {
+                min-width:88px;
+                max-width:96px;
+            }
+            .chart-select-year {
+                min-width:84px;
+                max-width:92px;
+            }
             .chart-wrap {
                 height:330px !important;
                 padding:10px 0 2px;
@@ -721,7 +736,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                         </h3>
                         <div class="chart-filters">
                         <label class="chart-filter-label">Period</label>
-                        <select id="dash-chart-period" class="chart-select">
+                        <select id="dash-chart-period" class="chart-select chart-select-period">
                             <option value="today">Today</option>
                             <option value="weekly">Weekly</option>
                             <option value="monthly" selected>Monthly</option>
@@ -729,12 +744,12 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             <option value="yearly">Yearly</option>
                         </select>
                         <span id="dash-year-month" class="chart-filter-group">
-                            <select id="dash-chart-month" class="chart-select" style="display:none;" title="Month">
+                            <select id="dash-chart-month" class="chart-select chart-select-month" style="display:none;" title="Month">
                                 <?php foreach (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $i => $m): ?>
                                 <option value="<?php echo $i+1; ?>" <?php echo ($i+1)==date('n')?'selected':''; ?>><?php echo $m; ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <select id="dash-chart-year" class="chart-select" title="Year">
+                            <select id="dash-chart-year" class="chart-select chart-select-year" title="Year">
                                 <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
                                 <option value="<?php echo $y; ?>" <?php echo $y==date('Y')?'selected':''; ?>><?php echo $y; ?></option>
                                 <?php endfor; ?>
@@ -1278,12 +1293,13 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     plugins: {
                         legend: {
                             display: true,
-                            position: isDashMobile() ? 'bottom' : 'top',
+                            position: 'top',
                             labels: {
-                                boxWidth: isDashMobile() ? 8 : 12,
+                                boxWidth: 12,
                                 usePointStyle: true,
-                                padding: isDashMobile() ? 12 : 16,
-                                font: { size: isDashMobile() ? 10 : 11, weight: 600 }
+                                padding: 16,
+                                color: '#374151',
+                                font: { size: 11, weight: 600 }
                             }
                         },
                         tooltip: {
