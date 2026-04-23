@@ -3072,6 +3072,34 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (!this.beginModalAction()) return;
                 try {
                     const jid = await this.resolveEffectiveJobId();
+                    if (!jid && this.currentJo.order_type === 'ORDER') {
+                        const orderId = this.currentJo.order_id || this.currentJo.id;
+                        if (!orderId) {
+                            this.showStaffAlert('Error', 'No linked order found for this entry.');
+                            return;
+                        }
+
+                        const fd = new FormData();
+                        fd.append('order_id', orderId);
+                        fd.append('status', 'Completed');
+                        fd.append('csrf_token', document.body.getAttribute('data-csrf') || '');
+
+                        const res = await this.parseJsonResponse(
+                            await fetch(this.staffApiUrl('update_order_status_process.php'), {
+                                method: 'POST',
+                                body: fd
+                            })
+                        );
+
+                        if (res.success) {
+                            await this.loadOrders();
+                            this.showStaffAlert('Success', 'Order marked as completed.');
+                        } else {
+                            this.showStaffAlert('Error', res.error || 'Failed to mark order as completed.');
+                        }
+                        return;
+                    }
+
                     if (!jid) {
                         this.showStaffAlert('Error', 'No linked production job for this entry.');
                         return;
