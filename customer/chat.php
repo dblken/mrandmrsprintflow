@@ -47,10 +47,22 @@ require_once __DIR__ . '/../includes/header.php';
     #chat-root {
         display: grid;
         grid-template-columns: 350px 1fr;
-        height: calc(100vh - 65px);
+        height: 100%;
         overflow: hidden;
         background: var(--pf-navy);
         font-family: 'Inter', sans-serif;
+        border: 1px solid var(--pf-border);
+        border-radius: 24px;
+        box-shadow: 0 20px 45px rgba(15,23,42,0.08);
+    }
+
+    .chat-shell {
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.25rem 1rem;
+        height: calc(100vh - 65px);
+        box-sizing: border-box;
     }
 
     /* ── Sidebar ── */
@@ -90,6 +102,13 @@ require_once __DIR__ . '/../includes/header.php';
     .cs-header-meta { font-size:.75rem; color:var(--pf-dim); font-weight:700; opacity:.9; margin:0; }
 
     .cs-h-actions { display: flex; gap: 8px; }
+    .cs-mobile-back {
+        display: none;
+        width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--pf-border);
+        background: #fff; color: #64748b; align-items:center; justify-content:center; cursor:pointer; font-size: 1rem;
+        transition: .2s; flex-shrink: 0;
+    }
+    .cs-mobile-back:hover { background:#f8fafc; color:#0f172a; }
     .cs-h-btn {
         width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--pf-border);
         background: #fff; color: #64748b;
@@ -299,8 +318,138 @@ require_once __DIR__ . '/../includes/header.php';
         display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(15,23,42,0.12);
     }
     #galleryPanel.show { display: flex; }
+
+    @media (max-width: 768px) {
+        body.chat-page #main-content {
+            overflow: visible !important;
+        }
+
+        .chat-shell {
+            max-width: 100%;
+            padding: 0;
+            height: calc(100dvh - 65px);
+        }
+
+        #chat-root {
+            grid-template-columns: 1fr;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .cs-sidebar,
+        .cs-window {
+            min-width: 0;
+            height: 100%;
+        }
+
+        .cs-window {
+            display: none;
+        }
+
+        #chat-root.chat-open .cs-sidebar {
+            display: none;
+        }
+
+        #chat-root.chat-open .cs-window {
+            display: flex;
+        }
+
+        .cs-sidebar-top,
+        .cs-tabs {
+            padding-left: 0.875rem;
+            padding-right: 0.875rem;
+        }
+
+        .cs-list {
+            padding: 0.5rem 0.625rem 0.875rem;
+        }
+
+        .conv-card {
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .cs-mobile-back {
+            display: inline-flex;
+        }
+
+        .cs-header {
+            padding: 0.875rem;
+            gap: 10px;
+        }
+
+        .cs-header-name {
+            font-size: 0.95rem;
+        }
+
+        .cs-header-meta {
+            font-size: 0.7rem;
+        }
+
+        .cs-h-actions {
+            gap: 6px;
+        }
+
+        .cs-h-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            font-size: 0.92rem;
+        }
+
+        #messagesArea {
+            padding: 1rem 0.875rem;
+        }
+
+        .b-col {
+            max-width: 88%;
+        }
+
+        .bubble {
+            font-size: 0.88rem;
+            padding: 10px 14px;
+        }
+
+        .cs-footer {
+            padding: 0.75rem 0.875rem calc(0.75rem + env(safe-area-inset-bottom));
+        }
+
+        .chat-input-area {
+            gap: 8px;
+        }
+
+        .input-bar {
+            padding: 4px 4px 4px 10px;
+            border-radius: 14px;
+            min-width: 0;
+        }
+
+        #customerMsgInput {
+            font-size: 0.92rem;
+            min-width: 0;
+        }
+
+        .footer-action-btn,
+        .mic-btn,
+        .btn-send {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+        }
+
+        #galleryPanel {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        #welcome {
+            display: none !important;
+        }
+    }
 </style>
 
+<div class="chat-shell">
 <div id="chat-root">
     <!-- ══ Sidebar ══ -->
     <aside class="cs-sidebar">
@@ -324,6 +473,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         <div id="chatInterface" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
             <header class="cs-header">
+                <button type="button" class="cs-mobile-back" onclick="closeChatMobile()"><i class="bi bi-arrow-left"></i></button>
                 <div id="hAvatar" class="conv-av"></div>
                 <div class="cs-header-info"><h3 class="cs-header-name"><span id="hName">...</span><span id="hOnline" style="width:10px;height:10px;background:#22c55e;border-radius:50%;display:none;margin-left:8px;"></span></h3><p class="cs-header-meta" id="hMeta">...</p></div>
                 <div class="cs-h-actions">
@@ -401,6 +551,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </section>
 </div>
+</div>
 
     <div id="pfFwdModal" class="hidden">
         <div class="fwd-panel">
@@ -452,6 +603,7 @@ const EMOJIS = {like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢',
 
 let activeId = null, lastId = 0, pollTimer = null;
 window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
+let initialOrderHandled = false;
 
 let isArchView = false, isConvArch = false, uploads = [], pfc = null;
 let partnerAvatarUrl = '', replyId = null;
@@ -516,6 +668,58 @@ function switchTab(archived) {
     loadConvs();
 }
 
+function isMobileChatView() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function closeChatMobile() {
+    const root = document.getElementById('chat-root');
+    if (root) root.classList.remove('chat-open');
+}
+
+function openChatMobile() {
+    const root = document.getElementById('chat-root');
+    if (root && isMobileChatView()) root.classList.add('chat-open');
+}
+
+function tryOpenInitialConversation(conversations) {
+    if (initialOrderHandled || !window.__initialOrderId) return;
+    const initialId = parseInt(window.__initialOrderId, 10);
+    if (!initialId) {
+        initialOrderHandled = true;
+        return;
+    }
+
+    const match = Array.isArray(conversations)
+        ? conversations.find(c => parseInt(c.order_id, 10) === initialId)
+        : null;
+
+    if (match) {
+        initialOrderHandled = true;
+        openChat(
+            match.order_id,
+            match.staff_name || 'PrintFlow Team',
+            match.product_name || 'Order',
+            match.is_archived ? 1 : 0,
+            match.staff_avatar || ''
+        );
+        return;
+    }
+
+    api(`/public/api/chat/order_details.php?order_id=${initialId}`).then(res => {
+        if (!res || !res.success || !res.order) return;
+        initialOrderHandled = true;
+        const firstItem = Array.isArray(res.items) && res.items.length ? res.items[0] : null;
+        openChat(
+            initialId,
+            'PrintFlow Team',
+            firstItem?.product_name || 'Order',
+            0,
+            ''
+        );
+    });
+}
+
 function loadConvs() {
     const searchInput = document.getElementById('convSearch');
     const q = searchInput ? searchInput.value : '';
@@ -523,6 +727,7 @@ function loadConvs() {
         const list = document.getElementById('convList');
         if (!list) return;
         if (!res.success || !res.conversations || !res.conversations.length) {
+            tryOpenInitialConversation([]);
             list.innerHTML = `
             <div class="p-12 text-center">
                 <div class="text-5xl opacity-10 text-white mb-4"><i class="bi bi-patch-question-fill"></i></div>
@@ -530,6 +735,7 @@ function loadConvs() {
             </div>`;
             return;
         }
+        tryOpenInitialConversation(res.conversations);
         list.innerHTML = res.conversations.map(c => {
             const name = c.staff_name || 'PrintFlow Team';
             const active = activeId === c.order_id ? 'active' : '';
@@ -548,6 +754,7 @@ function loadConvs() {
 
 function openChat(id, name, meta, archived, avatar = '') {
     activeId = id; lastId = 0; isConvArch = !!archived; partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : '';
+    openChatMobile();
     document.getElementById('welcome').style.display = 'none';
     document.getElementById('chatInterface').style.display = 'flex';
     document.getElementById('hName').textContent = name;

@@ -35,7 +35,14 @@ if (!$order_id) {
     exit;
 }
 
-if ($user_type !== 'Customer') {
+if ($user_type === 'Customer') {
+    $owns_order = db_query("SELECT order_id FROM orders WHERE order_id = ? AND customer_id = ? LIMIT 1", 'ii', [$order_id, $user_id]);
+    if (empty($owns_order)) {
+        ob_end_clean();
+        echo json_encode(['success' => false, 'error' => 'Order not found or access denied.']);
+        exit;
+    }
+} else {
     ob_end_clean();
     ob_start();
     printflow_assert_order_branch_access($order_id);
