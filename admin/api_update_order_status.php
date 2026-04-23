@@ -12,6 +12,8 @@ require_once __DIR__ . '/../includes/api_header.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 require_once __DIR__ . '/../includes/variant_functions.php';
 require_once __DIR__ . '/../includes/TarpaulinService.php';
 
@@ -39,7 +41,7 @@ if (!$order_id || !in_array($new_status, $allowed)) {
 }
 
 // Get current order
-$order = db_query("SELECT order_id, status, customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
+$order = db_query("SELECT order_id, status, customer_id, branch_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
     exit;
@@ -92,6 +94,53 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
             'error'   => "Tarpaulin deduction failed: " . $e->getMessage(),
         ]);
         exit;
+    }
+
+    $orderBranchId = (int)($order['branch_id'] ?? 0);
+
+    // Branch-aware product stock deduction for regular order items.
+    $productItems = db_query(
+        "SELECT oi.product_id, oi.quantity, p.name AS product_name
+         FROM order_items oi
+         LEFT JOIN products p ON p.product_id = oi.product_id
+         WHERE oi.order_id = ?",
+        'i',
+        [$order_id]
+    ) ?: [];
+
+    foreach ($productItems as $item) {
+        $productId = (int)($item['product_id'] ?? 0);
+        $qty = (int)($item['quantity'] ?? 0);
+        if ($productId <= 0 || $qty <= 0) {
+            continue;
+        }
+
+        if (!printflow_product_deduct_stock_for_branch($productId, $orderBranchId, $qty)) {
+            $productName = (string)($item['product_name'] ?? ('Product #' . $productId));
+            echo json_encode([
+                'success' => false,
+                'error'   => "Insufficient stock for \"{$productName}\" at branch #{$orderBranchId}.",
+            ]);
+            exit;
+        }
+
+        try {
+            InventoryManager::recordTransaction(
+                $productId,
+                'OUT',
+                $qty,
+                'pcs',
+                'order',
+                $order_id,
+                null,
+                "Order #{$order_id} completed - " . (string)($item['product_name'] ?? ('Product #' . $productId)),
+                (int)(get_user_id() ?? 0),
+                date('Y-m-d'),
+                $orderBranchId
+            );
+        } catch (Throwable $e) {
+            error_log('Admin order completion ledger logging failed for order #' . $order_id . ': ' . $e->getMessage());
+        }
     }
 }
 
