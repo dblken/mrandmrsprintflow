@@ -13,7 +13,16 @@ require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 
-require_role(['Admin', 'Manager', 'Staff', 'Customer']); // Admin/Manager (read/scope), Staff (manage), Customer (create/track)
+if (!is_logged_in()) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit;
+}
+if (!has_role(['Admin', 'Manager', 'Staff', 'Customer'])) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Forbidden']);
+    exit;
+}
 
 // Clear any buffered output from includes
 ob_end_clean();
