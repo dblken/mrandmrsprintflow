@@ -1137,6 +1137,36 @@ function printflow_format_inventory_reference_note(string $notes, string $refere
 }
 
 /**
+ * Resolve a store order's visible code using the same SKU-based pattern as the order pages.
+ *
+ * @return array{type:string,id:int,code:string,label:string}
+ */
+function printflow_get_order_inventory_reference(int $order_id): array {
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) {
+        $code = printflow_format_order_code(0, '');
+        return ['type' => 'order', 'id' => 0, 'code' => $code, 'label' => 'Order #' . $code];
+    }
+
+    $row = db_query(
+        "SELECT o.order_id,
+                GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') AS order_sku
+         FROM orders o
+         LEFT JOIN order_items oi ON oi.order_id = o.order_id
+         LEFT JOIN products p ON p.product_id = oi.product_id
+         WHERE o.order_id = ?
+         GROUP BY o.order_id
+         LIMIT 1",
+        'i',
+        [$order_id]
+    );
+
+    $order_sku = trim((string)($row[0]['order_sku'] ?? ''));
+    $code = printflow_format_order_code($order_id, $order_sku);
+    return ['type' => 'order', 'id' => $order_id, 'code' => $code, 'label' => 'Order #' . $code];
+}
+
+/**
  * Format date
  * @param string $date
  * @param string $format

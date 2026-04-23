@@ -97,6 +97,8 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
     }
 
     $orderBranchId = (int)($order['branch_id'] ?? 0);
+    $orderRef = printflow_get_order_inventory_reference($order_id);
+    $orderLabel = $orderRef['label'] ?? ('Order #' . printflow_format_order_code($order_id, ''));
 
     // Branch-aware product stock deduction for regular order items.
     $productItems = db_query(
@@ -133,7 +135,7 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
                 'order',
                 $order_id,
                 null,
-                "Order #{$order_id} completed - " . (string)($item['product_name'] ?? ('Product #' . $productId)),
+                "{$orderLabel} completed - " . (string)($item['product_name'] ?? ('Product #' . $productId)),
                 (int)(get_user_id() ?? 0),
                 date('Y-m-d'),
                 $orderBranchId

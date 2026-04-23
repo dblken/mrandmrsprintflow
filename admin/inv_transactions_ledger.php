@@ -36,10 +36,16 @@ function pf_ledger_enrich_transaction_row(array $row): array {
     $refId = (int)($row['ref_id'] ?? 0);
     $referenceLabel = '';
 
-    if ($refType === 'JOB_ORDER') {
+    if ($refType === 'ORDER') {
+        $orderRef = printflow_get_order_inventory_reference($refId);
+        $referenceLabel = $orderRef['label'] ?? '';
+    } elseif ($refType === 'JOB_ORDER') {
         $customizationId = (int)($row['customization_ref_id'] ?? 0);
         if ($customizationId > 0) {
             $referenceLabel = 'Customization #' . printflow_format_customization_code($customizationId);
+        } elseif (!empty($row['job_order_store_order_id'])) {
+            $orderRef = printflow_get_order_inventory_reference((int)$row['job_order_store_order_id']);
+            $referenceLabel = $orderRef['label'] ?? '';
         } elseif ($refId > 0) {
             $referenceLabel = 'Job #' . printflow_format_job_code($refId);
         }
@@ -73,6 +79,7 @@ $sql = "SELECT t.*,
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                r.roll_code as roll_code,
                jo.id as job_ref_id,
+               jo.order_id as job_order_store_order_id,
                cust_map.customization_id as customization_ref_id
         FROM inventory_transactions t
         LEFT JOIN inv_items i ON t.item_id = i.id AND t.ref_type != 'order'

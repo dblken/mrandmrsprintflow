@@ -55,6 +55,8 @@ if (!$result) {
 // 3. Stock Deduction Logic
 if ($new_status === 'Completed' && $old_status !== 'Completed') {
     $branch_id = (int)$order_row[0]['branch_id'];
+    $orderRef = printflow_get_order_inventory_reference($order_id);
+    $orderLabel = $orderRef['label'] ?? ('Order #' . printflow_format_order_code($order_id, ''));
     $items = db_query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", 'i', [$order_id]);
     
     foreach ($items as $item) {
@@ -74,7 +76,7 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
                         'order',
                         $order_id,
                         null,
-                        "Automated deduction for Order #$order_id completion",
+                        "Automated deduction for {$orderLabel} completion",
                         (int)($_SESSION['user_id'] ?? 0),
                         date('Y-m-d'),
                         $branch_id
