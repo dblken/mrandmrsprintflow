@@ -1414,6 +1414,15 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (image.startsWith('/')) return image;
                 return base + '/public/assets/uploads/profiles/' + image.split('/').pop();
             },
+            resolvePageUrl(path) {
+                return new URL(path, window.location.href).toString();
+            },
+            adminApiUrl(path = '') {
+                return this.resolvePageUrl(`../admin/${String(path).replace(/^\/+/, '')}`);
+            },
+            staffApiUrl(path = '') {
+                return this.resolvePageUrl(`../staff/${String(path).replace(/^\/+/, '')}`);
+            },
 
             getItemCount(name, list) {
                 if (!list || !Array.isArray(list)) return 0;
@@ -2199,12 +2208,11 @@ window.pfCustomizationPreloadedOrders = (() => {
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
                 this.currentJo = {};
-                const base = document.body.getAttribute('data-base-url') || '';
                 
                 if (orderType === 'CUSTOMIZATION') {
                     // Fetch customization entry details
                     try {
-                        const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_customization&id=${id}`)).json();
+                        const detailRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_customization&id=${id}`))).json();
                         if (detailRes.success) {
                             this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
@@ -2227,7 +2235,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     let detailErrorMessage = '';
                     try {
                         const detailRes = await this.parseJsonResponse(
-                            await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${regularOrderId}`)
+                            await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${regularOrderId}`))
                         );
                         if (detailRes.success) {
                             order = detailRes.data;
@@ -2236,7 +2244,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             let resolvedJobId = order?.job_order_id || null;
                             if (!resolvedJobId) {
                                 const resolveRes = await this.parseJsonResponse(
-                                    await fetch(`${base}/admin/job_orders_api.php?action=resolve_job_for_order&order_id=${regularOrderId}`)
+                                    await fetch(this.adminApiUrl(`job_orders_api.php?action=resolve_job_for_order&order_id=${regularOrderId}`))
                                 );
                                 if (resolveRes.success && resolveRes.job_id) {
                                     resolvedJobId = resolveRes.job_id;
@@ -2248,7 +2256,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
                             if (resolvedJobId) {
                                 const jobFallbackRes = await this.parseJsonResponse(
-                                    await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${resolvedJobId}`)
+                                    await fetch(this.adminApiUrl(`job_orders_api.php?action=get_order&id=${resolvedJobId}`))
                                 );
                                 if (jobFallbackRes.success && jobFallbackRes.data) {
                                     order = {
@@ -2294,7 +2302,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     }
 
                     try {
-                        const res = await (await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
+                        const res = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_order&id=${jid}`))).json();
                         if (res.success) {
                             this.currentJo = { ...res.data, order_type: 'JOB' };
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
@@ -2306,7 +2314,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             }
                         } else {
                             // Fallback: It might be a regular order ID passed with job_type=JOB
-                            const fallbackRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${jid}`)).json();
+                            const fallbackRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${jid}`))).json();
                             if (fallbackRes.success) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
                                 this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
@@ -2369,8 +2377,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     fd.append('action', 'update_customization');
                     fd.append('id', this.currentJo.id);
                     fd.append('status', status === 'APPROVED' ? 'Approved' : status);
-                    const base = document.body.getAttribute('data-base-url') || '';
-                    const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                    const res = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fd })).json();
                     if (res.success) { await this.loadOrders(); this.showDetailsModal = false; }
                     else this.showStaffAlert('Error', res.error || 'Update failed.');
                     return;
@@ -2390,7 +2397,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                     return false;
                 }
 
-                const base = document.body.getAttribute('data-base-url') || '';
                 const fd = new FormData();
                 
                 if (this.currentJo.order_type === 'CUSTOMIZATION') {
@@ -2405,7 +2411,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     if(reason) fd.append('reason', reason);
                 }
                 
-                const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                const res = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fd })).json();
                 if(res.success) {
                     await this.loadOrders();
                     if (this.showDetailsModal && (this.sameId(this.effectiveJobId(), id) || this.sameId(this.currentJo.id, id))) {
@@ -2429,7 +2435,6 @@ window.pfCustomizationPreloadedOrders = (() => {
             async verifyPayment() {
                 if (!this.beginModalAction()) return;
                 try {
-                    const base = document.body.getAttribute('data-base-url') || '';
                     const ot = this.currentJo.order_type || 'JOB';
                     let res;
                     if (ot === 'ORDER') {
@@ -2437,7 +2442,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const fd = new FormData();
                         fd.append('order_id', oid);
                         fd.append('action', 'Approve');
-                        const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                        const r = await fetch(this.staffApiUrl('api_verify_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
                     } else {
                         const jid = await this.resolveEffectiveJobId();
@@ -2448,7 +2453,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const fd = new FormData();
                         fd.append('action', 'verify_payment');
                         fd.append('id', jid);
-                        const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                        const r = await fetch(this.adminApiUrl('api_verify_job_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
                     }
                     if (res.success) {
@@ -2491,7 +2496,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (!reason) return;
                 if (!this.beginModalAction()) return;
                 try {
-                    const base = document.body.getAttribute('data-base-url') || '';
                     const ot = this.currentJo.order_type || 'JOB';
                     let res;
                     if (ot === 'ORDER') {
@@ -2500,7 +2504,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         fd.append('order_id', oid);
                         fd.append('action', 'Reject');
                         fd.append('reason', reason);
-                        const r = await fetch(base + '/staff/api_verify_payment.php', { method: 'POST', body: fd });
+                        const r = await fetch(this.staffApiUrl('api_verify_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
                     } else {
                         const jid = await this.resolveEffectiveJobId();
@@ -2512,7 +2516,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         fd.append('action', 'reject_payment');
                         fd.append('id', jid);
                         fd.append('reason', reason);
-                        const r = await fetch(base + '/admin/api_verify_job_payment.php', { method: 'POST', body: fd });
+                        const r = await fetch(this.adminApiUrl('api_verify_job_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
                     }
                     if (res.success) {
@@ -2649,8 +2653,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         fd.append('id', this.currentJo.id);
                         fd.append('status', 'TO_PAY');
                         fd.append('price', this.jobPriceInput);
-                        const base = document.body.getAttribute('data-base-url') || '';
-                        const res = await (await fetch(base + '/admin/job_orders_api.php', { method: 'POST', body: fd })).json();
+                        const res = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fd })).json();
                         if (res.success) {
                             const hasPaymentProof = this.currentJo.payment_proof_path || this.currentJo.payment_proof;
                             const paymentAmount = parseFloat(this.currentJo.payment_submitted_amount || 0);
@@ -2666,7 +2669,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 if (savedState) {
                                     try {
                                         const state = JSON.parse(savedState);
-                                        await fetch(base + '/staff/api/pos_cart_handler.php', {
+                                        await fetch(this.staffApiUrl('api/pos_cart_handler.php'), {
                                             method: 'POST',
                                             headers: {'Content-Type': 'application/json'},
                                             body: JSON.stringify({
@@ -2680,7 +2683,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                                     }
                                     sessionStorage.removeItem('pos_cart_state');
                                 }
-                                window.location.href = base + '/staff/pos.php?from_customizations=1';
+                                window.location.href = this.staffApiUrl('pos.php?from_customizations=1');
                                 return;
                             }
                             this.activeStatus = targetTab;
@@ -2764,13 +2767,12 @@ window.pfCustomizationPreloadedOrders = (() => {
                         return;
                     }
                     if (fromPOS) {
-                        const base = document.body.getAttribute('data-base-url') || '';
                         const savedState = sessionStorage.getItem('pos_cart_state');
                         if (savedState) {
                             try {
                                 const state = JSON.parse(savedState);
                                 const itemIndex = state.item_index;
-                                await fetch(base + '/staff/api/pos_cart_handler.php', {
+                                await fetch(this.staffApiUrl('api/pos_cart_handler.php'), {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
                                     body: JSON.stringify({
@@ -2779,15 +2781,15 @@ window.pfCustomizationPreloadedOrders = (() => {
                                         price: userEnteredPrice
                                     })
                                 });
-                                window.location.href = base + '/staff/pos.php?from_customizations=1';
+                                window.location.href = this.staffApiUrl('pos.php?from_customizations=1');
                                 return;
                             } catch (e) {
                                 console.error('Error updating cart:', e);
-                                window.location.href = base + '/staff/pos.php';
+                                window.location.href = this.staffApiUrl('pos.php');
                                 return;
                             }
                         }
-                        window.location.href = base + '/staff/pos.php';
+                        window.location.href = this.staffApiUrl('pos.php');
                         return;
                     }
                     this.showStaffAlert('Success', 'Order approved and moved to payment stage!');
