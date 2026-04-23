@@ -198,8 +198,15 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Mobile Responsive Card Layout */
     @media (max-width: 768px) {
+        .cart-theme-page .card {
+            background: #ffffff !important;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+            backdrop-filter: none !important;
+        }
+
         .cart-theme-page table {
             display: block;
+            background: #ffffff !important;
         }
         
         .cart-theme-page thead {
@@ -208,17 +215,22 @@ require_once __DIR__ . '/../includes/header.php';
         
         .cart-theme-page tbody {
             display: block;
+            background: #ffffff !important;
         }
         
         .cart-theme-page .cart-row {
             display: block;
-            background: rgba(0,49,61,0.85) !important;
-            border: none !important;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
             border-radius: 0;
             margin-bottom: 0.5rem;
             padding: 0.5rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            box-shadow: 0 4px 12px rgba(15,23,42,0.06);
             position: relative;
+        }
+
+        .cart-theme-page .cart-row:hover {
+            background: #f8fafc !important;
         }
         
         .cart-theme-page .cart-row td {
@@ -240,7 +252,7 @@ require_once __DIR__ . '/../includes/header.php';
             padding-left: 2rem !important;
             padding-bottom: 0.4rem !important;
             margin-bottom: 0.4rem;
-            border-bottom: 1px solid #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
             position: relative !important;
         }
         
@@ -319,7 +331,7 @@ require_once __DIR__ . '/../includes/header.php';
         .cart-theme-page .cart-row td:nth-child(4) {
             padding-bottom: 0.4rem !important;
             margin-bottom: 0.4rem;
-            border-bottom: 1px solid #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
         }
         
         .cart-theme-page .cart-row td:nth-child(4)::before {
@@ -402,6 +414,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         /* Footer actions */
         .cart-theme-page .card > div:last-child {
+            background: #ffffff !important;
             flex-direction: column;
             gap: 1rem;
             align-items: center !important;
@@ -1349,4 +1362,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
-
