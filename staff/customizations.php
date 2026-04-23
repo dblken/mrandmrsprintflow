@@ -2218,32 +2218,57 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (orderType === 'ORDER') {
                     // Always fetch full order details to get `items` array and dynamic fields
                     const regularOrderId = order?.order_id ?? order?.id ?? id;
+                    let detailErrorMessage = '';
                     try {
-                        const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${regularOrderId}`)).json();
+                        const detailRes = await this.parseJsonResponse(
+                            await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${regularOrderId}`)
+                        );
                         if (detailRes.success) {
                             order = detailRes.data;
-                        } else if (order?.job_order_id) {
-                            const jobFallbackRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${order.job_order_id}`)).json();
-                            if (jobFallbackRes.success && jobFallbackRes.data) {
-                                order = {
-                                    ...jobFallbackRes.data,
-                                    order_type: 'ORDER',
-                                    id: regularOrderId,
-                                    order_id: jobFallbackRes.data.order_id || regularOrderId,
-                                    job_order_id: jobFallbackRes.data.id || order.job_order_id
-                                };
+                        } else {
+                            detailErrorMessage = detailRes.error || detailErrorMessage;
+                            let resolvedJobId = order?.job_order_id || null;
+                            if (!resolvedJobId) {
+                                const resolveRes = await this.parseJsonResponse(
+                                    await fetch(`${base}/admin/job_orders_api.php?action=resolve_job_for_order&order_id=${regularOrderId}`)
+                                );
+                                if (resolveRes.success && resolveRes.job_id) {
+                                    resolvedJobId = resolveRes.job_id;
+                                } else if (resolveRes.error) {
+                                    detailErrorMessage = resolveRes.error || detailErrorMessage;
+                                    console.warn('resolve_job_for_order failed:', resolveRes.error);
+                                }
+                            }
+
+                            if (resolvedJobId) {
+                                const jobFallbackRes = await this.parseJsonResponse(
+                                    await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${resolvedJobId}`)
+                                );
+                                if (jobFallbackRes.success && jobFallbackRes.data) {
+                                    order = {
+                                        ...jobFallbackRes.data,
+                                        order_type: 'ORDER',
+                                        id: regularOrderId,
+                                        order_id: jobFallbackRes.data.order_id || regularOrderId,
+                                        job_order_id: jobFallbackRes.data.id || resolvedJobId
+                                    };
+                                } else if (jobFallbackRes.error) {
+                                    detailErrorMessage = jobFallbackRes.error || detailErrorMessage;
+                                    console.warn('get_order fallback failed:', jobFallbackRes.error);
+                                }
                             } else if (detailRes.error) {
                                 console.warn('get_regular_order failed:', detailRes.error);
                             }
-                        } else if (detailRes.error) {
-                            console.warn('get_regular_order failed:', detailRes.error);
                         }
-                    } catch (e) { console.error('Error fetching order detail:', e); }
+                    } catch (e) {
+                        detailErrorMessage = e?.message || detailErrorMessage;
+                        console.error('Error fetching order detail:', e);
+                    }
                     
                     if (!order || !order.items) {
                         this.loadingDetails = false;
                         this.showDetailsModal = false;
-                        this.showStaffAlert('Not Found', 'Order details could not be loaded for this pending entry.');
+                        this.showStaffAlert('Not Found', detailErrorMessage || 'Order details could not be loaded for this pending entry.');
                         return;
                     }
                     this.currentJo = { ...order, order_type: 'ORDER' };
