@@ -809,6 +809,11 @@ $page_title = 'Orders - Staff';
 
     // ── AJAX Table Updates ───────────────────────────────
     var searchDebounceTimer = null;
+    var ordersFetchController = null;
+    var ordersRequestSerial = 0;
+    var staffOrdersRealtimeMs = 15000;
+    var staffOrdersRealtimeTimer = null;
+    var staffOrdersRealtimeBound = false;
 
     function buildFilterURL(overrides = {}, isAjax = false) {
         const params = new URLSearchParams(window.location.search);
@@ -837,43 +842,67 @@ $page_title = 'Orders - Staff';
         return window.location.pathname + '?' + params.toString();
     }
 
-    async function fetchUpdatedTable(overrides = {}) {
+    function getOrdersDashboardData() {
+        const dashboardEl = document.querySelector('[x-data^="ordersPage"]');
+        return (dashboardEl && dashboardEl.__x && dashboardEl.__x.$data) ? dashboardEl.__x.$data : null;
+    }
+
+    async function fetchUpdatedTable(overrides = {}, options = {}) {
+        const silent = !!options.silent;
         const url = buildFilterURL(overrides, true);
         const container = document.querySelector('.orders-table tbody');
         if (!container) return;
 
-        container.style.opacity = '0.5';
-        container.style.pointerEvents = 'none';
+        ordersRequestSerial += 1;
+        const requestSerial = ordersRequestSerial;
+        if (ordersFetchController) {
+            ordersFetchController.abort();
+        }
+        ordersFetchController = new AbortController();
+
+        if (!silent) {
+            container.style.opacity = '0.5';
+            container.style.pointerEvents = 'none';
+        }
 
         try {
-            const resp = await fetch(url);
+            const resp = await fetch(url, { signal: ordersFetchController.signal });
             const data = await resp.json();
-            
+            if (requestSerial !== ordersRequestSerial) return;
+
             container.innerHTML = data.tbody;
-            
+
             const pag = document.querySelector('.pagination-container');
             if (pag && data.pagination) pag.outerHTML = data.pagination;
-            
+
             const bc = document.getElementById('filterBadgeContainer');
             if (bc) bc.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
-            
+
             const countEl = document.getElementById('totalOrdersCount');
             if (countEl) countEl.textContent = data.total;
 
-            // Update Alpine tab counts
-            const dashboardEl = document.querySelector('[x-data^="ordersPage"]');
-            if (dashboardEl && dashboardEl.__x && data.counts) {
-                dashboardEl.__x.$data.updateCounts(data.counts);
+            const dashboard = getOrdersDashboardData();
+            if (dashboard && data.counts) {
+                dashboard.updateCounts(data.counts);
             }
 
             window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
-            
+
             const displayUrl = buildFilterURL(overrides, false);
             window.history.replaceState({ path: displayUrl }, '', displayUrl);
-        } catch (e) { console.error('Error updating table:', e); }
-        
-        container.style.opacity = '1';
-        container.style.pointerEvents = 'all';
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                console.error('Error updating table:', e);
+            }
+        } finally {
+            if (!silent) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'all';
+            }
+            if (requestSerial === ordersRequestSerial) {
+                ordersFetchController = null;
+            }
+        }
     }
 
     function applyFilters(resetAll = false) {
@@ -955,62 +984,65 @@ $page_title = 'Orders - Staff';
         };
     }
 
-    // Inside fetchUpdatedTable, update Alpine counts
-    const originalFetchUpdatedTable = fetchUpdatedTable;
-    fetchUpdatedTable = async function(overrides = {}) {
-        const url = buildFilterURL(overrides, true);
-        const container = document.querySelector('.orders-table tbody');
-        if (!container) return;
-
-        container.style.opacity = '0.5';
-        container.style.pointerEvents = 'none';
-
-        try {
-            const resp = await fetch(url);
-            const data = await resp.json();
-            
-            container.innerHTML = data.tbody;
-            
-            const pag = document.querySelector('.pagination-container');
-            if (pag && data.pagination) pag.outerHTML = data.pagination;
-            
-            const bc = document.getElementById('filterBadgeContainer');
-            if (bc) bc.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
-            
-            const countEl = document.getElementById('totalOrdersCount');
-            if (countEl) countEl.textContent = data.total;
-
-            // Updated bit: update Alpine tab counts
-            const dashboard = document.querySelector('[x-data^="ordersPage"]').__x.$data;
-            if (dashboard && data.counts) {
-                dashboard.updateCounts(data.counts);
-            }
-
-            window.dispatchEvent(new CustomEvent('filter-badge-update', { detail: { badge: data.badge } }));
-            
-            const displayUrl = buildFilterURL(overrides, false);
-            window.history.replaceState({ path: displayUrl }, '', displayUrl);
-        } catch (e) { console.error('Error updating table:', e); }
-        
-        container.style.opacity = '1';
-        container.style.pointerEvents = 'all';
-    }
     window.ordersPage = ordersPage;
+
+    function isOrderModalOpen() {
+        var modal = document.getElementById('orderModal');
+        return !!(modal && modal.classList.contains('open'));
+    }
+
+    function startStaffOrdersRealtime() {
+        if (staffOrdersRealtimeTimer) {
+            clearInterval(staffOrdersRealtimeTimer);
+        }
+        staffOrdersRealtimeTimer = setInterval(function() {
+            if (document.visibilityState !== 'visible') return;
+            if (isOrderModalOpen()) {
+                if (currentOrderId) refreshOrderModalData(currentOrderId, true);
+                return;
+            }
+            fetchUpdatedTable({}, { silent: true });
+        }, staffOrdersRealtimeMs);
+    }
+
+    function initStaffOrdersRealtime() {
+        startStaffOrdersRealtime();
+        if (staffOrdersRealtimeBound) return;
+        staffOrdersRealtimeBound = true;
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState !== 'visible') return;
+            if (isOrderModalOpen()) {
+                if (currentOrderId) refreshOrderModalData(currentOrderId, true);
+                return;
+            }
+            fetchUpdatedTable({}, { silent: true });
+        });
+
+        window.addEventListener('focus', function() {
+            if (isOrderModalOpen()) {
+                if (currentOrderId) refreshOrderModalData(currentOrderId, true);
+                return;
+            }
+            fetchUpdatedTable({}, { silent: true });
+        });
+
+        document.addEventListener('turbo:before-cache', function() {
+            if (staffOrdersRealtimeTimer) {
+                clearInterval(staffOrdersRealtimeTimer);
+                staffOrdersRealtimeTimer = null;
+            }
+            if (ordersFetchController) {
+                ordersFetchController.abort();
+                ordersFetchController = null;
+            }
+        });
+    }
 
     // ── Open / close order modal ─────────────────────────
     var currentOrderId = null;
 
-    function openOrderModal(orderId) {
-        currentOrderId = orderId;
-        var modal = document.getElementById('orderModal');
-        document.getElementById('omTitle').textContent = 'Order Details';
-        document.getElementById('omSubtitle').textContent = 'Loading…';
-        document.getElementById('omBody').innerHTML =
-            '<div class="om-loader"><div class="om-spinner"></div>' +
-            '<div style="color:#94a3b8;font-size:14px;">Fetching order details…</div></div>';
-        modal.classList.add('open');
-        document.body.style.overflow = 'hidden';
-
+    function refreshOrderModalData(orderId, preserveOpen) {
         fetch(staffUrl('staff/get_order_data.php?id=') + orderId, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -1019,8 +1051,10 @@ $page_title = 'Orders - Staff';
             if (!ct.includes('application/json')) {
                 return r.text().then(function(txt) {
                     console.error('Non-JSON response:', txt);
-                    document.getElementById('omBody').innerHTML =
-                        '<div class="om-alert om-alert-error">Server returned unexpected response (HTTP ' + r.status + '). Check console.</div>';
+                    if (!preserveOpen) {
+                        document.getElementById('omBody').innerHTML =
+                            '<div class="om-alert om-alert-error">Server returned unexpected response (HTTP ' + r.status + '). Check console.</div>';
+                    }
                     return null;
                 });
             }
@@ -1040,8 +1074,10 @@ $page_title = 'Orders - Staff';
         .then(function(data) {
             if (!data) return;
             if (data.error) {
-                document.getElementById('omBody').innerHTML =
-                    '<div class="om-alert om-alert-error">Error: ' + data.error + '</div>';
+                if (!preserveOpen) {
+                    document.getElementById('omBody').innerHTML =
+                        '<div class="om-alert om-alert-error">Error: ' + data.error + '</div>';
+                }
                 return;
             }
             var orderCode = data.order_code || ('ORD-' + orderId);
@@ -1049,15 +1085,32 @@ $page_title = 'Orders - Staff';
             try { renderOrderModal(data); }
             catch (err) {
                 console.error('Render Error:', err);
-                document.getElementById('omBody').innerHTML =
-                    '<div class="om-alert om-alert-error">Rendering Error: ' + err.message + '</div>';
+                if (!preserveOpen) {
+                    document.getElementById('omBody').innerHTML =
+                        '<div class="om-alert om-alert-error">Rendering Error: ' + err.message + '</div>';
+                }
             }
         })
         .catch(function(err) {
             console.error('Fetch Error:', err);
-            document.getElementById('omBody').innerHTML =
-                '<div class="om-alert om-alert-error">Network Error: ' + err.message + '</div>';
+            if (!preserveOpen) {
+                document.getElementById('omBody').innerHTML =
+                    '<div class="om-alert om-alert-error">Network Error: ' + err.message + '</div>';
+            }
         });
+    }
+
+    function openOrderModal(orderId) {
+        currentOrderId = orderId;
+        var modal = document.getElementById('orderModal');
+        document.getElementById('omTitle').textContent = 'Order Details';
+        document.getElementById('omSubtitle').textContent = 'Loading…';
+        document.getElementById('omBody').innerHTML =
+            '<div class="om-loader"><div class="om-spinner"></div>' +
+            '<div style="color:#94a3b8;font-size:14px;">Fetching order details…</div></div>';
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        refreshOrderModalData(orderId, false);
     }
     window.openOrderModal = openOrderModal;
 
@@ -1068,6 +1121,8 @@ $page_title = 'Orders - Staff';
         currentOrderId = null;
     }
     window.closeOrderModal = closeOrderModal;
+
+    initStaffOrdersRealtime();
 
     function showStatusOverlay(icon, msg) {
         var ov = document.getElementById('omStatusOverlay');
@@ -1960,3 +2015,4 @@ function pfConfirm(options) {
 
 </body>
 </html>
+

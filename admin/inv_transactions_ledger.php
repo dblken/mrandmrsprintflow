@@ -72,9 +72,9 @@ $dir          = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
 $page         = max(1, (int)($_GET['page'] ?? 1));
 $per_page     = 15;
 
-// Build Query - Support both inv_items and products
+// Build Query - show only inventory material movements tied to job/customization work
 $sql = "SELECT t.*, 
-               COALESCE(i.name, p.name) as item_name, 
+               i.name as item_name, 
                COALESCE(i.unit_of_measure, 'pcs') as unit, 
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                r.roll_code as roll_code,
@@ -82,8 +82,7 @@ $sql = "SELECT t.*,
                jo.order_id as job_order_store_order_id,
                cust_map.customization_id as customization_ref_id
         FROM inventory_transactions t
-        LEFT JOIN inv_items i ON t.item_id = i.id AND t.ref_type != 'order'
-        LEFT JOIN products p ON t.item_id = p.product_id AND t.ref_type = 'order'
+        INNER JOIN inv_items i ON t.item_id = i.id
         LEFT JOIN users u ON t.created_by = u.user_id
         LEFT JOIN inv_rolls r ON t.roll_id = r.id
         LEFT JOIN job_orders jo ON UPPER(t.ref_type) = 'JOB_ORDER' AND jo.id = t.ref_id
@@ -92,7 +91,7 @@ $sql = "SELECT t.*,
             FROM customizations
             GROUP BY order_id
         ) cust_map ON cust_map.order_id = jo.order_id
-        WHERE (i.id IS NOT NULL OR p.product_id IS NOT NULL)";
+        WHERE 1=1";
 $params = [];
 $types = '';
 [$branchSql, $branchTypes, $branchParams] = InventoryManager::branchClause('t.branch_id', $branchId);
@@ -795,6 +794,9 @@ if (isset($_GET['ajax'])) {
     var searchTimer = null;
     var ledgerFetchController = null;
     var ledgerRequestSerial = 0;
+    var ledgerRealtimeMs = 15000;
+    var ledgerRealtimeTimer = null;
+    var ledgerRealtimeBound = false;
 
     function filterPanel() {
         return {
@@ -837,6 +839,28 @@ if (isset($_GET['ajax'])) {
                 fetchUpdatedTable({ page: 1 });
             });
         });
+
+        startLedgerRealtime();
+        if (!ledgerRealtimeBound) {
+            ledgerRealtimeBound = true;
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState !== 'visible') return;
+                fetchUpdatedTable({}, { silent: true });
+            });
+            window.addEventListener('focus', function() {
+                fetchUpdatedTable({}, { silent: true });
+            });
+            document.addEventListener('turbo:before-cache', function() {
+                if (ledgerRealtimeTimer) {
+                    clearInterval(ledgerRealtimeTimer);
+                    ledgerRealtimeTimer = null;
+                }
+                if (ledgerFetchController) {
+                    ledgerFetchController.abort();
+                    ledgerFetchController = null;
+                }
+            });
+        }
     }
 
     if (document.readyState === 'loading') {
@@ -886,7 +910,18 @@ if (isset($_GET['ajax'])) {
         return window.location.pathname + '?' + params.toString();
     }
 
-    async function fetchUpdatedTable(overrides = {}) {
+    function startLedgerRealtime() {
+        if (ledgerRealtimeTimer) {
+            clearInterval(ledgerRealtimeTimer);
+        }
+        ledgerRealtimeTimer = setInterval(function() {
+            if (document.visibilityState !== 'visible') return;
+            fetchUpdatedTable({}, { silent: true });
+        }, ledgerRealtimeMs);
+    }
+
+    async function fetchUpdatedTable(overrides = {}, options = {}) {
+        const silent = !!options.silent;
         const url = buildFilterURL(overrides, true);
         ledgerRequestSerial += 1;
         const requestSerial = ledgerRequestSerial;
@@ -915,6 +950,7 @@ if (isset($_GET['ajax'])) {
                 const badgeCont = document.getElementById('filterBadgeContainer');
 
                 if (tbody) {
+                    if (!silent) tbody.style.opacity = '0.5';
                     tbody.innerHTML = data.table;
                     if (typeof Alpine !== 'undefined' && typeof Alpine.initTree === 'function') {
                         try {
@@ -933,6 +969,7 @@ if (isset($_GET['ajax'])) {
                 if (badgeCont) {
                     badgeCont.innerHTML = data.badge > 0 ? `<span class="filter-badge">${data.badge}</span>` : '';
                 }
+                if (tbody && !silent) tbody.style.opacity = '1';
 
                 if (overrides.page !== undefined) ledgerPage = overrides.page;
 
@@ -944,6 +981,8 @@ if (isset($_GET['ajax'])) {
         } catch (e) {
             if (e.name === 'AbortError') return;
             console.error('Error updating table:', e);
+            const tbody = document.getElementById('ledgerTableBody');
+            if (tbody && !silent) tbody.style.opacity = '1';
         } finally {
             if (requestSerial === ledgerRequestSerial) {
                 ledgerFetchController = null;
