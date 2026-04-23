@@ -1049,42 +1049,29 @@ foreach ($service_rows as $row) {
                             </div>
 
                             <!-- Final Step: Pricing and Submit -->
-                            <div style="padding:24px; border-radius:16px; border:2px solid #06A1A1; background:linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%); box-shadow:0 4px 12px rgba(6, 161, 161, 0.15);">
+                            <div style="padding:16px; border-radius:14px; border:1px solid #99f6e4; background:#f0fdfa;">
                                 <div style="margin-bottom:20px;">
                                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                                        <svg width="20" height="20" fill="none" stroke="#0f766e" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <label style="font-size:13px; font-weight:800; color:#0f766e; text-transform:uppercase; letter-spacing:0.5px;">[3] Set Final Price</label>
+                                        <svg width="16" height="16" fill="none" stroke="#0f766e" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <label style="font-size:11px; font-weight:700; color:#0f766e; text-transform:uppercase; letter-spacing:0.04em;">[3] Set Final Price</label>
                                     </div>
                                     <div style="position:relative;">
                                         <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); font-weight:800; color:#0f766e; font-size:20px;">₱</span>
                                         <input type="number" x-model.number="jobPriceInput" 
                                                min="0" step="0.01" placeholder="0.00"
                                                @input="jobPriceInput = parseFloat($event.target.value) || 0"
-                                               style="width:100%; padding:16px 16px 16px 40px; border:2px solid #06A1A1; border-radius:12px; font-size:24px; font-weight:800; color:#0f766e; outline:none; background:#ffffff; transition:all 0.2s;"
-                                               onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(6, 161, 161, 0.1)'"
-                                               onblur="this.style.borderColor='#06A1A1'; this.style.boxShadow='none'">
+                                               style="width:100%; height:42px; padding:0 12px 0 42px; border:1px solid #5eead4; border-radius:10px; font-size:18px; font-weight:700; color:#0f766e; outline:none; background:#ffffff; transition:all 0.2s;"
+                                               onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(6, 161, 161, 0.08)'"
+                                               onblur="this.style.borderColor='#5eead4'; this.style.boxShadow='none'">
                                     </div>
-                                    <div style="display:flex; align-items:center; gap:6px; margin-top:10px; padding:10px 12px; background:#fff; border-radius:8px; border:1px solid #d1fae5;">
-                                        <svg width="14" height="14" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span style="font-size:11px; color:#059669; font-weight:600;">This is the total amount the customer will pay</span>
-                                    </div>
+                                    <div style="font-size:11px; color:#0f766e; margin-top:8px; line-height:1.45;">This is the total amount the customer will pay.</div>
                                 </div>
                                 <div x-show="approvalStockErrors.length > 0" style="margin-bottom:12px; padding:12px 14px; border-radius:10px; border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; font-size:12px; font-weight:700; line-height:1.5;">
                                     <template x-for="(issue, idx) in approvalStockErrors" :key="idx">
                                         <div x-text="issue"></div>
                                     </template>
                                 </div>
-                                <button @click="submitToPay()" :disabled="approvalStockErrors.length > 0" class="btn-action" :style="approvalStockErrors.length > 0 ? 'width:100%; padding:16px; height:auto; font-size:16px; background:#99d8d8; color:#fff; border:none; font-weight:800; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:none; transition:all 0.2s; cursor:not-allowed;' : 'width:100%; padding:16px; height:auto; font-size:16px; background:#06A1A1; color:#fff; border:none; font-weight:800; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:0 10px 20px rgba(6, 161, 161, 0.3); transition:all 0.2s; cursor:pointer;'"
-                                        onmouseover="this.style.background='#0d9488'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 12px 24px rgba(6, 161, 161, 0.4)'"
-                                        onmouseout="this.style.background='#06A1A1'; this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(6, 161, 161, 0.3)'">
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <span>Confirm Approval & Send to Payment</span>
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-                                </button>
-                                <p style="font-size:11px; color:#0d9488; font-weight:500; margin-top:12px; display:flex; align-items:flex-start; gap:6px; line-height:1.5;">
-                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0; margin-top:2px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <span>Approving will notify the customer, set the final price, and prepare materials for production.</span>
-                                </p>
+                                <div style="font-size:11px; color:#0f766e; margin-top:8px; line-height:1.45;">Approving will notify the customer, set the final price, and prepare materials for production.</div>
                             </div>
                         </div>
                     </template>
@@ -1107,7 +1094,7 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 5: Production In Progress</label>
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;" x-text="materialsDeductedSummary"></div>
-                                <button @click="markReadyForPickup()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; white-space:nowrap; opacity:.6; cursor:not-allowed;' : 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; white-space:nowrap;'">Mark as Ready for Pickup</button>
+                                <button @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
                             </div>
                         </div>
                     </template>
@@ -1118,7 +1105,7 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 6: Ready for Pickup</label>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;">Customer has been notified to pick up the order.</div>
-                                <button @click="completeOrder()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; opacity:.6; cursor:not-allowed;' : 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px;'">Mark Final Completed</button>
+                                <button @click="completeOrder()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark Final Completed</button>
                             </div>
                         </div>
                     </template>
@@ -1233,6 +1220,15 @@ foreach ($service_rows as $row) {
                         <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
                             <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve to Set Price</button>
                             <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Request Revision</button>
+                        </div>
+                        <div x-show="currentJo.status === 'APPROVED'" style="display:flex; gap:8px;">
+                            <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
+                        </div>
+                        <div x-show="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'" style="display:flex; gap:8px;">
+                            <button type="button" @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
+                        </div>
+                        <div x-show="currentJo.status === 'TO_RECEIVE'" style="display:flex; gap:8px;">
+                            <button type="button" @click="completeOrder()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark Final Completed</button>
                         </div>
                     </div>
                     <!-- Right: Close -->
