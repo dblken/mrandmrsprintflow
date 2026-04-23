@@ -2009,7 +2009,27 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
 
             findOrder(id, orderType = 'JOB') {
-                return this.orders.find(o => this.sameId(o.id, id) && (o.order_type || 'JOB') === (orderType || 'JOB'));
+                const normalizedType = orderType || 'JOB';
+                const direct = this.orders.find(o => this.sameId(o.id, id) && (o.order_type || 'JOB') === normalizedType);
+                if (direct) return direct;
+
+                if (normalizedType === 'ORDER') {
+                    return this.orders.find(o =>
+                        (o.order_type || 'JOB') === 'ORDER' &&
+                        (this.sameId(o.order_id, id) || this.sameId(o.job_order_id, id) || this.sameId(o.id, id))
+                    );
+                }
+
+                if (normalizedType === 'JOB') {
+                    return this.orders.find(o =>
+                        (o.order_type || 'JOB') === 'JOB' &&
+                        (this.sameId(o.id, id) || this.sameId(o.order_id, id))
+                    );
+                }
+
+                return this.orders.find(o =>
+                    this.sameId(o.id, id) || this.sameId(o.order_id, id) || this.sameId(o.job_order_id, id)
+                );
             },
 
             getCorrectServiceType(jo) {
@@ -2197,17 +2217,33 @@ window.pfCustomizationPreloadedOrders = (() => {
                 
                 if (orderType === 'ORDER') {
                     // Always fetch full order details to get `items` array and dynamic fields
+                    const regularOrderId = order?.order_id ?? order?.id ?? id;
                     try {
-                        const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${id}`)).json();
+                        const detailRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_regular_order&id=${regularOrderId}`)).json();
                         if (detailRes.success) {
                             order = detailRes.data;
+                        } else if (order?.job_order_id) {
+                            const jobFallbackRes = await (await fetch(`${base}/admin/job_orders_api.php?action=get_order&id=${order.job_order_id}`)).json();
+                            if (jobFallbackRes.success && jobFallbackRes.data) {
+                                order = {
+                                    ...jobFallbackRes.data,
+                                    order_type: 'ORDER',
+                                    id: regularOrderId,
+                                    order_id: jobFallbackRes.data.order_id || regularOrderId,
+                                    job_order_id: jobFallbackRes.data.id || order.job_order_id
+                                };
+                            } else if (detailRes.error) {
+                                console.warn('get_regular_order failed:', detailRes.error);
+                            }
+                        } else if (detailRes.error) {
+                            console.warn('get_regular_order failed:', detailRes.error);
                         }
                     } catch (e) { console.error('Error fetching order detail:', e); }
                     
                     if (!order || !order.items) {
                         this.loadingDetails = false;
                         this.showDetailsModal = false;
-                        this.showStaffAlert('Not Found', 'Order not found or not accessible.');
+                        this.showStaffAlert('Not Found', 'Order details could not be loaded for this pending entry.');
                         return;
                     }
                     this.currentJo = { ...order, order_type: 'ORDER' };
