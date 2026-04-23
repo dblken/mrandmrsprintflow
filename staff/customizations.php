@@ -636,7 +636,6 @@ foreach ($service_rows as $row) {
                             <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab">
                                 <span>TO VERIFY</span>
                                 <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
-                                <span x-show="getStatusCount('TO_VERIFY') > 0" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:9999px;border:2px solid #fff;animation:pf-tab-pulse 2s ease-in-out infinite;"></span>
                             </button>
                             <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab">
                                 <span>IN PRODUCTION</span>
@@ -708,17 +707,17 @@ foreach ($service_rows as $row) {
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <template x-if="['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;">🖥 POS</span>
+                                            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;">POS</span>
                                         </template>
                                         <template x-if="!['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;">🌐 Online</span>
+                                            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;">Online</span>
                                         </template>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="table-text-main" x-text="jo.first_name + ' ' + (jo.last_name || '')"></div>
                                         <div class="table-text-sub" style="margin-top:4px;max-width:220px;word-break:break-word;" x-show="jo.customer_contact" x-text="jo.customer_contact"></div>
                                         <div style="margin-top:4px;">
-                                            <span style="font-size:10px; font-weight:700; width:100px; padding:2px 0;" class="status-badge-pill" :class="jo.customer_type === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="jo.customer_type"></span>
+                                            <span style="font-size:10px; font-weight:700; width:100px; padding:2px 0;" class="status-badge-pill" :class="normalizeCustomerType(jo.customer_type, jo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(jo.customer_type, jo.transaction_count)"></span>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-right">
@@ -809,7 +808,7 @@ foreach ($service_rows as $row) {
                         <div>
                             <div style="font-size:16px;font-weight:700;color:#1f2937;" x-text="currentJo.customer_full_name"></div>
                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
-                                <span style="font-size:11px; font-weight:700; min-width:80px; padding:2px 8px;" class="status-badge-pill" :class="currentJo.customer_type === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="currentJo.customer_type"></span>
+                                <span style="font-size:11px; font-weight:700; min-width:80px; padding:2px 8px;" class="status-badge-pill" :class="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count)"></span>
                                 <span style="font-size:12px;color:#6b7280;" x-text="currentJo.customer_contact"></span>
                             </div>
                             <div x-show="currentJo.customer_address" style="font-size:12px;color:#6b7280;margin-top:8px;max-width:100%;word-break:break-word;" x-text="currentJo.customer_address"></div>
@@ -872,23 +871,21 @@ foreach ($service_rows as $row) {
                         <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb;">
                             <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:16px;">Step 4: Verify Payment Proof</label>
                             
-                            <div style="display:flex; gap:20px; align-items:flex-start;">
-                                <div style="width:160px; flex-shrink:0;">
-                                    <template x-if="currentJo.payment_proof_path">
+                            <div style="display:flex; flex-direction:column; gap:14px;">
+                                <template x-if="currentJo.payment_proof_path">
                                         <a :href="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
                                            target="_blank" rel="noopener noreferrer"
-                                           style="display:block;line-height:0;">
+                                           style="display:block;line-height:0;background:#fff;border:1px solid #d1d5db;border-radius:12px;overflow:hidden;box-shadow:0 8px 18px rgba(15,23,42,0.08);">
                                             <img :src="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
-                                                 style="width:100%; height:auto; border-radius:8px; border:1px solid #d1d5db; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1);"
+                                                 style="display:block;width:100%;max-height:460px;object-fit:contain;background:#fff;cursor:pointer;"
                                                  alt="Proof — opens full size in new tab">
                                         </a>
                                     </template>
-                                </div>
-                                <div style="flex:1;">
-                                    <div style="margin-bottom:16px;">
-                                        <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Amount Submitted</div>
-                                        <div style="font-size:22px; font-weight:800; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
-                                    </div>
+                                
+                                <div style="padding:14px 16px; border-radius:10px; background:#fff; border:1px solid #e5e7eb;">
+                                    <div style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">Amount Submitted</div>
+                                    
+                                    <div style="margin-top:4px; font-size:24px; font-weight:800; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
                                 </div>
                             </div>
                         </div>
@@ -1210,24 +1207,27 @@ foreach ($service_rows as $row) {
                 <!-- Modal Footer -->
                 <div style="padding:16px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;gap:8px;">
                     <!-- Left: Status actions -->
-                    <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
-                        <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
-                            <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve to Set Price</button>
-                            <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Request Revision</button>
+                    <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1;">
+                        <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
+                            <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
+                                <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve to Set Price</button>
+                                <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Request Revision</button>
+                            </div>
+                            <div x-show="currentJo.status === 'APPROVED'" style="display:flex; gap:8px;">
+                                <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
+                            </div>
+                            <div x-show="isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
+                                <button type="button" @click="verifyPayment()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve Payment</button>
+                                <button type="button" @click="openRejectPaymentModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Reject</button>
+                            </div>
+                            <div x-show="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'" style="display:flex; gap:8px;">
+                                <button type="button" @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
+                            </div>
+                            <div x-show="currentJo.status === 'TO_RECEIVE'" style="display:flex; gap:8px;">
+                                <button type="button" @click="completeOrder()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark Final Completed</button>
+                            </div>
                         </div>
-                        <div x-show="currentJo.status === 'APPROVED'" style="display:flex; gap:8px;">
-                            <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
-                        </div>
-                        <div x-show="isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
-                            <button type="button" @click="verifyPayment()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve Payment</button>
-                            <button type="button" @click="openRejectPaymentModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Reject</button>
-                        </div>
-                        <div x-show="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'" style="display:flex; gap:8px;">
-                            <button type="button" @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
-                        </div>
-                        <div x-show="currentJo.status === 'TO_RECEIVE'" style="display:flex; gap:8px;">
-                            <button type="button" @click="completeOrder()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark Final Completed</button>
-                        </div>
+                        <div x-show="footerActionError" x-cloak style="font-size:12px;font-weight:600;color:#dc2626;line-height:1.45;max-width:560px;" x-text="footerActionError"></div>
                     </div>
                     <!-- Right: Close -->
                     <button @click="closeDetailsModal()" class="btn-secondary">Close</button>
@@ -1278,9 +1278,12 @@ foreach ($service_rows as $row) {
                     </div>
                 </div>
                 <!-- Footer -->
-                <div style="padding:16px 20px; border-top:1px solid #f3f4f6; background:#f9fafb; display:flex; justify-content:flex-end; gap:8px;">
-                    <button @click="closeRevisionModal()" class="btn-secondary">Cancel</button>
-                    <button @click="submitRevision()" class="btn-action red">Submit Revision</button>
+                <div style="padding:16px 20px; border-top:1px solid #f3f4f6; background:#f9fafb; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                    <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button @click="closeRevisionModal()" class="btn-secondary">Cancel</button>
+                        <button @click="submitRevision()" class="btn-action red">Submit Revision</button>
+                    </div>
+                    <div x-show="revisionModalError" x-cloak style="width:100%; font-size:12px; font-weight:600; color:#dc2626; text-align:left;" x-text="revisionModalError"></div>
                 </div>
             </div>
         </div>
@@ -1324,9 +1327,12 @@ foreach ($service_rows as $row) {
                     </div>
                 </div>
                 <!-- Footer -->
-                <div style="padding:16px 20px; border-top:1px solid #f3f4f6; background:#f9fafb; display:flex; justify-content:flex-end; gap:8px;">
-                    <button @click="closeRejectPaymentModal()" class="btn-secondary">Cancel</button>
-                    <button @click="submitRejectPayment()" class="btn-action red">Confirm Rejection</button>
+                <div style="padding:16px 20px; border-top:1px solid #f3f4f6; background:#f9fafb; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                    <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button @click="closeRejectPaymentModal()" class="btn-secondary">Cancel</button>
+                        <button @click="submitRejectPayment()" class="btn-action red">Confirm Rejection</button>
+                    </div>
+                    <div x-show="rejectPaymentModalError" x-cloak style="width:100%; font-size:12px; font-weight:600; color:#dc2626; text-align:left;" x-text="rejectPaymentModalError"></div>
                 </div>
             </div>
         </div>
@@ -1400,6 +1406,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             orders: Array.isArray(window.pfCustomizationPreloadedOrders)
                 ? window.pfCustomizationPreloadedOrders.map(o => ({
                     ...o,
+                    customer_type: String(o.customer_type || '').trim().toUpperCase(),
                     _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                 }))
                 : [],
@@ -1413,9 +1420,11 @@ window.pfCustomizationPreloadedOrders = (() => {
             showRevisionModal: false,
             revisionReasonSelect: '',
             revisionReasonText: '',
+            revisionModalError: '',
             showRejectPaymentModal: false,
             rejectPaymentReasonSelect: '',
             rejectPaymentReasonText: '',
+            rejectPaymentModalError: '',
             previewFile: null,
             currentJo: {},
             availableRolls: {},
@@ -1622,6 +1631,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             customDateFrom: '',
             customDateTo: '',
             actionBusy: false,
+            footerActionError: '',
             alertModal: {
                 show: false,
                 title: 'System Message',
@@ -1650,10 +1660,26 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
             closeDetailsModal() {
                 this.showDetailsModal = false;
+                this.footerActionError = '';
                 this.clearDeepLinkParams();
+            },
+            setFooterActionError(message) {
+                this.footerActionError = message || '';
+            },
+            clearFooterActionError() {
+                this.footerActionError = '';
+            },
+            normalizeCustomerType(customerType, transactionCount = null) {
+                const raw = String(customerType || '').trim().toUpperCase();
+                if (raw === 'REGULAR' || raw === 'RETURNING') return 'REGULAR';
+                if (raw === 'NEW') return 'NEW';
+                if (raw) return raw;
+                const tx = Number(transactionCount || 0);
+                return tx >= 5 ? 'REGULAR' : 'NEW';
             },
             beginModalAction() {
                 if (this.actionBusy) return false;
+                this.clearFooterActionError();
                 this.actionBusy = true;
                 return true;
             },
@@ -2045,6 +2071,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         })
                         .map(o => ({
                             ...o,
+                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
                     this.bumpOrdersVersion();
@@ -2052,6 +2079,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     if (this.orders.length === 0 && Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
                         this.orders = window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
+                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
                         this.bumpOrdersVersion();
@@ -2063,6 +2091,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     this.orders = Array.isArray(window.pfCustomizationPreloadedOrders)
                         ? window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
+                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }))
                         : [];
@@ -2297,6 +2326,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
                 this.showDetailsModal = true;
                 this.loadingDetails = true;
+                this.footerActionError = '';
                 this.currentJo = {};
                 
                 if (orderType === 'CUSTOMIZATION') {
@@ -2305,6 +2335,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const detailRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_customization&id=${id}`))).json();
                         if (detailRes.success) {
                             this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
+                            this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
                         } else {
@@ -2376,6 +2407,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         return;
                     }
                     this.currentJo = { ...order, order_type: 'ORDER' };
+                    this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                     this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                     this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
                     if (!this.currentJo.job_order_id) {
@@ -2395,6 +2427,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const res = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_order&id=${jid}`))).json();
                         if (res.success) {
                             this.currentJo = { ...res.data, order_type: 'JOB' };
+                            this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
                             this.resetMaterialForm();
@@ -2407,6 +2440,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             const fallbackRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${jid}`))).json();
                             if (fallbackRes.success) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                                 this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                                 this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
                                 if (!this.currentJo.job_order_id) {
@@ -2561,18 +2595,21 @@ window.pfCustomizationPreloadedOrders = (() => {
             openRejectPaymentModal() {
                 this.rejectPaymentReasonSelect = '';
                 this.rejectPaymentReasonText = '';
+                this.rejectPaymentModalError = '';
                 this.showRejectPaymentModal = true;
             },
 
             closeRejectPaymentModal() {
+                this.rejectPaymentModalError = '';
                 this.showRejectPaymentModal = false;
             },
             async submitRejectPayment() {
                 const finalReason = this.rejectPaymentReasonSelect === 'Others' ? this.rejectPaymentReasonText : this.rejectPaymentReasonSelect;
                 if (!finalReason) {
-                    this.showStaffAlert('Input Required', 'Please select or specify a reason.');
+                    this.rejectPaymentModalError = 'Please select or specify a reason for rejection.';
                     return;
                 }
+                this.rejectPaymentModalError = '';
                 this.closeRejectPaymentModal();
                 this.showDetailsModal = false;
                 await this.rejectPayment(finalReason);
@@ -2733,7 +2770,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     console.log('Parsed price value:', priceValue);
                     console.log('Is NaN?', isNaN(priceValue));
                     if (!priceValue || priceValue <= 0 || isNaN(priceValue)) {
-                        this.showStaffAlert('Price Required', 'Please enter a valid price before approving.');
+                        this.setFooterActionError('Please enter a valid final price before approving.');
                         return;
                     }
                     if (!this.beginModalAction()) return;
@@ -2789,7 +2826,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 const jid = await this.resolveEffectiveJobId();
                 if (!jid) {
-                    this.showStaffAlert('Error', 'No linked production job for materials and pricing.');
+                    this.setFooterActionError('No linked production job was found for this order.');
                     return;
                 }
                 const userEnteredPrice = parseFloat(this.jobPriceInput);
@@ -2833,15 +2870,15 @@ window.pfCustomizationPreloadedOrders = (() => {
                 await this.refreshMaterials();
                 console.log('Price before materials check:', userEnteredPrice);
                 if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
-                    this.showStaffAlert('Production Required', 'Please add at least one production material or ink before submitting to pay.');
+                    this.setFooterActionError('Please add at least one production material or ink before submitting.');
                     return;
                 }
                 if (!userEnteredPrice || userEnteredPrice <= 0 || isNaN(userEnteredPrice)) {
-                    this.showStaffAlert('Price Required', 'Please enter a valid price before submitting to pay.');
+                    this.setFooterActionError('Please enter a valid final price before submitting.');
                     return;
                 }
                 if (this.approvalStockErrors.length > 0) {
-                    this.showStaffAlert('Insufficient Stock', this.approvalStockErrors.join('\n'));
+                    this.setFooterActionError(this.approvalStockErrors.join(' '));
                     return;
                 }
                 if (!this.beginModalAction()) return;
@@ -3012,10 +3049,12 @@ window.pfCustomizationPreloadedOrders = (() => {
             openRevisionModal() {
                 this.revisionReasonSelect = '';
                 this.revisionReasonText = '';
+                this.revisionModalError = '';
                 this.showRevisionModal = true;
             },
 
             closeRevisionModal() {
+                this.revisionModalError = '';
                 this.showRevisionModal = false;
             },
             async submitRevision() {
@@ -3026,9 +3065,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                     finalReason = this.revisionReasonText.trim();
                 }
                 if (!finalReason) {
-                    this.showStaffAlert('Input Required', 'Please select or specify a reason for the revision request.');
+                    this.revisionModalError = 'Please select or specify a reason for the revision request.';
                     return;
                 }
+                this.revisionModalError = '';
                 if (!this.beginModalAction()) return;
                 this.showRevisionModal = false;
                 try {

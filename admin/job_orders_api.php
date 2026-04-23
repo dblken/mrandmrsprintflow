@@ -50,6 +50,20 @@ function jo_api_require_staff_branch(?int $staffBranch, int $jobId): void {
     }
 }
 
+function jo_api_normalize_customer_type($customerType, $transactionCount = null): string {
+    $raw = strtoupper(trim((string)$customerType));
+    if ($raw === 'REGULAR' || $raw === 'RETURNING') {
+        return 'REGULAR';
+    }
+    if ($raw === 'NEW') {
+        return 'NEW';
+    }
+    if ($raw !== '') {
+        return $raw;
+    }
+    return ((int)$transactionCount >= 5) ? 'REGULAR' : 'NEW';
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 try {
@@ -653,7 +667,8 @@ try {
                 'customer_profile_picture' => $cust['customer_profile_picture'] ?? '',
                 'customer_contact'         => $cust['customer_contact'] ?? '',
                 'customer_address'         => $cust['customer_address'] ?? '',
-                'customer_type'            => ($cust['transaction_count'] ?? 0) <= 1 ? 'NEW' : 'RETURNING',
+                'customer_type'            => jo_api_normalize_customer_type($cust['customer_type'] ?? '', $cust['transaction_count'] ?? 0),
+                'transaction_count'        => (int)($cust['transaction_count'] ?? 0),
                 'service_type'             => $cust['service_type'] ?? 'Service',
                 'job_title'                => $cust['service_type'] ?? 'Service',
                 'width_ft'                 => '1',
@@ -691,7 +706,7 @@ try {
                 throw new Exception("Unauthorized");
             }
             $order_row = db_query("
-                SELECT o.*, c.first_name, c.last_name, c.customer_type, c.contact_number, c.email,
+                SELECT o.*, c.first_name, c.last_name, c.customer_type, c.transaction_count, c.contact_number, c.email,
                        c.profile_picture AS customer_profile_picture,
                        CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) as customer_contact,
@@ -780,7 +795,8 @@ try {
                 'customer_full_name'   => $o['customer_full_name'] ?? trim(($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')),
                 'customer_profile_picture' => $o['customer_profile_picture'] ?? '',
                 'customer_contact'     => $o['customer_contact'] ?? '',
-                'customer_type'        => ($o['transaction_count'] ?? 0) <= 1 ? 'NEW' : 'RETURNING',
+                'customer_type'        => jo_api_normalize_customer_type($o['customer_type'] ?? '', $o['transaction_count'] ?? 0),
+                'transaction_count'    => (int)($o['transaction_count'] ?? 0),
                 'service_type'         => $service_name,
                 'job_title'            => implode(', ', array_map(function($i) { return $i['product_name'] . ' - ' . $i['quantity'] . 'pcs'; }, $items_out)),
                 'width_ft'             => $width_ft,
