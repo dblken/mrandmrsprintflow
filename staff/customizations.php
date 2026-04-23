@@ -33,30 +33,20 @@ if ($branchFilter !== null) {
     $ordBranchParams = [$b];
 }
 
-// Get statistics for KPIs (include both job_orders and regular orders pending review)
+// Get statistics for KPIs from job/customization work only.
 $total_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$total_orders_pending = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$total_jobs = $total_jobs_jobs + $total_orders_pending;
+$total_jobs = $total_jobs_jobs;
 
 $pending_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$pending_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$pending_jobs = $pending_jobs_jobs + $pending_orders;
+$pending_jobs = $pending_jobs_jobs;
 
 $approval_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $joBranchSql,
@@ -68,24 +58,14 @@ $in_production_jobs = db_query(
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$in_production_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$in_production = $in_production_jobs + $in_production_orders;
+$in_production = $in_production_jobs;
 
 $completed_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$completed_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$completed_jobs = $completed_jobs_jobs + $completed_orders;
+$completed_jobs = $completed_jobs_jobs;
 
 $preloaded_customization_rows = [];
 
@@ -123,54 +103,6 @@ foreach ($job_rows as $row) {
     $preloaded_customization_rows[] = $row;
 }
 
-$order_rows = db_query(
-    "SELECT o.order_id AS id,
-            o.order_id,
-            o.customer_id,
-            c.first_name,
-            c.last_name,
-            c.profile_picture AS customer_profile_picture,
-            c.customer_type,
-            c.transaction_count,
-            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
-            'ORDER' AS order_type,
-            COALESCE(MAX(p.category), 'Custom Order') AS service_type,
-            GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') AS job_title,
-            '1' AS width_ft,
-            '1' AS height_ft,
-            SUM(oi.quantity) AS quantity,
-            CASE
-                WHEN o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision') THEN 'PENDING'
-                WHEN o.status IN ('Design Approved', 'Approved') THEN 'APPROVED'
-                WHEN o.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
-                WHEN o.status = 'To Pay' THEN 'TO_PAY'
-                WHEN o.status IN ('Paid - In Process', 'Paid â€“ In Process', 'Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
-                WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
-                WHEN o.status = 'Completed' THEN 'COMPLETED'
-                WHEN o.status = 'Cancelled' THEN 'CANCELLED'
-                ELSE o.status
-            END AS status,
-            o.order_date AS created_at,
-            o.updated_at,
-            o.total_amount AS estimated_total,
-            COALESCE(o.order_source, 'customer') AS order_source
-     FROM orders o
-     LEFT JOIN order_items oi ON o.order_id = oi.order_id
-     LEFT JOIN products p ON oi.product_id = p.product_id
-     LEFT JOIN customers c ON o.customer_id = c.customer_id
-     WHERE (o.order_type IS NULL OR o.order_type = 'product' OR o.order_type = 'custom')
-       AND o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Approved', 'Design Approved', 'To Pay', 'Downpayment Submitted', 'Pending Verification', 'To Verify', 'Processing', 'In Production', 'Printing', 'Paid - In Process', 'Paid â€“ In Process', 'Ready for Pickup')
-       " . $ordBranchSql . "
-     GROUP BY o.order_id
-     ORDER BY o.order_date DESC
-     LIMIT 200",
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-) ?: [];
-
-foreach ($order_rows as $row) {
-    $preloaded_customization_rows[] = $row;
-}
 
 $custom_branch_sql = '';
 $custom_branch_types = '';
@@ -224,41 +156,6 @@ foreach ($customization_rows as $row) {
     $preloaded_customization_rows[] = $row;
 }
 
-$service_rows = db_query(
-    "SELECT so.id,
-            so.id AS order_id,
-            c.first_name,
-            c.last_name,
-            c.profile_picture AS customer_profile_picture,
-            c.customer_type,
-            c.transaction_count,
-            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
-            'SERVICE' AS order_type,
-            so.service_name AS service_type,
-            so.service_name AS job_title,
-            '1' AS width_ft,
-            '1' AS height_ft,
-            1 AS quantity,
-            CASE
-                WHEN so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
-                WHEN so.status = 'Approved' THEN 'APPROVED'
-                WHEN so.status = 'Processing' THEN 'IN_PRODUCTION'
-                WHEN so.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
-                ELSE 'PENDING'
-            END AS status,
-            so.created_at,
-            so.updated_at,
-            'customer' AS order_source
-     FROM service_orders so
-     LEFT JOIN customers c ON so.customer_id = c.customer_id
-     WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')
-     ORDER BY so.created_at DESC
-     LIMIT 200"
-) ?: [];
-
-foreach ($service_rows as $row) {
-    $preloaded_customization_rows[] = $row;
-}
 
 ?>
 <!DOCTYPE html>
@@ -2029,46 +1926,16 @@ window.pfCustomizationPreloadedOrders = (() => {
                         console.warn('list_pending_orders failed:', ordersRes.error || ordersRes);
                     }
                     const regularOrders = ordersRes.success ? ordersRes.data : [];
-                    
-                    // Merge then sort newest first
-                    const combined = [...jobOrders, ...regularOrders];
+                    const customizationRows = regularOrders.filter(row => (row.order_type || '') === 'CUSTOMIZATION');
+
+                    // Keep this page focused on actual customization work only.
+                    const combined = [...jobOrders, ...customizationRows];
                     const sorted = combined.sort((a, b) => {
                         const ta = new Date(a.updated_at || a.created_at || a.order_date || 0).getTime();
                         const tb = new Date(b.updated_at || b.created_at || b.order_date || 0).getTime();
                         return tb - ta;
                     });
-
-                    // Set of order IDs that have at least one job_order
-                    const storeIdsWithJob = new Set(
-                        jobOrders
-                            .filter(j => j.order_id != null && j.order_id !== '')
-                            .map(j => String(j.order_id))
-                    );
-
-                    // Set of order IDs present in the regular orders list
-                    const regularOrderIds = new Set(
-                        regularOrders
-                            .map(o => String(o.order_id ?? o.id))
-                    );
-
                     this.orders = sorted
-                        .filter(row => {
-                            // Rule 1: Always keep ORDER rows if they are present.
-                            // They serve as the "Bulk" entry for production management.
-                            if (row.order_type === 'ORDER') return true;
-
-                            // Rule 2: For JOB rows, check if they belong to a store order.
-                            const oid = row.order_id != null && row.order_id !== '' ? String(row.order_id) : null;
-                            
-                            // If it's a standalone job (no store order), keep it.
-                            if (!oid) return true;
-
-                            // If it belongs to a store order, only keep it if the ORDER row is NOT present.
-                            // This prevents fragmentation when we want to manage it as a "Bulk" order.
-                            if (regularOrderIds.has(oid)) return false;
-
-                            return true;
-                        })
                         .map(o => ({
                             ...o,
                             customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
@@ -3276,3 +3143,4 @@ window.pfCustomizationPreloadedOrders = (() => {
 </script>
 </body>
 </html>
+
