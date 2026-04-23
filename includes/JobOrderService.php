@@ -510,7 +510,10 @@ class JobOrderService {
         if (!$order) throw new Exception("Order not found.");
         $order = $order[0];
 
-        $conn->begin_transaction();
+        $wasInTransaction = $conn->in_transaction ?? false;
+        if (!$wasInTransaction) {
+            $conn->begin_transaction();
+        }
         try {
             // Materials are now handled at TO_PAY stage, so we don't block APPROVED.
             if ($newStatus === 'IN_PRODUCTION') {
@@ -585,10 +588,14 @@ class JobOrderService {
                 );
             }
 
-            $conn->commit();
+            if (!$wasInTransaction) {
+                $conn->commit();
+            }
             return true;
         } catch (Throwable $e) {
-            $conn->rollback();
+            if (!$wasInTransaction && ($conn->in_transaction ?? false)) {
+                $conn->rollback();
+            }
             throw $e;
         }
     }

@@ -8,6 +8,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/db.php';
 
 // Staff, Manager, Admin (same as customizations page)
 if (!in_array($_SESSION['user_type'] ?? '', ['Admin', 'Staff', 'Manager'], true)) {
@@ -138,6 +139,9 @@ if ($action === 'verify_payment') {
     
     // Execute update transaction
     try {
+        global $conn;
+        $conn->begin_transaction();
+
         // Update payment fields first
         db_execute("UPDATE job_orders SET 
                     amount_paid = ?, 
@@ -186,9 +190,14 @@ if ($action === 'verify_payment') {
         if ($new_order_status !== $job['status'] && !empty($job['customer_id'])) {
             create_notification((int)$job['customer_id'], 'Customer', "Custom Job #{$job_id} payment verified and moved into production!", 'Job Order', true, true);
         }
+
+        $conn->commit();
         
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
+        if (($conn->in_transaction ?? false)) {
+            $conn->rollback();
+        }
         echo json_encode(['success' => false, 'error' => 'Database error during verification: ' . $e->getMessage()]);
     }
 

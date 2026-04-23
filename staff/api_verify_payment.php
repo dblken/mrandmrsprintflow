@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/db.php';
 
 require_role(['Admin', 'Staff', 'Manager']);
 
@@ -52,6 +53,7 @@ $error_message = '';
 try {
     if ($action === 'Approve') {
         require_once __DIR__ . '/../includes/JobOrderService.php';
+        global $conn;
         $jobs = db_query(
             "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')",
             'i',
@@ -61,17 +63,22 @@ try {
         $isPlainProductOrder = (($order['order_type'] ?? '') === 'product') && !$hasProductionJobs;
         $new_status = $isPlainProductOrder ? 'Ready for Pickup' : 'Processing';
         $payment_status = 'Paid';
-        
-        // Update order
-        if ($staffBranchId !== null) {
-            $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ? AND branch_id = ?";
-            $success = db_execute($sql, 'ssii', [$new_status, $payment_status, $order_id, $staffBranchId]);
-        } else {
-            $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ?";
-            $success = db_execute($sql, 'ssi', [$new_status, $payment_status, $order_id]);
-        }
-        
-        if ($success) {
+
+        $conn->begin_transaction();
+        try {
+            // Update order
+            if ($staffBranchId !== null) {
+                $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ? AND branch_id = ?";
+                $success = db_execute($sql, 'ssii', [$new_status, $payment_status, $order_id, $staffBranchId]);
+            } else {
+                $sql = "UPDATE orders SET status = ?, payment_status = ? WHERE order_id = ?";
+                $success = db_execute($sql, 'ssi', [$new_status, $payment_status, $order_id]);
+            }
+
+            if (!$success) {
+                throw new Exception('Database update failed');
+            }
+
             $msg = $isPlainProductOrder 
                 ? "Your payment has been verified. Your order is now ready for pickup!" 
                 : "Your payment has been verified. Your order is now in production!";
@@ -107,14 +114,17 @@ try {
                         db_execute("UPDATE job_orders SET status = 'READY_TO_COLLECT' WHERE id = ?", 'i', [$job['id']]);
                     } else {
                         // Move service jobs to IN_PRODUCTION (triggers inventory deduction)
-                        try {
-                            JobOrderService::updateStatus($job['id'], 'IN_PRODUCTION');
-                        } catch (Exception $e) {
-                            error_log("PrintFlow: Failed to process job #{$job['id']}: " . $e->getMessage());
-                        }
+                        JobOrderService::updateStatus($job['id'], 'IN_PRODUCTION');
                     }
                 }
             }
+
+            $conn->commit();
+        } catch (Throwable $e) {
+            if ($conn->in_transaction ?? false) {
+                $conn->rollback();
+            }
+            throw $e;
         }
     } else {
         // Rejected - move back to To Pay or Pending
