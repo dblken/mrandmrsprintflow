@@ -18,6 +18,7 @@ if (!in_array($_SESSION['user_type'] ?? '', ['Admin', 'Staff', 'Manager'], true)
 
 $action = $_POST['action'] ?? '';
 $job_id = (int)($_POST['id'] ?? 0);
+$request_order_id = (int)($_POST['order_id'] ?? 0);
 
 if (!$action || !$job_id) {
     echo json_encode(['success' => false, 'error' => 'Invalid request parameters.']);
@@ -33,8 +34,12 @@ if (empty($job)) {
 
 $job = $job[0];
 $resolvedBranchId = (int)($job['branch_id'] ?? 0);
-if ($resolvedBranchId <= 0 && !empty($job['order_id'])) {
-    $branchRow = db_query("SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [(int)$job['order_id']]);
+$linkedOrderId = (int)($job['order_id'] ?? 0);
+if ($linkedOrderId <= 0 && $request_order_id > 0) {
+    $linkedOrderId = $request_order_id;
+}
+if ($resolvedBranchId <= 0 && $linkedOrderId > 0) {
+    $branchRow = db_query("SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [$linkedOrderId]);
     $resolvedBranchId = (int)($branchRow[0]['branch_id'] ?? 0);
 }
 $viewerBranch = printflow_branch_filter_for_user();
@@ -51,7 +56,7 @@ if (get_user_type() !== 'Admin' && $viewerBranch) {
     $branchMatches =
         ($jobBranchId > 0 && $jobBranchId === (int)$viewerBranch) ||
         ($resolvedBranchId > 0 && $resolvedBranchId === (int)$viewerBranch) ||
-        (!empty($job['order_id']) && printflow_order_in_branch((int)$job['order_id'], (int)$viewerBranch));
+        ($linkedOrderId > 0 && printflow_order_in_branch($linkedOrderId, (int)$viewerBranch));
     if (!$branchMatches) {
         echo json_encode(['success' => false, 'error' => 'Unauthorized']);
         exit;

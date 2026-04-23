@@ -2588,6 +2588,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const fd = new FormData();
                         fd.append('action', 'verify_payment');
                         fd.append('id', jid);
+                        if (this.currentJo.order_id) {
+                            fd.append('order_id', this.currentJo.order_id);
+                        }
                         const r = await fetch(this.adminApiUrl('api_verify_job_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
                     }
@@ -2660,6 +2663,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const fd = new FormData();
                         fd.append('action', 'reject_payment');
                         fd.append('id', jid);
+                        if (this.currentJo.order_id) {
+                            fd.append('order_id', this.currentJo.order_id);
+                        }
                         fd.append('reason', reason);
                         const r = await fetch(this.adminApiUrl('api_verify_job_payment.php'), { method: 'POST', body: fd });
                         res = await this.parseJsonResponse(r);
