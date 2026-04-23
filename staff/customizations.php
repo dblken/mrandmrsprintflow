@@ -2594,8 +2594,12 @@ window.pfCustomizationPreloadedOrders = (() => {
                         await this.loadOrders();
                         await this.loadAllInventoryItems();
                         this.currentJo.status = 'IN_PRODUCTION';
+                        const currentOrderId = this.currentJo.order_id ?? null;
                         this.orders = this.orders.map(o => (
-                            this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')
+                            (
+                                (this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')) ||
+                                (currentOrderId != null && this.sameId(o.order_id, currentOrderId))
+                            )
                                 ? { ...o, status: 'IN_PRODUCTION', updated_at: new Date().toISOString(), _ts: Date.now() }
                                 : o
                         ));
@@ -2669,8 +2673,12 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.activeStatus = 'REJECTED';
                         await this.loadOrders();
                         this.currentJo.status = 'REJECTED';
+                        const currentOrderId = this.currentJo.order_id ?? null;
                         this.orders = this.orders.map(o => (
-                            this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')
+                            (
+                                (this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')) ||
+                                (currentOrderId != null && this.sameId(o.order_id, currentOrderId))
+                            )
                                 ? { ...o, status: 'REJECTED', updated_at: new Date().toISOString(), _ts: Date.now() }
                                 : o
                         ));

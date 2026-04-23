@@ -140,14 +140,10 @@ if ($action === 'verify_payment') {
         }
     }
     
-    // Move to production when required payment is met
-    $new_order_status = (string)$job['status'];
-    $new_order_status_norm = $normalize_workflow_status($new_order_status);
-    $should_move_to_production = false;
-    if (in_array($new_order_status_norm, ['TO_PAY', 'VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true) && $new_amount_paid >= $required_payment) {
-        $new_order_status = 'IN_PRODUCTION';
-        $should_move_to_production = true;
-    }
+    // Once staff approves a submitted proof, this workflow should leave verification
+    // immediately. Keep related rows in sync to avoid the UI "coming back" to To Verify.
+    $new_order_status = 'IN_PRODUCTION';
+    $should_move_to_production = true;
     
     // Execute update transaction
     try {
@@ -164,14 +160,39 @@ if ($action === 'verify_payment') {
                     WHERE id = ?", 
         'dsii', [$new_amount_paid, $new_payment_status, $user_id, $job_id]);
         
-        // When the required payment is met, move directly into production so
-        // stock deduction happens exactly at the production stage.
+        // Move every linked job for this order into production so stale sibling
+        // job rows do not remain in VERIFY_PAY and reappear in the dashboard.
         if ($should_move_to_production) {
             require_once __DIR__ . '/../includes/JobOrderService.php';
-            if ($resolvedBranchId > 0) {
-                db_execute("UPDATE job_orders SET branch_id = ? WHERE id = ?", 'ii', [$resolvedBranchId, $job_id]);
+            $linkedJobRows = [];
+            if (!empty($job['order_id'])) {
+                $linkedJobRows = db_query(
+                    "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
+                    'i',
+                    [(int)$job['order_id']]
+                ) ?: [];
             }
-            JobOrderService::updateStatus($job_id, 'IN_PRODUCTION');
+            if (empty($linkedJobRows)) {
+                $linkedJobRows = [['id' => $job_id]];
+            }
+            foreach ($linkedJobRows as $linkedJobRow) {
+                $linkedJobId = (int)($linkedJobRow['id'] ?? 0);
+                if ($linkedJobId <= 0) continue;
+                if ($resolvedBranchId > 0) {
+                    db_execute("UPDATE job_orders SET branch_id = ? WHERE id = ?", 'ii', [$resolvedBranchId, $linkedJobId]);
+                }
+                db_execute(
+                    "UPDATE job_orders
+                     SET payment_proof_status = 'VERIFIED',
+                         payment_status = ?,
+                         payment_verified_at = NOW(),
+                         payment_verified_by = ?
+                     WHERE id = ?",
+                    'sii',
+                    [$new_payment_status, $user_id, $linkedJobId]
+                );
+                JobOrderService::updateStatus($linkedJobId, 'IN_PRODUCTION');
+            }
             if (!empty($job['order_id'])) {
                 db_execute(
                     "UPDATE orders
