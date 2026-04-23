@@ -15,6 +15,7 @@ if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
     require_once __DIR__ . '/../includes/staff_pending_check.php';
 }
 $page_title = 'Customizations - PrintFlow';
+$hideCustomizationHistory = true;
 
 $branchFilter = printflow_branch_filter_for_user();
 $joBranchSql = '';
@@ -66,6 +67,14 @@ $completed_jobs_jobs = db_query(
     $joBranchParams ?: null
 )[0]['count'];
 $completed_jobs = $completed_jobs_jobs;
+
+if ($hideCustomizationHistory) {
+    $total_jobs = 0;
+    $pending_jobs = 0;
+    $approval_jobs = 0;
+    $in_production = 0;
+    $completed_jobs = 0;
+}
 
 $preloaded_customization_rows = [];
 
@@ -1934,6 +1943,11 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             async loadOrders(options = {}) {
                 const silent = !!options.silent;
+                if (<?php echo $hideCustomizationHistory ? 'true' : 'false'; ?>) {
+                    this.orders = [];
+                    this.bumpOrdersVersion();
+                    return;
+                }
                 try {
                     const refreshToken = Date.now();
                     const [joRes, ordersRes] = await Promise.all([
