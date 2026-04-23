@@ -15,7 +15,7 @@ if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
     require_once __DIR__ . '/../includes/staff_pending_check.php';
 }
 $page_title = 'Customizations - PrintFlow';
-$showLatestCustomizationOnly = true;
+$showLatestCustomizationOnly = false;
 
 $branchFilter = printflow_branch_filter_for_user();
 $joBranchSql = '';
