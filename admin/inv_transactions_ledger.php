@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
-$branchCtx = init_branch_context(false);
+$branchCtx = init_branch_context(true);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
 $selectedBranchParam = ($selectedBranchId === 'all') ? 'all' : (string)(int)$selectedBranchId;
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
@@ -228,6 +228,7 @@ if (isset($_GET['ajax'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="turbo-visit-control" content="reload">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
@@ -688,7 +689,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div id="ledgerPagination">
                     <?php 
-                        $p = array_filter(['branch_id'=>$branchId, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
+                        $p = array_filter(['branch_id'=>$selectedBranchParam, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
                         echo render_pagination($page, $total_pages, $p); 
                     ?>
                 </div>
@@ -757,7 +758,7 @@ if (isset($_GET['ajax'])) {
                     <select id="txItem" name="item_id" required style="width: 100%;">
                         <option value="">Search for an item...</option>
                         <?php foreach ($items as $item): ?>
-                            <option value="<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['name']); ?> (SOH: <?php echo (float)InventoryManager::getStockOnHand($item['id']); ?> <?php echo $item['unit']; ?>)</option>
+                            <option value="<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['name']); ?> (SOH: <?php echo (float)InventoryManager::getStockOnHand($item['id'], $branchId); ?> <?php echo $item['unit']; ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
