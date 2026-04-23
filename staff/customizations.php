@@ -1406,13 +1406,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             activeStatus: defaultStatus || 'ALL',
             currentPage: 1,
             itemsPerPage: 15,
-            orders: Array.isArray(window.pfCustomizationPreloadedOrders)
-                ? window.pfCustomizationPreloadedOrders.map(o => ({
-                    ...o,
-                    customer_type: String(o.customer_type || '').trim().toUpperCase(),
-                    _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
-                }))
-                : [],
+            orders: [],
             ordersVersion: 0,
             sortOrder: 'newest',
             sortOpen: false,
@@ -1692,6 +1686,87 @@ window.pfCustomizationPreloadedOrders = (() => {
             bumpOrdersVersion() {
                 this.ordersVersion++;
             },
+            statusPriority(row) {
+                const raw = String(row?.status || '').trim().toUpperCase().replace(/\s+/g, '_');
+                const priorities = {
+                    REJECTED: 100,
+                    CANCELLED: 95,
+                    COMPLETED: 90,
+                    TO_RECEIVE: 80,
+                    READY_TO_COLLECT: 80,
+                    IN_PRODUCTION: 70,
+                    PROCESSING: 70,
+                    PRINTING: 70,
+                    TO_VERIFY: 60,
+                    VERIFY_PAY: 60,
+                    PENDING_VERIFICATION: 60,
+                    DOWNPAYMENT_SUBMITTED: 60,
+                    TO_PAY: 50,
+                    APPROVED: 40,
+                    PENDING: 30
+                };
+                return priorities[raw] || 0;
+            },
+            typePriority(row) {
+                const type = String(row?.order_type || 'JOB').toUpperCase();
+                const priorities = {
+                    ORDER: 4,
+                    CUSTOMIZATION: 3,
+                    JOB: 2,
+                    SERVICE: 1
+                };
+                return priorities[type] || 0;
+            },
+            orderGroupKey(row) {
+                const oid = row?.order_id ?? row?.id ?? null;
+                if (oid != null && oid !== '') {
+                    return `ORDER:${oid}`;
+                }
+                return `${String(row?.order_type || 'JOB').toUpperCase()}:${row?.id ?? ''}`;
+            },
+            normalizeOrderRow(row) {
+                return {
+                    ...row,
+                    customer_type: this.normalizeCustomerType(row?.customer_type, row?.transaction_count),
+                    _ts: new Date(row?.updated_at || row?.created_at || row?.order_date || 0).getTime()
+                };
+            },
+            prepareOrderRows(rows = []) {
+                const grouped = new Map();
+                rows.forEach((rawRow) => {
+                    const row = this.normalizeOrderRow(rawRow);
+                    const key = this.orderGroupKey(row);
+                    const existing = grouped.get(key);
+                    if (!existing) {
+                        grouped.set(key, row);
+                        return;
+                    }
+
+                    const statusDiff = this.statusPriority(row) - this.statusPriority(existing);
+                    if (statusDiff > 0) {
+                        grouped.set(key, row);
+                        return;
+                    }
+                    if (statusDiff < 0) {
+                        return;
+                    }
+
+                    const timeDiff = (row._ts || 0) - (existing._ts || 0);
+                    if (timeDiff > 0) {
+                        grouped.set(key, row);
+                        return;
+                    }
+                    if (timeDiff < 0) {
+                        return;
+                    }
+
+                    if (this.typePriority(row) > this.typePriority(existing)) {
+                        grouped.set(key, row);
+                    }
+                });
+
+                return Array.from(grouped.values()).sort((a, b) => (b._ts || 0) - (a._ts || 0));
+            },
 
             serviceMapping: {
                 'TARPAULIN PRINTING': { categories: [2], ink: 'TARP' },
@@ -1936,6 +2011,11 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
 
             async init() {
+                if (Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
+                    const preloadedRows = this.prepareOrderRows(window.pfCustomizationPreloadedOrders);
+                    this.orders = <?php echo $showLatestCustomizationOnly ? 'preloadedRows.slice(0, 1)' : 'preloadedRows'; ?>;
+                    this.bumpOrdersVersion();
+                }
                 this.$watch('search', () => { this.currentPage = 1; });
                 this.$watch('activeStatus', () => { this.currentPage = 1; });
                 this.$watch('showDetailsModal', (isOpen) => {
@@ -2034,26 +2114,14 @@ window.pfCustomizationPreloadedOrders = (() => {
                     }
                     const regularOrders = ordersRes.success ? ordersRes.data : [];
                     const combined = [...jobOrders, ...regularOrders];
-                    const sorted = combined.sort((a, b) => {
-                        const ta = new Date(a.updated_at || a.created_at || a.order_date || 0).getTime();
-                        const tb = new Date(b.updated_at || b.created_at || b.order_date || 0).getTime();
-                        return tb - ta;
-                    });
-                    const visibleRows = <?php echo $showLatestCustomizationOnly ? 'sorted.slice(0, 1)' : 'sorted'; ?>;
-                    this.orders = visibleRows
-                        .map(o => ({
-                            ...o,
-                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
-                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
-                        }));
+                    const preparedRows = this.prepareOrderRows(combined);
+                    const visibleRows = <?php echo $showLatestCustomizationOnly ? 'preparedRows.slice(0, 1)' : 'preparedRows'; ?>;
+                    this.orders = visibleRows;
                     this.bumpOrdersVersion();
 
                     if (this.orders.length === 0 && Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
-                        this.orders = window.pfCustomizationPreloadedOrders.map(o => ({
-                            ...o,
-                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
-                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
-                        }));
+                        const preloadedRows = this.prepareOrderRows(window.pfCustomizationPreloadedOrders);
+                        this.orders = <?php echo $showLatestCustomizationOnly ? 'preloadedRows.slice(0, 1)' : 'preloadedRows'; ?>;
                         this.bumpOrdersVersion();
                     }
                 } catch(err) {
@@ -2061,11 +2129,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         console.error('Error loading orders:', err);
                     }
                     this.orders = Array.isArray(window.pfCustomizationPreloadedOrders)
-                        ? window.pfCustomizationPreloadedOrders.map(o => ({
-                            ...o,
-                            customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
-                            _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
-                        }))
+                        ? <?php echo $showLatestCustomizationOnly ? 'this.prepareOrderRows(window.pfCustomizationPreloadedOrders).slice(0, 1)' : 'this.prepareOrderRows(window.pfCustomizationPreloadedOrders)'; ?>
                         : [];
                     this.bumpOrdersVersion();
                 }
