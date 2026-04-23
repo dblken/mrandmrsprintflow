@@ -479,6 +479,12 @@ foreach ($service_rows as $row) {
             <!-- Jobs List & Filters (matching Enterprise reference) -->
             <div class="card overflow-visible pf-customizations-table-card">
                 <div class="toolbar-container">
+                    <div class="toolbar-group toolbar-group--title" style="margin-right:auto;">
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <div style="font-size:16px;font-weight:800;color:#111827;letter-spacing:0.01em;">Customization List</div>
+                            <div style="font-size:12px;color:#6b7280;">Live queue of all customization jobs and store-order custom work</div>
+                        </div>
+                    </div>
                     <div class="toolbar-group toolbar-group--actions">
     
                         <!-- Sort Menu -->
@@ -741,6 +747,16 @@ foreach ($service_rows as $row) {
     <div class="modal-overlay" @click.self="closeDetailsModal()">
         <div class="modal-panel" @click.stop>
 
+            <div x-show="actionBusy" x-cloak style="position:absolute;inset:0;z-index:20;background:rgba(255,255,255,0.82);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 24px;border-radius:16px;background:#ffffff;box-shadow:0 20px 40px rgba(15,23,42,0.15);border:1px solid rgba(6,161,161,0.15);min-width:240px;">
+                    <div style="width:40px;height:40px;border:3px solid #d1d5db;border-top-color:#06A1A1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                    <div style="text-align:center;">
+                        <div style="font-size:15px;font-weight:800;color:#111827;">Processing transaction...</div>
+                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">Please wait while we update the order.</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Loading State -->
             <div x-show="loadingDetails" style="padding:48px;text-align:center;">
                 <div style="width:40px;height:40px;border:3px solid #e5e7eb;border-top-color:#06A1A1;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
@@ -852,8 +868,8 @@ foreach ($service_rows as $row) {
                                         <div style="font-size:22px; font-weight:800; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
                                     </div>
                                     <div style="display:flex; gap:10px;">
-                                        <button @click="verifyPayment()" class="btn-staff-action btn-staff-action-emerald" style="flex:1;">Approve Payment</button>
-                                        <button @click="openRejectPaymentModal()" class="btn-staff-action btn-staff-action-red" style="flex:1;">Reject</button>
+                                        <button @click="verifyPayment()" :disabled="actionBusy" class="btn-staff-action btn-staff-action-emerald" :style="actionBusy ? 'flex:1;opacity:.6;cursor:not-allowed;' : 'flex:1;'">Approve Payment</button>
+                                        <button @click="openRejectPaymentModal()" :disabled="actionBusy" class="btn-staff-action btn-staff-action-red" :style="actionBusy ? 'flex:1;opacity:.6;cursor:not-allowed;' : 'flex:1;'">Reject</button>
                                     </div>
                                 </div>
                             </div>
@@ -1069,7 +1085,7 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 5: Production In Progress</label>
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;" x-text="materialsDeductedSummary"></div>
-                                <button @click="markReadyForPickup()" class="btn-action" style="background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; white-space:nowrap;">Mark as Ready for Pickup</button>
+                                <button @click="markReadyForPickup()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; white-space:nowrap; opacity:.6; cursor:not-allowed;' : 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; white-space:nowrap;'">Mark as Ready for Pickup</button>
                             </div>
                         </div>
                     </template>
@@ -1080,7 +1096,7 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 6: Ready for Pickup</label>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;">Customer has been notified to pick up the order.</div>
-                                <button @click="completeOrder()" class="btn-action" style="background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px;">Mark Final Completed</button>
+                                <button @click="completeOrder()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px; opacity:.6; cursor:not-allowed;' : 'background:#06A1A1; color:#fff; border:none; font-weight:600; padding:6px 16px; border-radius:8px;'">Mark Final Completed</button>
                             </div>
                         </div>
                     </template>
@@ -1193,8 +1209,8 @@ foreach ($service_rows as $row) {
                     <!-- Left: Status actions -->
                     <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
                         <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
-                            <button type="button" @click="jobAction('APPROVED')" class="btn-action" style="padding:8px 16px; font-weight:600; background:#86efac; color:#166534; border:1px solid #86efac; border-radius:8px; transition:all 0.2s;" onmouseover="this.style.background='#22c55e'; this.style.borderColor='#22c55e'; this.style.color='#ffffff';" onmouseout="this.style.background='#86efac'; this.style.borderColor='#86efac'; this.style.color='#166534';">Approve to Set Price</button>
-                            <button type="button" @click="openRevisionModal()" class="btn-action" style="padding:8px 16px; font-weight:600; background:#fca5a5; color:#991b1b; border:1px solid #fca5a5; border-radius:8px; transition:all 0.2s;" onmouseover="this.style.background='#ef4444'; this.style.borderColor='#ef4444'; this.style.color='#ffffff';" onmouseout="this.style.background='#fca5a5'; this.style.borderColor='#fca5a5'; this.style.color='#991b1b';">Request Revision</button>
+                            <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'padding:8px 16px; font-weight:600; background:#86efac; color:#166534; border:1px solid #86efac; border-radius:8px; transition:all 0.2s; opacity:.6; cursor:not-allowed;' : 'padding:8px 16px; font-weight:600; background:#86efac; color:#166534; border:1px solid #86efac; border-radius:8px; transition:all 0.2s;'" onmouseover="if(!this.disabled){this.style.background='#22c55e'; this.style.borderColor='#22c55e'; this.style.color='#ffffff';}" onmouseout="if(!this.disabled){this.style.background='#86efac'; this.style.borderColor='#86efac'; this.style.color='#166534';}">Approve to Set Price</button>
+                            <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'padding:8px 16px; font-weight:600; background:#fca5a5; color:#991b1b; border:1px solid #fca5a5; border-radius:8px; transition:all 0.2s; opacity:.6; cursor:not-allowed;' : 'padding:8px 16px; font-weight:600; background:#fca5a5; color:#991b1b; border:1px solid #fca5a5; border-radius:8px; transition:all 0.2s;'" onmouseover="if(!this.disabled){this.style.background='#ef4444'; this.style.borderColor='#ef4444'; this.style.color='#ffffff';}" onmouseout="if(!this.disabled){this.style.background='#fca5a5'; this.style.borderColor='#fca5a5'; this.style.color='#991b1b';}">Request Revision</button>
                         </div>
                     </div>
                     <!-- Right: Close -->
@@ -1367,6 +1383,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                 }))
                 : [],
+            ordersVersion: 0,
             sortOrder: 'newest',
             sortOpen: false,
             filterOpen: false,
@@ -1384,6 +1401,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             availableRolls: {},
             allInventoryItems: [],
             inventoryPollMs: 20000,
+            ordersPollMs: 10000,
             newMaterialId: '',
             newMaterialQty: 1,
             newMaterialHeight: 0,
@@ -1617,11 +1635,13 @@ window.pfCustomizationPreloadedOrders = (() => {
             beginModalAction() {
                 if (this.actionBusy) return false;
                 this.actionBusy = true;
-                this.closeDetailsModal();
                 return true;
             },
             endModalAction() {
                 this.actionBusy = false;
+            },
+            bumpOrdersVersion() {
+                this.ordersVersion++;
             },
 
             serviceMapping: {
@@ -1885,6 +1905,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                             clearInterval(window.pfStaffCustomizationsInventoryPoll);
                             window.pfStaffCustomizationsInventoryPoll = null;
                         }
+                        if (window.pfStaffCustomizationsOrdersPoll) {
+                            clearInterval(window.pfStaffCustomizationsOrdersPoll);
+                            window.pfStaffCustomizationsOrdersPoll = null;
+                        }
                     });
                 }
                 if (window.pfStaffCustomizationsInventoryPoll) {
@@ -1893,6 +1917,24 @@ window.pfCustomizationPreloadedOrders = (() => {
                 window.pfStaffCustomizationsInventoryPoll = setInterval(() => {
                     this.loadAllInventoryItems().catch(() => {});
                 }, this.inventoryPollMs);
+
+                if (!window.pfStaffCustomizationsOrdersPollListenerAttached) {
+                    window.pfStaffCustomizationsOrdersPollListenerAttached = true;
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            this.loadOrders({ silent: true }).catch(() => {});
+                        }
+                    });
+                    window.addEventListener('focus', () => {
+                        this.loadOrders({ silent: true }).catch(() => {});
+                    });
+                }
+                if (window.pfStaffCustomizationsOrdersPoll) {
+                    clearInterval(window.pfStaffCustomizationsOrdersPoll);
+                }
+                window.pfStaffCustomizationsOrdersPoll = setInterval(() => {
+                    this.loadOrders({ silent: true }).catch(() => {});
+                }, this.ordersPollMs);
                 
                 // Auto-open modal if order_id is in URL
                 const params = new URLSearchParams(window.location.search);
@@ -1928,7 +1970,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
             },
 
-            async loadOrders() {
+            async loadOrders(options = {}) {
+                const silent = !!options.silent;
                 try {
                     const [joRes, ordersRes] = await Promise.all([
                         fetch('../admin/job_orders_api.php?action=list_orders&per_page=200').then(r => this.parseJsonResponse(r)),
@@ -1984,21 +2027,26 @@ window.pfCustomizationPreloadedOrders = (() => {
                             ...o,
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
+                    this.bumpOrdersVersion();
 
                     if (this.orders.length === 0 && Array.isArray(window.pfCustomizationPreloadedOrders) && window.pfCustomizationPreloadedOrders.length > 0) {
                         this.orders = window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }));
+                        this.bumpOrdersVersion();
                     }
                 } catch(err) {
-                    console.error('Error loading orders:', err);
+                    if (!silent) {
+                        console.error('Error loading orders:', err);
+                    }
                     this.orders = Array.isArray(window.pfCustomizationPreloadedOrders)
                         ? window.pfCustomizationPreloadedOrders.map(o => ({
                             ...o,
                             _ts: new Date(o.updated_at || o.created_at || o.order_date || 0).getTime()
                         }))
                         : [];
+                    this.bumpOrdersVersion();
                 }
             },
 
@@ -2194,6 +2242,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
 
             getStatusCount(status) {
+                void this.ordersVersion;
                 if (status === 'ALL') {
                     // Count each order exactly once based on which tab it belongs to
                     return this.orders.filter(o => {
