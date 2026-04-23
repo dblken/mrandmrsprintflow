@@ -15,7 +15,7 @@ if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
     require_once __DIR__ . '/../includes/staff_pending_check.php';
 }
 $page_title = 'Customizations - PrintFlow';
-$hideCustomizationHistory = true;
+$showLatestCustomizationOnly = true;
 
 $branchFilter = printflow_branch_filter_for_user();
 $joBranchSql = '';
@@ -67,14 +67,6 @@ $completed_jobs_jobs = db_query(
     $joBranchParams ?: null
 )[0]['count'];
 $completed_jobs = $completed_jobs_jobs;
-
-if ($hideCustomizationHistory) {
-    $total_jobs = 0;
-    $pending_jobs = 0;
-    $approval_jobs = 0;
-    $in_production = 0;
-    $completed_jobs = 0;
-}
 
 $preloaded_customization_rows = [];
 
@@ -166,6 +158,23 @@ $customization_rows = db_query(
 
 foreach ($customization_rows as $row) {
     $preloaded_customization_rows[] = $row;
+}
+
+if ($showLatestCustomizationOnly) {
+    usort($preloaded_customization_rows, static function (array $a, array $b): int {
+        $ta = strtotime((string)($a['updated_at'] ?? $a['created_at'] ?? '')) ?: 0;
+        $tb = strtotime((string)($b['updated_at'] ?? $b['created_at'] ?? '')) ?: 0;
+        return $tb <=> $ta;
+    });
+    $preloaded_customization_rows = array_slice($preloaded_customization_rows, 0, 1);
+
+    $latestRow = $preloaded_customization_rows[0] ?? null;
+    $latestStatus = strtoupper(str_replace(' ', '_', (string)($latestRow['status'] ?? '')));
+    $total_jobs = $latestRow ? 1 : 0;
+    $pending_jobs = ($latestStatus === 'PENDING') ? 1 : 0;
+    $approval_jobs = ($latestStatus === 'APPROVED') ? 1 : 0;
+    $in_production = in_array($latestStatus, ['IN_PRODUCTION', 'PROCESSING', 'PRINTING'], true) ? 1 : 0;
+    $completed_jobs = ($latestStatus === 'COMPLETED') ? 1 : 0;
 }
 
 
@@ -1943,11 +1952,6 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             async loadOrders(options = {}) {
                 const silent = !!options.silent;
-                if (<?php echo $hideCustomizationHistory ? 'true' : 'false'; ?>) {
-                    this.orders = [];
-                    this.bumpOrdersVersion();
-                    return;
-                }
                 try {
                     const refreshToken = Date.now();
                     const [joRes, ordersRes] = await Promise.all([
@@ -1969,7 +1973,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const tb = new Date(b.updated_at || b.created_at || b.order_date || 0).getTime();
                         return tb - ta;
                     });
-                    this.orders = sorted
+                    const visibleRows = <?php echo $showLatestCustomizationOnly ? 'sorted.slice(0, 1)' : 'sorted'; ?>;
+                    this.orders = visibleRows
                         .map(o => ({
                             ...o,
                             customer_type: this.normalizeCustomerType(o.customer_type, o.transaction_count),
