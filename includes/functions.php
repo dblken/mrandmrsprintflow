@@ -1063,6 +1063,59 @@ function printflow_format_order_code($order_id, $order_sku = '') {
     return $order_sku !== '' ? ($order_sku . '-' . $order_id) : ('ORD-' . $order_id);
 }
 
+function printflow_format_job_code($job_id): string {
+    return 'JO-' . str_pad((string)((int)$job_id), 5, '0', STR_PAD_LEFT);
+}
+
+function printflow_format_customization_code($customization_id): string {
+    return 'CUST-' . str_pad((string)((int)$customization_id), 5, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Resolve the visible reference label used for job-linked inventory entries.
+ *
+ * @return array{type:string,id:int,code:string,label:string}
+ */
+function printflow_get_job_inventory_reference(int $job_id): array {
+    if ($job_id <= 0) {
+        $code = printflow_format_job_code(0);
+        return ['type' => 'job', 'id' => 0, 'code' => $code, 'label' => 'Job #' . $code];
+    }
+
+    $row = db_query(
+        "SELECT jo.id,
+                cust_map.customization_id
+         FROM job_orders jo
+         LEFT JOIN (
+            SELECT order_id, MIN(customization_id) AS customization_id
+            FROM customizations
+            GROUP BY order_id
+         ) cust_map ON cust_map.order_id = jo.order_id
+         WHERE jo.id = ?
+         LIMIT 1",
+        'i',
+        [$job_id]
+    );
+
+    $customization_id = (int)($row[0]['customization_id'] ?? 0);
+    if ($customization_id > 0) {
+        $code = printflow_format_customization_code($customization_id);
+        return ['type' => 'customization', 'id' => $customization_id, 'code' => $code, 'label' => 'Customization #' . $code];
+    }
+
+    $code = printflow_format_job_code($job_id);
+    return ['type' => 'job', 'id' => $job_id, 'code' => $code, 'label' => 'Job #' . $code];
+}
+
+function printflow_format_inventory_reference_note(string $notes, string $referenceLabel): string {
+    $notes = trim($notes);
+    if ($notes === '' || $referenceLabel === '') {
+        return $notes;
+    }
+
+    return (string)preg_replace('/\bJob\s*#\d+\b/i', $referenceLabel, $notes);
+}
+
 /**
  * Format date
  * @param string $date

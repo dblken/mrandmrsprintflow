@@ -31,6 +31,30 @@ function pf_ledger_tx_json_attr(array $row): string {
     return htmlspecialchars($j, ENT_QUOTES, 'UTF-8');
 }
 
+function pf_ledger_enrich_transaction_row(array $row): array {
+    $refType = strtoupper((string)($row['ref_type'] ?? ''));
+    $refId = (int)($row['ref_id'] ?? 0);
+    $referenceLabel = '';
+
+    if ($refType === 'JOB_ORDER') {
+        $customizationId = (int)($row['customization_ref_id'] ?? 0);
+        if ($customizationId > 0) {
+            $referenceLabel = 'Customization #' . printflow_format_customization_code($customizationId);
+        } elseif ($refId > 0) {
+            $referenceLabel = 'Job #' . printflow_format_job_code($refId);
+        }
+    }
+
+    $row['reference_label'] = $referenceLabel;
+    $row['raw_notes'] = (string)($row['notes'] ?? '');
+    $row['display_notes'] = $referenceLabel !== ''
+        ? printflow_format_inventory_reference_note((string)($row['notes'] ?? ''), $referenceLabel)
+        : (string)($row['notes'] ?? '');
+    $row['notes'] = $row['display_notes'];
+
+    return $row;
+}
+
 // Get filter parameters
 $item_id      = (int)($_GET['item_id'] ?? 0);
 $type_filter  = $_GET['type'] ?? '';
@@ -47,12 +71,20 @@ $sql = "SELECT t.*,
                COALESCE(i.name, p.name) as item_name, 
                COALESCE(i.unit_of_measure, 'pcs') as unit, 
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
-               r.roll_code as roll_code
+               r.roll_code as roll_code,
+               jo.id as job_ref_id,
+               cust_map.customization_id as customization_ref_id
         FROM inventory_transactions t
         LEFT JOIN inv_items i ON t.item_id = i.id AND t.ref_type != 'order'
         LEFT JOIN products p ON t.item_id = p.product_id AND t.ref_type = 'order'
         LEFT JOIN users u ON t.created_by = u.user_id
         LEFT JOIN inv_rolls r ON t.roll_id = r.id
+        LEFT JOIN job_orders jo ON UPPER(t.ref_type) = 'JOB_ORDER' AND jo.id = t.ref_id
+        LEFT JOIN (
+            SELECT order_id, MIN(customization_id) AS customization_id
+            FROM customizations
+            GROUP BY order_id
+        ) cust_map ON cust_map.order_id = jo.order_id
         WHERE (i.id IS NOT NULL OR p.product_id IS NOT NULL)";
 $params = [];
 $types = '';
@@ -112,6 +144,7 @@ if ($sort === 'transaction_date' || $sort === 'id') {
 }
 $sql .= $orderSql . " LIMIT $per_page OFFSET $offset";
 $transactions = db_query($sql, $types ?: null, $params ?: null) ?: [];
+$transactions = array_map('pf_ledger_enrich_transaction_row', $transactions);
 
 // Get items for filters/forms
 $items = db_query("SELECT id, name, unit_of_measure as unit FROM inv_items ORDER BY name ASC") ?: [];
@@ -957,7 +990,7 @@ if (isset($_GET['ajax'])) {
         const isIN = (t.direction === 'IN');
         const qty = parseFloat(t.quantity);
         const displayQty = isIN ? '+' + qty.toFixed(2) : '-' + qty.toFixed(2);
-        document.getElementById('viewModalRef').textContent = '#TX-' + t.id;
+        document.getElementById('viewModalRef').textContent = t.reference_label || ('#TX-' + t.id);
         document.getElementById('viewModalDate').textContent = t.transaction_date;
         document.getElementById('viewModalItem').textContent = t.item_name;
         document.getElementById('viewModalItem').style.textTransform = 'capitalize';

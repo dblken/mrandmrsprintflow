@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/InventoryManager.php';
 require_once __DIR__ . '/RollService.php';
 require_once __DIR__ . '/NotificationService.php';
@@ -605,6 +606,8 @@ class JobOrderService {
      */
     private static function processDeductions($orderId) {
         $branchId = self::getJobBranchId((int)$orderId);
+        $jobRef = printflow_get_job_inventory_reference((int)$orderId);
+        $jobLabel = $jobRef['label'] ?? ('Job #' . printflow_format_job_code((int)$orderId));
         $materials = self::getScopedMaterials((int)$orderId, true);
         
         if ($materials) {
@@ -628,7 +631,7 @@ class JobOrderService {
                             $lengthNeeded,
                             'JOB_ORDER',
                             $orderId,
-                            "Deducted for Job #{$orderId}",
+                            "Deducted for {$jobLabel}",
                             $branchId
                         );
                     } catch (Exception $e) {
@@ -652,7 +655,7 @@ class JobOrderService {
                                         $metadata['lamination_length_ft'],
                                         'JOB_ORDER',
                                         $orderId,
-                                        "Lamination deducted for Job #{$orderId}",
+                                        "Lamination deducted for {$jobLabel}",
                                         $branchId
                                     );
                                 } else {
@@ -662,7 +665,7 @@ class JobOrderService {
                                         $lamItem['unit_of_measure'], 
                                         'JOB_ORDER', 
                                         $orderId, 
-                                        "Lamination deducted for Job #{$orderId}",
+                                        "Lamination deducted for {$jobLabel}",
                                         false,
                                         false,
                                         $branchId
@@ -686,7 +689,7 @@ class JobOrderService {
                         $m['uom'], 
                         'JOB_ORDER', 
                         $orderId, 
-                        "Deducted for Job #{$orderId}",
+                        "Deducted for {$jobLabel}",
                         false,
                         false,
                         $branchId
@@ -712,7 +715,7 @@ class JobOrderService {
                     $inkItem['unit_of_measure'] ?? 'bottle',
                     'JOB_ORDER',
                     $orderId,
-                    "{$ink['ink_color']} ink used for Job #{$orderId}",
+                    "{$ink['ink_color']} ink used for {$jobLabel}",
                     false,
                     false,
                     $branchId

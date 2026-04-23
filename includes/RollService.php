@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/functions.php';
 
 class RollService {
 
@@ -75,6 +76,8 @@ class RollService {
 
         // 3. Record in Ledger (InventoryManager handles the insertion)
         require_once __DIR__ . '/InventoryManager.php';
+        $jobRef = printflow_get_job_inventory_reference((int)$jobOrderId);
+        $jobLabel = $jobRef['label'] ?? ('Job #' . printflow_format_job_code((int)$jobOrderId));
         InventoryManager::recordTransaction(
             $roll['item_id'], 
             'OUT', 
@@ -83,7 +86,7 @@ class RollService {
             'JOB_ORDER', 
             $jobOrderId, 
             $rollId, 
-            "Deducted for Job #{$jobOrderId}"
+            "Deducted for {$jobLabel}"
         );
 
         // 4. Update Job Order Material status (if ID provided) to mark as deducted
