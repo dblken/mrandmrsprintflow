@@ -643,7 +643,7 @@ require_once __DIR__ . '/../includes/header.php';
                                             Pay Now
                                         </a>
                                         <?php endif; ?>
-                                        <button class="action-button btn-main-blue" style="padding: 0.45rem 0.85rem; font-size: 0.68rem;" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">View Details</button>
+                                        <button type="button" class="action-button btn-main-blue" style="padding: 0.45rem 0.85rem; font-size: 0.68rem;" onclick="openItemsModal(<?php echo $order['order_id']; ?>, event)">View Details</button>
                                         <?php if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)): ?>
                                             <?php if (empty($order['rating_value'])): ?>
                                                 <a href="<?php echo BASE_URL; ?>/customer/rate_order.php?order_id=<?php echo $order['order_id']; ?>" class="action-button btn-rate-order" style="padding: 0.45rem 0.85rem; font-size: 0.68rem;">
@@ -822,18 +822,66 @@ function imBadge(val) {
     return `<span class="status-pill ${cls}">${escIM(val)}</span>`;
 }
 
-function openItemsModal(orderId) {
+let currentOrderItemsRequest = null;
+
+function renderItemsModalLoadingState() {
+    document.getElementById('imBody').innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16">
+            <div class="w-10 h-10 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin"></div>
+            <p class="mt-4 text-slate-500 font-bold text-sm">Gathering details...</p>
+        </div>
+    `;
+}
+
+function renderItemsModalErrorState(message) {
+    document.getElementById('imBody').innerHTML = `<p class="text-red-500 font-bold text-center">${escIM(message || 'Unable to load order details right now.')}</p>`;
+}
+
+function openItemsModal(orderId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
     const modal = document.getElementById('itemsModal');
     document.getElementById('imTitle').textContent = `Order`;
     document.getElementById('imSubtitle').textContent = 'Fetching data...';
+    renderItemsModalLoadingState();
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 
-    fetch(`${CUSTOMER_BASE_URL}/customer/get_order_items.php?id=${orderId}`)
-    .then(r => r.json())
+    if (currentOrderItemsRequest) {
+        currentOrderItemsRequest.abort();
+    }
+
+    currentOrderItemsRequest = new AbortController();
+
+    fetch(`${CUSTOMER_BASE_URL}/customer/get_order_items.php?id=${orderId}`, {
+        signal: currentOrderItemsRequest.signal,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(async r => {
+        const raw = await r.text();
+        let data = null;
+        try {
+            data = JSON.parse(raw);
+        } catch (parseError) {
+            if (!r.ok) {
+                throw new Error(`Request failed with status ${r.status}`);
+            }
+            throw new Error('Invalid order details response');
+        }
+        if (!r.ok) {
+            throw new Error(data && data.error ? data.error : `Request failed with status ${r.status}`);
+        }
+        return data;
+    })
     .then(data => {
         if (data.error) {
-            document.getElementById('imBody').innerHTML = `<p class="text-red-500 font-bold text-center">${escIM(data.error)}</p>`;
+            renderItemsModalErrorState(data.error);
             return;
         }
 
@@ -955,12 +1003,22 @@ function openItemsModal(orderId) {
             </div>
         `;
     })
-    .catch(() => {
-        document.getElementById('imBody').innerHTML = `<p class="text-red-500 font-bold text-center">Connection error. Please try again.</p>`;
+    .catch((error) => {
+        if (error && error.name === 'AbortError') {
+            return;
+        }
+        renderItemsModalErrorState(error && error.message ? error.message : 'Connection error. Please try again.');
+    })
+    .finally(() => {
+        currentOrderItemsRequest = null;
     });
 }
 
 function closeItemsModal() {
+    if (currentOrderItemsRequest) {
+        currentOrderItemsRequest.abort();
+        currentOrderItemsRequest = null;
+    }
     document.getElementById('itemsModal').classList.remove('open');
     document.body.style.overflow = '';
 }
