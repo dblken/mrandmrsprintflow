@@ -390,7 +390,8 @@ try {
                         WHEN cust.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
                         WHEN cust.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
                         WHEN cust.status = 'Completed' THEN 'COMPLETED'
-                        WHEN cust.status IN ('Rejected', 'Cancelled') THEN 'CANCELLED'
+                        WHEN cust.status = 'Rejected' THEN 'REJECTED'
+                        WHEN cust.status = 'Cancelled' THEN 'CANCELLED'
                         ELSE 'PENDING'
                     END AS status,
                     'PAID' AS payment_proof_status,
@@ -512,6 +513,7 @@ try {
                 'IN_PRODUCTION' => 'Processing',
                 'TO_RECEIVE'    => 'Ready for Pickup',
                 'COMPLETED'     => 'Completed',
+                'REJECTED'      => 'Rejected',
                 'CANCELLED'     => 'Cancelled',
             ];
             $new_status = $status_to_db[$raw_status] ?? $raw_status;
@@ -644,7 +646,7 @@ try {
                 'Ready For Pickup'      => 'TO_RECEIVE',
                 'Completed'             => 'COMPLETED',
                 'Cancelled'             => 'CANCELLED',
-                'Rejected'              => 'CANCELLED',
+                'Rejected'              => 'REJECTED',
             ];
             $mapped_status = $status_map[$cust['status'] ?? ''] ?? 'PENDING';
 

@@ -136,6 +136,9 @@ $customization_rows = db_query(
                 WHEN cust.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
                 WHEN cust.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
                 WHEN cust.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
+                WHEN cust.status = 'Completed' THEN 'COMPLETED'
+                WHEN cust.status = 'Rejected' THEN 'REJECTED'
+                WHEN cust.status = 'Cancelled' THEN 'CANCELLED'
                 ELSE 'PENDING'
             END AS status,
             cust.created_at,
@@ -546,6 +549,10 @@ foreach ($customization_rows as $row) {
                                 <span>COMPLETED</span>
                                 <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
                             </button>
+                            <button type="button" @click="activeStatus = 'REJECTED'" :class="activeStatus === 'REJECTED' ? 'active' : ''" class="pill-tab">
+                                <span>REJECTED</span>
+                                <span class="tab-count" x-text="getStatusCount('REJECTED')"></span>
+                            </button>
                             <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab">
                                 <span>CANCELLED</span>
                                 <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
@@ -593,13 +600,14 @@ foreach ($customization_rows as $row) {
                                             'badge-production': jo.status === 'IN_PRODUCTION',
                                             'badge-pickup':     jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT',
                                             'badge-pending':    jo.status === 'PENDING',
-                                            'badge-cancelled':  jo.status === 'CANCELLED'
+                                            'badge-cancelled':  jo.status === 'REJECTED' || jo.status === 'CANCELLED'
                                         }" class="status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Fulfilled' : 
                                            (jo.status === 'APPROVED' ? 'Approved' : 
                                            (jo.status === 'TO_PAY' ? 'To Pay' : 
                                            (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
+                                           (jo.status === 'REJECTED' ? 'Rejected' : 
                                            (jo.status === 'IN_PRODUCTION' ? 'Processing' : 
-                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'To Pickup' : jo.status)))))">
+                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'To Pickup' : jo.status))))))">
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-center">
@@ -1009,6 +1017,17 @@ foreach ($customization_rows as $row) {
                         </div>
                     </template>
 
+                    <!-- REJECTED -->
+                    <template x-if="currentJo.status === 'REJECTED'">
+                        <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #fca5a5; background:#fff1f2;">
+                            <label style="font-size:11px;font-weight:700;color:#be123c;text-transform:uppercase;display:block;margin-bottom:4px;">Payment Rejected</label>
+                            <div style="font-size:15px; font-weight:700; color:#be123c; display:flex; align-items:center; gap:8px;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                                Payment proof rejected
+                            </div>
+                        </div>
+                    </template>
+
                     <!-- CANCELLED -->
                     <template x-if="currentJo.status === 'CANCELLED'">
                         <div style="margin-bottom:20px; padding:18px; border-radius:12px; border:1px solid #fca5a5; background:#fef2f2;">
@@ -1296,7 +1315,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             ...printflowStaffServiceOrderModalMixin({
                 async afterSvcMutation() { await this.loadOrders(); }
             }),
-            statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'TO_VERIFY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'],
+            statuses: ['ALL', 'PENDING', 'APPROVED', 'TO_PAY', 'TO_VERIFY', 'IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'REJECTED', 'CANCELLED'],
             activeStatus: defaultStatus || 'ALL',
             currentPage: 1,
             itemsPerPage: 15,
@@ -1916,9 +1935,10 @@ window.pfCustomizationPreloadedOrders = (() => {
             async loadOrders(options = {}) {
                 const silent = !!options.silent;
                 try {
+                    const refreshToken = Date.now();
                     const [joRes, ordersRes] = await Promise.all([
-                        fetch('../admin/job_orders_api.php?action=list_orders&per_page=200').then(r => this.parseJsonResponse(r)),
-                        fetch('../admin/job_orders_api.php?action=list_pending_orders').then(r => this.parseJsonResponse(r))
+                        fetch(`../admin/job_orders_api.php?action=list_orders&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r)),
+                        fetch(`../admin/job_orders_api.php?action=list_pending_orders&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r))
                     ]);
 
                     const jobOrders = joRes.success ? joRes.data : [];
@@ -2086,6 +2106,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                         matchStatus = this.isInProductionRow(jo);
                     } else if (this.activeStatus === 'TO_RECEIVE') {
                         matchStatus = jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT';
+                    } else if (this.activeStatus === 'REJECTED') {
+                        matchStatus = jo.status === 'REJECTED';
                     } else {
                         matchStatus = jo.status === this.activeStatus;
                     }
@@ -2191,7 +2213,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         const s = String(o.status || '').toUpperCase().replace(/\s+/g, '_');
                         return ['PENDING','APPROVED','TO_PAY','VERIFY_PAY','TO_VERIFY','PENDING_VERIFICATION',
                                 'DOWNPAYMENT_SUBMITTED','IN_PRODUCTION','PROCESSING','PRINTING',
-                                'TO_RECEIVE','COMPLETED','CANCELLED'].includes(s) ||
+                                'TO_RECEIVE','COMPLETED','REJECTED','CANCELLED'].includes(s) ||
                                this.isInProductionRow(o);
                     }).length;
                 }
@@ -2206,6 +2228,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 if (status === 'TO_RECEIVE') {
                     return this.orders.filter(o => o.status === 'TO_RECEIVE' || o.status === 'READY_TO_COLLECT').length;
+                }
+                if (status === 'REJECTED') {
+                    return this.orders.filter(o => o.status === 'REJECTED').length;
                 }
                 return this.orders.filter(o => o.status === status).length;
             },
@@ -2485,6 +2510,13 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.activeStatus = 'IN_PRODUCTION';
                         await this.loadOrders();
                         await this.loadAllInventoryItems();
+                        this.currentJo.status = 'IN_PRODUCTION';
+                        this.orders = this.orders.map(o => (
+                            this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')
+                                ? { ...o, status: 'IN_PRODUCTION', updated_at: new Date().toISOString(), _ts: Date.now() }
+                                : o
+                        ));
+                        this.bumpOrdersVersion();
                         this.showDetailsModal = false;
                         this.showStaffAlert('Success', 'Payment verified. Materials deducted and production started.');
                     } else {
@@ -2548,7 +2580,15 @@ window.pfCustomizationPreloadedOrders = (() => {
                         res = await this.parseJsonResponse(r);
                     }
                     if (res.success) {
+                        this.activeStatus = 'REJECTED';
                         await this.loadOrders();
+                        this.currentJo.status = 'REJECTED';
+                        this.orders = this.orders.map(o => (
+                            this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')
+                                ? { ...o, status: 'REJECTED', updated_at: new Date().toISOString(), _ts: Date.now() }
+                                : o
+                        ));
+                        this.bumpOrdersVersion();
                         this.showDetailsModal = false;
                         this.showStaffAlert('Success', 'Payment proof rejected.');
                     } else {

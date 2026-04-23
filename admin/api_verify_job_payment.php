@@ -243,7 +243,7 @@ elseif ($action === 'reject_payment') {
             db_execute("UPDATE orders SET status = 'To Pay' WHERE order_id = ?", 'i', [$job['order_id']]);
             db_execute(
                 "UPDATE customizations
-                 SET status = 'To Pay', updated_at = NOW()
+                 SET status = 'Rejected', updated_at = NOW()
                  WHERE order_id = ? AND status NOT IN ('Completed', 'Cancelled', 'Rejected')",
                 'i',
                 [$job['order_id']]
