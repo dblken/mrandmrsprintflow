@@ -16,8 +16,9 @@ if (!isset($base_path)) {
 $current_user = get_logged_in_user();
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
 $can_manage_item_master = !$is_manager;
-$branchCtx = init_branch_context(true);
+$branchCtx = init_branch_context(false);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+$selectedBranchParam = ($selectedBranchId === 'all') ? 'all' : (string)(int)$selectedBranchId;
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
@@ -256,7 +257,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $p = array_filter(['branch_id'=>$branchId, 'category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
+    $p = array_filter(['branch_id'=>$selectedBranchParam, 'category_id'=>$cat_id, 'search'=>$search, 'sort'=>$sort, 'dir'=>$dir, 'track_by_roll'=>$track_by, 'stock_status'=>$stock_status], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $p);
     $pagination_html = ob_get_clean();
 
@@ -1749,7 +1750,7 @@ if (isset($_GET['ajax'])) {
         document.getElementById('scTrackType').textContent = item.track_by_roll == 1 ? 'Roll-Based' : 'Standard';
         document.getElementById('scLastUpdated').textContent = item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '\u2014';
         
-        const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo $branchId; ?>';
+        const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo htmlspecialchars($selectedBranchParam, ENT_QUOTES, 'UTF-8'); ?>';
         document.getElementById('scLedgerLink').href = `inv_transactions_ledger.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`;
         const ledgerUrl = `inv_transactions_ledger.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`;
         const seeAllLink = document.getElementById('scSeeAllLedgerLink');
@@ -1759,7 +1760,7 @@ if (isset($_GET['ajax'])) {
         document.getElementById('scLedgerBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#9ca3af;">Loading...</td></tr>';
 
         try {
-            const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo $branchId; ?>';
+            const currentBranch = new URLSearchParams(window.location.search).get('branch_id') || '<?php echo htmlspecialchars($selectedBranchParam, ENT_QUOTES, 'UTF-8'); ?>';
             const res = await fetch(ADMIN_API_BASE + `inventory_stock_card_api.php?branch_id=${encodeURIComponent(currentBranch)}&item_id=${item.id}`);
             const data = await res.json();
             if (data.success) {

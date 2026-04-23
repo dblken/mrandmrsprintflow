@@ -11,8 +11,9 @@ require_once __DIR__ . '/../includes/branch_ui.php';
 
 require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
-$branchCtx = init_branch_context(true);
+$branchCtx = init_branch_context(false);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
+$selectedBranchParam = ($selectedBranchId === 'all') ? 'all' : (string)(int)$selectedBranchId;
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
 $page_title = $is_manager ? 'Inventory Ledger - Manager' : 'Inventory Ledger - Admin';
@@ -164,7 +165,7 @@ if (isset($_GET['ajax'])) {
     $table_html = ob_get_clean();
 
     ob_start();
-    $p = array_filter(['branch_id'=>$branchId, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
+    $p = array_filter(['branch_id'=>$selectedBranchParam, 'item_id'=>$item_id, 'type'=>$type_filter, 'search'=>$search, 'start_date'=>$start_date, 'end_date'=>$end_date, 'sort'=>$sort, 'dir'=>$dir], function($v) { return $v !== null && $v !== ''; });
     echo render_pagination($page, $total_pages, $p);
     $pagination_html = ob_get_clean();
 
