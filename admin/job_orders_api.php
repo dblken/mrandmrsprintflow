@@ -386,7 +386,7 @@ try {
                         WHEN cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
                         WHEN cust.status = 'Approved' THEN 'APPROVED'
                         WHEN cust.status = 'To Pay' THEN 'TO_PAY'
-                        WHEN cust.status IN ('Pending Verification', 'Downpayment Submitted') THEN 'VERIFY_PAY'
+                        WHEN cust.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
                         WHEN cust.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
                         WHEN cust.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
                         WHEN cust.status = 'Completed' THEN 'COMPLETED'
@@ -406,7 +406,7 @@ try {
                 FROM customizations cust
                 LEFT JOIN customers c ON cust.customer_id = c.customer_id
                 LEFT JOIN orders o ON cust.order_id = o.order_id
-                WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup')"
+                WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'To Verify', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')"
                 . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
                 ORDER BY cust.created_at DESC
                 LIMIT 50";
@@ -637,6 +637,7 @@ try {
                 'To Pay'                => 'TO_PAY',
                 'Pending Verification'  => 'VERIFY_PAY',
                 'Downpayment Submitted' => 'VERIFY_PAY',
+                'To Verify'             => 'VERIFY_PAY',
                 'Processing'            => 'IN_PRODUCTION',
                 'In Production'         => 'IN_PRODUCTION',
                 'Ready for Pickup'      => 'TO_RECEIVE',
