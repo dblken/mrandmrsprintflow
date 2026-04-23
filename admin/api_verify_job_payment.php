@@ -88,6 +88,8 @@ if ($action === 'verify_payment') {
     $job_status = $normalize_workflow_status($job['status'] ?? '');
     $submitted_amount = (float)($job['payment_submitted_amount'] ?? 0);
     $has_proof_path = !empty($job['payment_proof_path']) || !empty($job['payment_proof']);
+    $already_verified = ($payment_proof_status === 'VERIFIED');
+    $already_in_post_verify_stage = in_array($job_status, ['IN_PRODUCTION', 'PROCESSING', 'PRINTING', 'TO_RECEIVE', 'COMPLETED'], true);
 
     // Idempotency / readiness check:
     // Normally we only verify when payment_proof_status is exactly SUBMITTED.
@@ -95,15 +97,18 @@ if ($action === 'verify_payment') {
     // so if we clearly have proof + amount, treat it as SUBMITTED for this verification.
     if ($payment_proof_status !== 'SUBMITTED') {
         // Already verified — idempotent success (job is in correct state)
-        if ($payment_proof_status === 'VERIFIED') {
+        if ($already_verified && $already_in_post_verify_stage) {
             echo json_encode(['success' => true]);
             exit;
         }
 
         $can_treat_as_submitted =
-            in_array($job_status, ['TO_PAY', 'VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true) &&
-            $submitted_amount > 0 &&
-            $has_proof_path;
+            $already_verified ||
+            (
+                in_array($job_status, ['TO_PAY', 'VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true) &&
+                $submitted_amount > 0 &&
+                $has_proof_path
+            );
 
         if (!$can_treat_as_submitted) {
             $msg = "Payment proof is not currently in SUBMITTED state (Current: {$payment_proof_status}, Job: {$job_status}, Amount: {$submitted_amount}, Proof: " . ($has_proof_path ? 'Yes' : 'No') . ").";
@@ -111,12 +116,14 @@ if ($action === 'verify_payment') {
             exit;
         }
 
-        // Normalize proof_status so downstream logic and UI remain consistent.
-        db_execute("UPDATE job_orders SET payment_proof_status = 'SUBMITTED' WHERE id = ?", 'i', [$job_id]);
-        $payment_proof_status = 'SUBMITTED';
+        if (!$already_verified) {
+            // Normalize proof_status so downstream logic and UI remain consistent.
+            db_execute("UPDATE job_orders SET payment_proof_status = 'SUBMITTED' WHERE id = ?", 'i', [$job_id]);
+            $payment_proof_status = 'SUBMITTED';
+        }
     }
     
-    if ($submitted_amount <= 0) {
+    if (!$already_verified && $submitted_amount <= 0) {
         echo json_encode(['success' => false, 'error' => 'Cannot verify: Valid submitted amount not found.']);
         exit;
     }
@@ -126,7 +133,7 @@ if ($action === 'verify_payment') {
     $required_payment = (float)$job['required_payment'];
     
     // Calculate new amounts
-    $new_amount_paid = $current_paid + $submitted_amount;
+    $new_amount_paid = $already_verified ? $current_paid : ($current_paid + $submitted_amount);
     
     // Determine new payment status based on money
     $new_payment_status = 'UNPAID';
@@ -149,6 +156,34 @@ if ($action === 'verify_payment') {
     try {
         global $conn;
         $conn->begin_transaction();
+        $linkedJobRows = [];
+        if (!empty($job['order_id'])) {
+            $linkedJobRows = db_query(
+                "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
+                'i',
+                [(int)$job['order_id']]
+            ) ?: [];
+        }
+        if (empty($linkedJobRows)) {
+            $linkedJobRows = [['id' => $job_id]];
+        }
+
+        if ($should_move_to_production) {
+            require_once __DIR__ . '/../includes/JobOrderService.php';
+            foreach ($linkedJobRows as $linkedJobRow) {
+                $linkedJobId = (int)($linkedJobRow['id'] ?? 0);
+                if ($linkedJobId <= 0) continue;
+                $linkedJobOrder = JobOrderService::getOrder($linkedJobId);
+                $linkedReadiness = strtoupper((string)($linkedJobOrder['readiness'] ?? 'READY'));
+                if (in_array($linkedReadiness, ['LOW', 'MISSING'], true)) {
+                    $jobCode = printflow_format_job_code($linkedJobId);
+                    $message = $linkedReadiness === 'MISSING'
+                        ? "Cannot approve payment for JO-{$jobCode}: inventory stock is missing."
+                        : "Cannot approve payment for JO-{$jobCode}: inventory stock is not enough.";
+                    throw new Exception($message);
+                }
+            }
+        }
 
         // Update payment fields first
         db_execute("UPDATE job_orders SET 
@@ -163,18 +198,6 @@ if ($action === 'verify_payment') {
         // Move every linked job for this order into production so stale sibling
         // job rows do not remain in VERIFY_PAY and reappear in the dashboard.
         if ($should_move_to_production) {
-            require_once __DIR__ . '/../includes/JobOrderService.php';
-            $linkedJobRows = [];
-            if (!empty($job['order_id'])) {
-                $linkedJobRows = db_query(
-                    "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
-                    'i',
-                    [(int)$job['order_id']]
-                ) ?: [];
-            }
-            if (empty($linkedJobRows)) {
-                $linkedJobRows = [['id' => $job_id]];
-            }
             foreach ($linkedJobRows as $linkedJobRow) {
                 $linkedJobId = (int)($linkedJobRow['id'] ?? 0);
                 if ($linkedJobId <= 0) continue;

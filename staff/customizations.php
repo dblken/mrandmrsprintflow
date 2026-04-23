@@ -459,6 +459,7 @@ if ($showLatestCustomizationOnly) {
                                     <span>Z to A</span>
                                     <svg x-show="sortOrder === 'za'" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" style="margin-left: auto; color: #0d9488;"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
+                                <div x-show="verificationStockBlockMessage()" style="padding:12px 14px; border-radius:10px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-size:12px; font-weight:700; line-height:1.45;" x-text="verificationStockBlockMessage()"></div>
                             </div>
                         </div>
 
@@ -1150,7 +1151,7 @@ if ($showLatestCustomizationOnly) {
                                 <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
                             </div>
                             <div x-show="isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
-                                <button type="button" @click="verifyPayment()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve Payment</button>
+                                <button type="button" @click="verifyPayment()" :disabled="actionBusy || !canApproveVerification()" class="pf-entry-btn pf-entry-in" :style="(actionBusy || !canApproveVerification()) ? 'opacity:.6;cursor:not-allowed;' : ''">Approve Payment</button>
                                 <button type="button" @click="openRejectPaymentModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Reject</button>
                             </div>
                             <div x-show="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'" style="display:flex; gap:8px;">
@@ -1337,6 +1338,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             currentPage: 1,
             itemsPerPage: 15,
             orders: [],
+            statusOverrides: {},
             ordersVersion: 0,
             sortOrder: 'newest',
             sortOpen: false,
@@ -1616,6 +1618,16 @@ window.pfCustomizationPreloadedOrders = (() => {
             bumpOrdersVersion() {
                 this.ordersVersion++;
             },
+            statusOverrideKey(row) {
+                return this.orderGroupKey(row);
+            },
+            setStatusOverride(row, status) {
+                const key = this.statusOverrideKey(row);
+                this.statusOverrides[key] = {
+                    status,
+                    ts: Date.now()
+                };
+            },
             statusPriority(row) {
                 const raw = String(row?.status || '').trim().toUpperCase().replace(/\s+/g, '_');
                 const priorities = {
@@ -1655,11 +1667,30 @@ window.pfCustomizationPreloadedOrders = (() => {
                 return `${String(row?.order_type || 'JOB').toUpperCase()}:${row?.id ?? ''}`;
             },
             normalizeOrderRow(row) {
-                return {
+                const normalized = {
                     ...row,
                     customer_type: this.normalizeCustomerType(row?.customer_type, row?.transaction_count),
                     _ts: new Date(row?.updated_at || row?.created_at || row?.order_date || 0).getTime()
                 };
+                const override = this.statusOverrides[this.statusOverrideKey(normalized)] || null;
+                if (override && override.status) {
+                    normalized.status = override.status;
+                    normalized._ts = Math.max(normalized._ts || 0, override.ts || 0);
+                }
+                return normalized;
+            },
+            verificationStockBlockMessage() {
+                const readiness = String(this.currentJo?.readiness || '').toUpperCase();
+                if (readiness === 'MISSING') {
+                    return 'Cannot approve payment yet because required materials are missing in inventory.';
+                }
+                if (readiness === 'LOW') {
+                    return 'Cannot approve payment yet because inventory stock is not enough for the required materials.';
+                }
+                return '';
+            },
+            canApproveVerification() {
+                return this.verificationStockBlockMessage() === '';
             },
             prepareOrderRows(rows = []) {
                 const grouped = new Map();
