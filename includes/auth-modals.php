@@ -1619,6 +1619,47 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         loginPwEl.addEventListener('blur', validateLoginPassword);
     }
 
+    function setLoginCsrfToken(token) {
+        if (!loginForm || !token) return;
+        var csrfInput = loginForm.querySelector('input[name="csrf_token"]');
+        if (csrfInput) csrfInput.value = token;
+    }
+
+    function submitLoginForm(hasRetried) {
+        return fetch(loginForm.action, {
+            method: 'POST',
+            body: new FormData(loginForm),
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data && data.code === 'csrf_mismatch' && data.csrf_token && !hasRetried) {
+                setLoginCsrfToken(data.csrf_token);
+                return submitLoginForm(true);
+            }
+
+            if (data && data.success && data.redirect) {
+                var target = data.redirect;
+                if (target.indexOf('/') === 0 && target.indexOf('//') !== 0) {
+                    target = window.location.origin + target;
+                }
+                window.location.replace(target);
+                return;
+            }
+            if (data && data.success && !data.redirect) {
+                window.location.replace('<?php echo $base_url; ?>/');
+                return;
+            }
+            var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
+            setLoginFieldError(loginEmailEl, loginEmailErr, fieldErrors.email || '');
+            setLoginFieldError(loginPwEl, loginPwErr, fieldErrors.password || (data && data.message ? data.message : 'Login failed.'));
+        });
+    }
+
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1629,33 +1670,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
             if (loginSubmitBtn) setButtonLoading(loginSubmitBtn, true, 'Signing in...');
 
-            fetch(loginForm.action, {
-                method: 'POST',
-                body: new FormData(loginForm),
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(function(response) { return response.json(); })
-            .then(function(data) {
-                if (data && data.success && data.redirect) {
-                    var target = data.redirect;
-                    if (target.indexOf('/') === 0 && target.indexOf('//') !== 0) {
-                        target = window.location.origin + target;
-                    }
-                    window.location.replace(target);
-                    return;
-                }
-                if (data && data.success && !data.redirect) {
-                    window.location.replace('<?php echo $base_url; ?>/');
-                    return;
-                }
-                var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
-                setLoginFieldError(loginEmailEl, loginEmailErr, fieldErrors.email || '');
-                setLoginFieldError(loginPwEl, loginPwErr, fieldErrors.password || (data && data.message ? data.message : 'Login failed.'));
-            })
+            submitLoginForm(false)
             .catch(function() {
                 setLoginFieldError(loginPwEl, loginPwErr, 'Network error. Please try again.');
             })

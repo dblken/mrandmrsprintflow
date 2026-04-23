@@ -23,6 +23,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // 2. Handle POST requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        $is_ajax = (
+            (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+            (isset($_SERVER['HTTP_ACCEPT']) && strpos((string) $_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+        );
+
+        if ($is_ajax) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'code' => 'csrf_mismatch',
+                'message' => 'Your session was refreshed. Please try again.',
+                'csrf_token' => generate_csrf_token(),
+            ]);
+            exit;
+        }
+
         $error = 'Invalid request. Please try again.';
         handle_error($error, $action);
     }
