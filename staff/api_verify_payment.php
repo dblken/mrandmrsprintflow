@@ -31,18 +31,23 @@ if (!$order_id || !in_array($action, ['Approve', 'Reject'])) {
     exit;
 }
 
-// Get order details (staff: same branch only)
-if ($staffBranchId !== null) {
-    $order_result = db_query("SELECT * FROM orders WHERE order_id = ? AND branch_id = ?", 'ii', [$order_id, $staffBranchId]);
-} else {
-    $order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
-}
+// Get order details then validate branch with the same rules used by the staff listing.
+$order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order_result)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
     exit;
 }
 $order = $order_result[0];
 $orderBranchId = (int)($order['branch_id'] ?? 0);
+if ($staffBranchId !== null) {
+    $branchMatches =
+        ($orderBranchId > 0 && $orderBranchId === (int)$staffBranchId) ||
+        printflow_order_in_branch($order_id, (int)$staffBranchId);
+    if (!$branchMatches) {
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
 
 $staff_id = get_user_id();
 $new_status = '';

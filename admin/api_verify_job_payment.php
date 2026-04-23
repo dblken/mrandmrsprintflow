@@ -48,9 +48,16 @@ if (get_user_type() !== 'Admin' && $viewerBranch) {
         [$job_id]
     );
     $jobBranchId = (int)($jobBranchRow[0]['branch_id'] ?? 0);
-    if ($jobBranchId !== (int)$viewerBranch) {
+    $branchMatches =
+        ($jobBranchId > 0 && $jobBranchId === (int)$viewerBranch) ||
+        ($resolvedBranchId > 0 && $resolvedBranchId === (int)$viewerBranch) ||
+        (!empty($job['order_id']) && printflow_order_in_branch((int)$job['order_id'], (int)$viewerBranch));
+    if (!$branchMatches) {
         echo json_encode(['success' => false, 'error' => 'Unauthorized']);
         exit;
+    }
+    if ($jobBranchId <= 0 && $resolvedBranchId > 0) {
+        db_execute("UPDATE job_orders SET branch_id = ? WHERE id = ? AND (branch_id IS NULL OR branch_id = 0)", 'ii', [$resolvedBranchId, $job_id]);
     }
 }
 
