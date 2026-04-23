@@ -2100,7 +2100,9 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
 
             async loadMachines() {
-                const res = await (await fetch('../admin/job_orders_api.php?action=list_machines')).json();
+                const res = await this.parseJsonResponse(
+                    await fetch('../admin/job_orders_api.php?action=list_machines')
+                );
                 this.machines = res.success ? res.data : [];
             },
 
@@ -2129,7 +2131,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const oid = j.order_id ?? j.id;
                 if (oid == null || oid === '') return null;
                 try {
-                    const res = await (await fetch(`../admin/job_orders_api.php?action=resolve_job_for_order&order_id=${encodeURIComponent(oid)}`)).json();
+                    const res = await this.parseJsonResponse(
+                        await fetch(`../admin/job_orders_api.php?action=resolve_job_for_order&order_id=${encodeURIComponent(oid)}`)
+                    );
                     if (res.success && res.job_id) {
                         this.currentJo.job_order_id = res.job_id;
                         await this.loadOrders();
@@ -2332,7 +2336,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (orderType === 'CUSTOMIZATION') {
                     // Fetch customization entry details
                     try {
-                        const detailRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_customization&id=${id}`))).json();
+                        const detailRes = await this.parseJsonResponse(
+                            await fetch(this.adminApiUrl(`job_orders_api.php?action=get_customization&id=${id}`))
+                        );
                         if (detailRes.success) {
                             this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
@@ -2424,7 +2430,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                     }
 
                     try {
-                        const res = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_order&id=${jid}`))).json();
+                        const res = await this.parseJsonResponse(
+                            await fetch(this.adminApiUrl(`job_orders_api.php?action=get_order&id=${jid}`))
+                        );
                         if (res.success) {
                             this.currentJo = { ...res.data, order_type: 'JOB' };
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
@@ -2437,7 +2445,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                             }
                         } else {
                             // Fallback: It might be a regular order ID passed with job_type=JOB
-                            const fallbackRes = await (await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${jid}`))).json();
+                            const fallbackRes = await this.parseJsonResponse(
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${jid}`))
+                            );
                             if (fallbackRes.success) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
                                 this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
@@ -2469,7 +2479,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                     this.availableRollsList = this.availableRolls[itemId];
                     return;
                 }
-                const res = await (await fetch(`../admin/inventory_rolls_api.php?action=list_rolls&item_id=${itemId}`)).json();
+                const res = await this.parseJsonResponse(
+                    await fetch(`../admin/inventory_rolls_api.php?action=list_rolls&item_id=${itemId}`)
+                );
                 if(res.success) {
                     this.availableRolls[itemId] = res.data;
                     this.availableRollsList = res.data;
@@ -2925,8 +2937,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
             },
             async loadAllInventoryItems() {
-                const res = await (await fetch('../admin/inventory_items_api.php?action=get_items&active_only=1')).json();
-                if(res.success) {
+                const res = await this.parseJsonResponse(
+                    await fetch('../admin/inventory_items_api.php?action=get_items&active_only=1')
+                );
+                if (res.success) {
                     // Drop roll cache so any newly issued/received roll deductions become visible.
                     this.availableRolls = {};
                     this.allInventoryItems = res.data;
@@ -2936,8 +2950,10 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             async loadAvailableLamRolls(itemId) {
                 if(!itemId) return;
-                const res = await (await fetch(`../admin/inventory_rolls_api.php?action=list&item_id=${itemId}&status=OPEN`)).json();
-                if(res.success) {
+                const res = await this.parseJsonResponse(
+                    await fetch(`../admin/inventory_rolls_api.php?action=list&item_id=${itemId}&status=OPEN`)
+                );
+                if (res.success) {
                     this.availableLamRollsList = res.data;
                 }
             },
