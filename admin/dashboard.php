@@ -1296,10 +1296,7 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             position: 'top',
                             labels: {
                                 boxWidth: 12,
-                                usePointStyle: true,
-                                padding: 16,
-                                color: '#374151',
-                                font: { size: 11, weight: 600 }
+                                font: { size: 11 }
                             }
                         },
                         tooltip: {
