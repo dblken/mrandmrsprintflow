@@ -728,15 +728,47 @@ try {
             $service_name = $payload['service_type'] ?: 'Custom Order';
             $linked_job_id = 0;
             $linked_job = null;
+            $linked_job_materials = [];
+            $linked_job_ink_usage = [];
             JobOrderService::ensureJobsForStoreOrder($order_id);
             $linked_job_rows = db_query(
-                "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+                "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC",
                 'i',
                 [$order_id]
-            );
+            ) ?: [];
             $linked_job_id = (int)($linked_job_rows[0]['id'] ?? 0);
             if ($linked_job_id > 0) {
                 $linked_job = JobOrderService::getOrder($linked_job_id);
+            }
+            $linked_job_ids = array_values(array_filter(array_map(static function ($row) {
+                return (int)($row['id'] ?? 0);
+            }, $linked_job_rows)));
+            if (!empty($linked_job_ids)) {
+                $jobIdPlaceholders = implode(',', array_fill(0, count($linked_job_ids), '?'));
+                $jobIdTypes = str_repeat('i', count($linked_job_ids));
+                $linked_job_materials = db_query(
+                    "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
+                            (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
+                     FROM job_order_materials m
+                     JOIN inv_items i ON m.item_id = i.id
+                     LEFT JOIN inv_rolls r ON m.roll_id = r.id
+                     WHERE m.job_order_id IN ($jobIdPlaceholders)",
+                    $jobIdTypes,
+                    $linked_job_ids
+                ) ?: [];
+                foreach ($linked_job_materials as &$material) {
+                    $material['metadata'] = $material['metadata'] ? json_decode($material['metadata'], true) : null;
+                }
+                unset($material);
+
+                $linked_job_ink_usage = db_query(
+                    "SELECT u.*, i.name as item_name
+                     FROM job_order_ink_usage u
+                     JOIN inv_items i ON u.item_id = i.id
+                     WHERE u.job_order_id IN ($jobIdPlaceholders)",
+                    $jobIdTypes,
+                    $linked_job_ids
+                ) ?: [];
             }
             $data = [
                 'id'                   => $o['order_id'],
@@ -767,8 +799,8 @@ try {
                 'readiness'            => $linked_job['readiness'] ?? 'READY',
                 'order_source'         => $o['order_source'] ?? 'customer',
                 'items'                => $items_out,
-                'materials'            => $linked_job['materials'] ?? [],
-                'ink_usage'            => $linked_job['ink_usage'] ?? [],
+                'materials'            => $linked_job_materials,
+                'ink_usage'            => $linked_job_ink_usage,
             ];
             echo json_encode(['success' => true, 'data' => $data]);
             break;
