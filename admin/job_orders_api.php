@@ -59,13 +59,24 @@ function jo_api_require_staff_branch(?int $staffBranch, int $jobId): void {
         return;
     }
     $row = db_query(
-        'SELECT COALESCE(jo.branch_id, o.branch_id) AS b FROM job_orders jo LEFT JOIN orders o ON o.order_id = jo.order_id WHERE jo.id = ? LIMIT 1',
+        'SELECT COALESCE(jo.branch_id, o.branch_id) AS b, jo.order_id FROM job_orders jo LEFT JOIN orders o ON o.order_id = jo.order_id WHERE jo.id = ? LIMIT 1',
         'i',
         [$jobId]
     );
     $b = (int)($row[0]['b'] ?? 0);
-    if ($b !== $staffBranch) {
+    $orderId = (int)($row[0]['order_id'] ?? 0);
+    $branchMatches =
+        ($b > 0 && $b === $staffBranch) ||
+        ($orderId > 0 && printflow_order_in_branch($orderId, $staffBranch));
+    if (!$branchMatches) {
         throw new Exception('Unauthorized');
+    }
+    if ($b <= 0 && $orderId > 0) {
+        db_execute(
+            'UPDATE job_orders SET branch_id = ? WHERE id = ? AND (branch_id IS NULL OR branch_id = 0)',
+            'ii',
+            [$staffBranch, $jobId]
+        );
     }
 }
 
@@ -724,9 +735,6 @@ try {
             }
             $order_id = (int)($_GET['id'] ?? 0);
             if (!$order_id) throw new Exception("Order ID required.");
-            if ($joStaffBranch !== null && !printflow_order_in_branch($order_id, $joStaffBranch)) {
-                throw new Exception("Unauthorized");
-            }
             $order_row = db_query("
                 SELECT o.*, c.first_name, c.last_name, c.customer_type, c.transaction_count, c.contact_number, c.email,
                        c.profile_picture AS customer_profile_picture,
@@ -739,6 +747,15 @@ try {
             ", 'i', [$order_id]);
             if (empty($order_row)) throw new Exception("Order not found.");
             $o = $order_row[0];
+            if ($joStaffBranch !== null) {
+                $orderBranchId = (int)($o['branch_id'] ?? 0);
+                $branchMatches =
+                    ($orderBranchId > 0 && $orderBranchId === $joStaffBranch) ||
+                    printflow_order_in_branch($order_id, $joStaffBranch);
+                if (!$branchMatches) {
+                    throw new Exception("Unauthorized");
+                }
+            }
             $status_map = [
                 'Pending' => 'PENDING', 'Pending Review' => 'PENDING', 'Pending Approval' => 'PENDING',
                 'For Revision' => 'PENDING', 'Design Approved' => 'APPROVED', 'Approved' => 'APPROVED',
