@@ -1338,18 +1338,18 @@ foreach ($service_rows as $row) {
         </div>
     </template>
         <!-- Custom Staff Alert Modal -->
-        <div x-show="alertModal.show" x-cloak style="position:fixed; inset:0; z-index:90000; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(4px);">
+        <div x-show="alertModal.show" x-cloak style="position:fixed; inset:0; z-index:90000; display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(4px);">
             <div @click.self="closeStaffAlert()" style="position:fixed; inset:0; background:rgba(17,24,39,0.7);"></div>
-            <div style="background:white; border-radius:24px; width:100%; max-width:400px; position:relative; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); animation:modalIn 0.3s ease-out; margin:auto;">
+            <div style="background:white; border-radius:24px; width:100%; max-width:400px; position:relative; z-index:1; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); animation:modalIn 0.3s ease-out; margin:0 auto;">
                 <div style="padding:32px 32px 24px; text-align:center;">
-                    <div style="width:56px; height:56px; background:#f0f9ff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+                    <div style="width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; background:transparent;">
                         <svg width="28" height="28" fill="none" stroke="#00A1A1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     <h3 x-text="alertModal.title" style="font-size:20px; font-weight:800; color:#111827; margin:0 0 8px;"></h3>
                     <p x-text="alertModal.message" style="font-size:15px; color:#4b5563; line-height:1.6; margin:0;"></p>
                 </div>
                 <div style="padding:0 32px 32px;">
-                    <button @click="closeStaffAlert()" style="width:100%; background:#111827; color:white; border:none; border-radius:14px; padding:14px; font-weight:700; font-size:15px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">OK</button>
+                    <button @click="closeStaffAlert()" style="width:100%; background:#00232b; color:white; border:none; border-radius:14px; padding:14px; font-weight:700; font-size:15px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#003a47'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,35,43,0.24)'" onmouseout="this.style.background='#00232b'; this.style.transform='none'; this.style.boxShadow='none'">OK</button>
                 </div>
             </div>
         </div>
