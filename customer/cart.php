@@ -52,6 +52,23 @@ $page_title = 'Shopping Cart - PrintFlow';
 $use_customer_css = true;
 $base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
 
+if (!function_exists('printflow_cart_asset_url')) {
+    function printflow_cart_asset_url(string $path, string $base_url): string {
+        $path = trim($path);
+        if ($path === '') return '';
+        if (preg_match('#^https?://#i', $path)) return $path;
+
+        $normalized_base = rtrim($base_url, '/');
+        $normalized_path = '/' . ltrim($path, '/');
+
+        if ($normalized_base !== '' && ($normalized_path === $normalized_base || strpos($normalized_path, $normalized_base . '/') === 0)) {
+            return $normalized_path;
+        }
+
+        return $normalized_base . $normalized_path;
+    }
+}
+
 // Ensure all items have a selection state
 if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
     foreach ($_SESSION['cart'] as $pid => &$item) {
@@ -198,7 +215,7 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     .cart-delete-mobile {
-        display: none;
+        display: none !important;
     }
 
     /* Checkbox Styling */
@@ -411,7 +428,7 @@ require_once __DIR__ . '/../includes/header.php';
         }
 
         .cart-delete-mobile {
-            display: inline-flex;
+            display: inline-flex !important;
         }
         
         /* Quantity controls - compact */
@@ -845,11 +862,9 @@ require_once __DIR__ . '/../includes/header.php';
                                                     $photo_path = trim((string)($prod_data[0]['photo_path'] ?? ''));
                                                     $legacy_image = trim((string)($prod_data[0]['product_image'] ?? ''));
                                                     if ($photo_path !== '') {
-                                                        $product_img = ($photo_path[0] === '/') ? $photo_path : ('/' . ltrim($photo_path, '/'));
+                                                        $product_img = printflow_cart_asset_url($photo_path, $base_url);
                                                     } elseif ($legacy_image !== '') {
-                                                        $product_img = ($legacy_image[0] === '/' || preg_match('/^https?:\/\//i', $legacy_image))
-                                                            ? $legacy_image
-                                                            : ('/' . ltrim($legacy_image, '/'));
+                                                        $product_img = printflow_cart_asset_url($legacy_image, $base_url);
                                                     }
                                                 }
                                             }
@@ -858,9 +873,9 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img) && $prod_id > 0) {
                                                 $img_base = "../public/images/products/product_" . $prod_id;
                                                 if (file_exists($img_base . ".jpg")) {
-                                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".jpg";
+                                                    $product_img = $base_url . "/public/images/products/product_" . $prod_id . ".jpg";
                                                 } elseif (file_exists($img_base . ".png")) {
-                                                    $product_img = "/printflow/public/images/products/product_" . $prod_id . ".png";
+                                                    $product_img = $base_url . "/public/images/products/product_" . $prod_id . ".png";
                                                 }
                                             }
                                             
@@ -868,21 +883,21 @@ require_once __DIR__ . '/../includes/header.php';
                                             if (empty($product_img)) {
                                                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
                                                 if (strpos($cat_lower, 'reflectorized') !== false || strpos($cat_lower, 'signage') !== false) {
-                                                    $product_img = "/printflow/public/images/products/signage.jpg";
+                                                    $product_img = $base_url . "/public/images/products/signage.jpg";
                                                 } elseif (strpos($cat_lower, 'tarpaulin') !== false) {
-                                                    $product_img = "/printflow/public/images/products/product_41.jpg";
+                                                    $product_img = $base_url . "/public/images/products/product_41.jpg";
                                                 } elseif (strpos($cat_lower, 'sintraboard') !== false || strpos($cat_lower, 'standee') !== false) {
-                                                    $product_img = "/printflow/public/images/services/Sintraboard Standees.jpg";
+                                                    $product_img = $base_url . "/public/images/services/Sintraboard Standees.jpg";
                                                 } elseif (strpos($cat_lower, 't-shirt') !== false || strpos($cat_lower, 'shirt') !== false) {
-                                                    $product_img = "/printflow/public/images/products/product_31.jpg";
+                                                    $product_img = $base_url . "/public/images/products/product_31.jpg";
                                                 } elseif (strpos($cat_lower, 'sticker') !== false || strpos($cat_lower, 'decal') !== false) {
                                                     if (strpos($cat_lower, 'glass') !== false || strpos($cat_lower, 'frosted') !== false) {
-                                                        $product_img = "/printflow/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
+                                                        $product_img = $base_url . "/public/images/products/Glass Stickers  Wall  Frosted Stickers.png";
                                                     } else {
-                                                        $product_img = "/printflow/public/images/products/product_21.jpg";
+                                                        $product_img = $base_url . "/public/images/products/product_21.jpg";
                                                     }
                                                 } elseif (strpos($cat_lower, 'souvenir') !== false) {
-                                                    $product_img = "/printflow/public/assets/images/icon-192.png";
+                                                    $product_img = $base_url . "/public/assets/images/icon-192.png";
                                                 }
                                             }
                                             ?>
@@ -890,7 +905,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <?php if (!empty($product_img)): ?>
                                                     <img src="<?php echo $product_img; ?>" style="width:100%; height:100%; object-fit:cover;" alt="Product">
                                                 <?php else: ?>
-                                                    <img src="/printflow/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
+                                                    <img src="<?php echo $base_url; ?>/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
                                                 <?php endif; ?>
                                             </div>
                                             <div style="flex:1;">
@@ -924,7 +939,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         <td style="padding:1rem; text-align:right; font-weight:600;" id="total-<?php echo $pid; ?>" onclick="event.stopPropagation();">
                                             <div class="cart-total-wrap">
                                                 <?php if ($is_unpriced_row): ?>
-                                                    <span style="font-size:0.75rem; color:#64748b; font-style:italic;">To be confirmed</span>
+                                                    <span class="cart-line-total" style="font-size:0.75rem; color:#64748b; font-style:italic;">To be confirmed</span>
                                                 <?php else: ?>
                                                     <span style="color:#0f172a; font-weight:600;"><?php echo str_replace('PHP', '₱', format_currency($item['price'] * $item['quantity'])); ?></span>
                                                 <?php endif; ?>
@@ -1128,8 +1143,13 @@ async function updateQty(pid, delta) {
     span.textContent = newQty;
     const row = document.querySelector(`.cart-row[data-id="${pid}"]`);
     const price = parseFloat(row.dataset.price);
-    const lineTotalSpan = document.getElementById(`total-${pid}`);
-    lineTotalSpan.textContent = PHP(price * newQty);
+    const totalCell = document.getElementById(`total-${pid}`);
+    const lineTotalText = totalCell ? (totalCell.querySelector('.cart-line-total') || totalCell.querySelector('span')) : null;
+    if (lineTotalText) {
+        if (price > 0) {
+            lineTotalText.textContent = PHP(price * newQty);
+        }
+    }
 
     const minusBtn = row.querySelector('.qty-btn:first-child');
     const plusBtn = row.querySelector('.qty-btn:last-child');
@@ -1149,13 +1169,24 @@ async function updateQty(pid, delta) {
         if (!data.success) {
             showCartToast(data.message || 'Failed to update quantity.', true);
             span.textContent = currentQty;
+            if (lineTotalText && price > 0) lineTotalText.textContent = PHP(price * currentQty);
             minusBtn.disabled = (currentQty <= 1);
+            plusBtn.disabled = false;
             recalculateTotal();
             updateAllPlusBtns();
         } else {
             if (window.updateCartBadge) updateCartBadge(data.cart_count);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+        console.error(err);
+        span.textContent = currentQty;
+        if (lineTotalText && price > 0) lineTotalText.textContent = PHP(price * currentQty);
+        minusBtn.disabled = (currentQty <= 1);
+        plusBtn.disabled = false;
+        recalculateTotal();
+        updateAllPlusBtns();
+        showCartToast('Failed to save quantity. Please try again.', true);
+    }
 }
 
 function getCartTotal() {
