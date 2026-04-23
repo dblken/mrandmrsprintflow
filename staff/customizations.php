@@ -889,10 +889,6 @@ foreach ($service_rows as $row) {
                                         <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Amount Submitted</div>
                                         <div style="font-size:22px; font-weight:800; color:#1f2937;" x-text="'₱' + Number(currentJo.payment_submitted_amount || 0).toLocaleString()"></div>
                                     </div>
-                                    <div style="display:flex; gap:10px;">
-                                        <button @click="verifyPayment()" :disabled="actionBusy" class="btn-staff-action btn-staff-action-emerald" :style="actionBusy ? 'flex:1;opacity:.6;cursor:not-allowed;' : 'flex:1;'">Approve Payment</button>
-                                        <button @click="openRejectPaymentModal()" :disabled="actionBusy" class="btn-staff-action btn-staff-action-red" :style="actionBusy ? 'flex:1;opacity:.6;cursor:not-allowed;' : 'flex:1;'">Reject</button>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1094,7 +1090,6 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 5: Production In Progress</label>
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;" x-text="materialsDeductedSummary"></div>
-                                <button @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
                             </div>
                         </div>
                     </template>
@@ -1105,7 +1100,6 @@ foreach ($service_rows as $row) {
                             <label style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;display:block;margin-bottom:12px;">Step 6: Ready for Pickup</label>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:14px; color:#0f766e; font-weight:500;">Customer has been notified to pick up the order.</div>
-                                <button @click="completeOrder()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark Final Completed</button>
                             </div>
                         </div>
                     </template>
@@ -1223,6 +1217,10 @@ foreach ($service_rows as $row) {
                         </div>
                         <div x-show="currentJo.status === 'APPROVED'" style="display:flex; gap:8px;">
                             <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
+                        </div>
+                        <div x-show="isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
+                            <button type="button" @click="verifyPayment()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve Payment</button>
+                            <button type="button" @click="openRejectPaymentModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Reject</button>
                         </div>
                         <div x-show="currentJo.status === 'IN_PRODUCTION' || currentJo.status === 'Processing'" style="display:flex; gap:8px;">
                             <button type="button" @click="markReadyForPickup()" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Mark as Ready for Pickup</button>
