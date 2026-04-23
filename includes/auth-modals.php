@@ -1625,7 +1625,28 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (csrfInput) csrfInput.value = token;
     }
 
-    function submitLoginForm(hasRetried) {
+    function refreshLoginCsrfToken() {
+        return fetch(window.location.href, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(response) { return response.text(); })
+        .then(function(html) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            var freshInput = doc.querySelector('#auth-modal-login input[name="csrf_token"]');
+            if (!freshInput || !freshInput.value) {
+                throw new Error('Unable to refresh login security token.');
+            }
+            setLoginCsrfToken(freshInput.value);
+            return freshInput.value;
+        });
+    }
+
+    function submitLoginForm(attempt) {
         return fetch(loginForm.action, {
             method: 'POST',
             body: new FormData(loginForm),
@@ -1637,9 +1658,16 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         })
         .then(function(response) { return response.json(); })
         .then(function(data) {
-            if (data && data.code === 'csrf_mismatch' && data.csrf_token && !hasRetried) {
-                setLoginCsrfToken(data.csrf_token);
-                return submitLoginForm(true);
+            if (data && data.code === 'csrf_mismatch') {
+                if (attempt === 0 && data.csrf_token) {
+                    setLoginCsrfToken(data.csrf_token);
+                    return submitLoginForm(1);
+                }
+                if (attempt <= 1) {
+                    return refreshLoginCsrfToken().then(function() {
+                        return submitLoginForm(2);
+                    });
+                }
             }
 
             if (data && data.success && data.redirect) {
@@ -1670,7 +1698,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
             if (loginSubmitBtn) setButtonLoading(loginSubmitBtn, true, 'Signing in...');
 
-            submitLoginForm(false)
+            submitLoginForm(0)
             .catch(function() {
                 setLoginFieldError(loginPwEl, loginPwErr, 'Network error. Please try again.');
             })
