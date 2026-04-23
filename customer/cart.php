@@ -134,16 +134,16 @@ require_once __DIR__ . '/../includes/header.php';
         display: inline-flex;
         align-items: center;
         background: #f1f5f9;
-        border-radius: 0;
-        padding: 4px;
-        gap: 12px;
-        border: none;
+        border-radius: 999px;
+        padding: 4px 6px;
+        gap: 8px;
+        border: 1px solid #dbe4ee;
     }
     .qty-btn {
         width: 32px;
         height: 32px;
-        border-radius: 0;
-        border: none;
+        border-radius: 999px;
+        border: 1px solid #d6dee8;
         background: #e2e8f0;
         color: #334155;
         display: flex;
@@ -164,8 +164,41 @@ require_once __DIR__ . '/../includes/header.php';
         font-weight: 700;
         font-size: 0.95rem;
         color: #0f172a;
-        min-width: 20px;
+        min-width: 26px;
         text-align: center;
+    }
+
+    .cart-item-type-badge {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 28px;
+        padding: 0 0.75rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+
+    .cart-total-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        min-height: 40px;
+    }
+
+    .cart-delete-cell {
+        text-align: center;
+        width: 60px;
+    }
+
+    .cart-delete-mobile {
+        display: none;
     }
 
     /* Checkbox Styling */
@@ -184,7 +217,7 @@ require_once __DIR__ . '/../includes/header.php';
         background: rgba(239, 68, 68, 0.1);
         border: none;
         padding: 8px;
-        border-radius: 0;
+        border-radius: 10px;
         cursor: pointer;
         transition: all 0.2s;
         display: flex;
@@ -292,6 +325,7 @@ require_once __DIR__ . '/../includes/header.php';
             position: absolute !important;
             top: 0.5rem !important;
             right: 0.5rem !important;
+            transform: none !important;
             height: 16px !important;
             padding: 0 0.35rem !important;
             font-size: 0.55rem !important;
@@ -374,6 +408,10 @@ require_once __DIR__ . '/../includes/header.php';
         
         .cart-theme-page .cart-row td:nth-child(6) {
             display: none !important;
+        }
+
+        .cart-delete-mobile {
+            display: inline-flex;
         }
         
         /* Quantity controls - compact */
@@ -864,7 +902,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                     <div style="font-size:0.75rem; color:#64748b;"><?php echo htmlspecialchars($item['category']); ?></div>
                                                 <?php endif; ?>
                                             </div>
-                                            <span style="position:absolute; top:0.5rem; right:0.5rem; display:inline-flex; align-items:center; height:20px; padding:0 0.55rem; border-radius:999px; border:1px solid <?php echo $item_type_border; ?>; background:<?php echo $item_type_bg; ?>; color:<?php echo $item_type_text; ?>; font-size:0.68rem; font-weight:700; letter-spacing:0.02em; text-transform:uppercase;">
+                                            <span class="cart-item-type-badge" style="border:1px solid <?php echo $item_type_border; ?>; background:<?php echo $item_type_bg; ?>; color:<?php echo $item_type_text; ?>;">
                                                 <?php echo $item_origin; ?>
                                             </span>
                                         </td>
@@ -884,20 +922,26 @@ require_once __DIR__ . '/../includes/header.php';
                                             </div>
                                         </td>
                                         <td style="padding:1rem; text-align:right; font-weight:600;" id="total-<?php echo $pid; ?>" onclick="event.stopPropagation();">
-                                            <div>
+                                            <div class="cart-total-wrap">
                                                 <?php if ($is_unpriced_row): ?>
                                                     <span style="font-size:0.75rem; color:#64748b; font-style:italic;">To be confirmed</span>
                                                 <?php else: ?>
                                                     <span style="color:#0f172a; font-weight:600;"><?php echo str_replace('PHP', '₱', format_currency($item['price'] * $item['quantity'])); ?></span>
                                                 <?php endif; ?>
-                                                <button type="button" class="trash-btn" onclick="confirmRemove('<?php echo $pid; ?>')" title="Remove">
+                                                <button type="button" class="trash-btn cart-delete-mobile" onclick="confirmRemove('<?php echo $pid; ?>')" title="Remove">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                     </svg>
                                                 </button>
                                             </div>
                                         </td>
-                                        <td style="display:none;"></td>
+                                        <td class="cart-delete-cell" style="padding:1rem;" onclick="event.stopPropagation();">
+                                            <button type="button" class="trash-btn" onclick="confirmRemove('<?php echo $pid; ?>')" title="Remove">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
