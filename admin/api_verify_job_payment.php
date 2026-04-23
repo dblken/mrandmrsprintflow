@@ -174,6 +174,13 @@ if ($action === 'verify_payment') {
             JobOrderService::updateStatus($job_id, 'IN_PRODUCTION');
             if (!empty($job['order_id'])) {
                 db_execute(
+                    "UPDATE orders
+                     SET status = 'Processing', payment_status = ?
+                     WHERE order_id = ?",
+                    'si',
+                    [($new_payment_status === 'PAID' ? 'Paid' : 'Partial'), (int)$job['order_id']]
+                );
+                db_execute(
                     "UPDATE customizations
                      SET status = 'Processing', updated_at = NOW()
                      WHERE order_id = ? AND status NOT IN ('Completed', 'Cancelled', 'Rejected')",
@@ -243,6 +250,7 @@ elseif ($action === 'reject_payment') {
     
     try {
         db_execute("UPDATE job_orders SET 
+                    status = 'REJECTED',
                     payment_proof_status = 'REJECTED',
                     payment_rejection_reason = ?,
                     payment_verified_at = NOW(),
@@ -252,11 +260,18 @@ elseif ($action === 'reject_payment') {
 
         // If linked to a store order, revert to 'To Pay' so they can submit again
         if ($job['order_id']) {
-            db_execute("UPDATE orders SET status = 'To Pay' WHERE order_id = ?", 'i', [$job['order_id']]);
+            db_execute("UPDATE orders SET status = 'Rejected' WHERE order_id = ?", 'i', [$job['order_id']]);
             db_execute(
                 "UPDATE customizations
                  SET status = 'Rejected', updated_at = NOW()
                  WHERE order_id = ? AND status NOT IN ('Completed', 'Cancelled', 'Rejected')",
+                'i',
+                [$job['order_id']]
+            );
+            db_execute(
+                "UPDATE job_orders
+                 SET status = 'REJECTED'
+                 WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED')",
                 'i',
                 [$job['order_id']]
             );
