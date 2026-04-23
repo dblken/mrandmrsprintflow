@@ -40,24 +40,14 @@ $total_jobs_jobs = db_query(
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$total_orders_pending = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$total_jobs = $total_jobs_jobs + $total_orders_pending;
+$total_jobs = $total_jobs_jobs;
 
 $pending_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$pending_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$pending_jobs = $pending_jobs_jobs + $pending_orders;
+$pending_jobs = $pending_jobs_jobs;
 
 $approval_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $joBranchSql,
@@ -69,24 +59,14 @@ $in_production_jobs = db_query(
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$in_production_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status IN ('Processing', 'In Production', 'Printing', 'Paid â€“ In Process', 'Paid - In Process')" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$in_production = $in_production_jobs + $in_production_orders;
+$in_production = $in_production_jobs;
 
 $completed_jobs_jobs = db_query(
     "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
-$completed_orders = db_query(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'Completed'" . $ordBranchSql,
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-)[0]['count'];
-$completed_jobs = $completed_jobs_jobs + $completed_orders;
+$completed_jobs = $completed_jobs_jobs;
 
 $preloaded_customization_rows = [];
 
@@ -123,56 +103,6 @@ foreach ($job_rows as $row) {
     $row['order_type'] = 'JOB';
     $preloaded_customization_rows[] = $row;
 }
-
-$order_rows = db_query(
-    "SELECT o.order_id AS id,
-            o.order_id,
-            o.customer_id,
-            c.first_name,
-            c.last_name,
-            c.profile_picture AS customer_profile_picture,
-            c.customer_type,
-            c.transaction_count,
-            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
-            'ORDER' AS order_type,
-            COALESCE(MAX(p.category), 'Custom Order') AS service_type,
-            GROUP_CONCAT(DISTINCT CONCAT(p.name, ' - ', oi.quantity, 'pcs') SEPARATOR ', ') AS job_title,
-            '1' AS width_ft,
-            '1' AS height_ft,
-            SUM(oi.quantity) AS quantity,
-            CASE
-                WHEN o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision') THEN 'PENDING'
-                WHEN o.status IN ('Design Approved', 'Approved') THEN 'APPROVED'
-                WHEN o.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
-                WHEN o.status = 'To Pay' THEN 'TO_PAY'
-                WHEN o.status IN ('Paid - In Process', 'Paid Ã¢â‚¬â€œ In Process', 'Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
-                WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
-                WHEN o.status = 'Completed' THEN 'COMPLETED'
-                WHEN o.status = 'Cancelled' THEN 'CANCELLED'
-                ELSE o.status
-            END AS status,
-            o.order_date AS created_at,
-            o.updated_at,
-            o.total_amount AS estimated_total,
-            COALESCE(o.order_source, 'customer') AS order_source
-     FROM orders o
-     LEFT JOIN order_items oi ON o.order_id = oi.order_id
-     LEFT JOIN products p ON oi.product_id = p.product_id
-     LEFT JOIN customers c ON o.customer_id = c.customer_id
-     WHERE (o.order_type IS NULL OR o.order_type = 'product' OR o.order_type = 'custom')
-       AND o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision', 'Approved', 'Design Approved', 'To Pay', 'Downpayment Submitted', 'Pending Verification', 'To Verify', 'Processing', 'In Production', 'Printing', 'Paid - In Process', 'Paid Ã¢â‚¬â€œ In Process', 'Ready for Pickup')
-       " . $ordBranchSql . "
-     GROUP BY o.order_id
-     ORDER BY o.order_date DESC
-     LIMIT 200",
-    $ordBranchTypes ?: null,
-    $ordBranchParams ?: null
-) ?: [];
-
-foreach ($order_rows as $row) {
-    $preloaded_customization_rows[] = $row;
-}
-
 
 $custom_branch_sql = '';
 $custom_branch_types = '';
@@ -2113,7 +2043,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                         console.warn('list_pending_orders failed:', ordersRes.error || ordersRes);
                     }
                     const regularOrders = ordersRes.success ? ordersRes.data : [];
-                    const combined = [...jobOrders, ...regularOrders];
+                    const customizationRows = regularOrders.filter(row => (row.order_type || '') === 'CUSTOMIZATION');
+                    const combined = [...jobOrders, ...customizationRows];
                     const preparedRows = this.prepareOrderRows(combined);
                     const visibleRows = <?php echo $showLatestCustomizationOnly ? 'preparedRows.slice(0, 1)' : 'preparedRows'; ?>;
                     this.orders = visibleRows;
