@@ -25,7 +25,16 @@ class JobOrderService {
             return self::$columnExistsCache[$cacheKey] = false;
         }
 
-        $rows = db_query("SHOW COLUMNS FROM `{$safeTable}` LIKE ?", 's', [$safeColumn]) ?: [];
+        $rows = db_query(
+            "SELECT 1
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+               AND COLUMN_NAME = ?
+             LIMIT 1",
+            'ss',
+            [$safeTable, $safeColumn]
+        ) ?: [];
         return self::$columnExistsCache[$cacheKey] = !empty($rows);
     }
 
