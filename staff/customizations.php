@@ -275,8 +275,9 @@ foreach ($service_rows as $row) {
 
         .toolbar-container {
             display: flex;
-            flex-direction: column;
-            align-items: stretch;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
             gap: 12px;
             overflow: hidden;
         }
@@ -289,7 +290,7 @@ foreach ($service_rows as $row) {
         }
 
         .toolbar-group--tabs {
-            flex: 1 1 auto;
+            flex: 1 1 100%;
             min-width: 0;
             overflow: visible;
         }
@@ -298,6 +299,40 @@ foreach ($service_rows as $row) {
             flex: 0 0 auto;
             margin-left: auto;
             justify-content: flex-end;
+        }
+        .toolbar-group--title {
+            flex: 0 0 auto;
+        }
+        .pf-entry-btn {
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            cursor: pointer;
+            background: transparent;
+            white-space: nowrap;
+        }
+        .pf-entry-in {
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .pf-entry-in:hover {
+            background: #10b981;
+            color: #fff;
+        }
+        .pf-entry-out {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .pf-entry-out:hover {
+            background: #ef4444;
+            color: #fff;
         }
         .pf-staff-customizations-root .kpi-row {
             gap: 16px;
@@ -743,16 +778,6 @@ foreach ($service_rows as $row) {
 <div x-show="showDetailsModal" x-cloak>
     <div class="modal-overlay" @click.self="closeDetailsModal()">
         <div class="modal-panel" @click.stop>
-
-            <div x-show="actionBusy" x-cloak style="position:absolute;inset:0;z-index:20;background:rgba(255,255,255,0.82);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px;">
-                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 24px;border-radius:16px;background:#ffffff;box-shadow:0 20px 40px rgba(15,23,42,0.15);border:1px solid rgba(6,161,161,0.15);min-width:240px;">
-                    <div style="width:40px;height:40px;border:3px solid #d1d5db;border-top-color:#06A1A1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                    <div style="text-align:center;">
-                        <div style="font-size:15px;font-weight:800;color:#111827;">Processing transaction...</div>
-                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">Please wait while we update the order.</div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Loading State -->
             <div x-show="loadingDetails" style="padding:48px;text-align:center;">
@@ -1206,8 +1231,8 @@ foreach ($service_rows as $row) {
                     <!-- Left: Status actions -->
                     <div style="display:flex;gap:8px; flex-wrap:wrap; align-items:center;">
                         <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
-                            <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'padding:8px 16px; font-weight:600; background:#86efac; color:#166534; border:1px solid #86efac; border-radius:8px; transition:all 0.2s; opacity:.6; cursor:not-allowed;' : 'padding:8px 16px; font-weight:600; background:#86efac; color:#166534; border:1px solid #86efac; border-radius:8px; transition:all 0.2s;'" onmouseover="if(!this.disabled){this.style.background='#22c55e'; this.style.borderColor='#22c55e'; this.style.color='#ffffff';}" onmouseout="if(!this.disabled){this.style.background='#86efac'; this.style.borderColor='#86efac'; this.style.color='#166534';}">Approve to Set Price</button>
-                            <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="btn-action" :style="actionBusy ? 'padding:8px 16px; font-weight:600; background:#fca5a5; color:#991b1b; border:1px solid #fca5a5; border-radius:8px; transition:all 0.2s; opacity:.6; cursor:not-allowed;' : 'padding:8px 16px; font-weight:600; background:#fca5a5; color:#991b1b; border:1px solid #fca5a5; border-radius:8px; transition:all 0.2s;'" onmouseover="if(!this.disabled){this.style.background='#ef4444'; this.style.borderColor='#ef4444'; this.style.color='#ffffff';}" onmouseout="if(!this.disabled){this.style.background='#fca5a5'; this.style.borderColor='#fca5a5'; this.style.color='#991b1b';}">Request Revision</button>
+                            <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve to Set Price</button>
+                            <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Request Revision</button>
                         </div>
                     </div>
                     <!-- Right: Close -->
@@ -1215,9 +1240,13 @@ foreach ($service_rows as $row) {
                 </div>
             </div>
         </div>
-    </div>
+</div>
 
-    <!-- REVISION MODAL -->
+<div x-show="actionBusy" x-cloak style="position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+    <div style="width:46px;height:46px;border:4px solid #d1d5db;border-top-color:#06A1A1;border-radius:50%;animation:spin .8s linear infinite;"></div>
+</div>
+
+<!-- REVISION MODAL -->
     <template x-if="showRevisionModal">
         <div>
             <!-- Backdrop -->
