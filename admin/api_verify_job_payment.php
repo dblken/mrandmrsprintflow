@@ -160,6 +160,15 @@ if ($action === 'verify_payment') {
                 db_execute("UPDATE job_orders SET branch_id = ? WHERE id = ?", 'ii', [$resolvedBranchId, $job_id]);
             }
             JobOrderService::updateStatus($job_id, 'IN_PRODUCTION');
+            if (!empty($job['order_id'])) {
+                db_execute(
+                    "UPDATE customizations
+                     SET status = 'Processing', updated_at = NOW()
+                     WHERE order_id = ? AND status NOT IN ('Completed', 'Cancelled', 'Rejected')",
+                    'i',
+                    [(int)$job['order_id']]
+                );
+            }
         }
 
         // If linked to a store order, sync the store order status
@@ -214,7 +223,8 @@ elseif ($action === 'reject_payment') {
     
     // Idempotency check
     $payment_proof_status = strtoupper((string)($job['payment_proof_status'] ?? ''));
-    if ($payment_proof_status !== 'SUBMITTED' && !in_array($job_status, ['TO_PAY', 'VERIFY_PAY'], true)) {
+    $job_status = $normalize_workflow_status($job['status'] ?? '');
+    if ($payment_proof_status !== 'SUBMITTED' && !in_array($job_status, ['TO_PAY', 'VERIFY_PAY', 'TO_VERIFY', 'PENDING_VERIFICATION', 'DOWNPAYMENT_SUBMITTED'], true)) {
         echo json_encode(['success' => false, 'error' => 'Payment proof is not currently in SUBMITTED state for rejection.']);
         exit;
     }
@@ -231,6 +241,13 @@ elseif ($action === 'reject_payment') {
         // If linked to a store order, revert to 'To Pay' so they can submit again
         if ($job['order_id']) {
             db_execute("UPDATE orders SET status = 'To Pay' WHERE order_id = ?", 'i', [$job['order_id']]);
+            db_execute(
+                "UPDATE customizations
+                 SET status = 'To Pay', updated_at = NOW()
+                 WHERE order_id = ? AND status NOT IN ('Completed', 'Cancelled', 'Rejected')",
+                'i',
+                [$job['order_id']]
+            );
         }
         
         if ($user_id > 0) {

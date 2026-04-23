@@ -1052,7 +1052,7 @@ foreach ($customization_rows as $row) {
                                         <span style="color:#06A1A1; font-weight:600; margin-left:8px;" x-show="m.deducted_at">✓ Deducted</span>
                                     </div>
                                 </div>
-                                <template x-if="!m.deducted_at">
+                                <template x-if="!m.deducted_at && !isVerifyStageRow(currentJo)">
                                     <button type="button" @click="removeMaterial(m.id)" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">Remove</button>
                                 </template>
                             </div>
@@ -1986,6 +1986,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                     const jid = j.job_order_id;
                     return jid != null && jid !== '' ? Number(jid) : null;
                 }
+                if (j.order_type === 'CUSTOMIZATION') {
+                    const jid = j.job_order_id;
+                    return jid != null && jid !== '' ? Number(jid) : null;
+                }
                 return j.id != null && j.id !== '' ? Number(j.id) : null;
             },
 
@@ -1994,7 +1998,25 @@ window.pfCustomizationPreloadedOrders = (() => {
                 let jid = this.effectiveJobId();
                 if (jid != null && !Number.isNaN(jid) && jid > 0) return jid;
                 const j = this.currentJo;
-                if (!j || j.order_type !== 'ORDER') return null;
+                if (!j) return null;
+                if (j.order_type === 'CUSTOMIZATION') {
+                    const oid = j.order_id;
+                    if (oid == null || oid === '') return null;
+                    try {
+                        const res = await this.parseJsonResponse(
+                            await fetch(`../admin/job_orders_api.php?action=resolve_job_for_order&order_id=${encodeURIComponent(oid)}`)
+                        );
+                        if (res.success && res.job_id) {
+                            this.currentJo.job_order_id = res.job_id;
+                            await this.loadOrders({ silent: true });
+                            return Number(res.job_id);
+                        }
+                    } catch (e) {
+                        console.error('resolve_job_for_customization', e);
+                    }
+                    return null;
+                }
+                if (j.order_type !== 'ORDER') return null;
                 const oid = j.order_id ?? j.id;
                 if (oid == null || oid === '') return null;
                 try {
@@ -2463,6 +2485,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.activeStatus = 'IN_PRODUCTION';
                         await this.loadOrders();
                         await this.loadAllInventoryItems();
+                        this.showDetailsModal = false;
                         this.showStaffAlert('Success', 'Payment verified. Materials deducted and production started.');
                     } else {
                         this.showStaffAlert('Verification Failed', res.error || 'Verification failed.');
@@ -2490,7 +2513,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 this.rejectPaymentModalError = '';
                 this.closeRejectPaymentModal();
-                this.showDetailsModal = false;
                 await this.rejectPayment(finalReason);
             },
 
@@ -2527,6 +2549,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     }
                     if (res.success) {
                         await this.loadOrders();
+                        this.showDetailsModal = false;
                         this.showStaffAlert('Success', 'Payment proof rejected.');
                     } else {
                         this.showStaffAlert('Rejection Failed', res.error || 'Rejection failed.');
