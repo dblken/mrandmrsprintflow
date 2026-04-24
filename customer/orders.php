@@ -248,12 +248,14 @@ require_once __DIR__ . '/../includes/header.php';
     top: 50%;
     transform: translateY(-50%);
     z-index: 3;
+    opacity: 0.88;
 }
-.orders-theme-page .tt-tabs-nav.tt-tabs-nav-left { left: 4px; }
-.orders-theme-page .tt-tabs-nav.tt-tabs-nav-right { right: 4px; }
+.orders-theme-page .tt-tabs-nav.tt-tabs-nav-left { left: 6px; }
+.orders-theme-page .tt-tabs-nav.tt-tabs-nav-right { right: 6px; }
 .orders-theme-page .tt-tabs-nav:hover {
     background: rgba(83,197,224,0.12);
     color: #ffffff;
+    opacity: 1;
 }
 .orders-theme-page .tt-tabs-nav[disabled] {
     opacity: 0.4;
@@ -297,7 +299,7 @@ require_once __DIR__ . '/../includes/header.php';
     gap: 0.5rem;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 0.2rem 2.4rem;
+    padding: 0.2rem 0.5rem;
     justify-content: flex-start;
     scroll-behavior: smooth;
 }
@@ -322,6 +324,10 @@ require_once __DIR__ . '/../includes/header.php';
 }
 @media (max-width: 640px) {
     .orders-theme-page .tt-tab { padding: 0.7rem 1.1rem; font-size: 0.85rem; }
+    .orders-theme-page .tt-tabs-nav {
+        width: 30px;
+        height: 30px;
+    }
 }
 .orders-theme-page .tt-tab:hover {
     color: #eaf6fb;
@@ -1452,7 +1458,7 @@ function initOrdersTabsScroller() {
     };
 
     const scrollTabsBy = (direction) => {
-        const amount = Math.max(180, Math.round(tabs.clientWidth * 0.55)) * direction;
+        const amount = Math.max(140, Math.round(tabs.clientWidth * 0.42)) * direction;
         tabs.scrollBy({ left: amount, behavior: 'smooth' });
     };
 
