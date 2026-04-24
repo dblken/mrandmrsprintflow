@@ -552,6 +552,24 @@ require_once __DIR__ . '/../includes/header.php';
 .im-spec-label { display: block; font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
 .im-spec-value { display: block; font-size: 0.82rem; font-weight: 700; color: #0f172a; line-height: 1.45; word-break: break-word; }
 .im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
+.im-asset-trigger { display: inline-flex; flex-direction: column; gap: 0.35rem; cursor: zoom-in; }
+.im-asset-label { font-size: 0.68rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+.im-asset-thumb-wrap { position: relative; display: inline-flex; width: fit-content; }
+.im-asset-thumb-wrap::after {
+    content: 'View';
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.78);
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
 .im-item-title { font-size: 0.82rem; font-weight: 800; color: #0f172a; line-height: 1.45; margin-bottom: 0.15rem; }
 .im-meta-title { font-size: 0.82rem; font-weight: 800; color: #0f172a; text-transform: none; letter-spacing: 0; margin-bottom: 0.65rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
 .im-meta-value { font-size: 0.82rem; font-weight: 700; color: #334155; line-height: 1.5; }
@@ -1049,8 +1067,8 @@ function openItemsModal(orderId, event) {
                 if (specItems) specs = `<div class="im-spec-grid">${specItems}</div>`;
             }
             
-            const design = item.has_design ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.design_url}')"><div style="font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem;">Final Design</div><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></div>` : '';
-            const reference = item.has_reference ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.reference_url}')"><div style="font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem;">Reference</div><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></div>` : '';
+            const design = item.has_design ? `<button type="button" class="im-asset-trigger" onclick="openLightbox('${item.design_url}')"><span class="im-asset-label">Final Design</span><span class="im-asset-thumb-wrap"><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></span></button>` : '';
+            const reference = item.has_reference ? `<button type="button" class="im-asset-trigger" onclick="openLightbox('${item.reference_url}')"><span class="im-asset-label">Reference</span><span class="im-asset-thumb-wrap"><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></span></button>` : '';
 
             return `<tr>
                 <td style="min-width: 250px;">
@@ -1118,7 +1136,7 @@ function openItemsModal(orderId, event) {
                         <div class="im-val">${escIM(data.branch_name)}</div>
                     </div>
 
-                    <div class="im-sec-card">
+                    <div class="im-sec-card accent">
                         <div class="im-label" style="margin-bottom: 12px;">Payment information</div>
                         <div class="space-y-4">
                             <div><div class="im-label" style="margin-bottom: 4px;">Method</div><div class="im-val">${escIM(data.payment_method)}</div></div>
@@ -1127,7 +1145,7 @@ function openItemsModal(orderId, event) {
                         </div>
                     </div>
 
-                    <div class="im-sec-card">
+                    <div class="im-sec-card accent">
                         <div class="im-label">Estimated completion</div>
                         <div class="im-val">${escIM(data.estimated_comp || 'Gathering timeframe...')}</div>
                     </div>
