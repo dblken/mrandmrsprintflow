@@ -2,7 +2,7 @@
     'use strict';
 
     /* -- Config ------------------------------------------------------------ */
-    var POLL_INTERVAL_MS       = 15000;
+    var POLL_INTERVAL_MS       = 5000;
     var POLL_INTERVAL_HIDDEN   = 60000;
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
@@ -58,6 +58,7 @@
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
     var pollTimer   = null;
+    var recentToastMap = {};
 
     /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
@@ -439,7 +440,6 @@
                     if (seen.has(sid)) continue;
                     markSeen(sid);
                     var targetUrl = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
-                    if (window.location.pathname + window.location.search === targetUrl) continue;
                     showToast(n.title || 'PrintFlow', n.message, targetUrl, n.image || '', n.fallback || '');
                 }
             })
@@ -453,6 +453,19 @@
     }
 
     function showToast(title, body, url, imageUrl, fallbackImage) {
+        var toastKey = [String(body || ''), String(url || ''), String(title || '')].join('|');
+        var now = Date.now();
+        var keys = Object.keys(recentToastMap);
+        for (var r = 0; r < keys.length; r++) {
+            if ((now - recentToastMap[keys[r]]) > 15000) {
+                delete recentToastMap[keys[r]];
+            }
+        }
+        if (recentToastMap[toastKey] && (now - recentToastMap[toastKey]) < 15000) {
+            return;
+        }
+        recentToastMap[toastKey] = now;
+
         var container = document.getElementById('pf-toast-container');
         if (!container) {
             container = document.createElement('div');
@@ -540,5 +553,17 @@
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            poll();
+            schedulePoll();
+        }
+    });
+
+    window.addEventListener('focus', function() {
+        poll();
+        schedulePoll();
+    });
 
 })();
