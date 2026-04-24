@@ -381,6 +381,13 @@ $page_title = 'Orders - Staff';
             flex-shrink: 0;
             user-select: none;
         }
+        .pill-tab > :first-child {
+            display: inline-block;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .pill-tab:hover { background: #eef8f6; color: #023d3d; border-color: rgba(6, 161, 161, 0.22); }
         .pill-tab.active { background: linear-gradient(135deg, #f7fefb 0%, #e5f9f2 42%, #d4f0e6 100%); color: #023d3d; border-color: #06A1A1; box-shadow: 0 6px 18px rgba(6,161,161,0.12); }
         .tab-count { 
@@ -513,7 +520,7 @@ $page_title = 'Orders - Staff';
         }
 
         /* ── Table improvements (match customizations table) ─── */
-        .orders-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: auto; }
+        .orders-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
         .orders-table thead th {
             padding: 18px 20px;
             font-size: 11px;
@@ -538,6 +545,36 @@ $page_title = 'Orders - Staff';
 
         .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
         .table-text-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .truncate-ellipsis {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .source-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 82px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .source-badge-pill.online {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .source-badge-pill.pos {
+            background: #fef3c7;
+            color: #92400e;
+        }
 
         .row-indicator {
             position: absolute;
@@ -585,9 +622,13 @@ $page_title = 'Orders - Staff';
             color: #fff !important;
             border-color: #0f766e;
         }
-        .order-info-cell { display: flex; flex-direction: column; gap: 4px; }
-        .order-id-wrap { font-weight: 700; color: #1e293b; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .order-items-sub { font-size: 12px; color: #64748b; font-weight: 600; }
+        .order-info-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .order-id-wrap { font-weight: 500; color: #111827; font-size: 13px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .order-id-wrap > span:first-child,
+        .order-id-wrap > :first-child {
+            min-width: 0;
+        }
+        .order-items-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
 
         /* ── Order Detail Modal ─────────────────────────────────── */
         #orderModal {
@@ -1739,12 +1780,13 @@ $page_title = 'Orders - Staff';
                     <table class="orders-table">
                         <thead>
                             <tr>
-                                <th class="pl-6 pr-4 py-4 w-[20%] border-b border-gray-100">Order #</th>
-                                <th class="px-4 py-4 w-[20%] border-b border-gray-100">Customer</th>
+                                <th class="pl-6 pr-4 py-4 w-[19%] border-b border-gray-100">Order #</th>
+                                <th class="px-4 py-4 w-[17%] border-b border-gray-100">Customer</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-center">Source</th>
                                 <th class="px-4 py-4 w-[14%] border-b border-gray-100">Date</th>
                                 <th class="px-4 py-4 w-[12%] border-b border-gray-100">Total</th>
-                                <th class="px-4 py-4 w-[22%] border-b border-gray-100 text-center">Status</th>
-                                <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1754,10 +1796,7 @@ $page_title = 'Orders - Staff';
                                         <div class="row-indicator"></div>
                                         <div class="order-info-cell">
                                             <div class="order-id-wrap">
-                                                <?php echo htmlspecialchars($order['order_code']); ?>
-                                                <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                                                    <span style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;margin-left:4px;border:1px solid #fde68a;">POS</span>
-                                                <?php endif; ?>
+                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['order_code']); ?>"><?php echo htmlspecialchars($order['order_code']); ?></span>
                                                 <?php 
                                                 $unread = get_unread_chat_count($order['order_id'], 'User');
                                                 if ($unread > 0): 
@@ -1768,34 +1807,41 @@ $page_title = 'Orders - Staff';
                                                 <?php endif; ?>
                                             </div>
                                             <?php if (!empty($order['item_names'])): ?>
-                                                <div class="order-items-sub table-text-sub">
-                                                    <?php 
-                                                        $display_items = $order['item_names'];
-                                                        if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
-                                                            $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
-                                                            $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
-                                                            if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
-                                                                $display_items .= " (" . $c_json['product_type'] . ")";
-                                                            }
+                                                <?php 
+                                                    $display_items = $order['item_names'];
+                                                    if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
+                                                        $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
+                                                        $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
+                                                        if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
+                                                            $display_items .= " (" . $c_json['product_type'] . ")";
                                                         }
-                                                        echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); 
-                                                    ?>
+                                                    }
+                                                ?>
+                                                <div class="order-items-sub table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars($display_items); ?>">
+                                                    <?php echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4">
-                                        <div class="table-text-main" style="color:#334155; font-weight:600;">
+                                        <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars($order['customer_name']); ?>">
                                             <?php echo htmlspecialchars($order['customer_name']); ?>
                                         </div>
                                     </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <?php if (($order['order_source'] ?? '') === 'pos'): ?>
+                                            <span class="source-badge-pill pos">POS</span>
+                                        <?php else: ?>
+                                            <span class="source-badge-pill online">ONLINE</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="px-4 py-4">
-                                        <div class="table-text-sub" style="color:#64748b;">
+                                        <div class="table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars(format_date($order['order_date'])); ?>">
                                             <?php echo format_date($order['order_date']); ?>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4">
-                                        <div class="table-text-main" style="font-weight:700; color:#1e293b;">
+                                        <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars(format_currency($order['total_amount'])); ?>">
                                             <?php echo format_currency($order['total_amount']); ?>
                                         </div>
                                     </td>
