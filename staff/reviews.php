@@ -195,11 +195,27 @@ $page_title = 'Review Management - Staff';
     <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
+        .main-content > header {
+            margin-bottom: 0;
+        }
+
         .page-title {
+            margin-bottom: 0;
             font-size: 24px;
-            font-weight: 700;
+            font-weight: 600;
             color: #1f2937;
-            margin-bottom: 20px;
+        }
+
+        .page-subtitle {
+            margin-top: 4px;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #64748b;
+        }
+
+        .kpi-row {
+            margin-bottom: 28px;
         }
 
         .status-badge-pill {
@@ -213,14 +229,14 @@ $page_title = 'Review Management - Staff';
 
         .table-text-main {
             font-size: 13px;
-            font-weight: 600;
-            color: #1f2937;
+            font-weight: 500;
+            color: #111827;
         }
 
         .table-text-sub {
             font-size: 11px;
-            color: #64748b;
-            font-weight: 500;
+            color: #6b7280;
+            font-weight: 400;
         }
 
         .filter-search-input {
@@ -583,6 +599,7 @@ $page_title = 'Review Management - Staff';
 
         .pf-reviews-table-card {
             margin-bottom: 24px;
+            margin-top: 0;
         }
 
         .pf-reviews-table-card table {
@@ -641,9 +658,9 @@ $page_title = 'Review Management - Staff';
         }
 
         .review-customer-name {
-            font-size: 14px;
-            font-weight: 700;
-            color: #0f172a;
+            font-size: 13px;
+            font-weight: 500;
+            color: #111827;
             line-height: 1.4;
             overflow-wrap: anywhere;
             word-break: break-word;
@@ -660,9 +677,9 @@ $page_title = 'Review Management - Staff';
         }
 
         .review-item-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #0f172a;
+            font-size: 13px;
+            font-weight: 500;
+            color: #111827;
             overflow-wrap: anywhere;
             word-break: break-word;
         }
@@ -675,8 +692,89 @@ $page_title = 'Review Management - Staff';
             margin-bottom: 12px;
         }
 
+        .review-user {
+            font-size: 13px;
+            font-weight: 500;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .review-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 400;
+            flex-wrap: wrap;
+        }
+
         .reply-panel {
             min-height: 100%;
+        }
+
+        .type-badge {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+        }
+
+        .review-stars {
+            color: #f59e0b;
+            font-size: 16px;
+            margin-bottom: 12px;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        .review-msg {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #475569;
+            margin-bottom: 16px;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .reply-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            letter-spacing: 0.04em;
+        }
+
+        .reply-msg {
+            font-size: 13px;
+            color: #475569;
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.55;
+        }
+
+        .reply-textarea,
+        .rv-select,
+        .filter-select,
+        .filter-input {
+            font-size: 13px;
+            font-weight: 400;
+            color: #334155;
+        }
+
+        .reply-submit,
+        .filter-btn-reset {
+            font-size: 13px;
+            font-weight: 500;
         }
 
         @media (max-width: 960px) {
