@@ -249,6 +249,8 @@ if (isset($_GET['ajax'])) {
                 <td class="no-truncate" style="text-align:right;">
                     <?php if (!$inventory_read_only): ?>
                     <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                    <?php else: ?>
+                    <button type="button" class="btn-action" onclick="event.stopPropagation(); openStockCard(<?php echo $item['id']; ?>)" style="border-color:#d1d5db;color:#374151;">View</button>
                     <?php endif; ?>
                     <?php if ($can_manage_item_master): ?>
                     <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
@@ -793,6 +795,8 @@ if (isset($_GET['ajax'])) {
                                         <td class="no-truncate" style="text-align:right;">
                                             <?php if (!$inventory_read_only): ?>
                                             <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                                            <?php else: ?>
+                                            <button type="button" class="btn-action" onclick="event.stopPropagation(); openStockCard(<?php echo $item['id']; ?>)" style="border-color:#d1d5db;color:#374151;">View</button>
                                             <?php endif; ?>
                                             <?php if ($can_manage_item_master): ?>
                                             <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
