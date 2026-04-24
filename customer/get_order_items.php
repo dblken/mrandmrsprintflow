@@ -4,12 +4,56 @@
  * Returns order items + full order details as JSON for modal display
  */
 
+error_reporting(0);
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+
+while (ob_get_level()) {
+    ob_end_clean();
+}
+ob_start();
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-cache, must-revalidate');
+
+function customer_order_items_json($payload, $status = 200) {
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        http_response_code(500);
+        $json = json_encode(['error' => 'Server error while encoding order details.']);
+    }
+
+    echo $json;
+    exit;
+}
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    $fatal_types = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+
+    if ($error && in_array($error['type'], $fatal_types, true)) {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => 'Server error while loading order details.'
+        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+});
+
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
-
-header('Content-Type: application/json');
 
 function pf_asset_kind(?string $mime, ?string $path): string {
     $mime = strtolower(trim((string)$mime));
@@ -32,8 +76,7 @@ $order_id = (int)($_GET['id'] ?? 0);
 $customer_id = get_user_id();
 
 if (!$order_id) {
-    echo json_encode(['error' => 'Invalid order ID']);
-    exit;
+    customer_order_items_json(['error' => 'Invalid order ID'], 400);
 }
 
 // Verify order belongs to this customer
@@ -63,8 +106,7 @@ $order_result = db_query("
 ", 'ii', [$order_id, $customer_id]);
 
 if (empty($order_result)) {
-    echo json_encode(['error' => 'Order not found']);
-    exit;
+    customer_order_items_json(['error' => 'Order not found'], 404);
 }
 $order = $order_result[0];
 $latest_payment_proof_status = strtoupper((string)($order['latest_payment_proof_status'] ?? ''));
@@ -173,7 +215,7 @@ if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)) {
     }
 }
 
-echo json_encode([
+customer_order_items_json([
     'order_id'         => $order['order_id'],
     'order_code'       => printflow_format_order_code($order['order_id'], $order['order_sku'] ?? ''),
     'order_date'       => format_datetime($order['order_date']),
