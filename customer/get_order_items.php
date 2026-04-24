@@ -24,6 +24,13 @@ if (!$order_id) {
 // Verify order belongs to this customer
 $order_result = db_query("
     SELECT o.*, b.branch_name,
+           (SELECT jo.payment_rejection_reason
+            FROM job_orders jo
+            WHERE jo.order_id = o.order_id
+              AND jo.payment_rejection_reason IS NOT NULL
+              AND jo.payment_rejection_reason != ''
+            ORDER BY jo.payment_verified_at DESC, jo.id DESC
+            LIMIT 1) as payment_rejection_reason,
            (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku
     FROM orders o 
     LEFT JOIN branches b ON o.branch_id = b.id 
@@ -128,6 +135,7 @@ echo json_encode([
     'cancelled_at'     => !empty($order['cancelled_at']) ? format_datetime($order['cancelled_at']) : '',
     'design_status'    => $order['design_status'] ?? 'Pending',
     'revision_reason'  => $order['revision_reason'] ?? '',
+    'payment_rejection_reason' => $order['payment_rejection_reason'] ?? '',
     'items'            => $items_out,
     'can_cancel'       => $can_cancel,
     'cancel_restriction_msg' => $restriction_msg,

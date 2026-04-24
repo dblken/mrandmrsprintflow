@@ -111,7 +111,14 @@ $sql = "SELECT o.*,
         (SELECT oi.order_item_id FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_id,
         (SELECT IF(oi.design_image IS NOT NULL AND oi.design_image != '', 1, 0) FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_item_has_design,
         (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.order_id) as total_quantity,
-        (SELECT r.rating FROM reviews r WHERE r.order_id = o.order_id LIMIT 1) as rating_value
+        (SELECT r.rating FROM reviews r WHERE r.order_id = o.order_id LIMIT 1) as rating_value,
+        (SELECT jo.payment_rejection_reason
+         FROM job_orders jo
+         WHERE jo.order_id = o.order_id
+           AND jo.payment_rejection_reason IS NOT NULL
+           AND jo.payment_rejection_reason != ''
+         ORDER BY jo.payment_verified_at DESC, jo.id DESC
+         LIMIT 1) as payment_rejection_reason
         FROM orders o WHERE o.customer_id = ?";
 $count_sql = "SELECT COUNT(*) as total FROM orders o WHERE o.customer_id = ?";
 $params = [$customer_id];
@@ -715,8 +722,8 @@ require_once __DIR__ . '/../includes/header.php';
                                     <h3 class="order-title"><?php echo htmlspecialchars($d_name); ?></h3>
                                     <div class="qty-tag"><?php echo max(1, (int)($order['total_quantity'] ?? 0)); ?> Items</div>
                                     <p class="timestamp-text"><?php echo htmlspecialchars($timestamp_meta['text']); ?></p>
-                                    <?php if (strcasecmp((string)($order['status'] ?? ''), 'Rejected') === 0 && !empty($order['revision_reason'])): ?>
-                                        <p class="rejected-reason-text">Rejected reason: <?php echo htmlspecialchars($order['revision_reason']); ?></p>
+                                    <?php if (strcasecmp((string)($order['status'] ?? ''), 'Rejected') === 0 && !empty($order['payment_rejection_reason'])): ?>
+                                        <p class="rejected-reason-text">Rejected reason: <?php echo htmlspecialchars($order['payment_rejection_reason']); ?></p>
                                     <?php endif; ?>
                                 </div>
                                 <div class="pricing-column">
@@ -1075,15 +1082,25 @@ function openItemsModal(orderId, event) {
 
                     <!-- Actions Area -->
                     <div class="mt-auto pt-4 space-y-3">
-                        ${(data.design_status === 'Revision Requested' || data.status === 'Rejected') ? `
+                        ${data.design_status === 'Revision Requested' ? `
                             <div class="im-reject-card">
-                                <div class="im-reject-title">${data.status === 'Rejected' ? 'Order rejected' : 'Revision requested'}</div>
-                                <p class="im-reject-copy">${escIM(data.revision_reason || (data.status === 'Rejected' ? 'This order was rejected. Please upload your updated design to resubmit it for review.' : 'Please upload the corrected design, then submit it again for shop review.'))}</p>
+                                <div class="im-reject-title">Revision requested</div>
+                                <p class="im-reject-copy">${escIM(data.revision_reason || 'Please upload the corrected design, then submit it again for shop review.')}</p>
                                 <div style="display:flex; flex-direction:column; gap:0.85rem; margin-top:1rem;">
                                     <label for="designReuploadInput-${data.order_id}" class="im-upload-picker">Choose updated design</label>
                                     <input type="file" id="designReuploadInput-${data.order_id}" style="display:none;" onchange="handleDesignFilePick(this, ${data.order_id})" accept="image/*,application/pdf">
                                     <div class="im-upload-filename" id="designReuploadFileName-${data.order_id}">No file selected</div>
-                                    <button type="button" id="designReuploadSubmit-${data.order_id}" onclick="submitDesignReupload(${data.order_id}, '${data.csrf_token}')" class="im-primary-action" disabled>${data.status === 'Rejected' ? 'Resubmit Order' : 'Submit Updated Design'}</button>
+                                    <button type="button" id="designReuploadSubmit-${data.order_id}" onclick="submitDesignReupload(${data.order_id}, '${data.csrf_token}')" class="im-primary-action" disabled>Submit Updated Design</button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${data.status === 'Rejected' ? `
+                            <div class="im-reject-card">
+                                <div class="im-reject-title">Payment rejected</div>
+                                <p class="im-reject-copy">${escIM(data.payment_rejection_reason || 'Your payment proof was rejected. Please review the reason and submit your payment proof again.')}</p>
+                                <div style="display:flex; flex-direction:column; gap:0.85rem; margin-top:1rem;">
+                                    <a href="${CUSTOMER_BASE_URL}/customer/payment.php?order_id=${data.order_id}" class="im-primary-action" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">Resubmit Payment</a>
                                 </div>
                             </div>
                         ` : ''}
