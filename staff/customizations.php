@@ -404,8 +404,12 @@ if ($showLatestCustomizationOnly) {
             border-bottom: 1px solid #f3f4f6;
             color: #111827;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 500;
             line-height: 1.2;
+        }
+
+        .pf-staff-customizations-root .filter-header {
+            font-weight: 400 !important;
         }
 
         .filter-section {
