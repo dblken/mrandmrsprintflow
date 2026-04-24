@@ -46,7 +46,7 @@ $stockExpr = $usesBaseProductStock
 $lowStockExpr = $usesBaseProductStock
     ? 'COALESCE(p.low_stock_level, 10)'
     : 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
-$sql = "SELECT p.product_id, p.sku, p.name, p.category, p.product_type, p.price, p.status,
+$sql = "SELECT p.product_id, p.sku, p.name, p.category, p.product_type, p.price, p.status, p.description, p.photo_path,
                {$stockExpr} AS stock_quantity, {$lowStockExpr} AS low_stock_level
         FROM products p
         LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
@@ -242,6 +242,92 @@ $page_title = 'Products & Inventory - Staff';
             color: #16a34a;
             font-weight: 500;
         }
+        .table-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 72px;
+            padding: 5px 12px;
+            border: 1px solid #06A1A1;
+            border-radius: 6px;
+            background: transparent;
+            color: #06A1A1;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.2;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .table-action-btn:hover {
+            background: #06A1A1;
+            color: #fff;
+            border-color: #06A1A1;
+        }
+        #view-product-modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 11000;
+        }
+        #view-product-modal-overlay.active {
+            display: flex;
+        }
+        #view-product-modal {
+            width: min(100%, 800px);
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        }
+        .view-label {
+            display: block;
+            margin-bottom: 6px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .view-value-box {
+            min-height: 38px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #111827;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .view-status-box {
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .view-modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            min-width: 0;
+        }
+        .view-modal-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+        @media (max-width: 768px) {
+            .view-modal-grid {
+                grid-template-columns: 1fr;
+            }
+        }
         @media (max-width: 960px) {
             .staff-products-readonly-grid {
                 grid-template-columns: 1fr;
@@ -413,11 +499,25 @@ $page_title = 'Products & Inventory - Staff';
                                 <th>Category</th>
                                 <th>Price</th>
                                 <th>Stock</th>
-                                <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">
                             <?php foreach ($products as $product): ?>
+                                <?php
+                                $viewPayload = [
+                                    'product_id' => (int)($product['product_id'] ?? 0),
+                                    'name' => (string)($product['name'] ?? ''),
+                                    'sku' => (string)($product['sku'] ?? ''),
+                                    'category' => (string)($product['category'] ?? ''),
+                                    'price' => (float)($product['price'] ?? 0),
+                                    'stock_quantity' => (int)($product['stock_quantity'] ?? 0),
+                                    'low_stock_level' => (int)($product['low_stock_level'] ?? 10),
+                                    'status' => (string)($product['status'] ?? ''),
+                                    'description' => (string)($product['description'] ?? ''),
+                                    'photo_path' => (string)($product['photo_path'] ?? ''),
+                                ];
+                                ?>
                                 <tr data-name="<?php echo htmlspecialchars(strtolower($product['name'])); ?>"
                                     data-sku="<?php echo htmlspecialchars(strtolower($product['sku'])); ?>"
                                     data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>">
@@ -434,7 +534,14 @@ $page_title = 'Products & Inventory - Staff';
                                             <span style="color:#16a34a;"><?php echo $product['stock_quantity']; ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo status_badge($product['status'], 'order'); ?></td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="table-action-btn"
+                                            data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
+                                            onclick="openViewModal(this)"
+                                        >View</button>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -562,6 +669,83 @@ $page_title = 'Products & Inventory - Staff';
     </div>
 </div>
 
+<div id="view-product-modal-overlay" onclick="handleViewOverlayClick(event)">
+    <div id="view-product-modal">
+        <div class="modal-header">
+            <h3 style="font-size:18px; font-weight:700; margin:0;">Product Details</h3>
+            <button type="button" onclick="closeViewModal()" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="modal-body" style="padding:24px;">
+            <div class="view-modal-grid">
+                <div class="view-modal-stack">
+                    <div>
+                        <label class="view-label">Product Name</label>
+                        <div id="view-product-name" class="view-value-box">-</div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">SKU</label>
+                            <div id="view-product-sku" class="view-value-box">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Category</label>
+                            <div id="view-product-category" class="view-value-box">-</div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">Price</label>
+                            <div id="view-product-price" class="view-value-box">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Stock Status</label>
+                            <div id="view-product-stock-status" class="view-status-box">-</div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label class="view-label">Current Quantity</label>
+                            <div id="view-product-stock" class="view-value-box" style="font-weight:700;">-</div>
+                        </div>
+                        <div>
+                            <label class="view-label">Low Stock Warning</label>
+                            <div id="view-product-low-stock" class="view-value-box">-</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="view-label">Product Visibility</label>
+                        <div id="view-product-status" class="view-status-box">-</div>
+                    </div>
+                </div>
+
+                <div class="view-modal-stack">
+                    <div>
+                        <label class="view-label">Product Photo</label>
+                        <div style="width:100%; height:200px; border-radius:12px; border:1px solid #e5e7eb; background:#f9fafb; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                            <img id="view-product-photo-img" src="" alt="" style="width:100%; height:100%; object-fit:cover; display:none;">
+                            <span id="view-product-photo-text" style="color:#9ca3af; font-size:12px; text-align:center; padding:20px;">No photo available</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="view-label">Description</label>
+                        <div id="view-product-description" class="view-value-box" style="min-height:80px; white-space:pre-wrap;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding:16px 0 0; border-top:1px solid #f3f4f6; margin-top:24px; display:flex; justify-content:flex-end;">
+                <button type="button" onclick="closeViewModal()" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const productSearch = document.getElementById('productSearchInput');
 const productCategory = document.getElementById('productCategorySelect');
@@ -589,6 +773,91 @@ if (productCategory) {
     productCategory.addEventListener('change', filterProductsLocally);
 }
 filterProductsLocally();
+
+function pfProductStockStatusLabel(qty, low) {
+    qty = parseInt(qty, 10) || 0;
+    low = parseInt(low, 10) || 10;
+    if (qty <= 0) return 'Out of Stock';
+    if (qty <= low) return 'Low Stock';
+    return 'In Stock';
+}
+
+function pfStockBadgeStyle(label) {
+    if (label === 'In Stock') return 'background:#dcfce7;color:#166534;';
+    if (label === 'Low Stock') return 'background:#fef9c3;color:#854d0e;';
+    if (label === 'Out of Stock') return 'background:#fee2e2;color:#991b1b;';
+    return 'background:#f3f4f6;color:#374151;';
+}
+
+function pfVisibilityStatusStyle(status) {
+    if (status === 'Activated') return 'background:#dcfce7;color:#166534;';
+    if (status === 'Deactivated') return 'background:#fee2e2;color:#991b1b;';
+    if (status === 'Archived') return 'background:#f3f4f6;color:#374151;';
+    return 'background:#fef9c3;color:#854d0e;';
+}
+
+function openViewModal(button) {
+    if (!button) return;
+
+    let product = null;
+    try {
+        product = JSON.parse(button.dataset.product || '{}');
+    } catch (error) {
+        console.error('Failed to parse product view payload.', error);
+        return;
+    }
+
+    const stockLabel = pfProductStockStatusLabel(product.stock_quantity, product.low_stock_level);
+    const price = Number.parseFloat(product.price);
+
+    document.getElementById('view-product-name').textContent = product.name || '-';
+    document.getElementById('view-product-sku').textContent = product.sku || '-';
+    document.getElementById('view-product-category').textContent = product.category || '-';
+    document.getElementById('view-product-price').textContent = Number.isNaN(price)
+        ? '-'
+        : `PHP ${price.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const stockStatusEl = document.getElementById('view-product-stock-status');
+    stockStatusEl.textContent = stockLabel;
+    stockStatusEl.style.cssText = pfStockBadgeStyle(stockLabel);
+
+    document.getElementById('view-product-stock').textContent = product.stock_quantity ?? '-';
+    document.getElementById('view-product-low-stock').textContent = product.low_stock_level ?? '-';
+
+    const visibilityEl = document.getElementById('view-product-status');
+    visibilityEl.textContent = product.status || '-';
+    visibilityEl.style.cssText = pfVisibilityStatusStyle(product.status || '');
+
+    const imageEl = document.getElementById('view-product-photo-img');
+    const imageTextEl = document.getElementById('view-product-photo-text');
+    if (product.photo_path) {
+        imageEl.src = product.photo_path;
+        imageEl.style.display = 'block';
+        imageTextEl.style.display = 'none';
+    } else {
+        imageEl.removeAttribute('src');
+        imageEl.style.display = 'none';
+        imageTextEl.style.display = 'block';
+    }
+
+    document.getElementById('view-product-description').textContent = (product.description || '').trim() || '-';
+
+    const overlay = document.getElementById('view-product-modal-overlay');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeViewModal() {
+    const overlay = document.getElementById('view-product-modal-overlay');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function handleViewOverlayClick(event) {
+    if (event.target.id === 'view-product-modal-overlay') {
+        closeViewModal();
+    }
+}
 </script>
 
 </body>
