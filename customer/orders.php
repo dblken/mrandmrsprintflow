@@ -931,6 +931,7 @@ function imBadge(val) {
 }
 
 let currentOrderItemsRequest = null;
+let currentOrderItemsRequestToken = 0;
 
 function renderItemsModalLoadingState() {
     document.getElementById('imBody').innerHTML = `
@@ -962,10 +963,13 @@ function openItemsModal(orderId, event) {
         currentOrderItemsRequest.abort();
     }
 
+    currentOrderItemsRequestToken += 1;
+    const requestToken = currentOrderItemsRequestToken;
     currentOrderItemsRequest = new AbortController();
 
-    fetch(`${CUSTOMER_BASE_URL}/customer/get_order_items.php?id=${orderId}`, {
+    fetch(`${CUSTOMER_BASE_URL}/customer/get_order_items.php?id=${orderId}&_=${Date.now()}`, {
         signal: currentOrderItemsRequest.signal,
+        cache: 'no-store',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
@@ -988,6 +992,9 @@ function openItemsModal(orderId, event) {
         return data;
     })
     .then(data => {
+        if (requestToken !== currentOrderItemsRequestToken) {
+            return;
+        }
         if (data.error) {
             renderItemsModalErrorState(data.error);
             return;
@@ -1125,13 +1132,18 @@ function openItemsModal(orderId, event) {
         `;
     })
     .catch((error) => {
+        if (requestToken !== currentOrderItemsRequestToken) {
+            return;
+        }
         if (error && error.name === 'AbortError') {
             return;
         }
         renderItemsModalErrorState(error && error.message ? error.message : 'Connection error. Please try again.');
     })
     .finally(() => {
-        currentOrderItemsRequest = null;
+        if (requestToken === currentOrderItemsRequestToken) {
+            currentOrderItemsRequest = null;
+        }
     });
 }
 
@@ -1340,8 +1352,18 @@ async function refreshOrdersList() {
         return mapped === activeTab;
     }
 
+    function doesOrderBelongToActiveTab(order) {
+        if (!order) return false;
+        if (activeTab === 'all') return true;
+        const mapped = statusToTab[order.status] || 'pending';
+        if (activeTab === 'completed') {
+            return mapped === 'completed' || mapped === 'torate';
+        }
+        return mapped === activeTab;
+    }
+
     function poll() {
-        fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php`)
+        fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php?_=${Date.now()}`, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
@@ -1351,10 +1373,36 @@ async function refreshOrdersList() {
             if (newOrder && shouldReloadForNewOrder(newOrder)) {
                 notifyNewOrder(newOrder.order_id);
                 refreshOrdersList();
+                return;
             }
+
+            const shouldRefreshForMissingVisibleOrder = data.orders.some(order => doesOrderBelongToActiveTab(order) && !existingIds.has(order.order_id));
+            if (shouldRefreshForMissingVisibleOrder) {
+                refreshOrdersList();
+                return;
+            }
+
+            const shouldRefreshForMovedOrder = cards.some(card => {
+                const orderId = parseInt(card.dataset.orderId, 10);
+                if (Number.isNaN(orderId)) return false;
+                const latest = data.orders.find(order => order.order_id === orderId);
+                return latest ? !doesOrderBelongToActiveTab(latest) : false;
+            });
+            if (shouldRefreshForMovedOrder) {
+                refreshOrdersList();
+                return;
+            }
+
             data.orders.forEach(order => {
                 const card = document.getElementById('order-card-' + order.order_id);
-                if (!card || card.dataset.status === order.status) return;
+                if (!card) return;
+                const hadStatusChange = card.dataset.status !== order.status;
+                if (!hadStatusChange) return;
+
+                if (activeTab === 'all') {
+                    refreshOrdersList();
+                    return;
+                }
 
                 card.dataset.status = order.status;
                 const pill = card.querySelector('.status-pill');
