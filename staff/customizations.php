@@ -315,6 +315,190 @@ if ($showLatestCustomizationOnly) {
         }
         .filter-select:focus { border-color: #06A1A1; ring: 2px; ring-color: #06A1A1; }
 
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 46px;
+            padding: 0 20px;
+            border: 1px solid #d9e2ec;
+            border-radius: 12px;
+            background: #fff;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1;
+            letter-spacing: 0;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .toolbar-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        .toolbar-btn.active {
+            border-color: #0d9488;
+            color: #0d9488;
+            background: #f0fdfa;
+        }
+        .toolbar-btn svg {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+        }
+
+        .sort-dropdown {
+            min-width: 220px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            padding: 8px;
+            overflow: hidden;
+        }
+
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .sort-option:hover {
+            background: #f9fafb;
+            color: #111827;
+        }
+        .sort-option.active {
+            background: #f0fdfa;
+            color: #0d9488;
+            font-weight: 600;
+        }
+
+        .filter-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+        }
+
+        .filter-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #111827;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .filter-section {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        .filter-label {
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .filter-input {
+            width: 100%;
+            min-height: 38px;
+            padding: 9px 12px;
+            border: 1px solid #dbe3ec;
+            border-radius: 10px;
+            background: #fff;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .filter-input:focus,
+        .filter-select:focus {
+            border-color: #0d9488;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+        }
+
+        .filter-reset-link {
+            border: 0;
+            background: transparent;
+            color: #0d9488;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .filter-footer {
+            padding: 14px 18px 18px;
+            background: #fff;
+        }
+
+        .filter-btn-reset {
+            min-height: 40px;
+            padding: 0 14px;
+            border: 1px solid #dbe3ec;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .filter-btn-reset:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: #0d9488;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .source-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 82px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.01em;
+            text-align: center;
+        }
+        .source-badge-pill.online {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .source-badge-pill.pos {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         .pill-tab { 
             position: relative;
             padding: 8px 12px; 
@@ -390,6 +574,11 @@ if ($showLatestCustomizationOnly) {
             .pill-tab {
                 padding: 7px 10px;
                 font-size: 10px;
+            }
+
+            .toolbar-btn {
+                min-height: 42px;
+                padding: 0 16px;
             }
         }
 
@@ -647,10 +836,10 @@ if ($showLatestCustomizationOnly) {
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <template x-if="['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;">POS</span>
+                                            <span class="source-badge-pill pos">POS</span>
                                         </template>
                                         <template x-if="!['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;">Online</span>
+                                            <span class="source-badge-pill online">Online</span>
                                         </template>
                                     </td>
                                     <td class="px-4 py-4">
