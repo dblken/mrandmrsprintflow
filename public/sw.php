@@ -25,7 +25,6 @@ const CACHE_VERSION = 'v14';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
-const PUSH_SUBSCRIBE_API = BASE_PATH + '/public/api/push/subscribe.php';
 
 // App shell — cached immediately on install so the app opens instantly
 const APP_SHELL = [
@@ -94,13 +93,6 @@ self.addEventListener('activate', (event) => {
         )
     );
     return self.clients.claim();
-});
-
-self.addEventListener('message', (event) => {
-    const data = event.data || {};
-    if (data && data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
 });
 
 // ── Fetch: routing strategies ─────────────────────────────────────────────────
@@ -285,43 +277,6 @@ self.addEventListener('notificationclick', (event) => {
             }
 
             if (clients.openWindow) await clients.openWindow(target);
-        })()
-    );
-});
-
-self.addEventListener('pushsubscriptionchange', (event) => {
-    event.waitUntil(
-        (async () => {
-            try {
-                const applicationServerKey = event.oldSubscription && event.oldSubscription.options
-                    ? event.oldSubscription.options.applicationServerKey
-                    : null;
-
-                if (!applicationServerKey) {
-                    return;
-                }
-
-                const subscription = await self.registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey,
-                });
-
-                await fetch(PUSH_SUBSCRIBE_API, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        endpoint: subscription.endpoint,
-                        expirationTime: subscription.expirationTime,
-                        keys: subscription.toJSON().keys || {},
-                        action: 'subscribe'
-                    })
-                });
-            } catch (error) {
-                console.error('[SW] Failed to refresh push subscription:', error);
-            }
         })()
     );
 });

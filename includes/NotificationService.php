@@ -90,14 +90,14 @@ class NotificationService {
         if (!$customerId) return false;
 
         $type = self::normalizeNotificationType($type);
-        return (bool) create_notification(
-            $customerId,
-            'Customer',
-            $message,
-            $type,
-            false,
-            false,
-            $dataId > 0 ? $dataId : null
+
+        $result = db_execute(
+            "INSERT INTO notifications (customer_id, type, message, data_id, is_read, created_at)
+             VALUES (?, ?, ?, ?, 0, NOW())",
+            'isis',
+            [$customerId, $type, $message, $dataId]
         );
+
+        return (bool) $result;
     }
 }

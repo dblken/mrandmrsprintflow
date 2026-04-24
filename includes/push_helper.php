@@ -7,59 +7,6 @@
 if (!class_exists('WebPush')) {
     require_once __DIR__ . '/WebPush.php';
 }
-require_once __DIR__ . '/vapid_bootstrap.php';
-
-if (!defined('BASE_PATH') && file_exists(__DIR__ . '/../config.php')) {
-    require_once __DIR__ . '/../config.php';
-}
-require_once __DIR__ . '/shop_config.php';
-
-function push_base_path(): string
-{
-    $base = defined('BASE_PATH') ? (string) BASE_PATH : '';
-    $base = rtrim(trim($base), '/');
-
-    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
-    if ($host !== '' && strpos($host, 'mrandmrsprintflow.com') !== false && $base === '/printflow') {
-        $base = '';
-    }
-
-    return $base === '/' ? '' : $base;
-}
-
-function push_asset_origin(): string
-{
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
-    if ($host === '') {
-        return '';
-    }
-    return $proto . '://' . $host;
-}
-
-function push_logo_url(): string
-{
-    $base = push_base_path();
-    $version = rawurlencode(printflow_logo_version());
-    $relative = !empty($GLOBALS['shop_logo_url'])
-        ? ((string)$GLOBALS['shop_logo_url'] . '?v=' . $version)
-        : ($base . '/public/app-icon.php?v=' . $version);
-
-    if (preg_match('#^https?://#i', $relative)) {
-        return $relative;
-    }
-
-    $origin = push_asset_origin();
-    return $origin !== '' ? ($origin . $relative) : $relative;
-}
-
-function push_badge_url(): string
-{
-    $base = push_base_path();
-    $relative = $base . '/public/assets/images/icon-72.png';
-    $origin = push_asset_origin();
-    return $origin !== '' ? ($origin . $relative) : $relative;
-}
 
 /**
  * Return a WebPush instance using the stored VAPID config.
@@ -70,7 +17,10 @@ function get_webpush(): ?WebPush
     static $instance = null;
     if ($instance !== null) return $instance;
 
-    $cfg = printflow_vapid_config();
+    $cfg_file = __DIR__ . '/vapid_config.php';
+    if (!file_exists($cfg_file)) return null;
+
+    $cfg = require $cfg_file;
     if (empty($cfg['public_key']) || empty($cfg['private_key'])) return null;
 
     $instance = new WebPush(
@@ -86,87 +36,44 @@ function get_webpush(): ?WebPush
  */
 function push_url_for_type(string $type, ?int $data_id, string $user_type): string
 {
-    $base = push_base_path();
-    $isCustomer = $user_type === 'Customer';
-    $isStaff = $user_type === 'Staff';
-    $isManager = $user_type === 'Manager';
-    $panelBase = $isManager ? ($base . '/manager') : ($base . '/admin');
-
+    $base = '/printflow';
     switch ($type) {
         case 'Order':
         case 'New Order':
-        case 'Payment':
-            if ($data_id && $isCustomer) {
+            // Redirect to chat when order-related (data_id = order_id)
+            if ($data_id && $user_type === 'Customer') {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
-            if ($isCustomer) {
+            if ($user_type === 'Customer') {
                 return $base . '/customer/orders.php';
             }
-            if ($isStaff) {
-                return $data_id
-                    ? $base . '/staff/orders.php?order_id=' . (int) $data_id
-                    : $base . '/staff/notifications.php';
-            }
-
-            return $data_id
-                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
-                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
-
-        case 'Job Order':
-        case 'Payment Issue':
-            if ($isCustomer) {
-                return $base . '/customer/new_job_order.php';
-            }
-            if ($isStaff) {
-                return $data_id
-                    ? $base . '/staff/customizations.php?order_id=' . (int) $data_id . '&job_type=JOB'
-                    : $base . '/staff/customizations.php';
-            }
-            return $data_id
-                ? $panelBase . '/job_orders.php?open_job=' . (int) $data_id
-                : $panelBase . '/job_orders.php';
-
-        case 'Chat':
-        case 'Message':
-            if ($isCustomer) {
-                return $data_id
-                    ? $base . '/customer/chat.php?order_id=' . $data_id
-                    : $base . '/customer/orders.php';
-            }
-            if ($isStaff) {
-                return $data_id
-                    ? $base . '/staff/chats.php?order_id=' . (int) $data_id
-                    : $base . '/staff/chats.php';
-            }
-            return $data_id
-                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
-                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
-
-        case 'Stock':
-        case 'Inventory':
-            if ($isStaff) {
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                if ($data_id) {
+                    return $base . '/staff/order_details.php?id=' . (int)$data_id;
+                }
                 return $base . '/staff/notifications.php';
             }
-            return $panelBase . '/inv_transactions_ledger.php' . ($data_id ? '?item_id=' . (int) $data_id : '');
-
+            return $base . '/admin/orders_management.php';
+        case 'Job Order':
+            return $user_type === 'Customer'
+                ? $base . '/customer/new_job_order.php'
+                : $base . '/admin/orders_management.php';
+        case 'Chat':
+        case 'Message':
+            return $data_id
+                ? $base . '/customer/order_chat.php?order_id=' . $data_id
+                : $base . '/customer/orders.php';
+        case 'Stock':
+        case 'Inventory':
+            return $base . '/admin/inv_items_management.php';
         case 'Design':
         case 'Customization':
-            if ($data_id && $isCustomer) {
+            if ($data_id && $user_type === 'Customer') {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
-            if ($isStaff) {
-                return $data_id
-                    ? $base . '/staff/customizations.php?order_id=' . (int) $data_id . '&job_type=ORDER'
-                    : $base . '/staff/customizations.php';
-            }
-            return $data_id
-                ? (($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php') . '?open_order=' . (int) $data_id)
-                : ($isManager ? $panelBase . '/orders.php' : $panelBase . '/orders_management.php');
-
+            return $base . '/admin/orders_management.php';
         case 'Profile':
-            return $isManager
-                ? $panelBase . '/notifications.php'
-                : $panelBase . '/user_staff_management.php';
+            return $base . '/admin/user_staff_management.php';
         default:
             return $base . '/';
     }
@@ -184,15 +91,7 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
 function push_notify_user(int $user_id, string $user_type, array $payload, int $ttl = 86400): int
 {
     $wp = get_webpush();
-    if (!$wp) {
-        error_log('[push_notify_user] WebPush unavailable or VAPID config missing.');
-        return 0;
-    }
-
-    $base = push_base_path();
-    $icon = push_logo_url();
-    $badge = push_badge_url();
-    $home = $base . '/';
+    if (!$wp) return 0;
 
     $rows = db_query(
         'SELECT id, endpoint, p256dh, auth_key FROM push_subscriptions
@@ -200,17 +99,14 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
         'is',
         [$user_id, $user_type]
     );
-    if (empty($rows)) {
-        error_log('[push_notify_user] No saved subscriptions for user_id=' . $user_id . ' user_type=' . $user_type);
-        return 0;
-    }
+    if (empty($rows)) return 0;
 
     // Defaults
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => $icon,
-        'badge' => $badge,
-        'url'   => $home,
+        'icon'  => '/printflow/public/assets/images/icon-192.png',
+        'badge' => '/printflow/public/assets/images/icon-72.png',
+        'url'   => '/printflow/',
     ];
 
     $sent = 0;
@@ -233,19 +129,6 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
     return $sent;
 }
 
-function push_subscription_count_for_user(int $user_id, string $user_type): int
-{
-    $rows = db_query(
-        'SELECT COUNT(*) AS cnt
-         FROM push_subscriptions
-         WHERE user_id = ? AND user_type = ?',
-        'is',
-        [$user_id, $user_type]
-    );
-
-    return (int)($rows[0]['cnt'] ?? 0);
-}
-
 /**
  * Push to ALL admin/staff users (useful for order alerts).
  *
@@ -257,11 +140,6 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
 {
     $wp = get_webpush();
     if (!$wp) return 0;
-
-    $base = push_base_path();
-    $icon = push_logo_url();
-    $badge = push_badge_url();
-    $home = $base . '/';
 
     $placeholders = implode(',', array_fill(0, count($user_types), '?'));
     $types        = str_repeat('s', count($user_types));
@@ -275,9 +153,9 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
 
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => $icon,
-        'badge' => $badge,
-        'url'   => $home,
+        'icon'  => '/printflow/public/assets/images/icon-192.png',
+        'badge' => '/printflow/public/assets/images/icon-72.png',
+        'url'   => '/printflow/',
     ];
 
     $sent = 0;

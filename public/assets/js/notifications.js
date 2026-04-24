@@ -2,19 +2,22 @@
     'use strict';
 
     /* ── Config ──────────────────────────────────────────────────────────── */
-    var POLL_INTERVAL_MS       = 5000;
+    var POLL_INTERVAL_MS       = 15000;
     var POLL_INTERVAL_HIDDEN   = 60000;
+    var SW_PATH                = '/printflow/public/sw.js';
+    var SW_SCOPE               = '/printflow/public/';
+    var API_VAPID_PUB          = '/printflow/public/api/push/vapid_public_key.php';
+    var API_SUBSCRIBE          = '/printflow/public/api/push/subscribe.php';
+    var API_POLL               = '/printflow/public/api/push/poll.php';
+    var API_LIST               = '/printflow/public/api/notifications/list.php';
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
-    var PUSH_PROMPT_HIDE_KEY   = 'pf_push_prompt_hide_until';
-    var TOAST_DEDUPE_WINDOW_MS = 15000;
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
     var pollTimer   = null;
     var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
-    var recentToastMap = {};
 
     /* ── Export Early ────────────────────────────────────────────────────── */
     // Using simple var to ensure global access without modern scoping issues
@@ -22,538 +25,10 @@
         markSeen: markSeen,
         updateBadge: updateBadge,
         poll: poll,
-        loadDropdown: loadDropdown,
-        subscribeToPush: subscribeToPush,
-        unsubscribeFromPush: unsubscribeFromPush,
-        handlePushToggleClick: handlePushToggleClick,
-        runPushSelfTest: runPushSelfTest
+        loadDropdown: loadDropdown
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
-
-    function normalizeBasePath(rawBase) {
-        var base = String(rawBase || '').trim();
-        if (!base || base === '/') return '';
-        if (base.charAt(0) !== '/') base = '/' + base;
-        base = base.replace(/\/+$/, '');
-
-        var path = window.location.pathname || '';
-        if (base && path !== base && path.indexOf(base + '/') !== 0) {
-            return '';
-        }
-        return base;
-    }
-
-    function getBasePath() {
-        if (window.PFConfig && Object.prototype.hasOwnProperty.call(window.PFConfig, 'basePath')) {
-            return normalizeBasePath(window.PFConfig.basePath);
-        }
-        return normalizeBasePath(window.BASE_PATH || '');
-    }
-
-    function buildAppUrl(path) {
-        var cleanPath = String(path || '').replace(/^\/+/, '');
-        var base = getBasePath();
-        return cleanPath ? (base + '/' + cleanPath) : (base || '');
-    }
-
-    function normalizeNotificationTarget(url) {
-        if (!url) return url;
-
-        var base = getBasePath();
-        var host = String(window.location.hostname || '').toLowerCase();
-
-        try {
-            var target = new URL(url, window.location.origin);
-            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1 && target.pathname.indexOf('/printflow/') === 0) {
-                target.pathname = target.pathname.replace(/^\/printflow(?=\/)/, '');
-            }
-            return target.pathname + target.search + target.hash;
-        } catch (e) {
-            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1) {
-                return String(url).replace(/^\/printflow(?=\/)/, '');
-            }
-            return url;
-        }
-    }
-
-    function appendMarkRead(url, notifId) {
-        if (!url || !notifId) return url;
-
-        var role = String(USER_TYPE || '').toLowerCase();
-        var notifPath = 'customer/notifications.php';
-        if (role === 'admin') notifPath = 'admin/notifications.php';
-        else if (role === 'manager') notifPath = 'manager/notifications.php';
-        else if (role === 'staff') notifPath = 'staff/notifications.php';
-
-        var markBase = buildAppUrl(notifPath);
-        var safeTarget = normalizeNotificationTarget(url);
-
-        try {
-            var target = new URL(safeTarget, window.location.origin);
-            var mark = new URL(markBase, window.location.origin);
-            mark.searchParams.set('mark_read', notifId);
-            mark.searchParams.set('next', target.pathname + target.search + target.hash);
-            return mark.pathname + mark.search + mark.hash;
-        } catch (e) {
-            return markBase + '?mark_read=' + encodeURIComponent(notifId) + '&next=' + encodeURIComponent(safeTarget);
-        }
-    }
-
-    var SW_SCOPE               = buildAppUrl('') || '/';
-    var SW_REGISTER_PATH       = buildAppUrl('public/sw.php');
-    var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
-    var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
-    var API_SELF_TEST          = buildAppUrl('public/api/push/self_test.php');
-    var API_POLL               = buildAppUrl('public/api/push/poll.php');
-    var API_LIST               = buildAppUrl('public/api/notifications/list.php');
-
-    function isPushSupported() {
-        return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
-    }
-
-    function registrationUsesExpectedWorker(reg) {
-        if (!reg) return false;
-
-        var worker = reg.active || reg.waiting || reg.installing;
-        if (!worker || !worker.scriptURL) return false;
-
-        try {
-            var scriptUrl = new URL(worker.scriptURL, window.location.origin);
-            return scriptUrl.pathname.indexOf('/public/sw.php') !== -1;
-        } catch (e) {
-            return String(worker.scriptURL).indexOf('/public/sw.php') !== -1;
-        }
-    }
-
-    function cleanupLegacyServiceWorkers() {
-        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistrations) {
-            return Promise.resolve();
-        }
-
-        return navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            var tasks = [];
-
-            for (var i = 0; i < registrations.length; i++) {
-                var reg = registrations[i];
-                var worker = reg && (reg.active || reg.waiting || reg.installing);
-                var scriptUrl = worker && worker.scriptURL ? String(worker.scriptURL) : '';
-
-                if (scriptUrl && scriptUrl.indexOf('/public/sw.js') !== -1) {
-                    tasks.push(reg.unregister().catch(function() { return false; }));
-                }
-            }
-
-            return Promise.all(tasks);
-        }).catch(function() {
-            return [];
-        });
-    }
-
-    function ensureServiceWorker(isUserAction) {
-        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
-
-        return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
-            if (registrationUsesExpectedWorker(reg)) {
-                return reg.update().catch(function() { return reg; }).then(function() { return reg; });
-            }
-
-            return cleanupLegacyServiceWorkers().then(function() {
-                return navigator.serviceWorker.register(SW_REGISTER_PATH, {
-                    scope: SW_SCOPE,
-                    updateViaCache: 'none'
-                });
-            });
-        }).then(function(reg) {
-            return navigator.serviceWorker.ready.then(function() {
-                return reg;
-            });
-        }).catch(function(err) {
-            if (isUserAction) {
-                alert('Service worker registration failed: ' + (err && err.message ? err.message : 'unknown error'));
-            }
-            throw err;
-        });
-    }
-
-    function getUserId() {
-        return (window.PFConfig && window.PFConfig.userId) ? Number(window.PFConfig.userId) : 0;
-    }
-
-    function fetchVapidPublicKey() {
-        return fetch(API_VAPID_PUB, { credentials: 'include' })
-            .then(function(res) { return res.ok ? res.json() : null; })
-            .then(function(data) { return data && data.public_key ? String(data.public_key) : ''; })
-            .catch(function() { return ''; });
-    }
-
-    function sendSubscription(sub, action) {
-        var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
-        payload = payload || {};
-        payload.action = action || 'subscribe';
-
-        return fetch(API_SUBSCRIBE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(payload)
-        }).then(function(res) {
-            if (!res.ok) {
-                throw new Error('Subscription request failed with status ' + res.status);
-            }
-            return res.json().catch(function() { return {}; });
-        }).then(function(data) {
-            if (data && data.success === false) {
-                throw new Error(data.error || 'Subscription request failed');
-            }
-            return data || {};
-        });
-    }
-
-    function unsubscribeFromPush() {
-        if (!isPushSupported()) return Promise.resolve(false);
-
-        return ensureServiceWorker(false)
-            .then(function(reg) {
-                return reg.pushManager.getSubscription().then(function(existing) {
-                    if (!existing) return false;
-                    return existing.unsubscribe().then(function() {
-                        sendSubscription({ endpoint: existing.endpoint }, 'unsubscribe');
-                        return true;
-                    });
-                });
-            })
-            .catch(function() { return false; });
-    }
-
-    function runPushSelfTest() {
-        return fetch(API_SELF_TEST, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source: 'browser-console' })
-        }).then(function(res) {
-            return res.json();
-        });
-    }
-
-    function subscribeToPush(isUserAction) {
-        if (!isPushSupported()) return Promise.resolve(null);
-
-        var watchdog = null;
-        if (isUserAction) {
-            watchdog = setTimeout(function() {
-                showToast('Still working', 'Push setup is taking longer than expected. Please keep this page open a bit longer.');
-            }, 6000);
-        }
-
-        return ensureServiceWorker(isUserAction)
-            .then(function(reg) {
-                return reg.pushManager.getSubscription().then(function(existing) {
-                    if (existing) {
-                        return sendSubscription(existing, 'subscribe').then(function() {
-                            return existing;
-                        });
-                    }
-
-                    return fetchVapidPublicKey().then(function(pubKey) {
-                        if (!pubKey) {
-                            if (isUserAction) {
-                                alert('Push is not configured yet. Missing VAPID public key.');
-                            }
-                            return null;
-                        }
-
-                        return Notification.requestPermission().then(function(permission) {
-                            if (permission !== 'granted') {
-                                if (isUserAction && permission === 'denied') {
-                                    alert('Notifications are blocked in your browser settings.');
-                                } else if (isUserAction) {
-                                    alert('Notification permission was dismissed. Please allow it to enable alerts.');
-                                }
-                                return null;
-                            }
-
-                            return reg.pushManager.subscribe({
-                                userVisibleOnly: true,
-                                applicationServerKey: urlB64ToUint8Array(pubKey)
-                            }).then(function(sub) {
-                                return sendSubscription(sub, 'subscribe').then(function() {
-                                    dismissPushPrompt(false);
-                                    return sub;
-                                });
-                            });
-                        });
-                    });
-                });
-            })
-            .catch(function(err) {
-                if (isUserAction) {
-                    alert('Notification setup failed: ' + (err && err.message ? err.message : 'unknown error'));
-                }
-                return null;
-            })
-            .finally(function() {
-                if (watchdog) clearTimeout(watchdog);
-            });
-    }
-
-    function maybeInitPush() {
-        if (!isPushSupported()) return;
-        if (getUserId() <= 0) return;
-
-        if (Notification.permission === 'granted') {
-            subscribeToPush(false);
-            return;
-        }
-
-        if (Notification.permission === 'default') {
-            showPushPrompt();
-        }
-    }
-
-    function isStandaloneApp() {
-        try {
-            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    function shouldShowPushPrompt() {
-        if (!isPushSupported()) return false;
-        if (getUserId() <= 0) return false;
-        if (typeof Notification === 'undefined' || Notification.permission !== 'default') return false;
-
-        try {
-            var hideUntil = parseInt(localStorage.getItem(PUSH_PROMPT_HIDE_KEY) || '0', 10);
-            if (hideUntil && hideUntil > Date.now()) return false;
-        } catch (e) {}
-
-        return true;
-    }
-
-    function getPushPromptElement() {
-        return document.getElementById('pf-push-prompt');
-    }
-
-    function dismissPushPrompt(remember) {
-        var prompt = getPushPromptElement();
-        if (prompt && prompt.parentNode) {
-            prompt.parentNode.removeChild(prompt);
-        }
-
-        if (remember) {
-            try {
-                localStorage.setItem(PUSH_PROMPT_HIDE_KEY, String(Date.now() + (24 * 60 * 60 * 1000)));
-            } catch (e) {}
-        } else {
-            try {
-                localStorage.removeItem(PUSH_PROMPT_HIDE_KEY);
-            } catch (e) {}
-        }
-    }
-
-    function showPushPrompt() {
-        if (!shouldShowPushPrompt()) {
-            dismissPushPrompt(false);
-            return;
-        }
-
-        var existing = getPushPromptElement();
-        if (existing) return;
-        if (!document.body) return;
-
-        var prompt = document.createElement('section');
-        prompt.id = 'pf-push-prompt';
-        prompt.setAttribute('role', 'dialog');
-        prompt.setAttribute('aria-live', 'polite');
-        prompt.style.position = 'fixed';
-        prompt.style.right = '20px';
-        prompt.style.bottom = '20px';
-        prompt.style.width = 'min(360px, calc(100vw - 24px))';
-        prompt.style.maxWidth = 'calc(100vw - 24px)';
-        prompt.style.background = '#ffffff';
-        prompt.style.border = '1px solid #dbe4ea';
-        prompt.style.borderRadius = '16px';
-        prompt.style.boxShadow = '0 18px 45px rgba(15, 23, 42, 0.18)';
-        prompt.style.padding = '16px';
-        prompt.style.zIndex = '100000';
-        prompt.style.color = '#0f172a';
-        prompt.style.fontFamily = 'inherit';
-
-        var title = document.createElement('div');
-        title.textContent = isStandaloneApp() ? 'Turn on app notifications' : 'Turn on browser notifications';
-        title.style.fontSize = '15px';
-        title.style.fontWeight = '700';
-        title.style.marginBottom = '6px';
-
-        var body = document.createElement('div');
-        body.textContent = 'Get real-time order and system updates on this device, even when PrintFlow is in the background.';
-        body.style.fontSize = '13px';
-        body.style.lineHeight = '1.5';
-        body.style.color = '#475569';
-        body.style.marginBottom = '14px';
-
-        var actions = document.createElement('div');
-        actions.style.display = 'flex';
-        actions.style.gap = '8px';
-        actions.style.alignItems = 'center';
-
-        var enableBtn = document.createElement('button');
-        enableBtn.type = 'button';
-        enableBtn.textContent = 'Enable notifications';
-        enableBtn.style.flex = '1';
-        enableBtn.style.height = '40px';
-        enableBtn.style.border = 'none';
-        enableBtn.style.borderRadius = '10px';
-        enableBtn.style.background = '#06A1A1';
-        enableBtn.style.color = '#ffffff';
-        enableBtn.style.fontSize = '13px';
-        enableBtn.style.fontWeight = '700';
-        enableBtn.style.cursor = 'pointer';
-
-        var laterBtn = document.createElement('button');
-        laterBtn.type = 'button';
-        laterBtn.textContent = 'Not now';
-        laterBtn.style.height = '40px';
-        laterBtn.style.padding = '0 14px';
-        laterBtn.style.border = '1px solid #dbe4ea';
-        laterBtn.style.borderRadius = '10px';
-        laterBtn.style.background = '#ffffff';
-        laterBtn.style.color = '#475569';
-        laterBtn.style.fontSize = '13px';
-        laterBtn.style.fontWeight = '600';
-        laterBtn.style.cursor = 'pointer';
-
-        enableBtn.addEventListener('click', function() {
-            enableBtn.disabled = true;
-            enableBtn.textContent = 'Enabling...';
-            try {
-                localStorage.setItem(PERM_ASKED_KEY, '1');
-            } catch (e) {}
-
-            subscribeToPush(true).then(function(sub) {
-                if (sub) {
-                    dismissPushPrompt(false);
-                    showToast('Notifications enabled', 'This device will now receive PrintFlow alerts.');
-                    return;
-                }
-
-                enableBtn.disabled = false;
-                enableBtn.textContent = 'Enable notifications';
-                if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-                    dismissPushPrompt(true);
-                }
-            });
-        });
-
-        laterBtn.addEventListener('click', function() {
-            dismissPushPrompt(true);
-        });
-
-        actions.appendChild(enableBtn);
-        actions.appendChild(laterBtn);
-        prompt.appendChild(title);
-        prompt.appendChild(body);
-        prompt.appendChild(actions);
-        document.body.appendChild(prompt);
-    }
-
-    function updatePushToggle(btn, state) {
-        if (!btn) return;
-        btn.dataset.state = state;
-
-        if (state === 'unsupported') {
-            btn.textContent = 'Notifications unsupported';
-            btn.disabled = false;
-            return;
-        }
-        if (state === 'blocked') {
-            btn.textContent = 'Notifications blocked';
-            btn.disabled = false;
-            return;
-        }
-        if (state === 'enabled') {
-            btn.textContent = 'Disable notifications';
-            btn.disabled = false;
-            return;
-        }
-        btn.textContent = 'Enable notifications';
-        btn.disabled = false;
-    }
-
-    function initPushToggle() {
-        var btn = document.getElementById('pf-push-toggle');
-        if (!btn) return;
-
-        if (!isPushSupported()) {
-            updatePushToggle(btn, 'unsupported');
-            return;
-        }
-
-        if (Notification.permission === 'denied') {
-            updatePushToggle(btn, 'blocked');
-            return;
-        }
-
-        ensureServiceWorker(false)
-            .then(function(reg) { return reg.pushManager.getSubscription(); })
-            .then(function(sub) {
-                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
-            })
-            .catch(function() {
-                updatePushToggle(btn, 'disabled');
-            });
-
-        btn.addEventListener('click', function() {
-            handlePushToggleClick(btn);
-        });
-    }
-
-    function handlePushToggleClick(btn) {
-        if (!btn) return;
-        var state = btn.dataset.state || 'disabled';
-        if (state === 'unsupported') {
-            alert('This device/browser does not support push notifications. Please use a supported browser or install the PWA.');
-            return;
-        }
-        if (state === 'blocked') {
-            alert('Notifications are blocked in your browser settings. Please allow them to enable alerts.');
-            return;
-        }
-        if (state === 'enabled') {
-            if (!confirm('Disable notifications on this device?')) return;
-            unsubscribeFromPush().then(function() {
-                updatePushToggle(btn, 'disabled');
-            });
-            return;
-        }
-            subscribeToPush(true).then(function(sub) {
-                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
-                if (!sub && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    alert('Notifications are allowed, but subscription failed. Please reload and try again.');
-                }
-        });
-    }
-
-    function bindPushMessages() {
-        if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.addEventListener('message', function(event) {
-            var data = event.data || {};
-            if (data.type === 'PF_PUSH_RECEIVED' && data.payload) {
-                var payload = data.payload || {};
-                var title = payload.title || 'PrintFlow';
-                var body = payload.body || '';
-                var url = payload.url ? normalizeNotificationTarget(payload.url) : '';
-                showToast(title, body, url);
-                return;
-            }
-            if (data.type === 'PF_NAVIGATE' && data.url) {
-                window.location.href = normalizeNotificationTarget(data.url);
-            }
-        });
-    }
 
     function seenIds() {
         try {
@@ -640,11 +115,10 @@
                 var html = '';
                 for (var j = 0; j < data.notifications.length; j++) {
                     var n = data.notifications[j];
-                    var target = normalizeNotificationTarget(getNotifUrl(n));
+                    var target = getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type);
                     var unreadClass = n.is_read == 0 ? 'unread' : '';
                     var type = (n.type || '').toLowerCase();
                     var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
-                    var mediaHtml = '';
                     
                     if (type.indexOf('order') !== -1 || type.indexOf('status') !== -1) {
                         iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>';
@@ -654,14 +128,8 @@
                         iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
                     }
 
-                    if (n.image) {
-                        mediaHtml = '<img src="' + escAttr(n.image) + '" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" onerror="this.onerror=null;this.src=\'' + escJsString(n.fallback || buildAppUrl('public/assets/images/icon-192.png')) + '\'">';
-                    } else {
-                        mediaHtml = iconSvg;
-                    }
-
                     html += '<a href="' + target + '" class="pf-notif-item ' + unreadClass + '">' +
-                            '  <div class="pf-notif-item-icon">' + mediaHtml + '</div>' +
+                            '  <div class="pf-notif-item-icon">' + iconSvg + '</div>' +
                             '  <div class="pf-notif-item-content">' +
                             '    <div class="pf-notif-item-text">' + escHtml(n.message) + '</div>' +
                             '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + '</div>' +
@@ -675,69 +143,41 @@
             });
     }
 
-    function getNotifUrl(notification) {
-        var type = notification && notification.type ? notification.type : '';
-        var dataId = notification && notification.data_id != null ? notification.data_id : 0;
-        var message = notification && notification.message ? notification.message : '';
-        var notifId = notification && notification.id ? notification.id : 0;
-        var orderType = notification && notification.order_type ? notification.order_type : '';
-        var directTarget = notification && notification.target_url ? String(notification.target_url) : '';
-        if (directTarget) {
-            return appendMarkRead(normalizeNotificationTarget(directTarget), notifId);
-        }
-
-        var t = String(type || '').toLowerCase();
-        var role = String(USER_TYPE || '').toLowerCase();
-        var isAdmin = role === 'admin';
-        var isManager = role === 'manager';
-        var isStaff = role === 'staff';
-        var msg = String(message || '').toLowerCase();
+    function getNotifUrl(type, dataId, message, notifId, orderType) {
+        var base = '/printflow';
+        var t = (type || '').toLowerCase();
+        var isStaff = (USER_TYPE.toLowerCase() === 'admin' || USER_TYPE.toLowerCase() === 'staff' || USER_TYPE.toLowerCase() === 'manager');
+        var msg = (message || '').toLowerCase();
         var did = (dataId != null && dataId !== '') ? parseInt(dataId, 10) : 0;
-        if (!did && msg) {
-            var match = msg.match(/#(\d+)/);
-            if (match && match[1]) did = parseInt(match[1], 10) || 0;
-        }
-        var url = buildAppUrl('');
+        var url = base + '/';
 
-        if (isAdmin || isManager) {
-            var panel = isManager ? 'manager' : 'admin';
-            if (t === 'system' && did > 0 && (msg.indexOf('ready for admin review') !== -1 || msg.indexOf('completed their profile') !== -1) && isAdmin) {
-                url = buildAppUrl('admin/user_staff_management.php?open_user=' + did);
-            } else if (t.indexOf('stock') !== -1 || t.indexOf('inventory') !== -1) {
-                url = buildAppUrl(panel + '/inv_transactions_ledger.php' + (did > 0 ? '?item_id=' + did : ''));
-            } else if (t.indexOf('job order') !== -1 || t.indexOf('payment issue') !== -1) {
-                url = buildAppUrl(panel + '/job_orders.php' + (did > 0 ? '?open_job=' + did : ''));
-            } else if (t.indexOf('order') !== -1 || t.indexOf('design') !== -1 || t.indexOf('message') !== -1 || t.indexOf('payment') !== -1) {
-                url = buildAppUrl((isManager ? 'manager/orders.php' : 'admin/orders_management.php') + (did > 0 ? '?open_order=' + did : ''));
-            } else {
-                url = buildAppUrl(panel + '/notifications.php');
-            }
+        if (isStaff && t === 'system' && did > 0 && (msg.indexOf('ready for admin review') !== -1 || msg.indexOf('completed their profile') !== -1)) {
+            url = base + '/admin/user_staff_management.php?open_user=' + did;
         } else if (isStaff) {
-            if (t === 'system') url = buildAppUrl('staff/notifications.php');
-            else if (t.indexOf('rating') !== -1 || t.indexOf('review') !== -1) url = buildAppUrl('staff/reviews.php');
-            else if (t.indexOf('stock') !== -1 || t.indexOf('inventory') !== -1) url = buildAppUrl('staff/notifications.php');
-            else if (t.indexOf('order') !== -1 || t.indexOf('job') !== -1 || t.indexOf('design') !== -1 || t.indexOf('custom') !== -1 || t.indexOf('payment') !== -1) {
-                var oType = String(orderType || '').toLowerCase();
+            if (t.indexOf('inventory') !== -1) url = base + '/admin/inv_items_management.php';
+            else if (t.indexOf('order') !== -1 || t.indexOf('job') !== -1 || t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) {
+                var oType = (orderType || '').toLowerCase();
                 if (oType === 'custom' || t.indexOf('job') !== -1 || t.indexOf('custom') !== -1) {
-                    url = buildAppUrl('staff/customizations.php?order_id=' + did + '&job_type=ORDER');
+                    url = base + '/staff/customizations.php?order_id=' + did + '&job_type=ORDER';
                 } else {
-                    url = buildAppUrl('staff/orders.php' + (did > 0 ? '?order_id=' + did : ''));
+                    url = base + '/staff/orders.php?order_id=' + did;
                 }
-            } else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) {
-                url = buildAppUrl('staff/chats.php' + (did > 0 ? '?order_id=' + did : ''));
-            } else {
-                url = buildAppUrl('staff/dashboard.php');
             }
+            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/staff/orders.php?order_id=' + did : base + '/staff/orders.php';
+            else url = base + '/staff/dashboard.php';
         } else {
-            if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1 || t.indexOf('payment') !== -1) {
-                url = did > 0 ? buildAppUrl('customer/orders.php?highlight=' + did) : buildAppUrl('customer/orders.php');
-            } else if (t.indexOf('job') !== -1) url = buildAppUrl('customer/new_job_order.php');
-            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? buildAppUrl('customer/chat.php?order_id=' + did) : buildAppUrl('customer/messages.php');
-            else if ((t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) && did) url = buildAppUrl('customer/chat.php?order_id=' + did);
-            else url = buildAppUrl('customer/notifications.php');
+            if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1) url = base + '/customer/orders.php?highlight=' + did;
+            else if (t.indexOf('payment') !== -1) url = base + '/customer/payment.php?order_id=' + did;
+            else if (t.indexOf('job') !== -1) url = base + '/customer/new_job_order.php';
+            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
+            else if ((t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) && did) url = base + '/customer/chat.php?order_id=' + did;
+            else url = base + '/customer/notifications.php';
         }
 
-        return appendMarkRead(url, notifId);
+        if (notifId) {
+            url += (url.indexOf('?') !== -1 ? '&' : '?') + 'mark_read=' + notifId;
+        }
+        return url;
     }
 
     /* ── Polling ─────────────────────────────────────────────────────────── */
@@ -749,26 +189,19 @@
             .then(function(data) {
                 if (!data.success) return;
                 updateBadge(data.unread_count || 0);
-                var nextPollTs = lastPollTs;
+                if (data.server_time) lastPollTs = data.server_time;
 
                 var seen = seenIds();
                 var notifs = data.notifications || [];
                 for (var i = 0; i < notifs.length; i++) {
                     var n = notifs[i];
-                    if (n && n.ts) {
-                        nextPollTs = Math.max(nextPollTs, parseInt(n.ts, 10) || nextPollTs);
-                    }
                     var sid = String(n.id);
                     if (seen.has(sid)) continue;
                     markSeen(sid);
-                    var targetUrl = normalizeNotificationTarget(getNotifUrl(n));
-                    showToast(n.title || 'PrintFlow', n.message, targetUrl, n.image || '', n.fallback || '');
+                    var targetUrl = getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type);
+                    if (window.location.pathname + window.location.search === targetUrl) continue;
+                    showToast('PrintFlow', n.message, targetUrl);
                 }
-
-                if (data.server_time) {
-                    nextPollTs = Math.max(nextPollTs, (parseInt(data.server_time, 10) || nextPollTs) - 1);
-                }
-                lastPollTs = nextPollTs;
             })
             .catch(function(){});
     }
@@ -779,20 +212,7 @@
         pollTimer = setTimeout(function() { poll(); schedulePoll(); }, delay);
     }
 
-    function showToast(title, body, url, imageUrl, fallbackImage) {
-        var toastKey = [String(body || ''), String(url || ''), String(title || '')].join('|');
-        var now = Date.now();
-        var recentKeys = Object.keys(recentToastMap);
-        for (var r = 0; r < recentKeys.length; r++) {
-            if ((now - recentToastMap[recentKeys[r]]) > TOAST_DEDUPE_WINDOW_MS) {
-                delete recentToastMap[recentKeys[r]];
-            }
-        }
-        if (recentToastMap[toastKey] && (now - recentToastMap[toastKey]) < TOAST_DEDUPE_WINDOW_MS) {
-            return;
-        }
-        recentToastMap[toastKey] = now;
-
+    function showToast(title, body, url) {
         var container = document.getElementById('pf-toast-container');
         if (!container) {
             container = document.createElement('div');
@@ -821,17 +241,11 @@
         toast.style.gap = '10px';
 
         var icon = document.createElement('img');
-        var logoUrl = (window.PFConfig && window.PFConfig.logoUrl) ? String(window.PFConfig.logoUrl) : '';
-        icon.src = imageUrl || logoUrl || buildAppUrl('public/assets/images/icon-72.png');
+        icon.src = '/printflow/public/assets/images/icon-72.png';
         icon.style.width = '32px';
         icon.style.height = '32px';
         icon.style.borderRadius = '6px';
-        icon.style.objectFit = 'cover';
         icon.style.flexShrink = '0';
-        icon.onerror = function() {
-            this.onerror = null;
-            this.src = fallbackImage || logoUrl || buildAppUrl('public/assets/images/icon-192.png');
-        };
 
         var text = document.createElement('div');
         text.innerHTML = '<div style="font-weight:600;font-size:.875rem;color:#111827;margin-bottom:2px">' + escHtml(title) + '</div>' +
@@ -854,7 +268,7 @@
         toast.appendChild(close);
         container.appendChild(toast);
 
-        if (url) toast.onclick = function() { window.location.href = normalizeNotificationTarget(url); };
+        if (url) toast.onclick = function() { window.location.href = url; };
         setTimeout(function() { if (toast.parentNode) toast.remove(); }, 6000);
     }
 
@@ -863,46 +277,14 @@
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function escAttr(str) {
-        return escHtml(str);
-    }
-
-    function escJsString(str) {
-        if (str === null || str === undefined) return '';
-        return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    }
-
-    var initStarted = false;
-
     function init() {
-        if (initStarted) return;
-        initStarted = true;
-        bindPushMessages();
-        maybeInitPush();
-        initPushToggle();
         poll();
         schedulePoll();
     }
 
-    function reinit() {
-        initStarted = false;
-        init();
-    }
-
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            poll();
-            schedulePoll();
-        }
-    });
-
-    window.addEventListener('focus', function() {
-        poll();
-        schedulePoll();
-    });
+    function markSeen(id) {} // Placeholder to avoid errors if called before definition
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
-    document.addEventListener('turbo:load', reinit);
 
 })();
