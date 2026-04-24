@@ -589,6 +589,13 @@ function admin_notification_target_url(array $n): string {
         return $panelBase . '/user_staff_management.php?open_user=' . $dataId;
     }
 
+    if ($dataId > 0 && $type === 'System' && (
+        strpos($msg, 'submitted an id for verification') !== false ||
+        strpos($msg, 'resubmitted an id for verification') !== false
+    )) {
+        return $panelBase . '/customers_management.php';
+    }
+
     if ($dataId > 0) {
         if (in_array($type, ['Order', 'Design', 'Message'], true)) {
             return $ordersPage . '?open_order=' . $dataId;
@@ -1527,11 +1534,34 @@ function customer_notification_image_url(array $notification, string $fallback) 
     return $preview['image_url'] ?: $fallback;
 }
 
+function printflow_customer_id_notification_image_url(int $customerId, string $fallback): string {
+    $customerId = (int)$customerId;
+    if ($customerId <= 0) {
+        return $fallback;
+    }
+
+    $rows = db_query("SELECT id_image FROM customers WHERE customer_id = ? LIMIT 1", 'i', [$customerId]);
+    $idImage = trim((string)($rows[0]['id_image'] ?? ''));
+    if ($idImage === '') {
+        return $fallback;
+    }
+
+    $base = printflow_notification_base_path();
+    return $base . '/uploads/ids/' . rawurlencode($idImage);
+}
+
 function staff_admin_notification_image_url(array $notification, string $fallback): string {
     $data_id = (int)($notification['data_id'] ?? 0);
     $type = strtolower((string)($notification['type'] ?? ''));
+    $message = strtolower((string)($notification['message'] ?? ''));
     if ($data_id <= 0) {
         return $fallback;
+    }
+    if ($type === 'system' && (
+        strpos($message, 'submitted an id for verification') !== false ||
+        strpos($message, 'resubmitted an id for verification') !== false
+    )) {
+        return printflow_customer_id_notification_image_url($data_id, $fallback);
     }
     if (!in_array($type, ['order', 'design', 'payment', 'payment issue', 'message', 'job order'], true)) {
         return $fallback;

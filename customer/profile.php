@@ -329,7 +329,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_id'])) {
                 $id_dir = __DIR__ . '/../uploads/ids/';
                 if (!is_dir($id_dir)) mkdir($id_dir, 0755, true);
                 if (move_uploaded_file($_FILES['id_image']['tmp_name'], $id_dir . $fname2)) {
+                    $hadExistingId = !empty($customer['id_image']);
                     db_execute("UPDATE customers SET id_image=?, id_type=?, id_status='Pending', id_reject_reason=NULL WHERE customer_id=?", 'ssi', [$fname2, $id_type, $customer_id]);
+                    $customerName = trim((string)($customer['first_name'] ?? '') . ' ' . (string)($customer['last_name'] ?? ''));
+                    if ($customerName === '') {
+                        $customerName = 'A customer';
+                    }
+                    notify_shop_users(
+                        $customerName . ($hadExistingId ? ' resubmitted an ID for verification.' : ' submitted an ID for verification.'),
+                        'System',
+                        false,
+                        false,
+                        $customer_id,
+                        ['Admin', 'Manager']
+                    );
                     $success = 'ID submitted for verification. We will review it shortly.';
                     $customer = db_query("SELECT * FROM customers WHERE customer_id=?", 'i', [$customer_id])[0];
                 } else {
@@ -982,8 +995,14 @@ require_once __DIR__ . '/../includes/header.php';
                     </h3>
 
                     <?php if ($id_status === 'Rejected'): ?>
-                    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:1.25rem;font-size:0.875rem;color:#b91c1c;">
-                        <strong>Rejected:</strong> <?php echo htmlspecialchars($id_reject ?: 'Your ID was rejected. Please resubmit a clearer photo.'); ?>
+                    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:1rem;color:#b91c1c;">
+                        <div style="font-size:0.92rem;font-weight:700;margin-bottom:6px;">Your ID was rejected.</div>
+                        <div style="font-size:0.875rem;line-height:1.55;">
+                            <strong>Reason:</strong> <?php echo htmlspecialchars($id_reject ?: 'Your ID was rejected. Please resubmit a clearer photo.'); ?>
+                        </div>
+                        <div style="font-size:0.875rem;line-height:1.55;margin-top:6px;">
+                            You can upload a new ID below and submit it again for review.
+                        </div>
                     </div>
                     <?php endif; ?>
 
@@ -992,7 +1011,13 @@ require_once __DIR__ . '/../includes/header.php';
                         <strong>✓ Your identity has been verified.</strong> You can now place orders.
                     </div>
                     <?php else: ?>
-                    <p style="font-size:0.875rem;color:#64748b;margin-bottom:1.25rem;">Upload a valid government-issued ID to verify your identity before placing orders.</p>
+                    <p style="font-size:0.875rem;color:#64748b;margin-bottom:1.25rem;">
+                        <?php if ($id_status === 'Rejected'): ?>
+                        Please review the rejection reason above, then upload a clearer valid government-issued ID to continue.
+                        <?php else: ?>
+                        Upload a valid government-issued ID to verify your identity before placing orders.
+                        <?php endif; ?>
+                    </p>
 
                     <?php if (!empty($id_image) && $id_status === 'Pending'): ?>
                     <div style="margin-bottom:1.25rem;padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:0.875rem;color:#92400e;">
@@ -1023,7 +1048,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                         <?php if (!empty($id_image)): ?>
                         <div style="margin-top:1rem;">
-                            <p style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">Previously submitted:</p>
+                            <p style="font-size:0.75rem;color:#64748b;margin-bottom:6px;"><?php echo $id_status === 'Rejected' ? 'Previous rejected ID:' : 'Previously submitted:'; ?></p>
                             <img src="<?php echo $base_path; ?>/uploads/ids/<?php echo htmlspecialchars($id_image); ?>" style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;">
                         </div>
                         <?php endif; ?>
