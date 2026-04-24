@@ -543,8 +543,8 @@ require_once __DIR__ . '/../includes/header.php';
 .im-table td:nth-child(2) { width: 110px; }
 .im-table th:nth-child(3),
 .im-table td:nth-child(3) { width: 150px; }
-.im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
-.im-sec-card.accent { border-left-color: #0e7490; background: #f8fafc; }
+.im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.im-sec-card.accent { border-left-color: #94a3b8; background: #f8fafc; }
 .im-label { font-size: 0.68rem; color: #64748b; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.08em; }
 .im-val { font-size: 0.82rem; font-weight: 700; color: #334155; line-height: 1.55; }
 .im-spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.6rem; margin: 0.8rem 0 0; }
@@ -557,26 +557,27 @@ require_once __DIR__ . '/../includes/header.php';
 .im-meta-value { font-size: 0.82rem; font-weight: 700; color: #334155; line-height: 1.5; }
 .im-qty-value, .im-total-value { font-size: 0.82rem; font-weight: 800; line-height: 1.4; }
 .im-qty-value { color: #0f172a; }
-.im-total-value { color: #0e7490; }
-.im-note-card { margin-top: 1.25rem; padding: 0.9rem 1rem; background: rgba(83, 197, 224, 0.08); border: 1px solid rgba(83, 197, 224, 0.14); border-left: 4px solid #53c5e0; border-radius: 8px; }
-.im-note-label { font-size: 0.75rem; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.45rem; }
+.im-total-value { color: #0f172a; }
+.im-note-card { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #94a3b8; border-radius: 8px; }
+.im-note-label { font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.45rem; }
 .im-note-copy { font-size: 0.82rem; color: #334155; line-height: 1.6; font-weight: 600; }
 .im-reject-card {
-    padding: 1rem 1.1rem;
-    background: linear-gradient(180deg, #fff7ed 0%, #fff1f2 100%);
-    border: 1px solid #fecaca;
-    border-radius: 14px;
+    padding: 0.95rem 1rem;
+    background: #fff7f7;
+    border: 1px solid #f3d1d1;
+    border-left: 4px solid #dc2626;
+    border-radius: 8px;
 }
 .im-reject-title {
-    font-size: 0.78rem;
-    font-weight: 900;
-    color: #9a3412;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #991b1b;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.45rem;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.4rem;
 }
 .im-reject-copy {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     line-height: 1.55;
     color: #7f1d1d;
     font-weight: 600;
@@ -613,22 +614,22 @@ require_once __DIR__ . '/../includes/header.php';
 }
 .im-primary-action {
     width: 100%;
-    min-height: 48px;
-    padding: 0.95rem 1rem;
+    min-height: 42px;
+    padding: 0.8rem 0.95rem;
     border: none;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #0a2530;
     color: #ffffff;
     font-size: 0.82rem;
-    font-weight: 900;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 .im-primary-action:hover {
     background: #0d3038;
-    box-shadow: 0 12px 24px rgba(10, 37, 48, 0.18);
+    box-shadow: 0 8px 18px rgba(10, 37, 48, 0.12);
 }
 .im-primary-action:disabled {
     opacity: 0.55;
@@ -1109,7 +1110,7 @@ function openItemsModal(orderId, event) {
                                 <div class="im-label">Current status</div>
                                 ${data.status === 'Rejected'
                                     ? `<div style="margin-top: 0.5rem;">${imBadge(data.status)}</div>`
-                                    : `<div class="im-val" style="font-size: 1rem; color: #0f172a;">${data.status}</div>`}
+                                    : `<div class="im-val">${data.status}</div>`}
                             </div>
                             ${data.status === 'Rejected' ? '' : `<div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>`}
                         </div>
@@ -1122,13 +1123,13 @@ function openItemsModal(orderId, event) {
                         <div class="space-y-4">
                             <div><div class="im-label" style="margin-bottom: 4px;">Method</div><div class="im-val">${escIM(data.payment_method)}</div></div>
                             <div><div class="im-label" style="margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
-                            <div><div class="im-label" style="margin-bottom: 4px;">Total price</div><div class="im-val" style="font-size: 1rem; color: #0e7490;">${escIM(data.total_amount)}</div></div>
+                            <div><div class="im-label" style="margin-bottom: 4px;">Total price</div><div class="im-val">${escIM(data.total_amount)}</div></div>
                         </div>
                     </div>
 
-                    <div class="im-sec-card" style="border-left-color: #fbbf24;">
-                        <div class="im-label" style="color: #f59e0b;">Estimated completion</div>
-                        <div class="im-val" style="color: #d97706;">${escIM(data.estimated_comp || 'Gathering timeframe...')}</div>
+                    <div class="im-sec-card">
+                        <div class="im-label">Estimated completion</div>
+                        <div class="im-val">${escIM(data.estimated_comp || 'Gathering timeframe...')}</div>
                     </div>
 
                     <!-- Actions Area -->
