@@ -204,7 +204,9 @@ if ($showLatestCustomizationOnly) {
             flex-wrap: wrap;
             align-items: center;
             gap: 12px;
-            overflow: hidden;
+            overflow: visible;
+            position: relative;
+            z-index: 25;
         }
 
         .toolbar-group {
@@ -224,6 +226,13 @@ if ($showLatestCustomizationOnly) {
             flex: 0 0 auto;
             margin-left: auto;
             justify-content: flex-end;
+            position: relative;
+            z-index: 30;
+            overflow: visible;
+        }
+
+        .toolbar-group--actions .dropdown-panel {
+            z-index: 1200;
         }
         .toolbar-group--title {
             flex: 0 0 auto;
