@@ -508,7 +508,7 @@ if (!function_exists('pf_payment_qr_url')) {
                         </div>
                         <h3 style="font-weight: 800; color: #059669; margin-bottom: 0.5rem;">Payment Completed</h3>
                         <p style="color: #64748b; font-size: 0.875rem;">This order has already been fully paid.</p>
-                        <a href="<?php echo !$is_job_order ? 'order_details.php?id=' . $order_id : 'services.php'; ?>" class="btn-primary w-full mt-6 text-center block" style="text-decoration: none;">View Order Details</a>
+                        <a href="<?php echo !$is_job_order ? 'orders.php?highlight=' . $order_id : 'services.php'; ?>" class="btn-primary w-full mt-6 text-center block" style="text-decoration: none;">View Order Details</a>
                     </div>
                 <?php elseif (!$show_payment_form): ?>
                     <div style="text-align: center; padding: 2rem;">
@@ -519,7 +519,7 @@ if (!function_exists('pf_payment_qr_url')) {
                         </div>
                         <h3 style="font-weight: 800; color: #eaf6fb; margin-bottom: 0.5rem;">Payment Verifying</h3>
                         <p style="color: #9fc4d4; font-size: 0.875rem;">Your payment proof is currently under review by our staff.</p>
-                        <a href="<?php echo !$is_job_order ? 'order_details.php?id=' . $order_id : 'services.php'; ?>" class="btn-primary w-full mt-6 text-center block" style="text-decoration: none;">Track Order Status</a>
+                        <a href="<?php echo !$is_job_order ? 'orders.php?highlight=' . $order_id : 'services.php'; ?>" class="btn-primary w-full mt-6 text-center block" style="text-decoration: none;">Track Order Status</a>
                     </div>
                 <?php else: ?>
                     <form id="paymentForm" enctype="multipart/form-data">
@@ -719,7 +719,7 @@ if (!function_exists('pf_payment_qr_url')) {
                     showSuccessModal(
                         'Payment Success',
                         'Your payment proof has been submitted and is now under review. We\'ll notify you once verified!',
-                        'order_details.php?id=<?php echo $order_id; ?>',
+                        'orders.php?highlight=<?php echo $order_id; ?>',
                         'services.php',
                         'View Order',
                         'Back to Services',
