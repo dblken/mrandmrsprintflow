@@ -53,6 +53,14 @@ function push_logo_url(): string
     return $origin !== '' ? ($origin . $relative) : $relative;
 }
 
+function push_badge_url(): string
+{
+    $base = push_base_path();
+    $relative = $base . '/public/assets/images/icon-72.png';
+    $origin = push_asset_origin();
+    return $origin !== '' ? ($origin . $relative) : $relative;
+}
+
 /**
  * Return a WebPush instance using the stored VAPID config.
  * Returns null if VAPID keys are not configured yet.
@@ -180,7 +188,7 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
 
     $base = push_base_path();
     $icon = push_logo_url();
-    $badge = $icon;
+    $badge = push_badge_url();
     $home = $base . '/';
 
     $rows = db_query(
@@ -233,7 +241,7 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
 
     $base = push_base_path();
     $icon = push_logo_url();
-    $badge = $icon;
+    $badge = push_badge_url();
     $home = $base . '/';
 
     $placeholders = implode(',', array_fill(0, count($user_types), '?'));

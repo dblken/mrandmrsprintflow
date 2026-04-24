@@ -10,6 +10,7 @@ $logo_version = rawurlencode(printflow_logo_version());
 $app_icon = !empty($shop_logo_url)
     ? ($shop_logo_url . '?v=' . $logo_version)
     : ($base_path . '/public/app-icon.php?v=' . $logo_version);
+$app_badge = $base_path . '/public/assets/images/icon-72.png';
 
 header('Content-Type: application/javascript');
 header('Service-Worker-Allowed: /');
@@ -195,7 +196,7 @@ self.addEventListener('push', (event) => {
         title: 'PrintFlow',
         body:  'You have a new update',
         icon:  '<?php echo addslashes($app_icon); ?>',
-        badge: '<?php echo addslashes($app_icon); ?>',
+        badge: '<?php echo addslashes($app_badge); ?>',
         tag:   'pf-general',
         url:   BASE_PATH + '/',
     };
