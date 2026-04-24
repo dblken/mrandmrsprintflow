@@ -1485,22 +1485,29 @@ function initOrdersTabsScroller() {
         tab.addEventListener('click', saveTabsScroll);
     });
 
-    requestAnimationFrame(() => {
-        try {
-            const savedScroll = parseInt(sessionStorage.getItem(storageKey) || '0', 10);
-            if (!Number.isNaN(savedScroll) && savedScroll > 0) {
-                const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
-                tabs.scrollLeft = Math.min(savedScroll, maxScroll);
-            }
-        } catch (e) {
-            // Ignore storage failures.
+    try {
+        const savedScroll = parseInt(sessionStorage.getItem(storageKey) || '0', 10);
+        if (!Number.isNaN(savedScroll) && savedScroll > 0) {
+            const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
+            tabs.scrollLeft = Math.min(savedScroll, maxScroll);
         }
-        updateTabsNavState();
-    });
+    } catch (e) {
+        // Ignore storage failures.
+    }
+
+    updateTabsNavState();
 }
 
 async function refreshOrdersList() {
     try {
+        const currentTabs = document.getElementById('ttTabsScrollContainer');
+        const preservedTabsScroll = currentTabs ? currentTabs.scrollLeft : 0;
+        try {
+            sessionStorage.setItem('pf_orders_tabs_scroll', String(Math.max(0, Math.round(preservedTabsScroll))));
+        } catch (e) {
+            // Ignore storage failures.
+        }
+
         const resp = await fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } });
         const html = await resp.text();
         const parser = new DOMParser();
@@ -1509,6 +1516,10 @@ async function refreshOrdersList() {
         const currentDashboard = document.querySelector('.unified-dashboard');
         if (nextDashboard && currentDashboard) {
             currentDashboard.innerHTML = nextDashboard.innerHTML;
+            const nextTabs = document.getElementById('ttTabsScrollContainer');
+            if (nextTabs) {
+                nextTabs.scrollLeft = preservedTabsScroll;
+            }
             initOrdersTabsScroller();
         }
     } catch (e) {
