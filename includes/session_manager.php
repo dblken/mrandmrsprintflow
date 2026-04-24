@@ -58,6 +58,7 @@ class SessionManager
         }
 
         session_name(PRINTFLOW_SESSION_NAME);
+        self::cleanupLegacyCookies();
 
         // Secure session cookie parameters (must be set before session_start)
         session_set_cookie_params([
@@ -284,6 +285,33 @@ class SessionManager
             self::expireCookie('PHPSESSID', $path, $domain);
             if ($domain !== '') {
                 self::expireCookie('PHPSESSID', $path, ltrim($domain, '.'));
+            }
+        }
+    }
+
+    private static function cleanupLegacyCookies(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        $domain = self::cookieDomain();
+        $domains = array_filter(array_unique([
+            '',
+            $domain,
+            $domain !== '' ? ltrim($domain, '.') : '',
+        ]), static fn($value) => $value !== null);
+
+        $targets = [
+            ['name' => 'PHPSESSID', 'paths' => ['/', '/printflow']],
+            ['name' => PRINTFLOW_SESSION_NAME, 'paths' => ['/printflow']],
+        ];
+
+        foreach ($targets as $target) {
+            foreach ($target['paths'] as $path) {
+                foreach ($domains as $cookieDomain) {
+                    self::expireCookie($target['name'], $path, (string) $cookieDomain);
+                }
             }
         }
     }
