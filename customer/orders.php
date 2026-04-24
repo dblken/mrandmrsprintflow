@@ -820,10 +820,10 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- Image Lightbox Modal -->
-        <div id="lightboxModal" class="fixed inset-0 z-[100001] hidden flex items-center justify-center p-4 bg-black/90" onclick="closeLightbox()">
-            <img id="lightboxImg" class="max-w-full max-h-full shadow-2xl transition-transform duration-300 transform scale-95 hidden" src="" alt="Full Preview" onclick="event.stopPropagation()">
-            <iframe id="lightboxFrame" class="hidden" src="" title="Document Preview" onclick="event.stopPropagation()" style="width:min(96vw,1100px); height:85vh; background:#ffffff; border:0; border-radius:12px; box-shadow:0 24px 60px rgba(0,0,0,0.35);"></iframe>
-            <div class="absolute top-6 right-6 text-white cursor-pointer hover:text-red-400 transition-colors">
+        <div id="lightboxModal" onclick="closeLightbox()" style="display:none; position:fixed; inset:0; z-index:100001; align-items:center; justify-content:center; padding:16px; background:rgba(0,0,0,0.9);">
+            <img id="lightboxImg" src="" alt="Full Preview" onclick="event.stopPropagation()" style="display:none; max-width:96vw; max-height:92vh; box-shadow:0 24px 60px rgba(0,0,0,0.35); border-radius:12px; transform:scale(0.95); transition:transform 0.25s ease;">
+            <iframe id="lightboxFrame" src="" title="Document Preview" onclick="event.stopPropagation()" style="display:none; width:min(96vw,1100px); height:85vh; background:#ffffff; border:0; border-radius:12px; box-shadow:0 24px 60px rgba(0,0,0,0.35);"></iframe>
+            <div style="position:absolute; top:24px; right:24px; color:#ffffff; cursor:pointer; transition:color 0.2s;">
                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
             </div>
         </div>
@@ -1311,23 +1311,21 @@ function openLightbox(url, assetKind = 'image') {
     const frame = document.getElementById('lightboxFrame');
 
     if (String(assetKind || 'image').toLowerCase() === 'pdf') {
-        img.classList.add('hidden');
+        img.style.display = 'none';
         img.src = '';
-        frame.classList.remove('hidden');
+        frame.style.display = 'block';
         frame.src = url;
     } else {
-        frame.classList.add('hidden');
+        frame.style.display = 'none';
         frame.src = '';
-        img.classList.remove('hidden');
+        img.style.display = 'block';
         img.src = url;
-        img.classList.remove('scale-100');
-        img.classList.add('scale-95');
+        img.style.transform = 'scale(0.95)';
     }
 
-    lb.classList.remove('hidden');
-    lb.classList.add('flex');
+    lb.style.display = 'flex';
     if (String(assetKind || 'image').toLowerCase() !== 'pdf') {
-        setTimeout(() => { img.classList.remove('scale-95'); img.classList.add('scale-100'); }, 10);
+        setTimeout(() => { img.style.transform = 'scale(1)'; }, 10);
     }
     document.body.style.overflow = 'hidden';
 }
@@ -1335,11 +1333,12 @@ function closeLightbox() {
     const lb = document.getElementById('lightboxModal');
     const img = document.getElementById('lightboxImg');
     const frame = document.getElementById('lightboxFrame');
-    img.classList.remove('scale-100'); img.classList.add('scale-95');
+    img.style.transform = 'scale(0.95)';
     frame.src = '';
     setTimeout(() => {
-        lb.classList.remove('flex');
-        lb.classList.add('hidden');
+        lb.style.display = 'none';
+        img.style.display = 'none';
+        frame.style.display = 'none';
         document.body.style.overflow = '';
     }, 200);
 }
