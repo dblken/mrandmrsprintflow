@@ -534,14 +534,22 @@ require_once __DIR__ . '/../includes/header.php';
 .im-dashboard { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
 .im-main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .im-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
-.im-table { width: 100%; border-collapse: collapse; }
-.im-table th { text-align: left; padding: 0.9rem 1rem; font-size: 0.74rem; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; }
-.im-table td { padding: 1.25rem 1rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
+.im-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.im-table th { text-align: left; padding: 0.9rem 1.25rem; font-size: 0.72rem; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.im-table td { padding: 1.25rem 1.25rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
+.im-table th:first-child,
+.im-table td:first-child { width: auto; }
+.im-table th:nth-child(2),
+.im-table td:nth-child(2) { width: 110px; }
+.im-table th:nth-child(3),
+.im-table td:nth-child(3) { width: 150px; }
 .im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
 .im-sec-card.accent { border-left-color: #0e7490; background: #f8fafc; }
 .im-label { font-size: 0.74rem; color: #64748b; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .im-val { font-size: 0.95rem; font-weight: 700; color: #334155; line-height: 1.55; }
 .im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.78rem; font-weight: 600; }
+.im-chips { display: flex; flex-wrap: wrap; gap: 0.45rem 0.55rem; margin: 0.9rem 0 0; max-width: 100%; }
+.im-chip { white-space: normal; line-height: 1.45; }
 .im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
 .im-item-title { font-size: 1rem; font-weight: 800; color: #0f172a; line-height: 1.45; margin-bottom: 0.55rem; }
 .im-meta-title { font-size: 0.74rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
@@ -655,6 +663,12 @@ require_once __DIR__ . '/../includes/header.php';
     .im-dashboard { grid-template-columns: 1fr; }
     .orders-page-container { padding: 0 0.75rem; }
     .unified-dashboard { margin-bottom: 2rem; }
+    .im-table th:nth-child(2),
+    .im-table td:nth-child(2) { width: 84px; }
+    .im-table th:nth-child(3),
+    .im-table td:nth-child(3) { width: 110px; }
+    .im-table th,
+    .im-table td { padding-left: 0.85rem; padding-right: 0.85rem; }
 }
 
 .capitalize-first { display: inline-block; }
@@ -1031,7 +1045,7 @@ function openItemsModal(orderId, event) {
             return `<tr>
                 <td style="min-width: 250px;">
                     <div class="im-item-title">${escIM(item.product_name)}</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem;">${chips}</div>
+                    ${chips}
                     
                     ${design || reference ? `
                         <div style="margin-top: 1rem;">
@@ -1054,6 +1068,11 @@ function openItemsModal(orderId, event) {
                 <div class="im-main">
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                         <table class="im-table">
+                            <colgroup>
+                                <col style="width:auto;">
+                                <col style="width:110px;">
+                                <col style="width:150px;">
+                            </colgroup>
                             <thead style="background: #f8fafc;">
                                 <tr>
                                     <th>Service Description</th>
