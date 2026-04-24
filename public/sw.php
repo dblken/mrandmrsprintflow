@@ -95,15 +95,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
-    const normalizedPath = url.pathname.replace(/\/+$/, '') || '/';
-    const baseRoot = BASE_PATH ? (BASE_PATH.replace(/\/+$/, '') || '/') : '';
-    const landingPaths = new Set([
-        baseRoot || '/',
-        (baseRoot ? baseRoot + '/public/index.php' : '/public/index.php'),
-        '/public/index.php',
-        '/',
-    ]);
-
     if (request.method !== 'GET') return;
     if (!url.origin.includes(self.location.hostname) &&
         !url.hostname.includes('localhost')) return;
@@ -119,15 +110,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (request.destination === 'document' || url.pathname.endsWith('.php') || url.pathname.endsWith('/')) {
-        if (landingPaths.has(normalizedPath)) {
-            event.respondWith(networkOnlyDocument(request));
-            return;
-        }
-        if (url.pathname.includes('verify_email.php')) {
-            event.respondWith(fetch(request));
-            return;
-        }
-        event.respondWith(staleWhileRevalidate(request, PAGE_CACHE));
+        event.respondWith(networkOnlyDocument(request));
         return;
     }
 

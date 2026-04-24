@@ -228,12 +228,19 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
 
         (function() {
             var authUrl = <?php echo json_encode($base_url . '/public/api_session_status.php'); ?>;
+            var loginUrl = <?php echo json_encode($base_url . '/?auth_modal=login'); ?>;
             var homePaths = new Set([
                 '/',
                 '/public/index.php',
                 <?php echo json_encode(((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '') ?: '/'); ?>,
                 <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '') ?: '') . '/public/index.php'); ?>
             ]);
+            var protectedPrefixes = [
+                <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '')) . '/admin/'); ?>,
+                <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '')) . '/manager/'); ?>,
+                <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '')) . '/staff/'); ?>,
+                <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '')) . '/customer/'); ?>
+            ];
 
             function normalizePath(path) {
                 var out = (path || '/').replace(/\/+$/, '');
@@ -244,9 +251,16 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
                 return homePaths.has(normalizePath(window.location.pathname));
             }
 
+            function isProtectedCurrentPage() {
+                var current = normalizePath(window.location.pathname) + '/';
+                return protectedPrefixes.some(function(prefix) {
+                    return prefix && current.indexOf(prefix) === 0;
+                });
+            }
+
             var checkInFlight = false;
             function syncSessionState() {
-                if (checkInFlight || !shouldRedirectCurrentPage()) {
+                if (checkInFlight) {
                     return;
                 }
                 checkInFlight = true;
@@ -262,8 +276,13 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
                     return response.ok ? response.json() : null;
                 })
                 .then(function(data) {
-                    if (data && data.logged_in && data.redirect) {
+                    if (!data) return;
+                    if (data.logged_in && data.redirect && shouldRedirectCurrentPage()) {
                         window.location.replace(data.redirect);
+                        return;
+                    }
+                    if (!data.logged_in && isProtectedCurrentPage()) {
+                        window.location.replace(loginUrl + (loginUrl.indexOf('?') > -1 ? '&' : '?') + 'expired=1');
                     }
                 })
                 .catch(function() {})
@@ -278,6 +297,21 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
                 }
             });
 
+            document.addEventListener('click', function(event) {
+                var link = event.target.closest('a[href]');
+                if (!link) return;
+                try {
+                    var href = new URL(link.href, window.location.origin);
+                    if (/\/(logout|signout)\/?$/.test(href.pathname)) {
+                        localStorage.setItem('pf_auth_sync', JSON.stringify({
+                            ts: Date.now(),
+                            logout: true
+                        }));
+                    }
+                } catch (e) {}
+            });
+
+            window.addEventListener('load', syncSessionState);
             window.addEventListener('pageshow', syncSessionState);
             window.addEventListener('focus', syncSessionState);
             document.addEventListener('visibilitychange', function() {
