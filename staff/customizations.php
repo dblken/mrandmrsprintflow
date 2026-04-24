@@ -402,14 +402,16 @@ if ($showLatestCustomizationOnly) {
         .filter-header {
             padding: 14px 18px;
             border-bottom: 1px solid #f3f4f6;
-            color: #111827;
-            font-size: 14px;
-            font-weight: 500;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
             line-height: 1.2;
         }
 
         .pf-staff-customizations-root .filter-header {
-            font-weight: 400 !important;
+            color: #475569 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
         }
 
         .filter-section {
