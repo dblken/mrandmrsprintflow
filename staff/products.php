@@ -9,7 +9,6 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
-require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
@@ -19,6 +18,22 @@ $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_i
 $staffBranchNameRow = db_query('SELECT branch_name FROM branches WHERE id = ? LIMIT 1', 'i', [$staffBranchId]);
 $staffBranchName = trim((string)($staffBranchNameRow[0]['branch_name'] ?? 'Assigned Branch'));
 $usesBaseProductStock = printflow_product_branch_uses_base_stock($staffBranchId);
+
+function staff_products_table_exists(string $table): bool {
+    try {
+        return !empty(db_query("SHOW TABLES LIKE ?", 's', [$table]));
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function staff_products_column_exists(string $table, string $column): bool {
+    try {
+        return !empty(db_query("SHOW COLUMNS FROM `{$table}` LIKE ?", 's', [$column]));
+    } catch (Throwable $e) {
+        return false;
+    }
+}
 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
@@ -100,28 +115,67 @@ $types .= 'ii';
 $products = db_query($sql, $types, $params);
 $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' ORDER BY category ASC");
 
-$inventory_items = db_query("
-    SELECT i.id, i.name, i.unit_of_measure, i.reorder_level, i.track_by_roll,
-           COALESCE((
-               SELECT SUM(IF(t.direction = 'IN', t.quantity, -t.quantity))
-               FROM inventory_transactions t
-               WHERE t.item_id = i.id AND t.branch_id = ?
-           ), 0) AS current_stock
-    FROM inv_items i
-    WHERE i.status = 'ACTIVE'
-    ORDER BY i.name ASC
-    LIMIT 12
-", 'i', [$staffBranchId]) ?: [];
+$inventory_items = [];
+$inventory_ledger = [];
+$show_branch_inventory = false;
 
-$inventory_ledger = db_query("
-    SELECT t.transaction_date, t.direction, t.quantity, t.unit_of_measure, t.ref_type, t.ref_id, t.notes,
-           i.name AS item_name
-    FROM inventory_transactions t
-    INNER JOIN inv_items i ON i.id = t.item_id
-    WHERE t.branch_id = ?
-    ORDER BY t.transaction_date DESC, t.id DESC
-    LIMIT 12
-", 'i', [$staffBranchId]) ?: [];
+try {
+    $hasInvItems = staff_products_table_exists('inv_items');
+    $hasInvTx = staff_products_table_exists('inventory_transactions');
+    $hasItemStatus = $hasInvItems && staff_products_column_exists('inv_items', 'status');
+    $hasTrackByRoll = $hasInvItems && staff_products_column_exists('inv_items', 'track_by_roll');
+    $hasReorderLevel = $hasInvItems && staff_products_column_exists('inv_items', 'reorder_level');
+    $hasUnitOfMeasure = $hasInvItems && staff_products_column_exists('inv_items', 'unit_of_measure');
+    $hasTxBranch = $hasInvTx && staff_products_column_exists('inventory_transactions', 'branch_id');
+    $hasTxDirection = $hasInvTx && staff_products_column_exists('inventory_transactions', 'direction');
+    $hasTxDate = $hasInvTx && staff_products_column_exists('inventory_transactions', 'transaction_date');
+    $hasTxUom = $hasInvTx && staff_products_column_exists('inventory_transactions', 'unit_of_measure');
+
+    if ($hasInvItems && $hasInvTx && $hasTxDirection && $hasTxDate) {
+        $show_branch_inventory = true;
+
+        $itemStatusWhere = $hasItemStatus ? "WHERE i.status = 'ACTIVE'" : '';
+        $itemTrackByRollSelect = $hasTrackByRoll ? 'i.track_by_roll' : '0 AS track_by_roll';
+        $itemReorderSelect = $hasReorderLevel ? 'i.reorder_level' : '0 AS reorder_level';
+        $itemUomSelect = $hasUnitOfMeasure ? 'i.unit_of_measure' : "'UNIT' AS unit_of_measure";
+        $itemBranchFilter = $hasTxBranch ? ' AND t.branch_id = ?' : '';
+        $itemTypes = $hasTxBranch ? 'i' : '';
+        $itemParams = $hasTxBranch ? [$staffBranchId] : [];
+
+        $inventory_items = db_query("
+            SELECT i.id, i.name, {$itemUomSelect}, {$itemReorderSelect}, {$itemTrackByRollSelect},
+                   COALESCE((
+                       SELECT SUM(IF(t.direction = 'IN', t.quantity, -t.quantity))
+                       FROM inventory_transactions t
+                       WHERE t.item_id = i.id{$itemBranchFilter}
+                   ), 0) AS current_stock
+            FROM inv_items i
+            {$itemStatusWhere}
+            ORDER BY i.name ASC
+            LIMIT 12
+        ", $itemTypes, $itemParams) ?: [];
+
+        $ledgerBranchWhere = $hasTxBranch ? 'WHERE t.branch_id = ?' : '';
+        $ledgerTypes = $hasTxBranch ? 'i' : '';
+        $ledgerParams = $hasTxBranch ? [$staffBranchId] : [];
+        $ledgerUomSelect = $hasTxUom ? 't.unit_of_measure' : "'UNIT' AS unit_of_measure";
+
+        $inventory_ledger = db_query("
+            SELECT t.transaction_date, t.direction, t.quantity, {$ledgerUomSelect}, t.ref_type, t.ref_id, t.notes,
+                   i.name AS item_name
+            FROM inventory_transactions t
+            INNER JOIN inv_items i ON i.id = t.item_id
+            {$ledgerBranchWhere}
+            ORDER BY t.transaction_date DESC, t.id DESC
+            LIMIT 12
+        ", $ledgerTypes, $ledgerParams) ?: [];
+    }
+} catch (Throwable $e) {
+    error_log('staff/products.php inventory sections disabled: ' . $e->getMessage());
+    $inventory_items = [];
+    $inventory_ledger = [];
+    $show_branch_inventory = false;
+}
 
 $page_title = 'Products & Inventory - Staff';
 ?>
@@ -391,6 +445,7 @@ $page_title = 'Products & Inventory - Staff';
                 <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
             </div>
 
+            <?php if ($show_branch_inventory): ?>
             <div class="staff-products-readonly-grid">
                 <div class="card staff-products-readonly-card">
                     <div class="toolbar-container" style="margin-bottom: 16px;">
@@ -502,6 +557,7 @@ $page_title = 'Products & Inventory - Staff';
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
         </main>
     </div>
 </div>
