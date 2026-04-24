@@ -363,35 +363,35 @@ $page_title = 'Orders - Staff';
         .pill-tab { 
             position: relative;
             padding: 8px 16px; 
-            font-weight: 700; 
+            font-weight: 500; 
             font-size: 11px; 
             font-family: inherit;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #64748b; 
+            color: #3f5f5f; 
             border-radius: 9999px; 
             transition: all 0.2s; 
             display: inline-flex; 
             align-items: center; 
             gap: 8px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border: 1px solid transparent;
             cursor: pointer;
             white-space: nowrap;
             flex-shrink: 0;
             user-select: none;
         }
-        .pill-tab:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
-        .pill-tab.active { background: #06A1A1; color: white; border-color: #06A1A1; box-shadow: 0 4px 12px rgba(6,161,161,0.25); }
+        .pill-tab:hover { background: #eef8f6; color: #023d3d; border-color: rgba(6, 161, 161, 0.22); }
+        .pill-tab.active { background: linear-gradient(135deg, #f7fefb 0%, #e5f9f2 42%, #d4f0e6 100%); color: #023d3d; border-color: #06A1A1; box-shadow: 0 6px 18px rgba(6,161,161,0.12); }
         .tab-count { 
-            background: rgba(0,0,0,0.1); 
-            color: inherit; 
+            background: #e7f3f0; 
+            color: #035f5f; 
             font-size: 10px; 
             padding: 2px 7px; 
             border-radius: 9999px; 
             font-weight: 700;
         }
-        .pill-tab.active .tab-count { background: rgba(255,255,255,0.25); color: white; }
+        .pill-tab.active .tab-count { background: #06A1A1; color: white; }
 
         .filter-date-row {
             display: grid;
@@ -532,8 +532,8 @@ $page_title = 'Orders - Staff';
             vertical-align: middle;
             color: #374151;
         }
-        .orders-table tbody tr { cursor: pointer; transition: background 0.15s; }
-        .orders-table tbody tr:hover { background: #f9fafb; }
+        .orders-table tbody tr { cursor: pointer; transition: background-color 0.18s ease, box-shadow 0.18s ease; }
+        .orders-table tbody tr:hover { background: linear-gradient(90deg, rgba(6, 161, 161, 0.06) 0%, rgba(158, 215, 196, 0.12) 100%); }
         .orders-table tbody tr:last-child td { border-bottom: none; }
 
         .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
@@ -545,14 +545,46 @@ $page_title = 'Orders - Staff';
             top: 2px;
             bottom: 2px;
             width: 3px;
-            background: #4f46e5;
+            background: linear-gradient(180deg, #035f5f 0%, #06A1A1 55%, #9ED7C4 100%);
             border-radius: 0 4px 4px 0;
             opacity: 0;
             transition: opacity 0.2s;
         }
         .orders-table tbody tr:hover .row-indicator { opacity: 1; }
 
-        .action-cell { display: flex; justify-content: flex-end; gap: 4px; }
+        .action-cell { display: flex; justify-content: flex-end; gap: 6px; }
+        .table-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 72px;
+            padding: 5px 12px;
+            border: 1px solid #06A1A1;
+            border-radius: 6px;
+            background: transparent;
+            color: #06A1A1;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.2;
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none !important;
+            transition: all 0.15s ease;
+        }
+        .table-action-btn:hover {
+            background: #06A1A1;
+            color: #fff !important;
+            border-color: #06A1A1;
+        }
+        .table-action-btn.alt {
+            border-color: #0f766e;
+            color: #0f766e;
+        }
+        .table-action-btn.alt:hover {
+            background: #0f766e;
+            color: #fff !important;
+            border-color: #0f766e;
+        }
         .order-info-cell { display: flex; flex-direction: column; gap: 4px; }
         .order-id-wrap { font-weight: 700; color: #1e293b; font-size: 14px; display: flex; align-items: center; gap: 8px; }
         .order-items-sub { font-size: 12px; color: #64748b; font-weight: 600; }
@@ -1786,12 +1818,12 @@ $page_title = 'Orders - Staff';
                                     <td class="px-4 py-4 text-right">
                                         <div class="action-cell" style="justify-content:flex-end;">
                                             <button onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)" 
-                                                    class="btn-staff-action btn-staff-action-emerald">
+                                                    class="table-action-btn alt">
                                                 Manage
                                             </button>
                                             <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                                                onclick="event.stopPropagation();"
-                                               class="btn-staff-action btn-staff-action-indigo">
+                                               class="table-action-btn">
                                                 Message
                                             </a>
                                         </div>
@@ -2022,4 +2054,3 @@ function pfConfirm(options) {
 
 </body>
 </html>
-
