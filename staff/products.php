@@ -9,20 +9,28 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
+require_once __DIR__ . '/../includes/InventoryManager.php';
 
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 printflow_ensure_product_branch_stock_table();
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+$staffBranchNameRow = db_query('SELECT branch_name FROM branches WHERE id = ? LIMIT 1', 'i', [$staffBranchId]);
+$staffBranchName = trim((string)($staffBranchNameRow[0]['branch_name'] ?? 'Assigned Branch'));
+$usesBaseProductStock = printflow_product_branch_uses_base_stock($staffBranchId);
 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 
 // Build query
-$stockExpr = 'COALESCE(pbs.stock_quantity, 0)';
-$lowStockExpr = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
+$stockExpr = $usesBaseProductStock
+    ? 'COALESCE(p.stock_quantity, 0)'
+    : 'COALESCE(pbs.stock_quantity, 0)';
+$lowStockExpr = $usesBaseProductStock
+    ? 'COALESCE(p.low_stock_level, 10)'
+    : 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
 $sql = "SELECT p.product_id, p.sku, p.name, p.category, p.product_type, p.price, p.status,
                {$stockExpr} AS stock_quantity, {$lowStockExpr} AS low_stock_level
         FROM products p
@@ -92,6 +100,29 @@ $types .= 'ii';
 $products = db_query($sql, $types, $params);
 $categories = db_query("SELECT DISTINCT category FROM products WHERE status = 'Activated' ORDER BY category ASC");
 
+$inventory_items = db_query("
+    SELECT i.id, i.name, i.unit_of_measure, i.reorder_level, i.track_by_roll,
+           COALESCE((
+               SELECT SUM(IF(t.direction = 'IN', t.quantity, -t.quantity))
+               FROM inventory_transactions t
+               WHERE t.item_id = i.id AND t.branch_id = ?
+           ), 0) AS current_stock
+    FROM inv_items i
+    WHERE i.status = 'ACTIVE'
+    ORDER BY i.name ASC
+    LIMIT 12
+", 'i', [$staffBranchId]) ?: [];
+
+$inventory_ledger = db_query("
+    SELECT t.transaction_date, t.direction, t.quantity, t.unit_of_measure, t.ref_type, t.ref_id, t.notes,
+           i.name AS item_name
+    FROM inventory_transactions t
+    INNER JOIN inv_items i ON i.id = t.item_id
+    WHERE t.branch_id = ?
+    ORDER BY t.transaction_date DESC, t.id DESC
+    LIMIT 12
+", 'i', [$staffBranchId]) ?: [];
+
 $page_title = 'Products & Inventory - Staff';
 ?>
 <!DOCTYPE html>
@@ -102,6 +133,67 @@ $page_title = 'Products & Inventory - Staff';
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
+    <style>
+        .staff-products-table-card {
+            margin-top: 8px;
+        }
+        .staff-products-readonly-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .staff-products-readonly-card {
+            margin-top: 0;
+        }
+        .truncate-ellipsis {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .inventory-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .inventory-chip.roll {
+            background: #ede9fe;
+            color: #6d28d9;
+        }
+        .inventory-chip.unit {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        .inventory-chip.in {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .inventory-chip.out {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .stock-value-low {
+            color: #dc2626;
+            font-weight: 700;
+        }
+        .stock-value-ok {
+            color: #16a34a;
+            font-weight: 500;
+        }
+        @media (max-width: 960px) {
+            .staff-products-readonly-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -173,7 +265,7 @@ $page_title = 'Products & Inventory - Staff';
             </div>
 
             <!-- Inventory List Container -->
-            <div class="card">
+            <div class="card staff-products-table-card">
                 <div class="toolbar-container">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Inventory List
@@ -264,8 +356,7 @@ $page_title = 'Products & Inventory - Staff';
                             <tr>
                                 <th>SKU</th>
                                 <th>Name</th>
-                                 <th>Category</th>
-                                <th>Type</th>
+                                <th>Category</th>
                                 <th>Price</th>
                                 <th>Stock</th>
                                 <th>Status</th>
@@ -278,8 +369,7 @@ $page_title = 'Products & Inventory - Staff';
                                     data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>">
                                     <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
                                     <td style="font-weight:500;"><?php echo htmlspecialchars($product['name']); ?></td>
-                                     <td><?php echo htmlspecialchars($product['category']); ?></td>
-                                    <td><span class="badge <?php echo $product['product_type'] === 'fixed' ? 'badge-blue' : 'badge-purple'; ?>"><?php echo ucfirst($product['product_type']); ?></span></td>
+                                    <td><?php echo htmlspecialchars($product['category']); ?></td>
                                     <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
                                     <td>
                                         <?php $productLowLevel = (int)($product['low_stock_level'] ?? 10); ?>
@@ -299,6 +389,118 @@ $page_title = 'Products & Inventory - Staff';
 
             <!-- Pagination -->
             <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
+
+            <div class="staff-products-readonly-grid">
+                <div class="card staff-products-readonly-card">
+                    <div class="toolbar-container" style="margin-bottom: 16px;">
+                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Inventory Items</h3>
+                        <span style="font-size:12px;color:#64748b;"><?php echo htmlspecialchars($staffBranchName); ?> only</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Unit</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($inventory_items)): ?>
+                                    <tr>
+                                        <td colspan="4" style="text-align:center; color:#64748b;">No inventory items found for this branch.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($inventory_items as $item): ?>
+                                        <?php $itemStock = (float)($item['current_stock'] ?? 0); ?>
+                                        <?php $itemReorder = (float)($item['reorder_level'] ?? 0); ?>
+                                        <tr>
+                                            <td>
+                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($item['name']); ?>">
+                                                    <?php echo htmlspecialchars($item['name']); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="inventory-chip <?php echo !empty($item['track_by_roll']) ? 'roll' : 'unit'; ?>">
+                                                    <?php echo !empty($item['track_by_roll']) ? 'ROLL' : htmlspecialchars(strtoupper((string)($item['unit_of_measure'] ?? 'UNIT'))); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="<?php echo $itemStock <= $itemReorder ? 'stock-value-low' : 'stock-value-ok'; ?>">
+                                                    <?php echo rtrim(rtrim(number_format($itemStock, 2), '0'), '.'); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                if ($itemStock <= 0) {
+                                                    echo '<span class="inventory-chip out">OUT</span>';
+                                                } elseif ($itemStock <= $itemReorder) {
+                                                    echo '<span class="inventory-chip out">LOW</span>';
+                                                } else {
+                                                    echo '<span class="inventory-chip in">OK</span>';
+                                                }
+                                                ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card staff-products-readonly-card">
+                    <div class="toolbar-container" style="margin-bottom: 16px;">
+                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">Inventory Ledger</h3>
+                        <span style="font-size:12px;color:#64748b;">Latest branch activity</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Item</th>
+                                    <th>Type</th>
+                                    <th>Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($inventory_ledger)): ?>
+                                    <tr>
+                                        <td colspan="4" style="text-align:center; color:#64748b;">No inventory ledger entries found for this branch.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($inventory_ledger as $entry): ?>
+                                        <tr>
+                                            <td>
+                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars(format_datetime($entry['transaction_date'])); ?>">
+                                                    <?php echo htmlspecialchars(format_datetime($entry['transaction_date'])); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($entry['item_name']); ?>">
+                                                    <?php echo htmlspecialchars($entry['item_name']); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="inventory-chip <?php echo strtoupper((string)$entry['direction']) === 'IN' ? 'in' : 'out'; ?>">
+                                                    <?php echo htmlspecialchars(strtoupper((string)$entry['direction'])); ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float)$entry['quantity'], 2), '0'), '.') . ' ' . ($entry['unit_of_measure'] ?? '')); ?>">
+                                                    <?php echo htmlspecialchars(rtrim(rtrim(number_format((float)$entry['quantity'], 2), '0'), '.') . ' ' . ($entry['unit_of_measure'] ?? '')); ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 </div>
