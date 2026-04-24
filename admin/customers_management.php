@@ -62,6 +62,44 @@ function pf_customer_id_status_normalize($status): string {
     };
 }
 
+function pf_build_customer_modal_payload(array $customer, string $base_path): array {
+    $first_name = (string)($customer['first_name'] ?? '');
+    $dob_raw = trim((string)($customer['dob'] ?? ''));
+    $created_raw = trim((string)($customer['created_at'] ?? ''));
+    $profile_picture_raw = trim((string)($customer['profile_picture'] ?? ''));
+    $id_image_raw = trim((string)($customer['id_image'] ?? ''));
+
+    return [
+        'customer_id' => (int)($customer['customer_id'] ?? 0),
+        'first_name' => $first_name,
+        'middle_name' => (string)($customer['middle_name'] ?? ''),
+        'last_name' => (string)($customer['last_name'] ?? ''),
+        'email' => (string)($customer['email'] ?? ''),
+        'contact_number' => (string)($customer['contact_number'] ?? ''),
+        'address' => (string)($customer['address'] ?? ''),
+        'dob' => ($dob_raw !== '' && $dob_raw !== '0000-00-00') ? date('m/d/Y', strtotime($dob_raw)) : '',
+        'gender' => (string)($customer['gender'] ?? ''),
+        'created_at' => $created_raw !== '' ? date('M j, Y', strtotime($created_raw)) : '',
+        'profile_picture' => $profile_picture_raw !== '' ? $base_path . '/public/assets/uploads/profiles/' . ltrim($profile_picture_raw, '/') : null,
+        'initial' => strtoupper(substr($first_name, 0, 1)),
+        'id_status' => pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending'),
+        'id_type' => (string)($customer['id_type'] ?? ''),
+        'id_image' => $id_image_raw !== '' ? $base_path . '/uploads/ids/' . ltrim($id_image_raw, '/') : null,
+        'id_reject_reason' => (string)($customer['id_reject_reason'] ?? ''),
+    ];
+}
+
+function pf_customer_payload_attr(array $customer, string $base_path): string {
+    return htmlspecialchars(
+        json_encode(
+            pf_build_customer_modal_payload($customer, $base_path),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+        ) ?: '{}',
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
 // Get filter parameters
 $search  = $_GET['search']  ?? '';
 $date_from = $_GET['date_from'] ?? '';
@@ -151,6 +189,7 @@ if (isset($_GET['ajax'])) {
                 </tr>
                 <?php foreach ($customers as $customer): 
                     $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
+                    $customer_payload_attr = pf_customer_payload_attr($customer, $base_path);
                     $status_style = match($id_status) {
                         'Verified'   => 'background:#dcfce7;color:#166534;',
                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -158,7 +197,7 @@ if (isset($_GET['ajax'])) {
                         default      => 'background:#f3f4f6;color:#6b7280;'
                     };
                 ?>
-                    <tr class="customer-row" onclick="openModal(<?php echo $customer['customer_id']; ?>)">
+                    <tr class="customer-row" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
                         <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
                         <td style="font-weight:500;color:#1f2937;" class="name-cell">
                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>">
@@ -178,8 +217,8 @@ if (isset($_GET['ajax'])) {
                         <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
                         <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $status_style; ?>"><?php echo htmlspecialchars($id_status); ?></span></td>
                         <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
-                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">Profile</button>
-                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">Transactions</button>
+                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>, this.closest('tr'))" class="btn-action blue">Profile</button>
+                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>, this.closest('tr'))" class="btn-action teal">Transactions</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -621,20 +660,79 @@ $page_title = 'Customers Management - Admin';
                         window.addEventListener('sort-changed', e => { this.activeSort = e.detail.sortKey; this.sortOpen = false; });
                     },
 
-                    openModal(customerId) {
+                    getCustomerFromRow(sourceEl, fallbackId = 0) {
+                        const host = sourceEl?.dataset?.customer ? sourceEl : sourceEl?.closest?.('[data-customer]');
+                        if (!host?.dataset?.customer) return null;
+                        try {
+                            const parsed = JSON.parse(host.dataset.customer);
+                            if (parsed && typeof parsed === 'object') {
+                                if (!parsed.customer_id && fallbackId) parsed.customer_id = fallbackId;
+                                return parsed;
+                            }
+                        } catch (err) {
+                            console.error('Customer payload parse error:', err);
+                        }
+                        return null;
+                    },
+
+                    async fetchJsonResponse(url, options = {}) {
+                        const fetchOptions = {
+                            credentials: 'same-origin',
+                            ...options,
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                ...(options.headers || {})
+                            }
+                        };
+                        const response = await fetch(url, fetchOptions);
+                        const raw = await response.text();
+                        const body = raw.trim();
+
+                        if (!body) {
+                            throw new Error('Empty server response');
+                        }
+
+                        let data = null;
+                        try {
+                            data = JSON.parse(body);
+                        } catch (err) {
+                            console.error('Non-JSON response:', body.slice(0, 500));
+                            throw new Error('Response is not JSON');
+                        }
+
+                        if (!response.ok && !(data && data.success === false)) {
+                            throw new Error(`Request failed (${response.status})`);
+                        }
+
+                        return data;
+                    },
+
+                    async openModal(customerId, sourceEl = null) {
                         this.showModal = true;
                         this.loading = true;
                         this.errorMsg = '';
                         this.customer = null;
                         this.idRejectReason = '';
-                        fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + customerId, { credentials: 'same-origin' })
-                            .then(r => r.json())
-                            .then(data => {
-                                this.loading = false;
-                                if (data.success) { this.customer = data.customer; }
-                                else { this.errorMsg = data.error || 'Failed to load details.'; }
-                            })
-                            .catch(err => { this.loading = false; this.errorMsg = 'Network error.'; });
+                        const inlineCustomer = this.getCustomerFromRow(sourceEl, customerId);
+                        if (inlineCustomer) {
+                            this.customer = inlineCustomer;
+                            this.loading = false;
+                            return;
+                        }
+
+                        try {
+                            const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + customerId);
+                            this.loading = false;
+                            if (data.success) {
+                                this.customer = data.customer;
+                            } else {
+                                this.errorMsg = data.error || 'Failed to load details.';
+                            }
+                        } catch (err) {
+                            this.loading = false;
+                            this.errorMsg = 'Network error: ' + (err?.message || 'Unable to load customer details');
+                        }
                     },
 
                     async submitIdAction(action) {
@@ -650,39 +748,54 @@ $page_title = 'Customers Management - Admin';
                         fd.append('reject_reason', this.idRejectReason.trim());
                         fd.append('csrf_token', '<?php echo generate_csrf_token(); ?>');
                         try {
-                            const res = await fetch('<?php echo $base_path; ?>/admin/customers_management.php', { method: 'POST', body: fd, credentials: 'same-origin' });
-                            const data = await res.json();
+                            const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/customers_management.php', {
+                                method: 'POST',
+                                body: fd,
+                                credentials: 'same-origin'
+                            });
                             if (data.success) {
-                                // Refresh customer data in modal
-                                const cid = this.customer.customer_id;
+                                const rejectReason = this.idRejectReason.trim() || 'ID could not be verified. Please resubmit a clearer photo.';
+                                if (this.customer) {
+                                    this.customer = {
+                                        ...this.customer,
+                                        id_status: action === 'approve' ? 'Verified' : 'Rejected',
+                                        id_reject_reason: action === 'approve' ? '' : rejectReason
+                                    };
+                                }
                                 this.idRejectReason = '';
-                                fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + cid, { credentials: 'same-origin' })
-                                    .then(r => r.json())
-                                    .then(d => { if (d.success) this.customer = d.customer; });
-                                // Refresh table without resetting filters
                                 fetchUpdatedTable();
                             }
                         } catch(e) { console.error('submitIdAction error', e); }
                     },
 
-                    openTransactionModal(id) {
+                    async openTransactionModal(id, sourceEl = null) {
                         this.showTransactionModal = true;
                         this.transLoading = true;
                         this.transActiveTab = 'orders';
                         this.customerName = '';
                         this.orders = [];
                         this.customizations = [];
-                        fetch('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + id, { credentials: 'same-origin' })
-                            .then(r => r.json())
-                            .then(data => {
-                                this.transLoading = false;
-                                if(data.success) {
-                                    this.customer = data.customer;
-                                    this.customerName = (data.customer.first_name || '') + ' ' + (data.customer.last_name || '');
-                                    this.loadTransTabData('orders', 1);
-                                }
-                            })
-                            .catch(e => { this.transLoading = false; console.error('Error:', e); });
+                        const inlineCustomer = this.getCustomerFromRow(sourceEl, id);
+                        if (inlineCustomer) {
+                            this.customer = inlineCustomer;
+                            this.customerName = (inlineCustomer.first_name || '') + ' ' + (inlineCustomer.last_name || '');
+                            this.transLoading = false;
+                            this.loadTransTabData('orders', 1);
+                            return;
+                        }
+
+                        try {
+                            const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + id);
+                            this.transLoading = false;
+                            if (data.success) {
+                                this.customer = data.customer;
+                                this.customerName = (data.customer.first_name || '') + ' ' + (data.customer.last_name || '');
+                                this.loadTransTabData('orders', 1);
+                            }
+                        } catch (e) {
+                            this.transLoading = false;
+                            console.error('Error:', e);
+                        }
                     },
 
                     async loadTransTabData(tab, page = 1) {
@@ -714,13 +827,13 @@ $page_title = 'Customers Management - Admin';
             }
             window.customerModal = customerModal;
 
-            function callCustomerModalMethod(methodName, id) {
+            function callCustomerModalMethod(methodName, id, sourceEl) {
                 function run() {
                     try {
                         var m = document.querySelector('main[x-data="customerModal()"]');
                         var st = m && m._x_dataStack;
                         if (st && st[0] && typeof st[0][methodName] === 'function') {
-                            st[0][methodName](id);
+                            st[0][methodName](id, sourceEl);
                             return true;
                         }
                     } catch (e) { console.error(e); }
@@ -734,8 +847,8 @@ $page_title = 'Customers Management - Admin';
                 } else { setTimeout(run, 100); }
             }
 
-            window.openModal = function (id) { callCustomerModalMethod('openModal', id); };
-            window.openTransactionModal = function (id) { callCustomerModalMethod('openTransactionModal', id); };
+            window.openModal = function (id, sourceEl) { callCustomerModalMethod('openModal', id, sourceEl); };
+            window.openTransactionModal = function (id, sourceEl) { callCustomerModalMethod('openTransactionModal', id, sourceEl); };
 
             function printflowInitCustomersPage() {
                 console.debug('[customers] Initializing...');
@@ -939,6 +1052,7 @@ $page_title = 'Customers Management - Admin';
                                 </tr>
                                 <?php foreach ($customers as $customer):
                                     $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
+                                    $customer_payload_attr = pf_customer_payload_attr($customer, $base_path);
                                     $status_style = match($id_status) {
                                         'Verified'   => 'background:#dcfce7;color:#166534;',
                                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -946,7 +1060,7 @@ $page_title = 'Customers Management - Admin';
                                         default      => 'background:#f3f4f6;color:#6b7280;'
                                     };
                                 ?>
-                                    <tr class="customer-row" onclick="openModal(<?php echo $customer['customer_id']; ?>)">
+                                    <tr class="customer-row" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
                                         <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
                                         <td style="font-weight:500;color:#1f2937;" class="name-cell">
                                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>">
@@ -966,8 +1080,8 @@ $page_title = 'Customers Management - Admin';
                                         <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
                                         <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $status_style; ?>"><?php echo htmlspecialchars($id_status); ?></span></td>
                                         <td style="text-align:right;" class="no-print actions" onclick="event.stopPropagation()">
-                                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>)" class="btn-action blue">Profile</button>
-                                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>)" class="btn-action teal">Transactions</button>
+                                            <button type="button" onclick="event.stopPropagation();openModal(<?php echo $customer['customer_id']; ?>, this.closest('tr'))" class="btn-action blue">Profile</button>
+                                            <button type="button" onclick="event.stopPropagation();openTransactionModal(<?php echo $customer['customer_id']; ?>, this.closest('tr'))" class="btn-action teal">Transactions</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
