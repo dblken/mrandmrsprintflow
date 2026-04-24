@@ -99,7 +99,6 @@
         }
     }
 
-    var SW_PATH                = buildAppUrl('public/sw.js');
     var SW_SCOPE               = buildAppUrl('') || '/';
     var SW_REGISTER_PATH       = buildAppUrl('public/sw.php');
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
@@ -111,14 +110,61 @@
         return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
     }
 
+    function registrationUsesExpectedWorker(reg) {
+        if (!reg) return false;
+
+        var worker = reg.active || reg.waiting || reg.installing;
+        if (!worker || !worker.scriptURL) return false;
+
+        try {
+            var scriptUrl = new URL(worker.scriptURL, window.location.origin);
+            return scriptUrl.pathname.indexOf('/public/sw.php') !== -1;
+        } catch (e) {
+            return String(worker.scriptURL).indexOf('/public/sw.php') !== -1;
+        }
+    }
+
+    function cleanupLegacyServiceWorkers() {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistrations) {
+            return Promise.resolve();
+        }
+
+        return navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            var tasks = [];
+
+            for (var i = 0; i < registrations.length; i++) {
+                var reg = registrations[i];
+                var worker = reg && (reg.active || reg.waiting || reg.installing);
+                var scriptUrl = worker && worker.scriptURL ? String(worker.scriptURL) : '';
+
+                if (scriptUrl && scriptUrl.indexOf('/public/sw.js') !== -1) {
+                    tasks.push(reg.unregister().catch(function() { return false; }));
+                }
+            }
+
+            return Promise.all(tasks);
+        }).catch(function() {
+            return [];
+        });
+    }
+
     function ensureServiceWorker(isUserAction) {
         if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
 
         return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
-            if (reg) return reg;
-            return navigator.serviceWorker.register(SW_REGISTER_PATH, {
-                scope: SW_SCOPE,
-                updateViaCache: 'none'
+            if (registrationUsesExpectedWorker(reg)) {
+                return reg.update().catch(function() { return reg; }).then(function() { return reg; });
+            }
+
+            return cleanupLegacyServiceWorkers().then(function() {
+                return navigator.serviceWorker.register(SW_REGISTER_PATH, {
+                    scope: SW_SCOPE,
+                    updateViaCache: 'none'
+                });
+            });
+        }).then(function(reg) {
+            return navigator.serviceWorker.ready.then(function() {
+                return reg;
             });
         }).catch(function(err) {
             if (isUserAction) {
