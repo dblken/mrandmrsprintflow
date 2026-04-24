@@ -524,14 +524,20 @@ require_once __DIR__ . '/../includes/header.php';
 .im-main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .im-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
 .im-table { width: 100%; border-collapse: collapse; }
-.im-table th { text-align: left; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 700; color: #64748b; border-bottom: 2px solid #e2e8f0; }
-.im-table td { padding: 1.25rem 0.5rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
+.im-table th { text-align: left; padding: 0.9rem 1rem; font-size: 0.74rem; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; }
+.im-table td { padding: 1.25rem 1rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
 .im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
 .im-sec-card.accent { border-left-color: #0e7490; background: #f8fafc; }
-.im-label { font-size: 0.68rem; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-.im-val { font-size: 0.95rem; font-weight: 800; color: #0f172a; }
-.im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.65rem; }
+.im-label { font-size: 0.74rem; color: #64748b; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.im-val { font-size: 0.95rem; font-weight: 700; color: #334155; line-height: 1.55; }
+.im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.78rem; font-weight: 600; }
 .im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
+.im-item-title { font-size: 1rem; font-weight: 800; color: #0f172a; line-height: 1.45; margin-bottom: 0.55rem; }
+.im-meta-title { font-size: 0.74rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+.im-meta-value { font-size: 0.95rem; font-weight: 700; color: #334155; line-height: 1.5; }
+.im-qty-value, .im-total-value { font-size: 1rem; font-weight: 800; line-height: 1.4; }
+.im-qty-value { color: #0f172a; }
+.im-total-value { color: #0e7490; }
 .im-reject-card {
     padding: 1rem 1.1rem;
     background: linear-gradient(180deg, #fff7ed 0%, #fff1f2 100%);
@@ -547,7 +553,7 @@ require_once __DIR__ . '/../includes/header.php';
     margin-bottom: 0.45rem;
 }
 .im-reject-copy {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     line-height: 1.55;
     color: #7f1d1d;
     font-weight: 600;
@@ -1006,24 +1012,21 @@ function openItemsModal(orderId, event) {
 
             return `<tr>
                 <td style="min-width: 250px;">
-                    <div style="font-weight: 800; color: #0f172a; font-size: 14px; margin-bottom: 0.5rem;">${escIM(item.product_name)}</div>
+                    <div class="im-item-title">${escIM(item.product_name)}</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem;">${chips}</div>
                     
                     ${design || reference ? `
                         <div style="margin-top: 1rem;">
-                            <div style="font-size: 11px; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Uploaded Assets</div>
+                            <div class="im-meta-title" style="color: #0e7490;">Uploaded Assets</div>
                             <div style="display: flex; gap: 0.75rem;">${design}${reference}</div>
                         </div>
                     ` : ''}
                 </td>
                 <td style="text-align: center; vertical-align: middle;">
-                    <div style="font-size: 16px; font-weight: 800; color: #0f172a;">${item.quantity}</div>
+                    <div class="im-qty-value">${item.quantity}</div>
                 </td>
                 <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
-                    <div style="font-size: 14px; font-weight: 600; color: #475569;">${escIM(item.unit_price)}</div>
-                </td>
-                <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
-                    <div style="font-size: 16px; font-weight: 800; color: #0e7490;">${escIM(item.subtotal)}</div>
+                    <div class="im-total-value">${escIM(item.subtotal)}</div>
                 </td>
             </tr>`;
         }).join('');
@@ -1035,10 +1038,9 @@ function openItemsModal(orderId, event) {
                         <table class="im-table">
                             <thead style="background: #f8fafc;">
                                 <tr>
-                                    <th style="padding: 1rem; font-size: 11px; font-weight: 700;">Service Description</th>
-                                    <th style="text-align: center; padding: 1rem; font-size: 11px; font-weight: 700;">Qty</th>
-                                    <th style="text-align: right; padding: 1rem; white-space: nowrap; font-size: 11px; font-weight: 700;">Unit Price</th>
-                                    <th style="text-align: right; padding: 1rem; font-size: 11px; font-weight: 700;">Total</th>
+                                    <th>Service Description</th>
+                                    <th style="text-align: center;">Qty</th>
+                                    <th style="text-align: right;">Total Price</th>
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
@@ -1047,8 +1049,8 @@ function openItemsModal(orderId, event) {
                     
                     ${data.notes ? `
                         <div style="margin-top: 1.5rem; padding: 1.25rem; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0e7490; border-radius: 12px;">
-                            <div style="font-size: 11px; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Customer Notes</div>
-                            <div style="font-size: 14px; font-weight: 500; color: #334155; line-height: 1.6;">"${escIM(data.notes)}"</div>
+                            <div class="im-label" style="color: #0e7490;">Customer Notes</div>
+                            <div class="im-val">"${escIM(data.notes)}"</div>
                         </div>
                     ` : ''}
                 </div>
@@ -1058,26 +1060,27 @@ function openItemsModal(orderId, event) {
                     <div class="im-sec-card accent">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Current status</div>
-                                <div style="font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.2;">${data.status}</div>
+                                <div class="im-label">Current status</div>
+                                ${data.status === 'Rejected' ? '' : `<div class="im-val" style="font-size: 1rem; color: #0f172a;">${data.status}</div>`}
                             </div>
                             <div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>
                         </div>
-                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; margin-top: 16px;">Branch processing</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #334155;">${escIM(data.branch_name)}</div>
+                        <div class="im-label" style="margin-top: 16px;">Branch processing</div>
+                        <div class="im-val">${escIM(data.branch_name)}</div>
                     </div>
 
                     <div class="im-sec-card">
-                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 12px;">Payment information</div>
+                        <div class="im-label" style="margin-bottom: 12px;">Payment information</div>
                         <div class="space-y-4">
-                            <div><div style="font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px;">Method</div><div style="font-size: 14px; font-weight: 600; color: #334155;">${escIM(data.payment_method)}</div></div>
-                            <div><div style="font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
+                            <div><div class="im-label" style="margin-bottom: 4px;">Method</div><div class="im-val">${escIM(data.payment_method)}</div></div>
+                            <div><div class="im-label" style="margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
+                            <div><div class="im-label" style="margin-bottom: 4px;">Total price</div><div class="im-val" style="font-size: 1rem; color: #0e7490;">${escIM(data.total_amount)}</div></div>
                         </div>
                     </div>
 
                     <div class="im-sec-card" style="border-left-color: #fbbf24;">
-                        <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 4px;">Estimated completion</div>
-                        <div style="font-size: 14px; font-weight: 400; color: #fbbf24;">${escIM(data.estimated_comp || 'Gathering timeframe...')}</div>
+                        <div class="im-label" style="color: #f59e0b;">Estimated completion</div>
+                        <div class="im-val" style="color: #d97706;">${escIM(data.estimated_comp || 'Gathering timeframe...')}</div>
                     </div>
 
                     <!-- Actions Area -->
