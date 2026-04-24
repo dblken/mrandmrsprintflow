@@ -24,6 +24,16 @@ if (!$order_id) {
 // Verify order belongs to this customer
 $order_result = db_query("
     SELECT o.*, b.branch_name,
+           (SELECT jo.payment_proof_status
+            FROM job_orders jo
+            WHERE jo.order_id = o.order_id
+            ORDER BY jo.payment_verified_at DESC, jo.id DESC
+            LIMIT 1) as latest_payment_proof_status,
+           (SELECT jo.payment_status
+            FROM job_orders jo
+            WHERE jo.order_id = o.order_id
+            ORDER BY jo.payment_verified_at DESC, jo.id DESC
+            LIMIT 1) as latest_job_payment_status,
            (SELECT jo.payment_rejection_reason
             FROM job_orders jo
             WHERE jo.order_id = o.order_id
@@ -42,6 +52,21 @@ if (empty($order_result)) {
     exit;
 }
 $order = $order_result[0];
+$latest_payment_proof_status = strtoupper((string)($order['latest_payment_proof_status'] ?? ''));
+$latest_job_payment_status = strtoupper((string)($order['latest_job_payment_status'] ?? ''));
+$is_rejected_payment = (strcasecmp((string)($order['status'] ?? ''), 'Rejected') === 0)
+    || ($latest_payment_proof_status === 'REJECTED');
+
+$payment_status = (string)($order['payment_status'] ?? 'Not Specified');
+if ($is_rejected_payment) {
+    $payment_status = 'Unpaid';
+} elseif ($latest_job_payment_status === 'PAID') {
+    $payment_status = 'Paid';
+} elseif ($latest_job_payment_status === 'UNPAID') {
+    $payment_status = 'Unpaid';
+} elseif ($latest_job_payment_status === 'PARTIAL') {
+    $payment_status = 'Partial';
+}
 
 // Get items with design info
 $items = db_query("
@@ -125,8 +150,9 @@ echo json_encode([
     'order_date'       => format_datetime($order['order_date']),
     'total_amount'     => format_currency($order['total_amount']),
     'status'           => $order['status'],
-    'payment_status'   => $order['payment_status'],
+    'payment_status'   => $payment_status,
     'payment_method'   => $order['payment_method'] ?? 'Not Specified',
+    'payment_proof_status' => $latest_payment_proof_status,
     'branch_name'      => $order['branch_name'] ?? 'Not Specified',
     'estimated_comp'   => ($order['estimated_completion'] ?? null) ? format_date($order['estimated_completion']) : 'Waiting for confirmation from the shop',
     'notes'            => $order['notes'] ?? '',
