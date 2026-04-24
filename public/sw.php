@@ -21,7 +21,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -197,6 +197,7 @@ self.addEventListener('push', (event) => {
         body:  'You have a new update',
         icon:  '<?php echo addslashes($app_icon); ?>',
         badge: '<?php echo addslashes($app_badge); ?>',
+        image: '',
         tag:   'pf-general',
         url:   BASE_PATH + '/',
     };
@@ -225,14 +226,27 @@ self.addEventListener('push', (event) => {
                 matchingVisibleClient.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
             }
 
-            await self.registration.showNotification(payload.title, {
+            const primaryOptions = {
                 body:    payload.body,
                 icon:    payload.icon,
                 badge:   payload.badge,
+                image:   payload.image || undefined,
                 tag:     payload.tag,
                 renotify: false,
                 data:    { url: normalizeTargetUrl(payload.url) },
-            });
+            };
+
+            try {
+                await self.registration.showNotification(payload.title, primaryOptions);
+            } catch (error) {
+                const fallbackOptions = {
+                    ...primaryOptions,
+                    icon: defaults.icon,
+                    badge: defaults.badge,
+                    image: undefined,
+                };
+                await self.registration.showNotification(payload.title, fallbackOptions);
+            }
         })()
     );
 });

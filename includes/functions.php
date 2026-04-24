@@ -241,6 +241,7 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
             require_once $push_helper;
             if (function_exists('push_notify_user') && function_exists('push_url_for_type')) {
                 $push_url = push_url_for_type($type, $data_id, $user_type);
+                $push_media = printflow_push_media_payload((string)$type, $data_id, (string)$message);
                 if ($type === 'System' && $data_id !== null && $data_id !== '' && (int)$data_id > 0) {
                     $ml = strtolower((string)$message);
                     if (strpos($ml, 'ready for admin review') !== false || strpos($ml, 'completed their profile') !== false) {
@@ -251,6 +252,8 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                     'body' => $message,
                     'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
                     'url'  => $push_url,
+                    'icon' => $push_media['icon'],
+                    'image' => $push_media['image'],
                 ]);
             }
         }
@@ -1532,6 +1535,47 @@ function customer_notification_image_url(array $notification, string $fallback) 
     }
     $preview = printflow_order_notification_preview($data_id);
     return $preview['image_url'] ?: $fallback;
+}
+
+function printflow_push_media_payload(string $type, $data_id, string $message): array {
+    $fallback = '';
+    if (function_exists('push_logo_url')) {
+        $fallback = (string)push_logo_url();
+    }
+
+    $data_id = (int)$data_id;
+    $type_l = strtolower(trim($type));
+    $message_l = strtolower($message);
+    $order_types = ['order', 'new order', 'payment', 'payment issue', 'design', 'customization', 'message', 'chat', 'job order', 'rating', 'review'];
+
+    if ($data_id > 0 && in_array($type_l, $order_types, true)) {
+        $preview = printflow_order_notification_preview($data_id);
+        $image = trim((string)($preview['image_url'] ?? ''));
+        if ($image !== '') {
+            return [
+                'icon' => $image,
+                'image' => $image,
+            ];
+        }
+    }
+
+    if ($data_id > 0 && $type_l === 'system' && (
+        strpos($message_l, 'submitted an id for verification') !== false ||
+        strpos($message_l, 'resubmitted an id for verification') !== false
+    )) {
+        $image = printflow_customer_id_notification_image_url($data_id, $fallback);
+        if ($image !== '') {
+            return [
+                'icon' => $image,
+                'image' => $image,
+            ];
+        }
+    }
+
+    return [
+        'icon' => $fallback,
+        'image' => '',
+    ];
 }
 
 function printflow_customer_id_notification_image_url(int $customerId, string $fallback): string {
