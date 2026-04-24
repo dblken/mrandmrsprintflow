@@ -6,7 +6,10 @@ if (file_exists(__DIR__ . '/../config.php')) {
 require_once __DIR__ . '/../includes/shop_config.php';
 
 $base_path = defined('BASE_PATH') ? BASE_PATH : '';
-$app_icon = !empty($shop_logo_url) ? $shop_logo_url : ($base_path . '/public/assets/images/icon-192.png');
+$logo_version = rawurlencode(printflow_logo_version());
+$app_icon = !empty($shop_logo_url)
+    ? ($shop_logo_url . '?v=' . $logo_version)
+    : ($base_path . '/public/app-icon.php?v=' . $logo_version);
 
 header('Content-Type: application/javascript');
 header('Service-Worker-Allowed: /');

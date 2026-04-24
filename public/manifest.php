@@ -27,6 +27,25 @@ if ($uploaded_logo_src !== '') {
 
 header('Content-Type: application/json');
 
+$manifest_icons = [
+    [
+        'src' => $svg_logo_src,
+        'sizes' => 'any',
+        'type' => 'image/svg+xml',
+        'purpose' => 'any maskable'
+    ],
+];
+
+$icon_sizes = ['72x72', '96x96', '128x128', '144x144', '152x152', '192x192', '384x384', '512x512'];
+foreach ($icon_sizes as $size) {
+    $manifest_icons[] = [
+        'src' => $uploaded_logo_src !== '' ? $uploaded_logo_src : $svg_logo_src,
+        'sizes' => $size,
+        'type' => $uploaded_logo_src !== '' ? $uploaded_logo_type : 'image/svg+xml',
+        'purpose' => 'any maskable'
+    ];
+}
+
 $manifest = [
     'name' => 'PrintFlow - Printing Shop',
     'short_name' => 'PrintFlow',
@@ -36,74 +55,7 @@ $manifest = [
     'background_color' => '#ffffff',
     'theme_color' => '#4F46E5',
     'orientation' => 'portrait-primary',
-    'icons' => [
-        [
-            'src' => $svg_logo_src,
-            'sizes' => 'any',
-            'type' => 'image/svg+xml',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $uploaded_logo_src !== '' ? $uploaded_logo_src : $asset_path . '/icon-192.png',
-            'sizes' => '192x192',
-            'type' => $uploaded_logo_src !== '' ? $uploaded_logo_type : 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $uploaded_logo_src !== '' ? $uploaded_logo_src : $asset_path . '/icon-512.png',
-            'sizes' => '512x512',
-            'type' => $uploaded_logo_src !== '' ? $uploaded_logo_type : 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-72.png',
-            'sizes' => '72x72',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-96.png',
-            'sizes' => '96x96',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-128.png',
-            'sizes' => '128x128',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-144.png',
-            'sizes' => '144x144',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-152.png',
-            'sizes' => '152x152',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-192.png',
-            'sizes' => '192x192',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-384.png',
-            'sizes' => '384x384',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ],
-        [
-            'src' => $asset_path . '/icon-512.png',
-            'sizes' => '512x512',
-            'type' => 'image/png',
-            'purpose' => 'any maskable'
-        ]
-    ],
+    'icons' => $manifest_icons,
     'categories' => ['business', 'productivity'],
     'screenshots' => []
 ];
