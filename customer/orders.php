@@ -821,7 +821,8 @@ require_once __DIR__ . '/../includes/header.php';
 
         <!-- Image Lightbox Modal -->
         <div id="lightboxModal" class="fixed inset-0 z-[100001] hidden flex items-center justify-center p-4 bg-black/90" onclick="closeLightbox()">
-            <img id="lightboxImg" class="max-w-full max-h-full shadow-2xl transition-transform duration-300 transform scale-95" src="" alt="Full Preview">
+            <img id="lightboxImg" class="max-w-full max-h-full shadow-2xl transition-transform duration-300 transform scale-95 hidden" src="" alt="Full Preview" onclick="event.stopPropagation()">
+            <iframe id="lightboxFrame" class="hidden w-full max-w-5xl h-[85vh] bg-white rounded-lg shadow-2xl" src="" title="Document Preview" onclick="event.stopPropagation()"></iframe>
             <div class="absolute top-6 right-6 text-white cursor-pointer hover:text-red-400 transition-colors">
                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
             </div>
@@ -1066,8 +1067,8 @@ function openItemsModal(orderId, event) {
                 if (specItems) specs = `<div class="im-spec-grid">${specItems}</div>`;
             }
             
-            const design = item.has_design ? `<button type="button" class="im-asset-trigger" data-image-url="${escIM(item.design_url)}" onclick="openLightbox(this.dataset.imageUrl)"><span class="im-asset-thumb-wrap"><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></span></button>` : '';
-            const reference = item.has_reference ? `<button type="button" class="im-asset-trigger" data-image-url="${escIM(item.reference_url)}" onclick="openLightbox(this.dataset.imageUrl)"><span class="im-asset-thumb-wrap"><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></span></button>` : '';
+            const design = item.has_design ? `<button type="button" class="im-asset-trigger" data-image-url="${escIM(item.design_url)}" data-asset-kind="${escIM(item.design_kind || 'image')}" onclick="openLightbox(this.dataset.imageUrl, this.dataset.assetKind)"><span class="im-asset-thumb-wrap"><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></span></button>` : '';
+            const reference = item.has_reference ? `<button type="button" class="im-asset-trigger" data-image-url="${escIM(item.reference_url)}" data-asset-kind="${escIM(item.reference_kind || 'image')}" onclick="openLightbox(this.dataset.imageUrl, this.dataset.assetKind)"><span class="im-asset-thumb-wrap"><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></span></button>` : '';
 
             return `<tr>
                 <td style="min-width: 250px;">
@@ -1304,19 +1305,38 @@ function submitDesignReupload(orderId, csrfToken) {
     });
 }
 
-function openLightbox(url) {
+function openLightbox(url, assetKind = 'image') {
     const lb = document.getElementById('lightboxModal');
     const img = document.getElementById('lightboxImg');
-    img.src = url;
+    const frame = document.getElementById('lightboxFrame');
+
+    if (String(assetKind || 'image').toLowerCase() === 'pdf') {
+        img.classList.add('hidden');
+        img.src = '';
+        frame.classList.remove('hidden');
+        frame.src = url;
+    } else {
+        frame.classList.add('hidden');
+        frame.src = '';
+        img.classList.remove('hidden');
+        img.src = url;
+        img.classList.remove('scale-100');
+        img.classList.add('scale-95');
+    }
+
     lb.classList.remove('hidden');
     lb.classList.add('flex');
-    setTimeout(() => { img.classList.remove('scale-95'); img.classList.add('scale-100'); }, 10);
+    if (String(assetKind || 'image').toLowerCase() !== 'pdf') {
+        setTimeout(() => { img.classList.remove('scale-95'); img.classList.add('scale-100'); }, 10);
+    }
     document.body.style.overflow = 'hidden';
 }
 function closeLightbox() {
     const lb = document.getElementById('lightboxModal');
     const img = document.getElementById('lightboxImg');
+    const frame = document.getElementById('lightboxFrame');
     img.classList.remove('scale-100'); img.classList.add('scale-95');
+    frame.src = '';
     setTimeout(() => {
         lb.classList.remove('flex');
         lb.classList.add('hidden');

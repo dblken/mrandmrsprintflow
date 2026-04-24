@@ -11,6 +11,21 @@ require_role('Customer');
 
 header('Content-Type: application/json');
 
+function pf_asset_kind(?string $mime, ?string $path): string {
+    $mime = strtolower(trim((string)$mime));
+    $path = strtolower(trim((string)$path));
+
+    if ($mime === 'application/pdf') {
+        return 'pdf';
+    }
+
+    if ($path !== '' && preg_match('/\.pdf(?:$|\?)/', $path)) {
+        return 'pdf';
+    }
+
+    return 'image';
+}
+
 $base_path = defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
 
 $order_id = (int)($_GET['id'] ?? 0);
@@ -103,6 +118,8 @@ foreach ($items as $item) {
         'customization' => $custom_data,
         'has_design'    => !empty($item['design_image']) || !empty($item['design_file']),
         'has_reference' => !empty($item['reference_image_file']),
+        'design_kind'   => pf_asset_kind($item['design_image_mime'] ?? '', $item['design_file'] ?? ''),
+        'reference_kind'=> pf_asset_kind('', $item['reference_image_file'] ?? ''),
         'design_url'    => (!empty($item['design_image']) || !empty($item['design_file']))
                             ? $base_path . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']
                             : null,
