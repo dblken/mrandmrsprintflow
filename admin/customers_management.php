@@ -16,6 +16,43 @@ if (!isset($base_path)) {
     $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 }
 
+const PF_CUSTOMER_ID_REJECTION_OPTIONS = [
+    'Invalid or unreadable ID',
+    'Expired ID',
+    'Unsupported ID type',
+    'Information mismatch',
+    'Incomplete or cropped ID',
+    'Low image quality',
+    'Duplicate ID detected',
+    'Suspicious or altered ID',
+    'Other',
+];
+
+function pf_customer_id_rejection_reason(string $selected, string $custom = ''): string {
+    $selected = trim($selected);
+    $custom = trim($custom);
+
+    if (!in_array($selected, PF_CUSTOMER_ID_REJECTION_OPTIONS, true)) {
+        $selected = '';
+    }
+
+    if ($selected === 'Other') {
+        $custom = sanitize($custom);
+        $custom = preg_replace('/\s+/', ' ', $custom ?? '');
+        $custom = trim((string)$custom);
+        if ($custom === '') {
+            return 'ID could not be verified. Please resubmit a clearer photo.';
+        }
+        return mb_substr($custom, 0, 250);
+    }
+
+    if ($selected !== '') {
+        return $selected;
+    }
+
+    return 'ID could not be verified. Please resubmit a clearer photo.';
+}
+
 // Handle ID verification approval/rejection
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
     if (($_SESSION['user_type'] ?? '') !== 'Admin') {
@@ -35,7 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verif
             db_execute("UPDATE customers SET id_status='Verified', id_reject_reason=NULL WHERE customer_id=?", 'i', [$cid]);
             create_notification($cid, 'Customer', 'Your ID has been verified! You can now place orders.', 'System', false, false);
         } else {
-            $reason = sanitize($_POST['reject_reason'] ?? 'ID could not be verified. Please resubmit a clearer photo.');
+            $reason = pf_customer_id_rejection_reason(
+                (string)($_POST['reject_reason'] ?? ''),
+                (string)($_POST['reject_reason_other'] ?? '')
+            );
             db_execute("UPDATE customers SET id_status='Rejected', id_reject_reason=? WHERE customer_id=?", 'si', [$reason, $cid]);
             create_notification($cid, 'Customer', 'Your ID verification was rejected: ' . $reason, 'System', false, false);
         }
@@ -641,6 +681,7 @@ $page_title = 'Customers Management - Admin';
                     errorMsg: '',
                     customer: null,
                     idRejectReason: '',
+                    idRejectReasonOther: '',
                     filterOpen: false,
                     sortOpen: false,
                     activeSort: _activeSortKey,
@@ -740,6 +781,7 @@ $page_title = 'Customers Management - Admin';
                         this.errorMsg = '';
                         this.customer = null;
                         this.idRejectReason = '';
+                        this.idRejectReasonOther = '';
                         const inlineCustomer = this.getCustomerFromRow(sourceEl, customerId);
                         if (inlineCustomer) {
                             this.customer = inlineCustomer;
@@ -770,14 +812,18 @@ $page_title = 'Customers Management - Admin';
                     async submitIdAction(action) {
                         if (!<?php echo $can_manage_customer_verification ? 'true' : 'false'; ?>) return;
                         if (!this.customer?.customer_id) return;
-                        if (action === 'reject' && !this.idRejectReason.trim()) {
-                            if (!confirm('No reject reason entered. Proceed with default reason?')) return;
+                        const selectedReason = (this.idRejectReason || '').trim();
+                        const otherReason = (this.idRejectReasonOther || '').trim();
+                        if (action === 'reject' && selectedReason === 'Other' && !otherReason) {
+                            alert('Please enter a custom rejection reason for "Other".');
+                            return;
                         }
                         const fd = new FormData();
                         fd.append('ajax', '1');
                         fd.append('id_action', action);
                         fd.append('cid', this.customer.customer_id);
-                        fd.append('reject_reason', this.idRejectReason.trim());
+                        fd.append('reject_reason', selectedReason);
+                        fd.append('reject_reason_other', otherReason);
                         fd.append('csrf_token', '<?php echo generate_csrf_token(); ?>');
                         try {
                             const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/customers_management.php', {
@@ -786,7 +832,9 @@ $page_title = 'Customers Management - Admin';
                                 credentials: 'same-origin'
                             });
                             if (data.success) {
-                                const rejectReason = this.idRejectReason.trim() || 'ID could not be verified. Please resubmit a clearer photo.';
+                                const rejectReason = selectedReason === 'Other'
+                                    ? (otherReason || 'ID could not be verified. Please resubmit a clearer photo.')
+                                    : (selectedReason || 'ID could not be verified. Please resubmit a clearer photo.');
                                 if (this.customer) {
                                     this.customer = {
                                         ...this.customer,
@@ -795,6 +843,7 @@ $page_title = 'Customers Management - Admin';
                                     };
                                 }
                                 this.idRejectReason = '';
+                                this.idRejectReasonOther = '';
                                 fetchUpdatedTable();
                             }
                         } catch(e) { console.error('submitIdAction error', e); }
@@ -1219,11 +1268,20 @@ $page_title = 'Customers Management - Admin';
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;">ID Verification</label>
                             <template x-if="customer">
-                                <span :style="(customer.id_status === 'Verified') ? 'background:#dcfce7;color:#166534;' : ((customer.id_status === 'Rejected') ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef9c3;color:#854d0e;')" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;" x-text="(['Verified','Rejected'].includes(customer.id_status) ? customer.id_status : 'Pending')"></span>
+                                <span :style="(customer.id_status === 'Verified') ? 'background:#dcfce7;color:#166534;' : ((customer.id_status === 'Rejected') ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef3c7;color:#92400e;')" style="display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;line-height:1;" x-text="(['Verified','Rejected'].includes(customer.id_status) ? customer.id_status : 'Pending')"></span>
                             </template>
                         </div>
 
-                        <p x-show="customer?.id_type" style="font-size:12px;color:#6b7280;margin:0 0 10px;">ID Type: <strong x-text="customer?.id_type"></strong></p>
+                        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 12px;">
+                            <div>
+                                <p style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin:0 0 4px;">ID Type</p>
+                                <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;" x-text="customer?.id_type || 'Not provided'"></p>
+                            </div>
+                            <div>
+                                <p style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin:0 0 4px;">Current Status</p>
+                                <p style="font-size:13px;color:#1f2937;font-weight:600;margin:0;" x-text="(['Verified','Rejected'].includes(customer?.id_status) ? customer.id_status : 'Pending')"></p>
+                            </div>
+                        </div>
 
                         <div x-show="customer?.id_image" style="margin-bottom:14px;">
                             <a :href="customer?.id_image" target="_blank" rel="noopener">
@@ -1236,10 +1294,25 @@ $page_title = 'Customers Management - Admin';
                         <p x-show="customer?.id_reject_reason" style="font-size:12px;color:#dc2626;margin:0 0 12px;">Rejection reason: <span x-text="customer?.id_reject_reason"></span></p>
 
                         <?php if ($can_manage_customer_verification): ?>
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                        <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-top:4px;">
                             <button type="button" class="btn-action" style="color:#16a34a;border-color:#16a34a;" x-show="customer?.id_status !== 'Verified'" @click="submitIdAction('approve')" onmouseover="this.style.background='#16a34a';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#16a34a'">&#10003; Verify ID</button>
                             <span x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;">&#10003; ID Verified</span>
-                            <input type="text" x-model="idRejectReason" placeholder="Reject reason (optional)..." style="flex:1;min-width:160px;height:32px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
+                            <div style="flex:1;min-width:240px;">
+                                <select x-model="idRejectReason" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;">
+                                    <option value="">Select rejection reason...</option>
+                                    <?php foreach (PF_CUSTOMER_ID_REJECTION_OPTIONS as $reject_option): ?>
+                                    <option value="<?php echo htmlspecialchars($reject_option, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($reject_option); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <input
+                                    x-show="idRejectReason === 'Other'"
+                                    x-model="idRejectReasonOther"
+                                    type="text"
+                                    maxlength="250"
+                                    placeholder="Enter custom rejection reason..."
+                                    style="width:100%;margin-top:8px;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"
+                                >
+                            </div>
                             <button type="button" class="btn-action red" @click="submitIdAction('reject')">&#10005; Reject</button>
                         </div>
                         <?php else: ?>
