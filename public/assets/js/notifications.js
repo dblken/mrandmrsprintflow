@@ -5,6 +5,7 @@
     var POLL_INTERVAL_MS       = 5000;
     var POLL_INTERVAL_HIDDEN   = 60000;
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
+    var LAST_TOAST_ID_KEY      = 'pf_last_toast_notification_id';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
@@ -81,6 +82,20 @@
         } catch (e) {
             return new Set();
         }
+    }
+
+    function getLastToastNotificationId() {
+        try {
+            return parseInt(sessionStorage.getItem(LAST_TOAST_ID_KEY) || '0', 10) || 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function setLastToastNotificationId(id) {
+        try {
+            sessionStorage.setItem(LAST_TOAST_ID_KEY, String(parseInt(id, 10) || 0));
+        } catch (e) {}
     }
 
     function markSeen(id) {
@@ -432,15 +447,45 @@
                 if (!data.success) return;
                 updateBadge(data.unread_count || 0);
 
-                var seen = seenIds();
                 var notifs = data.notifications || [];
+                var highestId = 0;
                 for (var i = 0; i < notifs.length; i++) {
-                    var n = notifs[i];
-                    var sid = String(n.id);
-                    if (seen.has(sid)) continue;
-                    markSeen(sid);
-                    var targetUrl = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
-                    showToast(n.title || 'PrintFlow', n.message, targetUrl, n.image || '', n.fallback || '');
+                    highestId = Math.max(highestId, parseInt(notifs[i].id, 10) || 0);
+                }
+
+                var lastToastId = getLastToastNotificationId();
+                if (lastToastId <= 0) {
+                    if (highestId > 0) {
+                        setLastToastNotificationId(highestId);
+                    }
+                    return;
+                }
+
+                var fresh = [];
+                for (var j = 0; j < notifs.length; j++) {
+                    var n = notifs[j];
+                    var notifId = parseInt(n.id, 10) || 0;
+                    if (notifId > lastToastId) {
+                        fresh.push(n);
+                    }
+                }
+
+                fresh.sort(function(a, b) {
+                    return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0);
+                });
+
+                for (var k = 0; k < fresh.length; k++) {
+                    var item = fresh[k];
+                    var itemId = parseInt(item.id, 10) || 0;
+                    if (itemId > 0) {
+                        markSeen(String(itemId));
+                    }
+                    var targetUrl = normalizeNotificationTarget((item && item.target_url) ? item.target_url : getNotifUrl(item.type, item.data_id, item.message, item.id, item.order_type));
+                    showToast(item.title || 'PrintFlow', item.message, targetUrl, item.image || '', item.fallback || '');
+                }
+
+                if (highestId > 0) {
+                    setLastToastNotificationId(highestId);
                 }
             })
             .catch(function(){});
