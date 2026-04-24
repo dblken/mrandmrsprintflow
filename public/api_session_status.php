@@ -8,6 +8,8 @@ if (!is_logged_in()) {
     echo json_encode([
         'logged_in' => false,
         'redirect' => null,
+        'logout_reason' => function_exists('printflow_get_forced_logout_reason') ? printflow_get_forced_logout_reason() : null,
+        'logout_message' => function_exists('printflow_get_forced_logout_message') ? printflow_get_forced_logout_message() : null,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }

@@ -161,6 +161,77 @@ function get_logged_in_user() {
     return $result[0] ?? null;
 }
 
+function printflow_get_forced_logout_reason(): ?string {
+    return isset($GLOBALS['printflow_forced_logout_reason'])
+        ? (string)$GLOBALS['printflow_forced_logout_reason']
+        : null;
+}
+
+function printflow_get_forced_logout_message(): ?string {
+    return isset($GLOBALS['printflow_forced_logout_message'])
+        ? (string)$GLOBALS['printflow_forced_logout_message']
+        : null;
+}
+
+function printflow_get_branch_access_issue(string $role, $branchId): ?array {
+    if (!in_array($role, ['Manager', 'Staff'], true)) {
+        return null;
+    }
+
+    $branchId = (int)$branchId;
+    if ($branchId <= 0) {
+        return [
+            'reason' => 'branch_inactive',
+            'message' => 'Your assigned branch is unavailable. Please contact an administrator.'
+        ];
+    }
+
+    $rows = db_query(
+        "SELECT branch_name, status FROM branches WHERE id = ? LIMIT 1",
+        'i',
+        [$branchId]
+    );
+
+    $branch = $rows[0] ?? null;
+    $status = trim((string)($branch['status'] ?? ''));
+    if (strcasecmp($status, 'Active') === 0) {
+        return null;
+    }
+
+    $branchName = trim((string)($branch['branch_name'] ?? ''));
+    $message = $branchName !== ''
+        ? ('Your assigned branch (' . $branchName . ') is inactive. Please contact an administrator.')
+        : 'Your assigned branch is inactive. Please contact an administrator.';
+
+    return [
+        'reason' => 'branch_inactive',
+        'message' => $message
+    ];
+}
+
+function printflow_enforce_restricted_branch_session(): void {
+    if (!is_logged_in()) {
+        return;
+    }
+
+    $role = (string)($_SESSION['user_type'] ?? '');
+    if (!in_array($role, ['Manager', 'Staff'], true)) {
+        return;
+    }
+
+    $issue = printflow_get_branch_access_issue($role, $_SESSION['branch_id'] ?? null);
+    if ($issue === null) {
+        return;
+    }
+
+    $GLOBALS['printflow_forced_logout_reason'] = $issue['reason'];
+    $GLOBALS['printflow_forced_logout_message'] = $issue['message'];
+    SessionManager::clearRememberMe();
+    SessionManager::destroy();
+}
+
+printflow_enforce_restricted_branch_session();
+
 /**
  * Resolve the default admin branch.
  * Prefers an active Cabuyao branch because it is the main branch,
@@ -247,6 +318,11 @@ function login_user($email, $password, $remember_me = false) {
 
     if (!password_verify($password, $user['password_hash'])) {
         return ['success' => false, 'message' => 'Invalid email or password'];
+    }
+
+    $branchIssue = printflow_get_branch_access_issue((string)($user['role'] ?? ''), $user['branch_id'] ?? null);
+    if ($branchIssue !== null) {
+        return ['success' => false, 'message' => $branchIssue['message']];
     }
     
     // Set session variables
@@ -627,7 +703,10 @@ function is_profile_complete($customer_id = null) {
 function require_auth() {
     SessionManager::setNoCacheHeaders();
     if (!is_logged_in()) {
-        if (SessionManager::wasTimedOut()) {
+        if (printflow_get_forced_logout_reason() === 'branch_inactive') {
+            $message = printflow_get_forced_logout_message() ?: 'Your assigned branch is inactive. Please contact an administrator.';
+            header('Location: ' . AUTH_REDIRECT_BASE . '/?auth_modal=login&branch_inactive=1&error=' . urlencode($message));
+        } elseif (SessionManager::wasTimedOut()) {
             header('Location: ' . AUTH_REDIRECT_BASE . '/?auth_modal=login&timeout=1');
         } else {
             header('Location: ' . AUTH_REDIRECT_BASE . '/');

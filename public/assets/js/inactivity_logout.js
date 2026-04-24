@@ -10,11 +10,13 @@
     var WARNING_MS    = 55 * 60 * 1000;      // Show warning at 55 min
     var logoutUrl    = (window.PFConfig && window.PFConfig.logoutUrl) || '/logout';
     var loginUrl     = (window.PFConfig && window.PFConfig.loginUrl) || '/?auth_modal=login';
+    var sessionStatusUrl = (window.PFConfig && window.PFConfig.sessionStatusUrl) || ((window.PFConfig && window.PFConfig.basePath ? window.PFConfig.basePath : '') + '/public/api_session_status.php');
 
     var lastActivity = Date.now();
     var timerId      = null;
     var warningShown = false;
     var modalEl      = null;
+    var forcedLogoutShown = false;
 
     function resetTimer() {
         lastActivity = Date.now();
@@ -60,6 +62,67 @@
         window.location.href = loginUrl + (loginUrl.indexOf('?') > -1 ? '&' : '?') + 'timeout=1';
     }
 
+    function buildForcedLogoutUrl(message) {
+        var url = loginUrl + (loginUrl.indexOf('?') > -1 ? '&' : '?') + 'auth_modal=login&branch_inactive=1';
+        if (message) {
+            url += '&error=' + encodeURIComponent(message);
+        }
+        return url;
+    }
+
+    function showForcedLogoutModal(message) {
+        if (forcedLogoutShown) {
+            return;
+        }
+        forcedLogoutShown = true;
+        if (modalEl) modalEl.style.display = 'none';
+
+        var redirectUrl = buildForcedLogoutUrl(message || 'Your assigned branch is inactive. Please contact an administrator.');
+        modalEl = document.createElement('div');
+        modalEl.id = 'branch-inactive-warning-modal';
+        modalEl.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:center;justify-content:center;padding:16px;';
+        modalEl.innerHTML = '<div style="background:white;border-radius:16px;padding:32px;max-width:430px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;">' +
+            '<div style="width:56px;height:56px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">' +
+            '<svg width="28" height="28" fill="none" stroke="#dc2626" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg></div>' +
+            '<h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0 0 8px;">Branch Inactive</h3>' +
+            '<p style="font-size:14px;color:#6b7280;margin:0 0 24px;">' + String(message || 'Your assigned branch is inactive. Please contact an administrator.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
+            '<button id="branch-inactive-login-btn" style="width:100%;padding:12px;background:#111827;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Return to Login</button>' +
+            '</div>';
+        document.body.appendChild(modalEl);
+        var btn = document.getElementById('branch-inactive-login-btn');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                window.location.replace(redirectUrl);
+            });
+        }
+    }
+
+    function checkForcedLogoutState() {
+        if (forcedLogoutShown || document.visibilityState !== 'visible') {
+            return;
+        }
+        fetch(sessionStatusUrl + '?_=' + Date.now(), {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(response) {
+            return response.ok ? response.json() : null;
+        })
+        .then(function(data) {
+            if (!data || data.logged_in) {
+                return;
+            }
+            if (data.logout_reason === 'branch_inactive') {
+                showForcedLogoutModal(data.logout_message || 'Your assigned branch is inactive. Please contact an administrator.');
+            }
+        })
+        .catch(function() {});
+    }
+
     function checkInactivity() {
         var elapsed = Date.now() - lastActivity;
         if (elapsed >= WARNING_MS && !warningShown) {
@@ -103,6 +166,9 @@
             }).catch(function() {});
         }
     }, 15 * 60 * 1000); // every 15 min when visible
+
+    setInterval(checkForcedLogoutState, 60 * 1000);
+    checkForcedLogoutState();
 
     timerId = setTimeout(checkInactivity, WARNING_MS);
 })();
