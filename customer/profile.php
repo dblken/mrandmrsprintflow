@@ -1021,7 +1021,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                     <?php if (!empty($id_image) && $id_status === 'Pending'): ?>
                     <div style="margin-bottom:1.25rem;padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:0.875rem;color:#92400e;">
-                        ⏳ Your ID is currently under review. We'll notify you once it's approved.
+                        Your ID is currently under review. We'll notify you once the admin finishes reviewing it. If it is rejected, the admin's reason will appear here so you can upload a new ID again.
                     </div>
                     <?php endif; ?>
 

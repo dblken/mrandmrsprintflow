@@ -962,6 +962,25 @@ $page_title = 'Customers Management - Admin';
             window.openModal = function (id, sourceEl) { callCustomerModalMethod('openModal', id, sourceEl); };
             window.openTransactionModal = function (id, sourceEl) { callCustomerModalMethod('openTransactionModal', id, sourceEl); };
 
+            function autoOpenCustomerFromQuery() {
+                if (window._pf_customer_auto_open_done) return;
+                const params = new URLSearchParams(window.location.search);
+                const customerId = parseInt(params.get('open_customer') || '0', 10);
+                if (!customerId) return;
+                window._pf_customer_auto_open_done = true;
+
+                function tryOpen() {
+                    const row = document.querySelector('[data-customer-id="' + customerId + '"]');
+                    window.openModal(customerId, row || null);
+                }
+
+                if (typeof Alpine !== 'undefined' && typeof Alpine.nextTick === 'function') {
+                    Alpine.nextTick(function () { setTimeout(tryOpen, 50); });
+                } else {
+                    setTimeout(tryOpen, 100);
+                }
+            }
+
             function printflowInitCustomersPage() {
                 console.debug('[customers] Initializing...');
                 var root = document.querySelector('main[x-data="customerModal()"]');
@@ -989,6 +1008,7 @@ $page_title = 'Customers Management - Admin';
                         searchDebounceTimer = setTimeout(() => { fetchUpdatedTable(); }, 500);
                     });
                 }
+                autoOpenCustomerFromQuery();
             }
             
             // Initialize on page load
