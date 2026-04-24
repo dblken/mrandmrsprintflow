@@ -58,7 +58,6 @@
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
     var pollTimer   = null;
-    var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
 
     /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
@@ -426,13 +425,11 @@
     /* -- Polling ----------------------------------------------------------- */
 
     function poll() {
-        var url = API_POLL + '?since=' + lastPollTs;
-        fetch(url, { credentials: 'include' })
+        fetch(API_LIST + '?limit=8', { credentials: 'include' })
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (!data.success) return;
                 updateBadge(data.unread_count || 0);
-                if (data.server_time) lastPollTs = data.server_time;
 
                 var seen = seenIds();
                 var notifs = data.notifications || [];
