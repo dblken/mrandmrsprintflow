@@ -15,11 +15,13 @@ if (!isset($base_path)) {
 }
 $current_user = get_logged_in_user();
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
-$can_manage_item_master = !$is_manager;
 $branchCtx = init_branch_context(false);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
 $selectedBranchParam = ($selectedBranchId === 'all') ? 'all' : (string)(int)$selectedBranchId;
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
+$is_admin_cross_branch_view = (($current_user['role'] ?? '') === 'Admin') && $branchId > 0 && !InventoryManager::isMainBranch($branchId);
+$inventory_read_only = $is_manager || $is_admin_cross_branch_view;
+$can_manage_item_master = !$inventory_read_only;
 $page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
 function normalize_inventory_uom(?string $uom, ?string $categoryName = null): string {
@@ -50,7 +52,7 @@ if (isset($_POST['archive_item']) || isset($_POST['restore_item'])) {
     header('Content-Type: application/json');
     if (!$can_manage_item_master) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Managers cannot archive or restore inventory items.']);
+        echo json_encode(['success' => false, 'error' => 'This branch is view-only. Inventory items cannot be changed here.']);
         exit;
     }
     $item_id = (int)($_POST['item_id'] ?? 0);
@@ -75,7 +77,7 @@ if (isset($_GET['get_archived_items'])) {
     header('Content-Type: application/json');
     if (!$can_manage_item_master) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Managers cannot access archived inventory items.']);
+        echo json_encode(['success' => false, 'error' => 'This branch is view-only. Archived inventory items are unavailable here.']);
         exit;
     }
     $archived = db_query(
@@ -245,7 +247,9 @@ if (isset($_GET['ajax'])) {
                 <td><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo $displayUom === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                 <td style="color:#6b7280;font-size:12px;"><?php echo $displayUom === 'l' ? 'Liter (L)' : htmlspecialchars($displayUom); ?></td>
                 <td class="no-truncate" style="text-align:right;">
+                    <?php if (!$inventory_read_only): ?>
                     <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                    <?php endif; ?>
                     <?php if ($can_manage_item_master): ?>
                     <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                     <?php endif; ?>
@@ -604,6 +608,11 @@ if (isset($_GET['ajax'])) {
         <main>
             <!-- Items Card -->
             <div class="card">
+                <?php if ($inventory_read_only): ?>
+                <div style="margin-bottom:16px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;color:#4b5563;font-size:13px;">
+                    This branch is view-only. You can review inventory for the selected branch, but stock changes and item edits are disabled.
+                </div>
+                <?php endif; ?>
                 <div id="inv-filter-toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
                         Inventory Items List
@@ -613,6 +622,11 @@ if (isset($_GET['ajax'])) {
                     </h3>
                     
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap;">
+                        <?php if ($inventory_read_only): ?>
+                        <span style="display:inline-flex;align-items:center;height:38px;padding:0 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;color:#4b5563;font-size:12px;font-weight:600;white-space:nowrap;">
+                            Read Only
+                        </span>
+                        <?php endif; ?>
                         <?php if ($can_manage_item_master): ?>
                         <button type="button" class="toolbar-btn" onclick="openModal('create')" style="height:38px; border-color:#3b82f6; color:#3b82f6;">Add Item</button>
 
@@ -777,7 +791,9 @@ if (isset($_GET['ajax'])) {
                                         <td style="white-space:nowrap;"><span class="stock-val" style="color:<?php echo $stockColor; ?>;"><?php echo $displayUom === 'pcs' ? (int)$stock : number_format($stock, 2); ?></span></td>
                                         <td class="truncate" style="color:#6b7280;font-size:12px;"><?php echo $displayUom === 'l' ? 'Liter (L)' : htmlspecialchars($displayUom); ?></td>
                                         <td class="no-truncate" style="text-align:right;">
+                                            <?php if (!$inventory_read_only): ?>
                                             <button type="button" class="btn-action teal" onclick="event.stopPropagation(); openAddStockModalById(<?php echo $item['id']; ?>)">+ Stock</button>
+                                            <?php endif; ?>
                                             <?php if ($can_manage_item_master): ?>
                                             <button type="button" class="btn-action blue" onclick="event.stopPropagation(); editItemById(<?php echo $item['id']; ?>)">Edit</button>
                                             <?php endif; ?>
@@ -1004,8 +1020,10 @@ if (isset($_GET['ajax'])) {
 
         <!-- Action Buttons -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+            <?php if (!$inventory_read_only): ?>
             <button onclick="closeStockCard(); if(selectedItemForStockCard) openAddStockModal(selectedItemForStockCard)" class="btn-action teal" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">+ Add Stock</button>
             <button onclick="closeStockCard(); if(selectedItemForStockCard) openDeductStockModal(selectedItemForStockCard)" class="btn-action red" style="flex:1; min-width:140px; height:40px; font-size:14px; border-radius:10px;">&minus; Deduct Stock</button>
+            <?php endif; ?>
             <?php if ($can_manage_item_master): ?>
             <button onclick="editFromStockCard()" class="btn-action blue" style="flex:1; min-width:120px; height:40px; font-size:14px; border-radius:10px;">Edit Settings</button>
             <?php endif; ?>

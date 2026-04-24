@@ -18,6 +18,7 @@ $user = get_logged_in_user();
 $branchCtx = init_branch_context(true);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
+$inventory_branch_read_only = (($user['role'] ?? '') === 'Admin') && $branchId > 0 && !InventoryManager::isMainBranch($branchId);
 
 try {
     switch ($action) {
@@ -91,6 +92,11 @@ try {
             break;
 
         case 'record_transaction':
+            if ($inventory_branch_read_only) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'This branch is view-only. Stock changes are not allowed here.']);
+                exit;
+            }
             // Extract POST data (form sends: item_id, transaction_type, transaction_date, quantity, reference_type, reference_id, notes)
             $item_id = (int)($_POST['item_id'] ?? 0);
             $type = sanitize($_POST['transaction_type'] ?? '');

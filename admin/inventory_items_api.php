@@ -24,6 +24,7 @@ if (is_admin() || is_manager()) {
 } elseif (is_staff()) {
     $branchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 0);
 }
+$inventory_master_read_only = is_manager() || (is_admin() && $branchId > 0 && !InventoryManager::isMainBranch($branchId));
 
 function normalize_inventory_api_uom(string $unit, int $categoryId = 0): string {
     $normalized = strtolower(trim($unit));
@@ -94,6 +95,11 @@ try {
 
         case 'create_item':
         case 'update_item':
+            if ($inventory_master_read_only) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'This branch is view-only. Inventory items cannot be created or edited here.']);
+                exit;
+            }
             $isUpdate = ($action === 'update_item');
             $errors = [];
             
