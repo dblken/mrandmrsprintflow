@@ -1793,6 +1793,10 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             getDynamicProductName(item) {
                 const custom = item.customization || {};
+                const explicitService = String(custom?.service_type || custom?.product_type || item?.product_name || '').trim();
+                if (explicitService) {
+                    return explicitService;
+                }
                 
                 // Helper to safely find a key value case-insensitively
                 const findKey = (searchKeys) => {
@@ -1836,6 +1840,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (jo.items && jo.items.length > 0) {
                     for (const item of jo.items) {
                         const custom = item.customization || {};
+                        const explicit = String(custom?.service_type || custom?.product_type || item?.product_name || '').trim();
+                        if (explicit) return explicit;
                         const findKey = (searchKeys) => {
                             for (const [k, v] of Object.entries(custom)) {
                                 const lowerK = k.toLowerCase().replace(/_/g, ' ');
@@ -1853,13 +1859,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                         if (findKey(['sticker_type', 'sticker type', 'shape', 'cut_type', 'lamination'])) return 'DECALS/STICKERS (PRINT/CUT)';
                     }
                 }
-                const raw = String(jo.service_type || jo.job_title || 'Custom Service').toUpperCase();
-                // Standardize common fallbacks
-                if (raw.includes('SINTRA')) return 'SINTRA BOARD';
-                if (raw.includes('TARP')) return 'TARPAULIN PRINTING';
-                if (raw.includes('SHIRT')) return 'T-SHIRT PRINTING';
-                if (raw.includes('STICKER') || raw.includes('DECAL')) return 'DECALS/STICKERS (PRINT/CUT)';
-                return raw;
+                const raw = String(jo.service_type || jo.job_title || '').trim();
+                return raw || 'Custom Service';
             },
 
             customFieldLabels: {
