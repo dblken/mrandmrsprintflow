@@ -68,10 +68,9 @@ class SessionManager
             return;
         }
 
+        $remembered = self::hasRememberCookie();
         session_name(PRINTFLOW_SESSION_NAME);
         self::cleanupLegacyCookies();
-
-        $remembered = self::hasRememberCookie();
         $cookieLifetime = $remembered ? REMEMBER_ME_SESSION_LIFETIME : 0;
 
         // Secure session cookie parameters (must be set before session_start)
@@ -371,9 +370,6 @@ class SessionManager
             }
         }
 
-        foreach ($domains as $cookieDomain) {
-            self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', (string) $cookieDomain);
-        }
     }
 
 }
