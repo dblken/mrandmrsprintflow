@@ -1,6 +1,6 @@
 <?php
 /**
- * push_helper.php â€” Web Push dispatch helpers.
+ * push_helper.php — Web Push dispatch helpers.
  * Requires: includes/WebPush.php, includes/db.php
  */
 

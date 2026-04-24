@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    /* ── Config ──────────────────────────────────────────────────────────── */
+    /* -- Config ------------------------------------------------------------ */
     var POLL_INTERVAL_MS       = 15000;
     var POLL_INTERVAL_HIDDEN   = 60000;
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
@@ -40,7 +40,7 @@
     var pollTimer   = null;
     var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
 
-    /* ── Export Early ────────────────────────────────────────────────────── */
+    /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
     window.PFNotifications = {
         markSeen: markSeen,
@@ -52,7 +52,7 @@
         handlePushToggleClick: handlePushToggleClick
     };
 
-    /* ── Helpers ─────────────────────────────────────────────────────────── */
+    /* -- Helpers ----------------------------------------------------------- */
 
     function seenIds() {
         try {
@@ -375,7 +375,7 @@
         return url;
     }
 
-    /* ── Polling ─────────────────────────────────────────────────────────── */
+    /* -- Polling ----------------------------------------------------------- */
 
     function poll() {
         var url = API_POLL + '?since=' + lastPollTs;
