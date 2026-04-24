@@ -814,6 +814,10 @@ $page_title = 'Customers Management - Admin';
                         if (!this.customer?.customer_id) return;
                         const selectedReason = (this.idRejectReason || '').trim();
                         const otherReason = (this.idRejectReasonOther || '').trim();
+                        if (action === 'reject' && !selectedReason) {
+                            alert('Please select a rejection reason first.');
+                            return;
+                        }
                         if (action === 'reject' && selectedReason === 'Other' && !otherReason) {
                             alert('Please enter a custom rejection reason for "Other".');
                             return;
@@ -1268,7 +1272,7 @@ $page_title = 'Customers Management - Admin';
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;">ID Verification</label>
                             <template x-if="customer">
-                                <span :style="(customer.id_status === 'Verified') ? 'background:#dcfce7;color:#166534;' : ((customer.id_status === 'Rejected') ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef3c7;color:#92400e;')" style="display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;line-height:1;" x-text="(['Verified','Rejected'].includes(customer.id_status) ? customer.id_status : 'Pending')"></span>
+                                <span :style="(customer.id_status === 'Verified') ? 'background:#dcfce7;color:#166534;' : ((customer.id_status === 'Rejected') ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef3c7;color:#92400e;')" style="display:inline-flex;align-items:center;justify-content:center;padding:7px 16px;border-radius:9999px;font-size:12px;font-weight:500;line-height:1;border:none;box-shadow:none;" x-text="(['Verified','Rejected'].includes(customer.id_status) ? customer.id_status : 'Pending')"></span>
                             </template>
                         </div>
 
@@ -1294,9 +1298,8 @@ $page_title = 'Customers Management - Admin';
                         <p x-show="customer?.id_reject_reason" style="font-size:12px;color:#dc2626;margin:0 0 12px;">Rejection reason: <span x-text="customer?.id_reject_reason"></span></p>
 
                         <?php if ($can_manage_customer_verification): ?>
-                        <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                        <div x-show="customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-top:4px;">
                             <button type="button" class="btn-action" style="color:#16a34a;border-color:#16a34a;" x-show="customer?.id_status !== 'Verified'" @click="submitIdAction('approve')" onmouseover="this.style.background='#16a34a';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#16a34a'">&#10003; Verify ID</button>
-                            <span x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;">&#10003; ID Verified</span>
                             <div style="flex:1;min-width:240px;">
                                 <select x-model="idRejectReason" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;">
                                     <option value="">Select rejection reason...</option>
@@ -1310,11 +1313,13 @@ $page_title = 'Customers Management - Admin';
                                     type="text"
                                     maxlength="250"
                                     placeholder="Enter custom rejection reason..."
+                                    required
                                     style="width:100%;margin-top:8px;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"
                                 >
                             </div>
                             <button type="button" class="btn-action red" @click="submitIdAction('reject')">&#10005; Reject</button>
                         </div>
+                        <p x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;margin:8px 0 0;">&#10003; ID Verified</p>
                         <?php else: ?>
                         <p style="font-size:12px;color:#6b7280;margin:0;">Only admins can verify or reject customer IDs.</p>
                         <?php endif; ?>
