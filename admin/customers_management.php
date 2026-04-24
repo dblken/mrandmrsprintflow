@@ -36,10 +36,11 @@ function pf_customer_id_rejection_reason(string $selected, string $custom = ''):
         $selected = '';
     }
 
+    $custom = sanitize($custom);
+    $custom = preg_replace('/\s+/', ' ', $custom ?? '');
+    $custom = trim((string)$custom);
+
     if ($selected === 'Other') {
-        $custom = sanitize($custom);
-        $custom = preg_replace('/\s+/', ' ', $custom ?? '');
-        $custom = trim((string)$custom);
         if ($custom === '') {
             return 'ID could not be verified. Please resubmit a clearer photo.';
         }
@@ -47,6 +48,9 @@ function pf_customer_id_rejection_reason(string $selected, string $custom = ''):
     }
 
     if ($selected !== '') {
+        if ($custom !== '') {
+            return mb_substr($selected . ': ' . $custom, 0, 250);
+        }
         return $selected;
     }
 
@@ -680,6 +684,7 @@ $page_title = 'Customers Management - Admin';
                     loading: false,
                     errorMsg: '',
                     customer: null,
+                    idActionSelection: '',
                     idRejectReason: '',
                     idRejectReasonOther: '',
                     filterOpen: false,
@@ -780,6 +785,7 @@ $page_title = 'Customers Management - Admin';
                         this.loading = true;
                         this.errorMsg = '';
                         this.customer = null;
+                        this.idActionSelection = '';
                         this.idRejectReason = '';
                         this.idRejectReasonOther = '';
                         const inlineCustomer = this.getCustomerFromRow(sourceEl, customerId);
@@ -809,6 +815,12 @@ $page_title = 'Customers Management - Admin';
                         }
                     },
 
+                    resetIdActionForm() {
+                        this.idActionSelection = '';
+                        this.idRejectReason = '';
+                        this.idRejectReasonOther = '';
+                    },
+
                     async submitIdAction(action) {
                         if (!<?php echo $can_manage_customer_verification ? 'true' : 'false'; ?>) return;
                         if (!this.customer?.customer_id) return;
@@ -819,7 +831,7 @@ $page_title = 'Customers Management - Admin';
                             return;
                         }
                         if (action === 'reject' && selectedReason === 'Other' && !otherReason) {
-                            alert('Please enter a custom rejection reason for "Other".');
+                            alert('Please enter a rejection note for "Other".');
                             return;
                         }
                         const fd = new FormData();
@@ -846,11 +858,19 @@ $page_title = 'Customers Management - Admin';
                                         id_reject_reason: action === 'approve' ? '' : rejectReason
                                     };
                                 }
-                                this.idRejectReason = '';
-                                this.idRejectReasonOther = '';
+                                this.resetIdActionForm();
                                 fetchUpdatedTable();
                             }
                         } catch(e) { console.error('submitIdAction error', e); }
+                    },
+
+                    async submitSelectedIdAction() {
+                        const action = (this.idActionSelection || '').trim();
+                        if (!action) {
+                            alert('Please choose Approve ID or Reject ID.');
+                            return;
+                        }
+                        await this.submitIdAction(action);
                     },
 
                     async openTransactionModal(id, sourceEl = null) {
@@ -1298,26 +1318,48 @@ $page_title = 'Customers Management - Admin';
                         <p x-show="customer?.id_reject_reason" style="font-size:12px;color:#dc2626;margin:0 0 12px;">Rejection reason: <span x-text="customer?.id_reject_reason"></span></p>
 
                         <?php if ($can_manage_customer_verification): ?>
-                        <div x-show="customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                            <button type="button" class="btn-action" style="color:#16a34a;border-color:#16a34a;" x-show="customer?.id_status !== 'Verified'" @click="submitIdAction('approve')" onmouseover="this.style.background='#16a34a';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#16a34a'">&#10003; Verify ID</button>
-                            <div style="flex:1;min-width:240px;">
-                                <select x-model="idRejectReason" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;">
-                                    <option value="">Select rejection reason...</option>
-                                    <?php foreach (PF_CUSTOMER_ID_REJECTION_OPTIONS as $reject_option): ?>
-                                    <option value="<?php echo htmlspecialchars($reject_option, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($reject_option); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <input
-                                    x-show="idRejectReason === 'Other'"
-                                    x-model="idRejectReasonOther"
-                                    type="text"
-                                    maxlength="250"
-                                    placeholder="Enter custom rejection reason..."
-                                    required
-                                    style="width:100%;margin-top:8px;height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"
-                                >
+                        <div x-show="customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="margin-top:8px;">
+                            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#ffffff;">
+                                <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#111827;cursor:pointer;">
+                                    <input type="radio" name="id_action_choice" value="approve" x-model="idActionSelection" style="margin:0;">
+                                    <span>Approve ID</span>
+                                </label>
+
+                                <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#111827;cursor:pointer;margin-top:12px;">
+                                    <input type="radio" name="id_action_choice" value="reject" x-model="idActionSelection" style="margin:0;">
+                                    <span>Reject ID</span>
+                                </label>
+
+                                <div x-show="idActionSelection === 'reject'" style="margin-top:14px;">
+                                    <select x-model="idRejectReason" style="width:100%;height:44px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;color:#111827;">
+                                        <option value="">Select rejection reason</option>
+                                        <?php foreach (PF_CUSTOMER_ID_REJECTION_OPTIONS as $reject_option): ?>
+                                        <option value="<?php echo htmlspecialchars($reject_option, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($reject_option); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+
+                                    <textarea
+                                        x-model="idRejectReasonOther"
+                                        maxlength="250"
+                                        placeholder="Optional note..."
+                                        style="width:100%;margin-top:12px;min-height:92px;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#111827;resize:vertical;"
+                                    ></textarea>
+                                </div>
                             </div>
-                            <button type="button" class="btn-action red" @click="submitIdAction('reject')">&#10005; Reject</button>
+
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;">
+                                <button type="button" class="btn-secondary" @click="resetIdActionForm()">Cancel</button>
+                                <button
+                                    type="button"
+                                    class="btn-action"
+                                    style="background:#111827;color:#ffffff;border-color:#111827;"
+                                    @click="submitSelectedIdAction()"
+                                    onmouseover="this.style.background='#000000';this.style.borderColor='#000000'"
+                                    onmouseout="this.style.background='#111827';this.style.borderColor='#111827'"
+                                >
+                                    Submit Action
+                                </button>
+                            </div>
                         </div>
                         <p x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;margin:8px 0 0;">&#10003; ID Verified</p>
                         <?php else: ?>
