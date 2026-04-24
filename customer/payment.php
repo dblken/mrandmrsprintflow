@@ -36,6 +36,14 @@ $order_result = db_query("
 
 if (!empty($order_result)) {
     $order = $order_result[0];
+    $latest_payment_review = db_query("
+        SELECT payment_status, payment_proof_status, payment_rejection_reason
+        FROM job_orders
+        WHERE order_id = ? AND customer_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ", 'ii', [$order_id, $customer_id]);
+    $latest_payment_review = !empty($latest_payment_review) ? $latest_payment_review[0] : null;
     
     // Get order items
     $has_product_image = !empty(db_query("SHOW COLUMNS FROM products LIKE 'product_image'"));
@@ -83,7 +91,15 @@ if (!empty($order_result)) {
     }
     $payment_status = $order['payment_status']; // 'Paid', 'Unpaid'
     $order_status = $order['status'];
-    $show_payment_form = ($payment_status !== 'Paid' && !in_array($order_status, ['Downpayment Submitted', 'To Verify', 'Cancelled']));
+    $payment_proof_status = (string)($latest_payment_review['payment_proof_status'] ?? '');
+    $payment_rejection_reason = trim((string)($latest_payment_review['payment_rejection_reason'] ?? ''));
+    $is_rejected_payment = (strcasecmp($order_status, 'Rejected') === 0) || (strcasecmp($payment_proof_status, 'REJECTED') === 0);
+    $is_paid_ui = !$is_rejected_payment && strcasecmp((string)$payment_status, 'Paid') === 0;
+    $is_verifying_payment = !$is_rejected_payment && (
+        in_array($order_status, ['Downpayment Submitted', 'To Verify'], true) ||
+        strcasecmp($payment_proof_status, 'SUBMITTED') === 0
+    );
+    $show_payment_form = !$is_paid_ui && !$is_verifying_payment && !in_array($order_status, ['Cancelled'], true);
     
 } else {
     // 2. Fallback to job orders
@@ -105,13 +121,24 @@ if (!empty($order_result)) {
     $total_amount = (float)$order['estimated_total'];
     $payment_status = $order['payment_status']; // 'PAID', 'UNPAID', 'PARTIAL'
     $order_status = $order['status'];
+    $payment_proof_status = (string)($order['payment_proof_status'] ?? '');
+    $payment_rejection_reason = trim((string)($order['payment_rejection_reason'] ?? ''));
     
     // Normalize status names for consistent UI
     if ($payment_status === 'PAID') $payment_status = 'Paid';
     if ($payment_status === 'UNPAID') $payment_status = 'Unpaid';
     
-    $show_payment_form = ($order['payment_status'] !== 'PAID' && $order['payment_proof_status'] !== 'SUBMITTED' && $order_status !== 'CANCELLED');
+    $is_rejected_payment = strcasecmp($payment_proof_status, 'REJECTED') === 0 || strcasecmp($order_status, 'REJECTED') === 0;
+    $is_paid_ui = !$is_rejected_payment && $order['payment_status'] === 'PAID';
+    $is_verifying_payment = !$is_rejected_payment && $order['payment_proof_status'] === 'SUBMITTED';
+    $show_payment_form = !$is_paid_ui && !$is_verifying_payment && $order_status !== 'CANCELLED';
 }
+
+$payment_rejection_reason = $payment_rejection_reason ?? '';
+$payment_proof_status = $payment_proof_status ?? '';
+$is_rejected_payment = $is_rejected_payment ?? false;
+$is_paid_ui = $is_paid_ui ?? false;
+$is_verifying_payment = $is_verifying_payment ?? false;
 
 $page_title = "Payment - Order #{$order_id}";
 $use_customer_css = true;
@@ -499,7 +526,7 @@ if (!function_exists('pf_payment_qr_url')) {
                 <!-- Divider between order info top and payment form -->
 
                 <!-- Payment Section -->
-                <?php if ($payment_status === 'Paid'): ?>
+                <?php if ($is_paid_ui): ?>
                     <div style="text-align: center; padding: 2rem;">
                         <div style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #059669, #047857); display: flex; align-items: center; justify-content: center; position: relative;">
                             <svg style="width: 48px; height: 48px; color: #fff;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -526,6 +553,15 @@ if (!function_exists('pf_payment_qr_url')) {
                         <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
                         <input type="hidden" name="is_job" value="<?php echo $is_job_order ? '1' : '0'; ?>">
                         <?php echo csrf_field(); ?>
+
+                        <?php if ($is_rejected_payment): ?>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(220, 38, 38, 0.08)); border-left: 4px solid #ef4444; padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: 0;">
+                                <div style="font-weight: 800; color: #fecaca; font-size: 0.875rem; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em;">Previous Payment Rejected</div>
+                                <div style="color: #fee2e2; font-size: 0.9rem; line-height: 1.6; font-weight: 600;">
+                                    <?php echo htmlspecialchars($payment_rejection_reason !== '' ? $payment_rejection_reason : 'Please upload a clearer or corrected proof of payment to continue.'); ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
 
                         <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem;">1. Choose Method</h2>
                         
