@@ -872,14 +872,39 @@ if (isset($_GET['ajax'])) {
                         this.statusUpdateMsg = '';
                         this.order = null;
                         this.items = [];
-                        fetch('<?php echo $base_path; ?>/admin/api_order_details.php?id=' + orderId)
-                            .then(r => {
-                                if (!r.ok) throw new Error('HTTP ' + r.status);
-                                const contentType = r.headers.get('content-type');
-                                if (!contentType || !contentType.includes('application/json')) {
-                                    throw new Error('Response is not JSON');
+                        fetch('<?php echo $base_path; ?>/admin/api_order_details.php?id=' + orderId, {
+                            credentials: 'same-origin',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                            .then(async r => {
+                                const contentType = (r.headers.get('content-type') || '').toLowerCase();
+                                const text = await r.text();
+
+                                if (!text.trim()) {
+                                    throw new Error('Empty server response (HTTP ' + r.status + ')');
                                 }
-                                return r.json();
+
+                                if (!contentType.includes('application/json')) {
+                                    console.error('Order modal non-JSON response:', text);
+                                    throw new Error('Response is not JSON (HTTP ' + r.status + ')');
+                                }
+
+                                let data;
+                                try {
+                                    data = JSON.parse(text);
+                                } catch (err) {
+                                    console.error('Order modal invalid JSON:', text);
+                                    throw new Error('Invalid JSON response (HTTP ' + r.status + ')');
+                                }
+
+                                if (!r.ok) {
+                                    throw new Error(data.error || ('HTTP ' + r.status));
+                                }
+
+                                return data;
                             })
                             .then(data => {
                                 this.loading = false;
