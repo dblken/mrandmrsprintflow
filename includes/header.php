@@ -221,4 +221,72 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
             }
         });
     }
+
+    // Keep public tabs in sync with the real authenticated session state.
+    if (!window.__pfAuthSyncInit) {
+        window.__pfAuthSyncInit = true;
+
+        (function() {
+            var authUrl = <?php echo json_encode($base_url . '/public/api_session_status.php'); ?>;
+            var homePaths = new Set([
+                '/',
+                '/public/index.php',
+                <?php echo json_encode(((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '') ?: '/'); ?>,
+                <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '') ?: '') . '/public/index.php'); ?>
+            ]);
+
+            function normalizePath(path) {
+                var out = (path || '/').replace(/\/+$/, '');
+                return out || '/';
+            }
+
+            function shouldRedirectCurrentPage() {
+                return homePaths.has(normalizePath(window.location.pathname));
+            }
+
+            var checkInFlight = false;
+            function syncSessionState() {
+                if (checkInFlight || !shouldRedirectCurrentPage()) {
+                    return;
+                }
+                checkInFlight = true;
+                fetch(authUrl + '?_=' + Date.now(), {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(function(response) {
+                    return response.ok ? response.json() : null;
+                })
+                .then(function(data) {
+                    if (data && data.logged_in && data.redirect) {
+                        window.location.replace(data.redirect);
+                    }
+                })
+                .catch(function() {})
+                .finally(function() {
+                    checkInFlight = false;
+                });
+            }
+
+            window.addEventListener('storage', function(event) {
+                if (event.key === 'pf_auth_sync') {
+                    syncSessionState();
+                }
+            });
+
+            window.addEventListener('pageshow', syncSessionState);
+            window.addEventListener('focus', syncSessionState);
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    syncSessionState();
+                }
+            });
+
+            syncSessionState();
+        })();
+    }
     </script>

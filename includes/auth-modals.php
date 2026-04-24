@@ -1675,10 +1675,22 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 if (target.indexOf('/') === 0 && target.indexOf('//') !== 0) {
                     target = window.location.origin + target;
                 }
+                try {
+                    localStorage.setItem('pf_auth_sync', JSON.stringify({
+                        ts: Date.now(),
+                        redirect: target
+                    }));
+                } catch (e) {}
                 window.location.replace(target);
                 return;
             }
             if (data && data.success && !data.redirect) {
+                try {
+                    localStorage.setItem('pf_auth_sync', JSON.stringify({
+                        ts: Date.now(),
+                        redirect: '<?php echo $base_url; ?>/'
+                    }));
+                } catch (e) {}
                 window.location.replace('<?php echo $base_url; ?>/');
                 return;
             }
