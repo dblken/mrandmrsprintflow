@@ -14,7 +14,10 @@ if (!isset($base_path)) {
 }
 
 if (!isset($_GET['id'])) {
-    echo json_encode(['success' => false, 'error' => 'No customer ID provided']);
+    echo json_encode(
+        ['success' => false, 'error' => 'No customer ID provided'],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+    );
     exit;
 }
 
@@ -30,7 +33,10 @@ try {
             array_merge([$id], $custParams)
         );
         if (empty($allowed)) {
-            echo json_encode(['success' => false, 'error' => 'Customer not found']);
+            echo json_encode(
+                ['success' => false, 'error' => 'Customer not found'],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+            );
             exit;
         }
     }
@@ -38,7 +44,10 @@ try {
     $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", "i", [$id]);
 
     if (empty($customer)) {
-        echo json_encode(['success' => false, 'error' => 'Customer not found']);
+        echo json_encode(
+            ['success' => false, 'error' => 'Customer not found'],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+        );
         exit;
     }
     
@@ -75,10 +84,16 @@ try {
         'id_reject_reason' => $c['id_reject_reason'] ?? ''
     ];
 
-    echo json_encode(['success' => true, 'customer' => $data]);
+    echo json_encode(
+        ['success' => true, 'customer' => $data],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+    );
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    echo json_encode(
+        ['success' => false, 'error' => $e->getMessage()],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+    );
 }
 ?>
