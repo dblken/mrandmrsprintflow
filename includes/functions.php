@@ -461,30 +461,45 @@ function staff_notification_target_url(array $n): string {
     $base = printflow_notification_base_path();
     $msg = isset($n['message']) ? (string)$n['message'] : '';
     $msg_lower = strtolower($msg);
-    
+    $type = strtolower((string)($n['type'] ?? ''));
+    $data_id = isset($n['data_id']) && $n['data_id'] !== null && $n['data_id'] !== ''
+        ? (int)$n['data_id']
+        : 0;
+
     $is_rating = (
-        (isset($n['type']) && (string)$n['type'] === 'Rating') ||
+        ((string)($n['type'] ?? '') === 'Rating') ||
         ((stripos($msg, 'rating') !== false || stripos($msg, 'review') !== false) && stripos($msg, 'design') === false)
     );
     if ($is_rating) {
         return $base . '/staff/reviews.php';
     }
 
-    // Stock / Inventory notification — stay on notifications page
-    if (isset($n['type']) && (string)$n['type'] === 'Stock') {
+    if ($type === 'system') {
         return $base . '/staff/notifications.php';
     }
 
-    // Order / Job / Payment / Design notifications with a data_id
-    if (!empty($n['data_id']) && isset($n['type']) && (string)$n['type'] === 'Order') {
-        $data_id = (int)$n['data_id'];
-        
-        // Re-uploaded design or design re-upload
-        if (stripos($msg, 're-uploaded design') !== false || stripos($msg, 'design re-upload') !== false) {
-             return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+    if ($type === 'stock' || strpos($type, 'inventory') !== false) {
+        return $base . '/staff/notifications.php';
+    }
+
+    if ($data_id > 0) {
+        if (strpos($type, 'chat') !== false || strpos($type, 'message') !== false) {
+            return $base . '/staff/chats.php?order_id=' . $data_id;
         }
 
-        // Check if the data_id belongs to job_orders table (custom/specialty jobs)
+        if (strpos($type, 'job order') !== false || strpos($type, 'payment issue') !== false) {
+            return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB';
+        }
+
+        if (
+            strpos($type, 'design') !== false ||
+            strpos($msg_lower, 're-uploaded design') !== false ||
+            strpos($msg_lower, 'design re-upload') !== false ||
+            strpos($msg_lower, 'revision') !== false
+        ) {
+            return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+        }
+
         $job_row = db_query(
             "SELECT id FROM job_orders WHERE id = ? LIMIT 1",
             'i',
@@ -494,40 +509,34 @@ function staff_notification_target_url(array $n): string {
             return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB';
         }
 
-        // Check if the data_id belongs to store orders table and get order_type + source
         $ord_row = db_query(
             "SELECT order_id, order_type, order_source FROM orders WHERE order_id = ? LIMIT 1",
             'i',
             [$data_id]
         );
         if (!empty($ord_row)) {
-            $order_type = $ord_row[0]['order_type'] ?? 'product';
-            $order_source = $ord_row[0]['order_source'] ?? 'customer';
-            
-            // Route based on order type: custom -> customizations.php, product -> orders.php
+            $order_type = strtolower((string)($ord_row[0]['order_type'] ?? 'product'));
+            $order_source = strtolower((string)($ord_row[0]['order_source'] ?? 'customer'));
+
             if ($order_type === 'custom') {
-                // Check if this is a new order notification
-                if (stripos($msg, 'placed an order') !== false) {
-                    // Customer orders (from order_service_dynamic.php) -> PENDING tab
-                    // POS orders (from staff/pos.php) -> All tabs (no status filter)
-                    if ($order_source === 'pos' || $order_source === 'walk-in') {
-                        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
-                    } else {
-                        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
-                    }
+                if ($order_source === 'pos' || $order_source === 'walk-in') {
+                    return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
                 }
-                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
             }
+
             return $base . '/staff/orders.php?order_id=' . $data_id;
         }
 
-        // Fallback: treat as a job order
-        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=JOB';
+        if (strpos($type, 'payment') !== false || strpos($type, 'order') !== false) {
+            return $base . '/staff/orders.php?order_id=' . $data_id;
+        }
+
+        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
     }
 
     return $base . '/staff/notifications.php';
 }
-
 /**
  * Link for a staff notification row (marks read then redirects when unread).
  */
