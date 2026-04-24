@@ -25,7 +25,8 @@
         loadDropdown: loadDropdown,
         subscribeToPush: subscribeToPush,
         unsubscribeFromPush: unsubscribeFromPush,
-        handlePushToggleClick: handlePushToggleClick
+        handlePushToggleClick: handlePushToggleClick,
+        runPushSelfTest: runPushSelfTest
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -103,6 +104,7 @@
     var SW_REGISTER_PATH       = buildAppUrl('public/sw.php');
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
     var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
+    var API_SELF_TEST          = buildAppUrl('public/api/push/self_test.php');
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
     var API_LIST               = buildAppUrl('public/api/notifications/list.php');
 
@@ -222,6 +224,17 @@
                 });
             })
             .catch(function() { return false; });
+    }
+
+    function runPushSelfTest() {
+        return fetch(API_SELF_TEST, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'browser-console' })
+        }).then(function(res) {
+            return res.json();
+        });
     }
 
     function subscribeToPush(isUserAction) {

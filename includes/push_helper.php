@@ -184,7 +184,10 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
 function push_notify_user(int $user_id, string $user_type, array $payload, int $ttl = 86400): int
 {
     $wp = get_webpush();
-    if (!$wp) return 0;
+    if (!$wp) {
+        error_log('[push_notify_user] WebPush unavailable or VAPID config missing.');
+        return 0;
+    }
 
     $base = push_base_path();
     $icon = push_logo_url();
@@ -197,7 +200,10 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
         'is',
         [$user_id, $user_type]
     );
-    if (empty($rows)) return 0;
+    if (empty($rows)) {
+        error_log('[push_notify_user] No saved subscriptions for user_id=' . $user_id . ' user_type=' . $user_type);
+        return 0;
+    }
 
     // Defaults
     $payload += [
@@ -225,6 +231,19 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
         }
     }
     return $sent;
+}
+
+function push_subscription_count_for_user(int $user_id, string $user_type): int
+{
+    $rows = db_query(
+        'SELECT COUNT(*) AS cnt
+         FROM push_subscriptions
+         WHERE user_id = ? AND user_type = ?',
+        'is',
+        [$user_id, $user_type]
+    );
+
+    return (int)($rows[0]['cnt'] ?? 0);
 }
 
 /**
