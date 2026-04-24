@@ -580,6 +580,139 @@ $page_title = 'Review Management - Staff';
         .main-content {
             padding-top: 10px !important;
         }
+
+        .pf-reviews-table-card {
+            margin-bottom: 24px;
+        }
+
+        .pf-reviews-table-card table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .pf-reviews-table-card thead th {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            background: #f9fafb;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .pf-reviews-table-card tbody tr {
+            transition: background-color 0.18s ease;
+        }
+
+        .pf-reviews-table-card tbody tr:hover {
+            background: linear-gradient(90deg, rgba(6, 161, 161, 0.05) 0%, rgba(158, 215, 196, 0.10) 100%);
+        }
+
+        .pf-reviews-table-card tbody td {
+            vertical-align: top;
+            padding-top: 22px;
+            padding-bottom: 22px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .pf-reviews-table-card .rv-card {
+            margin: 0;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .pf-reviews-table-card .review-item {
+            padding: 28px 24px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .pf-reviews-table-card .review-item:last-child {
+            border-bottom: 0;
+        }
+
+        .pf-reviews-table-card .rv-pager {
+            padding: 20px 24px;
+            border-top: 1px solid #eef2f7;
+            text-align: center;
+        }
+
+        .review-customer-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .review-meta-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 10px;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .review-item-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .review-summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            margin-bottom: 12px;
+        }
+
+        .reply-panel {
+            min-height: 100%;
+        }
+
+        @media (max-width: 960px) {
+            .pf-reviews-table-card table,
+            .pf-reviews-table-card thead,
+            .pf-reviews-table-card tbody,
+            .pf-reviews-table-card tr,
+            .pf-reviews-table-card th,
+            .pf-reviews-table-card td {
+                display: block;
+                width: 100%;
+            }
+
+            .pf-reviews-table-card thead {
+                display: none;
+            }
+
+            .pf-reviews-table-card tbody td {
+                padding: 14px 18px;
+                border-bottom: 0;
+            }
+
+            .pf-reviews-table-card tbody tr {
+                display: block;
+                border-bottom: 1px solid #eef2f7;
+                padding: 6px 0 12px;
+            }
+
+            .reply-input-wrap {
+                flex-direction: column;
+            }
+
+            .reply-submit {
+                min-height: 44px;
+            }
+        }
     </style>
 </head>
 
@@ -603,11 +736,14 @@ $page_title = 'Review Management - Staff';
                 <!-- KPI Summary Row -->
                 <div class="kpi-row">
                     <div class="kpi-card indigo">
-                        <span class="kpi-label">Total Reviews</span>
-                        <span class="kpi-value"><?php echo number_format($total_items); ?></span>
-                        <span class="kpi-sub">Lifetime customer feedback</span>
+                        <span class="kpi-card-inner">
+                            <span class="kpi-label">Total Reviews</span>
+                            <span class="kpi-value"><?php echo number_format($total_items); ?></span>
+                            <span class="kpi-sub">Lifetime customer feedback</span>
+                        </span>
                     </div>
                     <div class="kpi-card amber">
+                        <span class="kpi-card-inner">
                         <span class="kpi-label">Average Rating</span>
                         <span class="kpi-value">
                             <?php
@@ -617,18 +753,22 @@ $page_title = 'Review Management - Staff';
                             <span style="font-size: 18px; color: #f59e0b;">★</span>
                         </span>
                         <span class="kpi-sub">System-wide performance quality</span>
+                        </span>
                     </div>
                     <div class="kpi-card blue">
+                        <span class="kpi-card-inner">
                         <span class="kpi-label">Service Focus</span>
-                        <span class="kpi-value" style="font-size: 18px; line-height:36px;">
+                        <span class="kpi-value">
                             <?php
                             $top = db_query("SELECT {$review_service_expr} AS service_type, COUNT(*) as c {$review_branch_from} GROUP BY service_type ORDER BY c DESC LIMIT 1", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo htmlspecialchars(ucfirst($top[0]['service_type'] ?? 'None'));
                             ?>
                         </span>
                         <span class="kpi-sub">Most frequently reviewed type</span>
+                        </span>
                     </div>
                     <div class="kpi-card emerald">
+                        <span class="kpi-card-inner">
                         <span class="kpi-label">Pending Replies</span>
                         <span class="kpi-value">
                             <?php
@@ -638,11 +778,12 @@ $page_title = 'Review Management - Staff';
                             ?>
                         </span>
                         <span class="kpi-sub">Customer responses awaiting action</span>
+                        </span>
                     </div>
                 </div>
 
                 <!-- Standardized Toolbar -->
-                <div class="card overflow-visible" style="margin-bottom: 24px;">
+                <div class="card overflow-visible pf-reviews-table-card">
                     <div class="toolbar-container">
                         <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Reviews Feed</h3>
                         <div class="toolbar-group" style="margin-left: auto;">
@@ -656,7 +797,7 @@ $page_title = 'Review Management - Staff';
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                                     </svg>
-                                    Sort by
+                                    <span class="toolbar-btn-label">Sort by</span>
                                 </button>
                                 <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak
                                     @click.outside="sortOpen = false">
@@ -687,7 +828,7 @@ $page_title = 'Review Management - Staff';
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                                     </svg>
-                                    Filters
+                                    <span class="toolbar-btn-label-light">Filters</span>
                                     <template x-if="filterActiveCount > 0">
                                         <span class="filter-badge" x-text="filterActiveCount"></span>
                                     </template>
@@ -759,9 +900,8 @@ $page_title = 'Review Management - Staff';
                             </div>
                         </div>
                     </div>
-                </div>
+                
 
-                <div id="reviewsList">
                     <?php if (empty($reviews)): ?>
                         <div class="rv-empty">
                             <div style="font-size: 3rem; margin-bottom: 1rem;">💬</div>
