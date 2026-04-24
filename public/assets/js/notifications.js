@@ -865,7 +865,11 @@
         return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
+    var initStarted = false;
+
     function init() {
+        if (initStarted) return;
+        initStarted = true;
         bindPushMessages();
         maybeInitPush();
         initPushToggle();
@@ -873,9 +877,13 @@
         schedulePoll();
     }
 
-    function markSeen(id) {} // Placeholder to avoid errors if called before definition
+    function reinit() {
+        initStarted = false;
+        init();
+    }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
+    document.addEventListener('turbo:load', reinit);
 
 })();
