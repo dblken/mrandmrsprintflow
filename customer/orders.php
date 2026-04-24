@@ -545,18 +545,22 @@ require_once __DIR__ . '/../includes/header.php';
 .im-table td:nth-child(3) { width: 150px; }
 .im-sec-card { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; flex-direction: column; }
 .im-sec-card.accent { border-left-color: #0e7490; background: #f8fafc; }
-.im-label { font-size: 0.74rem; color: #64748b; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.im-label { font-size: 0.68rem; color: #64748b; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
 .im-val { font-size: 0.95rem; font-weight: 700; color: #334155; line-height: 1.55; }
-.im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.78rem; font-weight: 600; }
-.im-chips { display: flex; flex-wrap: wrap; gap: 0.45rem 0.55rem; margin: 0.9rem 0 0; max-width: 100%; }
-.im-chip { white-space: normal; line-height: 1.45; }
+.im-spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin: 0.95rem 0 0; }
+.im-spec-card { background: #f8fafc; border: 1px solid #dbeafe; padding: 0.8rem 0.9rem; border-radius: 10px; min-width: 0; }
+.im-spec-label { display: block; font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+.im-spec-value { display: block; font-size: 0.95rem; font-weight: 700; color: #0f172a; line-height: 1.45; word-break: break-word; }
 .im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
-.im-item-title { font-size: 1rem; font-weight: 800; color: #0f172a; line-height: 1.45; margin-bottom: 0.55rem; }
-.im-meta-title { font-size: 0.74rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+.im-item-title { font-size: 1rem; font-weight: 800; color: #0f172a; line-height: 1.4; margin-bottom: 0.15rem; }
+.im-meta-title { font-size: 0.85rem; font-weight: 800; color: #0f172a; text-transform: none; letter-spacing: 0; margin-bottom: 0.75rem; padding-bottom: 0.45rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
 .im-meta-value { font-size: 0.95rem; font-weight: 700; color: #334155; line-height: 1.5; }
 .im-qty-value, .im-total-value { font-size: 1rem; font-weight: 800; line-height: 1.4; }
 .im-qty-value { color: #0f172a; }
 .im-total-value { color: #0e7490; }
+.im-note-card { margin-top: 1.5rem; padding: 1.15rem; background: rgba(83, 197, 224, 0.08); border: 1px solid rgba(83, 197, 224, 0.14); border-left: 4px solid #53c5e0; border-radius: 10px; }
+.im-note-label { font-size: 0.75rem; font-weight: 800; color: #0e7490; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.45rem; }
+.im-note-copy { font-size: 0.95rem; color: #334155; line-height: 1.6; font-weight: 600; }
 .im-reject-card {
     padding: 1rem 1.1rem;
     background: linear-gradient(180deg, #fff7ed 0%, #fff1f2 100%);
@@ -1030,13 +1034,18 @@ function openItemsModal(orderId, event) {
         // Safety check for items
         const itemsList = Array.isArray(data.items) ? data.items : [];
         const rows = itemsList.map(item => {
-            let chips = '';
+            let specs = '';
             if (item.customization) {
-                const chipItems = Object.entries(item.customization)
+                const specItems = Object.entries(item.customization)
                     .filter(([k,v]) => v && v !== 'No' && v !== 'None' && !['service_type','product_type','quantity','notes','design_upload','reference_upload'].includes(k))
-                    .map(([k,v]) => `<span class="im-chip capitalize-first">${k.replace(/_/g,' ')}: ${escIM(v)}</span>`)
+                    .map(([k,v]) => `
+                        <div class="im-spec-card">
+                            <span class="im-spec-label capitalize-first">${k.replace(/_/g,' ')}</span>
+                            <span class="im-spec-value">${escIM(v)}</span>
+                        </div>
+                    `)
                     .join('');
-                if (chipItems) chips = `<div class="im-chips">${chipItems}</div>`;
+                if (specItems) specs = `<div class="im-spec-grid">${specItems}</div>`;
             }
             
             const design = item.has_design ? `<div class="block cursor-zoom-in" onclick="openLightbox('${item.design_url}')"><div style="font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem;">Final Design</div><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></div>` : '';
@@ -1045,11 +1054,11 @@ function openItemsModal(orderId, event) {
             return `<tr>
                 <td style="min-width: 250px;">
                     <div class="im-item-title">${escIM(item.product_name)}</div>
-                    ${chips}
+                    ${specs}
                     
                     ${design || reference ? `
                         <div style="margin-top: 1rem;">
-                            <div class="im-meta-title" style="color: #0e7490;">Uploaded Assets</div>
+                            <div class="im-meta-title">Uploaded Assets</div>
                             <div style="display: flex; gap: 0.75rem;">${design}${reference}</div>
                         </div>
                     ` : ''}
@@ -1085,9 +1094,9 @@ function openItemsModal(orderId, event) {
                     </div>
                     
                     ${data.notes ? `
-                        <div style="margin-top: 1.5rem; padding: 1.25rem; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0e7490; border-radius: 12px;">
-                            <div class="im-label" style="color: #0e7490;">Customer Notes</div>
-                            <div class="im-val">"${escIM(data.notes)}"</div>
+                        <div class="im-note-card">
+                            <div class="im-note-label">Customer Notes</div>
+                            <div class="im-note-copy">"${escIM(data.notes)}"</div>
                         </div>
                     ` : ''}
                 </div>
