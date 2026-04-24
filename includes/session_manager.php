@@ -33,6 +33,10 @@ if (!defined('PRINTFLOW_SESSION_NAME')) {
     define('PRINTFLOW_SESSION_NAME', 'PRINTFLOWSESSID');
 }
 
+if (!defined('REMEMBER_ME_SESSION_LIFETIME')) {
+    define('REMEMBER_ME_SESSION_LIFETIME', 90 * 86400);
+}
+
 class SessionManager
 {
     /** True when this request destroyed a session due to inactivity timeout. */
@@ -111,6 +115,7 @@ class SessionManager
     public static function regenerate(): void
     {
         session_regenerate_id(true); // true = delete old session file on disk
+        unset($_SESSION['_remember_me']);
         $_SESSION['_fingerprint']   = self::buildFingerprint();
         $_SESSION['_last_activity'] = time();
         $_SESSION['_created_at']    = time();
@@ -165,6 +170,7 @@ class SessionManager
     public static function applyRememberMe(int $days): void
     {
         $lifetime = $days * 86400; // Convert days to seconds
+        $_SESSION['_remember_me'] = true;
         $params = session_get_cookie_params();
         setcookie(session_name(), session_id(), [
             'expires'  => time() + $lifetime,
@@ -222,7 +228,10 @@ class SessionManager
         if (!isset($_SESSION['_last_activity'])) {
             return false;
         }
-        return (time() - (int) $_SESSION['_last_activity']) > SESSION_LIFETIME;
+        $lifetime = !empty($_SESSION['_remember_me'])
+            ? REMEMBER_ME_SESSION_LIFETIME
+            : SESSION_LIFETIME;
+        return (time() - (int) $_SESSION['_last_activity']) > $lifetime;
     }
 
     private static function destroyAndRestart(): void
