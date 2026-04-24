@@ -157,7 +157,18 @@ if ($current_page > $total_pages) {
 // Use inline LIMIT/OFFSET for all tabs, including "All".
 $limit = (int)$items_per_page;
 $offset_val = (int)$offset;
-$sql .= " ORDER BY o.order_date DESC LIMIT {$limit} OFFSET {$offset_val}";
+$display_sort_expr = "
+    CASE
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) = 'cancelled' AND o.cancelled_at IS NOT NULL THEN o.cancelled_at
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) IN ('completed', 'to rate', 'rated') AND o.updated_at IS NOT NULL THEN o.updated_at
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) IN ('ready for pickup', 'to receive', 'ready') AND o.updated_at IS NOT NULL THEN o.updated_at
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) IN ('in production', 'processing', 'printing', 'paid - in process', 'paid â€“ in process') AND o.updated_at IS NOT NULL THEN o.updated_at
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) = 'approved' AND o.updated_at IS NOT NULL THEN o.updated_at
+        WHEN LOWER(TRIM(COALESCE(o.status, ''))) NOT IN ('pending', 'pending approval', 'pending review') AND o.updated_at IS NOT NULL THEN o.updated_at
+        ELSE o.order_date
+    END
+";
+$sql .= " ORDER BY {$display_sort_expr} DESC, o.order_id DESC LIMIT {$limit} OFFSET {$offset_val}";
 
 $orders_raw = db_query($sql, $types, $params);
 $orders = is_array($orders_raw) ? $orders_raw : [];
