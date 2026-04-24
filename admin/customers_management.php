@@ -1331,7 +1331,7 @@ $page_title = 'Customers Management - Admin';
                                 </label>
 
                                 <div x-show="idActionSelection === 'reject'" style="margin-top:14px;">
-                                    <select x-model="idRejectReason" style="width:100%;height:44px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;color:#111827;">
+                                    <select x-model="idRejectReason" @change="if (idRejectReason !== 'Other') idRejectReasonOther = ''" style="width:100%;height:44px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;color:#111827;">
                                         <option value="">Select rejection reason</option>
                                         <?php foreach (PF_CUSTOMER_ID_REJECTION_OPTIONS as $reject_option): ?>
                                         <option value="<?php echo htmlspecialchars($reject_option, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($reject_option); ?></option>
@@ -1339,6 +1339,7 @@ $page_title = 'Customers Management - Admin';
                                     </select>
 
                                     <textarea
+                                        x-show="idRejectReason === 'Other'"
                                         x-model="idRejectReasonOther"
                                         maxlength="250"
                                         placeholder="Optional note..."
@@ -1347,12 +1348,12 @@ $page_title = 'Customers Management - Admin';
                                 </div>
                             </div>
 
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;">
-                                <button type="button" class="btn-secondary" @click="resetIdActionForm()">Cancel</button>
+                            <div style="display:flex;justify-content:flex-start;align-items:center;gap:12px;margin-top:16px;">
+                                <button type="button" class="btn-secondary" @click="resetIdActionForm()" style="min-width:140px;height:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;">Cancel</button>
                                 <button
                                     type="button"
                                     class="btn-action"
-                                    style="background:#111827;color:#ffffff;border-color:#111827;"
+                                    style="background:#111827;color:#ffffff;border-color:#111827;min-width:140px;height:42px;border-radius:8px;font-size:14px;"
                                     @click="submitSelectedIdAction()"
                                     onmouseover="this.style.background='#000000';this.style.borderColor='#000000'"
                                     onmouseout="this.style.background='#111827';this.style.borderColor='#111827'"
