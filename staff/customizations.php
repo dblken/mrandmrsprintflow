@@ -510,19 +510,19 @@ if ($showLatestCustomizationOnly) {
         .pill-tab { 
             position: relative;
             padding: 8px 12px; 
-            font-weight: 600; 
+            font-weight: 500; 
             font-size: 11px; 
             font-family: inherit;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #6b7280; 
+            color: #3f5f5f; 
             border-radius: 9999px; 
             transition: all 0.2s; 
             display: inline-flex; 
             align-items: center; 
             gap: 6px;
-            background: transparent;
-            border: none;
+            background: #ffffff;
+            border: 1px solid transparent;
             cursor: pointer;
             white-space: nowrap;
             flex-shrink: 0;
@@ -534,17 +534,17 @@ if ($showLatestCustomizationOnly) {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .pill-tab:hover { background: #f3f4f6; color: #111827; }
-        .pill-tab.active { background: #eef2ff; color: #4f46e5; border: 1px solid #4f46e5; }
+        .pill-tab:hover { background: #eef8f6; color: #023d3d; border-color: rgba(6, 161, 161, 0.22); }
+        .pill-tab.active { background: linear-gradient(135deg, #f7fefb 0%, #e5f9f2 42%, #d4f0e6 100%); color: #023d3d; border: 1px solid #06A1A1; box-shadow: 0 6px 18px rgba(6, 161, 161, 0.12); }
         .tab-count { 
-            background: #4f46e5; 
+            background: #06A1A1; 
             color: white; 
             font-size: 10px; 
             padding: 1px 6px; 
             border-radius: 9999px; 
             font-weight: 600;
         }
-        .pill-tab:not(.active) .tab-count { background: #e5e7eb; color: #6b7280; }
+        .pill-tab:not(.active) .tab-count { background: #e7f3f0; color: #035f5f; }
 
 
 
@@ -575,12 +575,42 @@ if ($showLatestCustomizationOnly) {
             top: 2px;
             bottom: 2px;
             width: 3px;
-            background: #4f46e5;
+            background: linear-gradient(180deg, #035f5f 0%, #06A1A1 55%, #9ED7C4 100%);
             border-radius: 0 4px 4px 0;
             opacity: 0;
             transition: opacity 0.2s;
         }
         tr:hover .row-indicator { opacity: 1; }
+
+        .pf-customizations-table-card tbody tr {
+            transition: background-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .pf-customizations-table-card tbody tr:hover {
+            background: linear-gradient(90deg, rgba(6, 161, 161, 0.06) 0%, rgba(158, 215, 196, 0.12) 100%) !important;
+        }
+
+        .table-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 72px;
+            padding: 5px 12px;
+            border: 1px solid #06A1A1;
+            border-radius: 6px;
+            background: transparent;
+            color: #06A1A1;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.2;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .table-action-btn:hover {
+            background: #06A1A1;
+            color: #fff;
+            border-color: #06A1A1;
+        }
 
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
         .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:560px; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
@@ -823,7 +853,7 @@ if ($showLatestCustomizationOnly) {
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <template x-for="jo in paginatedOrders" :key="(jo.order_type || 'JOB') + '-' + jo.id">
-                                <tr @click="viewDetails(jo.id, jo.order_type || 'JOB')" class="group transition-all hover:bg-gray-50/50 relative cursor-pointer">
+                                <tr @click="viewDetails(jo.id, jo.order_type || 'JOB')" class="group transition-all relative cursor-pointer">
                                     <td class="pl-6 pr-4 py-4 relative">
                                         <div class="row-indicator"></div>
                                         <span class="table-text-main" x-text="(jo.order_type === 'ORDER' ? '#ORD-' : (jo.order_type === 'SERVICE' ? '#SRV-' : (jo.order_type === 'CUSTOMIZATION' ? '#CUST-' : '#JO-'))) + jo.id.toString().padStart(5, '0')"></span>
@@ -875,7 +905,7 @@ if ($showLatestCustomizationOnly) {
                                         <div class="table-text-sub uppercase truncate-ellipsis" :title="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''" x-text="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''"></div>
                                     </td>
                                     <td class="px-4 py-4 text-center space-x-1">
-                                        <button @click.stop="viewDetails(jo.id, jo.order_type || 'JOB')" class="btn-staff-action btn-staff-action-blue">View</button>
+                                        <button @click.stop="viewDetails(jo.id, jo.order_type || 'JOB')" class="table-action-btn">View</button>
                                     </td>
                                 </tr>
                             </template>
