@@ -45,6 +45,7 @@ $tab_status_map = [
     'topay'      => ['To Pay'],
     'production' => ['In Production', 'Processing', 'Printing', 'Paid – In Process'],
     'pickup'     => ['Ready for Pickup'],
+    'rejected'   => ['Rejected'],
     'torate'     => ['To Rate', 'Rated', 'Completed'],
     'completed'  => ['Completed', 'To Rate', 'Rated'],
     'cancelled'  => ['Cancelled'],
@@ -86,6 +87,7 @@ $tab_counts = [
     'topay' => 0,
     'production' => 0,
     'pickup' => 0,
+    'rejected' => 0,
     'torate' => 0,
     'completed' => 0,
     'cancelled' => 0,
@@ -581,6 +583,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify <span class="tt-tab-count"><?php echo $tab_counts['toverify']; ?></span></a>
                     <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">Production <span class="tt-tab-count"><?php echo $tab_counts['production']; ?></span></a>
                     <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready <span class="tt-tab-count"><?php echo $tab_counts['pickup']; ?></span></a>
+                    <a href="?tab=rejected" class="tt-tab <?php echo $active_tab === 'rejected' ? 'active' : ''; ?>">Rejected <span class="tt-tab-count"><?php echo $tab_counts['rejected']; ?></span></a>
                     <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
                     <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
                 </div>
@@ -604,6 +607,7 @@ require_once __DIR__ . '/../includes/header.php';
                             elseif (strpos($s, 'production') !== false || strpos($s, 'processing') !== false || strpos($s, 'printing') !== false) $st_cls = 'st-production';
                             elseif (strpos($s, 'ready') !== false || strpos($s, 'pickup') !== false) $st_cls = 'st-ready';
                             elseif (strpos($s, 'completed') !== false || strpos($s, 'rated') !== false || strpos($s, 'rate') !== false) $st_cls = 'st-completed';
+                            elseif (strpos($s, 'rejected') !== false) $st_cls = 'st-cancelled';
                             elseif (strpos($s, 'cancelled') !== false) $st_cls = 'st-cancelled';
                             
                             $c_json = !empty($order['first_item_customization']) ? json_decode($order['first_item_customization'], true) : [];
@@ -818,7 +822,7 @@ function imBadge(val) {
     else if (s.includes('production') || s.includes('processing') || s.includes('printing')) cls = 'st-production';
     else if (s.includes('ready') || s.includes('pickup')) cls = 'st-ready';
     else if (s.includes('completed') || s.includes('rated') || s.includes('paid')) cls = 'st-completed';
-    else if (s.includes('cancelled')) cls = 'st-cancelled';
+    else if (s.includes('rejected') || s.includes('cancelled')) cls = 'st-cancelled';
     return `<span class="status-pill ${cls}">${escIM(val)}</span>`;
 }
 
@@ -980,11 +984,11 @@ function openItemsModal(orderId, event) {
 
                     <!-- Actions Area -->
                     <div class="mt-auto pt-4 space-y-3">
-                        ${data.design_status === 'Revision Requested' ? `
+                        ${(data.design_status === 'Revision Requested' || data.status === 'Rejected') ? `
                             <div class="p-3 bg-amber-500/10 border border-amber-500/20">
-                                <div class="im-label text-amber-400 mb-1">Revision requested</div>
-                                <p class="text-[11px] text-amber-200/80 font-medium mb-3">${escIM(data.revision_reason)}</p>
-                                <button onclick="triggerDesignReupload(${data.order_id})" class="w-full py-2.5 bg-amber-500 text-white text-xs font-black hover:bg-amber-600 transition-all">Re-upload corrected design</button>
+                                <div class="im-label text-amber-400 mb-1">${data.status === 'Rejected' ? 'Order rejected' : 'Revision requested'}</div>
+                                <p class="text-[11px] text-amber-200/80 font-medium mb-3">${escIM(data.revision_reason || (data.status === 'Rejected' ? 'This order was rejected. Please upload your updated design to resubmit it for review.' : ''))}</p>
+                                <button onclick="triggerDesignReupload(${data.order_id})" class="w-full py-2.5 bg-amber-500 text-white text-xs font-black hover:bg-amber-600 transition-all">${data.status === 'Rejected' ? 'Resubmit Order' : 'Re-upload corrected design'}</button>
                                 <input type="file" id="designReuploadInput-${data.order_id}" style="display:none;" onchange="handleDesignReupload(this, ${data.order_id}, '${data.csrf_token}')" accept="image/*,application/pdf">
                             </div>
                         ` : ''}
@@ -1158,7 +1162,7 @@ async function refreshOrdersList() {
         'Approved': 'st-approved', 'To Pay': 'st-pending', 'To Verify': 'st-pending',
         'In Production': 'st-production', 'Processing': 'st-production', 'Printing': 'st-production',
         'Ready for Pickup': 'st-ready', 'To Receive': 'st-ready', 'Completed': 'st-completed',
-        'To Rate': 'st-completed', 'Rated': 'st-completed', 'Cancelled': 'st-cancelled'
+        'To Rate': 'st-completed', 'Rated': 'st-completed', 'Rejected': 'st-cancelled', 'Cancelled': 'st-cancelled'
     };
 
     const statusToTab = {
@@ -1175,6 +1179,7 @@ async function refreshOrdersList() {
         'Processing': 'production',
         'Printing': 'production',
         'Ready for Pickup': 'pickup',
+        'Rejected': 'rejected',
         'To Receive': 'pickup',
         'Completed': 'completed',
         'To Rate': 'torate',
