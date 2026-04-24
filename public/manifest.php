@@ -9,22 +9,6 @@ $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_path = $base_path . '/public/assets/images';
 $logo_version = rawurlencode(printflow_logo_version());
 $svg_logo_src = $base_path . '/public/app-icon.php?v=' . $logo_version;
-$uploaded_logo_src = !empty($shop_logo_url) ? ($shop_logo_url . '?v=' . $logo_version) : '';
-$uploaded_logo_type = 'image/png';
-
-if ($uploaded_logo_src !== '') {
-    $uploaded_logo_ext = strtolower(pathinfo(parse_url($uploaded_logo_src, PHP_URL_PATH) ?: $uploaded_logo_src, PATHINFO_EXTENSION));
-    if ($uploaded_logo_ext === 'jpg' || $uploaded_logo_ext === 'jpeg') {
-        $uploaded_logo_type = 'image/jpeg';
-    } elseif ($uploaded_logo_ext === 'webp') {
-        $uploaded_logo_type = 'image/webp';
-    } elseif ($uploaded_logo_ext === 'gif') {
-        $uploaded_logo_type = 'image/gif';
-    } elseif ($uploaded_logo_ext === 'svg') {
-        $uploaded_logo_type = 'image/svg+xml';
-    }
-}
-
 header('Content-Type: application/json');
 
 $manifest_icons = [
@@ -39,9 +23,9 @@ $manifest_icons = [
 $icon_sizes = ['72x72', '96x96', '128x128', '144x144', '152x152', '192x192', '384x384', '512x512'];
 foreach ($icon_sizes as $size) {
     $manifest_icons[] = [
-        'src' => $uploaded_logo_src !== '' ? $uploaded_logo_src : $svg_logo_src,
+        'src' => $svg_logo_src,
         'sizes' => $size,
-        'type' => $uploaded_logo_src !== '' ? $uploaded_logo_type : 'image/svg+xml',
+        'type' => 'image/svg+xml',
         'purpose' => 'any maskable'
     ];
 }

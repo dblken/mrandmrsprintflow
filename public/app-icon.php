@@ -7,16 +7,37 @@ header('Cache-Control: public, max-age=3600');
 
 require_once __DIR__ . '/../includes/shop_config.php';
 
-$proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$origin = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-
 if (!empty($shop_logo_url)) {
-    $img = htmlspecialchars($origin . $shop_logo_url, ENT_QUOTES, 'UTF-8');
+    $logoFile = basename((string)($shop_logo_file ?? ''));
+    $logoPath = $logoFile !== '' ? (__DIR__ . '/assets/uploads/' . $logoFile) : '';
+    $embeddedImg = '';
+
+    if ($logoPath !== '' && is_file($logoPath) && is_readable($logoPath)) {
+        $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+        $mime = match ($ext) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            default => 'image/png',
+        };
+        $raw = file_get_contents($logoPath);
+        if ($raw !== false) {
+            $embeddedImg = 'data:' . $mime . ';base64,' . base64_encode($raw);
+        }
+    }
+
+    if ($embeddedImg === '') {
+        $embeddedImg = htmlspecialchars((string)$shop_logo_url, ENT_QUOTES, 'UTF-8');
+    } else {
+        $embeddedImg = htmlspecialchars($embeddedImg, ENT_QUOTES, 'UTF-8');
+    }
+
     echo '<?xml version="1.0" encoding="UTF-8"?>';
     echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">';
     echo '<defs><clipPath id="pfRounded"><rect x="24" y="24" width="464" height="464" rx="112" ry="112"/></clipPath></defs>';
     echo '<rect x="0" y="0" width="512" height="512" rx="128" ry="128" fill="#052a33"/>';
-    echo '<image href="' . $img . '" x="24" y="24" width="464" height="464" clip-path="url(#pfRounded)" preserveAspectRatio="xMidYMid slice"/>';
+    echo '<image href="' . $embeddedImg . '" x="24" y="24" width="464" height="464" clip-path="url(#pfRounded)" preserveAspectRatio="xMidYMid slice"/>';
     echo '</svg>';
     exit;
 }
