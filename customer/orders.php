@@ -1440,6 +1440,10 @@ function initOrdersTabsScroller() {
     const prevBtn = document.getElementById('ttTabsPrevBtn');
     const nextBtn = document.getElementById('ttTabsNextBtn');
     if (!tabs || !wrap || !prevBtn || !nextBtn) return;
+    if (tabs.dataset.scrollerBound === '1') return;
+    tabs.dataset.scrollerBound = '1';
+
+    const storageKey = 'pf_orders_tabs_scroll';
 
     const updateTabsNavState = () => {
         const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
@@ -1462,21 +1466,37 @@ function initOrdersTabsScroller() {
         tabs.scrollBy({ left: amount, behavior: 'smooth' });
     };
 
+    const saveTabsScroll = () => {
+        try {
+            sessionStorage.setItem(storageKey, String(Math.max(0, Math.round(tabs.scrollLeft))));
+        } catch (e) {
+            // Ignore storage failures.
+        }
+    };
+
     prevBtn.addEventListener('click', () => scrollTabsBy(-1));
     nextBtn.addEventListener('click', () => scrollTabsBy(1));
-    tabs.addEventListener('scroll', updateTabsNavState, { passive: true });
-    window.addEventListener('resize', updateTabsNavState);
-
-    const activeTab = tabs.querySelector('.tt-tab.active');
-    if (activeTab && window.innerWidth < 900) {
-        requestAnimationFrame(() => {
-            const left = activeTab.offsetLeft - Math.max(16, (tabs.clientWidth - activeTab.offsetWidth) / 2);
-            tabs.scrollLeft = Math.max(0, left);
-            updateTabsNavState();
-        });
-    } else {
+    tabs.addEventListener('scroll', () => {
         updateTabsNavState();
-    }
+        saveTabsScroll();
+    }, { passive: true });
+    window.addEventListener('resize', updateTabsNavState);
+    tabs.querySelectorAll('.tt-tab').forEach((tab) => {
+        tab.addEventListener('click', saveTabsScroll);
+    });
+
+    requestAnimationFrame(() => {
+        try {
+            const savedScroll = parseInt(sessionStorage.getItem(storageKey) || '0', 10);
+            if (!Number.isNaN(savedScroll) && savedScroll > 0) {
+                const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
+                tabs.scrollLeft = Math.min(savedScroll, maxScroll);
+            }
+        } catch (e) {
+            // Ignore storage failures.
+        }
+        updateTabsNavState();
+    });
 }
 
 async function refreshOrdersList() {
