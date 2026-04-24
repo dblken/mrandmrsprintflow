@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Staff Reviews Page
  * Enhanced with Filtering by Type and improved data mapping.
@@ -58,7 +58,7 @@ $available_services = db_query("
 ") ?: [];
 
 // Pagination
-$items_per_page = 15;
+$items_per_page = 5;
 $current_page = max(1, (int) ($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
@@ -179,7 +179,7 @@ foreach ($reviews_raw as $r) {
 function stars_text($value)
 {
     $v = max(1, min(5, (int) $value));
-    return str_repeat('★', $v) . str_repeat('☆', 5 - $v);
+    return str_repeat('â˜…', $v) . str_repeat('â˜†', 5 - $v);
 }
 
 $csrf_token = generate_csrf_token();
@@ -460,7 +460,7 @@ $page_title = 'Review Management - Staff';
         }
 
         .video-thumb::after {
-            content: '▶';
+            content: 'â–¶';
             color: #fff;
             font-size: 24px;
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
@@ -642,13 +642,68 @@ $page_title = 'Review Management - Staff';
             background: transparent;
         }
 
+        .reviews-data-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .reviews-data-table thead th {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            background: #f9fafb;
+            border-bottom: 2px solid #f3f4f6;
+            text-align: left;
+            padding: 16px 18px;
+        }
+
+        .reviews-data-table tbody td {
+            vertical-align: top;
+            padding: 22px 18px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .reviews-data-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
         .pf-reviews-table-card .review-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) minmax(280px, 1fr);
+            gap: 20px;
             padding: 28px 24px;
             border-bottom: 1px solid #eef2f7;
         }
 
         .pf-reviews-table-card .review-item:last-child {
             border-bottom: 0;
+        }
+
+        .reviews-table-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) minmax(280px, 1fr);
+            gap: 20px;
+            padding: 16px 24px;
+            border-bottom: 2px solid #f3f4f6;
+            background: #f9fafb;
+        }
+
+        .reviews-table-head span {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+        }
+
+        .review-customer-col,
+        .review-content-col,
+        .review-response-col {
+            min-width: 0;
         }
 
         .pf-reviews-table-card .rv-pager {
@@ -690,6 +745,45 @@ $page_title = 'Review Management - Staff';
             align-items: center;
             gap: 8px 10px;
             margin-bottom: 12px;
+        }
+
+        .review-detail-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .reply-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+        }
+
+        .reply-history {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .reply-compose {
+            flex: 0 0 auto;
+            min-width: 0;
+        }
+
+        .reply-compose .reply-form {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: 0;
+        }
+
+        .reply-compose .reply-input-wrap {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .reply-compose .reply-submit {
+            min-height: 42px;
+            width: 100%;
         }
 
         .review-user {
@@ -792,15 +886,10 @@ $page_title = 'Review Management - Staff';
                 display: none;
             }
 
-            .pf-reviews-table-card tbody td {
-                padding: 14px 18px;
-                border-bottom: 0;
-            }
-
-            .pf-reviews-table-card tbody tr {
+            .pf-reviews-table-card .review-item,
+            .reviews-table-head {
                 display: block;
-                border-bottom: 1px solid #eef2f7;
-                padding: 6px 0 12px;
+                padding: 0;
             }
 
             .reply-input-wrap {
@@ -809,6 +898,31 @@ $page_title = 'Review Management - Staff';
 
             .reply-submit {
                 min-height: 44px;
+            }
+
+            .reply-layout {
+                flex-direction: column;
+            }
+
+            .reply-compose {
+                flex: 1 1 auto;
+                min-width: 0;
+                width: 100%;
+            }
+
+            .reviews-table-head {
+                display: none;
+            }
+
+            .pf-reviews-table-card .review-item {
+                display: block;
+                padding: 24px 18px;
+                gap: 0;
+            }
+
+            .review-customer-col,
+            .review-content-col {
+                margin-bottom: 18px;
             }
         }
     </style>
@@ -848,7 +962,7 @@ $page_title = 'Review Management - Staff';
                             $avg = db_query("SELECT AVG(r.rating) as avg {$review_branch_from}", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo number_format($avg[0]['avg'] ?? 0, 1);
                             ?>
-                            <span style="font-size: 18px; color: #f59e0b;">★</span>
+                            <span style="font-size: 18px; color: #f59e0b;">â˜…</span>
                         </span>
                         <span class="kpi-sub">System-wide performance quality</span>
                         </span>
@@ -1002,108 +1116,91 @@ $page_title = 'Review Management - Staff';
 
                     <?php if (empty($reviews)): ?>
                         <div class="rv-empty">
-                            <div style="font-size: 3rem; margin-bottom: 1rem;">💬</div>
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">ðŸ’¬</div>
                             <p>No reviews found matching your criteria.</p>
                         </div>
                     <?php else: ?>
                         <div class="rv-card">
+                            <div class="reviews-table-head">
+                                <span>Customer</span>
+                                <span>Review</span>
+                                <span>Response</span>
+                            </div>
                             <?php foreach ($reviews as $review): ?>
                                 <div class="review-item" id="review-<?php echo $review['id']; ?>">
-                                    <div class="review-header">
-                                        <div>
-                                            <div class="review-user">
-                                                <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
-                                            </div>
-                                            <div class="review-meta">
-                                                <span
-                                                    class="type-badge <?php echo $review['review_type'] === 'product' ? 'type-product' : 'type-custom'; ?>">
-                                                    <?php echo $review['review_type'] === 'product' ? 'Fixed Product' : 'Custom Service'; ?>
-                                                </span>
-                                                <span style="font-weight: 700; color: #0a2530;">
-                                                    <?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?>
-                                                </span>
-
-                                                <span>&bull;</span>
-                                                <span><?php echo date('M d, Y h:i A', strtotime($review['created_at'])); ?></span>
-                                                <?php if (($review['helpful_count'] ?? 0) > 0): ?>
-                                                    <span>&bull;</span>
-                                                    <span
-                                                        style="color: #059669; font-weight: 700; background: rgba(5, 150, 105, 0.1); padding: 2px 6px; border-radius: 4px; font-size: 11px;">
-                                                        <svg style="width: 12px; height: 12px; margin-right: 2px; vertical-align: middle;"
-                                                            viewBox="0 0 20 20" fill="currentColor">
-                                                            <path
-                                                                d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                                                        </svg>
-                                                        <?php echo $review['helpful_count']; ?> Helpful
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
+                                    <div class="review-customer-col">
+                                        <div class="review-user">
+                                            <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
                                         </div>
-                                        <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
-                                    </div>
-
-                                    <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?>
-                                    </div>
-
-                                    <?php
-                                    $has_imgs = !empty($review['images']);
-                                    $has_vid = !empty($review['video_path']);
-                                    if ($has_imgs || $has_vid): ?>
-                                        <div class="review-media"
-                                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; max-width: 600px;">
-                                            <?php if ($has_vid):
-                                                $vpath = $review['video_path'];
-                                                if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/'))
-                                                    $vpath = BASE_PATH . '/' . ltrim($vpath, '/');
-                                                ?>
-                                                <div class="media-thumb video-thumb" style="width: 100%; aspect-ratio: 1;"
-                                                    onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')"></div>
+                                        <div class="review-meta">
+                                            <span class="type-badge <?php echo $review['review_type'] === 'product' ? 'type-product' : 'type-custom'; ?>">
+                                                <?php echo $review['review_type'] === 'product' ? 'Fixed Product' : 'Custom Service'; ?>
+                                            </span>
+                                            <span><?php echo date('M d, Y h:i A', strtotime($review['created_at'])); ?></span>
+                                            <?php if (($review['helpful_count'] ?? 0) > 0): ?>
+                                                <span style="color:#059669; font-weight:700;"><?php echo $review['helpful_count']; ?> Helpful</span>
                                             <?php endif; ?>
-
-                                            <?php foreach ($review['images'] as $img):
-                                                $ipath = $img['image_path'];
-                                                if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/'))
-                                                    $ipath = BASE_PATH . '/' . ltrim($ipath, '/');
-                                                ?>
-                                                <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb"
-                                                    style="width: 100%; aspect-ratio: 1;"
-                                                    onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
-                                            <?php endforeach; ?>
                                         </div>
-                                    <?php endif; ?>
+                                    </div>
+                                    <div class="review-content-col">
+                                        <div class="review-summary">
+                                            <div class="review-item-title"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
+                                            <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
+                                        </div>
+                                        <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
 
-                                    <div class="replies-area">
-                                        <div class="replies-container" id="replies-<?php echo $review['id']; ?>" <?php echo empty($review['replies']) ? 'style="display:none"' : ''; ?>>
-                                            <?php foreach ($review['replies'] as $reply): ?>
-                                                <div class="reply-item">
-                                                    <div class="reply-header">
-                                                        <span>Staff Response &bull;
-                                                            <?php echo htmlspecialchars($reply['first_name'] . ' ' . $reply['last_name']); ?></span>
-                                                        <span><?php echo date('M d, Y', strtotime($reply['created_at'])); ?></span>
-                                                    </div>
-                                                    <div class="reply-msg">
-                                                        <?php echo nl2br(htmlspecialchars($reply['reply_message'])); ?>
+                                        <?php
+                                        $has_imgs = !empty($review['images']);
+                                        $has_vid = !empty($review['video_path']);
+                                        if ($has_imgs || $has_vid): ?>
+                                            <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
+                                                <?php if ($has_vid):
+                                                    $vpath = $review['video_path'];
+                                                    if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/'))
+                                                        $vpath = BASE_PATH . '/' . ltrim($vpath, '/');
+                                                    ?>
+                                                    <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')"></div>
+                                                <?php endif; ?>
+
+                                                <?php foreach ($review['images'] as $img):
+                                                    $ipath = $img['image_path'];
+                                                    if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/'))
+                                                        $ipath = BASE_PATH . '/' . ltrim($ipath, '/');
+                                                    ?>
+                                                    <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="review-response-col">
+                                        <div class="reply-layout">
+                                            <div class="reply-history">
+                                                <div class="replies-container" id="replies-<?php echo $review['id']; ?>" <?php echo empty($review['replies']) ? 'style="display:none"' : ''; ?>>
+                                                    <?php foreach ($review['replies'] as $reply): ?>
+                                                        <div class="reply-item">
+                                                            <div class="reply-header">
+                                                                <span>Staff Response &bull; <?php echo htmlspecialchars($reply['first_name'] . ' ' . $reply['last_name']); ?></span>
+                                                                <span><?php echo date('M d, Y', strtotime($reply['created_at'])); ?></span>
+                                                            </div>
+                                                            <div class="reply-msg">
+                                                                <?php echo nl2br(htmlspecialchars($reply['reply_message'])); ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                            <div class="reply-compose">
+                                                <div class="reply-form">
+                                                    <select class="rv-select" style="width: 100%; font-size: 12px;" onchange="applyQuickReply(this, <?php echo $review['id']; ?>)">
+                                                        <option value="">âš¡ Quick Reply Suggestions...</option>
+                                                        <option value="Thank you! We're happy to hear you're satisfied with your order.">Positive Feedback</option>
+                                                        <option value="We apologize for the inconvenience. Please contact us so we can resolve this.">Negative Feedback</option>
+                                                    </select>
+                                                    <div class="reply-input-wrap">
+                                                        <textarea class="reply-textarea" placeholder="Type your response..." id="reply-text-<?php echo $review['id']; ?>"></textarea>
+                                                        <button class="reply-submit" onclick="submitReply(<?php echo $review['id']; ?>, this)">Reply</button>
                                                     </div>
                                                 </div>
-                                            <?php endforeach; ?>
-                                        </div>
-
-                                        <div class="reply-form">
-                                            <select class="rv-select" style="width: 100%; font-size: 12px;"
-                                                onchange="applyQuickReply(this, <?php echo $review['id']; ?>)">
-                                                <option value="">⚡ Quick Reply Suggestions...</option>
-                                                <option
-                                                    value="Thank you! We're happy to hear you're satisfied with your order.">
-                                                    Positive Feedback</option>
-                                                <option
-                                                    value="We apologize for the inconvenience. Please contact us so we can resolve this.">
-                                                    Negative Feedback</option>
-                                            </select>
-                                            <div class="reply-input-wrap">
-                                                <textarea class="reply-textarea" placeholder="Type your response..."
-                                                    id="reply-text-<?php echo $review['id']; ?>"></textarea>
-                                                <button class="reply-submit"
-                                                    onclick="submitReply(<?php echo $review['id']; ?>, this)">Reply</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1221,7 +1318,7 @@ $page_title = 'Review Management - Staff';
                 if (data.success) {
                     btnElement.style.backgroundColor = '#16a34a';
                     btnElement.style.color = '#fff';
-                    btnElement.innerText = "✓ Reply Sent";
+                    btnElement.innerText = "âœ“ Reply Sent";
                     setTimeout(() => { location.reload(); }, 1500);
                 } else {
                     alert(data.error || 'Failed to post reply');
@@ -1238,3 +1335,4 @@ $page_title = 'Review Management - Staff';
 </body>
 
 </html>
+
