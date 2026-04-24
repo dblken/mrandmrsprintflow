@@ -197,7 +197,7 @@ if (isset($_GET['ajax'])) {
                         default      => 'background:#f3f4f6;color:#6b7280;'
                     };
                 ?>
-                    <tr class="customer-row" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
+                    <tr class="customer-row" data-customer-id="<?php echo (int)$customer['customer_id']; ?>" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
                         <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
                         <td style="font-weight:500;color:#1f2937;" class="name-cell">
                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>">
@@ -632,6 +632,7 @@ $page_title = 'Customers Management - Admin';
             /* var: safe when Turbo re-executes this inline script */
             var _activeSortKey = '<?php echo $sort_by; ?>';
             var _hasActiveFilters = <?php echo (!empty($search) || !empty($date_from) || !empty($date_to) || !empty($status_filter)) ? 'true' : 'false'; ?>;
+            var _customerDetailsApiUrl = <?php echo json_encode(pf_admin_url('api_customer_details.php')); ?>;
 
             function customerModal() {
                 return {
@@ -661,7 +662,10 @@ $page_title = 'Customers Management - Admin';
                     },
 
                     getCustomerFromRow(sourceEl, fallbackId = 0) {
-                        const host = sourceEl?.dataset?.customer ? sourceEl : sourceEl?.closest?.('[data-customer]');
+                        let host = sourceEl?.dataset?.customer ? sourceEl : sourceEl?.closest?.('[data-customer]');
+                        if (!host && fallbackId) {
+                            host = document.querySelector('[data-customer-id="' + Number(fallbackId) + '"]');
+                        }
                         if (!host?.dataset?.customer) return null;
                         try {
                             const parsed = JSON.parse(host.dataset.customer);
@@ -722,7 +726,7 @@ $page_title = 'Customers Management - Admin';
                         }
 
                         try {
-                            const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + customerId);
+                            const data = await this.fetchJsonResponse(_customerDetailsApiUrl + '?id=' + customerId);
                             this.loading = false;
                             if (data.success) {
                                 this.customer = data.customer;
@@ -785,7 +789,7 @@ $page_title = 'Customers Management - Admin';
                         }
 
                         try {
-                            const data = await this.fetchJsonResponse('<?php echo $base_path; ?>/admin/api_customer_details.php?id=' + id);
+                            const data = await this.fetchJsonResponse(_customerDetailsApiUrl + '?id=' + id);
                             this.transLoading = false;
                             if (data.success) {
                                 this.customer = data.customer;
@@ -1060,7 +1064,7 @@ $page_title = 'Customers Management - Admin';
                                         default      => 'background:#f3f4f6;color:#6b7280;'
                                     };
                                 ?>
-                                    <tr class="customer-row" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
+                                    <tr class="customer-row" data-customer-id="<?php echo (int)$customer['customer_id']; ?>" data-customer="<?php echo $customer_payload_attr; ?>" onclick="openModal(<?php echo $customer['customer_id']; ?>, this)">
                                         <td style="color:#1f2937;"><?php echo $customer['customer_id']; ?></td>
                                         <td style="font-weight:500;color:#1f2937;" class="name-cell">
                                             <div style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>">
