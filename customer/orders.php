@@ -266,6 +266,11 @@ require_once __DIR__ . '/../includes/header.php';
 .orders-theme-page .tt-tabs-scroll {
     position: relative;
     min-width: 0;
+    opacity: 0;
+    transition: opacity 0.14s ease;
+}
+.orders-theme-page .tt-tabs-scroll.tabs-ready {
+    opacity: 1;
 }
 
 .orders-theme-page .tt-tabs-scroll::before,
@@ -1496,6 +1501,7 @@ function initOrdersTabsScroller() {
     }
 
     updateTabsNavState();
+    wrap.classList.add('tabs-ready');
 }
 
 async function refreshOrdersList() {
@@ -1517,6 +1523,10 @@ async function refreshOrdersList() {
         if (nextDashboard && currentDashboard) {
             currentDashboard.innerHTML = nextDashboard.innerHTML;
             const nextTabs = document.getElementById('ttTabsScrollContainer');
+            const nextWrap = document.getElementById('ttTabsScrollWrap');
+            if (nextWrap) {
+                nextWrap.classList.remove('tabs-ready');
+            }
             if (nextTabs) {
                 nextTabs.scrollLeft = preservedTabsScroll;
             }
