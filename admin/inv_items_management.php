@@ -20,8 +20,8 @@ $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCur
 $selectedBranchParam = ($selectedBranchId === 'all') ? 'all' : (string)(int)$selectedBranchId;
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $is_admin_cross_branch_view = (($current_user['role'] ?? '') === 'Admin') && $branchId > 0 && !InventoryManager::isMainBranch($branchId);
-$inventory_read_only = $is_manager || $is_admin_cross_branch_view;
-$can_manage_item_master = !$inventory_read_only;
+$inventory_read_only = $is_admin_cross_branch_view;
+$can_manage_item_master = !$is_manager && !$inventory_read_only;
 $page_title = $is_manager ? 'Inventory Items - Manager' : 'Inventory Items - Admin';
 
 function normalize_inventory_uom(?string $uom, ?string $categoryName = null): string {
