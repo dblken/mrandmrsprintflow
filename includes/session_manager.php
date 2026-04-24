@@ -37,6 +37,10 @@ if (!defined('REMEMBER_ME_SESSION_LIFETIME')) {
     define('REMEMBER_ME_SESSION_LIFETIME', 90 * 86400);
 }
 
+if (!defined('PRINTFLOW_REMEMBER_COOKIE')) {
+    define('PRINTFLOW_REMEMBER_COOKIE', 'PRINTFLOWREMEMBER');
+}
+
 class SessionManager
 {
     /** True when this request destroyed a session due to inactivity timeout. */
@@ -57,6 +61,9 @@ class SessionManager
             // Session already active — just refresh activity timer for logged-in users
             if (isset($_SESSION['user_id'])) {
                 $_SESSION['_last_activity'] = time();
+                if (!empty($_SESSION['_remember_me'])) {
+                    self::refreshRememberCookies();
+                }
             }
             return;
         }
@@ -64,9 +71,12 @@ class SessionManager
         session_name(PRINTFLOW_SESSION_NAME);
         self::cleanupLegacyCookies();
 
+        $remembered = self::hasRememberCookie();
+        $cookieLifetime = $remembered ? REMEMBER_ME_SESSION_LIFETIME : 0;
+
         // Secure session cookie parameters (must be set before session_start)
         session_set_cookie_params([
-            'lifetime' => 0,                      // Cookie expires when browser closes
+            'lifetime' => $cookieLifetime,
             'path'     => '/',
             'domain'   => self::cookieDomain(),
             'secure'   => self::isHttps(),         // HTTPS-only in production
@@ -79,11 +89,16 @@ class SessionManager
         ini_set('session.sid_bits_per_character', '6');
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.gc_maxlifetime', (string) REMEMBER_ME_SESSION_LIFETIME);
 
         session_start();
 
         // Validate existing authenticated session integrity
         if (isset($_SESSION['user_id'])) {
+            if ($remembered) {
+                $_SESSION['_remember_me'] = true;
+            }
+
             if (!self::validateFingerprint()) {
                 // Fingerprint mismatch — possible session hijacking; destroy and restart clean
                 error_log(sprintf(
@@ -104,6 +119,9 @@ class SessionManager
 
             // Valid session — update last activity
             $_SESSION['_last_activity'] = time();
+            if (!empty($_SESSION['_remember_me'])) {
+                self::refreshRememberCookies();
+            }
         }
     }
 
@@ -134,6 +152,10 @@ class SessionManager
             $p = session_get_cookie_params();
             self::expireCookie(session_name(), $p['path'] ?: '/', $p['domain'] ?? self::cookieDomain());
             self::expireLegacyCookies();
+            self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', self::cookieDomain());
+            if (self::cookieDomain() !== '') {
+                self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', ltrim(self::cookieDomain(), '.'));
+            }
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -171,15 +193,8 @@ class SessionManager
     {
         $lifetime = $days * 86400; // Convert days to seconds
         $_SESSION['_remember_me'] = true;
-        $params = session_get_cookie_params();
-        setcookie(session_name(), session_id(), [
-            'expires'  => time() + $lifetime,
-            'path'     => $params['path'] ?: '/',
-            'domain'   => $params['domain'] ?? self::cookieDomain(),
-            'secure'   => (bool) ($params['secure'] ?? self::isHttps()),
-            'httponly' => (bool) ($params['httponly'] ?? true),
-            'samesite' => self::cookieSameSite(),
-        ]);
+        self::setPersistentCookie(session_name(), session_id(), $lifetime);
+        self::setPersistentCookie(PRINTFLOW_REMEMBER_COOKIE, '1', $lifetime);
     }
 
     /**
@@ -189,6 +204,15 @@ class SessionManager
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
+        }
+    }
+
+    public static function clearRememberMe(): void
+    {
+        unset($_SESSION['_remember_me']);
+        self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', self::cookieDomain());
+        if (self::cookieDomain() !== '') {
+            self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', ltrim(self::cookieDomain(), '.'));
         }
     }
 
@@ -275,6 +299,29 @@ class SessionManager
         return $host;
     }
 
+    private static function hasRememberCookie(): bool
+    {
+        return !empty($_COOKIE[PRINTFLOW_REMEMBER_COOKIE]);
+    }
+
+    private static function setPersistentCookie(string $name, string $value, int $lifetime): void
+    {
+        setcookie($name, $value, [
+            'expires'  => time() + $lifetime,
+            'path'     => '/',
+            'domain'   => self::cookieDomain(),
+            'secure'   => self::isHttps(),
+            'httponly' => true,
+            'samesite' => self::cookieSameSite(),
+        ]);
+    }
+
+    private static function refreshRememberCookies(): void
+    {
+        self::setPersistentCookie(session_name(), session_id(), REMEMBER_ME_SESSION_LIFETIME);
+        self::setPersistentCookie(PRINTFLOW_REMEMBER_COOKIE, '1', REMEMBER_ME_SESSION_LIFETIME);
+    }
+
     private static function expireCookie(string $name, string $path, string $domain): void
     {
         setcookie($name, '', [
@@ -322,6 +369,10 @@ class SessionManager
                     self::expireCookie($target['name'], $path, (string) $cookieDomain);
                 }
             }
+        }
+
+        foreach ($domains as $cookieDomain) {
+            self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', (string) $cookieDomain);
         }
     }
 

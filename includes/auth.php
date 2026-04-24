@@ -282,7 +282,7 @@ function login_user($email, $password, $remember_me = false) {
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_STAFF_DAYS);
     } else {
-        unset($_SESSION['_remember_me']);
+        SessionManager::clearRememberMe();
     }
     SessionManager::commit();
     return [
@@ -345,7 +345,7 @@ function login_customer($email, $password, $remember_me = false) {
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_CUSTOMER_DAYS);
     } else {
-        unset($_SESSION['_remember_me']);
+        SessionManager::clearRememberMe();
     }
     // Load persisted cart from database
     if (function_exists('load_customer_cart_into_session')) {
