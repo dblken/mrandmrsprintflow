@@ -3,8 +3,8 @@
  * Login and Register modals (blurred backdrop). Include when !$is_logged_in.
  * Requires: $base_url, csrf_field(), and optionally $_GET['auth_modal'], $_GET['error']
  * 
- * Version: 2.0 - Updated 2026-03-05
- * - Removed "Remember me" checkbox from login modal
+ * Version: 2.1 - Updated 2026-04-24
+ * - Restored "Remember me" checkbox in login modal
  * - Added forgot password modal with Email/Mobile tabs
  * - Centered forgot password link in login modal
  */
@@ -399,8 +399,12 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                     </div>
                     <p class="modal-field-error" id="auth-password-error"></p>
                 </div>
-                <div class="auth-field-row" style="text-align: center; margin-bottom: 1.5rem;">
-                    <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none; display: inline-block; width: 100%;">Forgot password?</a>
+                <div class="auth-field-row" style="margin-bottom: 1.5rem;">
+                    <label for="auth-remember-me">
+                        <input type="checkbox" id="auth-remember-me" name="remember_me" value="1">
+                        <span>Remember me</span>
+                    </label>
+                    <a href="#" data-forgot-modal="open" style="font-size:0.875rem; color:#53C5E0; text-decoration:none;">Forgot password?</a>
                 </div>
                 <button type="submit" class="auth-btn-submit">Sign In</button>
             </form>
