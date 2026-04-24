@@ -463,6 +463,13 @@ $page_title = 'Orders - Staff';
             margin-top: 12px;
         }
 
+        .staff-orders-table-card .filter-header {
+            color: #475569 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            line-height: 1.2 !important;
+        }
+
         /* ── Sort Dropdown ─── */
         .sort-dropdown {
             position: absolute;
