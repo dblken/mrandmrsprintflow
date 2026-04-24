@@ -691,7 +691,7 @@ $page_title = 'Customers Management - Admin';
                         };
                         const response = await fetch(url, fetchOptions);
                         const raw = await response.text();
-                        const body = raw.trim();
+                        const body = raw.trim().replace(/^\uFEFF/, '');
 
                         if (!body) {
                             throw new Error('Empty server response');
@@ -701,8 +701,30 @@ $page_title = 'Customers Management - Admin';
                         try {
                             data = JSON.parse(body);
                         } catch (err) {
-                            console.error('Non-JSON response:', body.slice(0, 500));
-                            throw new Error('Response is not JSON');
+                            // Recover when server output includes notices/HTML before valid JSON.
+                            let recovered = null;
+                            const start = body.search(/[\[{]/);
+                            const endObj = body.lastIndexOf('}');
+                            const endArr = body.lastIndexOf(']');
+                            const end = Math.max(endObj, endArr);
+                            if (start !== -1 && end !== -1 && end >= start) {
+                                const candidate = body.slice(start, end + 1).trim();
+                                try {
+                                    recovered = JSON.parse(candidate);
+                                } catch (_ignored) {
+                                    recovered = null;
+                                }
+                            }
+                            if (recovered !== null) {
+                                data = recovered;
+                            } else {
+                                console.error('Non-JSON response:', {
+                                    url,
+                                    status: response.status,
+                                    snippet: body.slice(0, 500)
+                                });
+                                throw new Error('Response is not JSON');
+                            }
                         }
 
                         if (!response.ok && !(data && data.success === false)) {
@@ -735,7 +757,13 @@ $page_title = 'Customers Management - Admin';
                             }
                         } catch (err) {
                             this.loading = false;
-                            this.errorMsg = 'Network error: ' + (err?.message || 'Unable to load customer details');
+                            const fallbackCustomer = this.getCustomerFromRow(null, customerId);
+                            if (fallbackCustomer) {
+                                this.customer = fallbackCustomer;
+                                this.errorMsg = '';
+                            } else {
+                                this.errorMsg = 'Network error: ' + (err?.message || 'Unable to load customer details');
+                            }
                         }
                     },
 
@@ -798,7 +826,14 @@ $page_title = 'Customers Management - Admin';
                             }
                         } catch (e) {
                             this.transLoading = false;
-                            console.error('Error:', e);
+                            const fallbackCustomer = this.getCustomerFromRow(null, id);
+                            if (fallbackCustomer) {
+                                this.customer = fallbackCustomer;
+                                this.customerName = (fallbackCustomer.first_name || '') + ' ' + (fallbackCustomer.last_name || '');
+                                this.loadTransTabData('orders', 1);
+                            } else {
+                                console.error('Error:', e);
+                            }
                         }
                     },
 
