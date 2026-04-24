@@ -4,15 +4,36 @@
     /* ── Config ──────────────────────────────────────────────────────────── */
     var POLL_INTERVAL_MS       = 15000;
     var POLL_INTERVAL_HIDDEN   = 60000;
-    var SW_PATH                = '/printflow/public/sw.js';
-    var SW_SCOPE               = '/printflow/public/';
-    var API_VAPID_PUB          = '/printflow/public/api/push/vapid_public_key.php';
-    var API_SUBSCRIBE          = '/printflow/public/api/push/subscribe.php';
-    var API_POLL               = '/printflow/public/api/push/poll.php';
-    var API_LIST               = '/printflow/public/api/notifications/list.php';
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
+
+    function normalizeBasePath(rawBase) {
+        var base = String(rawBase || '').trim();
+        if (!base || base === '/') return '';
+        if (base.charAt(0) !== '/') base = '/' + base;
+        return base.replace(/\/+$/, '');
+    }
+
+    function getBasePath() {
+        if (window.PFConfig && Object.prototype.hasOwnProperty.call(window.PFConfig, 'basePath')) {
+            return normalizeBasePath(window.PFConfig.basePath);
+        }
+        return normalizeBasePath('/printflow');
+    }
+
+    function buildAppUrl(path) {
+        var cleanPath = String(path || '').replace(/^\/+/, '');
+        var base = getBasePath();
+        return cleanPath ? (base + '/' + cleanPath) : (base || '');
+    }
+
+    var SW_PATH                = buildAppUrl('public/sw.php');
+    var SW_SCOPE               = buildAppUrl('') || '/';
+    var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
+    var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
+    var API_POLL               = buildAppUrl('public/api/push/poll.php');
+    var API_LIST               = buildAppUrl('public/api/notifications/list.php');
 
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
@@ -25,7 +46,10 @@
         markSeen: markSeen,
         updateBadge: updateBadge,
         poll: poll,
-        loadDropdown: loadDropdown
+        loadDropdown: loadDropdown,
+        subscribeToPush: subscribeToPush,
+        unsubscribeFromPush: unsubscribeFromPush,
+        handlePushToggleClick: handlePushToggleClick
     };
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -57,6 +81,177 @@
             outputArray[i] = raw.charCodeAt(i);
         }
         return outputArray;
+    }
+
+    function isPushSupported() {
+        return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+    }
+
+    function ensureServiceWorker() {
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
+
+        return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
+            if (reg) return reg;
+            return navigator.serviceWorker.register(SW_PATH, {
+                scope: SW_SCOPE,
+                updateViaCache: 'none'
+            });
+        });
+    }
+
+    function fetchVapidPublicKey() {
+        return fetch(API_VAPID_PUB, { credentials: 'include' })
+            .then(function(res) { return res.ok ? res.json() : null; })
+            .then(function(data) { return data && data.public_key ? String(data.public_key) : ''; })
+            .catch(function() { return ''; });
+    }
+
+    function sendSubscription(sub, action) {
+        var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
+        payload = payload || {};
+        payload.action = action || 'subscribe';
+
+        return fetch(API_SUBSCRIBE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        }).then(function(res) {
+            if (!res.ok) throw new Error('Subscription request failed with status ' + res.status);
+            return res.json().catch(function() { return {}; });
+        });
+    }
+
+    function updatePushToggle(btn, state) {
+        if (!btn) return;
+        btn.dataset.state = state;
+
+        if (state === 'unsupported') {
+            btn.textContent = 'Notifications unsupported';
+            return;
+        }
+        if (state === 'blocked') {
+            btn.textContent = 'Notifications blocked';
+            return;
+        }
+        if (state === 'enabled') {
+            btn.textContent = 'Disable notifications';
+            return;
+        }
+
+        btn.textContent = 'Enable notifications';
+    }
+
+    function subscribeToPush(isUserAction) {
+        if (!isPushSupported()) return Promise.resolve(null);
+
+        return ensureServiceWorker()
+            .then(function(reg) {
+                return reg.pushManager.getSubscription().then(function(existing) {
+                    if (existing) {
+                        return sendSubscription(existing, 'subscribe').then(function() {
+                            return existing;
+                        });
+                    }
+
+                    return fetchVapidPublicKey().then(function(pubKey) {
+                        if (!pubKey) {
+                            if (isUserAction) alert('Push is not configured yet.');
+                            return null;
+                        }
+
+                        return Notification.requestPermission().then(function(permission) {
+                            if (permission !== 'granted') {
+                                if (isUserAction) alert('Please allow notifications in your browser settings.');
+                                return null;
+                            }
+
+                            return reg.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlB64ToUint8Array(pubKey)
+                            }).then(function(sub) {
+                                return sendSubscription(sub, 'subscribe').then(function() {
+                                    return sub;
+                                });
+                            });
+                        });
+                    });
+                });
+            })
+            .catch(function(err) {
+                if (isUserAction) {
+                    alert('Notification setup failed: ' + (err && err.message ? err.message : 'unknown error'));
+                }
+                return null;
+            });
+    }
+
+    function unsubscribeFromPush() {
+        if (!isPushSupported()) return Promise.resolve(false);
+
+        return ensureServiceWorker()
+            .then(function(reg) {
+                return reg.pushManager.getSubscription().then(function(existing) {
+                    if (!existing) return false;
+                    return existing.unsubscribe().then(function() {
+                        return sendSubscription({ endpoint: existing.endpoint }, 'unsubscribe').catch(function() {
+                            return {};
+                        }).then(function() {
+                            return true;
+                        });
+                    });
+                });
+            })
+            .catch(function() { return false; });
+    }
+
+    function initPushToggle() {
+        var btn = document.getElementById('pf-push-toggle');
+        if (!btn) return;
+
+        if (!isPushSupported()) {
+            updatePushToggle(btn, 'unsupported');
+            return;
+        }
+
+        if (Notification.permission === 'denied') {
+            updatePushToggle(btn, 'blocked');
+            return;
+        }
+
+        ensureServiceWorker()
+            .then(function(reg) { return reg.pushManager.getSubscription(); })
+            .then(function(sub) {
+                updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            })
+            .catch(function() {
+                updatePushToggle(btn, 'disabled');
+            });
+    }
+
+    function handlePushToggleClick(btn) {
+        if (!btn) return;
+        var state = btn.dataset.state || 'disabled';
+
+        if (state === 'unsupported') {
+            alert('This device/browser does not support push notifications.');
+            return;
+        }
+        if (state === 'blocked') {
+            alert('Notifications are blocked in your browser settings.');
+            return;
+        }
+        if (state === 'enabled') {
+            if (!confirm('Disable notifications on this device?')) return;
+            unsubscribeFromPush().then(function() {
+                updatePushToggle(btn, 'disabled');
+            });
+            return;
+        }
+
+        subscribeToPush(true).then(function(sub) {
+            updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+        });
     }
 
     function updateBadge(count) {
@@ -278,11 +473,10 @@
     }
 
     function init() {
+        initPushToggle();
         poll();
         schedulePoll();
     }
-
-    function markSeen(id) {} // Placeholder to avoid errors if called before definition
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
