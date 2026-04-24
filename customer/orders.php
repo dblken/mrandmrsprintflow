@@ -822,7 +822,7 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Image Lightbox Modal -->
         <div id="lightboxModal" class="fixed inset-0 z-[100001] hidden flex items-center justify-center p-4 bg-black/90" onclick="closeLightbox()">
             <img id="lightboxImg" class="max-w-full max-h-full shadow-2xl transition-transform duration-300 transform scale-95 hidden" src="" alt="Full Preview" onclick="event.stopPropagation()">
-            <iframe id="lightboxFrame" class="hidden w-full max-w-5xl h-[85vh] bg-white rounded-lg shadow-2xl" src="" title="Document Preview" onclick="event.stopPropagation()"></iframe>
+            <iframe id="lightboxFrame" class="hidden" src="" title="Document Preview" onclick="event.stopPropagation()" style="width:min(96vw,1100px); height:85vh; background:#ffffff; border:0; border-radius:12px; box-shadow:0 24px 60px rgba(0,0,0,0.35);"></iframe>
             <div class="absolute top-6 right-6 text-white cursor-pointer hover:text-red-400 transition-colors">
                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
             </div>
