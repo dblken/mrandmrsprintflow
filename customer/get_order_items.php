@@ -77,17 +77,29 @@ $items = db_query("
 ", 'i', [$order_id]);
 
 $items_out = [];
+$order_total_amount = (float)($order['total_amount'] ?? 0);
+$item_count = is_array($items) ? count($items) : 0;
 foreach ($items as $item) {
     $custom_data = json_decode($item['customization_data'] ?? '{}', true) ?: [];
     unset($custom_data['design_upload'], $custom_data['reference_upload']);
+
+    $raw_quantity = max(1, (int)($item['quantity'] ?? 0));
+    $raw_unit_price = (float)($item['unit_price'] ?? 0);
+    $raw_subtotal = $raw_quantity * $raw_unit_price;
+
+    // Some single-item custom/service orders store the final amount only on orders.total_amount.
+    if ($raw_subtotal <= 0 && $item_count === 1 && $order_total_amount > 0) {
+        $raw_subtotal = $order_total_amount;
+        $raw_unit_price = $order_total_amount / $raw_quantity;
+    }
 
     $items_out[] = [
         'order_item_id' => (int)$item['order_item_id'],
         'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Order Item', $custom_data, 'Order Item'),
         'category'      => (strtolower($item['category'] ?? '') === 'merchandise') ? '' : ($item['category'] ?? ''),
-        'quantity'      => (int)$item['quantity'],
-        'unit_price'    => format_currency($item['unit_price']),
-        'subtotal'      => format_currency($item['quantity'] * $item['unit_price']),
+        'quantity'      => $raw_quantity,
+        'unit_price'    => format_currency($raw_unit_price),
+        'subtotal'      => format_currency($raw_subtotal),
         'customization' => $custom_data,
         'has_design'    => !empty($item['design_image']) || !empty($item['design_file']),
         'has_reference' => !empty($item['reference_image_file']),

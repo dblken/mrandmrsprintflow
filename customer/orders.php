@@ -1061,9 +1061,11 @@ function openItemsModal(orderId, event) {
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <div class="im-label">Current status</div>
-                                ${data.status === 'Rejected' ? '' : `<div class="im-val" style="font-size: 1rem; color: #0f172a;">${data.status}</div>`}
+                                ${data.status === 'Rejected'
+                                    ? `<div style="margin-top: 0.5rem;">${imBadge(data.status)}</div>`
+                                    : `<div class="im-val" style="font-size: 1rem; color: #0f172a;">${data.status}</div>`}
                             </div>
-                            <div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>
+                            ${data.status === 'Rejected' ? '' : `<div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>`}
                         </div>
                         <div class="im-label" style="margin-top: 16px;">Branch processing</div>
                         <div class="im-val">${escIM(data.branch_name)}</div>
