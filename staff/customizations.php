@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 if (!defined('BASE_URL')) {
     define('BASE_URL', defined('BASE_PATH') ? BASE_PATH : (function_exists('pf_app_base_path') ? pf_app_base_path() : ''));
@@ -100,6 +101,13 @@ $job_rows = db_query(
 ) ?: [];
 
 foreach ($job_rows as $row) {
+    if (!empty($row['order_id'])) {
+        $payload = JobOrderService::getStoreOrderItemsPayload((int)$row['order_id']);
+        if (!empty($payload['service_type'])) {
+            $row['service_type'] = $payload['service_type'];
+            $row['job_title'] = $payload['service_type'];
+        }
+    }
     $row['order_type'] = 'JOB';
     $preloaded_customization_rows[] = $row;
 }
@@ -1103,7 +1111,7 @@ if ($showLatestCustomizationOnly) {
                                 <template x-for="ink in (currentJo.ink_usage || [])" :key="ink.id">
                                     <div style="background:#fdf4ff; border:1px solid #fbcfe8; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:600; color:#9d174d;">
                                         <span x-text="ink.item_name + ' → '"></span>
-                                        <span x-text="ink.quantity_used + ' ml'"></span>
+                                        <span x-text="formatInkQuantity(ink.quantity_used) + ' ml'"></span>
                                     </div>
                                 </template>
                             </div>
@@ -1511,6 +1519,11 @@ window.pfCustomizationPreloadedOrders = (() => {
                     YELLOW: parseFloat(this.inkYellow || 0),
                 };
                 return map[color] || 0;
+            },
+            formatInkQuantity(value) {
+                const parsed = parseFloat(value);
+                if (!Number.isFinite(parsed)) return '0.0';
+                return parsed.toFixed(1);
             },
             isLiterBasedInkItem(item) {
                 if (!item) return false;
@@ -2222,15 +2235,27 @@ window.pfCustomizationPreloadedOrders = (() => {
             },
 
             getCorrectServiceType(jo) {
-                const combined = ((jo.job_title || '') + ' ' + (jo.service_type || '')).toUpperCase();
-                if (combined.includes('T-SHIRT') || combined.includes('TSHIRT') || combined.includes('T SHIRT')) return 'T-SHIRT PRINTING';
-                if (combined.includes('TARPAULIN')) return 'TARPAULIN PRINTING';
-                if (combined.includes('TRANSPARENT STICKER') || combined.includes('TRANSPARENT')) return 'TRANSPARENT STICKER PRINTING';
-                if (combined.includes('STICKER') || combined.includes('DECAL')) return 'DECALS/STICKERS (PRINT/CUT)';
-                if (combined.includes('SINTRA')) return 'SINTRA BOARD';
-                if (combined.includes('SOUVENIR')) return 'SOUVENIRS';
-                if (combined.includes('REFLECTORIZED')) return 'REFLECTORIZED SIGNAGE';
-                return 'OTHER';
+                if (!jo) return '';
+                if (Array.isArray(jo.items)) {
+                    for (const item of jo.items) {
+                        const custom = item?.customization || {};
+                        const explicit = String(custom?.service_type || custom?.product_type || '').trim();
+                        if (explicit) return explicit;
+                    }
+                }
+                const raw = String(jo.service_type || jo.job_title || '').trim();
+                return raw || 'Custom Service';
+            },
+            getServiceFilterValue(jo) {
+                const raw = this.getCorrectServiceType(jo).toUpperCase();
+                if (raw.includes('T-SHIRT') || raw.includes('TSHIRT') || raw.includes('T SHIRT')) return 'T-SHIRT PRINTING';
+                if (raw.includes('TARPAULIN')) return 'TARPAULIN PRINTING';
+                if (raw.includes('TRANSPARENT STICKER') || raw.includes('TRANSPARENT')) return 'TRANSPARENT STICKER PRINTING';
+                if (raw.includes('STICKER') || raw.includes('DECAL')) return 'DECALS/STICKERS (PRINT/CUT)';
+                if (raw.includes('SINTRA')) return 'SINTRA BOARD';
+                if (raw.includes('SOUVENIR')) return 'SOUVENIRS';
+                if (raw.includes('REFLECTORIZED') || raw.includes('SIGNAGE')) return 'REFLECTORIZED SIGNAGE';
+                return raw || 'OTHER';
             },
 
             get filteredOrders() {
@@ -2258,7 +2283,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
                     // Service Filter
                     if (this.serviceFilter !== 'ALL') {
-                        const rowService = this.getCorrectServiceType(jo);
+                        const rowService = this.getServiceFilterValue(jo);
                         if (rowService !== this.serviceFilter) return false;
                     }
 

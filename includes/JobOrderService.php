@@ -285,7 +285,10 @@ class JobOrderService {
             }
             $pname = (string)($item['product_name'] ?? '');
             $pcat = (string)($item['product_category'] ?? '');
-            $service_type = self::inferServiceTypeFromProduct($pcat, $pname);
+            $service_type = get_service_name_from_customization($custom, '');
+            if ($service_type === '') {
+                $service_type = self::inferServiceTypeFromProduct($pcat, $pname);
+            }
 
             $dimensions = $custom['dimensions'] ?? $custom['Size'] ?? '';
             $width_ft = 0.0;

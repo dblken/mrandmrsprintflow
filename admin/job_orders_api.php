@@ -203,6 +203,13 @@ try {
                 // 4. Enrich orders using the pre-fetched data
                 foreach ($orders as &$jo) {
                     $jo['order_type'] = 'JOB';
+                    if (!empty($jo['order_id'])) {
+                        $payload = JobOrderService::getStoreOrderItemsPayload((int)$jo['order_id']);
+                        if (!empty($payload['service_type'])) {
+                            $jo['service_type'] = $payload['service_type'];
+                            $jo['job_title'] = $payload['service_type'];
+                        }
+                    }
                     $jobMats = $materialsByJob[$jo['id']] ?? [];
                     $jobInks = $inksByJob[$jo['id']] ?? [];
                     

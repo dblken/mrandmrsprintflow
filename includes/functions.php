@@ -1920,6 +1920,15 @@ function normalize_service_name($name, $fallback = 'Custom Order') {
 function get_service_name_from_customization($custom, $fallback = 'Custom Order') {
     if (!$custom) return $fallback;
     $custom = is_string($custom) ? json_decode($custom, true) : $custom;
+    if (!is_array($custom)) return $fallback;
+
+    // Source of truth: if the customer explicitly selected a service, prefer it.
+    if (!empty($custom['service_type'])) {
+        return normalize_service_name($custom['service_type'], $fallback);
+    }
+    if (!empty($custom['product_type'])) {
+        return normalize_service_name($custom['product_type'], $fallback);
+    }
     
     // User Requested Priority Logic
     // 1. Sintra Board
@@ -1939,14 +1948,6 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
         return 'Decals/Stickers (Print/Cut)';
     }
 
-    // Secondary explicitly provided fields
-    if (!empty($custom['service_type'])) {
-        return normalize_service_name($custom['service_type'], $fallback);
-    }
-    if (!empty($custom['product_type'])) {
-        return normalize_service_name($custom['product_type'], $fallback);
-    }
-    
     return normalize_service_name($fallback, $fallback);
 }
 
