@@ -135,7 +135,7 @@ $page_title = 'Products & Inventory - Staff';
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .staff-products-table-card {
-            margin-top: 8px;
+            margin-top: 20px;
         }
         .staff-products-readonly-grid {
             display: grid;
@@ -245,7 +245,7 @@ $page_title = 'Products & Inventory - Staff';
                 <div class="kpi-card indigo">
                     <span class="kpi-label">Total Products</span>
                     <span class="kpi-value"><?php echo number_format($total_products); ?></span>
-                    <span class="kpi-sub"><?php echo $fixed_count; ?> fixed, <?php echo $variable_count; ?> variable</span>
+                    <span class="kpi-sub"><?php echo htmlspecialchars($staffBranchName); ?> catalog items</span>
                 </div>
                 <div class="kpi-card rose">
                     <span class="kpi-label">Low Stock</span>
@@ -387,8 +387,9 @@ $page_title = 'Products & Inventory - Staff';
                     </table>
                 </div>
 
-            <!-- Pagination -->
-            <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
+                <!-- Pagination -->
+                <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
+            </div>
 
             <div class="staff-products-readonly-grid">
                 <div class="card staff-products-readonly-card">
