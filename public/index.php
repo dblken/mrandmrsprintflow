@@ -19,6 +19,28 @@ $featured_products = db_query(
 ) ?: [];
 ?>
 
+<script>
+(function () {
+    fetch('<?php echo $base_path; ?>/public/api_session_status.php?_=' + Date.now(), {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(function (response) {
+        return response.ok ? response.json() : null;
+    })
+    .then(function (data) {
+        if (data && data.logged_in && data.redirect) {
+            window.location.replace(data.redirect);
+        }
+    })
+    .catch(function () {});
+})();
+</script>
+
 <section class="lp-hero">
     <?php $nav_header_class = 'lp-hero-nav sticky top-0 z-50'; require __DIR__ . '/../includes/nav-header.php'; ?>
     <div class="lp-wrap">

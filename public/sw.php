@@ -17,7 +17,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;

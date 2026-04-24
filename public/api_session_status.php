@@ -1,0 +1,28 @@
+<?php
+require_once __DIR__ . '/../../includes/auth.php';
+
+header('Content-Type: application/json; charset=utf-8');
+SessionManager::setNoCacheHeaders();
+
+if (!is_logged_in()) {
+    echo json_encode([
+        'logged_in' => false,
+        'redirect' => null,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+$user_type = get_user_type();
+$redirect = match ($user_type) {
+    'Admin' => AUTH_REDIRECT_BASE . '/admin/dashboard.php',
+    'Manager' => AUTH_REDIRECT_BASE . '/manager/dashboard.php',
+    'Staff' => AUTH_REDIRECT_BASE . '/staff/dashboard.php',
+    'Customer' => AUTH_REDIRECT_BASE . '/customer/services.php',
+    default => AUTH_REDIRECT_BASE . '/',
+};
+
+echo json_encode([
+    'logged_in' => true,
+    'user_type' => $user_type,
+    'redirect' => $redirect,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
