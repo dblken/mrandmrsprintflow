@@ -264,6 +264,13 @@ $page_title = 'Products & Inventory - Staff';
             color: #fff;
             border-color: #06A1A1;
         }
+        #productsTableBody tr {
+            cursor: pointer;
+            transition: background-color 0.18s ease;
+        }
+        #productsTableBody tr:hover {
+            background: linear-gradient(90deg, rgba(6, 161, 161, 0.05) 0%, rgba(158, 215, 196, 0.10) 100%);
+        }
         #view-product-modal-overlay {
             position: fixed;
             inset: 0;
@@ -284,6 +291,24 @@ $page_title = 'Products & Inventory - Staff';
             border-radius: 16px;
             background: #fff;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        }
+        .products-view-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #eef2f7;
+        }
+        .products-view-modal-body {
+            padding: 24px;
+        }
+        .products-view-modal-footer {
+            padding-top: 20px;
+            margin-top: 24px;
+            border-top: 1px solid #eef2f7;
+            display: flex;
+            justify-content: flex-end;
         }
         .view-label {
             display: block;
@@ -326,6 +351,10 @@ $page_title = 'Products & Inventory - Staff';
         @media (max-width: 768px) {
             .view-modal-grid {
                 grid-template-columns: 1fr;
+            }
+            .products-view-modal-header,
+            .products-view-modal-body {
+                padding: 18px;
             }
         }
         @media (max-width: 960px) {
@@ -417,7 +446,7 @@ $page_title = 'Products & Inventory - Staff';
                         <div style="position:relative;">
                             <button class="toolbar-btn" :class="{ active: sortOpen || ('<?php echo $sort; ?>' !== 'az') }" @click="sortOpen = !sortOpen; filterOpen = false">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
-                                Sort by
+                                <span style="font-weight:400;">Sort by</span>
                             </button>
                             <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
                                 <?php
@@ -441,7 +470,7 @@ $page_title = 'Products & Inventory - Staff';
                         <div style="position:relative;">
                             <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen; sortOpen = false">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                                Filter
+                                <span style="font-weight:400;">Filter</span>
                                 <template x-if="hasActiveFilters">
                                     <span class="filter-badge"><?php echo (int)!empty($category) + (int)!empty($search); ?></span>
                                 </template>
@@ -520,7 +549,9 @@ $page_title = 'Products & Inventory - Staff';
                                 ?>
                                 <tr data-name="<?php echo htmlspecialchars(strtolower($product['name'])); ?>"
                                     data-sku="<?php echo htmlspecialchars(strtolower($product['sku'])); ?>"
-                                    data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>">
+                                    data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>"
+                                    data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
+                                    onclick="openViewModal(this)">
                                     <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
                                     <td style="font-weight:500;"><?php echo htmlspecialchars($product['name']); ?></td>
                                     <td><?php echo htmlspecialchars($product['category']); ?></td>
@@ -538,8 +569,7 @@ $page_title = 'Products & Inventory - Staff';
                                         <button
                                             type="button"
                                             class="table-action-btn"
-                                            data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
-                                            onclick="openViewModal(this)"
+                                            onclick="event.stopPropagation(); openViewModal(this.closest('tr'))"
                                         >View</button>
                                     </td>
                                 </tr>
@@ -671,13 +701,13 @@ $page_title = 'Products & Inventory - Staff';
 
 <div id="view-product-modal-overlay" onclick="handleViewOverlayClick(event)">
     <div id="view-product-modal">
-        <div class="modal-header">
+        <div class="products-view-modal-header">
             <h3 style="font-size:18px; font-weight:700; margin:0;">Product Details</h3>
             <button type="button" onclick="closeViewModal()" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <div class="modal-body" style="padding:24px;">
+        <div class="products-view-modal-body">
             <div class="view-modal-grid">
                 <div class="view-modal-stack">
                     <div>
@@ -739,7 +769,7 @@ $page_title = 'Products & Inventory - Staff';
                 </div>
             </div>
 
-            <div style="padding:16px 0 0; border-top:1px solid #f3f4f6; margin-top:24px; display:flex; justify-content:flex-end;">
+            <div class="products-view-modal-footer">
                 <button type="button" onclick="closeViewModal()" class="btn-secondary">Close</button>
             </div>
         </div>
@@ -796,12 +826,12 @@ function pfVisibilityStatusStyle(status) {
     return 'background:#fef9c3;color:#854d0e;';
 }
 
-function openViewModal(button) {
-    if (!button) return;
+function openViewModal(trigger) {
+    if (!trigger) return;
 
     let product = null;
     try {
-        product = JSON.parse(button.dataset.product || '{}');
+        product = JSON.parse(trigger.dataset.product || '{}');
     } catch (error) {
         console.error('Failed to parse product view payload.', error);
         return;
