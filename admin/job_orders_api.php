@@ -999,6 +999,7 @@ try {
             $metadata = isset($_POST['metadata']) ? json_decode($_POST['metadata'], true) : null;
             
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
+            if ($qty < 1) throw new Exception("Material quantity must be at least 1.");
             jo_api_require_staff_branch($joStaffBranch, $orderId);
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata, $orderType);
             jo_api_json_response(['success' => true, 'id' => $res]);

@@ -836,7 +836,7 @@ if ($showLatestCustomizationOnly) {
                                             <input type="text" x-model="materialSearch" placeholder="Search materials (e.g. tarpaulin, vinyl...)" 
                                                    style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px; margin-bottom:8px;">
                                             
-                                            <select x-model="newMaterialId" @change="newMaterialId = $event.target.value; newMaterialRollId = ''; availableRollsList = []; if(isRollTracked(newMaterialId)) loadAvailableRolls(newMaterialId);" 
+                                            <select x-model="newMaterialId" @change="handleMaterialSelection($event.target.value)" 
                                                     style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; background:white; cursor:pointer;">
                                                 <option value="">-- Choose Material --</option>
                                                 <template x-for="item in availableMaterialsForCurrentOrder" :key="item.id">
@@ -849,7 +849,7 @@ if ($showLatestCustomizationOnly) {
                                             <div style="padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                                                 <div style="grid-column: span 2;">
                                                     <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Qty / Length</label>
-                                                    <input type="number" x-model.number="newMaterialQty" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                                    <input type="number" x-model.number="newMaterialQty" min="1" step="any" @input="handleMaterialQtyInput($event.target.value)" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
                                                 </div>
                                                 <template x-if="isTarpaulin(newMaterialId)">
                                                     <div style="grid-column: span 2;">
@@ -1103,7 +1103,7 @@ if ($showLatestCustomizationOnly) {
                                 <template x-for="ink in (currentJo.ink_usage || [])" :key="ink.id">
                                     <div style="background:#fdf4ff; border:1px solid #fbcfe8; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:600; color:#9d174d;">
                                         <span x-text="ink.item_name + ' → '"></span>
-                                        <span x-text="ink.quantity_used + ' bottle'"></span>
+                                        <span x-text="ink.quantity_used + ' ml'"></span>
                                     </div>
                                 </template>
                             </div>
@@ -1362,6 +1362,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             ordersPollMs: 10000,
             newMaterialId: '',
             newMaterialQty: 1,
+            materialQtyManuallyEdited: false,
             newMaterialHeight: 0,
             newMaterialRollId: '',
             newMaterialNotes: '',
@@ -1443,6 +1444,34 @@ window.pfCustomizationPreloadedOrders = (() => {
             getInventoryItem(itemId) {
                 return this.allInventoryItems.find(i => String(i.id) === String(itemId)) || null;
             },
+            normalizeMaterialQtyValue(value, fallback = 1) {
+                const parsed = parseFloat(value);
+                if (!Number.isFinite(parsed)) return fallback;
+                return parsed < 1 ? 1 : parsed;
+            },
+            isPcsMaterial(itemId) {
+                const item = this.getInventoryItem(itemId);
+                const uom = String(item?.unit_of_measure || '').trim().toLowerCase();
+                return uom === 'pcs' || uom === 'pc' || uom === 'piece' || uom === 'pieces';
+            },
+            getDefaultMaterialQty(itemId) {
+                if (!this.isPcsMaterial(itemId)) return 1;
+                return this.normalizeMaterialQtyValue(this.currentJo?.quantity || 1, 1);
+            },
+            handleMaterialSelection(selectedId) {
+                this.newMaterialId = selectedId;
+                this.newMaterialRollId = '';
+                this.availableRollsList = [];
+                this.materialQtyManuallyEdited = false;
+                this.newMaterialQty = this.getDefaultMaterialQty(selectedId);
+                if (this.isRollTracked(selectedId)) {
+                    this.loadAvailableRolls(selectedId);
+                }
+            },
+            handleMaterialQtyInput(value) {
+                this.materialQtyManuallyEdited = true;
+                this.newMaterialQty = this.normalizeMaterialQtyValue(value, 1);
+            },
             getMaterialRequiredStock(itemId, qty = 0, height = 0) {
                 const parsedQty = parseFloat(qty || 0);
                 if (parsedQty <= 0) return 0;
@@ -1464,6 +1493,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const available = parseFloat(item.current_stock || 0);
                 const queued = this.getQueuedMaterialRequiredStock(this.newMaterialId);
                 const needed = this.getMaterialRequiredStock(this.newMaterialId, this.newMaterialQty, this.newMaterialHeight);
+                if (parseFloat(this.newMaterialQty || 0) < 1) {
+                    return 'Material quantity must be at least 1.';
+                }
                 if (needed <= 0) return '';
                 const remaining = Math.max(0, available - queued);
                 if (needed > remaining) {
@@ -2745,6 +2777,12 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (!this.newMaterialId) return;
                 const item = this.allInventoryItems.find(i => i.id == this.newMaterialId);
                 if (!item) return;
+                const normalizedQty = this.normalizeMaterialQtyValue(this.newMaterialQty, 1);
+                if (normalizedQty < 1) {
+                    this.showStaffAlert('Invalid Quantity', 'Material quantity must be at least 1.');
+                    return;
+                }
+                this.newMaterialQty = normalizedQty;
                 if (this.selectedMaterialStockError) {
                     this.showStaffAlert('Insufficient Stock', this.selectedMaterialStockError);
                     return;
@@ -2753,11 +2791,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 // Check if already in pending queue
                 const existing = this.pendingMaterials.find(m => m.item_id == this.newMaterialId);
                 if (existing) {
-                    existing.qty += this.newMaterialQty || 1;
+                    existing.qty = this.normalizeMaterialQtyValue((parseFloat(existing.qty) || 0) + normalizedQty, 1);
                     // Reset input
-                    this.newMaterialId = '';
-                    this.newMaterialQty = 1;
-                    this.newMaterialHeight = 0;
+                    this.resetMaterialForm();
                     return;
                 }
 
@@ -2771,22 +2807,20 @@ window.pfCustomizationPreloadedOrders = (() => {
                 this.pendingMaterials.push({
                     item_id: this.newMaterialId,
                     name: item.name,
-                    qty: this.newMaterialQty || 1,
+                    qty: normalizedQty,
                     uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
                     roll_id: this.newMaterialRollId || '',
                     notes: this.newMaterialNotes,
                     metadata: meta
                 });
                 // Reset form
-                this.newMaterialId = '';
-                this.newMaterialQty = 1;
-                this.newMaterialHeight = 0;
-                this.newMaterialRollId = '';
-                this.newMaterialNotes = '';
-                this.newMaterialMetadata = {};
+                this.resetMaterialForm();
             },
             buildCurrentMaterialPayload() {
-                if (!this.newMaterialId || !this.newMaterialQty) return null;
+                if (!this.newMaterialId) return null;
+                const normalizedQty = this.normalizeMaterialQtyValue(this.newMaterialQty, 1);
+                if (normalizedQty < 1) return null;
+                this.newMaterialQty = normalizedQty;
                 const item = this.allInventoryItems.find(i => i.id == this.newMaterialId);
                 if (!item) return null;
 
@@ -2806,7 +2840,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
                 return {
                     item_id: this.newMaterialId,
-                    qty: this.newMaterialQty,
+                    qty: normalizedQty,
                     uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
                     roll_id: this.newMaterialRollId || '',
                     notes: this.newMaterialNotes || '',
@@ -3152,7 +3186,13 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
             },
             async addMaterial() {
-                if(!this.newMaterialId || !this.newMaterialQty) return;
+                if(!this.newMaterialId) return;
+                const normalizedQty = this.normalizeMaterialQtyValue(this.newMaterialQty, 1);
+                if (normalizedQty < 1) {
+                    this.showStaffAlert('Invalid Quantity', 'Material quantity must be at least 1.');
+                    return;
+                }
+                this.newMaterialQty = normalizedQty;
                 const jid = await this.resolveEffectiveJobId();
                 if (!jid) {
                     this.showStaffAlert('Error', 'No linked production job.');
@@ -3163,7 +3203,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 fd.append('action', 'add_material');
                 fd.append('order_id', jid);
                 fd.append('item_id', this.newMaterialId);
-                fd.append('quantity', this.newMaterialQty);
+                fd.append('quantity', normalizedQty);
                 fd.append('uom', this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'));
                 fd.append('roll_id', this.newMaterialRollId);
                 fd.append('notes', this.newMaterialNotes);
@@ -3176,11 +3216,11 @@ window.pfCustomizationPreloadedOrders = (() => {
                 } else if (this.isSticker(this.newMaterialId)) {
                     // STICKER LOGIC
                     let orderedHeight = this.currentJo.height_ft > 0 ? this.currentJo.height_ft : 1;
-                    meta.waste_length_ft = Math.max(0, this.newMaterialQty - orderedHeight);
+                    meta.waste_length_ft = Math.max(0, normalizedQty - orderedHeight);
                     if (this.newMaterialMetadata.lamination) {
                         meta.lamination_item_id = this.newMaterialMetadata.lamination;
                         meta.lamination_roll_id = this.newMaterialMetadata.lamination_roll_id || null;
-                        meta.lamination_length_ft = this.newMaterialQty; // Lamination length matches consumed vinyl length
+                        meta.lamination_length_ft = normalizedQty; // Lamination length matches consumed vinyl length
                     }
                 }
                 fd.append('metadata', JSON.stringify(meta));
@@ -3197,6 +3237,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             resetMaterialForm() {
                 this.newMaterialId = '';
                 this.newMaterialQty = 1;
+                this.materialQtyManuallyEdited = false;
                 this.newMaterialHeight = 0;
                 this.newMaterialRollId = '';
                 this.newMaterialNotes = '';

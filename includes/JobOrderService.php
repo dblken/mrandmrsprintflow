@@ -348,6 +348,10 @@ class JobOrderService {
             $isJob = db_query("SELECT id FROM job_orders WHERE id = ?", 'i', [$orderId]);
             $orderType = (!empty($isJob)) ? 'JOB' : 'ORDER';
         }
+        $qty = (float)$qty;
+        if ($qty < 1) {
+            throw new Exception("Material quantity must be at least 1.");
+        }
         
         $item = InventoryManager::getItem($itemId);
         if (!$item) throw new Exception("Item not found.");
