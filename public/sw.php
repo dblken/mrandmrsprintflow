@@ -32,10 +32,7 @@ const APP_SHELL = [
 ];
 
 // Pages to pre-cache
-const PRE_CACHE_PAGES = [
-    BASE_PATH + '/',
-    BASE_PATH + '/public/index.php',
-];
+const PRE_CACHE_PAGES = [];
 
 function normalizeTargetUrl(target) {
     const fallback = BASE_PATH + '/';
@@ -98,6 +95,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
+    const normalizedPath = url.pathname.replace(/\/+$/, '') || '/';
+    const baseRoot = BASE_PATH ? (BASE_PATH.replace(/\/+$/, '') || '/') : '';
+    const landingPaths = new Set([
+        baseRoot || '/',
+        (baseRoot ? baseRoot + '/public/index.php' : '/public/index.php'),
+        '/public/index.php',
+        '/',
+    ]);
 
     if (request.method !== 'GET') return;
     if (!url.origin.includes(self.location.hostname) &&
@@ -114,6 +119,10 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (request.destination === 'document' || url.pathname.endsWith('.php') || url.pathname.endsWith('/')) {
+        if (landingPaths.has(normalizedPath)) {
+            event.respondWith(networkOnlyDocument(request));
+            return;
+        }
         if (url.pathname.includes('verify_email.php')) {
             event.respondWith(fetch(request));
             return;
@@ -176,6 +185,18 @@ async function networkWithCacheFallback(request, cacheName) {
     } catch {
         const cached = await caches.match(request);
         return cached || new Response('Unavailable offline', { status: 503 });
+    }
+}
+
+async function networkOnlyDocument(request) {
+    try {
+        return await fetch(request, { cache: 'no-store' });
+    } catch {
+        const offline = await caches.match(BASE_PATH + '/public/offline.html');
+        return offline || new Response('<h1>Offline</h1>', {
+            headers: { 'Content-Type': 'text/html' },
+            status: 503
+        });
     }
 }
 

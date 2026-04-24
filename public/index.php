@@ -1,6 +1,7 @@
 <?php
 // Logged-in users always leave the public home (back button / bookmark still hits server → redirect)
 require_once __DIR__ . '/../includes/auth.php';
+SessionManager::setNoCacheHeaders();
 redirect_logged_in_from_landing_page();
 
 $page_title = 'PrintFlow - Your Trusted Printing Shop';
