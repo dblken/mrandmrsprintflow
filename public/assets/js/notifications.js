@@ -882,6 +882,18 @@
         init();
     }
 
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            poll();
+            schedulePoll();
+        }
+    });
+
+    window.addEventListener('focus', function() {
+        poll();
+        schedulePoll();
+    });
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
     document.addEventListener('turbo:load', reinit);
