@@ -230,38 +230,39 @@ require_once __DIR__ . '/../includes/header.php';
     border-bottom: 1px solid rgba(83,197,224,0.15) !important;
     border-radius: 0 !important;
     padding: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
 .orders-theme-page .tt-tabs-nav {
-    width: 36px;
-    height: 36px;
-    flex: 0 0 36px;
-    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    display: none;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(83,197,224,0.18);
-    background: rgba(83,197,224,0.08);
-    color: #cbeaf3;
-    border-radius: 10px !important;
+    border: 1px solid rgba(83,197,224,0.16);
+    background: rgba(0,28,36,0.88);
+    color: #d7e7ee;
+    border-radius: 8px !important;
     cursor: pointer;
     transition: all 0.2s ease;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
 }
+.orders-theme-page .tt-tabs-nav.tt-tabs-nav-left { left: 4px; }
+.orders-theme-page .tt-tabs-nav.tt-tabs-nav-right { right: 4px; }
 .orders-theme-page .tt-tabs-nav:hover {
-    background: rgba(83,197,224,0.16);
+    background: rgba(83,197,224,0.12);
     color: #ffffff;
 }
 .orders-theme-page .tt-tabs-nav[disabled] {
-    opacity: 0.35;
+    opacity: 0.4;
     cursor: default;
     pointer-events: none;
 }
 
 .orders-theme-page .tt-tabs-scroll {
     position: relative;
-    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -296,13 +297,13 @@ require_once __DIR__ . '/../includes/header.php';
     gap: 0.5rem;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 0.2rem 0.5rem;
+    padding: 0.2rem 2.4rem;
     justify-content: flex-start;
+    scroll-behavior: smooth;
 }
 @media (min-width: 900px) {
     .orders-theme-page .tt-tabs { justify-content: space-between; width: 100%; gap: 0.25rem; }
     .orders-theme-page .tt-tab { flex: 1; justify-content: center; }
-    .orders-theme-page .tt-tabs-nav { display: none; }
 }
 .orders-theme-page .tt-tabs::-webkit-scrollbar { display: none; }
 .orders-theme-page .tt-tab {
@@ -782,10 +783,10 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="unified-dashboard">
             <!-- Sticky Navigation Tabs -->
             <div class="tt-tabs-wrapper">
-                <button type="button" class="tt-tabs-nav" id="ttTabsPrevBtn" aria-label="Scroll tabs left">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M15 19l-7-7 7-7"/></svg>
-                </button>
                 <div class="tt-tabs-scroll" id="ttTabsScrollWrap">
+                    <button type="button" class="tt-tabs-nav tt-tabs-nav-left" id="ttTabsPrevBtn" aria-label="Scroll tabs left">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
                     <div class="tt-tabs" id="ttTabsScrollContainer">
                         <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All <span class="tt-tab-count"><?php echo $tab_counts['all']; ?></span></a>
                         <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending <span class="tt-tab-count"><?php echo $tab_counts['pending']; ?></span></a>
@@ -798,10 +799,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
                         <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
                     </div>
+                    <button type="button" class="tt-tabs-nav tt-tabs-nav-right" id="ttTabsNextBtn" aria-label="Scroll tabs right">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 5l7 7-7 7"/></svg>
+                    </button>
                 </div>
-                <button type="button" class="tt-tabs-nav" id="ttTabsNextBtn" aria-label="Scroll tabs right">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 5l7 7-7 7"/></svg>
-                </button>
             </div>
 
             <!-- Dashboard Content Area -->
@@ -1438,14 +1439,16 @@ function initOrdersTabsScroller() {
         const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
         const atStart = tabs.scrollLeft <= 4;
         const atEnd = tabs.scrollLeft >= (maxScroll - 4);
-        const canScroll = maxScroll > 8 && window.innerWidth < 900;
+        const canScroll = maxScroll > 8;
+        const showLeft = canScroll && !atStart;
+        const showRight = canScroll && !atEnd;
 
-        prevBtn.style.display = canScroll ? 'inline-flex' : 'none';
-        nextBtn.style.display = canScroll ? 'inline-flex' : 'none';
-        prevBtn.disabled = !canScroll || atStart;
-        nextBtn.disabled = !canScroll || atEnd;
-        wrap.classList.toggle('has-left-shadow', canScroll && !atStart);
-        wrap.classList.toggle('has-right-shadow', canScroll && !atEnd);
+        prevBtn.style.display = showLeft ? 'inline-flex' : 'none';
+        nextBtn.style.display = showRight ? 'inline-flex' : 'none';
+        prevBtn.disabled = !showLeft;
+        nextBtn.disabled = !showRight;
+        wrap.classList.toggle('has-left-shadow', showLeft);
+        wrap.classList.toggle('has-right-shadow', showRight);
     };
 
     const scrollTabsBy = (direction) => {
