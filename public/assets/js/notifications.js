@@ -2,7 +2,7 @@
     'use strict';
 
     /* ── Config ──────────────────────────────────────────────────────────── */
-    var POLL_INTERVAL_MS       = 15000;
+    var POLL_INTERVAL_MS       = 5000;
     var POLL_INTERVAL_HIDDEN   = 60000;
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
@@ -749,19 +749,26 @@
             .then(function(data) {
                 if (!data.success) return;
                 updateBadge(data.unread_count || 0);
-                if (data.server_time) lastPollTs = data.server_time;
+                var nextPollTs = lastPollTs;
 
                 var seen = seenIds();
                 var notifs = data.notifications || [];
                 for (var i = 0; i < notifs.length; i++) {
                     var n = notifs[i];
+                    if (n && n.ts) {
+                        nextPollTs = Math.max(nextPollTs, parseInt(n.ts, 10) || nextPollTs);
+                    }
                     var sid = String(n.id);
                     if (seen.has(sid)) continue;
                     markSeen(sid);
                     var targetUrl = normalizeNotificationTarget(getNotifUrl(n));
-                    if (window.location.pathname + window.location.search === targetUrl) continue;
                     showToast(n.title || 'PrintFlow', n.message, targetUrl, n.image || '', n.fallback || '');
                 }
+
+                if (data.server_time) {
+                    nextPollTs = Math.max(nextPollTs, (parseInt(data.server_time, 10) || nextPollTs) - 1);
+                }
+                lastPollTs = nextPollTs;
             })
             .catch(function(){});
     }
