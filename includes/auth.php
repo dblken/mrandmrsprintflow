@@ -167,6 +167,13 @@ function printflow_get_forced_logout_reason(): ?string {
         : null;
 }
 
+function printflow_format_countdown_mmss(int $seconds): string {
+    $seconds = max(0, $seconds);
+    $minutes = intdiv($seconds, 60);
+    $remainingSeconds = $seconds % 60;
+    return $minutes . ':' . str_pad((string)$remainingSeconds, 2, '0', STR_PAD_LEFT);
+}
+
 function printflow_get_forced_logout_message(): ?string {
     return isset($GLOBALS['printflow_forced_logout_message'])
         ? (string)$GLOBALS['printflow_forced_logout_message']
@@ -497,9 +504,16 @@ function login_customer_by_google($email, $first_name, $last_name) {
 function login($email, $password, $remember_me = false) {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-    // Rate limit: block IP after 5 failed attempts within 15 minutes (900 seconds)
-    if (RateLimiter::isBlocked('login', $ip, 5, 900)) {
-        return ['success' => false, 'message' => 'Too many login attempts. Your access has been temporarily locked for 15 minutes. Please try again later.'];
+    $activeLockout = RateLimiter::getActiveLockout('login', $ip);
+    if ($activeLockout !== null) {
+        $remainingSeconds = max(1, (int)($activeLockout['remaining_seconds'] ?? 0));
+        return [
+            'success' => false,
+            'message' => 'Too many login attempts. Please try again in ' . printflow_format_countdown_mmss($remainingSeconds) . '.',
+            'lockout_remaining_seconds' => $remainingSeconds,
+            'lockout_level' => (int)($activeLockout['lockout_level'] ?? 0),
+            'code' => 'login_locked'
+        ];
     }
 
     // Try customer login first
@@ -516,8 +530,17 @@ function login($email, $password, $remember_me = false) {
         return $user_result;
     }
 
-    // Record failed attempt for rate limiting
-    RateLimiter::hit('login', $ip);
+    $failureState = RateLimiter::recordFailure('login', $ip, 5, 900);
+    if (!empty($failureState['locked'])) {
+        $remainingSeconds = max(1, (int)($failureState['remaining_seconds'] ?? 0));
+        return [
+            'success' => false,
+            'message' => 'Too many login attempts. Please try again in ' . printflow_format_countdown_mmss($remainingSeconds) . '.',
+            'lockout_remaining_seconds' => $remainingSeconds,
+            'lockout_level' => (int)($failureState['lockout_level'] ?? 0),
+            'code' => 'login_locked'
+        ];
+    }
     return ['success' => false, 'message' => 'Invalid email or password'];
 }
 

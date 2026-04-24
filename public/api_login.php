@@ -47,6 +47,9 @@ if ($result['success']) {
     echo json_encode([
         'success' => false,
         'message' => $result['message'] ?? 'Login failed',
+        'code' => $result['code'] ?? null,
+        'lockout_remaining_seconds' => isset($result['lockout_remaining_seconds']) ? (int)$result['lockout_remaining_seconds'] : null,
+        'lockout_level' => isset($result['lockout_level']) ? (int)$result['lockout_level'] : null,
         'field_errors' => [
             'password' => $result['message'] ?? 'Invalid credentials'
         ]

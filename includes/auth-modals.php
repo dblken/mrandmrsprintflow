@@ -1570,11 +1570,53 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     var loginPwErr    = document.getElementById('auth-password-error');
     var loginForm = document.querySelector('#auth-modal-login form');
     var loginSubmitBtn = loginForm ? loginForm.querySelector('button[type="submit"]') : null;
+    var loginLockoutTimer = null;
+    var loginLockoutRemaining = 0;
 
     function setLoginFieldError(inputEl, errEl, message) {
         if (!inputEl || !errEl) return;
         errEl.textContent = message || '';
         inputEl.style.borderColor = message ? '#f87171' : '';
+    }
+
+    function formatLockoutCountdown(totalSeconds) {
+        totalSeconds = Math.max(0, parseInt(totalSeconds || 0, 10));
+        var minutes = Math.floor(totalSeconds / 60);
+        var seconds = totalSeconds % 60;
+        return String(minutes) + ':' + String(seconds).padStart(2, '0');
+    }
+
+    function lockoutMessage(totalSeconds) {
+        return 'Too many login attempts. Please try again in ' + formatLockoutCountdown(totalSeconds) + '.';
+    }
+
+    function stopLoginLockoutCountdown(clearError) {
+        if (loginLockoutTimer) {
+            clearInterval(loginLockoutTimer);
+            loginLockoutTimer = null;
+        }
+        loginLockoutRemaining = 0;
+        if (loginSubmitBtn) setButtonLoading(loginSubmitBtn, false);
+        if (loginSubmitBtn) loginSubmitBtn.disabled = false;
+        if (clearError) {
+            setLoginFieldError(loginPwEl, loginPwErr, '');
+        }
+    }
+
+    function startLoginLockoutCountdown(totalSeconds) {
+        stopLoginLockoutCountdown(false);
+        loginLockoutRemaining = Math.max(1, parseInt(totalSeconds || 0, 10));
+        if (loginSubmitBtn) loginSubmitBtn.disabled = true;
+        setLoginFieldError(loginPwEl, loginPwErr, lockoutMessage(loginLockoutRemaining));
+
+        loginLockoutTimer = setInterval(function() {
+            loginLockoutRemaining -= 1;
+            if (loginLockoutRemaining <= 0) {
+                stopLoginLockoutCountdown(true);
+                return;
+            }
+            setLoginFieldError(loginPwEl, loginPwErr, lockoutMessage(loginLockoutRemaining));
+        }, 1000);
     }
 
     function validateLoginEmail() {
@@ -1700,13 +1742,23 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             }
             var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
             setLoginFieldError(loginEmailEl, loginEmailErr, fieldErrors.email || '');
-            setLoginFieldError(loginPwEl, loginPwErr, fieldErrors.password || (data && data.message ? data.message : 'Login failed.'));
+            if (data && data.lockout_remaining_seconds) {
+                startLoginLockoutCountdown(data.lockout_remaining_seconds);
+            } else {
+                stopLoginLockoutCountdown(false);
+                setLoginFieldError(loginPwEl, loginPwErr, fieldErrors.password || (data && data.message ? data.message : 'Login failed.'));
+            }
         });
     }
 
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            if (loginLockoutRemaining > 0) {
+                setLoginFieldError(loginPwEl, loginPwErr, lockoutMessage(loginLockoutRemaining));
+                return;
+            }
 
             var emailOk = validateLoginEmail();
             var pwOk = validateLoginPassword();

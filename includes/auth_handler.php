@@ -100,7 +100,14 @@ function handle_login() {
 
     if ($is_ajax) {
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => $error ?: 'Login failed.', 'field_errors' => $field_errors]);
+        echo json_encode([
+            'success' => false,
+            'message' => $error ?: 'Login failed.',
+            'field_errors' => $field_errors,
+            'code' => $result['code'] ?? null,
+            'lockout_remaining_seconds' => isset($result['lockout_remaining_seconds']) ? (int)$result['lockout_remaining_seconds'] : null,
+            'lockout_level' => isset($result['lockout_level']) ? (int)$result['lockout_level'] : null,
+        ]);
         exit;
     }
 
