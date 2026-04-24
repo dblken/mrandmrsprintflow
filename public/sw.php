@@ -26,7 +26,7 @@ const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
 
-// App shell — cached immediately on install so the app opens instantly
+// App shell � cached immediately on install so the app opens instantly
 const APP_SHELL = [
     BASE_PATH + '/public/offline.html',
     BASE_PATH + '/public/assets/css/output.css',
@@ -57,7 +57,7 @@ function normalizeTargetUrl(target) {
     }
 }
 
-// ── Install: cache shell + pages immediately ─────────────────────────────────
+// -- Install: cache shell + pages immediately ---------------------------------
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing...');
     event.waitUntil(
@@ -76,7 +76,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
 
-// ── Activate: delete old caches ───────────────────────────────────────────────
+// -- Activate: delete old caches -----------------------------------------------
 self.addEventListener('activate', (event) => {
     console.log('[SW] Activating...');
     const KEEP = [SHELL_CACHE, PAGE_CACHE, IMG_CACHE];
@@ -95,7 +95,7 @@ self.addEventListener('activate', (event) => {
     return self.clients.claim();
 });
 
-// ── Fetch: routing strategies ─────────────────────────────────────────────────
+// -- Fetch: routing strategies -------------------------------------------------
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
