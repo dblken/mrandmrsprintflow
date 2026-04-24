@@ -230,6 +230,64 @@ require_once __DIR__ . '/../includes/header.php';
     border-bottom: 1px solid rgba(83,197,224,0.15) !important;
     border-radius: 0 !important;
     padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.orders-theme-page .tt-tabs-nav {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(83,197,224,0.18);
+    background: rgba(83,197,224,0.08);
+    color: #cbeaf3;
+    border-radius: 10px !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.orders-theme-page .tt-tabs-nav:hover {
+    background: rgba(83,197,224,0.16);
+    color: #ffffff;
+}
+.orders-theme-page .tt-tabs-nav[disabled] {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
+.orders-theme-page .tt-tabs-scroll {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.orders-theme-page .tt-tabs-scroll::before,
+.orders-theme-page .tt-tabs-scroll::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 22px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 1;
+}
+.orders-theme-page .tt-tabs-scroll::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(0,28,36,0.98) 0%, rgba(0,28,36,0) 100%);
+}
+.orders-theme-page .tt-tabs-scroll::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(0,28,36,0.98) 0%, rgba(0,28,36,0) 100%);
+}
+.orders-theme-page .tt-tabs-scroll.has-left-shadow::before,
+.orders-theme-page .tt-tabs-scroll.has-right-shadow::after {
+    opacity: 1;
 }
 
 .orders-theme-page .tt-tabs {
@@ -244,6 +302,7 @@ require_once __DIR__ . '/../includes/header.php';
 @media (min-width: 900px) {
     .orders-theme-page .tt-tabs { justify-content: space-between; width: 100%; gap: 0.25rem; }
     .orders-theme-page .tt-tab { flex: 1; justify-content: center; }
+    .orders-theme-page .tt-tabs-nav { display: none; }
 }
 .orders-theme-page .tt-tabs::-webkit-scrollbar { display: none; }
 .orders-theme-page .tt-tab {
@@ -723,18 +782,26 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="unified-dashboard">
             <!-- Sticky Navigation Tabs -->
             <div class="tt-tabs-wrapper">
-                <div class="tt-tabs" id="ttTabsScrollContainer">
-                    <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All <span class="tt-tab-count"><?php echo $tab_counts['all']; ?></span></a>
-                    <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending <span class="tt-tab-count"><?php echo $tab_counts['pending']; ?></span></a>
-                    <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved <span class="tt-tab-count"><?php echo $tab_counts['approved']; ?></span></a>
-                    <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To Pay <span class="tt-tab-count"><?php echo $tab_counts['topay']; ?></span></a>
-                    <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify <span class="tt-tab-count"><?php echo $tab_counts['toverify']; ?></span></a>
-                    <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">Production <span class="tt-tab-count"><?php echo $tab_counts['production']; ?></span></a>
-                    <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready <span class="tt-tab-count"><?php echo $tab_counts['pickup']; ?></span></a>
-                    <a href="?tab=rejected" class="tt-tab <?php echo $active_tab === 'rejected' ? 'active' : ''; ?>">Rejected <span class="tt-tab-count"><?php echo $tab_counts['rejected']; ?></span></a>
-                    <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
-                    <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
+                <button type="button" class="tt-tabs-nav" id="ttTabsPrevBtn" aria-label="Scroll tabs left">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <div class="tt-tabs-scroll" id="ttTabsScrollWrap">
+                    <div class="tt-tabs" id="ttTabsScrollContainer">
+                        <a href="?tab=all" class="tt-tab <?php echo $active_tab === 'all' ? 'active' : ''; ?>">All <span class="tt-tab-count"><?php echo $tab_counts['all']; ?></span></a>
+                        <a href="?tab=pending" class="tt-tab <?php echo $active_tab === 'pending' ? 'active' : ''; ?>">Pending <span class="tt-tab-count"><?php echo $tab_counts['pending']; ?></span></a>
+                        <a href="?tab=approved" class="tt-tab <?php echo $active_tab === 'approved' ? 'active' : ''; ?>">Approved <span class="tt-tab-count"><?php echo $tab_counts['approved']; ?></span></a>
+                        <a href="?tab=topay" class="tt-tab <?php echo $active_tab === 'topay' ? 'active' : ''; ?>">To Pay <span class="tt-tab-count"><?php echo $tab_counts['topay']; ?></span></a>
+                        <a href="?tab=toverify" class="tt-tab <?php echo $active_tab === 'toverify' ? 'active' : ''; ?>">To Verify <span class="tt-tab-count"><?php echo $tab_counts['toverify']; ?></span></a>
+                        <a href="?tab=production" class="tt-tab <?php echo $active_tab === 'production' ? 'active' : ''; ?>">Production <span class="tt-tab-count"><?php echo $tab_counts['production']; ?></span></a>
+                        <a href="?tab=pickup" class="tt-tab <?php echo $active_tab === 'pickup' ? 'active' : ''; ?>">Ready <span class="tt-tab-count"><?php echo $tab_counts['pickup']; ?></span></a>
+                        <a href="?tab=rejected" class="tt-tab <?php echo $active_tab === 'rejected' ? 'active' : ''; ?>">Rejected <span class="tt-tab-count"><?php echo $tab_counts['rejected']; ?></span></a>
+                        <a href="?tab=completed" class="tt-tab <?php echo $active_tab === 'completed' ? 'active' : ''; ?>">Completed <span class="tt-tab-count"><?php echo $tab_counts['completed']; ?></span></a>
+                        <a href="?tab=cancelled" class="tt-tab <?php echo $active_tab === 'cancelled' ? 'active' : ''; ?>">Cancelled <span class="tt-tab-count"><?php echo $tab_counts['cancelled']; ?></span></a>
+                    </div>
                 </div>
+                <button type="button" class="tt-tabs-nav" id="ttTabsNextBtn" aria-label="Scroll tabs right">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 5l7 7-7 7"/></svg>
+                </button>
             </div>
 
             <!-- Dashboard Content Area -->
@@ -1360,6 +1427,49 @@ function renderOrderSuccessBanner(message) {
     `;
 }
 
+function initOrdersTabsScroller() {
+    const tabs = document.getElementById('ttTabsScrollContainer');
+    const wrap = document.getElementById('ttTabsScrollWrap');
+    const prevBtn = document.getElementById('ttTabsPrevBtn');
+    const nextBtn = document.getElementById('ttTabsNextBtn');
+    if (!tabs || !wrap || !prevBtn || !nextBtn) return;
+
+    const updateTabsNavState = () => {
+        const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
+        const atStart = tabs.scrollLeft <= 4;
+        const atEnd = tabs.scrollLeft >= (maxScroll - 4);
+        const canScroll = maxScroll > 8 && window.innerWidth < 900;
+
+        prevBtn.style.display = canScroll ? 'inline-flex' : 'none';
+        nextBtn.style.display = canScroll ? 'inline-flex' : 'none';
+        prevBtn.disabled = !canScroll || atStart;
+        nextBtn.disabled = !canScroll || atEnd;
+        wrap.classList.toggle('has-left-shadow', canScroll && !atStart);
+        wrap.classList.toggle('has-right-shadow', canScroll && !atEnd);
+    };
+
+    const scrollTabsBy = (direction) => {
+        const amount = Math.max(180, Math.round(tabs.clientWidth * 0.55)) * direction;
+        tabs.scrollBy({ left: amount, behavior: 'smooth' });
+    };
+
+    prevBtn.addEventListener('click', () => scrollTabsBy(-1));
+    nextBtn.addEventListener('click', () => scrollTabsBy(1));
+    tabs.addEventListener('scroll', updateTabsNavState, { passive: true });
+    window.addEventListener('resize', updateTabsNavState);
+
+    const activeTab = tabs.querySelector('.tt-tab.active');
+    if (activeTab && window.innerWidth < 900) {
+        requestAnimationFrame(() => {
+            const left = activeTab.offsetLeft - Math.max(16, (tabs.clientWidth - activeTab.offsetWidth) / 2);
+            tabs.scrollLeft = Math.max(0, left);
+            updateTabsNavState();
+        });
+    } else {
+        updateTabsNavState();
+    }
+}
+
 async function refreshOrdersList() {
     try {
         const resp = await fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } });
@@ -1370,6 +1480,7 @@ async function refreshOrdersList() {
         const currentDashboard = document.querySelector('.unified-dashboard');
         if (nextDashboard && currentDashboard) {
             currentDashboard.innerHTML = nextDashboard.innerHTML;
+            initOrdersTabsScroller();
         }
     } catch (e) {
         // Ignore refresh failures to avoid blocking UI.
@@ -1505,6 +1616,7 @@ async function refreshOrdersList() {
     window.__ordersPollingInterval = setInterval(poll, 2000);
 })();
 
+initOrdersTabsScroller();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeItemsModal(); });
 </script>
 
