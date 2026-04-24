@@ -351,6 +351,16 @@ require_once __DIR__ . '/../includes/header.php';
 @media (max-width: 640px) {
     .orders-theme-page .timestamp-text { font-size: 0.75rem; margin-top: 0.5rem; }
 }
+.orders-theme-page .rejected-reason-text {
+    margin-top: 0.55rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: #991b1b;
+    font-weight: 700;
+}
+@media (max-width: 640px) {
+    .orders-theme-page .rejected-reason-text { font-size: 0.8rem; }
+}
 
 .orders-theme-page .pricing-column { text-align: right; min-width: 280px; display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem; }
 @media (max-width: 640px) {
@@ -498,7 +508,11 @@ require_once __DIR__ . '/../includes/header.php';
     cursor: pointer; transition: all 0.2s; font-size: 1.2rem;
 }
 .im-close:hover { background: #fee2e2; color: #b91c1c; }
-.im-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+.im-body { padding: 1.5rem; overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: #0e7490 #e2e8f0; }
+.im-body::-webkit-scrollbar { width: 10px; }
+.im-body::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 999px; }
+.im-body::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #0e7490, #0a2530); border-radius: 999px; border: 2px solid #e2e8f0; }
+.im-body::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #0f766e, #0a2530); }
 .im-dashboard { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
 .im-main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .im-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -511,6 +525,80 @@ require_once __DIR__ . '/../includes/header.php';
 .im-val { font-size: 0.95rem; font-weight: 800; color: #0f172a; }
 .im-chip { display: inline-flex; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 4px !important; font-size: 0.65rem; }
 .im-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 6px !important; border: 1px solid #e2e8f0; background: #f8fafc; }
+.im-reject-card {
+    padding: 1rem 1.1rem;
+    background: linear-gradient(180deg, #fff7ed 0%, #fff1f2 100%);
+    border: 1px solid #fecaca;
+    border-radius: 14px;
+}
+.im-reject-title {
+    font-size: 0.78rem;
+    font-weight: 900;
+    color: #9a3412;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.45rem;
+}
+.im-reject-copy {
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #7f1d1d;
+    font-weight: 600;
+}
+.im-upload-picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 46px;
+    padding: 0.85rem 1rem;
+    border: 1px dashed #0e7490;
+    border-radius: 12px;
+    background: rgba(14, 116, 144, 0.05);
+    color: #0e7490;
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.im-upload-picker:hover {
+    background: rgba(14, 116, 144, 0.1);
+    border-color: #0a2530;
+    color: #0a2530;
+}
+.im-upload-filename {
+    font-size: 0.78rem;
+    color: #475569;
+    font-weight: 700;
+    line-height: 1.45;
+    word-break: break-word;
+}
+.im-primary-action {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.95rem 1rem;
+    border: none;
+    border-radius: 12px;
+    background: #0a2530;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.im-primary-action:hover {
+    background: #0d3038;
+    box-shadow: 0 12px 24px rgba(10, 37, 48, 0.18);
+}
+.im-primary-action:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
 
 #cancelModal {
     position: fixed; inset: 0; z-index: 100000;
@@ -627,6 +715,9 @@ require_once __DIR__ . '/../includes/header.php';
                                     <h3 class="order-title"><?php echo htmlspecialchars($d_name); ?></h3>
                                     <div class="qty-tag"><?php echo max(1, (int)($order['total_quantity'] ?? 0)); ?> Items</div>
                                     <p class="timestamp-text"><?php echo htmlspecialchars($timestamp_meta['text']); ?></p>
+                                    <?php if (strcasecmp((string)($order['status'] ?? ''), 'Rejected') === 0 && !empty($order['revision_reason'])): ?>
+                                        <p class="rejected-reason-text">Rejected reason: <?php echo htmlspecialchars($order['revision_reason']); ?></p>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="pricing-column">
                                     <div class="mb-1">
@@ -985,11 +1076,15 @@ function openItemsModal(orderId, event) {
                     <!-- Actions Area -->
                     <div class="mt-auto pt-4 space-y-3">
                         ${(data.design_status === 'Revision Requested' || data.status === 'Rejected') ? `
-                            <div class="p-3 bg-amber-500/10 border border-amber-500/20">
-                                <div class="im-label text-amber-400 mb-1">${data.status === 'Rejected' ? 'Order rejected' : 'Revision requested'}</div>
-                                <p class="text-[11px] text-amber-200/80 font-medium mb-3">${escIM(data.revision_reason || (data.status === 'Rejected' ? 'This order was rejected. Please upload your updated design to resubmit it for review.' : ''))}</p>
-                                <button onclick="triggerDesignReupload(${data.order_id})" class="w-full py-2.5 bg-amber-500 text-white text-xs font-black hover:bg-amber-600 transition-all">${data.status === 'Rejected' ? 'Resubmit Order' : 'Re-upload corrected design'}</button>
-                                <input type="file" id="designReuploadInput-${data.order_id}" style="display:none;" onchange="handleDesignReupload(this, ${data.order_id}, '${data.csrf_token}')" accept="image/*,application/pdf">
+                            <div class="im-reject-card">
+                                <div class="im-reject-title">${data.status === 'Rejected' ? 'Order rejected' : 'Revision requested'}</div>
+                                <p class="im-reject-copy">${escIM(data.revision_reason || (data.status === 'Rejected' ? 'This order was rejected. Please upload your updated design to resubmit it for review.' : 'Please upload the corrected design, then submit it again for shop review.'))}</p>
+                                <div style="display:flex; flex-direction:column; gap:0.85rem; margin-top:1rem;">
+                                    <label for="designReuploadInput-${data.order_id}" class="im-upload-picker">Choose updated design</label>
+                                    <input type="file" id="designReuploadInput-${data.order_id}" style="display:none;" onchange="handleDesignFilePick(this, ${data.order_id})" accept="image/*,application/pdf">
+                                    <div class="im-upload-filename" id="designReuploadFileName-${data.order_id}">No file selected</div>
+                                    <button type="button" id="designReuploadSubmit-${data.order_id}" onclick="submitDesignReupload(${data.order_id}, '${data.csrf_token}')" class="im-primary-action" disabled>${data.status === 'Rejected' ? 'Resubmit Order' : 'Submit Updated Design'}</button>
+                                </div>
                             </div>
                         ` : ''}
 
@@ -1073,10 +1168,33 @@ function submitOrderCancellation() {
 }
 
 function triggerDesignReupload(orderId) { document.getElementById('designReuploadInput-' + orderId).click(); }
-function handleDesignReupload(input, orderId, csrfToken) {
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
+const pendingDesignReuploads = {};
+function handleDesignFilePick(input, orderId) {
+    const file = input && input.files && input.files[0] ? input.files[0] : null;
+    const nameEl = document.getElementById('designReuploadFileName-' + orderId);
+    const submitBtn = document.getElementById('designReuploadSubmit-' + orderId);
+    if (!file) {
+        delete pendingDesignReuploads[orderId];
+        if (nameEl) nameEl.textContent = 'No file selected';
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+    pendingDesignReuploads[orderId] = file;
+    if (nameEl) nameEl.textContent = `Selected file: ${file.name}`;
+    if (submitBtn) submitBtn.disabled = false;
+}
+function submitDesignReupload(orderId, csrfToken) {
+    const file = pendingDesignReuploads[orderId];
+    if (!file) {
+        showToast('Please choose a file first.');
+        return;
+    }
     if (!confirm(`Upload "${file.name}"?`)) return;
+    const submitBtn = document.getElementById('designReuploadSubmit-' + orderId);
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+    }
 
     const fd = new FormData();
     fd.append('order_id', orderId); fd.append('csrf_token', csrfToken); fd.append('design_file', file);
@@ -1085,7 +1203,13 @@ function handleDesignReupload(input, orderId, csrfToken) {
     .then(r => r.json())
     .then(res => {
         if (res.success) window.location.reload();
-        else showToast(res.error || 'Upload failed');
+        else {
+            showToast(res.error || 'Upload failed');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Resubmit Order';
+            }
+        }
     });
 }
 
