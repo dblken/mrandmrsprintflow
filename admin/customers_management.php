@@ -1318,7 +1318,7 @@ $page_title = 'Customers Management - Admin';
                         <p x-show="customer?.id_reject_reason" style="font-size:12px;color:#dc2626;margin:0 0 12px;">Rejection reason: <span x-text="customer?.id_reject_reason"></span></p>
 
                         <?php if ($can_manage_customer_verification): ?>
-                        <div x-show="customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="margin-top:8px;">
+                        <div x-show="customer?.id_image && customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="margin-top:8px;">
                             <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#ffffff;">
                                 <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#111827;cursor:pointer;">
                                     <input type="radio" name="id_action_choice" value="approve" x-model="idActionSelection" style="margin:0;">
@@ -1362,6 +1362,7 @@ $page_title = 'Customers Management - Admin';
                                 </button>
                             </div>
                         </div>
+                        <p x-show="!customer?.id_image && customer?.id_status !== 'Verified' && customer?.id_status !== 'Rejected'" style="font-size:12px;color:#6b7280;margin:8px 0 0;">Verification actions are unavailable until the customer uploads an ID image.</p>
                         <p x-show="customer?.id_status === 'Verified'" style="font-size:12px;color:#16a34a;font-weight:600;margin:8px 0 0;">&#10003; ID Verified</p>
                         <?php else: ?>
                         <p style="font-size:12px;color:#6b7280;margin:0;">Only admins can verify or reject customer IDs.</p>
