@@ -57,7 +57,7 @@ class SessionManager
         session_set_cookie_params([
             'lifetime' => 0,                      // Cookie expires when browser closes
             'path'     => '/',
-            'domain'   => '',
+            'domain'   => self::cookieDomain(),
             'secure'   => self::isHttps(),         // HTTPS-only in production
             'httponly' => true,                    // Inaccessible to JavaScript
             'samesite' => 'Lax',                   // Allow cookies on top-level nav (e.g. after login redirect)
@@ -66,6 +66,7 @@ class SessionManager
         // Prefer longer, harder-to-guess session IDs
         ini_set('session.sid_length', '48');
         ini_set('session.sid_bits_per_character', '6');
+        ini_set('session.use_strict_mode', '1');
 
         session_start();
 
@@ -118,15 +119,14 @@ class SessionManager
         // Expire the session cookie immediately
         if (ini_get('session.use_cookies')) {
             $p = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $p['path'],
-                $p['domain'],
-                $p['secure'],
-                $p['httponly']
-            );
+            setcookie(session_name(), '', [
+                'expires'  => time() - 42000,
+                'path'     => $p['path'] ?: '/',
+                'domain'   => $p['domain'] ?? self::cookieDomain(),
+                'secure'   => (bool) ($p['secure'] ?? self::isHttps()),
+                'httponly' => (bool) ($p['httponly'] ?? true),
+                'samesite' => self::cookieSameSite(),
+            ]);
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -164,15 +164,14 @@ class SessionManager
     {
         $lifetime = $days * 86400; // Convert days to seconds
         $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            session_id(),
-            time() + $lifetime,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
-        );
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + $lifetime,
+            'path'     => $params['path'] ?: '/',
+            'domain'   => $params['domain'] ?? self::cookieDomain(),
+            'secure'   => (bool) ($params['secure'] ?? self::isHttps()),
+            'httponly' => (bool) ($params['httponly'] ?? true),
+            'samesite' => self::cookieSameSite(),
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -202,9 +201,10 @@ class SessionManager
 
     private static function buildFingerprint(): string
     {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ip = self::normalizedClientIp();
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        return hash_hmac('sha256', $ip . '|' . $ua, SESSION_HMAC_SECRET);
+        $accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        return hash_hmac('sha256', $ip . '|' . $ua . '|' . $accept, SESSION_HMAC_SECRET);
     }
 
     private static function isTimedOut(): bool
@@ -225,5 +225,68 @@ class SessionManager
     {
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
             || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+    }
+
+    private static function cookieSameSite(): string
+    {
+        return 'Lax';
+    }
+
+    private static function cookieDomain(): string
+    {
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $host = preg_replace('/:\d+$/', '', $host);
+
+        if ($host === '' || $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP)) {
+            return '';
+        }
+
+        if (substr_count($host, '.') < 1) {
+            return '';
+        }
+
+        if (str_ends_with($host, '.mrandmrsprintflow.com')) {
+            return '.mrandmrsprintflow.com';
+        }
+
+        if ($host === 'mrandmrsprintflow.com') {
+            return '.mrandmrsprintflow.com';
+        }
+
+        return $host;
+    }
+
+    private static function normalizedClientIp(): string
+    {
+        $candidates = [
+            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
+            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
+            $_SERVER['HTTP_X_REAL_IP'] ?? '',
+            $_SERVER['REMOTE_ADDR'] ?? '',
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            $parts = array_map('trim', explode(',', $candidate));
+            foreach ($parts as $part) {
+                if (filter_var($part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    $octets = explode('.', $part);
+                    return sprintf('%s.%s.%s.0', $octets[0], $octets[1], $octets[2]);
+                }
+
+                if (filter_var($part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    $packed = @inet_pton($part);
+                    if ($packed !== false) {
+                        return inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8));
+                    }
+                    return $part;
+                }
+            }
+        }
+
+        return 'unknown';
     }
 }
