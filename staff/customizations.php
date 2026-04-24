@@ -348,6 +348,12 @@ if ($showLatestCustomizationOnly) {
             width: 16px;
             height: 16px;
         }
+        .toolbar-btn-label {
+            font-weight: 500;
+        }
+        .toolbar-btn-label-light {
+            font-weight: 400;
+        }
 
         .sort-dropdown {
             min-width: 220px;
@@ -489,6 +495,8 @@ if ($showLatestCustomizationOnly) {
             line-height: 1;
             letter-spacing: 0.01em;
             text-align: center;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
         .source-badge-pill.online {
             background: #dbeafe;
@@ -519,6 +527,13 @@ if ($showLatestCustomizationOnly) {
             white-space: nowrap;
             flex-shrink: 0;
         }
+        .pill-tab > :first-child {
+            display: inline-block;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .pill-tab:hover { background: #f3f4f6; color: #111827; }
         .pill-tab.active { background: #eef2ff; color: #4f46e5; border: 1px solid #4f46e5; }
         .tab-count { 
@@ -536,6 +551,13 @@ if ($showLatestCustomizationOnly) {
         /* Unified Table Typography */
         .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
         .table-text-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .truncate-ellipsis {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         
         thead th { 
             font-size: 11px; 
@@ -646,7 +668,7 @@ if ($showLatestCustomizationOnly) {
                         <div style="position: relative;">
                             <button @click="sortOpen = !sortOpen; filterOpen = false" class="toolbar-btn" :class="sortOrder !== 'newest' ? 'active' : ''">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
-                                <span>Sort by</span>
+                                <span class="toolbar-btn-label">Sort by</span>
                             </button>
                             <div x-show="sortOpen" @click.away="sortOpen = false" x-cloak class="dropdown-panel sort-dropdown" style="right: 0;">
                                 <div class="sort-option" :class="sortOrder === 'newest' ? 'active' : ''" @click="sortOrder = 'newest'; sortOpen = false">
@@ -673,7 +695,7 @@ if ($showLatestCustomizationOnly) {
                         <div style="position: relative;">
                             <button @click="filterOpen = !filterOpen; sortOpen = false" class="toolbar-btn" :class="(serviceFilter !== 'ALL' || dateFilter !== 'ALL') ? 'active' : ''">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-                                <span>Filter</span>
+                                <span class="toolbar-btn-label-light">Filter</span>
                                 <template x-if="serviceFilter !== 'ALL' || dateFilter !== 'ALL'">
                                     <span class="filter-badge" x-text="(serviceFilter !== 'ALL' ? 1 : 0) + (dateFilter !== 'ALL' ? 1 : 0)"></span>
                                 </template>
@@ -787,7 +809,7 @@ if ($showLatestCustomizationOnly) {
                 </div>
 
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
-                    <table class="w-full text-sm text-left border-separate border-spacing-0">
+                    <table class="w-full text-sm text-left border-separate border-spacing-0" style="table-layout:fixed;">
                         <thead class="bg-gray-50/50">
                             <tr>
                                 <th class="pl-6 pr-4 py-4 w-[12%] border-b border-gray-100">Order #</th>
@@ -809,7 +831,7 @@ if ($showLatestCustomizationOnly) {
                                     <td class="px-4 py-4">
                                         <div class="flex items-center gap-3">
                                             <div class="flex flex-col gap-0 min-w-0">
-                                                <div class="table-text-main truncate" x-text="jo.job_title || jo.service_type"></div>
+                                                <div class="table-text-main truncate-ellipsis" :title="jo.job_title || jo.service_type" x-text="jo.job_title || jo.service_type"></div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type === 'SERVICE'">Service purchase</div>
                                             </div>
@@ -839,19 +861,18 @@ if ($showLatestCustomizationOnly) {
                                             <span class="source-badge-pill pos">POS</span>
                                         </template>
                                         <template x-if="!['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span class="source-badge-pill online">Online</span>
+                                            <span class="source-badge-pill online">ONLINE</span>
                                         </template>
                                     </td>
                                     <td class="px-4 py-4">
-                                        <div class="table-text-main" x-text="jo.first_name + ' ' + (jo.last_name || '')"></div>
-                                        <div class="table-text-sub" style="margin-top:4px;max-width:220px;word-break:break-word;" x-show="jo.customer_contact" x-text="jo.customer_contact"></div>
+                                        <div class="table-text-main truncate-ellipsis" :title="(jo.first_name + ' ' + (jo.last_name || '')).trim()" x-text="jo.first_name + ' ' + (jo.last_name || '')"></div>
                                         <div style="margin-top:4px;">
                                             <span style="font-size:10px; font-weight:700; width:100px; padding:2px 0;" class="status-badge-pill" :class="normalizeCustomerType(jo.customer_type, jo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(jo.customer_type, jo.transaction_count)"></span>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-right">
-                                        <div class="table-text-main" x-text="jo.created_at ? new Date(jo.created_at).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'}) : ''"></div>
-                                        <div class="table-text-sub uppercase" x-text="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''"></div>
+                                        <div class="table-text-main truncate-ellipsis" :title="jo.created_at ? new Date(jo.created_at).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'}) : ''" x-text="jo.created_at ? new Date(jo.created_at).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'}) : ''"></div>
+                                        <div class="table-text-sub uppercase truncate-ellipsis" :title="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''" x-text="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''"></div>
                                     </td>
                                     <td class="px-4 py-4 text-center space-x-1">
                                         <button @click.stop="viewDetails(jo.id, jo.order_type || 'JOB')" class="btn-staff-action btn-staff-action-blue">View</button>
