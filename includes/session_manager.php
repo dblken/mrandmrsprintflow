@@ -29,6 +29,10 @@ if (!defined('REMEMBER_ME_CUSTOMER_DAYS')) {
     define('REMEMBER_ME_CUSTOMER_DAYS', 90);
 }
 
+if (!defined('PRINTFLOW_SESSION_NAME')) {
+    define('PRINTFLOW_SESSION_NAME', 'PRINTFLOWSESSID');
+}
+
 class SessionManager
 {
     /** True when this request destroyed a session due to inactivity timeout. */
@@ -53,6 +57,8 @@ class SessionManager
             return;
         }
 
+        session_name(PRINTFLOW_SESSION_NAME);
+
         // Secure session cookie parameters (must be set before session_start)
         session_set_cookie_params([
             'lifetime' => 0,                      // Cookie expires when browser closes
@@ -67,6 +73,7 @@ class SessionManager
         ini_set('session.sid_length', '48');
         ini_set('session.sid_bits_per_character', '6');
         ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
 
         session_start();
 
@@ -119,14 +126,8 @@ class SessionManager
         // Expire the session cookie immediately
         if (ini_get('session.use_cookies')) {
             $p = session_get_cookie_params();
-            setcookie(session_name(), '', [
-                'expires'  => time() - 42000,
-                'path'     => $p['path'] ?: '/',
-                'domain'   => $p['domain'] ?? self::cookieDomain(),
-                'secure'   => (bool) ($p['secure'] ?? self::isHttps()),
-                'httponly' => (bool) ($p['httponly'] ?? true),
-                'samesite' => self::cookieSameSite(),
-            ]);
+            self::expireCookie(session_name(), $p['path'] ?: '/', $p['domain'] ?? self::cookieDomain());
+            self::expireLegacyCookies();
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -174,6 +175,16 @@ class SessionManager
         ]);
     }
 
+    /**
+     * Force PHP to persist the session immediately.
+     */
+    public static function commit(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -202,9 +213,7 @@ class SessionManager
     private static function buildFingerprint(): string
     {
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
-        return hash_hmac('sha256', $host . '|' . $ua . '|' . $accept, SESSION_HMAC_SECRET);
+        return hash_hmac('sha256', $ua, SESSION_HMAC_SECRET);
     }
 
     private static function isTimedOut(): bool
@@ -254,6 +263,29 @@ class SessionManager
         }
 
         return $host;
+    }
+
+    private static function expireCookie(string $name, string $path, string $domain): void
+    {
+        setcookie($name, '', [
+            'expires'  => time() - 42000,
+            'path'     => $path,
+            'domain'   => $domain,
+            'secure'   => self::isHttps(),
+            'httponly' => true,
+            'samesite' => self::cookieSameSite(),
+        ]);
+    }
+
+    private static function expireLegacyCookies(): void
+    {
+        $domain = self::cookieDomain();
+        foreach (['/', '/printflow'] as $path) {
+            self::expireCookie('PHPSESSID', $path, $domain);
+            if ($domain !== '') {
+                self::expireCookie('PHPSESSID', $path, ltrim($domain, '.'));
+            }
+        }
     }
 
 }

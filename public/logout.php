@@ -4,9 +4,7 @@
  */
 require_once __DIR__ . '/../includes/session_manager.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+SessionManager::start();
 
 // Log the logout action before destroying session data
 if (isset($_SESSION['user_id'])) {

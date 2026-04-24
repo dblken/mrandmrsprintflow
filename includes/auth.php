@@ -282,6 +282,7 @@ function login_user($email, $password, $remember_me = false) {
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_STAFF_DAYS);
     }
+    SessionManager::commit();
     return [
         'success' => true,
         'message' => 'Login successful',
@@ -346,6 +347,7 @@ function login_customer($email, $password, $remember_me = false) {
     if (function_exists('load_customer_cart_into_session')) {
         load_customer_cart_into_session($customer['customer_id']);
     }
+    SessionManager::commit();
     return [
         'success' => true,
         'message' => 'Login successful',
@@ -378,6 +380,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
         if (function_exists('load_customer_cart_into_session')) {
             load_customer_cart_into_session($customer['customer_id']);
         }
+        SessionManager::commit();
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
     if (email_in_use_across_accounts($email)) {
@@ -400,6 +403,7 @@ function login_customer_by_google($email, $first_name, $last_name) {
     if (function_exists('load_customer_cart_into_session')) {
         load_customer_cart_into_session($cid);
     }
+    SessionManager::commit();
     return ['success' => true, 'message' => 'Account created', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
 }
 
