@@ -179,7 +179,7 @@ foreach ($reviews_raw as $r) {
 function stars_text($value)
 {
     $v = max(1, min(5, (int) $value));
-    return str_repeat('â˜…', $v) . str_repeat('â˜†', 5 - $v);
+    return str_repeat('&#9733;', $v) . str_repeat('&#9734;', 5 - $v);
 }
 
 $csrf_token = generate_csrf_token();
@@ -460,7 +460,7 @@ $page_title = 'Review Management - Staff';
         }
 
         .video-thumb::after {
-            content: 'â–¶';
+            content: '\25B6';
             color: #fff;
             font-size: 24px;
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
@@ -706,6 +706,15 @@ $page_title = 'Review Management - Staff';
             min-width: 0;
         }
 
+        .truncate-ellipsis {
+            display: block;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .pf-reviews-table-card .rv-pager {
             padding: 20px 24px;
             border-top: 1px solid #eef2f7;
@@ -717,8 +726,9 @@ $page_title = 'Review Management - Staff';
             font-weight: 500;
             color: #111827;
             line-height: 1.4;
-            overflow-wrap: anywhere;
-            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .review-meta-stack {
@@ -735,8 +745,9 @@ $page_title = 'Review Management - Staff';
             font-size: 13px;
             font-weight: 500;
             color: #111827;
-            overflow-wrap: anywhere;
-            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .review-summary {
@@ -962,7 +973,7 @@ $page_title = 'Review Management - Staff';
                             $avg = db_query("SELECT AVG(r.rating) as avg {$review_branch_from}", $review_kpi_types ?: null, $review_kpi_params ?: null);
                             echo number_format($avg[0]['avg'] ?? 0, 1);
                             ?>
-                            <span style="font-size: 18px; color: #f59e0b;">â˜…</span>
+                                <span style="font-size: 18px; color: #f59e0b;">&#9733;</span>
                         </span>
                         <span class="kpi-sub">System-wide performance quality</span>
                         </span>
@@ -1129,7 +1140,7 @@ $page_title = 'Review Management - Staff';
                             <?php foreach ($reviews as $review): ?>
                                 <div class="review-item" id="review-<?php echo $review['id']; ?>">
                                     <div class="review-customer-col">
-                                        <div class="review-user">
+                                        <div class="review-user truncate-ellipsis" title="<?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>">
                                             <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
                                         </div>
                                         <div class="review-meta">
@@ -1144,7 +1155,7 @@ $page_title = 'Review Management - Staff';
                                     </div>
                                     <div class="review-content-col">
                                         <div class="review-summary">
-                                            <div class="review-item-title"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
+                                            <div class="review-item-title truncate-ellipsis" title="<?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?>"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
                                             <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
                                         </div>
                                         <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
@@ -1192,7 +1203,7 @@ $page_title = 'Review Management - Staff';
                                             <div class="reply-compose">
                                                 <div class="reply-form">
                                                     <select class="rv-select" style="width: 100%; font-size: 12px;" onchange="applyQuickReply(this, <?php echo $review['id']; ?>)">
-                                                        <option value="">âš¡ Quick Reply Suggestions...</option>
+                                                        <option value="">Quick Reply Suggestions...</option>
                                                         <option value="Thank you! We're happy to hear you're satisfied with your order.">Positive Feedback</option>
                                                         <option value="We apologize for the inconvenience. Please contact us so we can resolve this.">Negative Feedback</option>
                                                     </select>
@@ -1318,7 +1329,7 @@ $page_title = 'Review Management - Staff';
                 if (data.success) {
                     btnElement.style.backgroundColor = '#16a34a';
                     btnElement.style.color = '#fff';
-                    btnElement.innerText = "âœ“ Reply Sent";
+                    btnElement.innerText = "Reply Sent";
                     setTimeout(() => { location.reload(); }, 1500);
                 } else {
                     alert(data.error || 'Failed to post reply');
