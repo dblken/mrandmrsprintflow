@@ -231,7 +231,7 @@ $all_counts = [
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     ob_start();
     if (empty($orders)) {
-        echo '<tr><td colspan="6" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;"><div style="font-size:24px; margin-bottom:8px;">📁</div>No orders found matching your filters.</td></tr>';
+        echo '<tr><td colspan="7" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;"><div style="font-size:24px; margin-bottom:8px;">📁</div>No orders found matching your filters.</td></tr>';
     } else {
         foreach ($orders as $order) {
             ?>
@@ -240,10 +240,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     <div class="row-indicator"></div>
                     <div class="order-info-cell">
                         <div class="order-id-wrap">
-                            <?php echo htmlspecialchars($order['order_code']); ?>
-                            <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                                <span style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;margin-left:4px;border:1px solid #fde68a;">POS</span>
-                            <?php endif; ?>
+                            <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['order_code']); ?>"><?php echo htmlspecialchars($order['order_code']); ?></span>
                             <?php 
                             $unread = get_unread_chat_count($order['order_id'], 'User');
                             if ($unread > 0): 
@@ -254,34 +251,41 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                             <?php endif; ?>
                         </div>
                         <?php if (!empty($order['item_names'])): ?>
-                            <div class="order-items-sub table-text-sub">
-                                <?php 
-                                    $display_items = $order['item_names'];
-                                    if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
-                                        $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
-                                        $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
-                                        if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
-                                            $display_items .= " (" . $c_json['product_type'] . ")";
-                                        }
+                            <?php 
+                                $display_items = $order['item_names'];
+                                if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
+                                    $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
+                                    $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
+                                    if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
+                                        $display_items .= " (" . $c_json['product_type'] . ")";
                                     }
-                                    echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); 
-                                ?>
+                                }
+                            ?>
+                            <div class="order-items-sub table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars($display_items); ?>">
+                                <?php echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); ?>
                             </div>
                         <?php endif; ?>
                     </div>
                 </td>
                 <td class="px-4 py-4">
-                    <div class="table-text-main" style="color:#334155; font-weight:600;">
+                    <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars($order['customer_name']); ?>">
                         <?php echo htmlspecialchars($order['customer_name']); ?>
                     </div>
                 </td>
+                <td class="px-4 py-4 text-center">
+                    <?php if (($order['order_source'] ?? '') === 'pos'): ?>
+                        <span class="source-badge-pill pos">POS</span>
+                    <?php else: ?>
+                        <span class="source-badge-pill online">ONLINE</span>
+                    <?php endif; ?>
+                </td>
                 <td class="px-4 py-4">
-                    <div class="table-text-sub" style="color:#64748b;">
+                    <div class="table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars(format_date($order['order_date'])); ?>">
                         <?php echo format_date($order['order_date']); ?>
                     </div>
                 </td>
                 <td class="px-4 py-4">
-                    <div class="table-text-main" style="font-weight:700; color:#1e293b;">
+                    <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars(format_currency($order['total_amount'])); ?>">
                         <?php echo format_currency($order['total_amount']); ?>
                     </div>
                 </td>
@@ -299,21 +303,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                             <?php echo status_badge('Revision Submitted', 'order'); ?>
                         </div>
                     <?php endif; ?>
-                    <?php if (isset($order['payment_status'])): ?>
-                        <div style="margin-top:6px;"><?php echo status_badge($order['payment_status'], 'payment'); ?></div>
-                    <?php endif; ?>
                 </td>
                 <td class="px-4 py-4 text-right">
                     <div class="action-cell" style="justify-content:flex-end;">
                         <button
                             onclick="event.stopPropagation(); window.openStaffOrderManage(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['status']); ?>');"
-                            class="btn-staff-action btn-staff-action-emerald"
+                            class="table-action-btn alt"
                         >
                             Manage
                         </button>
                         <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                             onclick="event.stopPropagation();"
-                            class="btn-staff-action btn-staff-action-indigo"
+                            class="table-action-btn"
                         >
                             Message
                         </a>
@@ -642,45 +643,43 @@ $page_title = 'Orders - Staff';
 
         .om-backdrop {
             position: absolute; inset: 0;
-            background: transparent;
-            backdrop-filter: none;
-            transition: opacity 0.25s ease;
+            background: rgba(0,0,0,0.5);
         }
 
         .om-panel {
             position: relative; z-index: 1;
             background: #fff;
-            border-radius: 20px;
-            width: 100%; max-width: 650px;
-            max-height: 90vh;
+            border-radius: 12px;
+            width: 100%; max-width: 640px;
+            max-height: 88vh;
             overflow-y: auto;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.25);
-            transform: translateY(24px) scale(0.97);
-            transition: transform 0.3s cubic-bezier(.34,1.56,.64,1), opacity 0.25s ease;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            transform: translateY(8px);
+            transition: transform 0.22s ease, opacity 0.22s ease;
             opacity: 0;
         }
         #orderModal.open .om-panel {
-            transform: translateY(0) scale(1);
+            transform: translateY(0);
             opacity: 1;
         }
 
         .om-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 24px 28px 20px;
-            border-bottom: 1px solid #f1f5f9;
-            position: sticky; top: 0; background: #fff; border-radius: 20px 20px 0 0; z-index: 2;
+            padding: 18px 24px;
+            border-bottom: 1px solid #f3f4f6;
+            position: sticky; top: 0; background: #fff; border-radius: 12px 12px 0 0; z-index: 2;
         }
-        .om-title { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
-        .om-subtitle { font-size: 0.78rem; color: #94a3b8; margin-top: 2px; }
+        .om-title { font-size: 18px; font-weight: 700; color: #1f2937; }
+        .om-subtitle { font-size: 13px; color: #64748b; margin-top: 4px; }
         .om-close {
-            width: 36px; height: 36px; border-radius: 50%;
-            border: none; background: #f1f5f9; color: #64748b;
-            cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
-            transition: background 0.15s, color 0.15s;
+            width: 40px; height: 40px; border-radius: 10px;
+            border: 1px solid #e5e7eb; background: #fff; color: #64748b;
+            cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
-        .om-close:hover { background: #e2e8f0; color: #0f172a; }
+        .om-close:hover { background: #f9fafb; color: #1f2937; border-color: #d1d5db; }
 
-        .om-body { padding: 24px 28px 28px; }
+        .om-body { padding: 24px; }
         .om-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 700px) { .om-grid { grid-template-columns: 1fr; } }
 
@@ -1342,13 +1341,11 @@ $page_title = 'Orders - Staff';
 
     function openPaymentRejectionModal(orderId) {
         document.getElementById('payRejOrderId').value = orderId;
-        document.getElementById('paymentRejectionModal').style.opacity = '1';
-        document.getElementById('paymentRejectionModal').style.pointerEvents = 'all';
+        document.getElementById('paymentRejectionModal').classList.add('open');
     }
 
     function closePaymentRejectionModal() {
-        document.getElementById('paymentRejectionModal').style.opacity = '0';
-        document.getElementById('paymentRejectionModal').style.pointerEvents = 'none';
+        document.getElementById('paymentRejectionModal').classList.remove('open');
     }
 
     function handlePayRejReasonChange(sel) {
@@ -1519,10 +1516,6 @@ $page_title = 'Orders - Staff';
                 '<div>' +
                     '<div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Status</div>' +
                     '<div>' + statusBadge(d.status) + '</div>' +
-                '</div>' +
-                '<div>' +
-                    '<div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Payment</div>' +
-                    '<div>' + statusBadge(d.payment_status || '-') + '</div>' +
                 '</div>' +
                 '<div>' +
                     '<div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Grand Total</div>' +
@@ -1857,9 +1850,6 @@ $page_title = 'Orders - Staff';
                                                 <?php echo status_badge('Revision Submitted', 'order'); ?>
                                             </div>
                                         <?php endif; ?>
-                                        <?php if (isset($order['payment_status'])): ?>
-                                            <div style="margin-top:6px;"><?php echo status_badge($order['payment_status'], 'payment'); ?></div>
-                                        <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-4 text-right">
                                         <div class="action-cell" style="justify-content:flex-end;">
@@ -1929,16 +1919,18 @@ $page_title = 'Orders - Staff';
         transition: opacity 0.2s ease;
     }
     #revisionModal.open { opacity: 1; pointer-events: all; }
-    .rev-backdrop { position: absolute; inset: 0; background: transparent; backdrop-filter: none; }
+    .rev-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
     .rev-panel {
-        position: relative; z-index: 1; background: #fff; border-radius: 20px;
-        width: 100%; max-width: 450px; padding: 28px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        transform: scale(0.95); transition: transform 0.2s;
+        position: relative; z-index: 1; background: #fff; border-radius: 12px;
+        width: 100%; max-width: 450px; padding: 24px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+        transform: translateY(8px); transition: transform 0.2s ease, opacity 0.2s ease;
     }
-    #revisionModal.open .rev-panel { transform: scale(1); }
-    .rev-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
-    .rev-sub { font-size: 0.9rem; color: #64748b; margin-bottom: 20px; }
+    #revisionModal.open .rev-panel { transform: translateY(0); }
+    #paymentRejectionModal.open { opacity: 1 !important; pointer-events: all !important; }
+    #paymentRejectionModal.open .rev-panel { transform: translateY(0); }
+    .rev-title { font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
+    .rev-sub { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
 </style>
 
 <div id="revisionModal" role="dialog" aria-modal="true">
@@ -1982,10 +1974,10 @@ $page_title = 'Orders - Staff';
      PAYMENT REJECTION MODAL
 ═══════════════════════════════════════════ -->
 <div id="paymentRejectionModal" role="dialog" aria-modal="true" style="position: fixed; inset: 0; z-index: 10002; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
-    <div class="rev-backdrop" onclick="closePaymentRejectionModal()" style="position: absolute; inset: 0; background: transparent; backdrop-filter: none;"></div>
-    <div class="rev-panel" style="position: relative; z-index: 1; background: #fff; border-radius: 20px; width: 100%; max-width: 450px; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); transform: scale(0.95); transition: transform 0.2s;">
-        <div class="rev-title" style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 8px;">Reject Payment Proof</div>
-        <p class="rev-sub" style="font-size: 0.9rem; color: #64748b; margin-bottom: 20px;">Please select a reason for rejecting the payment proof. The customer will be notified.</p>
+    <div class="rev-backdrop" onclick="closePaymentRejectionModal()" style="position: absolute; inset: 0;"></div>
+    <div class="rev-panel" style="position: relative; z-index: 1; width: 100%; max-width: 450px;">
+        <div class="rev-title">Reject Payment Proof</div>
+        <p class="rev-sub">Please select a reason for rejecting the payment proof. The customer will be notified.</p>
         
         <div id="payRejectionForm">
             <input type="hidden" id="payRejOrderId">
