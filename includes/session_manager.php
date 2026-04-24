@@ -201,10 +201,10 @@ class SessionManager
 
     private static function buildFingerprint(): string
     {
-        $ip = self::normalizedClientIp();
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-        return hash_hmac('sha256', $ip . '|' . $ua . '|' . $accept, SESSION_HMAC_SECRET);
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        return hash_hmac('sha256', $host . '|' . $ua . '|' . $accept, SESSION_HMAC_SECRET);
     }
 
     private static function isTimedOut(): bool
@@ -256,37 +256,4 @@ class SessionManager
         return $host;
     }
 
-    private static function normalizedClientIp(): string
-    {
-        $candidates = [
-            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
-            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
-            $_SERVER['HTTP_X_REAL_IP'] ?? '',
-            $_SERVER['REMOTE_ADDR'] ?? '',
-        ];
-
-        foreach ($candidates as $candidate) {
-            if ($candidate === '') {
-                continue;
-            }
-
-            $parts = array_map('trim', explode(',', $candidate));
-            foreach ($parts as $part) {
-                if (filter_var($part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    $octets = explode('.', $part);
-                    return sprintf('%s.%s.%s.0', $octets[0], $octets[1], $octets[2]);
-                }
-
-                if (filter_var($part, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                    $packed = @inet_pton($part);
-                    if ($packed !== false) {
-                        return inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8));
-                    }
-                    return $part;
-                }
-            }
-        }
-
-        return 'unknown';
-    }
 }
