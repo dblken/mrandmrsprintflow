@@ -787,13 +787,15 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
             <div id="poc-reviews-container">
                 <?php foreach ($reviews_paged as $review):
                     $reviewer_name = htmlspecialchars(trim(($review['first_name']??'').' '.($review['last_name']??'')));
-                    $profile_pic = !empty($review['profile_picture']) ? '/printflow/public/assets/uploads/profiles/'.htmlspecialchars($review['profile_picture']) : '';
+                    $profile_pic = !empty($review['profile_picture']) ? get_profile_image($review['profile_picture']) : '';
                     $rating = (int)$review['rating'];
                     $comment = htmlspecialchars($review['comment'] ?? '');
                     $has_comment = !empty(trim($review['comment'] ?? ''));
                     $rev_imgs = $review['images'] ?? [];
                     $has_video = !empty($review['video_path']);
                     $has_media = !empty($rev_imgs) || $has_video;
+                    $created_ts = !empty($review['created_at']) ? strtotime((string)$review['created_at']) : false;
+                    $created_label = $created_ts ? date('Y-m-d H:i', $created_ts) : '';
                 ?>
                 <div id="review-<?php echo $review['id']; ?>" class="poc-review-item" data-rating="<?php echo $rating; ?>" data-has-comment="<?php echo $has_comment?'1':'0'; ?>" data-has-media="<?php echo $has_media?'1':'0'; ?>" style="padding:1.5rem;border-bottom:1px solid #e5e7eb;">
                     <div style="display:flex;gap:1rem;">
@@ -811,29 +813,31 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                     <svg width="16" height="16" fill="<?php echo ($i<=$rating)?'#f97316':'#d1d5db'; ?>" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                                 <?php endfor; ?>
                             </div>
-                            <div style="font-size:0.875rem;color:#6b7280;margin-bottom:0.5rem;"><?php echo date('Y-m-d H:i',strtotime($review['created_at'])); ?></div>
+                            <?php if ($created_label !== ''): ?>
+                                <div style="font-size:0.875rem;color:#6b7280;margin-bottom:0.5rem;"><?php echo htmlspecialchars($created_label); ?></div>
+                            <?php endif; ?>
                             <?php if($has_comment): ?><div style="color:#374151;line-height:1.6;margin-bottom:0.75rem;font-size:0.95rem;overflow-wrap:anywhere;word-break:break-word;"><?php echo nl2br($comment); ?></div><?php endif; ?>
-                            
+                             
                              <?php if(!empty($rev_imgs)): ?>
                                 <div style="display:flex; overflow-x:auto; gap:12px; margin-bottom:1rem; padding-bottom:10px; scrollbar-width: thin;">
                                     <?php foreach($rev_imgs as $img): 
-                                        $ipath = $img['image_path'];
-                                        if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/')) $ipath = '/printflow/' . $ipath;
+                                        $ipath = pf_normalize_service_media_path((string)($img['image_path'] ?? ''), $base_path, $default_service_img);
                                     ?>
                                         <div style="flex: 0 0 140px; aspect-ratio:1; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background: #f9fafb;">
-                                            <img src="<?php echo htmlspecialchars($ipath); ?>" alt="Review image" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(this.src, '_blank')">
+                                            <img src="<?php echo htmlspecialchars($ipath); ?>" alt="Review image" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(this.src, '_blank')" onerror="this.closest('div').style.display='none'">
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
 
                             <?php if($has_video): 
-                                $vpath = $review['video_path'];
-                                if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/')) $vpath = '/printflow/' . $vpath;
+                                $vpath = pf_normalize_service_media_path((string)$review['video_path'], $base_path, $default_service_img);
                             ?>
                                 <div style="margin-bottom:1rem; max-width:400px;">
                                     <div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
-                                        <video src="<?php echo htmlspecialchars($vpath); ?>" controls style="width:100%; height:100%; object-fit:cover;"></video>
+                                        <video preload="metadata" controls playsinline style="width:100%; height:100%; object-fit:cover;" onerror="this.parentNode.style.display='none'">
+                                            <source src="<?php echo htmlspecialchars($vpath); ?>" type="video/mp4">
+                                        </video>
                                     </div>
                                 </div>
                             <?php endif; ?>
