@@ -814,31 +814,9 @@ function require_admin_or_staff() {
 }
 
 /**
- * Redirect Admin/Manager/Staff to their respective dashboards if they hit a public page.
+ * Redirect any logged-in user away from guest/public pages.
  */
-function redirect_admin_staff_from_public() {
-    if (is_logged_in()) {
-        $user_type = get_user_type();
-        if ($user_type === 'Admin') {
-            header('Location: ' . AUTH_REDIRECT_BASE . '/admin/dashboard.php');
-            exit();
-        }
-        if ($user_type === 'Manager') {
-            header('Location: ' . AUTH_REDIRECT_BASE . '/manager/dashboard.php');
-            exit();
-        }
-        if ($user_type === 'Staff') {
-            header('Location: ' . AUTH_REDIRECT_BASE . '/staff/dashboard.php');
-            exit();
-        }
-    }
-}
-
-/**
- * Redirect any logged-in user away from the public home (/printflow/).
- * Use only on the landing page so customers can still use products, FAQ, etc.
- */
-function redirect_logged_in_from_landing_page(): void {
+function redirect_logged_in_from_public_page(): void {
     if (!is_logged_in()) {
         return;
     }
@@ -860,6 +838,20 @@ function redirect_logged_in_from_landing_page(): void {
         header('Location: ' . AUTH_REDIRECT_BASE . '/customer/services.php', true, 302);
         exit();
     }
+}
+
+/**
+ * Backward-compatible name used by older public page guards.
+ */
+function redirect_admin_staff_from_public() {
+    redirect_logged_in_from_public_page();
+}
+
+/**
+ * Redirect any logged-in user away from the public home (/printflow/).
+ */
+function redirect_logged_in_from_landing_page(): void {
+    redirect_logged_in_from_public_page();
 }
 
 /**

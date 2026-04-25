@@ -7,6 +7,12 @@
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/functions.php';
 
+$current_script_path = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$current_script_dir = basename(trim(dirname($current_script_path), '/'));
+if ($current_script_dir === 'public' && function_exists('redirect_logged_in_from_public_page')) {
+    redirect_logged_in_from_public_page();
+}
+
 $current_user = get_logged_in_user();
 $user_type = get_user_type();
 $is_logged_in = is_logged_in();
