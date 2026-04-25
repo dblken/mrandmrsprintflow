@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/customer_service_catalog.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
+require_role('Customer');
+
 $base_path = pf_app_base_path();
 $default_service_img = $base_path . '/public/assets/images/services/default.png';
 

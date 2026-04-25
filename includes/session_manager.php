@@ -169,9 +169,10 @@ class SessionManager
     public static function setNoCacheHeaders(): void
     {
         if (!headers_sent()) {
-            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private');
             header('Pragma: no-cache');
             header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+            header('X-Accel-Expires: 0');
         }
     }
 

@@ -10,13 +10,42 @@
     var WARNING_MS    = 55 * 60 * 1000;      // Show warning at 55 min
     var logoutUrl    = (window.PFConfig && window.PFConfig.logoutUrl) || '/logout';
     var loginUrl     = (window.PFConfig && window.PFConfig.loginUrl) || '/?auth_modal=login';
-    var sessionStatusUrl = (window.PFConfig && window.PFConfig.sessionStatusUrl) || ((window.PFConfig && window.PFConfig.basePath ? window.PFConfig.basePath : '') + '/public/api_session_status.php');
+    var basePath     = (window.PFConfig && window.PFConfig.basePath ? window.PFConfig.basePath : '').replace(/\/+$/, '');
+    var sessionStatusUrl = (window.PFConfig && window.PFConfig.sessionStatusUrl) || (basePath + '/public/api_session_status.php');
 
     var lastActivity = Date.now();
     var timerId      = null;
     var warningShown = false;
     var modalEl      = null;
     var forcedLogoutShown = false;
+    var sessionCheckInFlight = false;
+
+    function normalizePath(path) {
+        var out = String(path || '/').replace(/\/+$/, '');
+        return out || '/';
+    }
+
+    function isProtectedPage() {
+        var current = normalizePath(window.location.pathname) + '/';
+        var prefixes = [
+            basePath + '/admin/',
+            basePath + '/manager/',
+            basePath + '/staff/',
+            basePath + '/customer/'
+        ];
+        for (var i = 0; i < prefixes.length; i++) {
+            var prefix = normalizePath(prefixes[i]) + '/';
+            if (prefix !== '//' && current.indexOf(prefix) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function redirectToLogin(reason) {
+        var sep = loginUrl.indexOf('?') > -1 ? '&' : '?';
+        window.location.replace(loginUrl + sep + (reason || 'expired=1'));
+    }
 
     function resetTimer() {
         lastActivity = Date.now();
@@ -97,10 +126,11 @@
         }
     }
 
-    function checkForcedLogoutState() {
-        if (forcedLogoutShown || document.visibilityState !== 'visible') {
+    function checkSessionState() {
+        if (sessionCheckInFlight || document.visibilityState !== 'visible') {
             return;
         }
+        sessionCheckInFlight = true;
         fetch(sessionStatusUrl + '?_=' + Date.now(), {
             credentials: 'same-origin',
             cache: 'no-store',
@@ -113,14 +143,24 @@
             return response.ok ? response.json() : null;
         })
         .then(function(data) {
-            if (!data || data.logged_in) {
+            if (!data) {
+                return;
+            }
+            if (data.logged_in) {
                 return;
             }
             if (data.logout_reason === 'branch_inactive') {
                 showForcedLogoutModal(data.logout_message || 'Your assigned branch is inactive. Please contact an administrator.');
+                return;
+            }
+            if (isProtectedPage()) {
+                redirectToLogin('expired=1');
             }
         })
-        .catch(function() {});
+        .catch(function() {})
+        .finally(function() {
+            sessionCheckInFlight = false;
+        });
     }
 
     function checkInactivity() {
@@ -167,8 +207,36 @@
         }
     }, 15 * 60 * 1000); // every 15 min when visible
 
-    setInterval(checkForcedLogoutState, 60 * 1000);
-    checkForcedLogoutState();
+    document.addEventListener('click', function(event) {
+        var link = event.target.closest && event.target.closest('a[href]');
+        if (!link) return;
+        try {
+            var href = new URL(link.href, window.location.origin);
+            if (/\/(logout|signout)\/?$/.test(href.pathname)) {
+                localStorage.setItem('pf_auth_sync', JSON.stringify({
+                    ts: Date.now(),
+                    logout: true
+                }));
+            }
+        } catch (e) {}
+    });
+
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'pf_auth_sync') {
+            checkSessionState();
+        }
+    });
+
+    window.addEventListener('pageshow', checkSessionState);
+    window.addEventListener('focus', checkSessionState);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            checkSessionState();
+        }
+    });
+
+    setInterval(checkSessionState, 60 * 1000);
+    checkSessionState();
 
     timerId = setTimeout(checkInactivity, WARNING_MS);
 })();
