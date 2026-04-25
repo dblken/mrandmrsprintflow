@@ -2018,7 +2018,11 @@ window.pfCustomizationPreloadedOrders = (() => {
                     _ts: new Date(row?.updated_at || row?.created_at || row?.order_date || 0).getTime()
                 };
                 const override = this.statusOverrides[this.statusOverrideKey(normalized)] || null;
-                if (override && override.status) {
+                const overrideMaxAgeMs = 15000;
+                const overrideIsFresh = override && ((Date.now() - (override.ts || 0)) <= overrideMaxAgeMs);
+                // Only apply a temporary optimistic override while it is very fresh
+                // and newer than the server timestamp for this row.
+                if (overrideIsFresh && override.status && (override.ts || 0) > (normalized._ts || 0)) {
                     normalized.status = override.status;
                     normalized._ts = Math.max(normalized._ts || 0, override.ts || 0);
                 }
@@ -2411,6 +2415,14 @@ window.pfCustomizationPreloadedOrders = (() => {
             async loadOrders(options = {}) {
                 const silent = !!options.silent;
                 try {
+                    // Drop stale optimistic overrides before applying freshly fetched rows.
+                    const now = Date.now();
+                    Object.keys(this.statusOverrides || {}).forEach((key) => {
+                        const ts = Number(this.statusOverrides[key]?.ts || 0);
+                        if (!ts || (now - ts) > 15000) {
+                            delete this.statusOverrides[key];
+                        }
+                    });
                     const refreshToken = Date.now();
                     const [joRes, ordersRes] = await Promise.all([
                         fetch(`../admin/job_orders_api.php?action=list_orders&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r)),

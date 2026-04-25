@@ -81,30 +81,39 @@ $latestBranchDate = date('Y-m-d');
 $service_timeframe_sql = str_replace('o.order_date', 'so.created_at', $timeframe_sql);
 
 // 1. Stats
+$stats_order_params = [$staffBranchId];
+$stats_order_types = 'i';
+$stats_order_where = build_staff_status_filter_sql($status_filter, $stats_order_params, $stats_order_types, 'o');
 $completed_products = db_query("
     SELECT COUNT(DISTINCT o.order_id) as count 
     FROM orders o 
     JOIN order_items oi ON o.order_id = oi.order_id
     JOIN products p ON oi.product_id = p.product_id
-    WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product' AND $timeframe_sql_no_alias
-", 'i', [$staffBranchId])[0]['count'] ?? 0;
+    WHERE o.branch_id = ? AND o.order_type = 'product' AND $timeframe_sql_no_alias {$stats_order_where}
+", $stats_order_types, $stats_order_params)[0]['count'] ?? 0;
 
+$stats_custom_params = [$staffBranchId];
+$stats_custom_types = 'i';
+$stats_custom_where = build_staff_status_filter_sql($status_filter, $stats_custom_params, $stats_custom_types, 'o');
 $completed_custom = db_query("
     SELECT COUNT(DISTINCT o.order_id) as count 
     FROM orders o 
     JOIN order_items oi ON o.order_id = oi.order_id
     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
     LEFT JOIN services s ON oi.product_id = s.service_id
-    WHERE o.status = 'Completed' AND o.branch_id = ? AND $timeframe_sql_no_alias
+    WHERE o.branch_id = ? AND $timeframe_sql_no_alias {$stats_custom_where}
       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
-", 'i', [$staffBranchId])[0]['count'] ?? 0;
+", $stats_custom_types, $stats_custom_params)[0]['count'] ?? 0;
+$stats_service_params = [$staffBranchId];
+$stats_service_types = 'i';
+$stats_service_where = build_staff_service_status_filter_sql($status_filter, $stats_service_params, $stats_service_types, 'so');
 $completed_custom += (int)(db_query("
     SELECT COUNT(*) AS count
     FROM service_orders so
-    WHERE so.status = 'Completed'
-      AND (so.branch_id = ? OR so.branch_id IS NULL)
+    WHERE (so.branch_id = ? OR so.branch_id IS NULL)
       AND {$service_timeframe_sql}
-", 'i', [$staffBranchId])[0]['count'] ?? 0);
+      {$stats_service_where}
+", $stats_service_types, $stats_service_params)[0]['count'] ?? 0);
 
 $pending_reviews = db_query("
     SELECT COUNT(*) as count

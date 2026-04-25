@@ -488,8 +488,9 @@ async function refreshDashboard(page = 1, status = null, timeframe = null) {
     main.classList.add('is-loading');
     
     try {
-        const response = await fetch(`api_dashboard_stats.php?page=${page}&status=${encodeURIComponent(status)}&timeframe=${encodeURIComponent(timeframe)}`, {
-            signal: dashAbortController.signal
+        const response = await fetch(`api_dashboard_stats.php?page=${page}&status=${encodeURIComponent(status)}&timeframe=${encodeURIComponent(timeframe)}&_=${Date.now()}`, {
+            signal: dashAbortController.signal,
+            cache: 'no-store'
         });
         if (!response.ok) throw new Error('Refresh failed');
         const data = await response.json();

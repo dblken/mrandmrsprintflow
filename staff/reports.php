@@ -35,32 +35,53 @@ $status_where = "";
 $status_p = [];
 $status_t = "";
 if ($status_filter !== 'ALL' && !empty($status_filter)) {
-    $status_where = " AND status = ? ";
+    $status_where = " AND o.status = ? ";
     $status_p = [$status_filter];
     $status_t = "s";
 }
+function staff_reports_service_status_sql(string $status_filter): string {
+    if ($status_filter === 'ALL' || $status_filter === '') return " AND so.status NOT IN ('Cancelled', 'Rejected')";
+    if ($status_filter === 'Pending') return " AND so.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')";
+    if ($status_filter === 'Processing') return " AND so.status IN ('Processing', 'In Production', 'Printing')";
+    if ($status_filter === 'Ready for Pickup') return " AND so.status IN ('Ready for Pickup', 'Ready For Pickup')";
+    if ($status_filter === 'Cancelled') return " AND so.status IN ('Cancelled', 'Rejected')";
+    return " AND so.status = '" . db_escape($status_filter) . "'";
+}
+$service_status_sql = staff_reports_service_status_sql($status_filter);
 
 // ---- 1. RANGE-AWARE KPI METRICS (DYNAMIC) ----
 // Total revenue for THE SELECTED PERIOD (Paid only)
-$rev_res = db_query("SELECT COALESCE(SUM(total_amount), 0) as total FROM orders o WHERE $date_condition AND payment_status = 'Paid' AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
-$period_revenue = $rev_res[0]['total'] ?? 0;
+$rev_res = db_query("SELECT SUM(t.total) AS total FROM (
+    SELECT COALESCE(SUM(o.total_amount), 0) as total FROM orders o WHERE $date_condition AND o.payment_status = 'Paid' AND o.branch_id = ? $status_where
+    UNION ALL
+    SELECT COALESCE(SUM(so.total_price), 0) as total FROM service_orders so WHERE " . str_replace('o.order_date', 'so.created_at', $date_condition) . " AND (so.branch_id = ? OR so.branch_id IS NULL) {$service_status_sql}
+) t", ($status_t ? "ii" . $status_t : "ii"), array_merge([$staffBranchId, $staffBranchId], $status_p));
+$period_revenue = (float)($rev_res[0]['total'] ?? 0);
 
 // Total orders count for THE SELECTED PERIOD
-$ord_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE $date_condition AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
-$period_orders = $ord_res[0]['count'] ?? 0;
+$ord_res = db_query("SELECT SUM(t.cnt) AS count FROM (
+    SELECT COUNT(*) as cnt FROM orders o WHERE $date_condition AND o.branch_id = ? $status_where
+    UNION ALL
+    SELECT COUNT(*) as cnt FROM service_orders so WHERE " . str_replace('o.order_date', 'so.created_at', $date_condition) . " AND (so.branch_id = ? OR so.branch_id IS NULL) {$service_status_sql}
+) t", ($status_t ? "ii" . $status_t : "ii"), array_merge([$staffBranchId, $staffBranchId], $status_p));
+$period_orders = (int)($ord_res[0]['count'] ?? 0);
 
 // Pending/Active orders received in THE SELECTED PERIOD (if status is not filtered specifically)
 $active_statuses_sql = "status IN ('Pending', 'Pending Review', 'Pending Verification', 'Approved', 'Downpayment Submitted', 'In Production')";
 if ($status_filter !== 'ALL') {
-    $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE status = ? AND branch_id = ? AND $date_condition", 'si', [$status_filter, $staffBranchId]);
+    $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = ? AND o.branch_id = ? AND $date_condition", 'si', [$status_filter, $staffBranchId]);
 } else {
-    $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE $active_statuses_sql AND branch_id = ? AND $date_condition", 'i', [$staffBranchId]);
+    $pend_res = db_query("SELECT COUNT(*) as count FROM orders o WHERE $active_statuses_sql AND o.branch_id = ? AND $date_condition", 'i', [$staffBranchId]);
 }
-$pending_period_orders = $pend_res[0]['count'] ?? 0;
+$pending_period_orders = (int)($pend_res[0]['count'] ?? 0);
 
 // GLOBAL Backlog (All pending/active orders ever)
-$global_back_res = db_query("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Completed', 'Cancelled') AND branch_id = ? $status_where", ($status_t ? "i" . $status_t : "i"), array_merge([$staffBranchId], $status_p));
-$global_backlog = $global_back_res[0]['count'] ?? 0;
+$global_back_res = db_query("SELECT SUM(t.cnt) AS count FROM (
+    SELECT COUNT(*) as cnt FROM orders o WHERE o.status NOT IN ('Completed', 'Cancelled') AND o.branch_id = ? $status_where
+    UNION ALL
+    SELECT COUNT(*) as cnt FROM service_orders so WHERE so.status NOT IN ('Completed', 'Cancelled', 'Rejected') AND (so.branch_id = ? OR so.branch_id IS NULL) {$service_status_sql}
+) t", ($status_t ? "ii" . $status_t : "ii"), array_merge([$staffBranchId, $staffBranchId], $status_p));
+$global_backlog = (int)($global_back_res[0]['count'] ?? 0);
 
 // Low stock finished goods alert (This is ALWAYS current status)
 $stock_res = db_query("SELECT COUNT(*) as count FROM products WHERE status = 'Activated' AND stock_quantity < 20");

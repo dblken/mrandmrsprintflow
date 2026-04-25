@@ -311,7 +311,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     <?php
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
                     $display_order_status = staff_orders_display_status((string)$order['status']);
-                    echo status_badge($display_order_status, 'order'); ?>
+                    ?>
+                    <div style="display:flex; justify-content:center; align-items:center;">
+                        <?php echo status_badge($display_order_status, 'order'); ?>
+                    </div>
                     <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                         <div style="margin-top: 6px;">
                             <?php echo status_badge('Revision Submitted', 'order'); ?>
