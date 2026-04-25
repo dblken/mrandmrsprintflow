@@ -132,6 +132,8 @@
                 scope: SW_SCOPE,
                 updateViaCache: 'none'
             });
+        }).then(function() {
+            return navigator.serviceWorker.ready;
         });
     }
 
