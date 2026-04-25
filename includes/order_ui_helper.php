@@ -279,8 +279,13 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     $ref_url = null;
     
     if ($is_cart_item) {
-        $design_url = pf_order_ui_temp_preview_url($item, 'design');
-        $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
+        if ($is_service_item && !empty($item['product_image'])) {
+            $design_url = pf_order_ui_asset_url($item['product_image']);
+            $ref_url = pf_order_ui_temp_preview_url($item, 'design');
+        } else {
+            $design_url = pf_order_ui_temp_preview_url($item, 'design');
+            $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
+        }
         if (!$design_url && !empty($item['product_image'])) {
             $design_url = pf_order_ui_asset_url($item['product_image']);
         }
@@ -456,8 +461,13 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $ref_url = null;
     
     if ($is_cart_item) {
-        $design_url = pf_order_ui_temp_preview_url($item, 'design');
-        $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
+        if ($is_service_item && !empty($item['product_image'])) {
+            $design_url = pf_order_ui_asset_url($item['product_image']);
+            $ref_url = pf_order_ui_temp_preview_url($item, 'design');
+        } else {
+            $design_url = pf_order_ui_temp_preview_url($item, 'design');
+            $ref_url = pf_order_ui_temp_preview_url($item, 'reference');
+        }
         if (!$design_url && !empty($item['product_image'])) {
             $design_url = pf_order_ui_asset_url($item['product_image']);
         }
