@@ -156,13 +156,14 @@ function render_service_card($srv) {
     <div class="shopee-card" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_images; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
         <?php if ($is_video): ?>
             <video
-                src="<?php echo htmlspecialchars($img); ?>#t=1"
+                src="<?php echo htmlspecialchars($img); ?>"
                 class="shopee-img"
                 muted
                 playsinline
-                preload="metadata"
-                onloadedmetadata="try{this.currentTime=1;}catch(e){}"
-                onseeked="this.style.opacity='1';"
+                autoplay
+                loop
+                preload="auto"
+                oncanplay="this.play().catch(function(){});this.style.opacity='1';"
                 style="background:#f8fafc;opacity:0;"
             ></video>
         <?php else: ?>
@@ -458,16 +459,16 @@ function openServiceModal(id, name, category, images, link, is_service, price, s
         let mediaEl;
         if (isVideoMedia(img)) {
             mediaEl = document.createElement('video');
-            mediaEl.src = img + (String(img).includes('#') ? '' : '#t=1');
+            mediaEl.src = img;
             mediaEl.muted = true;
             mediaEl.playsInline = true;
-            mediaEl.preload = 'metadata';
+            mediaEl.autoplay = true;
+            mediaEl.loop = true;
+            mediaEl.preload = 'auto';
             mediaEl.style.background = '#f8fafc';
             mediaEl.style.opacity = '0';
-            mediaEl.onloadedmetadata = function() {
-                try { this.currentTime = 1; } catch (e) {}
-            };
-            mediaEl.onseeked = function() {
+            mediaEl.oncanplay = function() {
+                this.play().catch(function(){});
                 this.style.opacity = '1';
             };
         } else {
