@@ -43,6 +43,36 @@ function chatbot_can_view_conversation(array $conversation, string $guestId = ''
     return $guestId !== '' && hash_equals($conversationGuestId, $guestId);
 }
 
+function chatbot_find_current_conversation(?int $customerId, string $guestId = ''): ?array {
+    if ($customerId !== null && $customerId > 0) {
+        $rows = db_query(
+            "SELECT id, customer_id, guest_id, customer_name, customer_email, status, last_activity_at
+             FROM chatbot_conversations
+             WHERE customer_id = ? AND (is_archived = 0 OR is_archived IS NULL)
+             ORDER BY last_activity_at DESC, id DESC
+             LIMIT 1",
+            'i',
+            [$customerId]
+        );
+        return !empty($rows[0]) ? $rows[0] : null;
+    }
+
+    if ($guestId !== '') {
+        $rows = db_query(
+            "SELECT id, customer_id, guest_id, customer_name, customer_email, status, last_activity_at
+             FROM chatbot_conversations
+             WHERE guest_id = ? AND (is_archived = 0 OR is_archived IS NULL)
+             ORDER BY last_activity_at DESC, id DESC
+             LIMIT 1",
+            's',
+            [$guestId]
+        );
+        return !empty($rows[0]) ? $rows[0] : null;
+    }
+
+    return null;
+}
+
 // Ensure conversations + messages tables exist
 db_execute("CREATE TABLE IF NOT EXISTS chatbot_conversations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -188,6 +218,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['conversation_id']) || 
          ORDER BY id ASC",
         'ii',
         [$conversation_id, $since_id]
+    );
+
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'conversation' => [
+                'id' => (int)$conversation['id'],
+                'status' => $conversation['status'],
+                'customer_name' => $conversation['customer_name'] ?: 'Guest',
+                'customer_email' => $conversation['customer_email'] ?? '',
+                'last_activity_at' => $conversation['last_activity_at'],
+            ],
+            'messages' => array_map(function ($message) {
+                return [
+                    'id' => (int)$message['id'],
+                    'sender_type' => $message['sender_type'],
+                    'message' => $message['message'],
+                    'created_at' => $message['created_at'],
+                ];
+            }, $messages ?: []),
+        ],
+    ]);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['current'])) {
+    $guest_id = trim((string)($_GET['guest_id'] ?? ''));
+    $conversation = chatbot_find_current_conversation(chatbot_current_customer_id(), $guest_id);
+
+    if (!$conversation) {
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'conversation' => null,
+                'messages' => [],
+            ],
+        ]);
+        exit;
+    }
+
+    if (!chatbot_can_view_conversation($conversation, $guest_id)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized conversation access']);
+        exit;
+    }
+
+    $messages = db_query(
+        "SELECT id, sender_type, message, created_at
+         FROM chatbot_messages
+         WHERE conversation_id = ?
+         ORDER BY id ASC",
+        'i',
+        [(int)$conversation['id']]
     );
 
     echo json_encode([

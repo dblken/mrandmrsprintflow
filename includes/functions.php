@@ -253,7 +253,7 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                     $ml = strtolower((string)$message);
                     if (strpos($ml, 'support chat') !== false || strpos($ml, 'chatbot') !== false) {
                         if ($user_type === 'Customer') {
-                            $push_url = printflow_notification_base_path() . '/public/index.php?chatbot=open';
+                            $push_url = printflow_notification_base_path() . '/customer/notifications.php?chatbot=open';
                         } elseif ($user_type === 'Admin') {
                             $push_url = printflow_notification_base_path() . '/admin/faq_chatbot_management.php?tab=inquiries';
                         } elseif ($user_type === 'Manager') {
@@ -1591,7 +1591,7 @@ function customer_notification_target_url(array $notification) {
     $message_l = strtolower($message);
 
     if (strpos($message_l, 'support chat') !== false || strpos($message_l, 'chatbot') !== false) {
-        return $base . '/public/index.php?chatbot=open';
+        return $base . '/customer/notifications.php?chatbot=open';
     }
 
     if ($data_id > 0) {

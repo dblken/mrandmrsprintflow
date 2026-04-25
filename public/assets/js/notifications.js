@@ -627,7 +627,8 @@
             }
             else url = base + '/staff/dashboard.php';
         } else {
-            if (t.indexOf('message') !== -1 || t.indexOf('chat') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
+            if (msg.indexOf('support chat') !== -1 || msg.indexOf('chatbot') !== -1) url = base + '/customer/notifications.php?chatbot=open';
+            else if (t.indexOf('message') !== -1 || t.indexOf('chat') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
             else if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1) url = base + '/customer/orders.php?highlight=' + did;
             else if (t.indexOf('payment') !== -1) url = did ? base + '/customer/orders.php?highlight=' + did : base + '/customer/notifications.php';
             else if (t.indexOf('job') !== -1) url = base + '/customer/new_job_order.php';

@@ -223,12 +223,19 @@ function _ft_detect_social(string $url): array {
     <?php
     $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
     $current_script_name = strtolower(basename($request_path));
+    $current_script_dir = strtolower(trim(str_replace('\\', '/', dirname($request_path)), '/'));
     if ($current_script_name === '' || substr($current_script_name, -4) !== '.php') {
         $current_script_name = strtolower(basename($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
     }
+    if ($current_script_dir === '.' || $current_script_dir === '/') {
+        $current_script_dir = '';
+    }
     $chatbot_allowed_pages = ['index.php', 'about.php', 'services.php', 'products.php'];
-    $show_chatbot_widget = empty($hide_chatbot)
-        && in_array($current_script_name, $chatbot_allowed_pages, true);
+    $is_customer_chatbot_page = $current_script_dir === 'customer';
+    $show_chatbot_widget = empty($hide_chatbot) && (
+        in_array($current_script_name, $chatbot_allowed_pages, true)
+        || $is_customer_chatbot_page
+    );
     ?>
     <?php if (empty($use_landing_css)): ?>
     <style>
@@ -590,6 +597,14 @@ function _ft_detect_social(string $url): array {
             }
         }
 
+        function resetRenderedConversation(conversationId) {
+            if (!conversationId) return;
+            renderedMessageIds[String(conversationId)] = {};
+            if (msgs) {
+                msgs.innerHTML = '';
+            }
+        }
+
         function openChatbotWindow() {
             isOpen = true;
             win.classList.remove('lp-chatbot-hidden');
@@ -614,9 +629,48 @@ function _ft_detect_social(string $url): array {
             msgs.scrollTop = msgs.scrollHeight;
         }
 
+        function hydrateConversation(conversationId, messagesList) {
+            setActiveConversationId(conversationId);
+            resetRenderedConversation(activeConversationId);
+            var items = Array.isArray(messagesList) ? messagesList : [];
+            for (var i = 0; i < items.length; i++) {
+                appendLiveConversationMessage(items[i]);
+            }
+        }
+
+        function loadCurrentConversation(options) {
+            options = options || {};
+            var guestId = localStorage.getItem('chatbot_guest_id') || '';
+            var basePath = window.BASE_PATH || '';
+            var url = basePath + '/public/api/chatbot_inquiry.php?current=1';
+            if (guestId) {
+                url += '&guest_id=' + encodeURIComponent(guestId);
+            }
+
+            return fetch(url, { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.success || !data.data || !data.data.conversation) {
+                        return null;
+                    }
+                    var conversation = data.data.conversation;
+                    hydrateConversation(conversation.id, data.data.messages || []);
+                    if (options.forceScroll) {
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
+                    return conversation;
+                })
+                .catch(function() {
+                    return null;
+                });
+        }
+
         function syncConversation(options) {
             options = options || {};
-            if (!activeConversationId || syncInFlight) {
+            if (!activeConversationId) {
+                return loadCurrentConversation(options);
+            }
+            if (syncInFlight) {
                 return Promise.resolve(null);
             }
 
