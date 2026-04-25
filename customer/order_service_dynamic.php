@@ -307,6 +307,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 
             $unit_price = $base_price + $options_total;
             $estimated_price = $unit_price * $quantity;
+            $posted_unit_price = isset($_POST['calculated_unit_price']) ? (float)$_POST['calculated_unit_price'] : null;
+            $posted_estimated_price = isset($_POST['calculated_estimated_price']) ? (float)$_POST['calculated_estimated_price'] : null;
+            if ($posted_unit_price !== null && $posted_unit_price >= 0) {
+                $unit_price = $posted_unit_price;
+            }
+            if ($posted_estimated_price !== null && $posted_estimated_price >= 0) {
+                $estimated_price = $posted_estimated_price;
+            }
             
             $_SESSION['cart'][$item_key] = [
                 'type' => 'Service',
@@ -598,6 +606,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 
                 <form action="" method="POST" enctype="multipart/form-data" id="serviceForm" data-pf-skip-validation="true" novalidate>
                     <?php echo csrf_field(); ?>
+                    <input type="hidden" name="calculated_unit_price" id="calculated-unit-price" value="0">
+                    <input type="hidden" name="calculated_estimated_price" id="calculated-estimated-price" value="0">
                     
                     <!-- Estimated Price Display -->
                     <div id="estimated-price-display" style="position:sticky;top:80px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;z-index:10;">
@@ -1163,6 +1173,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update display
         const estimatedTotalEl = document.getElementById('estimated-total');
         const qtyDisplayEl = document.getElementById('qty-display');
+        const unitPriceInputEl = document.getElementById('calculated-unit-price');
+        const estimatedPriceInputEl = document.getElementById('calculated-estimated-price');
         
         if (estimatedTotalEl) {
             estimatedTotalEl.textContent = '₱' + estimatedTotal.toFixed(2);
@@ -1170,6 +1182,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (qtyDisplayEl) {
             qtyDisplayEl.textContent = quantity;
+        }
+        
+        if (unitPriceInputEl) {
+            unitPriceInputEl.value = unitPrice.toFixed(2);
+        }
+        
+        if (estimatedPriceInputEl) {
+            estimatedPriceInputEl.value = estimatedTotal.toFixed(2);
         }
     };
     
