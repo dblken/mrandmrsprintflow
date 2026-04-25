@@ -67,72 +67,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
     // Handle file uploads
     $uploaded_images = [];
     $uploaded_video = '';
-    
-    // Debug: Log what we receive
-    error_log('POST received: ' . print_r($_POST, true));
-    error_log('FILES received: ' . print_r($_FILES, true));
-    
-    if (isset($_FILES['media_files']) && is_array($_FILES['media_files']['name'])) {
-        $file_count = count($_FILES['media_files']['name']);
-        error_log('Processing ' . $file_count . ' files');
-        
-        for ($i = 0; $i < $file_count; $i++) {
-            if ($_FILES['media_files']['error'][$i] !== UPLOAD_ERR_OK) {
-                error_log('File ' . $i . ' has error: ' . $_FILES['media_files']['error'][$i]);
+
+    if (isset($_FILES['photo_files']) && is_array($_FILES['photo_files']['name'])) {
+        $photo_count = count($_FILES['photo_files']['name']);
+        for ($i = 0; $i < $photo_count; $i++) {
+            if (($_FILES['photo_files']['error'][$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
                 continue;
             }
-            
-            $file_name = $_FILES['media_files']['name'][$i];
-            $file_tmp = $_FILES['media_files']['tmp_name'][$i];
-            $file_size = $_FILES['media_files']['size'][$i];
-            $file_type = $_FILES['media_files']['type'][$i];
+
+            $file_name = $_FILES['photo_files']['name'][$i];
+            $file_tmp = $_FILES['photo_files']['tmp_name'][$i];
+            $file_size = (int)($_FILES['photo_files']['size'][$i] ?? 0);
             $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-            
-            error_log('Processing file: ' . $file_name . ' Type: ' . $file_type . ' Size: ' . $file_size);
-            
-            // Check if image
-            if (strpos($file_type, 'image/') === 0) {
-                $allowed_img = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-                if (in_array($file_ext, $allowed_img) && $file_size <= 5 * 1024 * 1024 && count($uploaded_images) < 5) {
-                    $upload_dir = __DIR__ . '/../public/assets/images/services/';
-                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-                    
-                    $new_filename = 'service_' . time() . '_' . uniqid() . '_' . $i . '.' . $file_ext;
-                    $upload_path = $upload_dir . $new_filename;
-                    
-                    if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_images[] = $base_path . '/public/assets/images/services/' . $new_filename;
-                        error_log('Image uploaded: ' . $new_filename);
-                    } else {
-                        error_log('Failed to move image file');
-                    }
-                }
+            $allowed_img = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+            if (!in_array($file_ext, $allowed_img, true) || $file_size > 5 * 1024 * 1024 || count($uploaded_images) >= 5) {
+                continue;
             }
-            // Check if video
-            elseif (strpos($file_type, 'video/') === 0) {
-                $allowed_vid = ['mp4', 'webm', 'mov', 'avi'];
-                if (in_array($file_ext, $allowed_vid) && $file_size <= 100 * 1024 * 1024 && empty($uploaded_video)) {
-                    $upload_dir = __DIR__ . '/../public/assets/videos/services/';
-                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-                    
-                    $new_filename = 'service_' . time() . '_' . uniqid() . '.' . $file_ext;
-                    $upload_path = $upload_dir . $new_filename;
-                    
-                    if (move_uploaded_file($file_tmp, $upload_path)) {
-                        $uploaded_video = $base_path . '/public/assets/videos/services/' . $new_filename;
-                        error_log('Video uploaded: ' . $new_filename);
-                    } else {
-                        error_log('Failed to move video file');
-                    }
-                }
+
+            $upload_dir = __DIR__ . '/../public/assets/images/services/';
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+
+            $new_filename = 'service_' . time() . '_' . uniqid() . '_' . $i . '.' . $file_ext;
+            $upload_path = $upload_dir . $new_filename;
+
+            if (move_uploaded_file($file_tmp, $upload_path)) {
+                $uploaded_images[] = $base_path . '/public/assets/images/services/' . $new_filename;
             }
         }
-    } else {
-        error_log('No media_files in $_FILES or not an array');
     }
-    
-    error_log('Uploaded images: ' . print_r($uploaded_images, true));
-    error_log('Uploaded video: ' . $uploaded_video);
+
+    if (isset($_FILES['video_file']) && (int)($_FILES['video_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $file_name = $_FILES['video_file']['name'];
+        $file_tmp = $_FILES['video_file']['tmp_name'];
+        $file_size = (int)($_FILES['video_file']['size'] ?? 0);
+        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        $allowed_vid = ['mp4', 'webm', 'mov', 'avi'];
+
+        if (in_array($file_ext, $allowed_vid, true) && $file_size <= 100 * 1024 * 1024) {
+            $upload_dir = __DIR__ . '/../public/assets/videos/services/';
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+
+            $new_filename = 'service_' . time() . '_' . uniqid() . '.' . $file_ext;
+            $upload_path = $upload_dir . $new_filename;
+
+            if (move_uploaded_file($file_tmp, $upload_path)) {
+                $uploaded_video = $base_path . '/public/assets/videos/services/' . $new_filename;
+            }
+        }
+    }
     
     if (isset($_POST['create_service'])) {
         $name = preg_replace('/\s+/', ' ', trim($_POST['name'] ?? ''));
@@ -156,6 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Description must not exceed 2000 characters.';
         } elseif (strlen($customer_modal_text) > 2000) {
             $error = 'Customer modal message must not exceed 2000 characters.';
+        } elseif ($display_image === '') {
+            $error = 'Please provide at least one service photo.';
         } elseif (service_name_exists($name, 0)) {
             $error = 'A service with this name already exists.';
         } else {
@@ -203,6 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Description must not exceed 2000 characters.';
         } elseif (strlen($customer_modal_text) > 2000) {
             $error = 'Customer modal message must not exceed 2000 characters.';
+        } elseif ($display_image === '') {
+            $error = 'Please provide at least one service photo.';
         } elseif (service_name_exists($name, $service_id)) {
             $error = 'A service with this name already exists.';
         } else {
@@ -733,26 +720,43 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                 </div>
 
                 <div class="form-group">
-                    <label>Service Media <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
-                    <small style="display:block;color:#6b7280;font-size:12px;margin-bottom:8px;">Upload up to 5 images and 1 video</small>
-                    <div class="file-upload-area" id="media-upload-area" onclick="document.getElementById('modal-media-files').click()">
-                        <input type="file" id="modal-media-files" name="media_files[]" accept="image/*,video/*" multiple style="display:none;" onchange="handleMediaUpload(this)">
-                        <div class="upload-placeholder" id="media-placeholder">
+                    <label>Service Photos <span style="color:red">*</span></label>
+                    <small style="display:block;color:#6b7280;font-size:12px;margin-bottom:8px;">Upload 1 to 5 photos. Photos are required.</small>
+                    <div class="file-upload-area" id="photo-upload-area" onclick="document.getElementById('modal-photo-files').click()">
+                        <input type="file" id="modal-photo-files" name="photo_files[]" accept="image/*" multiple style="display:none;" onchange="handlePhotoUpload(this)">
+                        <div class="upload-placeholder" id="photo-placeholder">
                             <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#9ca3af;margin-bottom:8px;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
-                            <p style="margin:0;font-size:14px;color:#6b7280;font-weight:500;">Click to upload or drag and drop</p>
-                            <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">Images (PNG, JPG, GIF) up to 5MB each</p>
-                            <p style="margin:2px 0 0;font-size:12px;color:#9ca3af;">Video (MP4, WebM, MOV) up to 50MB</p>
-                            <p style="margin:6px 0 0;font-size:11px;color:#0d9488;font-weight:600;">Max: 5 images + 1 video</p>
+                            <p style="margin:0;font-size:14px;color:#6b7280;font-weight:500;">Click to upload photos</p>
+                            <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">PNG, JPG, GIF, WebP up to 5MB each</p>
+                            <p style="margin:6px 0 0;font-size:11px;color:#0d9488;font-weight:600;">Max: 5 photos</p>
                         </div>
-                        <div class="upload-preview-grid" id="media-preview" style="display:none;">
-                            <div id="media-items-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;"></div>
+                        <div class="upload-preview-grid" id="photo-preview" style="display:none;">
+                            <div id="photo-items-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;"></div>
                         </div>
                     </div>
+                    <span id="err-photos" class="field-error"></span>
                     <input type="hidden" id="modal-display-image" name="display_image" value="">
+                </div>
+
+                <div class="form-group">
+                    <label>Service Video <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+                    <small style="display:block;color:#6b7280;font-size:12px;margin-bottom:8px;">Upload one optional video.</small>
+                    <div class="file-upload-area" id="video-upload-area" onclick="document.getElementById('modal-video-file').click()">
+                        <input type="file" id="modal-video-file" name="video_file" accept="video/*" style="display:none;" onchange="handleVideoUpload(this)">
+                        <div class="upload-placeholder" id="video-placeholder">
+                            <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#9ca3af;margin-bottom:8px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <p style="margin:0;font-size:14px;color:#6b7280;font-weight:500;">Click to upload video</p>
+                            <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">MP4, WebM, MOV, AVI up to 100MB</p>
+                        </div>
+                        <div class="upload-preview-grid" id="video-preview" style="display:none;">
+                            <div id="video-items-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;"></div>
+                        </div>
+                    </div>
                     <input type="hidden" id="modal-video-url" name="video_url" value="">
-                    <input type="hidden" id="media-data" name="media_data" value="">
                 </div>
 
                 <div class="form-group">
@@ -976,17 +980,34 @@ function printflowInitServicesPage() {
 
     // Form submit guard
     document.getElementById('service-form')?.addEventListener('submit', function (e) {
-        // Transfer files from uploadedMediaFiles to the actual file input
-        const input = document.getElementById('modal-media-files');
-        if (uploadedMediaFiles.length > 0 && input.files.length === 0) {
-            // Files are in memory but not in input - create a new FileList
+        // Transfer staged files to the real inputs before submit.
+        const photoInput = document.getElementById('modal-photo-files');
+        if (uploadedPhotoFiles.length > 0 && photoInput.files.length === 0) {
             const dt = new DataTransfer();
-            uploadedMediaFiles.forEach(item => {
-                dt.items.add(item.file);
+            uploadedPhotoFiles.forEach(file => {
+                dt.items.add(file);
             });
-            input.files = dt.files;
+            photoInput.files = dt.files;
         }
-        
+
+        const videoInput = document.getElementById('modal-video-file');
+        if (uploadedVideoFile && videoInput.files.length === 0) {
+            const dtVideo = new DataTransfer();
+            dtVideo.items.add(uploadedVideoFile);
+            videoInput.files = dtVideo.files;
+        }
+        const existingPhotos = (document.getElementById('modal-display-image')?.value || '')
+            .split(',')
+            .map(v => v.trim())
+            .filter(Boolean);
+        const photoError = document.getElementById('err-photos');
+        if (uploadedPhotoFiles.length === 0 && existingPhotos.length === 0) {
+            e.preventDefault();
+            if (photoError) photoError.textContent = 'Please provide at least one service photo.';
+            return;
+        }
+        if (photoError) photoError.textContent = '';
+
         const btn = document.getElementById('modal-submit-btn');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     });
@@ -1041,7 +1062,8 @@ function openServiceModal(mode, svc) {
         document.getElementById('modal-description').value = svc.description || '';
         
         // Load existing media files
-        uploadedMediaFiles = [];
+        uploadedPhotoFiles = [];
+        uploadedVideoFile = null;
         const existingImages = (svc.display_image || '').split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
         const existingVideo = serviceMediaUrl(svc.video_url || '');
         
@@ -1050,11 +1072,8 @@ function openServiceModal(mode, svc) {
         document.getElementById('modal-video-url').value = existingVideo;
         
         // Display existing media previews
-        if (existingImages.length > 0 || existingVideo) {
-            renderExistingMediaPreviews(existingImages, existingVideo);
-        } else {
-            renderMediaPreviews();
-        }
+        renderExistingPhotoPreviews(existingImages);
+        renderExistingVideoPreview(existingVideo);
         const cm = svc.customer_modal_text;
         document.getElementById('modal-customer-modal-text').value = (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '');
         document.getElementById('modal-status').value = (svc.status === 'Deactivated') ? 'Deactivated' : 'Activated';
@@ -1072,9 +1091,12 @@ function openServiceModal(mode, svc) {
         document.getElementById('modal-service-id').value = '';
         document.getElementById('modal-display-image').value = '';
         document.getElementById('modal-video-url').value = '';
-        document.getElementById('modal-media-files').value = '';
-        uploadedMediaFiles = [];
-        renderMediaPreviews();
+        document.getElementById('modal-photo-files').value = '';
+        document.getElementById('modal-video-file').value = '';
+        uploadedPhotoFiles = [];
+        uploadedVideoFile = null;
+        renderPhotoPreviews();
+        renderVideoPreview();
         document.getElementById('modal-status').value = 'Activated';
         document.getElementById('modal-customer-modal-text').value = window.PF_DEFAULT_SERVICE_MODAL_TEXT || '';
         
@@ -1256,183 +1278,226 @@ window.closeArchiveModal = function closeArchiveModal() {
 
 // Page-specific initialization is now handled above via printflowInitServicesPage.
 
-let uploadedMediaFiles = [];
+let uploadedPhotoFiles = [];
+let uploadedVideoFile = null;
 
-function handleMediaUpload(input) {
-    const files = Array.from(input.files);
-    let images = uploadedMediaFiles.filter(f => f.type === 'image');
-    let videos = uploadedMediaFiles.filter(f => f.type === 'video');
-    
+function handlePhotoUpload(input) {
+    const files = Array.from(input.files || []);
+    let nextPhotos = uploadedPhotoFiles.slice();
+
     for (const file of files) {
-        const isImage = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/');
-        
-        if (isImage) {
-            if (images.length >= 5) {
-                alert('Maximum 5 images allowed');
-                continue;
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                alert(`Image "${file.name}" exceeds 5MB limit`);
-                continue;
-            }
-            images.push({ file, type: 'image' });
-        } else if (isVideo) {
-            if (videos.length >= 1) {
-                alert('Maximum 1 video allowed');
-                continue;
-            }
-            if (file.size > 100 * 1024 * 1024) {
-                alert(`Video "${file.name}" exceeds 100MB limit`);
-                continue;
-            }
-            videos.push({ file, type: 'video' });
+        if (!file.type.startsWith('image/')) continue;
+        if (nextPhotos.length >= 5) {
+            alert('Maximum 5 photos allowed');
+            continue;
         }
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`Photo "${file.name}" exceeds 5MB limit`);
+            continue;
+        }
+        nextPhotos.push(file);
     }
-    
-    uploadedMediaFiles = [...images, ...videos];
-    renderMediaPreviews();
+
+    uploadedPhotoFiles = nextPhotos;
+    renderPhotoPreviews();
 }
 
-function renderMediaPreviews() {
-    const container = document.getElementById('media-items-container');
-    const placeholder = document.getElementById('media-placeholder');
-    const preview = document.getElementById('media-preview');
-    
-    if (uploadedMediaFiles.length === 0) {
-        placeholder.style.display = 'block';
-        preview.style.display = 'none';
+function handleVideoUpload(input) {
+    const file = input.files && input.files[0] ? input.files[0] : null;
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+        alert('Please upload a valid video file.');
+        input.value = '';
         return;
     }
-    
+    if (file.size > 100 * 1024 * 1024) {
+        alert(`Video "${file.name}" exceeds 100MB limit`);
+        input.value = '';
+        return;
+    }
+    uploadedVideoFile = file;
+    renderVideoPreview();
+}
+
+function renderPhotoPreviews() {
+    const container = document.getElementById('photo-items-container');
+    const placeholder = document.getElementById('photo-placeholder');
+    const preview = document.getElementById('photo-preview');
+    if (!container || !placeholder || !preview) return;
+
+    if (uploadedPhotoFiles.length === 0) {
+        placeholder.style.display = 'block';
+        preview.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
     placeholder.style.display = 'none';
     preview.style.display = 'block';
     container.innerHTML = '';
-    
-    uploadedMediaFiles.forEach((item, index) => {
+
+    uploadedPhotoFiles.forEach((file, index) => {
         const div = document.createElement('div');
         div.className = 'media-item';
-        
         const reader = new FileReader();
         reader.onload = function(e) {
-            if (item.type === 'image') {
-                div.innerHTML = `
-                    <img src="${e.target.result}" alt="Image ${index + 1}">
-                    <span class="media-badge">IMG ${index + 1}</span>
-                    <button type="button" class="remove-btn" onclick="removeMediaItem(${index})">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                `;
-            } else {
-                div.innerHTML = `
-                    <video src="${e.target.result}"></video>
-                    <span class="media-badge">VIDEO</span>
-                    <button type="button" class="remove-btn" onclick="removeMediaItem(${index})">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                `;
-            }
+            div.innerHTML = `
+                <img src="${e.target.result}" alt="Photo ${index + 1}">
+                <span class="media-badge">PHOTO ${index + 1}</span>
+                <button type="button" class="remove-btn" onclick="removePhotoItem(${index})">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
         };
-        reader.readAsDataURL(item.file);
+        reader.readAsDataURL(file);
         container.appendChild(div);
     });
 }
 
-function removeMediaItem(index) {
-    uploadedMediaFiles.splice(index, 1);
-    renderMediaPreviews();
-    
-    // Reset file input
-    const input = document.getElementById('modal-media-files');
-    input.value = '';
-}
+function renderVideoPreview() {
+    const container = document.getElementById('video-items-container');
+    const placeholder = document.getElementById('video-placeholder');
+    const preview = document.getElementById('video-preview');
+    if (!container || !placeholder || !preview) return;
 
-function renderExistingMediaPreviews(images, video) {
-    const container = document.getElementById('media-items-container');
-    const placeholder = document.getElementById('media-placeholder');
-    const preview = document.getElementById('media-preview');
-    
-    if (images.length === 0 && !video) {
+    if (!uploadedVideoFile) {
         placeholder.style.display = 'block';
         preview.style.display = 'none';
+        container.innerHTML = '';
         return;
     }
-    
+
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        container.innerHTML = `
+            <div class="media-item">
+                <video src="${e.target.result}" controls></video>
+                <span class="media-badge">VIDEO</span>
+                <button type="button" class="remove-btn" onclick="removeVideoItem()">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(uploadedVideoFile);
+}
+
+function removePhotoItem(index) {
+    uploadedPhotoFiles.splice(index, 1);
+    const input = document.getElementById('modal-photo-files');
+    if (input) input.value = '';
+    renderPhotoPreviews();
+}
+
+function removeVideoItem() {
+    uploadedVideoFile = null;
+    const input = document.getElementById('modal-video-file');
+    if (input) input.value = '';
+    renderVideoPreview();
+}
+
+function renderExistingPhotoPreviews(images) {
+    const container = document.getElementById('photo-items-container');
+    const placeholder = document.getElementById('photo-placeholder');
+    const preview = document.getElementById('photo-preview');
+    if (!container || !placeholder || !preview) return;
+
+    if (images.length === 0) {
+        placeholder.style.display = 'block';
+        preview.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
     placeholder.style.display = 'none';
     preview.style.display = 'block';
     container.innerHTML = '';
-    
-    // Display existing images
+
     images.forEach((imgPath, index) => {
         const div = document.createElement('div');
         div.className = 'media-item';
         div.innerHTML = `
-            <img src="${serviceMediaUrl(imgPath)}" alt="Image ${index + 1}">
-            <span class="media-badge">IMG ${index + 1}</span>
-            <button type="button" class="remove-btn" onclick="removeExistingMedia('image', ${index})">
+            <img src="${serviceMediaUrl(imgPath)}" alt="Photo ${index + 1}">
+            <span class="media-badge">PHOTO ${index + 1}</span>
+            <button type="button" class="remove-btn" onclick="removeExistingPhoto(${index})">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         `;
         container.appendChild(div);
     });
-    
-    // Display existing video
-    if (video) {
-        const div = document.createElement('div');
-        div.className = 'media-item';
-        div.innerHTML = `
-            <video src="${serviceMediaUrl(video)}"></video>
+}
+
+function renderExistingVideoPreview(video) {
+    const container = document.getElementById('video-items-container');
+    const placeholder = document.getElementById('video-placeholder');
+    const preview = document.getElementById('video-preview');
+    if (!container || !placeholder || !preview) return;
+
+    if (!video) {
+        placeholder.style.display = 'block';
+        preview.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+    container.innerHTML = `
+        <div class="media-item">
+            <video src="${serviceMediaUrl(video)}" controls></video>
             <span class="media-badge">VIDEO</span>
-            <button type="button" class="remove-btn" onclick="removeExistingMedia('video', 0)">
+            <button type="button" class="remove-btn" onclick="removeExistingVideo()">
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-        `;
-        container.appendChild(div);
-    }
+        </div>
+    `;
 }
 
-function removeExistingMedia(type, index) {
-    if (type === 'image') {
-        const displayImageInput = document.getElementById('modal-display-image');
-        const images = displayImageInput.value.split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
-        images.splice(index, 1);
-        displayImageInput.value = images.join(',');
-        renderExistingMediaPreviews(images, document.getElementById('modal-video-url').value);
-    } else if (type === 'video') {
-        document.getElementById('modal-video-url').value = '';
-        const images = document.getElementById('modal-display-image').value.split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
-        renderExistingMediaPreviews(images, '');
-    }
+function removeExistingPhoto(index) {
+    const displayImageInput = document.getElementById('modal-display-image');
+    const images = displayImageInput.value.split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
+    images.splice(index, 1);
+    displayImageInput.value = images.join(',');
+    renderExistingPhotoPreviews(images);
 }
 
-// Drag and drop handler
-const mediaArea = document.getElementById('media-upload-area');
-if (mediaArea) {
+function removeExistingVideo() {
+    document.getElementById('modal-video-url').value = '';
+    renderExistingVideoPreview('');
+}
+
+function bindDropZone(areaId, inputId, handler) {
+    const area = document.getElementById(areaId);
+    if (!area) return;
+
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        mediaArea.addEventListener(eventName, preventDefaults, false);
+        area.addEventListener(eventName, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
     });
-    
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
+
     ['dragenter', 'dragover'].forEach(eventName => {
-        mediaArea.addEventListener(eventName, () => mediaArea.classList.add('drag-over'), false);
+        area.addEventListener(eventName, () => area.classList.add('drag-over'), false);
     });
-    
+
     ['dragleave', 'drop'].forEach(eventName => {
-        mediaArea.addEventListener(eventName, () => mediaArea.classList.remove('drag-over'), false);
+        area.addEventListener(eventName, () => area.classList.remove('drag-over'), false);
     });
-    
-    mediaArea.addEventListener('drop', function(e) {
+
+    area.addEventListener('drop', function(e) {
         const dt = e.dataTransfer;
-        const files = dt.files;
-        const input = document.getElementById('modal-media-files');
-        input.files = files;
-        handleMediaUpload(input);
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.files = dt.files;
+        handler(input);
     }, false);
 }
+
+bindDropZone('photo-upload-area', 'modal-photo-files', handlePhotoUpload);
+bindDropZone('video-upload-area', 'modal-video-file', handleVideoUpload);
 </script>
 <script src="<?php echo htmlspecialchars($base_path); ?>/public/assets/js/service-form-validation.js"></script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
