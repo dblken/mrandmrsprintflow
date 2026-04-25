@@ -12,6 +12,7 @@ if (file_exists(__DIR__ . '/../config.php')) {
 }
 $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $logout_url = $base_path . '/logout';
+$sidebar_profile_pic = '';
 $staff_branch_label = '';
 if (!$is_pending && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'Staff') {
     require_once __DIR__ . '/branch_context.php';
@@ -23,6 +24,10 @@ if (!function_exists('db_query')) require_once __DIR__ . '/db.php';
 $_staff_unread_notif = 0;
 if (isset($_SESSION['user_id'])) {
     $_staff_unread_notif = get_unread_notification_count((int)$_SESSION['user_id'], 'Staff');
+    $sidebar_user = db_query("SELECT profile_picture FROM users WHERE user_id = ?", 'i', [$_SESSION['user_id']]);
+    if (!empty($sidebar_user) && !empty($sidebar_user[0]['profile_picture'])) {
+        $sidebar_profile_pic = $base_path . '/public/assets/uploads/profiles/' . $sidebar_user[0]['profile_picture'];
+    }
 }
 ?>
 <div id="printflow-persistent-sidebar" data-turbo-permanent>
@@ -136,7 +141,11 @@ if (isset($_SESSION['user_id'])) {
     <div class="sidebar-footer">
         <a href="<?php echo $base_path; ?>/staff/profile.php" class="user-profile" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 6px; transition: background 0.2s;">
             <div class="user-avatar">
-                <?php echo $user_initial; ?>
+                <?php if ($sidebar_profile_pic): ?>
+                    <img src="<?php echo htmlspecialchars($sidebar_profile_pic); ?>?t=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.parentNode.textContent='<?php echo htmlspecialchars($user_initial, ENT_QUOTES, 'UTF-8'); ?>';">
+                <?php else: ?>
+                    <?php echo $user_initial; ?>
+                <?php endif; ?>
             </div>
             <div class="user-info">
                 <div class="user-name-display"><?php echo htmlspecialchars($user_name); ?></div>

@@ -43,6 +43,23 @@ function build_staff_status_filter_sql(string $status_filter, array &$params, st
     $types .= 's';
     return " AND {$alias}.status = ?";
 }
+function build_staff_service_status_filter_sql(string $status_filter, array &$params, string &$types, string $alias = 'so'): string {
+    if ($status_filter === '') {
+        return " AND {$alias}.status NOT IN ('Cancelled', 'Rejected')";
+    }
+    if ($status_filter === 'Pending') {
+        return " AND {$alias}.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')";
+    }
+    if ($status_filter === 'Ready for Pickup') {
+        return " AND {$alias}.status IN ('Ready for Pickup', 'Ready For Pickup', 'Processing', 'In Production', 'Printing')";
+    }
+    if ($status_filter === 'Cancelled') {
+        return " AND {$alias}.status IN ('Cancelled', 'Rejected')";
+    }
+    $params[] = $status_filter;
+    $types .= 's';
+    return " AND {$alias}.status = ?";
+}
 
 // --- Timeframe Logic ---
 $timeframe_sql = "DATE(o.order_date) = CURDATE()";
@@ -59,40 +76,8 @@ switch ($timeframe) {
         break;
 }
 
-$latest_activity_row = db_query("
-    SELECT MAX(activity_date) AS latest_date
-    FROM (
-        SELECT DATE(order_date) AS activity_date FROM orders WHERE branch_id = ?
-        UNION ALL
-        SELECT DATE(created_at) AS activity_date FROM service_orders WHERE branch_id = ? OR branch_id IS NULL
-    ) branch_activity
-", 'ii', [$staffBranchId, $staffBranchId]);
-$latestBranchDate = $latest_activity_row[0]['latest_date'] ?? null;
-$period_probe = db_query("
-    SELECT SUM(cnt) AS total_count
-    FROM (
-        SELECT COUNT(*) AS cnt FROM orders o WHERE o.branch_id = ? AND {$timeframe_sql}
-        UNION ALL
-        SELECT COUNT(*) AS cnt FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND " . str_replace('o.order_date', 'so.created_at', $timeframe_sql) . "
-    ) period_counts
-", 'ii', [$staffBranchId, $staffBranchId]);
 $timeframe_label = $timeframe === 'today' ? 'Today' : ($timeframe === 'week' ? 'This Week' : 'This Month');
-if (((int)($period_probe[0]['total_count'] ?? 0)) === 0 && $latestBranchDate) {
-    $safeLatest = db_escape($latestBranchDate);
-    if ($timeframe === 'month') {
-        $timeframe_sql = "YEAR(o.order_date) = YEAR('{$safeLatest}') AND MONTH(o.order_date) = MONTH('{$safeLatest}')";
-        $timeframe_sql_no_alias = "YEAR(order_date) = YEAR('{$safeLatest}') AND MONTH(order_date) = MONTH('{$safeLatest}')";
-        $timeframe_label = 'Latest Month';
-    } elseif ($timeframe === 'week') {
-        $timeframe_sql = "YEARWEEK(o.order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
-        $timeframe_sql_no_alias = "YEARWEEK(order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
-        $timeframe_label = 'Latest Week';
-    } else {
-        $timeframe_sql = "DATE(o.order_date) = '{$safeLatest}'";
-        $timeframe_sql_no_alias = "DATE(order_date) = '{$safeLatest}'";
-        $timeframe_label = 'Latest Day';
-    }
-}
+$latestBranchDate = date('Y-m-d');
 $service_timeframe_sql = str_replace('o.order_date', 'so.created_at', $timeframe_sql);
 
 // 1. Stats
@@ -128,14 +113,20 @@ $pending_reviews = db_query("
     WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
 ", 'i', [$staffBranchId])[0]['count'] ?? 0;
 
+$revenue_order_params = [$staffBranchId];
+$revenue_order_types = 'i';
+$revenue_order_where = build_staff_status_filter_sql($status_filter, $revenue_order_params, $revenue_order_types);
+$revenue_service_params = [$staffBranchId];
+$revenue_service_types = 'i';
+$revenue_service_where = build_staff_service_status_filter_sql($status_filter, $revenue_service_params, $revenue_service_types);
 $total_revenue = db_query("
     SELECT SUM(total) AS total
     FROM (
-        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?
+        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders o WHERE {$timeframe_sql} AND o.branch_id = ? {$revenue_order_where}
         UNION ALL
-        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE {$service_timeframe_sql} AND status NOT IN ('Cancelled', 'Rejected') AND (branch_id = ? OR branch_id IS NULL)
+        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE {$service_timeframe_sql} AND (so.branch_id = ? OR so.branch_id IS NULL) {$revenue_service_where}
     ) branch_revenue
-", 'ii', [$staffBranchId, $staffBranchId])[0]['total'] ?? 0;
+", $revenue_order_types . $revenue_service_types, array_merge($revenue_order_params, $revenue_service_params))[0]['total'] ?? 0;
 
 // 2. Optimized & Dynamic Chart Data
 $chart_labels = [];
@@ -229,6 +220,9 @@ switch($timeframe) {
 
 // 3. Top Sales (Dynamic Timeframe)
 $ts_where = $timeframe_sql;
+$top_services_status_params = [$staffBranchId];
+$top_services_status_types = 'i';
+$top_services_status_where = build_staff_status_filter_sql($status_filter, $top_services_status_params, $top_services_status_types, 'o');
 $top_services = db_query("
     SELECT 
         TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, s.name, p.name), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name, 
@@ -240,6 +234,7 @@ $top_services = db_query("
     LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name AND s.status = 'Activated'))
     WHERE $ts_where 
       AND o.branch_id = ?
+      {$top_services_status_where}
       AND (
           (p.product_id IS NOT NULL AND p.status = 'Activated')
           OR (s.service_id IS NOT NULL AND s.status = 'Activated')
@@ -248,18 +243,21 @@ $top_services = db_query("
     GROUP BY name
     ORDER BY order_count DESC
     LIMIT 10
-", 'i', [$staffBranchId]);
+", $top_services_status_types, $top_services_status_params);
 if (empty($top_services)) {
+    $svc_top_params = [$staffBranchId];
+    $svc_top_types = 'i';
+    $svc_top_where = build_staff_service_status_filter_sql($status_filter, $svc_top_params, $svc_top_types, 'so');
     $top_services = db_query("
         SELECT service_name AS name, COUNT(*) AS order_count
         FROM service_orders so
         WHERE {$service_timeframe_sql}
           AND (so.branch_id = ? OR so.branch_id IS NULL)
-          AND so.status NOT IN ('Cancelled', 'Rejected')
+          {$svc_top_where}
         GROUP BY service_name
         ORDER BY order_count DESC
         LIMIT 10
-    ", 'i', [$staffBranchId]);
+    ", $svc_top_types, $svc_top_params);
 }
 
 // 4. Recent Orders
@@ -327,5 +325,6 @@ echo json_encode([
         'total_pages' => ceil($total_rows / $limit),
         'total_rows' => (int)$total_rows
     ],
-    'timeframe_label' => $timeframe_label
+    'timeframe_label' => $timeframe_label,
+    'short_label' => $timeframe_label
 ]);

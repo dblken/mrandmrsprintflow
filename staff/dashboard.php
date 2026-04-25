@@ -310,10 +310,10 @@ $page_title = 'Staff Dashboard - PrintFlow';
                     </button>
                     <div class="dropdown-panel sort-dropdown" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
                         <a href="#" class="sort-option" :class="{ active: !activeStatus }" @click.prevent="activeStatus = ''; filterOpen = false; refreshDashboard(1, '', activeTimeframe)">All Statuses</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Pending' }" @click.prevent="activeStatus = 'Pending'; filterOpen = false; refreshDashboard(1, 'Pending', activeTimeframe)">Pending</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Processing' }" @click.prevent="activeStatus = 'Processing'; filterOpen = false; refreshDashboard(1, 'Processing', activeTimeframe)">Processing</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Ready for Pickup' }" @click.prevent="activeStatus = 'Ready for Pickup'; filterOpen = false; refreshDashboard(1, 'Ready for Pickup', activeTimeframe)">Ready</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Pending' }" @click.prevent="activeStatus = 'Pending'; filterOpen = false; refreshDashboard(1, 'Pending', activeTimeframe)">To Verify</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Ready for Pickup' }" @click.prevent="activeStatus = 'Ready for Pickup'; filterOpen = false; refreshDashboard(1, 'Ready for Pickup', activeTimeframe)">To Pick Up</a>
                         <a href="#" class="sort-option" :class="{ active: activeStatus === 'Completed' }" @click.prevent="activeStatus = 'Completed'; filterOpen = false; refreshDashboard(1, 'Completed', activeTimeframe)">Completed</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Cancelled' }" @click.prevent="activeStatus = 'Cancelled'; filterOpen = false; refreshDashboard(1, 'Cancelled', activeTimeframe)">Cancelled</a>
                     </div>
                 </div>
 

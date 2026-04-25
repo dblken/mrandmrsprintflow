@@ -2048,21 +2048,23 @@ window.pfCustomizationPreloadedOrders = (() => {
                         return;
                     }
 
-                    const statusDiff = this.statusPriority(row) - this.statusPriority(existing);
-                    if (statusDiff > 0) {
-                        grouped.set(key, row);
-                        return;
-                    }
-                    if (statusDiff < 0) {
-                        return;
-                    }
-
+                    // Prefer fresher records first so tab placement reflects latest status changes.
                     const timeDiff = (row._ts || 0) - (existing._ts || 0);
                     if (timeDiff > 0) {
                         grouped.set(key, row);
                         return;
                     }
                     if (timeDiff < 0) {
+                        return;
+                    }
+
+                    // If timestamps are equal, use status progression as tie-breaker.
+                    const statusDiff = this.statusPriority(row) - this.statusPriority(existing);
+                    if (statusDiff > 0) {
+                        grouped.set(key, row);
+                        return;
+                    }
+                    if (statusDiff < 0) {
                         return;
                     }
 
@@ -2559,72 +2561,61 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (raw.includes('REFLECTORIZED') || raw.includes('SIGNAGE')) return 'REFLECTORIZED SIGNAGE';
                 return raw || 'OTHER';
             },
+            matchesStatusTab(jo, status) {
+                if (status === 'ALL') return true;
+                if (status === 'APPROVED') return jo.status === 'APPROVED';
+                if (status === 'TO_VERIFY') return this.isVerifyStageRow(jo);
+                if (status === 'TO_PAY') return this.isToPayRow(jo);
+                if (status === 'IN_PRODUCTION') return this.isInProductionRow(jo);
+                if (status === 'TO_RECEIVE') return jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT';
+                if (status === 'REJECTED') return jo.status === 'REJECTED';
+                return jo.status === status;
+            },
+            matchesNonStatusFilters(jo) {
+                if (this.serviceFilter !== 'ALL') {
+                    const rowService = this.getServiceFilterValue(jo);
+                    if (rowService !== this.serviceFilter) return false;
+                }
+
+                if (this.dateFilter !== 'ALL') {
+                    const orderDate = new Date(jo.created_at || jo.order_date);
+                    const now = new Date();
+
+                    if (this.dateFilter === 'TODAY') {
+                        if (orderDate.toDateString() !== now.toDateString()) return false;
+                    } else if (this.dateFilter === 'WEEK') {
+                        const lastWeek = new Date();
+                        lastWeek.setDate(now.getDate() - 7);
+                        if (orderDate < lastWeek) return false;
+                    } else if (this.dateFilter === 'MONTH') {
+                        if (orderDate.getMonth() !== now.getMonth() || orderDate.getFullYear() !== now.getFullYear()) return false;
+                    } else if (this.dateFilter === 'CUSTOM') {
+                        if (this.customDateFrom) {
+                            const from = new Date(this.customDateFrom);
+                            from.setHours(0,0,0,0);
+                            if (orderDate < from) return false;
+                        }
+                        if (this.customDateTo) {
+                            const to = new Date(this.customDateTo);
+                            to.setHours(23,59,59,999);
+                            if (orderDate > to) return false;
+                        }
+                    }
+                }
+
+                const searchLower = this.search.toLowerCase();
+                const matchSearch = !this.search ||
+                    (jo.job_title && jo.job_title.toLowerCase().includes(searchLower)) ||
+                    (jo.service_type && jo.service_type.toLowerCase().includes(searchLower)) ||
+                    (((jo.first_name || '') + ' ' + (jo.last_name || '')).toLowerCase().includes(searchLower)) ||
+                    (jo.id && jo.id.toString().includes(searchLower));
+                return matchSearch;
+            },
 
             get filteredOrders() {
                 const filtered = this.orders.filter(jo => {
-                    // Status Filter
-                    let matchStatus = false;
-                    if (this.activeStatus === 'ALL') {
-                        matchStatus = true;
-                    } else if (this.activeStatus === 'APPROVED') {
-                        matchStatus = jo.status === 'APPROVED';
-                    } else if (this.activeStatus === 'TO_VERIFY') {
-                        matchStatus = this.isVerifyStageRow(jo);
-                    } else if (this.activeStatus === 'TO_PAY') {
-                        matchStatus = this.isToPayRow(jo);
-                    } else if (this.activeStatus === 'IN_PRODUCTION') {
-                        matchStatus = this.isInProductionRow(jo);
-                    } else if (this.activeStatus === 'TO_RECEIVE') {
-                        matchStatus = jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT';
-                    } else if (this.activeStatus === 'REJECTED') {
-                        matchStatus = jo.status === 'REJECTED';
-                    } else {
-                        matchStatus = jo.status === this.activeStatus;
-                    }
-                    if (!matchStatus) return false;
-
-                    // Service Filter
-                    if (this.serviceFilter !== 'ALL') {
-                        const rowService = this.getServiceFilterValue(jo);
-                        if (rowService !== this.serviceFilter) return false;
-                    }
-
-                    // Date Filter
-                    if (this.dateFilter !== 'ALL') {
-                        const orderDate = new Date(jo.created_at || jo.order_date);
-                        const now = new Date();
-                        
-                        if (this.dateFilter === 'TODAY') {
-                            if (orderDate.toDateString() !== now.toDateString()) return false;
-                        } else if (this.dateFilter === 'WEEK') {
-                            const lastWeek = new Date();
-                            lastWeek.setDate(now.getDate() - 7);
-                            if (orderDate < lastWeek) return false;
-                        } else if (this.dateFilter === 'MONTH') {
-                            if (orderDate.getMonth() !== now.getMonth() || orderDate.getFullYear() !== now.getFullYear()) return false;
-                        } else if (this.dateFilter === 'CUSTOM') {
-                            if (this.customDateFrom) {
-                                const from = new Date(this.customDateFrom);
-                                from.setHours(0,0,0,0);
-                                if (orderDate < from) return false;
-                            }
-                            if (this.customDateTo) {
-                                const to = new Date(this.customDateTo);
-                                to.setHours(23,59,59,999);
-                                if (orderDate > to) return false;
-                            }
-                        }
-                    }
-                    
-                    // Search Bar
-                    const searchLower = this.search.toLowerCase();
-                    const matchSearch = !this.search || 
-                        (jo.job_title && jo.job_title.toLowerCase().includes(searchLower)) ||
-                        (jo.service_type && jo.service_type.toLowerCase().includes(searchLower)) ||
-                        (((jo.first_name || '') + ' ' + (jo.last_name || '')).toLowerCase().includes(searchLower)) ||
-                        (jo.id && jo.id.toString().includes(searchLower));
-                    
-                    return matchSearch;
+                    if (!this.matchesStatusTab(jo, this.activeStatus)) return false;
+                    return this.matchesNonStatusFilters(jo);
                 });
 
                 // Sorting
@@ -2677,32 +2668,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             getStatusCount(status) {
                 void this.ordersVersion;
-                if (status === 'ALL') {
-                    // Count each order exactly once based on which tab it belongs to
-                    return this.orders.filter(o => {
-                        const s = String(o.status || '').toUpperCase().replace(/\s+/g, '_');
-                        return ['PENDING','APPROVED','TO_PAY','VERIFY_PAY','TO_VERIFY','PENDING_VERIFICATION',
-                                'DOWNPAYMENT_SUBMITTED','IN_PRODUCTION','PROCESSING','PRINTING',
-                                'TO_RECEIVE','COMPLETED','REJECTED','CANCELLED'].includes(s) ||
-                               this.isInProductionRow(o);
-                    }).length;
-                }
-                if (status === 'TO_VERIFY') {
-                    return this.orders.filter(o => this.isVerifyStageRow(o)).length;
-                }
-                if (status === 'TO_PAY') {
-                    return this.orders.filter(o => this.isToPayRow(o)).length;
-                }
-                if (status === 'IN_PRODUCTION') {
-                    return this.orders.filter(o => this.isInProductionRow(o)).length;
-                }
-                if (status === 'TO_RECEIVE') {
-                    return this.orders.filter(o => o.status === 'TO_RECEIVE' || o.status === 'READY_TO_COLLECT').length;
-                }
-                if (status === 'REJECTED') {
-                    return this.orders.filter(o => o.status === 'REJECTED').length;
-                }
-                return this.orders.filter(o => o.status === status).length;
+                return this.orders.filter(o => this.matchesNonStatusFilters(o) && this.matchesStatusTab(o, status)).length;
             },
 
             async viewDetails(id, orderType = 'JOB') {
