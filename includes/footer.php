@@ -259,10 +259,10 @@ function _ft_detect_social(string $url): array {
         <!-- Header -->
         <div style="padding: 18px; background: linear-gradient(135deg, #00232b, #1a5a6f); color: white; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,35,43,0.3); flex-shrink: 0;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #ffffff;">Support chat</h3>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.16); display: inline-block;"></span>
-                    <p style="margin: 0; font-size: 11px; color: #ffffff; font-weight: 600;">Online</p>
+                <h3 id="chatbot-title" style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.18);">Support chat</h3>
+                <div id="chatbot-status" style="display: flex; align-items: center; gap: 6px;">
+                    <span id="chatbot-status-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,0.18); display: inline-block;"></span>
+                    <p id="chatbot-status-text" style="margin: 0; font-size: 11px; color: #ffffff; font-weight: 600;">Offline</p>
                 </div>
             </div>
             <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; padding: 0; width: 28px; height: 28px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.7;" type="button" title="Close chat" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
@@ -450,6 +450,8 @@ function _ft_detect_social(string $url): array {
         var ques = document.getElementById('chatbot-questions');
         var input = document.getElementById('chatbot-input');
         var sendBtn = document.getElementById('chatbot-send');
+        var statusDot = document.getElementById('chatbot-status-dot');
+        var statusText = document.getElementById('chatbot-status-text');
         var loaded = false;
         var isOpen = false;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
@@ -477,6 +479,7 @@ function _ft_detect_social(string $url): array {
         var renderedMessageIds = {};
         var checkInterval = null;
         var syncInFlight = false;
+        var presenceInterval = null;
 
         function readStoredJson(key) {
             try {
@@ -512,7 +515,41 @@ function _ft_detect_social(string $url): array {
             });
         }
 
+        function setSupportPresence(isOnline) {
+            if (!statusDot || !statusText) return;
+            if (isOnline) {
+                statusDot.style.background = '#22c55e';
+                statusDot.style.boxShadow = '0 0 0 4px rgba(34,197,94,0.16)';
+                statusText.textContent = 'Online';
+            } else {
+                statusDot.style.background = '#94a3b8';
+                statusDot.style.boxShadow = '0 0 0 4px rgba(148,163,184,0.18)';
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        function syncSupportPresence() {
+            var basePath = window.BASE_PATH || '';
+            return fetch(basePath + '/public/api/support_chat_presence.php', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    setSupportPresence(!!(data && data.success && data.support_online));
+                    return data;
+                })
+                .catch(function() {
+                    setSupportPresence(false);
+                    return null;
+                });
+        }
+
+        function startSupportPresenceLoop() {
+            syncSupportPresence();
+            if (presenceInterval) clearInterval(presenceInterval);
+            presenceInterval = setInterval(syncSupportPresence, 30000);
+        }
+
         syncChatbotAuthState();
+        startSupportPresenceLoop();
 
         function appendUserMessage(text) {
             var um = document.createElement('div');

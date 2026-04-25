@@ -307,13 +307,13 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
         }
         #modal-conversation .chat-modal-shell {
             width: 100%;
-            max-width: min(680px, calc(100vw - 32px));
-            max-height: min(90vh, 860px);
+            max-width: min(420px, calc(100vw - 32px));
+            max-height: min(85vh, 760px);
             display: flex;
             flex-direction: column;
             background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
             overflow: hidden;
         }
         #modal-conversation .chat-modal-header {
@@ -321,10 +321,10 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            padding: 16px 20px;
+            padding: 18px;
             flex-shrink: 0;
-            border-bottom: 1px solid #eef2f7;
-            background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+            border-bottom: none;
+            background: linear-gradient(135deg, #00232b, #1a5a6f);
         }
         #modal-conversation .chat-modal-header-left {
             display: flex;
@@ -344,7 +344,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             font-size: 15px;
             font-weight: 700;
             color: #fff;
-            background: linear-gradient(135deg, #00232b 0%, #001018 100%);
+            background: linear-gradient(135deg, #001018 0%, #00232b 100%);
             box-shadow: 0 4px 14px rgba(0, 35, 43, 0.35);
             letter-spacing: 0.02em;
         }
@@ -399,6 +399,10 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             background: #22c55e;
             box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
         }
+        #modal-conversation .chat-modal-live.offline::before {
+            background: #94a3b8;
+            box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.18);
+        }
         #modal-conversation .chat-modal-close {
             flex-shrink: 0;
             width: 40px;
@@ -406,7 +410,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             border: none;
             border-radius: 12px;
             background: transparent;
-            color: #94a3b8;
+            color: rgba(255,255,255,0.72);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -414,20 +418,20 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             transition: background 0.15s, color 0.15s;
         }
         #modal-conversation .chat-modal-close:hover {
-            background: #f1f5f9;
-            color: #334155;
+            background: rgba(255,255,255,0.08);
+            color: #ffffff;
         }
         #modal-conversation .chat-modal-close svg { display: block; }
         #modal-conversation .chat-modal-messages {
             flex: 1;
             min-height: 260px;
-            max-height: min(52vh, 500px);
+            max-height: min(50vh, 460px);
             overflow-y: auto;
             overflow-x: hidden;
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
-            padding: 18px 20px 12px;
-            background: linear-gradient(180deg, #eef2f7 0%, #e8ecf1 50%, #f1f5f9 100%);
+            padding: 16px;
+            background: linear-gradient(to bottom, white, #f8fafb);
         }
         #modal-conversation .chat-modal-messages::-webkit-scrollbar { width: 8px; }
         #modal-conversation .chat-modal-messages::-webkit-scrollbar-thumb {
@@ -464,7 +468,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
         #modal-conversation .chat-msg-row.customer { justify-content: flex-start; }
         #modal-conversation .chat-msg-row.admin { justify-content: flex-end; }
         #modal-conversation .chat-msg-stack {
-            max-width: 72%;
+            max-width: 85%;
             min-width: 0;
             display: flex;
             flex-direction: column;
@@ -475,24 +479,24 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             font-size: 14px;
             line-height: 1.55;
             padding: 11px 16px;
-            border-radius: 16px;
+            border-radius: 14px;
             word-wrap: break-word;
             overflow-wrap: break-word;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
         #modal-conversation .chat-msg-row.customer .chat-bubble {
-            background: #fff;
-            color: #0f172a;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            border-bottom-left-radius: 5px;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-bottom-left-radius: 4px;
         }
         #modal-conversation .chat-msg-row.admin .chat-bubble {
-            background: #00232b;
+            background: #53C5E0;
             color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 4px 14px rgba(0, 35, 43, 0.28);
-            border-bottom-right-radius: 5px;
+            border: none;
+            box-shadow: 0 1px 3px rgba(83,197,224,0.25);
+            border-bottom-right-radius: 4px;
         }
         #modal-conversation .chat-msg-row .chat-bubble:hover {
             transform: translateY(-1px);
@@ -522,8 +526,8 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
         }
         #modal-conversation .chat-input-area {
             flex-shrink: 0;
-            padding: 16px 20px 18px;
-            border-top: 1px solid #eef2f7;
+            padding: 14px 16px 16px;
+            border-top: 1px solid #e5e5e5;
             background: #fff;
         }
         #modal-conversation .chat-input-row {
@@ -536,44 +540,43 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             min-width: 0;
             min-height: 48px;
             max-height: 140px;
-            padding: 13px 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+            padding: 12px 14px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
             font-size: 14px;
             font-family: inherit;
             line-height: 1.45;
             color: #0f172a;
-            background: #f8fafc;
+            background: #fff;
             resize: none;
             outline: none;
             transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
         }
         #modal-conversation .chat-input-field::placeholder { color: #94a3b8; }
         #modal-conversation .chat-input-field:focus {
-            border-color: #3d6a7a;
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(0, 35, 43, 0.18);
+            border-color: #53C5E0;
+            background: #f8fcfd;
+            box-shadow: 0 0 0 3px rgba(83,197,224,0.15);
         }
         #modal-conversation .chat-send-btn {
             flex-shrink: 0;
-            min-width: 96px;
-            padding: 0 20px;
+            min-width: 90px;
+            padding: 0 18px;
             min-height: 48px;
             border: none;
-            border-radius: 12px;
-            background: #00232b;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #53C5E0, #32a1c4);
             color: #fff;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             font-family: inherit;
             transition: transform 0.12s, box-shadow 0.15s, opacity 0.15s, background 0.15s;
-            box-shadow: 0 4px 12px rgba(0, 35, 43, 0.3);
+            box-shadow: 0 2px 8px rgba(83,197,224,0.2);
         }
         #modal-conversation .chat-send-btn:hover:not(:disabled) {
             transform: translateY(-1px);
-            background: #00151a;
-            box-shadow: 0 6px 16px rgba(0, 35, 43, 0.4);
+            box-shadow: 0 4px 16px rgba(83,197,224,0.4);
         }
         #modal-conversation .chat-send-btn:active:not(:disabled) { transform: translateY(0); }
         #modal-conversation .chat-send-btn:disabled {
@@ -1046,7 +1049,7 @@ foreach ($inq_conversations as $c):
                 <div class="chat-modal-avatar" id="modal-conv-avatar" aria-hidden="true">?</div>
                 <div class="chat-modal-header-text">
                     <h2 id="modal-conv-name" class="chat-modal-title">Conversation</h2>
-                    <span class="chat-modal-live">Online</span>
+                    <span class="chat-modal-live" id="modal-conv-live">Offline</span>
                     <a href="#" id="modal-conv-email" class="chat-modal-email" style="display:none;"></a>
                     <span id="modal-conv-email-none" class="chat-modal-email-muted" style="display:none;">No email on file</span>
                 </div>
@@ -1207,6 +1210,7 @@ function initInbox() {
     var modalAvatar = document.getElementById('modal-conv-avatar');
     var modalEmail = document.getElementById('modal-conv-email');
     var modalEmailNone = document.getElementById('modal-conv-email-none');
+    var modalLive = document.getElementById('modal-conv-live');
     var modalMessages = document.getElementById('modal-conv-messages');
     var modalTyping = document.getElementById('modal-conv-typing');
     var modalReplyInput = document.getElementById('modal-reply-input');
@@ -1218,6 +1222,8 @@ function initInbox() {
     var loadedMessages = [];
     var conversationPollTimer = null;
     var conversationPollBusy = false;
+    var presencePollTimer = null;
+    var pagePresenceTimer = null;
 
     function escapeHtml(t) {
         var d = document.createElement('div');
@@ -1282,6 +1288,13 @@ function initInbox() {
         if (!modalReplyBtn || !modalReplyInput) return;
         modalReplyBtn.disabled = !modalReplyInput.value.trim();
     }
+    function setConversationPresence(isOnline) {
+        if (!modalLive) return;
+        modalLive.textContent = isOnline ? 'Online' : 'Offline';
+        modalLive.classList.toggle('offline', !isOnline);
+        modalLive.style.background = isOnline ? 'rgba(34, 197, 94, 0.16)' : 'rgba(148, 163, 184, 0.18)';
+        modalLive.style.color = isOnline ? '#dcfce7' : '#e2e8f0';
+    }
     function autoResizeReply() {
         if (!modalReplyInput) return;
         modalReplyInput.style.height = 'auto';
@@ -1338,6 +1351,42 @@ function initInbox() {
             conversationPollTimer = null;
         }
     }
+    function stopPresencePolling() {
+        if (presencePollTimer) {
+            clearInterval(presencePollTimer);
+            presencePollTimer = null;
+        }
+    }
+    function syncConversationPresence() {
+        var id = parseInt(modal.dataset.convId || '0', 10);
+        if (!id) {
+            setConversationPresence(false);
+            return;
+        }
+        fetch((window.BASE_PATH || <?php echo json_encode($base_path); ?>) + '/public/api/support_chat_presence.php?conversation_id=' + id, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                setConversationPresence(!!(data && data.success && data.customer_online));
+            })
+            .catch(function () {
+                setConversationPresence(false);
+            });
+    }
+    function startPresencePolling() {
+        stopPresencePolling();
+        syncConversationPresence();
+        presencePollTimer = setInterval(syncConversationPresence, 30000);
+    }
+    function syncPagePresenceHeartbeat() {
+        fetch((window.BASE_PATH || <?php echo json_encode($base_path); ?>) + '/public/api/support_chat_presence.php', { credentials: 'same-origin' })
+            .catch(function () {});
+    }
+    function startPagePresenceHeartbeat() {
+        syncPagePresenceHeartbeat();
+        if (pagePresenceTimer) clearInterval(pagePresenceTimer);
+        pagePresenceTimer = setInterval(syncPagePresenceHeartbeat, 30000);
+    }
+    window.printflowStartSupportPagePresence = startPagePresenceHeartbeat;
     function syncOpenConversation() {
         if (!modal.classList.contains('open') || conversationPollBusy) return;
         var id = parseInt(modal.dataset.convId || '0', 10);
@@ -1380,6 +1429,7 @@ function initInbox() {
     function openModal(id) {
         if (!modal) return;
         stopConversationPolling();
+        stopPresencePolling();
         loadedMessages = [];
         modal.dataset.convId = id;
         if (modalReplyInput) {
@@ -1420,6 +1470,7 @@ function initInbox() {
                     }, 100);
                 }
                 startConversationPolling();
+                startPresencePolling();
             })
             .catch(function () {
                 loadedMessages = [];
@@ -1458,6 +1509,7 @@ function initInbox() {
     }
     function closeModal() {
         stopConversationPolling();
+        stopPresencePolling();
         modal.classList.remove('open');
         document.body.style.overflow = '';
         if (modalTyping) modalTyping.textContent = '';
@@ -1563,6 +1615,9 @@ function initInbox() {
 function printflowInitFaqChatbotPage() {
     printflowInitFaqChatbotPageFilters();
     initInbox();
+    if (typeof window.printflowStartSupportPagePresence === 'function') {
+        window.printflowStartSupportPagePresence();
+    }
 }
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', printflowInitFaqChatbotPage);
