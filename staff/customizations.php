@@ -107,6 +107,9 @@ foreach ($job_rows as $row) {
             $row['service_type'] = $payload['service_type'];
             $row['job_title'] = $payload['service_type'];
         }
+        $row['order_code'] = printflow_get_order_inventory_reference((int)$row['order_id'])['code'] ?? '';
+    } else {
+        $row['order_code'] = printflow_get_job_inventory_reference((int)($row['id'] ?? 0))['code'] ?? '';
     }
     $row['order_type'] = 'JOB';
     $preloaded_customization_rows[] = $row;
@@ -164,6 +167,11 @@ $customization_rows = db_query(
 ) ?: [];
 
 foreach ($customization_rows as $row) {
+    if (!empty($row['order_id'])) {
+        $row['order_code'] = printflow_get_order_inventory_reference((int)$row['order_id'])['code'] ?? '';
+    } else {
+        $row['order_code'] = printflow_format_customization_code((int)($row['id'] ?? 0));
+    }
     $preloaded_customization_rows[] = $row;
 }
 
@@ -848,7 +856,7 @@ if ($showLatestCustomizationOnly) {
                     <table class="w-full text-sm text-left border-separate border-spacing-0" style="table-layout:fixed;">
                         <thead class="bg-gray-50/50">
                             <tr>
-                                <th class="pl-6 pr-4 py-4 w-[12%] border-b border-gray-100">Order #</th>
+                                <th class="pl-6 pr-4 py-4 w-[12%] border-b border-gray-100">Order Code</th>
                                 <th class="px-4 py-4 w-[30%] border-b border-gray-100">Customization Info</th>
                                 <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
                                 <th class="px-4 py-4 w-[8%] border-b border-gray-100 text-center">Source</th>
@@ -862,7 +870,7 @@ if ($showLatestCustomizationOnly) {
                                 <tr @click="viewDetails(jo.id, jo.order_type || 'JOB')" class="group transition-all relative cursor-pointer">
                                     <td class="pl-6 pr-4 py-4 relative">
                                         <div class="row-indicator"></div>
-                                        <span class="table-text-main" x-text="(jo.order_type === 'ORDER' ? '#ORD-' : (jo.order_type === 'SERVICE' ? '#SRV-' : (jo.order_type === 'CUSTOMIZATION' ? '#CUST-' : '#JO-'))) + jo.id.toString().padStart(5, '0')"></span>
+                                        <span class="table-text-main" :title="getDisplayOrderCode(jo)" x-text="getDisplayOrderCode(jo)"></span>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="flex items-center gap-3">
@@ -976,7 +984,7 @@ if ($showLatestCustomizationOnly) {
                 <!-- Modal Header -->
                 <div style="padding:20px 24px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
                     <div>
-                        <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;" x-text="'Customization #' + currentJo.id"></h3>
+                        <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;" x-text="currentJo.order_code || getDisplayOrderCode(currentJo)"></h3>
                         <p style="font-size:12px;color:#6b7280;margin:2px 0 0;" x-text="getCorrectServiceType(currentJo)"></p>
                     </div>
                     <button @click="closeDetailsModal()" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
@@ -1356,9 +1364,6 @@ if ($showLatestCustomizationOnly) {
                                         <span style="color:#06A1A1; font-weight:600; margin-left:8px;" x-show="m.deducted_at">✓ Deducted</span>
                                     </div>
                                 </div>
-                                <template x-if="!m.deducted_at && !isVerifyStageRow(currentJo)">
-                                    <button type="button" @click="removeMaterial(m.id)" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">Remove</button>
-                                </template>
                             </div>
                         </template>
                     </div>
@@ -1969,6 +1974,24 @@ window.pfCustomizationPreloadedOrders = (() => {
                     return `ORDER:${oid}`;
                 }
                 return `${String(row?.order_type || 'JOB').toUpperCase()}:${row?.id ?? ''}`;
+            },
+            getDisplayOrderCode(row) {
+                if (!row) return '';
+                const explicit = String(row.order_code || '').trim();
+                if (explicit) return explicit;
+
+                const type = String(row.order_type || 'JOB').toUpperCase();
+                if (type === 'CUSTOMIZATION') {
+                    return 'CUST-' + String(row.id || 0).padStart(5, '0');
+                }
+                if (type === 'JOB') {
+                    return 'JO-' + String(row.id || 0).padStart(5, '0');
+                }
+                if (type === 'SERVICE') {
+                    return 'SRV-' + String(row.id || 0).padStart(5, '0');
+                }
+                const orderId = row.order_id ?? row.id ?? 0;
+                return 'ORD-' + String(orderId).padStart(5, '0');
             },
             normalizeOrderRow(row) {
                 const normalized = {
@@ -3558,15 +3581,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 return item && item.category_id == 1;
             },
             async removeMaterial(jomId) {
-                const fd = new FormData();
-                fd.append('action', 'remove_material');
-                fd.append('id', jomId);
-                const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
-                if(res.success) {
-                    await this.refreshMaterials();
-                } else {
-                    this.showStaffAlert('Error', res.error);
-                }
+                this.showStaffAlert('Material Locked', 'Assigned materials can no longer be removed once they have been set.');
             },
             async refreshMaterials() {
                 const jid = await this.resolveEffectiveJobId();

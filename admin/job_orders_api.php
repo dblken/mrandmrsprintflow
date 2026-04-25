@@ -209,6 +209,9 @@ try {
                             $jo['service_type'] = $payload['service_type'];
                             $jo['job_title'] = $payload['service_type'];
                         }
+                        $jo['order_code'] = printflow_get_order_inventory_reference((int)$jo['order_id'])['code'] ?? '';
+                    } else {
+                        $jo['order_code'] = printflow_get_job_inventory_reference((int)($jo['id'] ?? 0))['code'] ?? '';
                     }
                     $jobMats = $materialsByJob[$jo['id']] ?? [];
                     $jobInks = $inksByJob[$jo['id']] ?? [];
@@ -349,6 +352,7 @@ try {
             foreach ($pending_orders as &$order) {
                 $order['readiness'] = 'READY';
                 $order['estimated_cost'] = 0;
+                $order['order_code'] = printflow_get_order_inventory_reference((int)($order['order_id'] ?? 0))['code'] ?? '';
                 
                 // Fallback: detect legacy POS orders missing order_source
                 if (empty($order['order_source']) || $order['order_source'] === 'customer') {
@@ -436,6 +440,11 @@ try {
             foreach ($custom_orders as &$co) {
                 $co['readiness'] = 'READY';
                 $co['estimated_cost'] = 0;
+                if (!empty($co['order_id'])) {
+                    $co['order_code'] = printflow_get_order_inventory_reference((int)$co['order_id'])['code'] ?? '';
+                } else {
+                    $co['order_code'] = printflow_format_customization_code((int)($co['id'] ?? 0));
+                }
             }
             unset($co);
 
@@ -486,6 +495,7 @@ try {
             foreach ($svc_orders as &$so) {
                 $so['readiness'] = 'READY';
                 $so['estimated_cost'] = 0;
+                $so['order_code'] = 'SRV-' . str_pad((string)((int)($so['id'] ?? 0)), 5, '0', STR_PAD_LEFT);
             }
             unset($so);
 
@@ -510,6 +520,7 @@ try {
             $order = JobOrderService::getOrder($id);
             if (!$order) throw new Exception("Order not found.");
             $order['readiness'] = JobOrderService::getMaterialReadiness($id);
+            $order['order_code'] = printflow_get_job_inventory_reference($id)['code'] ?? printflow_format_job_code($id);
             jo_api_json_response(['success' => true, 'data' => $order]);
             break;
 
@@ -705,6 +716,9 @@ try {
                 'id'                       => $cust['customization_id'],
                 'order_id'                 => $cust['order_id'],
                 'order_type'               => 'CUSTOMIZATION',
+                'order_code'               => !empty($cust['order_id'])
+                    ? (printflow_get_order_inventory_reference((int)$cust['order_id'])['code'] ?? '')
+                    : printflow_format_customization_code((int)$cust['customization_id']),
                 'customer_full_name'       => $cust['customer_full_name'] ?? '',
                 'customer_profile_picture' => $cust['customer_profile_picture'] ?? '',
                 'customer_contact'         => $cust['customer_contact'] ?? '',
@@ -842,6 +856,7 @@ try {
                 'id'                   => $o['order_id'],
                 'order_id'             => $o['order_id'],
                 'order_type'           => 'ORDER',
+                'order_code'           => printflow_get_order_inventory_reference($order_id)['code'] ?? printflow_format_order_code($order_id, ''),
                 'customer_full_name'   => $o['customer_full_name'] ?? trim(($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')),
                 'customer_profile_picture' => $o['customer_profile_picture'] ?? '',
                 'customer_contact'     => $o['customer_contact'] ?? '',
@@ -1041,10 +1056,7 @@ try {
         case 'remove_material':
             $jomId = (int)($_POST['id'] ?? 0);
             if (!$jomId) throw new Exception("ID required.");
-            $jomRow = db_query('SELECT job_order_id FROM job_order_materials WHERE id = ?', 'i', [$jomId]);
-            jo_api_require_staff_branch($joStaffBranch, (int)($jomRow[0]['job_order_id'] ?? 0));
-            $res = JobOrderService::removeMaterial($jomId);
-            jo_api_json_response(['success' => $res]);
+            throw new Exception('Assigned materials cannot be removed once they have been set.');
             break;
 
         default:
