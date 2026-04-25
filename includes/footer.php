@@ -461,6 +461,199 @@ function _ft_detect_social(string $url): array {
         var chatbotCustomerId = <?php echo $chatbot_customer_id ? (int)$chatbot_customer_id : 'null'; ?>;
         var chatbotCustomerName = <?php echo json_encode($chatbot_customer_name); ?>;
         var chatbotCustomerEmail = <?php echo json_encode($chatbot_customer_email); ?>;
+        var CHATBOT_PENDING_KEY = 'pf_chatbot_pending_message';
+        var CHATBOT_RESUME_KEY = 'pf_chatbot_login_resume';
+        var CHATBOT_AUTH_STATE_KEY = 'pf_chatbot_last_auth_state';
+
+        function readStoredJson(key) {
+            try {
+                var raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function writeStoredJson(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {}
+        }
+
+        function removeStored(key) {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {}
+        }
+
+        function syncChatbotAuthState() {
+            var last = readStoredJson(CHATBOT_AUTH_STATE_KEY);
+            if (!isLoggedIn && last && last.loggedIn) {
+                removeStored(CHATBOT_PENDING_KEY);
+                removeStored(CHATBOT_RESUME_KEY);
+            }
+            writeStoredJson(CHATBOT_AUTH_STATE_KEY, {
+                loggedIn: !!isLoggedIn,
+                ts: Date.now()
+            });
+        }
+
+        syncChatbotAuthState();
+
+        function appendUserMessage(text) {
+            var um = document.createElement('div');
+            um.className = 'cb-msg-user';
+            um.style.cssText = 'display: flex; justify-content: flex-end; gap: 8px;';
+            um.innerHTML = '<div style="background: #53C5E0; color: white; padding: 12px 14px; border-radius: 14px 4px 14px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(83,197,224,0.25); word-wrap: break-word;">' + escapeHtml(text) + '</div>';
+            msgs.appendChild(um);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function appendBotMessage(html) {
+            var bm = document.createElement('div');
+            bm.className = 'cb-msg-bot';
+            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+            bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 90%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">' + html + '</div>';
+            msgs.appendChild(bm);
+            msgs.scrollTop = msgs.scrollHeight;
+            return bm;
+        }
+
+        function showTypingIndicator() {
+            var typing = document.createElement('div');
+            typing.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
+            typing.innerHTML = '<div style="background: #f0f0f0; color: #999; padding: 12px 14px; border-radius: 14px 14px 4px 14px; display: flex; gap: 4px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.2s;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.4s;"></span></div>';
+            msgs.appendChild(typing);
+            msgs.scrollTop = msgs.scrollHeight;
+            return typing;
+        }
+
+        function storePendingChatbotMessage(text) {
+            writeStoredJson(CHATBOT_PENDING_KEY, {
+                message: text,
+                ts: Date.now(),
+                returnUrl: window.location.href
+            });
+            writeStoredJson(CHATBOT_RESUME_KEY, {
+                ts: Date.now(),
+                returnUrl: window.location.href
+            });
+        }
+
+        function getPendingChatbotMessage() {
+            var pending = readStoredJson(CHATBOT_PENDING_KEY);
+            if (!pending || !pending.message) return null;
+            var ageMs = Date.now() - (parseInt(pending.ts || 0, 10) || 0);
+            if (ageMs > 30 * 60 * 1000) {
+                removeStored(CHATBOT_PENDING_KEY);
+                return null;
+            }
+            return pending;
+        }
+
+        function clearPendingChatbotMessage() {
+            removeStored(CHATBOT_PENDING_KEY);
+            removeStored(CHATBOT_RESUME_KEY);
+        }
+
+        function openLoginFromChatbot() {
+            if (window.openModal) {
+                window.openModal('login');
+                return;
+            }
+            var trigger = document.querySelector('[data-auth-modal="login"], [data-auth-open="login"]');
+            if (trigger) {
+                trigger.click();
+                return;
+            }
+            window.location.href = (window.PFConfig && window.PFConfig.loginUrl) || (window.BASE_PATH || '') + '/?auth_modal=login';
+        }
+
+        function promptChatbotLogin(savedMessage) {
+            appendBotMessage(
+                'Please log in to continue. Your message will be sent after login.'
+                + '<br><br><strong style="color:#0f172a;">Saved message:</strong> '
+                + escapeHtml(savedMessage)
+                + '<br><br><a href="#" id="chatbot-login-link" style="display:inline-block;padding:8px 18px;background:#111827;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Log in</a>'
+                + '<button type="button" id="chatbot-cancel-pending" style="margin-left:8px;padding:8px 14px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>'
+            );
+
+            setTimeout(function() {
+                var loginLink = document.getElementById('chatbot-login-link');
+                var cancelBtn = document.getElementById('chatbot-cancel-pending');
+                if (loginLink) {
+                    loginLink.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        openLoginFromChatbot();
+                    }, { once: true });
+                }
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', function() {
+                        clearPendingChatbotMessage();
+                        appendBotMessage('Saved message cancelled.');
+                    }, { once: true });
+                }
+            }, 0);
+        }
+
+        function sendChatbotInquiry(question, options) {
+            options = options || {};
+            var showUserBubble = options.showUserBubble !== false;
+            var guestId = localStorage.getItem('chatbot_guest_id');
+            if (!guestId) { guestId = 'g_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('chatbot_guest_id', guestId); }
+            var payload = { question: question, customer_name: (typeof chatbotCustomerName !== 'undefined' ? chatbotCustomerName : 'Guest'), customer_email: (typeof chatbotCustomerEmail !== 'undefined' ? chatbotCustomerEmail : '') };
+            if (typeof chatbotCustomerId !== 'undefined' && chatbotCustomerId) payload.customer_id = chatbotCustomerId;
+            else payload.guest_id = guestId;
+
+            if (showUserBubble) {
+                appendUserMessage(question);
+            }
+
+            var typing = showTypingIndicator();
+            var basePath = window.BASE_PATH || '';
+
+            return fetch(basePath + '/public/api/chatbot_inquiry.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                typing.remove();
+                appendBotMessage('Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.');
+
+                if (data.success && data.inquiry_id) {
+                    var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
+                    ids.push(data.inquiry_id);
+                    localStorage.setItem('chatbot_inquiry_ids', JSON.stringify(ids));
+                }
+                return data;
+            })
+            .catch(function() {
+                typing.remove();
+                appendBotMessage('Thanks for your question! Our team will get back to you shortly.');
+            });
+        }
+
+        function tryResumePendingChatbotMessage() {
+            if (!isLoggedIn) return;
+            var pending = getPendingChatbotMessage();
+            if (!pending || !pending.message || !pending.message.trim()) {
+                clearPendingChatbotMessage();
+                return;
+            }
+
+            isOpen = true;
+            win.classList.remove('lp-chatbot-hidden');
+            setTimeout(function() { win.classList.add('lp-chatbot-visible'); }, 10);
+            if (!loaded) loadFAQs();
+
+            appendBotMessage('Resuming your saved message...');
+            clearPendingChatbotMessage();
+            sendChatbotInquiry(pending.message.trim(), { showUserBubble: true }).finally(function() {
+                msgs.scrollTop = msgs.scrollHeight;
+            });
+        }
 
         // Toggle support chat on button click
         var checkInterval = null;
@@ -616,80 +809,20 @@ function _ft_detect_social(string $url): array {
         }
 
         // Show login-required prompt in chat
-        function showLoginPrompt() {
-            var bm = document.createElement('div');
-            bm.className = 'cb-msg-bot';
-            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
-            bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 14px 16px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 90%; font-size: 14px; line-height: 1.6; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">'
-                + 'Please login to ask a custom question.<br>You can still use the suggested questions below.'
-                + '<br><br><a href="#" data-auth-open="login" style="display:inline-block;padding:8px 18px;background:#111827;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background=\'#374151\'" onmouseout="this.style.background=\'#111827\'">Login</a>'
-                + '</div>';
-            msgs.appendChild(bm);
-            msgs.scrollTop = msgs.scrollHeight;
-        }
-
         // Send button and input Enter key
         if (sendBtn) {
         sendBtn.addEventListener('click', function() {
             if (input.value.trim()) {
                 var q = input.value.trim();
                 input.value = '';
+                if (!isLoggedIn) {
+                    storePendingChatbotMessage(q);
+                    appendUserMessage(q);
+                    promptChatbotLogin(q);
+                    return;
+                }
 
-                // Show user message
-                var um = document.createElement('div');
-                um.className = 'cb-msg-user';
-                um.style.cssText = 'display: flex; justify-content: flex-end; gap: 8px;';
-                um.innerHTML = '<div style="background: #53C5E0; color: white; padding: 12px 14px; border-radius: 14px 4px 14px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(83,197,224,0.25); word-wrap: break-word;">' + escapeHtml(q) + '</div>';
-                msgs.appendChild(um);
-                msgs.scrollTop = msgs.scrollHeight;
-
-                // Typing indicator
-                var typing = document.createElement('div');
-                typing.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
-                typing.innerHTML = '<div style="background: #f0f0f0; color: #999; padding: 12px 14px; border-radius: 14px 14px 4px 14px; display: flex; gap: 4px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.2s;"></span><span class="cb-typing" style="width: 8px; height: 8px; background: #999; border-radius: 50%; display: inline-block; animation-delay: 0.4s;"></span></div>';
-                msgs.appendChild(typing);
-                msgs.scrollTop = msgs.scrollHeight;
-
-                // Build inquiry payload (customer_id or guest_id for conversation grouping)
-                var guestId = localStorage.getItem('chatbot_guest_id');
-                if (!guestId) { guestId = 'g_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('chatbot_guest_id', guestId); }
-                var payload = { question: q, customer_name: (typeof chatbotCustomerName !== 'undefined' ? chatbotCustomerName : 'Guest'), customer_email: (typeof chatbotCustomerEmail !== 'undefined' ? chatbotCustomerEmail : '') };
-                if (typeof chatbotCustomerId !== 'undefined' && chatbotCustomerId) payload.customer_id = chatbotCustomerId;
-                else payload.guest_id = guestId;
-
-                // Send to API
-                var basePath = window.BASE_PATH || '';
-                fetch(basePath + '/public/api/chatbot_inquiry.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    typing.remove();
-                    var bm = document.createElement('div');
-                    bm.className = 'cb-msg-bot';
-                    bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
-                    bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.</div>';
-                    msgs.appendChild(bm);
-                    msgs.scrollTop = msgs.scrollHeight;
-
-                    // Save inquiry ID for checking replies later
-                    if (data.success && data.inquiry_id) {
-                        var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
-                        ids.push(data.inquiry_id);
-                        localStorage.setItem('chatbot_inquiry_ids', JSON.stringify(ids));
-                    }
-                })
-                .catch(function() {
-                    typing.remove();
-                    var bm = document.createElement('div');
-                    bm.className = 'cb-msg-bot';
-                    bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
-                    bm.innerHTML = '<div style="background: #f0f0f0; color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word;">Thanks for your question! Our team will get back to you shortly.</div>';
-                    msgs.appendChild(bm);
-                    msgs.scrollTop = msgs.scrollHeight;
-                });
+                sendChatbotInquiry(q, { showUserBubble: true });
             }
         });
         }
@@ -741,6 +874,7 @@ function _ft_detect_social(string $url): array {
 
         // Initial check for replies on load (if window starts open - though it defaults to hidden)
         setTimeout(checkReplies, 1000);
+        setTimeout(tryResumePendingChatbotMessage, 300);
 
         function escapeHtml(t) {
             var d = document.createElement('div');

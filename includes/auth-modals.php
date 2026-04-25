@@ -561,6 +561,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
             if (firstInput) firstInput.focus();
         }, 100);
     }
+    window.openModal = openModal;
     function closeModal() {
         if (!backdrop) return;
         backdrop.classList.remove('is-open');
@@ -568,6 +569,7 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
         if (registerModal) { registerModal.classList.remove('is-open'); }
         document.body.style.overflow = '';
     }
+    window.closeModal = closeModal;
     function showMessage(modalName, type, text) {
         if (!text) return;
         var el = document.getElementById('auth-' + modalName + '-message');
@@ -1716,11 +1718,37 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 }
             }
 
+            function resolveChatbotResumeTarget(defaultTarget) {
+                try {
+                    var raw = localStorage.getItem('pf_chatbot_login_resume');
+                    if (!raw) return defaultTarget;
+                    var parsed = JSON.parse(raw);
+                    if (!parsed || !parsed.returnUrl) return defaultTarget;
+
+                    var ageMs = Date.now() - (parseInt(parsed.ts || 0, 10) || 0);
+                    if (ageMs > 30 * 60 * 1000) {
+                        localStorage.removeItem('pf_chatbot_login_resume');
+                        return defaultTarget;
+                    }
+
+                    var targetUrl = new URL(parsed.returnUrl, window.location.origin);
+                    if (targetUrl.origin !== window.location.origin) {
+                        localStorage.removeItem('pf_chatbot_login_resume');
+                        return defaultTarget;
+                    }
+
+                    return targetUrl.href;
+                } catch (e) {
+                    return defaultTarget;
+                }
+            }
+
             if (data && data.success && data.redirect) {
                 var target = data.redirect;
                 if (target.indexOf('/') === 0 && target.indexOf('//') !== 0) {
                     target = window.location.origin + target;
                 }
+                target = resolveChatbotResumeTarget(target);
                 try {
                     localStorage.setItem('pf_auth_sync', JSON.stringify({
                         ts: Date.now(),
@@ -1731,13 +1759,14 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
                 return;
             }
             if (data && data.success && !data.redirect) {
+                var fallbackTarget = resolveChatbotResumeTarget('<?php echo $base_url; ?>/');
                 try {
                     localStorage.setItem('pf_auth_sync', JSON.stringify({
                         ts: Date.now(),
-                        redirect: '<?php echo $base_url; ?>/'
+                        redirect: fallbackTarget
                     }));
                 } catch (e) {}
-                window.location.replace('<?php echo $base_url; ?>/');
+                window.location.replace(fallbackTarget);
                 return;
             }
             var fieldErrors = (data && data.field_errors) ? data.field_errors : {};
