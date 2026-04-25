@@ -1037,6 +1037,15 @@ if ($showLatestCustomizationOnly) {
                                             </div>
                                         </div>
                                     </template>
+                                    <template x-if="!item.design_url && item.design_name">
+                                        <div style="margin-top:12px;">
+                                            <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">Uploaded Design</div>
+                                            <div style="display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; color:#334155; font-size:12px; font-weight:600; max-width:100%; overflow-wrap:anywhere;">
+                                                <span style="font-size:14px;">FILE</span>
+                                                <span x-text="item.design_name"></span>
+                                            </div>
+                                        </div>
+                                    </template>
                                     <template x-if="item.reference_url">
                                         <div style="margin-top:12px;">
                                             <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">Reference image</div>
@@ -1045,6 +1054,15 @@ if ($showLatestCustomizationOnly) {
                                                      @click="previewFile = item.reference_url"
                                                      style="width:140px; height:auto; border-radius:10px; border:1px solid #e2e8f0; cursor:zoom-in; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
                                                      onerror="this.style.display='none'">
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="!item.reference_url && item.reference_name">
+                                        <div style="margin-top:12px;">
+                                            <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:6px;">Reference File</div>
+                                            <div style="display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; color:#334155; font-size:12px; font-weight:600; max-width:100%; overflow-wrap:anywhere;">
+                                                <span style="font-size:14px;">FILE</span>
+                                                <span x-text="item.reference_name"></span>
                                             </div>
                                         </div>
                                     </template>

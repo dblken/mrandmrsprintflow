@@ -237,7 +237,10 @@ function staff_orders_display_status(string $status): string {
         return 'To Verify';
     }
     if (in_array($status, ['Processing', 'In Production', 'Printing', 'Approved Design'], true)) {
-        return 'Ready for Pickup';
+        return 'To Pickup';
+    }
+    if ($status === 'Ready for Pickup') {
+        return 'To Pickup';
     }
     return $status;
 }
@@ -856,6 +859,7 @@ $page_title = 'Orders - Staff';
             'For Revision':          'background: #ffe4e6; color: #b91c1c;',
             'Revision Submitted':    'background: #fef3c7; color: #92400e; border: 1px solid #ffe58f;',
             'Ready for Pickup':      'background: #dcfce7; color: #15803d;',
+            'To Pickup':             'background: #dcfce7; color: #15803d;',
             'Cancelled':             'background: #fee2e2; color: #991b1b;',
             'Paid':                  'background: #dcfce7; color: #166534;',
             'Unpaid':                'background: #fee2e2; color: #991b1b;',
@@ -867,7 +871,7 @@ $page_title = 'Orders - Staff';
         var style = map[val] || 'background: #F3F4F6; color: #374151;';
         var display = val;
         if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify'].includes(val)) display = 'TO VERIFY';
-        else if (val === 'Ready for Pickup') display = 'TO PICK UP';
+        else if (val === 'Ready for Pickup' || val === 'To Pickup') display = 'TO PICK UP';
         else if (val === 'Completed') display = 'COMPLETED';
         else if (val === 'Cancelled') display = 'CANCELLED';
 

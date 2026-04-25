@@ -106,6 +106,13 @@ $completed_custom += (int)(db_query("
       AND {$service_timeframe_sql}
 ", 'i', [$staffBranchId])[0]['count'] ?? 0);
 
+$pending_reviews = db_query("
+    SELECT COUNT(*) as count
+    FROM reviews r
+    LEFT JOIN orders o ON o.order_id = r.order_id
+    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
+", 'i', [$staffBranchId])[0]['count'] ?? 0;
+
 $total_revenue = db_query("
     SELECT SUM(total) AS total
     FROM (
@@ -295,7 +302,8 @@ echo json_encode([
         'revenue' => (float)$total_revenue,
         'formatted_revenue' => '₱' . number_format($total_revenue, 2),
         'completed_products' => (int)$completed_products,
-        'completed_custom' => (int)$completed_custom
+        'completed_custom' => (int)$completed_custom,
+        'pending_reviews' => (int)$pending_reviews
     ],
     'chart' => [
         'labels' => $chart_labels,

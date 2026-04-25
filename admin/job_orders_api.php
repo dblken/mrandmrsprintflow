@@ -658,6 +658,32 @@ try {
 
             // Parse customization details
             $details = json_decode($cust['customization_details'] ?? '{}', true) ?: [];
+            $design_name = '';
+            $reference_name = '';
+            foreach ($details as $detail_key => $detail_value) {
+                if (is_array($detail_value) || $detail_value === null || $detail_value === '') {
+                    continue;
+                }
+                $normalized_key = strtolower(trim((string)$detail_key));
+                if ($design_name === '' && (
+                    $normalized_key === 'design_upload' ||
+                    $normalized_key === 'design_file' ||
+                    $normalized_key === 'design_upload_path' ||
+                    str_contains($normalized_key, 'upload design') ||
+                    str_contains($normalized_key, 'design upload')
+                )) {
+                    $design_name = (string)$detail_value;
+                    continue;
+                }
+                if ($reference_name === '' && (
+                    $normalized_key === 'reference_upload' ||
+                    $normalized_key === 'reference_file' ||
+                    $normalized_key === 'reference_upload_path' ||
+                    str_contains($normalized_key, 'reference upload')
+                )) {
+                    $reference_name = (string)$detail_value;
+                }
+            }
 
             // Map DB status → frontend enum
             $status_map = [
@@ -710,6 +736,8 @@ try {
                 'product_name'  => $cust['service_type'] ?? 'Service',
                 'quantity'      => 1,
                 'customization' => $details,
+                'design_name'   => $design_name,
+                'reference_name'=> $reference_name,
             ]];
 
             $data = [

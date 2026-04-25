@@ -562,6 +562,7 @@ async function refreshDashboard(page = 1) {
         updateMetric('stat-revenue', data.stats.formatted_revenue || '₱0.00');
         updateMetric('stat-completed-products', data.stats.completed_products);
         updateMetric('stat-completed-custom', data.stats.completed_custom);
+        updateMetric('stat-pending', data.stats.pending_reviews);
         
         const subtitleEl = document.getElementById('kpi-subtitle');
         if (subtitleEl) subtitleEl.textContent = `Metrics for ${data.timeframe_label} at <?php echo addslashes($branch_name); ?>`;

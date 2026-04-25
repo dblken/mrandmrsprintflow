@@ -152,16 +152,17 @@ try {
 
         .input-field.input-field-locked,
         .shopee-opt-btn select.input-field-locked {
-            background: #475569 !important;
-            color: #e2e8f0 !important;
-            border: 1px solid #475569 !important;
+            background: #0d9488 !important;
+            color: #ffffff !important;
+            border: 1px solid #0d9488 !important;
             cursor: not-allowed !important;
             opacity: 1 !important;
         }
 
         .shopee-opt-btn:has(select.input-field-locked) {
-            background: #475569 !important;
-            border-color: #475569 !important;
+            background: #0d9488 !important;
+            border-color: #0d9488 !important;
+            color: #ffffff !important;
         }
 
         .input-field.input-field-locked option,
@@ -1575,9 +1576,9 @@ try {
                         branchSel.value = data.staff_branch_id;
                         branchSel.disabled = true;
                         branchSel.classList.add('input-field-locked');
-                        branchSel.style.background = '#475569';
-                        branchSel.style.color = '#e2e8f0';
-                        branchSel.style.borderColor = '#475569';
+                        branchSel.style.background = '#0d9488';
+                        branchSel.style.color = '#ffffff';
+                        branchSel.style.borderColor = '#0d9488';
                         branchSel.style.opacity = '1';
                         branchSel.style.cursor = 'not-allowed';
                         // Add hidden input so disabled value is still submitted
@@ -1677,6 +1678,14 @@ try {
                         showPOSAlert('Required Field', labelText + ' is required.', 'warning');
                         valid = false;
                     }
+                }
+
+                const fileInput = row.querySelector('input[type="file"]');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const fileName = fileInput.files[0].name;
+                    customization[labelText] = fileName;
+                    if (fileInput.name === 'design_file') customization.design_upload = fileName;
+                    if (fileInput.name === 'reference_file') customization.reference_upload = fileName;
                 }
 
                 // Text / number
@@ -2217,6 +2226,8 @@ try {
                 val = el.value;
                 if (req.type === 'file' && el.files && el.files.length > 0) {
                     val = el.files[0].name;
+                    if (name === 'design_file') customization.design_upload = val;
+                    if (name === 'reference_file') customization.reference_upload = val;
                 }
                 if (req.required && !val) validation.valid = false;
                 if (val) customization[name] = val;
