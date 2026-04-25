@@ -140,7 +140,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resubmit_order'])) {
         }
 
         $service_name = 'Custom Order';
-        if (!empty($items)) {
+        $preview = printflow_order_notification_preview($order_id);
+        if (!empty($preview['display_name'])) {
+            $service_name = $preview['display_name'];
+        } elseif (!empty($items)) {
             $first_custom = json_decode($items[0]['customization_data'] ?? '{}', true) ?: [];
             $derived_service = $first_custom['service_type'] ?? ($items[0]['product_name'] ?? '');
             $service_name = normalize_service_name($derived_service, 'Custom Order');

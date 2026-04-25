@@ -839,8 +839,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         $review_helpful_sql = isset($review_tables['review_helpful'])
             ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
             : '0 as helpful_count,';
-        $review_voted_sql = (isset($review_tables['review_helpful']) && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type']))
-            ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer') OR (customer_id IS NULL AND user_id = ?))) as user_voted"
+        $review_voted_sql = isset($review_tables['review_helpful'])
+            ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND (user_id = ? OR ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')))) as user_voted"
             : '0 as user_voted';
 
         $reviews = [];
@@ -895,7 +895,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                  WHERE " . implode(' OR ', $review_where_parts) . "
                  ORDER BY {$review_created_expr} DESC";
 
-            if (isset($review_tables['review_helpful']) && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])) {
+            if (isset($review_tables['review_helpful'])) {
                 $review_types = 'ii' . $review_types;
                 array_unshift($review_params, (int)$customer_id, (int)$customer_id);
             }

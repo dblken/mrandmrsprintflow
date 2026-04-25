@@ -195,15 +195,13 @@ $reviews = order_create_optional_query(
      c.last_name,
      c.profile_picture,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
-     " . (isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])
-        ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer') OR (customer_id IS NULL AND user_id = ?)))"
-        : "0") . " as user_voted
+     " . "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND (user_id = ? OR (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')))" . " as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
      WHERE {$review_where}
      ORDER BY {$review_created_expr} DESC",
-    (isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type']) ? 'ii' : '') . $review_types,
-    array_merge(isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type']) ? [$current_user_id, $current_user_id] : [], $review_params)
+    'ii' . $review_types,
+    array_merge([$current_user_id, $current_user_id], $review_params)
 ) ?: [];
 
 $total_reviews = count($reviews);

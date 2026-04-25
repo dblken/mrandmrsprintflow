@@ -28,14 +28,16 @@ if (isset($_SESSION['user_id'])) {
 <div id="printflow-persistent-sidebar" data-turbo-permanent>
 <?php include __DIR__ . '/sidebar_layout_boot.php'; ?>
 
-<aside class="sidebar">
+<aside class="sidebar" id="adminSidebar">
     <div class="sidebar-header">
         <a href="<?php echo $is_pending ? 'profile' : 'dashboard'; ?>" class="logo">
             <?php echo get_logo_html('30px'); ?>
             <span><?php echo $shop_name; ?></span>
         </a>
-        <button id="global-sidebar-toggle" style="background:none; border:none; color:rgba(255,255,255,0.55); cursor:pointer; font-size:16px; padding:4px;" title="Toggle Sidebar">
-            <i class="fas fa-chevron-left" id="sidebar-toggle-icon"></i>
+        <button id="global-sidebar-toggle" class="sidebar-collapse-btn" type="button" title="Collapse sidebar">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="sidebar-toggle-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
         </button>
     </div>
     
@@ -141,11 +143,11 @@ if (isset($_SESSION['user_id'])) {
                 <div class="user-role">Staff<?php if ($is_pending): ?> <span style="color:#f59e0b;">• Pending</span><?php endif; ?></div>
             </div>
         </a>
-        <button type="button" onclick="document.getElementById('staffLogoutModal').style.display='flex'" class="logout-btn" title="Log out" style="border:none;background:transparent;cursor:pointer;font:inherit;width:100%;text-align:left;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button type="button" onclick="document.getElementById('staffLogoutModal').style.display='flex'" class="logout-btn-footer" title="Log out">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
             </svg>
-            Log out
+            <span>Log out</span>
         </button>
     </div>
 </aside>
@@ -170,7 +172,7 @@ if (isset($_SESSION['user_id'])) {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('global-sidebar-toggle');
-    const sidebar = document.querySelector('.sidebar');
+    const sidebar = document.getElementById('adminSidebar');
     const toggleIcon = document.getElementById('sidebar-toggle-icon');
     
     // Check localStorage for saved state
@@ -178,14 +180,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (collapsed) {
         sidebar.classList.add('collapsed');
         if (toggleIcon) {
-            toggleIcon.classList.remove('fa-chevron-left');
-            toggleIcon.classList.add('fa-chevron-right');
+            const path = toggleIcon.querySelector('path');
+            if (path) {
+                path.setAttribute('d', 'M9 5l7 7-7 7');
+            }
+            toggleBtn.title = 'Expand sidebar';
         }
     } else {
         sidebar.classList.remove('collapsed');
         if (toggleIcon) {
-            toggleIcon.classList.remove('fa-chevron-right');
-            toggleIcon.classList.add('fa-chevron-left');
+            const path = toggleIcon.querySelector('path');
+            if (path) {
+                path.setAttribute('d', 'M15 19l-7-7 7-7');
+            }
+            toggleBtn.title = 'Collapse sidebar';
         }
     }
     document.body.classList.remove('sidebar-collapsed');
@@ -206,13 +214,11 @@ document.addEventListener('DOMContentLoaded', function() {
             window.setTimeout(function () { sidebar.dataset.pfToggleLock = '0'; }, 320);
             
             if (toggleIcon) {
-                if (isCollapsed) {
-                    toggleIcon.classList.remove('fa-chevron-left');
-                    toggleIcon.classList.add('fa-chevron-right');
-                } else {
-                    toggleIcon.classList.remove('fa-chevron-right');
-                    toggleIcon.classList.add('fa-chevron-left');
+                const path = toggleIcon.querySelector('path');
+                if (path) {
+                    path.setAttribute('d', isCollapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7');
                 }
+                toggleBtn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
             }
         });
     }

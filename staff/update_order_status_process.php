@@ -34,13 +34,14 @@ if (!$order_id || !$new_status) {
 printflow_assert_order_branch_access($order_id);
 
 // 1. Get current status to avoid double-deduction
-$order_row = db_query("SELECT status, branch_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
+$order_row = db_query("SELECT status, branch_id, customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order_row)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
     exit;
 }
 
 $old_status = $order_row[0]['status'];
+$customer_id = (int)($order_row[0]['customer_id'] ?? 0);
 
 // 2. Update Status
 $update_sql = "UPDATE orders SET status = ?, updated_at = NOW() WHERE order_id = ?";
@@ -88,6 +89,10 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
 }
 
 // 4. System Message
-add_order_system_message($order_id, "Order status updated to '{$new_status}' by " . $_SESSION['user_name']);
+$notif = get_order_status_notification_payload($order_id, $new_status);
+if ($customer_id > 0) {
+    create_notification($customer_id, 'Customer', $notif['message'], $notif['type'], false, false, $order_id);
+}
+add_order_system_message($order_id, $notif['message']);
 
 echo json_encode(['success' => true, 'message' => "Order #$order_id marked as $new_status"]);

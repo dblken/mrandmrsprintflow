@@ -1521,7 +1521,7 @@ function get_customer_notifications_for_display($customer_id, $limit = 10, $offs
     $notifications = [];
     foreach ($rows as $row) {
         $type = (string)($row['type'] ?? 'System');
-        $message = (string)($row['message'] ?? '');
+        $message = printflow_notification_display_message($row);
         $data_id = (int)($row['data_id'] ?? 0);
         $title = customer_notification_title($type, $message);
         $target = customer_notification_target_url($row);
@@ -1737,10 +1737,20 @@ function printflow_notification_display_message(array $notification): string {
     $data_id = (int)($notification['data_id'] ?? 0);
     $type = strtolower((string)($notification['type'] ?? ''));
 
-    if ($data_id > 0 && $type === 'order' && stripos($message, 'placed an order for ') !== false) {
+    if ($data_id > 0 && $type === 'order') {
         $preview = printflow_order_notification_preview($data_id);
         if (!empty($preview['display_name'])) {
-            return preg_replace('/placed an order for .+$/i', 'placed an order for ' . $preview['display_name'], $message) ?: $message;
+            $replacements = [
+                '/placed an order for .+$/i' => 'placed an order for ' . $preview['display_name'],
+                '/order for .+? placed successfully!?$/i' => 'Order for ' . $preview['display_name'] . ' placed successfully!',
+                '/resubmitted a revised design for .+$/i' => 'resubmitted a revised design for ' . $preview['display_name'],
+            ];
+
+            foreach ($replacements as $pattern => $replacement) {
+                if (preg_match($pattern, $message)) {
+                    return preg_replace($pattern, $replacement, $message) ?: $message;
+                }
+            }
         }
     }
 
