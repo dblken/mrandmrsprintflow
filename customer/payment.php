@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
 $order_id = (int)($_GET['order_id'] ?? 0);
 $customer_id = get_user_id();

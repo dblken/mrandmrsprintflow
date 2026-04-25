@@ -54,6 +54,7 @@ function pf_normalize_service_media_path($path, $base_path, $default_img) {
 }
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
 $customer_id = get_user_id();
 

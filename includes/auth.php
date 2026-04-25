@@ -705,18 +705,96 @@ function register_customer_direct($type, $identifier, $password) {
     return ['success' => false, 'message' => 'Registration failed. Please try again.'];
 }
 
+function customer_profile_completion_status($customer_id = null): array {
+    if ($customer_id === null) $customer_id = get_user_id();
+    if (!$customer_id || get_user_type() !== 'Customer') {
+        return ['complete' => true, 'missing' => []];
+    }
+
+    $existing_cols = [];
+    foreach (db_query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'customers'") ?: [] as $r) {
+        $existing_cols[$r['COLUMN_NAME']] = true;
+    }
+
+    $required_cols = ['first_name', 'last_name', 'dob', 'gender', 'email', 'contact_number'];
+    $address_cols = ['province', 'city', 'barangay', 'street_address'];
+    $select_cols = array_values(array_filter(
+        array_unique(array_merge($required_cols, $address_cols, ['is_profile_complete'])),
+        static fn($col) => !empty($existing_cols[$col])
+    ));
+
+    if (empty($select_cols)) {
+        return ['complete' => false, 'missing' => ['Personal information']];
+    }
+
+    $sql_cols = implode(', ', array_map(static fn($col) => "`$col`", $select_cols));
+    $result = db_query("SELECT $sql_cols FROM customers WHERE customer_id = ? LIMIT 1", 'i', [$customer_id]);
+    if (empty($result)) {
+        return ['complete' => true, 'missing' => []];
+    }
+
+    $customer = $result[0];
+    $missing = [];
+    $name_regex = '/^[A-Za-z]+( [A-Za-z]+){0,2}$/';
+    $contact_regex = '/^\+?[0-9]{10,15}$/';
+
+    $first_name = trim((string)($customer['first_name'] ?? ''));
+    if ($first_name === '' || strcasecmp($first_name, 'Customer') === 0 || !preg_match($name_regex, $first_name)) {
+        $missing[] = 'First name';
+    }
+    $last_name = trim((string)($customer['last_name'] ?? ''));
+    if ($last_name === '' || !preg_match($name_regex, $last_name)) {
+        $missing[] = 'Last name';
+    }
+    $contact_number = trim((string)($customer['contact_number'] ?? ''));
+    if ($contact_number === '' || !preg_match($contact_regex, $contact_number)) {
+        $missing[] = 'Contact number';
+    }
+    $dob = trim((string)($customer['dob'] ?? ''));
+    if ($dob === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || strtotime($dob) > strtotime('-13 years')) {
+        $missing[] = 'Birthday';
+    }
+    if (!in_array(trim((string)($customer['gender'] ?? '')), ['Male', 'Female', 'Other'], true)) {
+        $missing[] = 'Gender';
+    }
+    if (empty($customer['email']) || !filter_var((string)$customer['email'], FILTER_VALIDATE_EMAIL)) {
+        $missing[] = 'Email address';
+    }
+
+    foreach ([
+        'province' => 'Province',
+        'city' => 'City / Municipality',
+        'barangay' => 'Barangay',
+        'street_address' => 'Street address',
+    ] as $col => $label) {
+        if (empty($existing_cols[$col]) || trim((string)($customer[$col] ?? '')) === '') {
+            $missing[] = $label;
+        }
+    }
+
+    return ['complete' => empty($missing), 'missing' => array_values(array_unique($missing))];
+}
+
+function sync_customer_profile_completion($customer_id = null): bool {
+    if ($customer_id === null) $customer_id = get_user_id();
+    if (!$customer_id || get_user_type() !== 'Customer') return true;
+
+    $status = customer_profile_completion_status($customer_id);
+    db_execute(
+        "UPDATE customers SET is_profile_complete = ? WHERE customer_id = ?",
+        'ii',
+        [$status['complete'] ? 1 : 0, $customer_id]
+    );
+    return (bool)$status['complete'];
+}
+
 /**
- * Check if customer profile is complete (has real name, etc.)
+ * Check if customer profile is complete (has all required profile details).
  * @param int|null $customer_id
  * @return bool
  */
 function is_profile_complete($customer_id = null) {
-    if ($customer_id === null) $customer_id = get_user_id();
-    if (!$customer_id || get_user_type() !== 'Customer') return true;
-    
-    $result = db_query("SELECT is_profile_complete FROM customers WHERE customer_id = ?", 'i', [$customer_id]);
-    if (empty($result)) return true;
-    return (bool)$result[0]['is_profile_complete'];
+    return sync_customer_profile_completion($customer_id);
 }
 
 /**

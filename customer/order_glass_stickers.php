@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 require_once __DIR__ . '/../includes/service_field_config_helper.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 $customer_id = get_user_id();
 
 // Get service ID and field configuration

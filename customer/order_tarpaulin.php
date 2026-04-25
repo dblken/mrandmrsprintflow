@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/service_order_helper.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
 $customer_id = get_user_id();
 

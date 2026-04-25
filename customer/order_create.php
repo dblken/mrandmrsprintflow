@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
 
 function order_create_optional_query($sql, $types = '', $params = []) {

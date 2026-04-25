@@ -121,6 +121,16 @@ if (isset($_GET['address_action'])) {
 $customer_id = get_user_id();
 $error = '';
 $success = '';
+$profile_return_to = trim((string)($_POST['return'] ?? $_GET['return'] ?? ($_SESSION['profile_return_after_complete'] ?? '')));
+if ($profile_return_to !== '') {
+    $return_path = parse_url($profile_return_to, PHP_URL_PATH);
+    if (!is_string($return_path) || !preg_match('#^(/[^/?#]+)?/customer/[A-Za-z0-9_\-/]+\.php$#', $return_path)) {
+        $profile_return_to = '';
+    } else {
+        $_SESSION['profile_return_after_complete'] = $profile_return_to;
+    }
+}
+$requires_profile_completion = isset($_GET['complete_profile']) || isset($_POST['complete_profile']) || $profile_return_to !== '';
 
 // Ensure address columns exist (one-time migration - add only missing columns)
 $existing_cols = [];
@@ -142,6 +152,16 @@ foreach ($add_cols as list($col, $len, $after)) {
 
 // Get customer data
 $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+
+function customer_profile_redirect_after_completion(string $return_to): void {
+    if ($return_to === '' || !is_profile_complete()) {
+        return;
+    }
+
+    unset($_SESSION['profile_return_after_complete']);
+    header('Location: ' . $return_to, true, 302);
+    exit;
+}
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
@@ -228,6 +248,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     $current_user['last_name'] = $last_name;
                     $current_user['profile_picture'] = $profile_picture;
                 }
+
+                sync_customer_profile_completion($customer_id);
+                customer_profile_redirect_after_completion($profile_return_to);
             } else {
                 $error = 'Failed to update profile';
             }
@@ -246,17 +269,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_address'])) {
         $barangay      = sanitize($_POST['barangay']       ?? '');
         $street_address = sanitize($_POST['street_address'] ?? '');
 
-        $result = db_execute(
-            "UPDATE customers SET region=?, province=?, city=?, barangay=?, street_address=? WHERE customer_id=?",
-            'sssssi',
-            [$region, $province, $city, $barangay, $street_address, $customer_id]
-        );
-
-        if ($result) {
-            $success = 'Address updated successfully!';
-            $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+        if ($province === '' || $city === '' || $barangay === '' || $street_address === '') {
+            $error = 'Please complete your province, city, barangay, and street address.';
         } else {
-            $error = 'Failed to update address';
+            $result = db_execute(
+                "UPDATE customers SET region=?, province=?, city=?, barangay=?, street_address=? WHERE customer_id=?",
+                'sssssi',
+                [$region, $province, $city, $barangay, $street_address, $customer_id]
+            );
+
+            if ($result) {
+                $success = 'Address updated successfully!';
+                $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+                sync_customer_profile_completion($customer_id);
+                customer_profile_redirect_after_completion($profile_return_to);
+            } else {
+                $error = 'Failed to update address';
+            }
         }
     }
 }
@@ -354,6 +383,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_id'])) {
 }
 
 $max_birthday = date('Y-m-d', strtotime('-13 years'));
+$profile_completion_status = customer_profile_completion_status($customer_id);
 
 $page_title = 'My Profile - PrintFlow';
 $use_customer_css = true;
@@ -760,6 +790,16 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <?php endif; ?>
 
+        <?php if ($requires_profile_completion && !$profile_completion_status['complete']): ?>
+        <div class="pf-alert pf-alert-error" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;">
+            <strong>Complete your profile first:</strong>
+            Please fill in all required personal and delivery information before placing an order.
+            <?php if (!empty($profile_completion_status['missing'])): ?>
+                Missing: <?php echo htmlspecialchars(implode(', ', $profile_completion_status['missing'])); ?>.
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <div class="profile-grid">
             <!-- ── SIDEBAR (LEFT SIDE) ── -->
             <aside class="profile-sidebar">
@@ -812,6 +852,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <form method="POST" action="" enctype="multipart/form-data">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="update_profile" value="1">
+                        <?php if ($requires_profile_completion): ?><input type="hidden" name="complete_profile" value="1"><?php endif; ?>
+                        <?php if ($profile_return_to !== ''): ?><input type="hidden" name="return" value="<?php echo htmlspecialchars($profile_return_to); ?>"><?php endif; ?>
                         <input type="file" id="profile_picture" name="profile_picture" class="hidden" accept="image/*" style="display:none;"
                                onchange="const f=this.files[0];if(f){const r=new FileReader();r.onload=e=>{const p=document.getElementById('profile-preview');p.src=e.target.result;p.style.display='block';const s=p.previousElementSibling;if(s && s.tagName==='DIV'){s.style.display='none';}};r.readAsDataURL(f);}">
 
@@ -844,12 +886,12 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div>
                                         <label for="dob" class="pf-label">Birthday</label>
-                                        <input type="date" id="dob" name="dob" class="pf-input validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" max="<?php echo $max_birthday; ?>">
+                                        <input type="date" id="dob" name="dob" class="pf-input validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" max="<?php echo $max_birthday; ?>" required>
                                         <div class="live-indicator" data-for="dob"></div>
                                     </div>
                                     <div>
                                         <label for="gender" class="pf-label">Gender</label>
-                                        <select id="gender" name="gender" class="pf-input">
+                                        <select id="gender" name="gender" class="pf-input" required>
                                             <option value="">Select</option>
                                             <option value="Male" <?php echo ($customer['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
                                             <option value="Female" <?php echo ($customer['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
@@ -873,12 +915,14 @@ require_once __DIR__ . '/../includes/header.php';
                     <form method="POST" action="" id="address-form">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="update_address" value="1">
+                        <?php if ($requires_profile_completion): ?><input type="hidden" name="complete_profile" value="1"><?php endif; ?>
+                        <?php if ($profile_return_to !== ''): ?><input type="hidden" name="return" value="<?php echo htmlspecialchars($profile_return_to); ?>"><?php endif; ?>
                         
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem;">
                             <div class="pf-field-group">
                                 <label class="pf-label" for="addr_province">Province *</label>
                                 <div class="addr-select-wrap">
-                                    <select id="addr_province" name="province" class="pf-input addr-select" data-level="province">
+                                    <select id="addr_province" name="province" class="pf-input addr-select" data-level="province" required>
                                         <option value="">— Select Province —</option>
                                     </select>
                                     <span class="addr-spinner" id="spin_province"></span>
@@ -887,7 +931,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <div class="pf-field-group">
                                 <label class="pf-label" for="addr_city">City / Municipality *</label>
                                 <div class="addr-select-wrap">
-                                    <select id="addr_city" name="city" class="pf-input addr-select" data-level="city" disabled>
+                                    <select id="addr_city" name="city" class="pf-input addr-select" data-level="city" disabled required>
                                         <option value="">— Select City / Municipality —</option>
                                     </select>
                                     <span class="addr-spinner" id="spin_city"></span>
@@ -896,7 +940,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <div class="pf-field-group">
                                 <label class="pf-label" for="addr_barangay">Barangay *</label>
                                 <div class="addr-select-wrap">
-                                    <select id="addr_barangay" name="barangay" class="pf-input addr-select" data-level="barangay" disabled>
+                                    <select id="addr_barangay" name="barangay" class="pf-input addr-select" data-level="barangay" disabled required>
                                         <option value="">— Select Barangay —</option>
                                     </select>
                                     <span class="addr-spinner" id="spin_barangay"></span>
@@ -906,7 +950,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <div style="margin-top: 1.25rem;">
                             <label class="pf-label" for="addr_street">Street Name, House No., Building Info</label>
-                            <input type="text" id="addr_street" name="street_address" class="pf-input" placeholder="e.g. #123 Sampaguita st., Phase 2" value="<?php echo htmlspecialchars($customer['street_address'] ?? ''); ?>">
+                            <input type="text" id="addr_street" name="street_address" class="pf-input" placeholder="e.g. #123 Sampaguita st., Phase 2" value="<?php echo htmlspecialchars($customer['street_address'] ?? ''); ?>" required>
                         </div>
 
                         <div id="addr-preview" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:1rem; margin-top:1.5rem; font-size:0.875rem;">

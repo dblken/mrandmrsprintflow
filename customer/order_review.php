@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
 function review_render_item_summary(array $item): void {
     $name = trim((string)($item['name'] ?? 'Order Item'));

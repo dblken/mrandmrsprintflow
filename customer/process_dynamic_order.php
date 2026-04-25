@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/dynamic_form_helpers.php';
 
 require_role('Customer');
+require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: products.php");
