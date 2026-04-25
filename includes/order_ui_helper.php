@@ -228,9 +228,7 @@ if (!function_exists('pf_order_ui_item_estimated_total')) {
         if ($estimated > 0) {
             return $estimated;
         }
-
-        $unit_price = pf_order_ui_item_unit_price($item, $is_cart_item);
-        return $unit_price > 0 ? ($unit_price * $quantity) : 0.0;
+        return 0.0;
     }
 }
 

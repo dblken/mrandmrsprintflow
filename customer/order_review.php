@@ -124,10 +124,7 @@ function review_item_estimated_total(array $item): float {
     if ($estimated > 0) {
         return $estimated;
     }
-
-    $unit_price = review_item_unit_price($item);
-    $quantity = review_item_quantity($item);
-    return $unit_price > 0 ? ($unit_price * $quantity) : 0.0;
+    return 0.0;
 }
 
 function review_item_customization(array $item): array {
