@@ -35,7 +35,11 @@ if (!empty($tables_exist)) {
 // GET ?id=X — Fetch messages for a conversation (lazy load)
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['id'])) {
     $conversation_id = (int)$_GET['id'];
-    $conv = db_query("SELECT c.*, COALESCE(CONCAT(cm.first_name, ' ', cm.last_name), c.customer_name) as display_name FROM chatbot_conversations c LEFT JOIN customers cm ON c.customer_id = cm.customer_id WHERE c.id = ?", 'i', [$conversation_id]);
+    $conv = db_query("SELECT c.*, cm.profile_picture,
+                             COALESCE(CONCAT(cm.first_name, ' ', cm.last_name), c.customer_name) as display_name
+                      FROM chatbot_conversations c
+                      LEFT JOIN customers cm ON c.customer_id = cm.customer_id
+                      WHERE c.id = ?", 'i', [$conversation_id]);
     if (empty($conv)) {
         echo json_encode(['success' => false, 'error' => 'Conversation not found']);
         exit;
@@ -51,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['id'])) {
             'customer_email' => $conv['customer_email'] ?? '',
             'customer_id' => $conv['customer_id'] ? (int)$conv['customer_id'] : null,
             'guest_id' => $conv['guest_id'] ?? '',
+            'profile_picture' => !empty($conv['profile_picture'])
+                ? (defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/uploads/profiles/' . ltrim((string)$conv['profile_picture'], '/')
+                : null,
             'status' => $conv['status'],
         ],
         'messages' => array_map(function($m) {

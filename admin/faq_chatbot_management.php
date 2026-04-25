@@ -1268,7 +1268,13 @@ function initInbox() {
     }
     function setHeader(conv) {
         if (modalName) modalName.textContent = conv.customer_name || 'Guest';
-        if (modalAvatar) modalAvatar.textContent = initials(conv.customer_name);
+        if (modalAvatar) {
+            if (conv.profile_picture) {
+                modalAvatar.innerHTML = '<img src="' + escapeHtml(conv.profile_picture) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+                modalAvatar.textContent = initials(conv.customer_name);
+            }
+        }
         var em = (conv.customer_email || '').trim();
         if (em && modalEmail) {
             modalEmail.style.display = 'block';

@@ -8,6 +8,20 @@ require_once __DIR__ . '/../../../includes/functions.php';
 
 header('Content-Type: application/json');
 
+db_execute("CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    user_type VARCHAR(32) NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth_key TEXT NOT NULL,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_endpoint (endpoint(255)),
+    KEY idx_user (user_id, user_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 if (!is_logged_in()) {
     echo json_encode(['success' => false, 'error' => 'Unauthenticated']);
     exit;
@@ -58,17 +72,23 @@ $existing = db_query(
 
 if (!empty($existing)) {
     // Update keys and re-associate with this user (subscription may have been refreshed)
-    db_execute(
+    $ok = db_execute(
         'UPDATE push_subscriptions SET user_id = ?, user_type = ?, p256dh = ?, auth_key = ?, user_agent = ?, last_used = NOW() WHERE endpoint = ?',
         'isssss',
         [$user_id, $user_type, $p256dh, $auth, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255), $endpoint]
     );
 } else {
-    db_execute(
+    $ok = db_execute(
         'INSERT INTO push_subscriptions (user_id, user_type, endpoint, p256dh, auth_key, user_agent) VALUES (?,?,?,?,?,?)',
         'isssss',
         [$user_id, $user_type, $endpoint, $p256dh, $auth, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255)]
     );
+}
+
+if ($ok === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Could not save this device for notifications.']);
+    exit;
 }
 
 echo json_encode(['success' => true, 'message' => 'Subscription saved.']);

@@ -155,8 +155,37 @@
             credentials: 'include',
             body: JSON.stringify(payload)
         }).then(function(res) {
-            if (!res.ok) throw new Error('Subscription request failed with status ' + res.status);
-            return res.json().catch(function() { return {}; });
+            return res.json().catch(function() { return {}; }).then(function(data) {
+                if (!res.ok || !data || data.success === false) {
+                    throw new Error((data && (data.error || data.message)) || ('Subscription request failed with status ' + res.status));
+                }
+                return data;
+            });
+        });
+    }
+
+    function createFreshSubscription(reg, isUserAction) {
+        return fetchVapidPublicKey().then(function(pubKey) {
+            if (!pubKey) {
+                if (isUserAction) alert('Push is not configured yet.');
+                return null;
+            }
+
+            return Notification.requestPermission().then(function(permission) {
+                if (permission !== 'granted') {
+                    if (isUserAction) alert('Please allow notifications in your browser settings.');
+                    return null;
+                }
+
+                return reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlB64ToUint8Array(pubKey)
+                }).then(function(sub) {
+                    return sendSubscription(sub, 'subscribe').then(function() {
+                        return sub;
+                    });
+                });
+            });
         });
     }
 
@@ -340,36 +369,21 @@
                     if (existing) {
                         return sendSubscription(existing, 'subscribe').then(function() {
                             return existing;
+                        }).catch(function() {
+                            return existing.unsubscribe().catch(function() {
+                                return false;
+                            }).then(function() {
+                                return createFreshSubscription(reg, isUserAction);
+                            });
                         });
                     }
 
-                    return fetchVapidPublicKey().then(function(pubKey) {
-                        if (!pubKey) {
-                            if (isUserAction) alert('Push is not configured yet.');
-                            return null;
-                        }
-
-                        return Notification.requestPermission().then(function(permission) {
-                            if (permission !== 'granted') {
-                                if (isUserAction) alert('Please allow notifications in your browser settings.');
-                                return null;
-                            }
-
-                            return reg.pushManager.subscribe({
-                                userVisibleOnly: true,
-                                applicationServerKey: urlB64ToUint8Array(pubKey)
-                            }).then(function(sub) {
-                                return sendSubscription(sub, 'subscribe').then(function() {
-                                    return sub;
-                                });
-                            });
-                        });
-                    });
+                    return createFreshSubscription(reg, isUserAction);
                 });
             })
             .catch(function(err) {
                 if (isUserAction) {
-                    alert('Notification setup failed: ' + (err && err.message ? err.message : 'unknown error'));
+                    alert('Notification setup failed: ' + (err && err.message ? err.message : 'Please try again.'));
                 }
                 return null;
             });
@@ -390,21 +404,25 @@
                         return sendSubscription(existing, 'subscribe').then(function() {
                             try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
                             return existing;
+                        }).catch(function() {
+                            return existing.unsubscribe().catch(function() {
+                                return false;
+                            }).then(function() {
+                                return createFreshSubscription(reg, false).then(function(sub) {
+                                    if (sub) {
+                                        try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                                    }
+                                    return sub;
+                                });
+                            });
                         });
                     }
 
-                    return fetchVapidPublicKey().then(function(pubKey) {
-                        if (!pubKey) return null;
-
-                        return reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlB64ToUint8Array(pubKey)
-                        }).then(function(sub) {
-                            return sendSubscription(sub, 'subscribe').then(function() {
-                                try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
-                                return sub;
-                            });
-                        });
+                    return createFreshSubscription(reg, false).then(function(sub) {
+                        if (sub) {
+                            try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                        }
+                        return sub;
                     });
                 });
             })
