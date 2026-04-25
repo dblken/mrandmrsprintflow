@@ -11,7 +11,14 @@ function pf_support_chat_has_column(string $table, string $column): bool {
         return $cache[$key];
     }
 
-    $cache[$key] = !empty(db_query("SHOW COLUMNS FROM {$table} LIKE ?", 's', [$column]));
+    $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+    $safeColumn = str_replace(['\\', "'"], ['', "\\'"], $column);
+    if ($safeTable === '') {
+        $cache[$key] = false;
+        return $cache[$key];
+    }
+
+    $cache[$key] = !empty(db_query("SHOW COLUMNS FROM `{$safeTable}` LIKE '{$safeColumn}'"));
     return $cache[$key];
 }
 

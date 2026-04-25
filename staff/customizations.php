@@ -2710,12 +2710,44 @@ window.pfCustomizationPreloadedOrders = (() => {
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.final_price || 0;
                         } else {
-                            this.showStaffAlert('Error', 'Customization details could not be loaded.');
-                            this.showDetailsModal = false;
+                            const fallbackOrderId = order?.order_id ?? id;
+                            const fallbackRes = await this.parseJsonResponse(
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${fallbackOrderId}`))
+                            );
+                            if (fallbackRes.success && fallbackRes.data) {
+                                this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
+                                this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
+                                this.jobPriceInput = this.currentJo.final_price || 0;
+                                if (!this.currentJo.job_order_id) {
+                                    await this.resolveEffectiveJobId();
+                                }
+                            } else {
+                                this.showStaffAlert('Error', detailRes.error || 'Customization details could not be loaded.');
+                                this.showDetailsModal = false;
+                            }
                         }
                     } catch (e) {
                         console.error('Error fetching customization detail:', e);
-                        this.showDetailsModal = false;
+                        try {
+                            const fallbackOrderId = order?.order_id ?? id;
+                            const fallbackRes = await this.parseJsonResponse(
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${fallbackOrderId}`))
+                            );
+                            if (fallbackRes.success && fallbackRes.data) {
+                                this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
+                                this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
+                                this.jobPriceInput = this.currentJo.final_price || 0;
+                                if (!this.currentJo.job_order_id) {
+                                    await this.resolveEffectiveJobId();
+                                }
+                            } else {
+                                this.showDetailsModal = false;
+                            }
+                        } catch (_fallbackError) {
+                            this.showDetailsModal = false;
+                        }
                     }
                     this.loadingDetails = false;
                     return;

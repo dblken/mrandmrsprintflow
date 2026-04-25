@@ -140,6 +140,20 @@ function staff_order_data_product_image_url(array $item): ?string {
     return null;
 }
 
+function staff_order_data_payment_proof_url(array $order): ?string {
+    $proof = trim((string)($order['payment_proof_path'] ?? $order['payment_proof'] ?? ''));
+    if ($proof === '') {
+        return null;
+    }
+
+    if (preg_match('#^https?://#i', $proof)) {
+        return $proof;
+    }
+
+    $base = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+    return rtrim($base, '/') . '/api_view_proof.php?file=' . rawurlencode($proof);
+}
+
 try {
 
 // Allow Staff, Admin and Manager to access order data
@@ -300,13 +314,7 @@ if (($order['order_type'] ?? '') === 'product') {
     }
 }
 
-$payment_proof_path = null;
-if (!empty($order['payment_proof'])) {
-    $payment_proof_path = preg_replace('#^/printflow/#', BASE_PATH . '/', (string)$order['payment_proof']);
-    if (strpos($payment_proof_path, 'http') !== 0 && ($payment_proof_path[0] ?? '') !== '/') {
-        $payment_proof_path = BASE_PATH . '/' . ltrim($payment_proof_path, '/');
-    }
-}
+$payment_proof_path = staff_order_data_payment_proof_url($order);
 
 staff_order_data_json([
     'order_id'            => $order['order_id'],
