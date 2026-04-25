@@ -261,8 +261,8 @@ function _ft_detect_social(string $url): array {
             <div style="display: flex; flex-direction: column; gap: 4px;">
                 <h3 id="chatbot-title" style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.18);">Support chat</h3>
                 <div id="chatbot-status" style="display: flex; align-items: center; gap: 6px;">
-                    <span id="chatbot-status-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,0.18); display: inline-block;"></span>
-                    <p id="chatbot-status-text" style="margin: 0; font-size: 11px; color: #ffffff; font-weight: 600;">Offline</p>
+                    <span id="chatbot-status-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.16); display: inline-block;"></span>
+                    <p id="chatbot-status-text" style="margin: 0; font-size: 11px; color: #ffffff; font-weight: 600;">Online</p>
                 </div>
             </div>
             <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; padding: 0; width: 28px; height: 28px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.7;" type="button" title="Close chat" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
@@ -450,8 +450,6 @@ function _ft_detect_social(string $url): array {
         var ques = document.getElementById('chatbot-questions');
         var input = document.getElementById('chatbot-input');
         var sendBtn = document.getElementById('chatbot-send');
-        var statusDot = document.getElementById('chatbot-status-dot');
-        var statusText = document.getElementById('chatbot-status-text');
         var loaded = false;
         var isOpen = false;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
@@ -475,11 +473,12 @@ function _ft_detect_social(string $url): array {
         var CHATBOT_RESUME_KEY = 'pf_chatbot_login_resume';
         var CHATBOT_AUTH_STATE_KEY = 'pf_chatbot_last_auth_state';
         var CHATBOT_ACTIVE_CONVERSATION_KEY = 'pf_chatbot_active_conversation_id';
+        var CHATBOT_LAST_NOTICE_KEY = 'pf_chatbot_last_notice_at';
         var activeConversationId = parseInt(localStorage.getItem(CHATBOT_ACTIVE_CONVERSATION_KEY) || '0', 10) || 0;
         var renderedMessageIds = {};
         var checkInterval = null;
         var syncInFlight = false;
-        var presenceInterval = null;
+        var lastConversationActivityAt = 0;
 
         function readStoredJson(key) {
             try {
@@ -515,41 +514,7 @@ function _ft_detect_social(string $url): array {
             });
         }
 
-        function setSupportPresence(isOnline) {
-            if (!statusDot || !statusText) return;
-            if (isOnline) {
-                statusDot.style.background = '#22c55e';
-                statusDot.style.boxShadow = '0 0 0 4px rgba(34,197,94,0.16)';
-                statusText.textContent = 'Online';
-            } else {
-                statusDot.style.background = '#94a3b8';
-                statusDot.style.boxShadow = '0 0 0 4px rgba(148,163,184,0.18)';
-                statusText.textContent = 'Offline';
-            }
-        }
-
-        function syncSupportPresence() {
-            var basePath = window.BASE_PATH || '';
-            return fetch(basePath + '/public/api/support_chat_presence.php', { credentials: 'same-origin' })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    setSupportPresence(!!(data && data.success && data.support_online));
-                    return data;
-                })
-                .catch(function() {
-                    setSupportPresence(false);
-                    return null;
-                });
-        }
-
-        function startSupportPresenceLoop() {
-            syncSupportPresence();
-            if (presenceInterval) clearInterval(presenceInterval);
-            presenceInterval = setInterval(syncSupportPresence, 30000);
-        }
-
         syncChatbotAuthState();
-        startSupportPresenceLoop();
 
         function appendUserMessage(text) {
             var um = document.createElement('div');
@@ -607,6 +572,50 @@ function _ft_detect_social(string $url): array {
             removeStored(CHATBOT_RESUME_KEY);
         }
 
+        function parseChatbotTimestamp(value) {
+            if (!value) return 0;
+            if (typeof value === 'number') return value;
+            var normalized = String(value).replace(' ', 'T');
+            var ts = Date.parse(normalized);
+            return isNaN(ts) ? 0 : ts;
+        }
+
+        function updateConversationActivity(timestampValue) {
+            var ts = parseChatbotTimestamp(timestampValue);
+            if (ts > lastConversationActivityAt) {
+                lastConversationActivityAt = ts;
+            }
+        }
+
+        function noticeStorageKey(conversationId) {
+            return CHATBOT_LAST_NOTICE_KEY + '_' + String(conversationId || 'new');
+        }
+
+        function rememberIdleNotice(conversationId, timestampValue) {
+            if (!conversationId) return;
+            try {
+                localStorage.setItem(noticeStorageKey(conversationId), String(parseChatbotTimestamp(timestampValue) || Date.now()));
+            } catch (e) {}
+        }
+
+        function getIdleNoticeAt(conversationId) {
+            if (!conversationId) return 0;
+            try {
+                return parseInt(localStorage.getItem(noticeStorageKey(conversationId)) || '0', 10) || 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function maybeShowResumeNotice(conversationId, activityTimestamp) {
+            var activityAt = parseChatbotTimestamp(activityTimestamp) || lastConversationActivityAt;
+            if (!conversationId || !activityAt) return;
+            if ((Date.now() - activityAt) < (5 * 60 * 1000)) return;
+            if (getIdleNoticeAt(conversationId) >= activityAt) return;
+            appendBotMessage('Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.');
+            rememberIdleNotice(conversationId, activityAt);
+        }
+
         function ensureRenderedBucket(conversationId) {
             var key = String(conversationId || 0);
             if (!renderedMessageIds[key] || typeof renderedMessageIds[key] !== 'object') {
@@ -658,6 +667,7 @@ function _ft_detect_social(string $url): array {
             if (!message || !message.id || hasRenderedMessage(activeConversationId, message.id)) {
                 return;
             }
+            updateConversationActivity(message.created_at);
             if (message.sender_type === 'customer') {
                 appendUserMessage(message.message || '');
             } else {
@@ -670,6 +680,7 @@ function _ft_detect_social(string $url): array {
         function hydrateConversation(conversationId, messagesList) {
             setActiveConversationId(conversationId);
             resetRenderedConversation(activeConversationId);
+            lastConversationActivityAt = 0;
             var items = Array.isArray(messagesList) ? messagesList : [];
             for (var i = 0; i < items.length; i++) {
                 appendLiveConversationMessage(items[i]);
@@ -790,6 +801,8 @@ function _ft_detect_social(string $url): array {
         function sendChatbotInquiry(question, options) {
             options = options || {};
             var showUserBubble = options.showUserBubble !== false;
+            var activityBeforeSend = lastConversationActivityAt;
+            var conversationBeforeSend = activeConversationId;
             var guestId = localStorage.getItem('chatbot_guest_id');
             if (!guestId) { guestId = 'g_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('chatbot_guest_id', guestId); }
             var payload = { question: question, customer_name: (typeof chatbotCustomerName !== 'undefined' ? chatbotCustomerName : 'Guest'), customer_email: (typeof chatbotCustomerEmail !== 'undefined' ? chatbotCustomerEmail : '') };
@@ -813,12 +826,17 @@ function _ft_detect_social(string $url): array {
                 typing.remove();
                 if (data.success && data.inquiry_id) {
                     setActiveConversationId(data.conversation_id || data.inquiry_id);
+                    maybeShowResumeNotice(activeConversationId, activityBeforeSend || data.message && data.message.created_at);
                     var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
                     if (ids.indexOf(data.inquiry_id) === -1) {
                         ids.push(data.inquiry_id);
                     }
                     localStorage.setItem('chatbot_inquiry_ids', JSON.stringify(ids));
                     if (data.message && data.message.id) {
+                        if (!conversationBeforeSend) {
+                            lastConversationActivityAt = 0;
+                        }
+                        updateConversationActivity(data.message.created_at);
                         markRenderedMessage(activeConversationId, data.message.id);
                     }
                     syncConversation({ forceScroll: true });

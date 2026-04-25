@@ -402,10 +402,6 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             background: #22c55e;
             box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
         }
-        #modal-conversation .chat-modal-live.offline::before {
-            background: #94a3b8;
-            box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.18);
-        }
         #modal-conversation .chat-modal-close {
             flex-shrink: 0;
             width: 40px;
@@ -1052,7 +1048,7 @@ foreach ($inq_conversations as $c):
                 <div class="chat-modal-avatar" id="modal-conv-avatar" aria-hidden="true">?</div>
                 <div class="chat-modal-header-text">
                     <h2 id="modal-conv-name" class="chat-modal-title">Conversation</h2>
-                    <span class="chat-modal-live" id="modal-conv-live">Offline</span>
+                    <span class="chat-modal-live" id="modal-conv-live">Online</span>
                     <a href="#" id="modal-conv-email" class="chat-modal-email" style="display:none;"></a>
                     <span id="modal-conv-email-none" class="chat-modal-email-muted" style="display:none;">No email on file</span>
                 </div>
@@ -1213,7 +1209,6 @@ function initInbox() {
     var modalAvatar = document.getElementById('modal-conv-avatar');
     var modalEmail = document.getElementById('modal-conv-email');
     var modalEmailNone = document.getElementById('modal-conv-email-none');
-    var modalLive = document.getElementById('modal-conv-live');
     var modalMessages = document.getElementById('modal-conv-messages');
     var modalTyping = document.getElementById('modal-conv-typing');
     var modalReplyInput = document.getElementById('modal-reply-input');
@@ -1225,8 +1220,6 @@ function initInbox() {
     var loadedMessages = [];
     var conversationPollTimer = null;
     var conversationPollBusy = false;
-    var presencePollTimer = null;
-    var pagePresenceTimer = null;
 
     function escapeHtml(t) {
         var d = document.createElement('div');
@@ -1291,13 +1284,6 @@ function initInbox() {
         if (!modalReplyBtn || !modalReplyInput) return;
         modalReplyBtn.disabled = !modalReplyInput.value.trim();
     }
-    function setConversationPresence(isOnline) {
-        if (!modalLive) return;
-        modalLive.textContent = isOnline ? 'Online' : 'Offline';
-        modalLive.classList.toggle('offline', !isOnline);
-        modalLive.style.background = isOnline ? 'rgba(34, 197, 94, 0.16)' : 'rgba(148, 163, 184, 0.18)';
-        modalLive.style.color = isOnline ? '#dcfce7' : '#e2e8f0';
-    }
     function autoResizeReply() {
         if (!modalReplyInput) return;
         modalReplyInput.style.height = 'auto';
@@ -1354,42 +1340,6 @@ function initInbox() {
             conversationPollTimer = null;
         }
     }
-    function stopPresencePolling() {
-        if (presencePollTimer) {
-            clearInterval(presencePollTimer);
-            presencePollTimer = null;
-        }
-    }
-    function syncConversationPresence() {
-        var id = parseInt(modal.dataset.convId || '0', 10);
-        if (!id) {
-            setConversationPresence(false);
-            return;
-        }
-        fetch((window.BASE_PATH || <?php echo json_encode($base_path); ?>) + '/public/api/support_chat_presence.php?conversation_id=' + id, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                setConversationPresence(!!(data && data.success && data.customer_online));
-            })
-            .catch(function () {
-                setConversationPresence(false);
-            });
-    }
-    function startPresencePolling() {
-        stopPresencePolling();
-        syncConversationPresence();
-        presencePollTimer = setInterval(syncConversationPresence, 30000);
-    }
-    function syncPagePresenceHeartbeat() {
-        fetch((window.BASE_PATH || <?php echo json_encode($base_path); ?>) + '/public/api/support_chat_presence.php', { credentials: 'same-origin' })
-            .catch(function () {});
-    }
-    function startPagePresenceHeartbeat() {
-        syncPagePresenceHeartbeat();
-        if (pagePresenceTimer) clearInterval(pagePresenceTimer);
-        pagePresenceTimer = setInterval(syncPagePresenceHeartbeat, 30000);
-    }
-    window.printflowStartSupportPagePresence = startPagePresenceHeartbeat;
     function syncOpenConversation() {
         if (!modal.classList.contains('open') || conversationPollBusy) return;
         var id = parseInt(modal.dataset.convId || '0', 10);
@@ -1432,7 +1382,6 @@ function initInbox() {
     function openModal(id) {
         if (!modal) return;
         stopConversationPolling();
-        stopPresencePolling();
         loadedMessages = [];
         modal.dataset.convId = id;
         if (modalReplyInput) {
@@ -1473,7 +1422,6 @@ function initInbox() {
                     }, 100);
                 }
                 startConversationPolling();
-                startPresencePolling();
             })
             .catch(function () {
                 loadedMessages = [];
@@ -1512,7 +1460,6 @@ function initInbox() {
     }
     function closeModal() {
         stopConversationPolling();
-        stopPresencePolling();
         modal.classList.remove('open');
         document.body.style.overflow = '';
         if (modalTyping) modalTyping.textContent = '';
@@ -1618,9 +1565,6 @@ function initInbox() {
 function printflowInitFaqChatbotPage() {
     printflowInitFaqChatbotPageFilters();
     initInbox();
-    if (typeof window.printflowStartSupportPagePresence === 'function') {
-        window.printflowStartSupportPagePresence();
-    }
 }
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', printflowInitFaqChatbotPage);
