@@ -29,6 +29,21 @@ $status_filter = $_GET['status'] ?? '';
 $search_filter = $_GET['search'] ?? '';
 $timeframe = $_GET['timeframe'] ?? 'today';
 
+function build_staff_status_filter_sql(string $status_filter, array &$params, string &$types, string $alias = 'o'): string {
+    if ($status_filter === '') {
+        return '';
+    }
+    if ($status_filter === 'Pending') {
+        return " AND {$alias}.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify')";
+    }
+    if ($status_filter === 'Ready for Pickup') {
+        return " AND {$alias}.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design')";
+    }
+    $params[] = $status_filter;
+    $types .= 's';
+    return " AND {$alias}.status = ?";
+}
+
 // --- Timeframe Logic ---
 $timeframe_sql = "DATE(o.order_date) = CURDATE()";
 $timeframe_sql_no_alias = "DATE(order_date) = CURDATE()";
@@ -132,13 +147,10 @@ $chart_params = [$staffBranchId];
 $chart_types = "i";
 
 if ($status_filter) {
-    if ($status_filter === 'Cancelled') {
-        $chart_sql_cond = " WHERE o.branch_id = ? AND o.status = 'Cancelled'";
-    } else {
-        $chart_sql_cond .= " AND o.status = ?";
-        $chart_params[] = $status_filter;
-        $chart_types .= "s";
-    }
+    $chart_sql_cond = " WHERE o.branch_id = ?";
+    $chart_params = [$staffBranchId];
+    $chart_types = "i";
+    $chart_sql_cond .= build_staff_status_filter_sql($status_filter, $chart_params, $chart_types, 'o');
 }
 
 switch($timeframe) {
@@ -256,9 +268,7 @@ $params = [$staffBranchId];
 $types = "i";
 
 if ($status_filter) {
-    $sql_cond .= " AND o.status = ?";
-    $params[] = $status_filter;
-    $types .= "s";
+    $sql_cond .= build_staff_status_filter_sql($status_filter, $params, $types, 'o');
 }
 if ($timeframe !== 'all' && isset($timeframe_sql)) {
     $sql_cond .= " AND " . $timeframe_sql;

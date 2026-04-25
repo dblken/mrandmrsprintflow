@@ -1030,7 +1030,8 @@ $page_title = 'Orders - Staff';
                 'ALL':              'All',
                 'Pending':          'TO VERIFY',
                 'Ready for Pickup': 'TO PICK UP',
-                'Completed':        'COMPLETED'
+                'Completed':        'COMPLETED',
+                'Cancelled':        'CANCELLED'
             },
             getProfileImage(image) {
                 if (!image || image === 'null' || image === 'undefined') {

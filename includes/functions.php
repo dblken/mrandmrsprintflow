@@ -834,12 +834,9 @@ function get_customer_cancel_count($customer_id) {
  */
 function is_customer_restricted($customer_id) {
     if (!$customer_id) return false;
-    // Check for hard restriction in DB first
-    $customer = db_query("SELECT is_restricted FROM customers WHERE customer_id = ?", 'i', [$customer_id]);
-    if (!empty($customer) && $customer[0]['is_restricted']) return true;
-
-    // Automatic restriction based on cancellation count (7+)
-    return get_customer_cancel_count($customer_id) >= 7;
+    // Temporary business override: allow customers to place orders
+    // even when historical cancellation thresholds were met.
+    return false;
 }
 
 
