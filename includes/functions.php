@@ -2175,11 +2175,54 @@ function printflow_service_name_aliases(string $name): array
 
 function printflow_get_service_review_stats(string $service_name): array
 {
-    $matches = printflow_get_service_reviews($service_name);
+    $schema = printflow_review_schema();
+    $aliases = printflow_service_name_aliases($service_name);
+    if (empty($aliases)) {
+        return ['avg_rating' => 0.0, 'review_count' => 0];
+    }
+
+    $where_parts = [];
+    $types = '';
+    $params = [];
+
+    if ($schema['service_col'] !== '') {
+        $placeholders = implode(',', array_fill(0, count($aliases), '?'));
+        $where_parts[] = "r.{$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)";
+        $types .= str_repeat('s', count($aliases));
+        array_push($params, ...$aliases);
+    }
+
+    $order_match_parts = [];
+    $order_placeholders = implode(',', array_fill(0, count($aliases), '?'));
+    $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_placeholders)";
+    $types .= str_repeat('s', count($aliases));
+    array_push($params, ...$aliases);
+
+    foreach ($aliases as $alias) {
+        $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
+        $types .= 's';
+        $params[] = '%' . $alias . '%';
+    }
+
+    $where_parts[] = "EXISTS (
+        SELECT 1
+        FROM order_items oi
+        LEFT JOIN products p ON p.product_id = oi.product_id
+        WHERE oi.order_id = r.order_id
+          AND (" . implode(' OR ', $order_match_parts) . ")
+    )";
+
+    $rows = db_query(
+        "SELECT AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS review_count
+         FROM reviews r
+         WHERE " . implode(' OR ', $where_parts),
+        $types,
+        $params
+    ) ?: [];
 
     return [
-        'avg_rating' => !empty($matches) ? ((float)array_sum(array_column($matches, 'rating')) / count($matches)) : 0.0,
-        'review_count' => count($matches),
+        'avg_rating' => (float)($rows[0]['avg_rating'] ?? 0),
+        'review_count' => (int)($rows[0]['review_count'] ?? 0),
     ];
 }
 
@@ -2187,6 +2230,7 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
 {
     $schema = printflow_review_schema();
     $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+    $tables = array_flip(array_column(db_query("SHOW TABLES") ?: [], 0));
     $aliases = printflow_service_name_aliases($service_name);
     if (empty($aliases)) {
         return [];
@@ -2228,9 +2272,14 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
     $service_select = $schema['service_col'] !== '' ? "r.{$schema['service_col']}" : "''";
     $created_select = $schema['created_col'] !== '' ? "r.{$schema['created_col']}" : 'NOW()';
     $video_select = isset($review_cols['video_path']) ? 'r.video_path' : "''";
-    $helpful_voted_sql = $viewer_user_id > 0
+    $has_review_helpful = isset($tables['review_helpful']);
+    $helpful_count_sql = $has_review_helpful
+        ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) AS helpful_count,"
+        : "0 AS helpful_count,";
+    $helpful_voted_sql = ($has_review_helpful && $viewer_user_id > 0)
         ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) AS user_voted,"
         : "0 AS user_voted,";
+    $profile_picture_select = isset($tables['customers']) ? 'c.profile_picture' : "'' AS profile_picture";
 
     $sql = "SELECT DISTINCT
             r.id,
@@ -2243,8 +2292,8 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
             {$created_select} AS created_at,
             COALESCE(c.first_name, u.first_name, 'Customer') AS first_name,
             COALESCE(c.last_name, u.last_name, '') AS last_name,
-            c.profile_picture,
-            (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) AS helpful_count,
+            {$profile_picture_select},
+            {$helpful_count_sql}
             {$helpful_voted_sql}
             {$message_col} AS review_message
         FROM reviews r
@@ -2253,7 +2302,7 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
         WHERE " . implode(' OR ', $where_parts) . "
         ORDER BY {$created_select} DESC";
 
-    if ($viewer_user_id > 0) {
+    if ($has_review_helpful && $viewer_user_id > 0) {
         $types = 'i' . $types;
         array_unshift($params, $viewer_user_id);
     }
