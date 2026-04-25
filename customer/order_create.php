@@ -134,9 +134,13 @@ order_create_optional_execute("CREATE TABLE IF NOT EXISTS review_helpful (
     id INT AUTO_INCREMENT PRIMARY KEY,
     review_id INT NOT NULL,
     user_id INT NOT NULL,
+    customer_id INT NULL,
+    user_type VARCHAR(20) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_review_user (review_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+order_create_optional_execute("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
+order_create_optional_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
 
 $current_user_id = get_user_id();
 $review_columns = array_flip(array_column(order_create_optional_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
@@ -186,12 +190,12 @@ $reviews = order_create_optional_query(
      c.last_name,
      c.profile_picture,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
-     (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted
+     (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer') OR (customer_id IS NULL AND user_id = ?))) as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
      WHERE {$review_where}
      ORDER BY {$review_created_expr} DESC",
-    'i' . $review_types, array_merge([$current_user_id], $review_params)
+    'ii' . $review_types, array_merge([$current_user_id, $current_user_id], $review_params)
 ) ?: [];
 
 $total_reviews = count($reviews);
@@ -474,7 +478,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
 
                             <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                                <button onclick="markHelpful(<?php echo $review['id']; ?>, this)" class="helpful-btn<?php echo $review['user_voted'] ? ' voted' : ''; ?>" <?php echo $review['user_voted'] ? 'data-voted="1"' : ''; ?>>
+                                <button type="button" onclick="markHelpful(<?php echo $review['id']; ?>, this)" class="helpful-btn<?php echo $review['user_voted'] ? ' voted' : ''; ?>" <?php echo $review['user_voted'] ? 'data-voted="1"' : ''; ?>>
                                     <svg width="15" height="15" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/></svg>
                                     <span class="helpful-label"><?php echo $review['user_voted'] ? (int)$review['helpful_count'] : 'Helpful'; ?></span>
                                 </button>

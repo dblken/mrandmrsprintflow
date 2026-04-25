@@ -481,9 +481,13 @@ $conn->query("CREATE TABLE IF NOT EXISTS review_helpful (
     id INT AUTO_INCREMENT PRIMARY KEY,
     review_id INT NOT NULL,
     user_id INT NOT NULL,
+    customer_id INT NULL,
+    user_type VARCHAR(20) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_review_user (review_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
+$conn->query("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
 
 $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 
@@ -824,7 +828,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
             ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
             : '0 as helpful_count,';
         $review_voted_sql = isset($review_tables['review_helpful'])
-            ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted'
+            ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer') OR (customer_id IS NULL AND user_id = ?))) as user_voted"
             : '0 as user_voted';
 
         $reviews = [];
@@ -880,8 +884,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                  ORDER BY {$review_created_expr} DESC";
 
             if (isset($review_tables['review_helpful'])) {
-                $review_types = 'i' . $review_types;
-                array_unshift($review_params, (int)$customer_id);
+                $review_types = 'ii' . $review_types;
+                array_unshift($review_params, (int)$customer_id, (int)$customer_id);
             }
 
             $reviews = db_query($review_sql, $review_types, $review_params) ?: [];
@@ -1038,7 +1042,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <?php endif; ?>
 
                             <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                                <button onclick="markHelpful(<?php echo $review['id']; ?>, this)" class="helpful-btn<?php echo $review['user_voted'] ? ' voted' : ''; ?>" <?php echo $review['user_voted'] ? 'data-voted="1"' : ''; ?>>
+                                <button type="button" onclick="markHelpful(<?php echo $review['id']; ?>, this)" class="helpful-btn<?php echo $review['user_voted'] ? ' voted' : ''; ?>" <?php echo $review['user_voted'] ? 'data-voted="1"' : ''; ?>>
                                     <svg width="15" height="15" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/></svg>
                                     <span class="helpful-label"><?php echo $review['user_voted'] ? (int)$review['helpful_count'] : 'Helpful'; ?></span>
                                 </button>

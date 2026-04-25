@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 if ($success) {
                     // Log activity
                     log_activity($staff_id, 'Order Status Update', "Updated Order #{$order_id} to {$new_status}");
+                    $notif = get_order_status_notification_payload($order_id, $new_status);
+                    $notif_type = $notif['type'];
+                    $notif_message = $notif['message'];
 
                     // Notify customer
                     if ($new_status === 'To Pay') {
@@ -50,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                     }
                     
                     // Pass order_id as data_id for shortcut linking
-                    create_notification($customer_id, 'Customer', $msg, 'Order', false, false, $order_id);
+                    $msg = $notif_message;
+                    create_notification($customer_id, 'Customer', $msg, $notif_type, false, false, $order_id);
                     add_order_system_message($order_id, $msg);
                 }
             } else {

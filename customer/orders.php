@@ -25,10 +25,10 @@ $total_orders = $total_orders_result[0]['count'] ?? 0;
 $pending_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Pending', 'Pending Approval', 'For Revision')", 'i', [$customer_id]);
 $pending_orders = $pending_orders_result[0]['count'] ?? 0;
 
-$processing_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Processing', 'In Production', 'Printing')", 'i', [$customer_id]);
+$processing_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Processing', 'In Production', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process')", 'i', [$customer_id]);
 $processing_orders = $processing_orders_result[0]['count'] ?? 0;
 
-$ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Ready for Pickup'", 'i', [$customer_id]);
+$ready_orders_result = db_query("SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status IN ('Ready for Pickup', 'Approved Design')", 'i', [$customer_id]);
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
 // TikTok style tabs (redirect removed tabs to completed)
@@ -51,6 +51,8 @@ $tab_status_map = [
     'cancelled'  => ['Cancelled'],
     'totalorders' => ['Completed', 'To Rate', 'Rated', 'Finished', 'Released', 'Claimed'],
 ];
+$tab_status_map['production'] = ['In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'];
+$tab_status_map['pickup'] = ['Ready for Pickup', 'Approved Design'];
 
 // Statuses where price is hidden from customer
 $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
@@ -828,7 +830,11 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($orders as $index => $order): ?>
                         <?php 
                             // ... (logic remains same)
-                            $s = strtolower($order['status']);
+                            $display_status = (string)$order['status'];
+                            if (in_array($display_status, ['Approved Design'], true)) {
+                                $display_status = 'Ready for Pickup';
+                            }
+                            $s = strtolower($display_status);
                             $st_cls = 'st-pending';
                             if (strpos($s, 'approved') !== false) $st_cls = 'st-approved';
                             elseif (strpos($s, 'production') !== false || strpos($s, 'processing') !== false || strpos($s, 'printing') !== false) $st_cls = 'st-production';
@@ -845,7 +851,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
                             <div class="card-top-row">
                                 <span class="order-id-chip"><?php echo htmlspecialchars($order['order_code']); ?></span>
-                                <div class="status-pill <?php echo $st_cls; ?>"><?php echo htmlspecialchars($order['status']); ?></div>
+                                <div class="status-pill <?php echo $st_cls; ?>"><?php echo htmlspecialchars($display_status); ?></div>
                             </div>
 
                             <div class="card-content">
@@ -1573,7 +1579,7 @@ async function refreshOrdersList() {
     const statusMap = {
         'Pending': 'st-pending', 'Pending Approval': 'st-pending', 'Pending Review': 'st-pending',
         'Approved': 'st-approved', 'To Pay': 'st-pending', 'To Verify': 'st-pending',
-        'In Production': 'st-production', 'Processing': 'st-production', 'Printing': 'st-production',
+        'In Production': 'st-production', 'Processing': 'st-production', 'Printing': 'st-production', 'Paid - In Process': 'st-production', 'Paid – In Process': 'st-production', 'Approved Design': 'st-ready',
         'Ready for Pickup': 'st-ready', 'To Receive': 'st-ready', 'Completed': 'st-completed',
         'To Rate': 'st-completed', 'Rated': 'st-completed', 'Rejected': 'st-cancelled', 'Cancelled': 'st-cancelled'
     };
@@ -1591,6 +1597,9 @@ async function refreshOrdersList() {
         'In Production': 'production',
         'Processing': 'production',
         'Printing': 'production',
+        'Paid - In Process': 'production',
+        'Paid – In Process': 'production',
+        'Approved Design': 'pickup',
         'Ready for Pickup': 'pickup',
         'Rejected': 'rejected',
         'To Receive': 'pickup',

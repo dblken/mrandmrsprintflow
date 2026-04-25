@@ -272,7 +272,9 @@ require_once __DIR__ . '/../includes/header.php';
 .rate-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
 .rate-shell { background: rgba(0, 49, 61, 0.88); border: 1px solid rgba(83, 197, 224, 0.18); border-radius: 12px; overflow: hidden; }
 .rate-shell-head { background: rgba(0, 28, 36, 0.98); border-bottom: 1px solid rgba(83, 197, 224, 0.15); padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
-.rate-shell-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: #e0f2fe !important; }
+.rate-shell-title,
+.rate-shell-head .rate-shell-title,
+.rate-shell-head h1.rate-shell-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: #ffffff !important; }
 .rate-shell-sub { margin: 0.2rem 0 0; font-size: 0.92rem; color: #94a3b8; font-weight: 600; }
 .rate-back-link { display: inline-flex; align-items: center; gap: 0.45rem; color: #d7e7ee; text-decoration: none; font-weight: 700; font-size: 0.92rem; }
 .rate-back-link:hover { color: #ffffff; }

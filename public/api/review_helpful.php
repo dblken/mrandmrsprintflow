@@ -28,6 +28,8 @@ try {
         id INT AUTO_INCREMENT PRIMARY KEY,
         review_id INT NOT NULL,
         user_id INT NOT NULL,
+        customer_id INT NULL,
+        user_type VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uq_review_user (review_id, user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -35,20 +37,61 @@ try {
         throw new RuntimeException('Could not prepare review helpful table.');
     }
 
+    db_execute("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
+    db_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
+
     $review_exists = db_query("SELECT id FROM reviews WHERE id = ? LIMIT 1", 'i', [$review_id]);
     if (empty($review_exists)) {
         review_helpful_json(['success' => false, 'error' => 'Review not found'], 404);
     }
 
     $user_id = (int)get_user_id();
+    $user_type = (string)($_SESSION['user_type'] ?? '');
+    $customer_id = $user_type === 'Customer' ? $user_id : 0;
 
-    $existing = db_query("SELECT id FROM review_helpful WHERE review_id = ? AND user_id = ? LIMIT 1", 'ii', [$review_id, $user_id]);
+    if ($customer_id > 0) {
+        $existing = db_query(
+            "SELECT id
+             FROM review_helpful
+             WHERE review_id = ?
+               AND (
+                    (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+                    OR (customer_id IS NULL AND user_id = ?)
+               )
+             LIMIT 1",
+            'iii',
+            [$review_id, $customer_id, $user_id]
+        );
+    } else {
+        $existing = db_query("SELECT id FROM review_helpful WHERE review_id = ? AND user_id = ? LIMIT 1", 'ii', [$review_id, $user_id]);
+    }
 
     if (!empty($existing)) {
-        $ok = db_execute("DELETE FROM review_helpful WHERE review_id = ? AND user_id = ?", 'ii', [$review_id, $user_id]);
+        if ($customer_id > 0) {
+            $ok = db_execute(
+                "DELETE FROM review_helpful
+                 WHERE review_id = ?
+                   AND (
+                        (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+                        OR (customer_id IS NULL AND user_id = ?)
+                   )",
+                'iii',
+                [$review_id, $customer_id, $user_id]
+            );
+        } else {
+            $ok = db_execute("DELETE FROM review_helpful WHERE review_id = ? AND user_id = ?", 'ii', [$review_id, $user_id]);
+        }
         $voted = false;
     } else {
-        $ok = db_execute("INSERT INTO review_helpful (review_id, user_id) VALUES (?, ?)", 'ii', [$review_id, $user_id]);
+        if ($customer_id > 0) {
+            $ok = db_execute(
+                "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type) VALUES (?, ?, ?, 'Customer')",
+                'iii',
+                [$review_id, $user_id, $customer_id]
+            );
+        } else {
+            $ok = db_execute("INSERT INTO review_helpful (review_id, user_id, user_type) VALUES (?, ?, ?)", 'iis', [$review_id, $user_id, $user_type !== '' ? $user_type : 'User']);
+        }
         $voted = true;
     }
     if (!$ok) {
