@@ -1164,9 +1164,18 @@ function openItemsModal(orderId, event) {
                 <td style="text-align: center; vertical-align: middle;">
                     <div class="im-qty-value">${item.quantity}</div>
                 </td>
-                <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
-                    <div class="im-total-value">${escIM(item.subtotal)}</div>
-                </td>
+                ${data.is_service_order ? `
+                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                        <div class="im-total-value">${escIM(item.estimated_price || item.subtotal)}</div>
+                    </td>
+                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                        <div class="im-total-value">${escIM(item.final_price || data.total_amount)}</div>
+                    </td>
+                ` : `
+                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                        <div class="im-total-value">${escIM(item.subtotal)}</div>
+                    </td>
+                `}
             </tr>`;
         }).join('');
 
@@ -1178,13 +1187,17 @@ function openItemsModal(orderId, event) {
                             <colgroup>
                                 <col style="width:auto;">
                                 <col style="width:110px;">
-                                <col style="width:150px;">
+                                ${data.is_service_order
+                                    ? `<col style="width:150px;"><col style="width:150px;">`
+                                    : `<col style="width:150px;">`}
                             </colgroup>
                             <thead style="background: #f8fafc;">
                                 <tr>
                                     <th>Service Description</th>
                                     <th style="text-align: center;">Qty</th>
-                                    <th style="text-align: right;">Total Price</th>
+                                    ${data.is_service_order
+                                        ? `<th style="text-align: right;">Estimated Price</th><th style="text-align: right;">Final Price</th>`
+                                        : `<th style="text-align: right;">Total Price</th>`}
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
@@ -1266,7 +1279,7 @@ function openItemsModal(orderId, event) {
                         ) : ''}
 
                         ${data.can_cancel ? `
-                            <button onclick="openCancelModal(${data.order_id}, '${data.csrf_token}')" class="w-full py-3 text-red-400 text-xs font-black border border-red-400/20 hover:bg-red-400/10 transition-all tracking-widest">Cancel order request</button>
+                            <button onclick="openCancelModal(${data.order_id}, '${data.csrf_token}')" class="im-primary-action" style="background:#dc2626;border-color:#dc2626;color:#ffffff;">Cancel Order Request</button>
                         ` : ''}
                     </div>
                 </div>

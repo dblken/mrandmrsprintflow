@@ -153,6 +153,7 @@ $items = db_query("
 ", 'i', [$order_id]);
 
 $items_out = [];
+$service_items_raw = [];
 $order_total_amount = (float)($order['total_amount'] ?? 0);
 $item_count = is_array($items) ? count($items) : 0;
 foreach ($items as $item) {
@@ -169,13 +170,17 @@ foreach ($items as $item) {
         $raw_unit_price = $order_total_amount / $raw_quantity;
     }
 
-    $items_out[] = [
+    $service_items_raw[] = [
+        'raw_subtotal' => $raw_subtotal,
+        'payload' => [
         'order_item_id' => (int)$item['order_item_id'],
         'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Order Item', $custom_data, 'Order Item'),
         'category'      => (strtolower($item['category'] ?? '') === 'merchandise') ? '' : ($item['category'] ?? ''),
         'quantity'      => $raw_quantity,
         'unit_price'    => format_currency($raw_unit_price),
         'subtotal'      => format_currency($raw_subtotal),
+        'estimated_price' => format_currency($raw_subtotal),
+        'final_price'   => format_currency($raw_subtotal),
         'customization' => $custom_data,
         'has_design'    => !empty($item['design_image']) || !empty($item['design_file']),
         'has_reference' => !empty($item['reference_image_file']),
@@ -187,7 +192,36 @@ foreach ($items as $item) {
         'reference_url' => !empty($item['reference_image_file'])
                             ? $base_path . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
                             : null,
+        ],
     ];
+}
+
+$estimated_order_amount = (float)($order['estimated_price'] ?? 0);
+if ($estimated_order_amount <= 0) {
+    foreach ($service_items_raw as $entry) {
+        $estimated_order_amount += (float)($entry['raw_subtotal'] ?? 0);
+    }
+}
+
+$estimated_sum = 0.0;
+foreach ($service_items_raw as $entry) {
+    $estimated_sum += (float)($entry['raw_subtotal'] ?? 0);
+}
+
+foreach ($service_items_raw as $index => $entry) {
+    $payload = $entry['payload'];
+    $raw_subtotal = (float)($entry['raw_subtotal'] ?? 0);
+    $final_item_amount = $raw_subtotal;
+
+    if ($item_count === 1) {
+        $final_item_amount = $order_total_amount > 0 ? $order_total_amount : $raw_subtotal;
+    } elseif ($estimated_sum > 0 && $order_total_amount > 0) {
+        $final_item_amount = ($raw_subtotal / $estimated_sum) * $order_total_amount;
+    }
+
+    $payload['estimated_price'] = format_currency($raw_subtotal);
+    $payload['final_price'] = format_currency($final_item_amount);
+    $items_out[] = $payload;
 }
 
 // Cancellation / revision details
@@ -240,8 +274,8 @@ customer_order_items_json([
     'order_date'       => format_datetime($order['order_date']),
     'is_service_order' => $is_service_order,
     'estimated_price'  => $is_service_order
-        ? (((float)($order['estimated_price'] ?? 0)) > 0
-            ? format_currency((float)$order['estimated_price'])
+        ? ($estimated_order_amount > 0
+            ? format_currency($estimated_order_amount)
             : 'Pending')
         : null,
     'total_amount'     => format_currency($order['total_amount']),
