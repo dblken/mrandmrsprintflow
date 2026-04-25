@@ -575,10 +575,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <div id="image-carousel" data-current-index="0" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;isolation:isolate;pointer-events:auto;">
                                 <?php foreach ($display_images as $index => $media): ?>
                                     <?php if ($media['type'] === 'video'): ?>
-                                        <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:auto;">
+                                        <div class="carousel-item service-media-video-wrap" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:auto;">
                                             <video id="carousel-video-<?php echo $index; ?>"
                                                    poster="<?php echo htmlspecialchars($display_video_poster); ?>"
-                                                   style="width:100%;height:100%;object-fit:cover;display:block;"
+                                                   class="service-media-video"
                                                    controls
                                                    controlsList="nodownload"
                                                    disablePictureInPicture
@@ -716,11 +716,11 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             </div>
                         <?php else: ?>
                             <!-- Single Media -->
-                            <div class="single-media-frame" style="width:100%;height:500px;border-radius:8px;background:#f9fafb;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e5e7eb;position:relative;">
+                            <div class="single-media-frame<?php echo $display_img_type === 'video' ? ' service-media-video-wrap' : ''; ?>" style="width:100%;height:500px;border-radius:8px;background:<?php echo $display_img_type === 'video' ? '#0b1220' : '#f9fafb'; ?>;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e5e7eb;position:relative;">
                                 <?php if ($display_img_type === 'video'): ?>
                                     <video id="single-video"
                                            poster="<?php echo htmlspecialchars($display_video_poster); ?>"
-                                           style="width:100%;height:100%;object-fit:cover;display:block;"
+                                           class="service-media-video"
                                            controls
                                            controlsList="nodownload"
                                            disablePictureInPicture
@@ -1107,6 +1107,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .poc-media-full { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#0b1220; }
 .poc-media-close { position:absolute; top:-12px; right:-12px; width:36px; height:36px; border-radius:999px; border:none; background:#111827; color:#fff; font-size:1.5rem; line-height:1; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
 
+.service-media-video-wrap { background: #0b1220; display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+.service-media-video { width: 100%; height: 100%; display: block; object-fit: contain; background: #0b1220; border-radius: 8px; }
 .carousel-arrow:hover { background: rgba(0,0,0,0.75) !important; color: white !important; transform: translateY(-50%) scale(1.15) !important; }
 .carousel-thumbnail:hover { border-color: #0d9488 !important; opacity: 0.8; }
 .shopee-opt-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; flex-direction: row; }
@@ -1149,6 +1151,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
     #estimated-price-display { position: static !important; top: auto !important; }
     .single-media-frame,
     #image-carousel { height: min(72vw, 320px) !important; max-height: 320px !important; }
+    .service-media-video-wrap { padding: 8px; }
     .shopee-card { padding: 1rem !important; gap: 1rem !important; }
     .shopee-form-section { padding-right: 0 !important; }
     .shopee-form-field > .input-field,
