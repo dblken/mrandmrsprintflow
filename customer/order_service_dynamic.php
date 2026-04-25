@@ -53,6 +53,48 @@ function pf_normalize_service_media_path($path, $base_path, $default_img) {
     return $path;
 }
 
+function pf_normalize_review_media_path($path, $base_path, $folder = '') {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return '';
+    }
+
+    $path = str_replace('\\', '/', $path);
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+
+    if (preg_match('#^[A-Za-z]:/#', $path)) {
+        $path = preg_replace('#^[A-Za-z]:#', '', $path);
+    }
+
+    $printflowPos = strpos($path, '/printflow/');
+    if ($printflowPos !== false) {
+        $path = substr($path, $printflowPos + strlen('/printflow'));
+    }
+
+    $uploadsPos = strpos($path, '/uploads/');
+    if ($uploadsPos !== false) {
+        $path = substr($path, $uploadsPos);
+    } elseif (strpos($path, 'uploads/') === 0) {
+        $path = '/' . $path;
+    } elseif (strpos($path, '/') === false && $folder !== '') {
+        $path = '/uploads/' . trim($folder, '/') . '/' . $path;
+    } elseif ($path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+
+    if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+
+    if ($base_path !== '' && strpos($path, $base_path . '/') !== 0 && strpos($path, 'http') !== 0) {
+        $path = $base_path . $path;
+    }
+
+    return $path;
+}
+
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
