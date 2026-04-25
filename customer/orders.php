@@ -1385,6 +1385,18 @@ function closeItemsModal() {
 
 // Cancellation Logic
 let cancelOrderId = null, cancelCsrfToken = null;
+function notifyCancelResult(message, isError = false) {
+    const safeMessage = String(message || (isError ? 'Something went wrong.' : 'Done.'));
+    if (typeof showToast === 'function') {
+        showToast(safeMessage);
+        return;
+    }
+    // Fallback to ensure users still get feedback if toast script is unavailable.
+    if (isError) {
+        console.error(safeMessage);
+    }
+    window.alert(safeMessage);
+}
 function openCancelModal(id, token) {
     cancelOrderId = id; cancelCsrfToken = token;
     document.querySelectorAll('input[name="cancel_reason"]').forEach((input) => { input.checked = false; });
@@ -1414,7 +1426,7 @@ function submitOrderCancellation() {
     const reasonEl = document.querySelector('input[name="cancel_reason"]:checked');
     if (!reasonEl) return;
     const reason = reasonEl.value, details = document.getElementById('cmOtherInput').value;
-    if (reason === 'Other' && !details.trim()) { showToast("Please specify the reason."); return; }
+    if (reason === 'Other' && !details.trim()) { notifyCancelResult("Please specify the reason.", true); return; }
 
     const btn = document.getElementById('cmConfirmBtn');
     btn.disabled = true; btn.textContent = 'Processing...';
@@ -1425,19 +1437,27 @@ function submitOrderCancellation() {
 
     fetch(`${CUSTOMER_BASE_URL}/customer/cancel_order.php`, { method: 'POST', body: fd })
     .then((r) => {
-        if (!r.ok) throw new Error(`Request failed (${r.status})`);
-        return r.json();
+        return r.text().then((raw) => {
+            if (!r.ok) {
+                throw new Error(`Request failed (${r.status})`);
+            }
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                throw new Error('Unexpected server response.');
+            }
+        });
     })
     .then(data => {
         if (data.success) {
-            showToast("Order Cancelled Successfullly.");
+            notifyCancelResult("Order cancelled successfully.");
             window.location.reload();
         } else {
-            showToast(data.error || "Failed to cancel.");
+            notifyCancelResult(data.error || "Failed to cancel.", true);
         }
     })
     .catch((error) => {
-        showToast(error && error.message ? error.message : "Failed to cancel.");
+        notifyCancelResult(error && error.message ? error.message : "Failed to cancel.", true);
     })
     .finally(() => {
         btn.disabled = false;

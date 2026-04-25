@@ -150,7 +150,12 @@ self.addEventListener('fetch', (event) => {
         !url.hostname.includes('localhost')) return;
 
     if (url.pathname.includes('/api/') || url.pathname.includes('ajax')) {
-        event.respondWith(fetch(request).catch(() => caches.match(request)));
+        event.respondWith(
+            fetch(request).catch(async () => {
+                const cached = await caches.match(request);
+                return cached || new Response('Network unavailable', { status: 503 });
+            })
+        );
         return;
     }
 
@@ -210,7 +215,9 @@ async function staleWhileRevalidate(request, cacheName) {
 async function networkWithCacheFallback(request, cacheName) {
     try {
         const response = await fetch(request);
-        if (response.ok) {
+        const isRangeRequest = request.headers.has('range');
+        // Cache Storage does not support partial content (206) responses.
+        if (response.ok && response.status === 200 && !isRangeRequest) {
             const cache = await caches.open(cacheName);
             cache.put(request, response.clone());
         }
