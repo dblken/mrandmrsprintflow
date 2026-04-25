@@ -231,6 +231,17 @@ $all_counts = [
     'Cancelled'        => $cancelled_count
 ];
 
+function staff_orders_display_status(string $status): string {
+    $verification_statuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify'];
+    if (in_array($status, $verification_statuses, true)) {
+        return 'To Verify';
+    }
+    if (in_array($status, ['Processing', 'In Production', 'Printing', 'Approved Design'], true)) {
+        return 'Ready for Pickup';
+    }
+    return $status;
+}
+
 // Handle specific AJAX request for drawing the table
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     ob_start();
@@ -296,11 +307,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                 <td class="px-4 py-4 text-center">
                     <?php
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
-                    $display_order_status = $order['status'];
-                    $product_production_statuses = ['Processing', 'In Production', 'Printing', 'Approved Design'];
-                    if (in_array($display_order_status, $product_production_statuses)) {
-                        $display_order_status = 'Ready for Pickup';
-                    }
+                    $display_order_status = staff_orders_display_status((string)$order['status']);
                     echo status_badge($display_order_status, 'order'); ?>
                     <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                         <div style="margin-top: 6px;">
@@ -1844,10 +1851,7 @@ $page_title = 'Orders - Staff';
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <?php
-                                        $display_order_status2 = $order['status'];
-                                        if (in_array($display_order_status2, ['Processing', 'In Production', 'Printing', 'Approved Design'])) {
-                                            $display_order_status2 = 'Ready for Pickup';
-                                        }
+                                        $display_order_status2 = staff_orders_display_status((string)$order['status']);
                                         echo status_badge($display_order_status2, 'order'); ?>
                                         <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                                             <div style="margin-top: 6px;">

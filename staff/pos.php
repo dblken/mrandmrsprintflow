@@ -150,6 +150,26 @@ try {
             border-color: #0d9488;
         }
 
+        .input-field.input-field-locked,
+        .shopee-opt-btn select.input-field-locked {
+            background: #475569 !important;
+            color: #e2e8f0 !important;
+            border: 1px solid #475569 !important;
+            cursor: not-allowed !important;
+            opacity: 1 !important;
+        }
+
+        .shopee-opt-btn:has(select.input-field-locked) {
+            background: #475569 !important;
+            border-color: #475569 !important;
+        }
+
+        .input-field.input-field-locked option,
+        .shopee-opt-btn select.input-field-locked option {
+            color: #0f172a;
+            background: #ffffff;
+        }
+
         .qty-input-field::-webkit-outer-spin-button,
         .qty-input-field::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -1183,12 +1203,12 @@ try {
                 style="display:none;padding:16px 24px;border-top:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0;">
                 <div style="display:flex;gap:10px;">
                     <button onclick="closeServiceModal()"
-                        style="flex:1;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:700;cursor:pointer;font-size:14px;"
-                        onmouseover="this.style.background='#f1f5f9'"
-                        onmouseout="this.style.background='#f8fafc'">Cancel</button>
+                        style="flex:1;padding:12px;border:1px solid #cbd5e1;border-radius:10px;background:#ffffff;color:#475569;font-weight:700;cursor:pointer;font-size:14px;"
+                        onmouseover="this.style.background='#f8fafc';this.style.borderColor='#94a3b8';this.style.color='#334155'"
+                        onmouseout="this.style.background='#ffffff';this.style.borderColor='#cbd5e1';this.style.color='#475569'">Cancel</button>
                     <button onclick="confirmServiceModal()"
-                        style="flex:2;padding:12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(79,70,229,0.3);"
-                        onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Add
+                        style="flex:2;padding:12px;border:none;border-radius:10px;background:#00232b;color:#fff;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 10px 24px rgba(0,35,43,0.28);"
+                        onmouseover="this.style.background='#003a47'" onmouseout="this.style.background='#00232b'">Add
                         to Order</button>
                 </div>
             </div>
@@ -1554,7 +1574,11 @@ try {
                     if (branchSel) {
                         branchSel.value = data.staff_branch_id;
                         branchSel.disabled = true;
-                        branchSel.style.opacity = '0.7';
+                        branchSel.classList.add('input-field-locked');
+                        branchSel.style.background = '#475569';
+                        branchSel.style.color = '#e2e8f0';
+                        branchSel.style.borderColor = '#475569';
+                        branchSel.style.opacity = '1';
                         branchSel.style.cursor = 'not-allowed';
                         // Add hidden input so disabled value is still submitted
                         const hidden = document.createElement('input');

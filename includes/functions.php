@@ -1422,8 +1422,8 @@ function status_badge($status, $type = 'order') {
     ];
     
     $style = $colors[$type][$status] ?? 'background: #f9fafb; color: #374151; border: 1px solid #f3f4f6;';
-    // Display "Pending" instead of "Pending Review" and "To Verify" for consistency
-    if ($status === 'Pending Review' || $status === 'To Verify') {
+    // Display "Pending" instead of "Pending Review" only.
+    if ($status === 'Pending Review') {
         $display = 'Pending';
     } else {
         $display = $status;
