@@ -71,11 +71,20 @@ body.customer-theme #main-header > * {
 
 /* Nav links */
 body.customer-theme #main-header a.nav-link,
-body.customer-theme #main-header a {
+body.customer-theme #main-header a:not(.pf-notif-action-link):not(.pf-notif-footer-link) {
     color: rgba(255,255,255,0.82) !important;
     font-weight: 500;
     font-size: 0.88rem !important; /* match search placeholder size */
     position: relative;
+}
+
+body.customer-theme #main-header .pf-notif-header a.pf-notif-action-link,
+body.customer-theme #main-header .pf-notif-footer a.pf-notif-footer-link,
+body.customer-theme #main-header .pf-notif-header a.pf-notif-action-link:visited,
+body.customer-theme #main-header .pf-notif-footer a.pf-notif-footer-link:visited,
+body.customer-theme #main-header .pf-notif-header a.pf-notif-action-link:hover,
+body.customer-theme #main-header .pf-notif-footer a.pf-notif-footer-link:hover {
+    color: #0f6b93 !important;
 }
 
 body.customer-theme #main-header a.nav-link:hover {

@@ -721,13 +721,13 @@ if ($initials === '') {
                             ?>
                             <div class="pf-notif-header">
                                 <span>Notifications</span>
-                                <a href="<?php echo htmlspecialchars($notif_mark_all_url); ?>" style="color:#0f6b93; text-decoration:none; font-weight:800;">Mark all read</a>
+                                <a href="<?php echo htmlspecialchars($notif_mark_all_url); ?>" class="pf-notif-action-link" style="color:#0f6b93; text-decoration:none; font-weight:800;">Mark all read</a>
                             </div>
                             <div class="pf-notif-list" data-pf-notif-list>
                                 <div class="pf-notif-empty">Loading notifications...</div>
                             </div>
                             <div class="pf-notif-footer">
-                                <a href="<?php echo htmlspecialchars($notif_page_url); ?>" style="color:#0f6b93; font-weight:800 !important; text-decoration:none;">View All Notifications</a>
+                                <a href="<?php echo htmlspecialchars($notif_page_url); ?>" class="pf-notif-footer-link" style="color:#0f6b93; font-weight:800 !important; text-decoration:none;">View All Notifications</a>
                             </div>
                         </div>
                     </div>
