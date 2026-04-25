@@ -51,6 +51,11 @@ function pf_normalize_service_image_path($path, $base_path, $default_img) {
     return $path;
 }
 
+function pf_service_media_is_video($path) {
+    $path = strtolower((string)$path);
+    return (bool)preg_match('/\.(mp4|webm|mov|m4v)(?:[\?#].*)?$/', $path);
+}
+
 // Fetch services from DB
 $visible_rows = db_query(
     "SELECT s.*, 
@@ -109,10 +114,12 @@ require_once __DIR__ . '/../includes/header.php';
 function render_service_card($srv) {
     global $base_path, $default_service_img;
     $img = pf_normalize_service_image_path($srv['img'], $base_path, $default_service_img);
+    $is_video = pf_service_media_is_video($img);
     if (strpos($img, 'http') === false) {
         $img_path = $_SERVER['DOCUMENT_ROOT'] . $img;
         if (!file_exists($img_path)) {
             $img = $default_service_img;
+            $is_video = false;
         }
     }
     
@@ -147,7 +154,20 @@ function render_service_card($srv) {
     $display_sold = ($sold <= 0 && $rcount > 0) ? $rcount : $sold;
     ?>
     <div class="shopee-card" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_images; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
-        <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" class="shopee-img" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($default_service_img); ?>';">
+        <?php if ($is_video): ?>
+            <video
+                src="<?php echo htmlspecialchars($img); ?>#t=0.1"
+                class="shopee-img"
+                muted
+                playsinline
+                preload="metadata"
+                autoplay
+                loop
+                onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
+            ></video>
+        <?php else: ?>
+            <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" class="shopee-img" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($default_service_img); ?>';">
+        <?php endif; ?>
         <div class="shopee-body">
             <span class="shopee-category"><?php echo htmlspecialchars($srv['category']); ?></span>
             <h3 class="shopee-name"><?php echo htmlspecialchars($srv['name']); ?></h3>
@@ -417,6 +437,10 @@ var currentModalData = {};
 var modalImages = [];
 var currentModalImageIndex = 0;
 
+function isVideoMedia(path) {
+    return /\.(mp4|webm|mov|m4v)(?:[\?#].*)?$/i.test(String(path || ''));
+}
+
 function openServiceModal(id, name, category, images, link, is_service, price, stock, modalIntro, avgRating, reviewCount) {
     document.getElementById('modal-name').textContent = name;
     document.getElementById('modal-category').textContent = category;
@@ -431,13 +455,27 @@ function openServiceModal(id, name, category, images, link, is_service, price, s
     carousel.innerHTML = '';
     
     modalImages.forEach((img, index) => {
-        const imgEl = document.createElement('img');
-        imgEl.src = img;
-        imgEl.alt = name;
-        imgEl.style.cssText = 'position:absolute;top:0;left:' + (index === 0 ? '0' : '100%') + ';width:100%;height:100%;object-fit:cover;transition:left 0.4s ease-in-out;';
-        imgEl.className = 'modal-carousel-image';
-        imgEl.dataset.index = index;
-        carousel.appendChild(imgEl);
+        let mediaEl;
+        if (isVideoMedia(img)) {
+            mediaEl = document.createElement('video');
+            mediaEl.src = img + (String(img).includes('#') ? '' : '#t=0.1');
+            mediaEl.muted = true;
+            mediaEl.autoplay = true;
+            mediaEl.loop = true;
+            mediaEl.playsInline = true;
+            mediaEl.preload = 'metadata';
+            mediaEl.onloadedmetadata = function() {
+                try { this.currentTime = 0.1; } catch (e) {}
+            };
+        } else {
+            mediaEl = document.createElement('img');
+            mediaEl.src = img;
+            mediaEl.alt = name;
+        }
+        mediaEl.style.cssText = 'position:absolute;top:0;left:' + (index === 0 ? '0' : '100%') + ';width:100%;height:100%;object-fit:cover;transition:left 0.4s ease-in-out;';
+        mediaEl.className = 'modal-carousel-image';
+        mediaEl.dataset.index = index;
+        carousel.appendChild(mediaEl);
     });
     
     // Show/hide navigation
@@ -590,7 +628,7 @@ function loadModalReviews(serviceId) {
                     if (rv.video_path) {
                         html += `<div style="margin-bottom:0.75rem; max-width:260px;">`;
                         html += `<div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:8px; overflow:hidden; border:1px solid rgba(83,197,224,0.2);">`;
-                        html += `<video src="${rv.video_path}" controls style="width:100%; height:100%; object-fit:cover;"></video>`;
+                        html += `<video src="${rv.video_path}#t=0.1" controls playsinline preload="metadata" style="width:100%; height:100%; object-fit:cover;" onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"></video>`;
                         html += `</div></div>`;
                     }
 

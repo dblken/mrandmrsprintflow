@@ -2041,10 +2041,10 @@ function is_customer_id_verified($customer_id = null) {
  */
 function can_customer_cancel_order($order) {
     if (!$order) return false;
-    $status = $order['status'] ?? '';
-    // Customers can cancel unless production has started or payment is being verified
-    $allowed_statuses = ['Pending', 'To Pay', 'For Revision', 'Pending Verification'];
-    return in_array($status, $allowed_statuses);
+    $status = strtoupper(trim((string)($order['status'] ?? '')));
+    // Customers can still cancel before production starts, including To Pay.
+    $allowed_statuses = ['PENDING', 'TO PAY', 'TO_PAY', 'FOR REVISION', 'PENDING VERIFICATION', 'PENDING_VERIFICATION'];
+    return in_array($status, $allowed_statuses, true);
 }
 
 /**

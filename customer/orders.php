@@ -1199,7 +1199,7 @@ function openItemsModal(orderId, event) {
                             </colgroup>
                             <thead style="background: #f8fafc;">
                                 <tr>
-                                    <th>Service Description</th>
+                                    <th>${data.is_service_order ? 'Service Description' : 'Item Description'}</th>
                                     <th style="text-align: center;">Qty</th>
                                     ${data.is_service_order
                                         ? `<th style="text-align: right;">Estimated Price</th><th style="text-align: right;">Final Price</th>`

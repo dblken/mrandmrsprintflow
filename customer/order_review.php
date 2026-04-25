@@ -40,11 +40,21 @@ function review_render_item_summary(array $item): void {
 }
 
 function review_item_is_product(array $item): bool {
+    $custom = review_item_customization($item);
     $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
     $item_type = strtolower(trim((string)($item['type'] ?? '')));
     $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
+    $product_id = (int)($item['product_id'] ?? 0);
 
-    return $source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0;
+    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
+        return true;
+    }
+
+    if (!empty($custom['service_type'])) {
+        return false;
+    }
+
+    return $product_id > 0;
 }
 
 function review_item_is_service(array $item): bool {
@@ -239,8 +249,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     $reference_id = $item['product_id'];
                 }
                 
-                if (!empty($custom)) {
+                if (review_item_is_service($item)) {
                     $order_type = 'custom';
+                }
+
+                if (!empty($custom)) {
                     $note = $custom['notes'] ?? $custom['additional_notes'] ?? null;
                     if ($note) $all_notes[] = function_exists('pf_order_ui_value_to_text') ? pf_order_ui_value_to_text($note) : (string)$note;
                 }
@@ -346,8 +359,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     // 3. Process each item and insert into order_items
                     foreach ($items_to_review as $key => $item) {
                         $custom = review_item_customization($item);
-                        if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
+                        if (review_item_is_service($item) && empty($custom['service_type']) && !empty($item['name'])) {
                             $custom['service_type'] = $item['name'];
+                        } elseif (review_item_is_product($item) && empty($custom['product_type']) && !empty($item['name'])) {
+                            $custom['product_type'] = $item['name'];
                         }
                         $custom_data   = json_encode($custom);
                         $design_binary = null;

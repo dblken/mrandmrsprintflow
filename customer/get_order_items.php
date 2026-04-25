@@ -138,13 +138,10 @@ if (!empty($first_item_raw_customization[0]['customization_data'])) {
     $first_item_customization = json_decode((string)$first_item_raw_customization[0]['customization_data'], true) ?: [];
 }
 
-$is_service_order = false;
-if (strcasecmp((string)($order['order_type'] ?? ''), 'custom') === 0) {
-    $is_service_order = true;
-} elseif (!empty($first_item_customization['service_type'])) {
-    $is_service_order = true;
-} elseif ((int)($order['reference_id'] ?? 0) > 0) {
-    $is_service_order = true;
+$is_service_order = !empty($first_item_customization['service_type']);
+if (!$is_service_order) {
+    $order_type_normalized = strtolower(trim((string)($order['order_type'] ?? '')));
+    $is_service_order = $order_type_normalized === 'custom' && empty($first_item_customization['product_type']);
 }
 
 // Get items with design info

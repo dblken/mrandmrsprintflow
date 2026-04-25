@@ -144,11 +144,26 @@ if (!function_exists('pf_order_ui_is_product_item')) {
             return empty($custom['service_type']);
         }
 
+        $custom = $item['customization'] ?? [];
+        if (is_string($custom)) {
+            $decoded = json_decode($custom, true);
+            $custom = is_array($decoded) ? $decoded : [];
+        }
+
         $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
         $item_type = strtolower(trim((string)($item['type'] ?? '')));
         $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
+        $product_id = (int)($item['product_id'] ?? 0);
 
-        return $source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0;
+        if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
+            return true;
+        }
+
+        if (!empty($custom['service_type'])) {
+            return false;
+        }
+
+        return $product_id > 0;
     }
 }
 
