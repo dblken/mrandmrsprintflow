@@ -178,6 +178,99 @@
         btn.textContent = 'Enable notifications';
     }
 
+    function shouldShowPermissionPrompt() {
+        if (!isPushSupported()) return false;
+        if (Notification.permission !== 'default') return false;
+
+        try {
+            return localStorage.getItem(PERM_ASKED_KEY) !== 'dismissed';
+        } catch (e) {
+            return true;
+        }
+    }
+
+    function dismissPermissionPrompt(persist) {
+        var el = document.getElementById('pf-notify-prompt');
+        if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+
+        if (persist) {
+            try {
+                localStorage.setItem(PERM_ASKED_KEY, 'dismissed');
+            } catch (e) {}
+        }
+    }
+
+    function showPermissionPrompt() {
+        if (!shouldShowPermissionPrompt()) return;
+        if (document.getElementById('pf-notify-prompt')) return;
+
+        var prompt = document.createElement('div');
+        prompt.id = 'pf-notify-prompt';
+        prompt.setAttribute('role', 'dialog');
+        prompt.setAttribute('aria-live', 'polite');
+        prompt.style.position = 'fixed';
+        prompt.style.right = '24px';
+        prompt.style.bottom = '24px';
+        prompt.style.zIndex = '100000';
+        prompt.style.width = 'min(360px, calc(100vw - 32px))';
+        prompt.style.background = '#ffffff';
+        prompt.style.border = '1px solid #e5e7eb';
+        prompt.style.borderRadius = '14px';
+        prompt.style.boxShadow = '0 20px 45px rgba(15, 23, 42, 0.2)';
+        prompt.style.padding = '16px';
+        prompt.style.fontFamily = 'inherit';
+        prompt.style.color = '#0f172a';
+
+        prompt.innerHTML =
+            '<div style="display:flex;align-items:flex-start;gap:12px;">' +
+            '  <div style="width:42px;height:42px;border-radius:12px;background:#ecfeff;color:#0e7490;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:22px;height:22px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>' +
+            '  </div>' +
+            '  <div style="flex:1;min-width:0;">' +
+            '    <div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:4px;">Enable device notifications</div>' +
+            '    <div style="font-size:13px;line-height:1.5;color:#475569;">Get order approvals, payment updates, and status changes even when PrintFlow is in the background.</div>' +
+            '  </div>' +
+            '  <button type="button" aria-label="Close" style="border:none;background:transparent;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;padding:0;">&times;</button>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">' +
+            '  <button type="button" data-action="later" style="border:1px solid #cbd5e1;background:#ffffff;color:#475569;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;">Later</button>' +
+            '  <button type="button" data-action="enable" style="border:1px solid #0891b2;background:#0891b2;color:#ffffff;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;">Enable</button>' +
+            '</div>';
+
+        document.body.appendChild(prompt);
+
+        var closeBtn = prompt.querySelector('button[aria-label="Close"]');
+        var laterBtn = prompt.querySelector('button[data-action="later"]');
+        var enableBtn = prompt.querySelector('button[data-action="enable"]');
+
+        if (closeBtn) {
+            closeBtn.onclick = function() {
+                dismissPermissionPrompt(true);
+            };
+        }
+
+        if (laterBtn) {
+            laterBtn.onclick = function() {
+                dismissPermissionPrompt(false);
+            };
+        }
+
+        if (enableBtn) {
+            enableBtn.onclick = function() {
+                subscribeToPush(true).then(function(sub) {
+                    if (sub) {
+                        try { localStorage.setItem(PERM_ASKED_KEY, 'granted'); } catch (e) {}
+                        dismissPermissionPrompt(true);
+                        showToast('PrintFlow', 'Notifications enabled on this device.', '', '', '');
+                        initPushToggle();
+                    }
+                });
+            };
+        }
+    }
+
     function subscribeToPush(isUserAction) {
         if (!isPushSupported()) return Promise.resolve(null);
 
@@ -639,6 +732,7 @@
         bindPushMessages();
         initPushToggle();
         autoRestorePushSubscription();
+        showPermissionPrompt();
         poll();
         schedulePoll();
     }
