@@ -12,6 +12,18 @@ require_once __DIR__ . '/../includes/functions.php';
 
 header('Content-Type: application/json');
 
+function public_reset_base_url(): string {
+    if (defined('SITE_URL') && trim((string)SITE_URL) !== '') {
+        return rtrim((string)SITE_URL, '/');
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $basePath = function_exists('pf_app_base_path') ? pf_app_base_path() : (defined('BASE_PATH') ? BASE_PATH : '/printflow');
+
+    return $scheme . '://' . $host . rtrim((string)$basePath, '/');
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -141,11 +153,7 @@ try {
     // Send the code
     if ($type === 'email') {
         $name = htmlspecialchars($user_found['full_name']);
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-        $host = $_SERVER['HTTP_HOST'];
-        
-        // Construct the reset link
-        $reset_link = $protocol . $host . "<?php echo $base_path; ?>//printflow/reset-password.php?token=" . $reset_token;
+        $reset_link = public_reset_base_url() . '/public/reset-password.php?token=' . urlencode($reset_token);
 
         $html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
             body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0;background:#f3f4f6}
@@ -183,8 +191,7 @@ try {
         }
     } else {
         // SMS still gets a link, but shortened or direct
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-        $reset_link = $protocol . $_SERVER['HTTP_HOST'] . "<?php echo $base_path; ?>//printflow/reset-password.php?token=" . $reset_token;
+        $reset_link = public_reset_base_url() . '/public/reset-password.php?token=' . urlencode($reset_token);
         send_sms($identifier, "PrintFlow Reset: Click here to change your password: {$reset_link} (Expires in 30m)");
     }
 

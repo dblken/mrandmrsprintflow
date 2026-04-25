@@ -7,6 +7,18 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+function public_forgot_password_base_url(): string {
+    if (defined('SITE_URL') && trim((string)SITE_URL) !== '') {
+        return rtrim((string)SITE_URL, '/');
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $basePath = function_exists('pf_app_base_path') ? pf_app_base_path() : (defined('BASE_PATH') ? BASE_PATH : '/printflow');
+
+    return $scheme . '://' . $host . rtrim((string)$basePath, '/');
+}
+
 $error = '';
 $success = '';
 
@@ -46,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'siss', [$user_type, $user_id, $token, $expires_at]);
             
             // Send reset email
-            $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "<?php echo $base_path; ?>//printflow/reset-password/?token=" . $token;
+            $reset_link = public_forgot_password_base_url() . '/public/reset-password.php?token=' . urlencode($token);
             $message = "
                 <p>Hi {$name},</p>
                 <p>You requested to reset your password. Click the link below to proceed:</p>
