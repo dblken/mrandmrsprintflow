@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/order_ui_helper.php';
 
 require_role('Customer');
 ensure_ratings_table_exists();
