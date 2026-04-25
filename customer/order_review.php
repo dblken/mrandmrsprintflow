@@ -17,16 +17,26 @@ function review_render_item_summary(array $item): void {
     $name = trim((string)($item['name'] ?? 'Order Item'));
     $category = trim((string)($item['category'] ?? 'Service'));
     $quantity = review_item_quantity($item);
+    $is_service_item = review_item_is_service($item);
     $unit_price = review_item_unit_price($item);
     $subtotal = $unit_price * $quantity;
+    $estimated_total = review_item_estimated_total($item);
+    $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
     ?>
     <div style="background:#0a2530;border:1px solid rgba(83,197,224,0.24);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;color:#eaf6fb;">
         <h3 style="font-size:0.95rem;font-weight:700;margin:0 0 0.35rem;"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></h3>
         <div style="font-size:0.72rem;font-weight:700;color:#53c5e0;text-transform:uppercase;margin-bottom:1rem;"><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?></div>
         <div style="display:flex;gap:1rem;flex-wrap:wrap;">
             <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Quantity</span><br><strong><?php echo $quantity; ?></strong></div>
+            <?php if (!$is_service_item): ?>
             <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Unit Price</span><br><strong><?php echo format_currency($unit_price); ?></strong></div>
             <div><span style="color:#53c5e0;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Total</span><br><strong style="color:#53c5e0;"><?php echo format_currency($subtotal); ?></strong></div>
+            <?php else: ?>
+                <?php if ($unit_price > 0): ?>
+                <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Estimated Unit Price</span><br><strong><?php echo format_currency($unit_price); ?></strong></div>
+                <?php endif; ?>
+            <div><span style="color:#53c5e0;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Estimated Price</span><br><strong style="color:#53c5e0;"><?php echo htmlspecialchars($estimated_total_display, ENT_QUOTES, 'UTF-8'); ?></strong></div>
+            <?php endif; ?>
         </div>
     </div>
     <?php
@@ -38,6 +48,10 @@ function review_item_is_product(array $item): bool {
     $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
 
     return $source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0;
+}
+
+function review_item_is_service(array $item): bool {
+    return !review_item_is_product($item);
 }
 
 function review_catalog_unit_price(array $item): ?float {
@@ -103,6 +117,17 @@ function review_item_unit_price(array $item): float {
 
 function review_item_quantity(array $item): int {
     return max(1, (int)($item['quantity'] ?? 1));
+}
+
+function review_item_estimated_total(array $item): float {
+    $estimated = (float)($item['estimated_price'] ?? 0);
+    if ($estimated > 0) {
+        return $estimated;
+    }
+
+    $unit_price = review_item_unit_price($item);
+    $quantity = review_item_quantity($item);
+    return $unit_price > 0 ? ($unit_price * $quantity) : 0.0;
 }
 
 function review_item_customization(array $item): array {
@@ -211,7 +236,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             
             foreach ($items_to_review as $item) {
                 $custom = review_item_customization($item);
-                $subtotal = review_item_unit_price($item) * review_item_quantity($item);
+                $subtotal = review_item_is_service($item)
+                    ? review_item_estimated_total($item)
+                    : (review_item_unit_price($item) * review_item_quantity($item));
                 $grand_total += $subtotal;
                 
                 if ($reference_id === null && !empty($item['product_id'])) {
@@ -446,8 +473,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
 // Calculate total for all items
 $grand_total = 0;
 foreach ($items_to_review as $key => $item) {
-    // Use the price as-is for service/custom orders (it's already the estimated_price)
-    $grand_total += review_item_unit_price($item) * review_item_quantity($item);
+    $grand_total += review_item_is_service($item)
+        ? review_item_estimated_total($item)
+        : (review_item_unit_price($item) * review_item_quantity($item));
 }
 
 // Determine if any item has customization

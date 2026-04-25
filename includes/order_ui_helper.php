@@ -133,6 +133,107 @@ if (!function_exists('pf_order_ui_asset_url')) {
     }
 }
 
+if (!function_exists('pf_order_ui_is_product_item')) {
+    function pf_order_ui_is_product_item(array $item, bool $is_cart_item = false): bool {
+        if (!$is_cart_item) {
+            $custom = $item['customization_data'] ?? [];
+            if (is_string($custom)) {
+                $decoded = json_decode($custom, true);
+                $custom = is_array($decoded) ? $decoded : [];
+            }
+            return empty($custom['service_type']);
+        }
+
+        $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
+        $item_type = strtolower(trim((string)($item['type'] ?? '')));
+        $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
+
+        return $source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0;
+    }
+}
+
+if (!function_exists('pf_order_ui_is_service_item')) {
+    function pf_order_ui_is_service_item(array $item, bool $is_cart_item = false): bool {
+        return !pf_order_ui_is_product_item($item, $is_cart_item);
+    }
+}
+
+if (!function_exists('pf_order_ui_catalog_unit_price')) {
+    function pf_order_ui_catalog_unit_price(array $item): ?float {
+        static $cache = [];
+
+        $product_id = (int)($item['product_id'] ?? 0);
+        if ($product_id <= 0) {
+            return null;
+        }
+
+        $variant_id = isset($item['variant_id']) ? (int)$item['variant_id'] : 0;
+        $cache_key = $product_id . ':' . $variant_id;
+        if (array_key_exists($cache_key, $cache)) {
+            return $cache[$cache_key];
+        }
+
+        if ($variant_id > 0) {
+            $variant = db_query(
+                "SELECT price FROM product_variants WHERE variant_id = ? AND product_id = ? LIMIT 1",
+                'ii',
+                [$variant_id, $product_id]
+            );
+            if (!empty($variant)) {
+                return $cache[$cache_key] = (float)$variant[0]['price'];
+            }
+        }
+
+        $product = db_query("SELECT price FROM products WHERE product_id = ? LIMIT 1", 'i', [$product_id]);
+        return $cache[$cache_key] = (!empty($product) ? (float)$product[0]['price'] : null);
+    }
+}
+
+if (!function_exists('pf_order_ui_item_unit_price')) {
+    function pf_order_ui_item_unit_price(array $item, bool $is_cart_item = false): float {
+        $raw_price = $is_cart_item
+            ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
+            : (float)($item['unit_price'] ?? $item['price'] ?? 0);
+
+        if (!$is_cart_item || !pf_order_ui_is_product_item($item, true)) {
+            return $raw_price;
+        }
+
+        $catalog_unit_price = pf_order_ui_catalog_unit_price($item);
+        if ($catalog_unit_price === null || $catalog_unit_price <= 0) {
+            return $raw_price;
+        }
+
+        $quantity = max(1, (int)($item['quantity'] ?? 1));
+        if ($raw_price <= 0) {
+            return $catalog_unit_price;
+        }
+
+        if (abs($raw_price - $catalog_unit_price) < 0.01) {
+            return $catalog_unit_price;
+        }
+
+        if ($quantity > 1 && abs($raw_price - ($catalog_unit_price * $quantity)) < 0.01) {
+            return $catalog_unit_price;
+        }
+
+        return $raw_price;
+    }
+}
+
+if (!function_exists('pf_order_ui_item_estimated_total')) {
+    function pf_order_ui_item_estimated_total(array $item, bool $is_cart_item = false): float {
+        $quantity = max(1, (int)($item['quantity'] ?? 1));
+        $estimated = (float)($item['estimated_price'] ?? 0);
+        if ($estimated > 0) {
+            return $estimated;
+        }
+
+        $unit_price = pf_order_ui_item_unit_price($item, $is_cart_item);
+        return $unit_price > 0 ? ($unit_price * $quantity) : 0.0;
+    }
+}
+
 /**
  * Renders a single order item card in the Neubrutalism style.
  * Supports both cart items (session) and database items (order_items table).
@@ -151,11 +252,12 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     }
     $name = printflow_resolve_order_item_name($item['name'] ?? ($item['product_name'] ?? null), $custom, 'Order Item');
     $category = $item['category'] ?? 'General';
-    $unit_price = $is_cart_item
-        ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
-        : (float)($item['unit_price'] ?? $item['price'] ?? 0);
+    $is_service_item = pf_order_ui_is_service_item($item, $is_cart_item);
+    $unit_price = pf_order_ui_item_unit_price($item, $is_cart_item);
     $quantity = max(1, (int)($item['quantity'] ?? 1));
     $subtotal = $unit_price * $quantity;
+    $estimated_total = $is_service_item ? pf_order_ui_item_estimated_total($item, $is_cart_item) : $subtotal;
+    $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
     $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     // Design previews
@@ -237,9 +339,13 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                 </div>
                 
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                    <?php if ($show_price): ?>
+                    <?php if ($show_price && !$is_service_item): ?>
                     <div style="min-width: 120px;">
                         <div style="font-size: 0.95rem; font-weight: 800;">Price: <?php echo format_currency($unit_price); ?></div>
+                    </div>
+                    <?php elseif ($show_price && $unit_price > 0): ?>
+                    <div style="min-width: 150px;">
+                        <div style="font-size: 0.95rem; font-weight: 800;">Est. Unit Price: <?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
                     <div style="min-width: 80px;">
@@ -247,7 +353,7 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     </div>
                     <?php if ($show_price): ?>
                     <div style="min-width: 150px;">
-                        <div style="font-size: 0.95rem; font-weight: 800;">Subtotal: <?php echo format_currency($subtotal); ?></div>
+                        <div style="font-size: 0.95rem; font-weight: 800;"><?php echo $is_service_item ? 'Estimated Price' : 'Subtotal'; ?>: <?php echo $is_service_item ? pf_order_ui_escape($estimated_total_display) : format_currency($subtotal); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -325,11 +431,12 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $name = printflow_resolve_order_item_name($item['name'] ?? ($item['product_name'] ?? 'Order Item'), $custom, 'Order Item');
     
     $category = $item['category'] ?? 'General';
-    $unit_price = $is_cart_item
-        ? (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0)
-        : (float)($item['unit_price'] ?? $item['price'] ?? 0);
+    $is_service_item = pf_order_ui_is_service_item($item, $is_cart_item);
+    $unit_price = pf_order_ui_item_unit_price($item, $is_cart_item);
     $quantity = max(1, (int)($item['quantity'] ?? 1));
     $subtotal = $unit_price * $quantity;
+    $estimated_total = $is_service_item ? pf_order_ui_item_estimated_total($item, $is_cart_item) : $subtotal;
+    $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
     $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     $design_url = null;
@@ -415,13 +522,20 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     </div>
                     <?php endif; ?>
                     <?php if ($show_price): ?>
+                    <?php if (!$is_service_item): ?>
                     <div class="review-detail-row" style="flex: 1; min-width: 100px;">
                         <div class="review-detail-label" style="font-size: 0.68rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Unit Price</div>
                         <div class="review-detail-value" style="font-size: 1rem; color: #eaf6fb; font-weight: 700;"><?php echo format_currency($unit_price); ?></div>
                     </div>
+                    <?php elseif ($unit_price > 0): ?>
+                    <div class="review-detail-row" style="flex: 1; min-width: 100px;">
+                        <div class="review-detail-label" style="font-size: 0.68rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Estimated Unit Price</div>
+                        <div class="review-detail-value" style="font-size: 1rem; color: #eaf6fb; font-weight: 700;"><?php echo format_currency($unit_price); ?></div>
+                    </div>
+                    <?php endif; ?>
                     <div class="review-total-row" style="flex: 1; min-width: 100px;">
-                        <div class="review-total-label" style="font-size: 0.68rem; color: #53c5e0; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Total</div>
-                        <div class="review-total-value" style="font-size: 1rem; color: #53c5e0; font-weight: 800;"><?php echo format_currency($subtotal); ?></div>
+                        <div class="review-total-label" style="font-size: 0.68rem; color: #53c5e0; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;"><?php echo $is_service_item ? 'Estimated Price' : 'Total'; ?></div>
+                        <div class="review-total-value" style="font-size: 1rem; color: #53c5e0; font-weight: 800;"><?php echo $is_service_item ? pf_order_ui_escape($estimated_total_display) : format_currency($subtotal); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>
