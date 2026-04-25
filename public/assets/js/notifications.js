@@ -61,6 +61,7 @@
 
     var pollTimer   = null;
     var recentToastMap = {};
+    var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
 
     /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
@@ -578,52 +579,36 @@
     /* -- Polling ----------------------------------------------------------- */
 
     function poll() {
-        fetch(API_LIST + '?limit=8', { credentials: 'include' })
-            .then(function(res) { return res.json(); })
+        fetch(API_POLL + '?since=' + lastPollTs, { credentials: 'include' })
+            .then(function(res) { return res.ok ? res.json() : null; })
             .then(function(data) {
-                if (!data.success) return;
+                if (!data || !data.success) return;
                 updateBadge(data.unread_count || 0);
+                if (data.server_time) {
+                    lastPollTs = parseInt(data.server_time, 10) || lastPollTs;
+                }
 
                 var notifs = data.notifications || [];
-                var highestId = 0;
-                for (var i = 0; i < notifs.length; i++) {
-                    highestId = Math.max(highestId, parseInt(notifs[i].id, 10) || 0);
-                }
-
-                var lastToastId = getLastToastNotificationId();
-                if (lastToastId <= 0) {
-                    if (highestId > 0) {
-                        setLastToastNotificationId(highestId);
-                    }
-                    return;
-                }
-
-                var fresh = [];
-                for (var j = 0; j < notifs.length; j++) {
-                    var n = notifs[j];
-                    var notifId = parseInt(n.id, 10) || 0;
-                    if (notifId > lastToastId) {
-                        fresh.push(n);
-                    }
-                }
-
-                fresh.sort(function(a, b) {
+                notifs.sort(function(a, b) {
                     return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0);
                 });
 
-                for (var k = 0; k < fresh.length; k++) {
-                    var item = fresh[k];
+                var highestId = getLastToastNotificationId();
+                for (var i = 0; i < notifs.length; i++) {
+                    var item = notifs[i];
                     var itemId = parseInt(item.id, 10) || 0;
+                    if (itemId <= 0 || itemId <= highestId) {
+                        continue;
+                    }
                     if (itemId > 0) {
                         markSeen(String(itemId));
+                        highestId = Math.max(highestId, itemId);
                     }
                     var targetUrl = normalizeNotificationTarget((item && item.target_url) ? item.target_url : getNotifUrl(item.type, item.data_id, item.message, item.id, item.order_type));
                     showToast(item.title || 'PrintFlow', item.message, targetUrl, item.image || '', item.fallback || '');
                 }
 
-                if (highestId > 0) {
-                    setLastToastNotificationId(highestId);
-                }
+                setLastToastNotificationId(highestId);
             })
             .catch(function(){});
     }
