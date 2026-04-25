@@ -61,6 +61,8 @@ function review_enrich_cart_item(array $item): array {
                 $service_name = trim((string)($service['name'] ?? ''));
                 if ($service_name !== '') {
                     $item['name'] = $service_name;
+                    $custom['service_type'] = $service_name;
+                    $item['customization'] = $custom;
                     if (empty($item['category']) && !empty($service['category'])) {
                         $item['category'] = $service['category'];
                     }
