@@ -229,11 +229,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Update order status to 'Rated'
                     db_execute("UPDATE orders SET status = 'Rated' WHERE order_id = ?", 'i', [$order_id]);
 
-                    $staff_users = db_query("SELECT user_id FROM users WHERE role IN ('Staff', 'Admin') AND status = 'Activated'") ?: [];
                     $staff_msg = "Customer submitted a review for Order #{$order_id}: {$rating}/5 stars.";
-                    foreach ($staff_users as $staff) {
-                        create_notification((int)$staff['user_id'], 'Staff', $staff_msg, 'Rating', false, false, $order_id);
-                    }
+                    notify_shop_users($staff_msg, 'Rating', false, false, $order_id, ['Staff', 'Admin', 'Manager']);
 
                     $_SESSION['success'] = 'Thank you! Your review has been submitted.';
                     redirect('/printflow/customer/orders.php?tab=completed&highlight=' . $order_id);

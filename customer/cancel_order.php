@@ -75,11 +75,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['confirm_cancel']) ||
         // Notify Customer
         create_notification($customer_id, 'Customer', "Order #{$order_id} has been cancelled.", 'Order', false, false, $order_id);
 
-        // Notify Staff
-        $staff_users = db_query("SELECT user_id FROM users WHERE role = 'Staff' AND status = 'Activated'");
-        foreach ($staff_users as $staff) {
-            create_notification($staff['user_id'], 'Staff', "Order #{$order_id} was cancelled by the customer. Reason: $cancel_reason", 'Order', false, false, $order_id);
-        }
+        // Notify shop users using each user's actual role so push subscriptions match.
+        notify_shop_users(
+            "Order #{$order_id} was cancelled by the customer. Reason: $cancel_reason",
+            'Order',
+            false,
+            false,
+            $order_id,
+            ['Staff', 'Admin', 'Manager']
+        );
 
         if ($is_ajax) {
             echo json_encode(['success' => true]);
@@ -98,4 +102,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['confirm_cancel']) ||
 } else {
     redirect('orders.php');
 }
-

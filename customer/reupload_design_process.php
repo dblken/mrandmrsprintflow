@@ -76,13 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         log_activity($customer_id, 'Design Re-upload', "Customer re-uploaded design for Order #$order_id");
 
-        // Notify Staff/Admin of this branch
-        $branch_id = db_query("SELECT branch_id FROM orders WHERE order_id = ?", 'i', [$order_id])[0]['branch_id'] ?? 1;
-        $staff_to_notify = db_query(
-            "SELECT user_id FROM users WHERE role IN ('Staff', 'Admin', 'Manager') AND (branch_id = ? OR role = 'Admin')", 
-            'i', [$branch_id]
-        );
-
         $cust_row = db_query("SELECT first_name, last_name FROM customers WHERE customer_id = ?", 'i', [$customer_id]);
         $cust_name = !empty($cust_row) ? trim($cust_row[0]['first_name'] . ' ' . $cust_row[0]['last_name']) : "Customer";
         
@@ -93,17 +86,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $service_name = get_service_name_from_customization($custom_data, 'Service Order');
         }
 
-        foreach ($staff_to_notify as $st) {
-            create_notification(
-                $st['user_id'], 
-                'User', 
-                "{$cust_name} re-uploaded design for {$service_name}", 
-                'Order', 
-                false, 
-                false, 
-                $order_id
-            );
-        }
+        notify_shop_users(
+            "{$cust_name} re-uploaded design for {$service_name}",
+            'Order',
+            false,
+            false,
+            $order_id,
+            ['Staff', 'Admin', 'Manager']
+        );
 
         echo json_encode(['success' => true]);
     } else {
@@ -112,4 +102,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } else {
     echo json_encode(['success' => false, 'error' => 'Invalid request method']);
 }
-

@@ -130,6 +130,10 @@
         } catch (e) {}
     }
 
+    function getAutoRestoreKey() {
+        return AUTO_RESTORE_KEY + ':' + getAuthSessionKey();
+    }
+
     function markSeen(id) {
         var s = seenIds();
         s.add(String(id));
@@ -438,7 +442,7 @@
         if (Notification.permission !== 'granted') return;
 
         try {
-            if (localStorage.getItem(AUTO_RESTORE_KEY) === 'done') return;
+            if (localStorage.getItem(getAutoRestoreKey()) === 'done') return;
         } catch (e) {}
 
         ensureServiceWorker()
@@ -446,7 +450,7 @@
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
                         return sendSubscription(existing, 'subscribe').then(function() {
-                            try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                            try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
                             return existing;
                         }).catch(function() {
                             return existing.unsubscribe().catch(function() {
@@ -454,7 +458,7 @@
                             }).then(function() {
                                 return createFreshSubscription(reg, false).then(function(sub) {
                                     if (sub) {
-                                        try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                                        try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
                                     }
                                     return sub;
                                 });
@@ -464,7 +468,7 @@
 
                     return createFreshSubscription(reg, false).then(function(sub) {
                         if (sub) {
-                            try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                            try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
                         }
                         return sub;
                     });
@@ -474,7 +478,7 @@
                 initPushToggle();
             })
             .catch(function() {
-                try { localStorage.removeItem(AUTO_RESTORE_KEY); } catch (e) {}
+                try { localStorage.removeItem(getAutoRestoreKey()); } catch (e) {}
             });
     }
 

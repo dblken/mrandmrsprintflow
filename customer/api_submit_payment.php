@@ -148,11 +148,8 @@ if ($update_success) {
     $action_verb = $is_resubmission ? "resubmitted" : "submitted";
     $staff_msg = "{$customer_display_name} {$action_verb} payment for {$service_name}";
     
-    // Get all activated staff users to notify
-    $staff_users = db_query("SELECT user_id FROM users WHERE role IN ('Staff', 'Admin', 'Manager') AND status = 'Activated'");
-    foreach ($staff_users as $staff) {
-        create_notification($staff['user_id'], 'Staff', $staff_msg, 'Order', false, false, $order_id);
-    }
+    // Notify shop users using each user's actual role so push subscriptions match.
+    notify_shop_users($staff_msg, 'Order', false, false, $order_id, ['Staff', 'Admin', 'Manager']);
     
     // Log activity (if staff logged in, otherwise skip)
     log_activity($customer_id, 'Payment Submitted', "Submitted proof for {$type_label} #{$order_id}");
