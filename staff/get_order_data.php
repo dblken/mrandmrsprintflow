@@ -90,6 +90,56 @@ function staff_order_data_select($columns, $alias, $column, $as, $defaultSql = "
     return "{$defaultSql} AS {$as}";
 }
 
+function staff_order_data_product_image_url(array $item): ?string {
+    $base = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+    $raw = trim((string)($item['photo_path'] ?? $item['product_image'] ?? ''));
+    $root = dirname(__DIR__);
+
+    $resolve_existing = static function (string $relative) use ($root, $base): ?string {
+        $relative = '/' . ltrim($relative, '/');
+        if (file_exists($root . $relative)) {
+            return rtrim($base, '/') . $relative;
+        }
+        return null;
+    };
+
+    if ($raw !== '') {
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+
+        $clean = '/' . ltrim($raw, '/');
+        if ($base !== '' && str_starts_with($clean, rtrim($base, '/') . '/')) {
+            $clean = substr($clean, strlen(rtrim($base, '/')));
+            $clean = '/' . ltrim((string)$clean, '/');
+        }
+
+        foreach ([
+            $clean,
+            '/uploads/products/' . basename($clean),
+            '/public/assets/uploads/products/' . basename($clean),
+            '/public/images/products/' . basename($clean),
+        ] as $candidate) {
+            $resolved = $resolve_existing($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    $productId = (int)($item['product_id'] ?? 0);
+    if ($productId > 0) {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $resolved = $resolve_existing('/public/images/products/product_' . $productId . '.' . $ext);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    return null;
+}
+
 try {
 
 // Allow Staff, Admin and Manager to access order data
@@ -222,15 +272,7 @@ foreach ($items as $item) {
         'reference_url' => !empty($item['reference_image_file'])
                             ? BASE_PATH . '/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference'
                             : null,
-        'product_image' => (function() use ($item) {
-            // photo_path is the primary image field (used by customer/products.php)
-            $img = $item['photo_path'] ?: $item['product_image'] ?: null;
-            if (empty($img)) return null;
-            // If it already has a full path starting with / or http, use as-is
-            if ($img[0] === '/' || strpos($img, 'http') === 0) return $img;
-            // Bare filename — assume products uploads folder
-            return BASE_PATH . '/public/assets/uploads/products/' . $img;
-        })(),
+        'product_image' => staff_order_data_product_image_url($item),
         'product_type'  => $item['product_type'] ?? 'custom',
     ];
 }
