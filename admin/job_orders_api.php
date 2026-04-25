@@ -309,6 +309,7 @@ try {
                             WHEN o.status IN ('Paid – In Process', 'Paid - In Process', 'Processing', 'In Production', 'Printing') THEN 'IN_PRODUCTION'
                             WHEN o.status = 'Ready for Pickup' THEN 'TO_RECEIVE'
                             WHEN o.status = 'Completed' THEN 'COMPLETED'
+                            WHEN o.status = 'Rejected' THEN 'REJECTED'
                             WHEN o.status = 'Cancelled' THEN 'CANCELLED'
                             ELSE o.status
                         END as status,
@@ -338,7 +339,8 @@ try {
                         'Pending', 'Pending Review', 'Pending Approval', 'For Revision',
                         'Approved', 'Design Approved',
                         'To Pay', 'Downpayment Submitted', 'Pending Verification', 'To Verify',
-                        'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process', 'Ready for Pickup'
+                        'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process', 'Ready for Pickup',
+                        'Completed', 'Rejected', 'Cancelled'
                     )"
                     . ($joStaffBranch !== null ? " AND o.branch_id = ?" : "") . "
                     GROUP BY o.order_id
@@ -487,7 +489,11 @@ try {
                     so.total_price AS estimated_total
                 FROM service_orders so
                 LEFT JOIN customers c ON so.customer_id = c.customer_id
-                WHERE so.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup')
+                WHERE so.status IN (
+                    'Pending Review', 'Pending', 'Pending Approval', 'For Revision',
+                    'Approved', 'Processing', 'Ready for Pickup', 'Ready For Pickup',
+                    'Completed', 'Rejected', 'Cancelled'
+                )
                 ORDER BY so.created_at DESC
                 LIMIT 50";
 

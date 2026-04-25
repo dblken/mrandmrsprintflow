@@ -2420,8 +2420,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                         console.warn('list_pending_orders failed:', ordersRes.error || ordersRes);
                     }
                     const regularOrders = ordersRes.success ? ordersRes.data : [];
-                    const customizationRows = regularOrders.filter(row => (row.order_type || '') === 'CUSTOMIZATION');
-                    const combined = [...jobOrders, ...customizationRows];
+                    // Keep all rows from list_pending_orders (ORDER, CUSTOMIZATION, SERVICE).
+                    // The prepareOrderRows() grouper will de-duplicate by order group key and retain the best status row.
+                    const combined = [...jobOrders, ...regularOrders];
                     const preparedRows = this.prepareOrderRows(combined);
                     const visibleRows = <?php echo $showLatestCustomizationOnly ? 'preparedRows.slice(0, 1)' : 'preparedRows'; ?>;
                     this.orders = visibleRows;
