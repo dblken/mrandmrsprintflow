@@ -95,7 +95,7 @@ if ($initials === '') {
         }
         #main-header .pf-notif-header { padding: 16px 20px; border-bottom: 1px solid var(--pf-notif-item-border); display: flex; align-items: center; justify-content: space-between; background: var(--pf-notif-header-bg); }
         #main-header .pf-notif-header span { font-size: 0.72rem; font-weight: 800; color: var(--pf-notif-header-text); text-transform: uppercase; letter-spacing: 0.05em; }
-        #main-header .pf-notif-header a { font-size: 0.72rem !important; color: var(--pf-notif-header-text); text-decoration: none; font-weight: 800 !important; text-transform: none; letter-spacing: 0; }
+        #main-header .pf-notif-header a { font-size: 0.72rem !important; color: var(--pf-notif-header-text) !important; text-decoration: none; font-weight: 800 !important; text-transform: none; letter-spacing: 0; }
         #main-header .pf-notif-list { overflow-y: auto; flex: 1; }
         #main-header .pf-notif-list::-webkit-scrollbar { width: 6px; }
         #main-header .pf-notif-list::-webkit-scrollbar-track { background: var(--pf-notif-scroll-track); border-radius: 10px; }
@@ -109,7 +109,7 @@ if ($initials === '') {
         #main-header .pf-notif-item-text { font-size: 0.8rem; color: var(--pf-notif-text); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         #main-header .pf-notif-item-time { font-size: 0.7rem; color: var(--pf-notif-time); font-weight: 600; }
         #main-header .pf-notif-footer { padding: 12px; border-top: 1px solid var(--pf-notif-item-border); text-align: center; background: var(--pf-notif-footer-bg); }
-        #main-header .pf-notif-footer a { font-size: 0.72rem !important; color: var(--pf-notif-header-text); font-weight: 800 !important; text-decoration: none; text-transform: none; letter-spacing: 0; }
+        #main-header .pf-notif-footer a { font-size: 0.72rem !important; color: var(--pf-notif-header-text) !important; font-weight: 800 !important; text-decoration: none; text-transform: none; letter-spacing: 0; }
         #main-header .pf-notif-empty { padding: 32px 16px; text-align: center; color: var(--pf-notif-empty); font-size: 0.85rem; }
         #main-header .pf-avatar { width: 2.55rem; height: 2.55rem; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(83,197,224,.45); background: linear-gradient(135deg, rgba(83,197,224,.24), rgba(50,161,196,.4)); display: inline-flex; align-items: center; justify-content: center; color: #e6f7fc; font-size: .78rem; font-weight: 700; letter-spacing: .02em; }
         #main-header .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }

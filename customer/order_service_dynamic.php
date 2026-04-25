@@ -1107,8 +1107,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .poc-media-full { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#0b1220; }
 .poc-media-close { position:absolute; top:-12px; right:-12px; width:36px; height:36px; border-radius:999px; border:none; background:#111827; color:#fff; font-size:1.5rem; line-height:1; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
 
-.service-media-video-wrap { background: #0b1220; display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
-.service-media-video { width: 100%; height: 100%; display: block; object-fit: contain; background: #0b1220; border-radius: 8px; }
+.service-media-video-wrap { background: #0b1220; display: flex; align-items: center; justify-content: center; padding: 0; box-sizing: border-box; }
+.service-media-video { width: 100%; height: 100%; display: block; object-fit: cover; background: #0b1220; border-radius: 0; }
 .carousel-arrow:hover { background: rgba(0,0,0,0.75) !important; color: white !important; transform: translateY(-50%) scale(1.15) !important; }
 .carousel-thumbnail:hover { border-color: #0d9488 !important; opacity: 0.8; }
 .shopee-opt-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; flex-direction: row; }
@@ -1151,7 +1151,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
     #estimated-price-display { position: static !important; top: auto !important; }
     .single-media-frame,
     #image-carousel { height: min(72vw, 320px) !important; max-height: 320px !important; }
-    .service-media-video-wrap { padding: 8px; }
+    .service-media-video-wrap { padding: 0; }
     .shopee-card { padding: 1rem !important; gap: 1rem !important; }
     .shopee-form-section { padding-right: 0 !important; }
     .shopee-form-field > .input-field,
