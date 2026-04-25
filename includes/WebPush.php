@@ -51,6 +51,9 @@ class WebPush
         // VAPID JWT for the push service audience
         $parsed   = parse_url($endpoint);
         $audience = $parsed['scheme'] . '://' . $parsed['host'];
+        if (!empty($parsed['port'])) {
+            $audience .= ':' . (int)$parsed['port'];
+        }
         $jwt      = $this->makeVapidJwt($audience);
         if (!$jwt) {
             error_log('[WebPush] JWT creation failed.');
@@ -76,8 +79,10 @@ class WebPush
             CURLOPT_POSTFIELDS     => $body,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => '',
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT        => 15,
+            CURLOPT_HTTP_VERSION   => defined('CURL_HTTP_VERSION_2TLS') ? CURL_HTTP_VERSION_2TLS : CURL_HTTP_VERSION_1_1,
             CURLOPT_SSL_VERIFYHOST => $isLocalEndpoint ? 0 : 2,
             CURLOPT_SSL_VERIFYPEER => $isLocalEndpoint ? false : true,
         ]);
