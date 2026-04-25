@@ -390,7 +390,7 @@ function render_services_table_rows(array $services): void {
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo htmlspecialchars($svc['status']); ?></span>
                         </td>
                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
-                            <button type="button" class="btn-action blue" onclick='openModal("edit", <?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)'>Edit</button>
+                            <button type="button" class="btn-action blue" onclick='openServiceModal("edit", <?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)'>Edit</button>
                             <a href="service_field_config.php?service_id=<?php echo (int)$svc['service_id']; ?>" class="btn-action" style="color:#059669;border-color:#059669;text-decoration:none;" title="Configure service fields">Fields</a>
                             <?php if ($svc['status'] !== 'Archived'): ?>
                                 <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="<?php echo $svc['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
@@ -582,7 +582,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;" x-data="filterPanel()">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;" id="servicesListHeader">Service List</h3>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button class="toolbar-btn" type="button" onclick="openModal('create')" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Service</button>
+                        <button class="toolbar-btn" type="button" onclick="openServiceModal('create')" style="height:38px;border-color:#3b82f6;color:#3b82f6;">Add Service</button>
                         <button class="toolbar-btn" type="button" onclick="window.openArchiveModal()" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                             Archived
@@ -1013,14 +1013,14 @@ function toggleFieldConfig() {
     }
 }
 
-function openModal(mode, svc) {
+function openServiceModal(mode, svc) {
     const overlay = document.getElementById('service-modal-overlay');
     const title = document.getElementById('modal-title');
     const modeInput = document.getElementById('modal-mode-input');
     const submitBtn = document.getElementById('modal-submit-btn');
     const form = document.getElementById('service-form');
     if (!overlay || !title || !modeInput || !submitBtn || !form) {
-        console.warn('openModal: service modal markup not in DOM yet.');
+        console.warn('openServiceModal: service modal markup not in DOM yet.');
         return;
     }
     form.reset();
