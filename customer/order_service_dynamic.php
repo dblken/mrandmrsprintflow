@@ -653,7 +653,13 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         $review_message_expr = isset($review_cols['comment']) ? 'r.comment' : (isset($review_cols['message']) ? 'r.message' : "''");
         $review_user_expr = isset($review_cols['user_id']) ? 'r.user_id' : (isset($review_cols['customer_id']) ? 'r.customer_id' : '0');
         $review_service_expr = !empty($review_schema['service_col']) ? 'r.' . $review_schema['service_col'] : "''";
-        $review_created_expr = !empty($review_schema['created_col']) ? 'r.' . $review_schema['created_col'] : 'NOW()';
+        $review_created_expr = !empty($review_schema['created_col'])
+            ? "CASE
+                    WHEN r.{$review_schema['created_col']} IS NULL OR r.{$review_schema['created_col']} IN ('0000-00-00 00:00:00', '0000-00-00')
+                    THEN COALESCE(o.updated_at, o.order_date)
+                    ELSE r.{$review_schema['created_col']}
+               END"
+            : 'COALESCE(o.updated_at, o.order_date)';
         $review_video_expr = isset($review_cols['video_path']) ? 'r.video_path' : "''";
         $review_helpful_sql = isset($review_tables['review_helpful'])
             ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
@@ -709,6 +715,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                  {$review_helpful_sql}
                  {$review_voted_sql}
                  FROM reviews r
+                 LEFT JOIN orders o ON o.order_id = r.order_id
                  LEFT JOIN customers c ON {$review_user_expr} = c.customer_id
                  WHERE " . implode(' OR ', $review_where_parts) . "
                  ORDER BY {$review_created_expr} DESC";
@@ -837,28 +844,22 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                 $vpath = pf_normalize_service_media_path((string)$review['video_path'], $base_path, '');
                             ?>
                                 <?php if ($vpath !== ''): ?>
-                                    <div style="margin-bottom:1rem; max-width:400px;">
-                                        <div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background:#111827;">
-                                            <video
-                                                src="<?php echo htmlspecialchars($vpath); ?>"
-                                                preload="metadata"
-                                                controls
-                                                playsinline
-                                                style="width:100%; height:100%; object-fit:contain; background:#111827;"
-                                                onerror="this.nextElementSibling.style.display='flex'; this.style.display='none';">
-                                            </video>
-                                            <a
-                                                href="<?php echo htmlspecialchars($vpath); ?>"
-                                                target="_blank"
-                                                rel="noopener"
-                                                style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; color:#fff; text-decoration:none; font-weight:700; background:#111827;">
-                                                Open Video
-                                            </a>
-                                        </div>
-                                        <div style="margin-top:0.5rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
-                                            <a href="<?php echo htmlspecialchars($vpath); ?>" target="_blank" rel="noopener" style="font-size:0.85rem; color:#0f766e; font-weight:700; text-decoration:none;">Open video</a>
-                                            <a href="<?php echo htmlspecialchars($vpath); ?>" download style="font-size:0.85rem; color:#475569; font-weight:700; text-decoration:none;">Download</a>
-                                        </div>
+                                    <div style="margin-bottom:0.75rem;">
+                                        <button type="button" class="poc-media-trigger" data-media-type="video" data-media-src="<?php echo htmlspecialchars($vpath); ?>" aria-label="Play review video">
+                                            <div class="poc-video-thumb">
+                                                <video
+                                                    src="<?php echo htmlspecialchars($vpath); ?>"
+                                                    controls
+                                                    controlsList="nodownload"
+                                                    disablePictureInPicture
+                                                    playsinline
+                                                    preload="metadata"
+                                                    class="poc-video-preview"
+                                                    oncontextmenu="return false"
+                                                    onclick="event.stopPropagation();">
+                                                </video>
+                                            </div>
+                                        </button>
                                     </div>
                                 <?php endif; ?>
                             <?php endif; ?>
@@ -900,6 +901,16 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
     </div>
 </div>
 
+<div id="pocMediaModal" class="poc-media-modal" aria-hidden="true">
+    <div class="poc-media-modal-inner" role="dialog" aria-modal="true" aria-label="Media viewer">
+        <button type="button" id="pocMediaClose" class="poc-media-close" aria-label="Close media viewer">&times;</button>
+        <img id="pocMediaImg" class="poc-media-full" alt="Media preview" hidden>
+        <video id="pocMediaVideo" class="poc-media-full" controls controlsList="nodownload" disablePictureInPicture playsinline hidden oncontextmenu="return false">
+            <source id="pocMediaVideoSource" src="" type="video/mp4">
+        </video>
+    </div>
+</div>
+
 <style>
 .poc-section-title { font-size:1.1rem;font-weight:700;color:#111827;margin:0 0 0.75rem; }
 .poc-filter-btn.active { background:#0a2530 !important;color:white !important;border-color:#0a2530 !important; }
@@ -911,6 +922,15 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .helpful-btn:hover { color:#6b7280; }
 .helpful-btn.voted { color:#f97316; }
 .helpful-btn.voted svg { fill:#f97316; }
+.poc-media-trigger { border:none; background:none; padding:0; cursor:pointer; }
+.poc-media-thumb { display:block; }
+.poc-video-thumb { position:relative; display:inline-block; max-width:240px; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; background:#0f172a; }
+.poc-video-preview { display:block; width:100%; height:auto; background:#0f172a; }
+.poc-media-modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center; padding:1.5rem; z-index:100000; }
+.poc-media-modal.is-open { display:flex; }
+.poc-media-modal-inner { position:relative; max-width:90vw; max-height:90vh; }
+.poc-media-full { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#0b1220; }
+.poc-media-close { position:absolute; top:-12px; right:-12px; width:36px; height:36px; border-radius:999px; border:none; background:#111827; color:#fff; font-size:1.5rem; line-height:1; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
 
 .carousel-arrow:hover { background: rgba(0,0,0,0.75) !important; color: white !important; transform: translateY(-50%) scale(1.15) !important; }
 .carousel-thumbnail:hover { border-color: #0d9488 !important; opacity: 0.8; }
@@ -972,6 +992,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 item.style.display = show ? '' : 'none';
             });
         });
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('pocMediaModal');
+    const modalImg = document.getElementById('pocMediaImg');
+    const modalVideo = document.getElementById('pocMediaVideo');
+    const modalVideoSource = document.getElementById('pocMediaVideoSource');
+    const closeBtn = document.getElementById('pocMediaClose');
+
+    if (!modal || !modalImg || !modalVideo || !modalVideoSource || !closeBtn) return;
+
+    const openMedia = (type, src) => {
+        if (!src) return;
+        if (type === 'video') {
+            modalImg.hidden = true;
+            modalVideo.hidden = false;
+            modalVideoSource.src = src;
+            modalVideo.load();
+        } else {
+            modalVideo.hidden = true;
+            modalImg.hidden = false;
+            modalImg.src = src;
+        }
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeMedia = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        modalImg.src = '';
+        modalVideo.pause();
+        modalVideoSource.src = '';
+        modalVideo.load();
+        document.body.style.overflow = '';
+    };
+
+    document.querySelectorAll('.poc-media-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+            openMedia(this.dataset.mediaType, this.dataset.mediaSrc);
+        });
+    });
+
+    closeBtn.addEventListener('click', closeMedia);
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeMedia();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeMedia();
+        }
     });
 });
 
