@@ -1220,7 +1220,12 @@ function openItemsModal(orderId, event) {
                         <div class="space-y-4">
                             <div><div class="im-label" style="margin-bottom: 4px;">Method</div><div class="im-val">${escIM(data.payment_method)}</div></div>
                             <div><div class="im-label" style="margin-bottom: 4px;">Status</div><div>${imBadge(data.payment_status)}</div></div>
-                            <div><div class="im-label" style="margin-bottom: 4px;">Total price</div><div class="im-val">${escIM(data.total_amount)}</div></div>
+                            ${data.is_service_order ? `
+                                <div><div class="im-label" style="margin-bottom: 4px;">Estimated price</div><div class="im-val">${escIM(data.estimated_price || 'Pending')}</div></div>
+                                <div><div class="im-label" style="margin-bottom: 4px;">Final price</div><div class="im-val">${escIM(data.total_amount)}</div></div>
+                            ` : `
+                                <div><div class="im-label" style="margin-bottom: 4px;">Total price</div><div class="im-val">${escIM(data.total_amount)}</div></div>
+                            `}
                         </div>
                     </div>
 

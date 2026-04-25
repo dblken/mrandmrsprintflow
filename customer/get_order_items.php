@@ -125,6 +125,25 @@ if ($is_rejected_payment) {
     $payment_status = 'Partial';
 }
 
+$first_item_customization = [];
+$first_item_raw_customization = db_query(
+    "SELECT customization_data FROM order_items WHERE order_id = ? ORDER BY order_item_id ASC LIMIT 1",
+    'i',
+    [$order_id]
+);
+if (!empty($first_item_raw_customization[0]['customization_data'])) {
+    $first_item_customization = json_decode((string)$first_item_raw_customization[0]['customization_data'], true) ?: [];
+}
+
+$is_service_order = false;
+if (strcasecmp((string)($order['order_type'] ?? ''), 'custom') === 0) {
+    $is_service_order = true;
+} elseif (!empty($first_item_customization['service_type'])) {
+    $is_service_order = true;
+} elseif ((int)($order['reference_id'] ?? 0) > 0) {
+    $is_service_order = true;
+}
+
 // Get items with design info
 $items = db_query("
     SELECT oi.*, p.name as product_name, p.category
@@ -219,6 +238,12 @@ customer_order_items_json([
     'order_id'         => $order['order_id'],
     'order_code'       => printflow_format_order_code($order['order_id'], $order['order_sku'] ?? ''),
     'order_date'       => format_datetime($order['order_date']),
+    'is_service_order' => $is_service_order,
+    'estimated_price'  => $is_service_order
+        ? (((float)($order['estimated_price'] ?? 0)) > 0
+            ? format_currency((float)$order['estimated_price'])
+            : 'Pending')
+        : null,
     'total_amount'     => format_currency($order['total_amount']),
     'status'           => $order['status'],
     'payment_status'   => $payment_status,
