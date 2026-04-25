@@ -646,38 +646,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 
         <!-- Product Ratings Section -->
         <?php
-        $review_columns = [];
-        try {
-            $review_columns = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
-        } catch (Throwable $e) {
-            $review_columns = [];
-        }
-        $review_user_expr = isset($review_columns['customer_id']) ? 'r.customer_id' : (isset($review_columns['user_id']) ? 'r.user_id' : '0');
-        $review_comment_expr = isset($review_columns['comment']) ? 'r.comment' : (isset($review_columns['message']) ? 'r.message' : "''");
-        $review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
-        $review_created_expr = isset($review_columns['created_at']) ? 'r.created_at' : 'NOW()';
-        $review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
-
-        $reviews = db_query(
-            "SELECT
-             r.id,
-             {$review_user_expr} AS user_id,
-             {$review_service_expr} AS service_type,
-             r.rating,
-             {$review_comment_expr} AS comment,
-             {$review_video_expr} AS video_path,
-             {$review_created_expr} AS created_at,
-             c.first_name,
-             c.last_name,
-             c.profile_picture,
-             (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
-             (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted
-             FROM reviews r
-             LEFT JOIN customers c ON {$review_user_expr} = c.customer_id
-             WHERE {$review_service_expr} COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci
-             ORDER BY {$review_created_expr} DESC",
-            'is', [$customer_id, $service['name']]
-        ) ?: [];
+        $reviews = printflow_get_service_reviews((string)$service['name'], null, (int)$customer_id);
 
         $total_reviews = count($reviews);
         $avg_rating = $total_reviews > 0 ? array_sum(array_column($reviews, 'rating')) / $total_reviews : 0;
