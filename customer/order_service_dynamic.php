@@ -794,8 +794,11 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     $rev_imgs = $review['images'] ?? [];
                     $has_video = !empty($review['video_path']);
                     $has_media = !empty($rev_imgs) || $has_video;
-                    $created_ts = !empty($review['created_at']) ? strtotime((string)$review['created_at']) : false;
-                    $created_label = $created_ts ? date('Y-m-d H:i', $created_ts) : '';
+                    $created_raw = trim((string)($review['created_at'] ?? ''));
+                    $created_ts = $created_raw !== '' ? strtotime($created_raw) : false;
+                    $created_label = ($created_ts !== false && $created_ts >= strtotime('2000-01-01 00:00:00'))
+                        ? date('Y-m-d H:i', $created_ts)
+                        : '';
                 ?>
                 <div id="review-<?php echo $review['id']; ?>" class="poc-review-item" data-rating="<?php echo $rating; ?>" data-has-comment="<?php echo $has_comment?'1':'0'; ?>" data-has-media="<?php echo $has_media?'1':'0'; ?>" style="padding:1.5rem;border-bottom:1px solid #e5e7eb;">
                     <div style="display:flex;gap:1rem;">
@@ -821,7 +824,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                              <?php if(!empty($rev_imgs)): ?>
                                 <div style="display:flex; overflow-x:auto; gap:12px; margin-bottom:1rem; padding-bottom:10px; scrollbar-width: thin;">
                                     <?php foreach($rev_imgs as $img): 
-                                        $ipath = pf_normalize_service_media_path((string)($img['image_path'] ?? ''), $base_path, $default_service_img);
+                                        $ipath = pf_normalize_service_media_path((string)($img['image_path'] ?? ''), $base_path, '');
                                     ?>
                                         <div style="flex: 0 0 140px; aspect-ratio:1; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background: #f9fafb;">
                                             <img src="<?php echo htmlspecialchars($ipath); ?>" alt="Review image" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(this.src, '_blank')" onerror="this.closest('div').style.display='none'">
@@ -831,15 +834,33 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <?php endif; ?>
 
                             <?php if($has_video): 
-                                $vpath = pf_normalize_service_media_path((string)$review['video_path'], $base_path, $default_service_img);
+                                $vpath = pf_normalize_service_media_path((string)$review['video_path'], $base_path, '');
                             ?>
-                                <div style="margin-bottom:1rem; max-width:400px;">
-                                    <div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
-                                        <video preload="metadata" controls playsinline style="width:100%; height:100%; object-fit:cover;" onerror="this.parentNode.style.display='none'">
-                                            <source src="<?php echo htmlspecialchars($vpath); ?>" type="video/mp4">
-                                        </video>
+                                <?php if ($vpath !== ''): ?>
+                                    <div style="margin-bottom:1rem; max-width:400px;">
+                                        <div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background:#111827;">
+                                            <video
+                                                src="<?php echo htmlspecialchars($vpath); ?>"
+                                                preload="metadata"
+                                                controls
+                                                playsinline
+                                                style="width:100%; height:100%; object-fit:contain; background:#111827;"
+                                                onerror="this.nextElementSibling.style.display='flex'; this.style.display='none';">
+                                            </video>
+                                            <a
+                                                href="<?php echo htmlspecialchars($vpath); ?>"
+                                                target="_blank"
+                                                rel="noopener"
+                                                style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; color:#fff; text-decoration:none; font-weight:700; background:#111827;">
+                                                Open Video
+                                            </a>
+                                        </div>
+                                        <div style="margin-top:0.5rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+                                            <a href="<?php echo htmlspecialchars($vpath); ?>" target="_blank" rel="noopener" style="font-size:0.85rem; color:#0f766e; font-weight:700; text-decoration:none;">Open video</a>
+                                            <a href="<?php echo htmlspecialchars($vpath); ?>" download style="font-size:0.85rem; color:#475569; font-weight:700; text-decoration:none;">Download</a>
+                                        </div>
                                     </div>
-                                </div>
+                                <?php endif; ?>
                             <?php endif; ?>
 
                             <?php if (!empty($review['replies'])): ?>
