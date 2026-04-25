@@ -18,6 +18,14 @@ function _truncate_msg($msg, $len = 50) {
     return mb_strlen($msg) > $len ? mb_substr($msg, 0, $len) . '...' : $msg;
 }
 
+function _chatbot_notification_excerpt(string $message, int $length = 80): string {
+    $message = preg_replace('/\s+/', ' ', trim($message));
+    if ($message === null) {
+        $message = '';
+    }
+    return mb_strlen($message) > $length ? mb_substr($message, 0, $length) . '...' : $message;
+}
+
 // Run expiration logic on each request (24h inactive → expired/archived)
 $tables_exist = db_query("SHOW TABLES LIKE 'chatbot_conversations'");
 if (!empty($tables_exist)) {
@@ -68,11 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    $conv = db_query("SELECT id FROM chatbot_conversations WHERE id = ?", 'i', [$conversation_id]);
+    $conv = db_query("SELECT id, customer_id FROM chatbot_conversations WHERE id = ?", 'i', [$conversation_id]);
     if (empty($conv)) {
         echo json_encode(['success' => false, 'error' => 'Conversation not found']);
         exit;
     }
+    $conv = $conv[0];
     
     $ins = db_execute("INSERT INTO chatbot_messages (conversation_id, sender_type, message, created_at) VALUES (?, 'admin', ?, NOW())", 'is', [$conversation_id, $message]);
     if ($ins === false) {
@@ -85,6 +94,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     db_execute("UPDATE chatbot_conversations SET status = 'answered', last_message_preview = ?, last_activity_at = NOW() WHERE id = ?", 'si', [_truncate_msg($message, 100), $conversation_id]);
+
+    $customer_id = !empty($conv['customer_id']) ? (int)$conv['customer_id'] : 0;
+    if ($customer_id > 0 && function_exists('create_notification')) {
+        create_notification(
+            $customer_id,
+            'Customer',
+            'New support chat reply from PrintFlow: ' . _chatbot_notification_excerpt($message),
+            'System',
+            false,
+            false,
+            $conversation_id
+        );
+    }
 
     $msg_row = db_query("SELECT id, sender_type, message, created_at FROM chatbot_messages WHERE id = ?", 'i', [$msg_id]);
     $m = $msg_row[0] ?? null;

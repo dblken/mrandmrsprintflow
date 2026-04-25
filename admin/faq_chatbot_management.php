@@ -1193,6 +1193,8 @@ function initInbox() {
     if (!tableBody) return;
 
     var loadedMessages = [];
+    var conversationPollTimer = null;
+    var conversationPollBusy = false;
 
     function escapeHtml(t) {
         var d = document.createElement('div');
@@ -1300,8 +1302,61 @@ function initInbox() {
         modalMessages.innerHTML = parts.join('');
         scrollChatToBottom();
     }
+    function loadedMessageMap() {
+        var map = {};
+        for (var i = 0; i < loadedMessages.length; i++) {
+            map[String(loadedMessages[i].id)] = true;
+        }
+        return map;
+    }
+    function stopConversationPolling() {
+        if (conversationPollTimer) {
+            clearInterval(conversationPollTimer);
+            conversationPollTimer = null;
+        }
+    }
+    function syncOpenConversation() {
+        if (!modal.classList.contains('open') || conversationPollBusy) return;
+        var id = parseInt(modal.dataset.convId || '0', 10);
+        if (!id) return;
+        conversationPollBusy = true;
+        fetch(API + '?id=' + id, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.conversation) return;
+                setHeader(data.conversation);
+                var latest = Array.isArray(data.messages) ? data.messages : [];
+                var seen = loadedMessageMap();
+                var hasNew = false;
+                for (var i = 0; i < latest.length; i++) {
+                    if (!seen[String(latest[i].id)]) {
+                        hasNew = true;
+                        break;
+                    }
+                }
+                if (hasNew || latest.length !== loadedMessages.length) {
+                    loadedMessages = latest.slice();
+                    if (loadedMessages.length === 0) {
+                        if (modalMessages) modalMessages.innerHTML = '<div class="chat-loading">No messages yet.</div>';
+                    } else {
+                        renderMessages(loadedMessages);
+                    }
+                }
+            })
+            .catch(function () {})
+            .finally(function () {
+                conversationPollBusy = false;
+            });
+    }
+    function startConversationPolling() {
+        stopConversationPolling();
+        conversationPollTimer = setInterval(function () {
+            syncOpenConversation();
+        }, 3000);
+    }
     function openModal(id) {
         if (!modal) return;
+        stopConversationPolling();
         loadedMessages = [];
         modal.dataset.convId = id;
         if (modalReplyInput) {
@@ -1341,6 +1396,7 @@ function initInbox() {
                         modalReplyInput.focus();
                     }, 100);
                 }
+                startConversationPolling();
             })
             .catch(function () {
                 loadedMessages = [];
@@ -1378,6 +1434,7 @@ function initInbox() {
         });
     }
     function closeModal() {
+        stopConversationPolling();
         modal.classList.remove('open');
         document.body.style.overflow = '';
         if (modalTyping) modalTyping.textContent = '';
@@ -1409,6 +1466,7 @@ function initInbox() {
                     updateSendDisabled();
                     updateInquiryRowAfterSend(id, msg);
                     if (modalReplyInput) modalReplyInput.focus();
+                    syncOpenConversation();
                 } else {
                     alert(data.error || 'Failed to send');
                 }

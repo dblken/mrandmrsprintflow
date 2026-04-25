@@ -251,6 +251,17 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                 $push_title = printflow_push_title_for_notification((string)$type, (string)$message, (string)$user_type);
                 if ($type === 'System' && $data_id !== null && $data_id !== '' && (int)$data_id > 0) {
                     $ml = strtolower((string)$message);
+                    if (strpos($ml, 'support chat') !== false || strpos($ml, 'chatbot') !== false) {
+                        if ($user_type === 'Customer') {
+                            $push_url = printflow_notification_base_path() . '/public/index.php?chatbot=open';
+                        } elseif ($user_type === 'Admin') {
+                            $push_url = printflow_notification_base_path() . '/admin/faq_chatbot_management.php?tab=inquiries';
+                        } elseif ($user_type === 'Manager') {
+                            $push_url = printflow_notification_base_path() . '/manager/notifications.php';
+                        } elseif ($user_type === 'Staff') {
+                            $push_url = printflow_notification_base_path() . '/staff/notifications.php';
+                        }
+                    }
                     if (strpos($ml, 'ready for admin review') !== false || strpos($ml, 'completed their profile') !== false) {
                         $push_url = printflow_notification_base_path() . '/admin/user_staff_management.php?open_user=' . (int)$data_id;
                     }
@@ -1544,6 +1555,9 @@ function customer_notification_title($type, $message) {
     $type = (string)$type;
     $message = strtolower((string)$message);
 
+    if (strpos($message, 'support chat') !== false || strpos($message, 'chatbot') !== false) {
+        return 'Support chat update';
+    }
     if ($type === 'Message' || strpos($message, 'message') !== false || strpos($message, 'chat') !== false) {
         return 'New message';
     }
@@ -1575,6 +1589,10 @@ function customer_notification_target_url(array $notification) {
     $message = (string)($notification['message'] ?? '');
     $data_id = (int)($notification['data_id'] ?? 0);
     $message_l = strtolower($message);
+
+    if (strpos($message_l, 'support chat') !== false || strpos($message_l, 'chatbot') !== false) {
+        return $base . '/public/index.php?chatbot=open';
+    }
 
     if ($data_id > 0) {
         if ($type === 'Message' || strpos($message_l, 'message') !== false || strpos($message_l, 'chat') !== false) {
@@ -1614,9 +1632,14 @@ function customer_notification_image_url(array $notification, string $fallback) 
 function printflow_push_title_for_notification(string $type, string $message, string $userType): string {
     $type = trim($type);
     $message = trim($message);
+    $message_l = strtolower($message);
 
     if ($userType === 'Customer') {
         return customer_notification_title($type, $message);
+    }
+
+    if (strpos($message_l, 'support chat') !== false || strpos($message_l, 'chatbot') !== false) {
+        return 'Support chat update';
     }
 
     if ($type !== '') {

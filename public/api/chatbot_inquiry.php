@@ -11,6 +11,38 @@ header('Access-Control-Allow-Origin: *');
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+function chatbot_trim_preview(string $message, int $length = 100): string {
+    return mb_strlen($message) > $length ? mb_substr($message, 0, $length) . '...' : $message;
+}
+
+function chatbot_current_customer_id(): ?int {
+    if (function_exists('is_logged_in') && function_exists('get_user_type') && function_exists('get_user_id')) {
+        if (is_logged_in() && get_user_type() === 'Customer') {
+            $id = (int)get_user_id();
+            return $id > 0 ? $id : null;
+        }
+    }
+
+    if (!empty($_SESSION['user_type']) && $_SESSION['user_type'] === 'Customer' && !empty($_SESSION['user_id'])) {
+        $id = (int)$_SESSION['user_id'];
+        return $id > 0 ? $id : null;
+    }
+
+    return null;
+}
+
+function chatbot_can_view_conversation(array $conversation, string $guestId = ''): bool {
+    $conversationCustomerId = !empty($conversation['customer_id']) ? (int)$conversation['customer_id'] : 0;
+    $conversationGuestId = (string)($conversation['guest_id'] ?? '');
+    $viewerCustomerId = chatbot_current_customer_id();
+
+    if ($conversationCustomerId > 0) {
+        return $viewerCustomerId !== null && $viewerCustomerId === $conversationCustomerId;
+    }
+
+    return $guestId !== '' && hash_equals($conversationGuestId, $guestId);
+}
+
 // Ensure conversations + messages tables exist
 db_execute("CREATE TABLE IF NOT EXISTS chatbot_conversations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -70,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$conversation_id) {
-        $preview = mb_strlen($question) > 100 ? mb_substr($question, 0, 100) . '...' : $question;
+        $preview = chatbot_trim_preview($question, 100);
         if (!$guest_id) $guest_id = 'g_' . time() . '_' . bin2hex(random_bytes(4));
         $conversation_id = db_execute(
             "INSERT INTO chatbot_conversations (customer_id, guest_id, customer_name, customer_email, last_message_preview, status, last_activity_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())",
@@ -89,18 +121,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     db_execute("INSERT INTO chatbot_messages (conversation_id, sender_type, message, created_at) VALUES (?, 'customer', ?, NOW())", 'is', [$conversation_id, $question]);
-    $preview = mb_strlen($question) > 100 ? mb_substr($question, 0, 100) . '...' : $question;
+    $preview = chatbot_trim_preview($question, 100);
     db_execute("UPDATE chatbot_conversations SET last_message_preview = ?, last_activity_at = NOW() WHERE id = ?", 'si', [$preview, $conversation_id]);
 
     $from_label = $customer_name && $customer_name !== 'Guest' ? $customer_name : 'Guest';
-    if (function_exists('create_notification')) {
-        create_notification(1, 'User', "New support chat message from {$from_label}: " . substr($question, 0, 50) . "...", 'System', false, false, $conversation_id);
+    if (function_exists('notify_shop_users')) {
+        notify_shop_users(
+            "New support chat message from {$from_label}: " . chatbot_trim_preview($question, 50),
+            'System',
+            false,
+            false,
+            $conversation_id,
+            ['Admin']
+        );
     }
+
+    $message_row = db_query(
+        "SELECT id, sender_type, message, created_at FROM chatbot_messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1",
+        'i',
+        [$conversation_id]
+    );
 
     echo json_encode([
         'success' => true,
         'inquiry_id' => $conversation_id,
         'conversation_id' => $conversation_id,
+        'message' => !empty($message_row[0]) ? [
+            'id' => (int)$message_row[0]['id'],
+            'sender_type' => $message_row[0]['sender_type'],
+            'message' => $message_row[0]['message'],
+            'created_at' => $message_row[0]['created_at'],
+        ] : null,
+    ]);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['conversation_id']) || (isset($_GET['id']) && isset($_GET['sync'])))) {
+    $conversation_id = isset($_GET['conversation_id']) ? (int)$_GET['conversation_id'] : (int)$_GET['id'];
+    $guest_id = trim((string)($_GET['guest_id'] ?? ''));
+    $since_id = max(0, (int)($_GET['since_id'] ?? 0));
+
+    $conv = db_query(
+        "SELECT id, customer_id, guest_id, customer_name, customer_email, status, last_activity_at
+         FROM chatbot_conversations
+         WHERE id = ?",
+        'i',
+        [$conversation_id]
+    );
+
+    if (empty($conv)) {
+        echo json_encode(['success' => false, 'error' => 'Conversation not found']);
+        exit;
+    }
+
+    $conversation = $conv[0];
+    if (!chatbot_can_view_conversation($conversation, $guest_id)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized conversation access']);
+        exit;
+    }
+
+    $messages = db_query(
+        "SELECT id, sender_type, message, created_at
+         FROM chatbot_messages
+         WHERE conversation_id = ? AND id > ?
+         ORDER BY id ASC",
+        'ii',
+        [$conversation_id, $since_id]
+    );
+
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'conversation' => [
+                'id' => (int)$conversation['id'],
+                'status' => $conversation['status'],
+                'customer_name' => $conversation['customer_name'] ?: 'Guest',
+                'customer_email' => $conversation['customer_email'] ?? '',
+                'last_activity_at' => $conversation['last_activity_at'],
+            ],
+            'messages' => array_map(function ($message) {
+                return [
+                    'id' => (int)$message['id'],
+                    'sender_type' => $message['sender_type'],
+                    'message' => $message['message'],
+                    'created_at' => $message['created_at'],
+                ];
+            }, $messages ?: []),
+        ],
     ]);
     exit;
 }

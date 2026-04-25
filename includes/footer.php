@@ -464,6 +464,11 @@ function _ft_detect_social(string $url): array {
         var CHATBOT_PENDING_KEY = 'pf_chatbot_pending_message';
         var CHATBOT_RESUME_KEY = 'pf_chatbot_login_resume';
         var CHATBOT_AUTH_STATE_KEY = 'pf_chatbot_last_auth_state';
+        var CHATBOT_ACTIVE_CONVERSATION_KEY = 'pf_chatbot_active_conversation_id';
+        var activeConversationId = parseInt(localStorage.getItem(CHATBOT_ACTIVE_CONVERSATION_KEY) || '0', 10) || 0;
+        var renderedMessageIds = {};
+        var checkInterval = null;
+        var syncInFlight = false;
 
         function readStoredJson(key) {
             try {
@@ -491,6 +496,7 @@ function _ft_detect_social(string $url): array {
             if (!isLoggedIn && last && last.loggedIn) {
                 removeStored(CHATBOT_PENDING_KEY);
                 removeStored(CHATBOT_RESUME_KEY);
+                removeStored(CHATBOT_ACTIVE_CONVERSATION_KEY);
             }
             writeStoredJson(CHATBOT_AUTH_STATE_KEY, {
                 loggedIn: !!isLoggedIn,
@@ -554,6 +560,99 @@ function _ft_detect_social(string $url): array {
         function clearPendingChatbotMessage() {
             removeStored(CHATBOT_PENDING_KEY);
             removeStored(CHATBOT_RESUME_KEY);
+        }
+
+        function ensureRenderedBucket(conversationId) {
+            var key = String(conversationId || 0);
+            if (!renderedMessageIds[key] || typeof renderedMessageIds[key] !== 'object') {
+                renderedMessageIds[key] = {};
+            }
+            return renderedMessageIds[key];
+        }
+
+        function markRenderedMessage(conversationId, messageId) {
+            if (!conversationId || !messageId) return;
+            ensureRenderedBucket(conversationId)[String(messageId)] = true;
+        }
+
+        function hasRenderedMessage(conversationId, messageId) {
+            if (!conversationId || !messageId) return false;
+            return !!ensureRenderedBucket(conversationId)[String(messageId)];
+        }
+
+        function setActiveConversationId(conversationId) {
+            activeConversationId = parseInt(conversationId || 0, 10) || 0;
+            if (activeConversationId > 0) {
+                localStorage.setItem(CHATBOT_ACTIVE_CONVERSATION_KEY, String(activeConversationId));
+                ensureRenderedBucket(activeConversationId);
+            } else {
+                localStorage.removeItem(CHATBOT_ACTIVE_CONVERSATION_KEY);
+            }
+        }
+
+        function openChatbotWindow() {
+            isOpen = true;
+            win.classList.remove('lp-chatbot-hidden');
+            setTimeout(function() { win.classList.add('lp-chatbot-visible'); }, 10);
+            if (!loaded) loadFAQs();
+            setTimeout(function() {
+                if (input) input.focus();
+                msgs.scrollTop = msgs.scrollHeight;
+            }, 300);
+        }
+
+        function appendLiveConversationMessage(message) {
+            if (!message || !message.id || hasRenderedMessage(activeConversationId, message.id)) {
+                return;
+            }
+            if (message.sender_type === 'customer') {
+                appendUserMessage(message.message || '');
+            } else {
+                appendBotMessage(escapeHtml(message.message || ''));
+            }
+            markRenderedMessage(activeConversationId, message.id);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function syncConversation(options) {
+            options = options || {};
+            if (!activeConversationId || syncInFlight) {
+                return Promise.resolve(null);
+            }
+
+            syncInFlight = true;
+            var guestId = localStorage.getItem('chatbot_guest_id') || '';
+            var basePath = window.BASE_PATH || '';
+            var bucket = ensureRenderedBucket(activeConversationId);
+            var renderedIds = Object.keys(bucket);
+            var lastRenderedId = 0;
+            for (var i = 0; i < renderedIds.length; i++) {
+                var currentId = parseInt(renderedIds[i], 10) || 0;
+                if (currentId > lastRenderedId) lastRenderedId = currentId;
+            }
+
+            var url = basePath + '/public/api/chatbot_inquiry.php?conversation_id=' + activeConversationId + '&sync=1&since_id=' + lastRenderedId;
+            if (guestId) {
+                url += '&guest_id=' + encodeURIComponent(guestId);
+            }
+
+            return fetch(url, { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.success || !data.data) return null;
+                    var messages = Array.isArray(data.data.messages) ? data.data.messages : [];
+                    messages.forEach(appendLiveConversationMessage);
+                    if (options.forceScroll) {
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
+                    return data;
+                })
+                .catch(function() {
+                    return null;
+                })
+                .finally(function() {
+                    syncInFlight = false;
+                });
         }
 
         function openLoginFromChatbot() {
@@ -623,9 +722,16 @@ function _ft_detect_social(string $url): array {
                 appendBotMessage('Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.');
 
                 if (data.success && data.inquiry_id) {
+                    setActiveConversationId(data.conversation_id || data.inquiry_id);
                     var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
-                    ids.push(data.inquiry_id);
+                    if (ids.indexOf(data.inquiry_id) === -1) {
+                        ids.push(data.inquiry_id);
+                    }
                     localStorage.setItem('chatbot_inquiry_ids', JSON.stringify(ids));
+                    if (data.message && data.message.id) {
+                        markRenderedMessage(activeConversationId, data.message.id);
+                    }
+                    syncConversation({ forceScroll: true });
                 }
                 return data;
             })
@@ -643,11 +749,7 @@ function _ft_detect_social(string $url): array {
                 return;
             }
 
-            isOpen = true;
-            win.classList.remove('lp-chatbot-hidden');
-            setTimeout(function() { win.classList.add('lp-chatbot-visible'); }, 10);
-            if (!loaded) loadFAQs();
-
+            openChatbotWindow();
             appendBotMessage('Resuming your saved message...');
             clearPendingChatbotMessage();
             sendChatbotInquiry(pending.message.trim(), { showUserBubble: true }).finally(function() {
@@ -656,23 +758,20 @@ function _ft_detect_social(string $url): array {
         }
 
         // Toggle support chat on button click
-        var checkInterval = null;
         if (btn) {
         btn.addEventListener('click', function() {
             isOpen = !isOpen;
             if (isOpen) {
-                win.classList.remove('lp-chatbot-hidden');
-                setTimeout(() => win.classList.add('lp-chatbot-visible'), 10);
-                if (!loaded) loadFAQs();
-                setTimeout(() => { input.focus(); msgs.scrollTop = msgs.scrollHeight; }, 300);
-                
-                // Real-time reply polling
-                checkReplies();
-                checkInterval = setInterval(checkReplies, 10000); // Check every 10 seconds
+                openChatbotWindow();
+                syncConversation({ forceScroll: true });
+                checkInterval = setInterval(function() {
+                    syncConversation();
+                }, 3000);
             } else {
                 win.classList.remove('lp-chatbot-visible');
                 setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
                 if (checkInterval) clearInterval(checkInterval);
+                checkInterval = null;
             }
         });
         }
@@ -684,6 +783,7 @@ function _ft_detect_social(string $url): array {
             win.classList.remove('lp-chatbot-visible');
             setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
             if (checkInterval) clearInterval(checkInterval);
+            checkInterval = null;
         });
         }
 
@@ -843,37 +943,17 @@ function _ft_detect_social(string $url): array {
         });
         }
 
-        // Check for replies to previous threads when support chat opens
-        function checkReplies() {
-            var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
-            if (ids.length === 0) return;
-            
-            ids.forEach(function(id) {
-                var basePath = window.BASE_PATH || '';
-                fetch(basePath + '/public/api/chatbot_inquiry.php?id=' + id)
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data.success && data.data && data.data.status === 'answered' && data.data.admin_reply) {
-                        // Check if we already showed this reply
-                        var shown = JSON.parse(localStorage.getItem('chatbot_shown_replies') || '[]');
-                        if (shown.indexOf(id) === -1) {
-                            var bm = document.createElement('div');
-                            bm.className = 'cb-msg-bot';
-                            bm.style.cssText = 'display: flex; justify-content: flex-start; gap: 8px;';
-                            bm.innerHTML = '<div style="background: linear-gradient(135deg, #e8f4f8, #f0f0f0); color: #333; padding: 12px 14px; border-radius: 14px 14px 4px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05); word-wrap: break-word; border-left: 3px solid #53C5E0;"><div style="font-size: 11px; font-weight: 700; color: #53C5E0; margin-bottom: 4px;">Reply to: ' + escapeHtml(data.data.question).substring(0, 50) + '</div>' + escapeHtml(data.data.admin_reply) + '</div>';
-                            msgs.appendChild(bm);
-                            msgs.scrollTop = msgs.scrollHeight;
-                            shown.push(id);
-                            localStorage.setItem('chatbot_shown_replies', JSON.stringify(shown));
-                        }
-                    }
-                })
-                .catch(function() {});
-            });
+        if (window.location.search.indexOf('chatbot=open') !== -1) {
+            openChatbotWindow();
+            syncConversation({ forceScroll: true });
+            checkInterval = setInterval(function() {
+                syncConversation();
+            }, 3000);
+        } else {
+            setTimeout(function() {
+                syncConversation();
+            }, 1000);
         }
-
-        // Initial check for replies on load (if window starts open - though it defaults to hidden)
-        setTimeout(checkReplies, 1000);
         setTimeout(tryResumePendingChatbotMessage, 300);
 
         function escapeHtml(t) {
