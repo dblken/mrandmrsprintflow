@@ -7,6 +7,7 @@
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var LAST_TOAST_ID_KEY      = 'pf_last_toast_notification_id';
     var AUTO_RESTORE_KEY       = 'pf_push_autorestore_attempted';
+    var PROMPT_DISMISSED_KEY   = 'pf_push_prompt_dismissed';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
     function normalizeBasePath(rawBase) {
@@ -96,6 +97,36 @@
     function setLastToastNotificationId(id) {
         try {
             sessionStorage.setItem(LAST_TOAST_ID_KEY, String(parseInt(id, 10) || 0));
+        } catch (e) {}
+    }
+
+    function getAuthSessionKey() {
+        var cfg = window.PFConfig || {};
+        var userId = cfg.userId || 'guest';
+        var userType = cfg.userType || USER_TYPE || 'Customer';
+        var sessionId = cfg.sessionId || 'session';
+        return [userType, userId, sessionId].join(':');
+    }
+
+    function isPermissionPromptDismissed() {
+        try {
+            return sessionStorage.getItem(PROMPT_DISMISSED_KEY) === getAuthSessionKey();
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function rememberPermissionPromptDismissal() {
+        try {
+            sessionStorage.setItem(PROMPT_DISMISSED_KEY, getAuthSessionKey());
+        } catch (e) {}
+    }
+
+    function clearPermissionPromptDismissal() {
+        try {
+            if (sessionStorage.getItem(PROMPT_DISMISSED_KEY) === getAuthSessionKey()) {
+                sessionStorage.removeItem(PROMPT_DISMISSED_KEY);
+            }
         } catch (e) {}
     }
 
@@ -280,8 +311,16 @@
     }
 
     function showPermissionPrompt() {
+        if (isPermissionPromptDismissed()) {
+            dismissPermissionPrompt();
+            return;
+        }
         if (document.getElementById('pf-notify-prompt')) return;
         getPushPromptState().then(function(promptState) {
+            if (isPermissionPromptDismissed()) {
+                dismissPermissionPrompt();
+                return;
+            }
             if (!promptState || !promptState.show) {
                 dismissPermissionPrompt();
                 return;
@@ -337,6 +376,9 @@
 
             if (laterBtn) {
                 laterBtn.onclick = function() {
+                    if (promptState.state !== 'blocked') {
+                        rememberPermissionPromptDismissal();
+                    }
                     dismissPermissionPrompt();
                 };
             }
@@ -350,6 +392,7 @@
 
                     subscribeToPush(true).then(function(sub) {
                         if (sub) {
+                            clearPermissionPromptDismissal();
                             dismissPermissionPrompt();
                             showToast('PrintFlow', 'Notifications enabled on this device.', '', '', '');
                             initPushToggle();
@@ -499,6 +542,7 @@
         }
 
         subscribeToPush(true).then(function(sub) {
+            if (sub) clearPermissionPromptDismissal();
             updatePushToggle(btn, sub ? 'enabled' : 'disabled');
         });
     }

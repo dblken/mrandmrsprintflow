@@ -375,6 +375,7 @@ $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Adm
 window.PFConfig = { 
     userId: <?php echo json_encode($_pf_uid); ?>, 
     userType: <?php echo json_encode($_pf_utype); ?>,
+    sessionId: <?php echo json_encode(session_id()); ?>,
     basePath: <?php echo json_encode($base_path); ?>,
     logoUrl: <?php echo json_encode($shop_logo_url); ?>,
     logoutUrl: <?php echo json_encode($logout_url); ?>,
