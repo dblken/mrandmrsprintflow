@@ -7,15 +7,11 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
-require_once __DIR__ . '/../includes/product_branch_stock.php';
-require_once __DIR__ . '/../includes/service_order_helper.php';
 
 // Require staff access
 require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
-printflow_ensure_product_branch_stock_table();
-service_order_ensure_tables();
 $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
 $branch_name = $staffCtx['branch_name'];
@@ -29,57 +25,41 @@ $status_filter = $_GET['status'] ?? '';
 $search_filter = $_GET['search'] ?? '';
 $timeframe = $_GET['timeframe'] ?? 'today';
 
-$timeframe_sql = "DATE(o.order_date) = CURDATE()";
-$timeframe_label = "Today";
-$timeframe_sql_no_alias = "DATE(order_date) = CURDATE()";
+$today = date('Y-m-d');
+$timeframe_sql = "DATE(o.order_date) = '$today'";
+$timeframe_sql_no_alias = "DATE(order_date) = '$today'";
+$timeframe_label = "Today (" . date('F j, Y') . ")";
+$short_label = "Today";
 
 switch ($timeframe) {
     case 'week': 
-        $timeframe_sql = "YEARWEEK(o.order_date, 1) = YEARWEEK(CURDATE(), 1)"; 
-        $timeframe_sql_no_alias = "YEARWEEK(order_date, 1) = YEARWEEK(CURDATE(), 1)"; 
-        $timeframe_label = "This Week"; 
+        $monday = date('Y-m-d', strtotime('monday this week'));
+        $sunday = date('Y-m-d', strtotime('sunday this week'));
+        $timeframe_sql = "DATE(o.order_date) BETWEEN '$monday' AND '$sunday'"; 
+        $timeframe_sql_no_alias = "DATE(order_date) BETWEEN '$monday' AND '$sunday'"; 
+        
+        $start_day = date('j', strtotime($monday));
+        $end_day = date('j', strtotime($sunday));
+        $start_month = date('F', strtotime($monday));
+        $end_month = date('F', strtotime($sunday));
+        $year = date('Y', strtotime($sunday));
+        
+        if ($start_month === $end_month) {
+            $timeframe_label = "This Week ($start_month $start_day-$end_day, $year)";
+        } else {
+            $timeframe_label = "This Week ($start_month $start_day - $end_month $end_day, $year)";
+        }
+        $short_label = "This Week";
         break;
     case 'month': 
-        $timeframe_sql = "YEAR(o.order_date) = YEAR(CURDATE()) AND MONTH(o.order_date) = MONTH(CURDATE())"; 
-        $timeframe_sql_no_alias = "YEAR(order_date) = YEAR(CURDATE()) AND MONTH(order_date) = MONTH(CURDATE())"; 
-        $timeframe_label = "This Month"; 
+        $first_day = date('Y-m-01');
+        $last_day = date('Y-m-t');
+        $timeframe_sql = "DATE(o.order_date) BETWEEN '$first_day' AND '$last_day'"; 
+        $timeframe_sql_no_alias = "DATE(order_date) BETWEEN '$first_day' AND '$last_day'"; 
+        $timeframe_label = "This Month (" . date('F Y') . ")"; 
+        $short_label = "This Month";
         break;
 }
-
-$latest_activity_row = db_query("
-    SELECT MAX(activity_date) AS latest_date
-    FROM (
-        SELECT DATE(order_date) AS activity_date FROM orders WHERE branch_id = ?
-        UNION ALL
-        SELECT DATE(created_at) AS activity_date FROM service_orders WHERE branch_id = ? OR branch_id IS NULL
-    ) branch_activity
-", 'ii', [$staffBranchId, $staffBranchId]);
-$latestBranchDate = $latest_activity_row[0]['latest_date'] ?? null;
-$period_probe = db_query("
-    SELECT SUM(cnt) AS total_count
-    FROM (
-        SELECT COUNT(*) AS cnt FROM orders o WHERE o.branch_id = ? AND {$timeframe_sql}
-        UNION ALL
-        SELECT COUNT(*) AS cnt FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND " . str_replace('o.order_date', 'so.created_at', $timeframe_sql) . "
-    ) period_counts
-", 'ii', [$staffBranchId, $staffBranchId]);
-if (((int)($period_probe[0]['total_count'] ?? 0)) === 0 && $latestBranchDate) {
-    $safeLatest = db_escape($latestBranchDate);
-    if ($timeframe === 'month') {
-        $timeframe_sql = "YEAR(o.order_date) = YEAR('{$safeLatest}') AND MONTH(o.order_date) = MONTH('{$safeLatest}')";
-        $timeframe_sql_no_alias = "YEAR(order_date) = YEAR('{$safeLatest}') AND MONTH(order_date) = MONTH('{$safeLatest}')";
-        $timeframe_label = 'Latest Month';
-    } elseif ($timeframe === 'week') {
-        $timeframe_sql = "YEARWEEK(o.order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
-        $timeframe_sql_no_alias = "YEARWEEK(order_date, 1) = YEARWEEK('{$safeLatest}', 1)";
-        $timeframe_label = 'Latest Week';
-    } else {
-        $timeframe_sql = "DATE(o.order_date) = '{$safeLatest}'";
-        $timeframe_sql_no_alias = "DATE(order_date) = '{$safeLatest}'";
-        $timeframe_label = 'Latest Day';
-    }
-}
-$service_timeframe_sql = str_replace('o.order_date', 'so.created_at', $timeframe_sql);
 
 // Get dashboard statistics (scoped to this staff member's branch)
 $pending_orders_result = db_query(
@@ -113,25 +93,11 @@ $today_completed_result = db_query(
 $completed_today = $today_completed_result[0]['count'] ?? 0;
 
 // Total Orders Today (Scoped)
-$today_orders_res = db_query("
-    SELECT SUM(count) AS count
-    FROM (
-        SELECT COUNT(*) AS count FROM orders WHERE $timeframe_sql_no_alias AND branch_id = ?
-        UNION ALL
-        SELECT COUNT(*) AS count FROM service_orders so WHERE {$service_timeframe_sql} AND (branch_id = ? OR branch_id IS NULL)
-    ) branch_orders
-", 'ii', [$staffBranchId, $staffBranchId]);
+$today_orders_res = db_query("SELECT COUNT(*) as count FROM orders WHERE $timeframe_sql_no_alias AND branch_id = ?", 'i', [$staffBranchId]);
 $total_orders_today = $today_orders_res[0]['count'] ?? 0;
 
 // Total Sales Today (Scoped)
-$sales_today_res = db_query("
-    SELECT SUM(total) AS total
-    FROM (
-        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?
-        UNION ALL
-        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE {$service_timeframe_sql} AND status NOT IN ('Cancelled', 'Rejected') AND (branch_id = ? OR branch_id IS NULL)
-    ) branch_revenue
-", 'ii', [$staffBranchId, $staffBranchId]);
+$sales_today_res = db_query("SELECT SUM(total_amount) as total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?", 'i', [$staffBranchId]);
 $total_sales_today = $sales_today_res[0]['total'] ?? 0;
 
 // --- Dashboard Global/Summary Metrics ---
@@ -153,37 +119,17 @@ $completed_custom_res = db_query("
     WHERE o.status = 'Completed' AND o.branch_id = ? AND $timeframe_sql_no_alias
       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
 ", 'i', [$staffBranchId]);
-$completed_service_orders_res = db_query("
-    SELECT COUNT(*) AS count
-    FROM service_orders so
-    WHERE so.status = 'Completed'
-      AND (so.branch_id = ? OR so.branch_id IS NULL)
-      AND {$service_timeframe_sql}
-", 'i', [$staffBranchId]);
-$completed_custom_count = (int)($completed_custom_res[0]['count'] ?? 0) + (int)($completed_service_orders_res[0]['count'] ?? 0);
-$pending_reviews_res = db_query("
-    SELECT COUNT(*) as count
-    FROM reviews r
-    LEFT JOIN orders o ON o.order_id = r.order_id
-    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
-", 'i', [$staffBranchId]);
+$completed_custom_count = $completed_custom_res[0]['count'] ?? 0;
+$pending_reviews_res = db_query("SELECT COUNT(*) as count FROM reviews");
 $pending_reviews_count = $pending_reviews_res[0]['count'] ?? 0;
 
 // Sales Overview (Last 7 Days) for Trend Chart (Scoped)
 $trend_labels = [];
 $trend_values = [];
 for ($i = 6; $i >= 0; $i--) {
-    $trendAnchor = $latestBranchDate ?: date('Y-m-d');
-    $date = date('Y-m-d', strtotime("-$i days", strtotime($trendAnchor)));
+    $date = date('Y-m-d', strtotime("-$i days"));
     $trend_labels[] = date('D', strtotime($date));
-    $res = db_query("
-        SELECT SUM(total) AS total
-        FROM (
-            SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders WHERE DATE(order_date) = ? AND status != 'Cancelled' AND branch_id = ?
-            UNION ALL
-            SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders WHERE DATE(created_at) = ? AND status NOT IN ('Cancelled', 'Rejected') AND (branch_id = ? OR branch_id IS NULL)
-        ) daily_revenue
-    ", 'sisi', [$date, $staffBranchId, $date, $staffBranchId]);
+    $res = db_query("SELECT SUM(total_amount) as total FROM orders WHERE DATE(order_date) = ? AND status != 'Cancelled' AND branch_id = ?", 'si', [$date, $staffBranchId]);
     $trend_values[] = (float)($res[0]['total'] ?? 0);
 }
 
@@ -208,18 +154,6 @@ $top_services = db_query("
     ORDER BY order_count DESC
     LIMIT 5
 ", 'i', [$staffBranchId]);
-if (empty($top_services)) {
-    $top_services = db_query("
-        SELECT service_name AS name, COUNT(*) AS order_count
-        FROM service_orders so
-        WHERE {$service_timeframe_sql}
-          AND (so.branch_id = ? OR so.branch_id IS NULL)
-          AND so.status NOT IN ('Cancelled', 'Rejected')
-        GROUP BY service_name
-        ORDER BY order_count DESC
-        LIMIT 5
-    ", 'i', [$staffBranchId]);
-}
 
 // Recent Orders with filters (Scoped)
 $sql_cond = " WHERE o.branch_id = ?";
@@ -259,29 +193,16 @@ $recent_orders = db_query("
 
 // Get low-stock products (view-only)
 $low_stock = db_query("
-    SELECT p.name, p.sku, COALESCE(pbs.stock_quantity, 0) AS stock_quantity, p.category
-    FROM products p
-    LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
-    WHERE p.status = 'Activated'
-      AND COALESCE(pbs.stock_quantity, 0) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)
-    ORDER BY COALESCE(pbs.stock_quantity, 0) ASC
-    LIMIT 5
-", 'i', [$staffBranchId]);
+    SELECT name, sku, stock_quantity, category 
+    FROM products 
+    WHERE status = 'Activated' AND stock_quantity < 10 
+    ORDER BY stock_quantity ASC LIMIT 5
+");
 
 // Define missing variables for KPI cards (Staff Dashboard)
 $active_orders_count = $pending_orders + $processing_orders + $ready_orders;
-$all_products_count = db_query("
-    SELECT COUNT(*) as cnt
-    FROM products p
-    LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
-    WHERE p.status = 'Activated'
-", 'i', [$staffBranchId])[0]['cnt'] ?? 0;
-$pending_reviews_count = db_query("
-    SELECT COUNT(*) as cnt
-    FROM reviews r
-    LEFT JOIN orders o ON o.order_id = r.order_id
-    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
-", 'i', [$staffBranchId])[0]['cnt'] ?? 0;
+$all_products_count = db_query("SELECT COUNT(*) as cnt FROM products WHERE status = 'Activated'")[0]['cnt'] ?? 0;
+$pending_reviews_count = db_query("SELECT COUNT(*) as cnt FROM reviews")[0]['cnt'] ?? 0;
 
 $page_title = 'Staff Dashboard - PrintFlow';
 
@@ -292,7 +213,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
-    <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
+    <link rel="stylesheet" href="/printflow/public/assets/css/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
@@ -349,7 +270,18 @@ $page_title = 'Staff Dashboard - PrintFlow';
 <div class="dashboard-container">
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
-    <div class="main-content" x-data="{ sortOpen: false, filterOpen: false, activeStatus: '<?php echo $status_filter; ?>', activeTimeframe: '<?php echo $timeframe; ?>' }">
+    <div class="main-content" x-data="{ 
+        sortOpen: false, 
+        filterOpen: false, 
+        activeStatus: '<?php echo $status_filter; ?>', 
+        activeTimeframe: '<?php echo $timeframe; ?>',
+        getButtonLabel(type) {
+            if (type === 'today') return 'Today';
+            if (type === 'week') return 'This Week';
+            if (type === 'month') return 'This Month';
+            return type.charAt(0).toUpperCase() + type.slice(1);
+        }
+    }">
         <header>
             <div>
                 <h1 class="page-title">Dashboard</h1>
@@ -361,12 +293,12 @@ $page_title = 'Staff Dashboard - PrintFlow';
                 <div style="position:relative;">
                     <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false">
                         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span x-text="activeTimeframe.charAt(0).toUpperCase() + activeTimeframe.slice(1)">Today</span>
+                        <span x-text="getButtonLabel(activeTimeframe)">Today</span>
                     </button>
                     <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
-                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'today' }" @click.prevent="activeTimeframe = 'today'; sortOpen = false; $nextTick(() => refreshDashboard(1))">Today</a>
-                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'week' }" @click.prevent="activeTimeframe = 'week'; sortOpen = false; $nextTick(() => refreshDashboard(1))">This Week</a>
-                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'month' }" @click.prevent="activeTimeframe = 'month'; sortOpen = false; $nextTick(() => refreshDashboard(1))">This Month</a>
+                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'today' }" @click.prevent="activeTimeframe = 'today'; sortOpen = false; refreshDashboard(1, activeStatus, 'today')">Today</a>
+                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'week' }" @click.prevent="activeTimeframe = 'week'; sortOpen = false; refreshDashboard(1, activeStatus, 'week')">This Week</a>
+                        <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'month' }" @click.prevent="activeTimeframe = 'month'; sortOpen = false; refreshDashboard(1, activeStatus, 'month')">This Month</a>
                     </div>
                 </div>
 
@@ -377,11 +309,11 @@ $page_title = 'Staff Dashboard - PrintFlow';
                         Status: <span x-text="activeStatus ? activeStatus : 'All'"></span>
                     </button>
                     <div class="dropdown-panel sort-dropdown" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
-                        <a href="#" class="sort-option" :class="{ active: !activeStatus }" @click.prevent="activeStatus = ''; filterOpen = false; $nextTick(() => refreshDashboard(1))">All Statuses</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Pending' }" @click.prevent="activeStatus = 'Pending'; filterOpen = false; $nextTick(() => refreshDashboard(1))">Pending</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Processing' }" @click.prevent="activeStatus = 'Processing'; filterOpen = false; $nextTick(() => refreshDashboard(1))">Processing</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Ready for Pickup' }" @click.prevent="activeStatus = 'Ready for Pickup'; filterOpen = false; $nextTick(() => refreshDashboard(1))">Ready</a>
-                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Completed' }" @click.prevent="activeStatus = 'Completed'; filterOpen = false; $nextTick(() => refreshDashboard(1))">Completed</a>
+                        <a href="#" class="sort-option" :class="{ active: !activeStatus }" @click.prevent="activeStatus = ''; filterOpen = false; refreshDashboard(1, '', activeTimeframe)">All Statuses</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Pending' }" @click.prevent="activeStatus = 'Pending'; filterOpen = false; refreshDashboard(1, 'Pending', activeTimeframe)">Pending</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Processing' }" @click.prevent="activeStatus = 'Processing'; filterOpen = false; refreshDashboard(1, 'Processing', activeTimeframe)">Processing</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Ready for Pickup' }" @click.prevent="activeStatus = 'Ready for Pickup'; filterOpen = false; refreshDashboard(1, 'Ready for Pickup', activeTimeframe)">Ready</a>
+                        <a href="#" class="sort-option" :class="{ active: activeStatus === 'Completed' }" @click.prevent="activeStatus = 'Completed'; filterOpen = false; refreshDashboard(1, 'Completed', activeTimeframe)">Completed</a>
                     </div>
                 </div>
 
@@ -459,7 +391,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
                 <div class="card">
                     <div class="loading-progress"></div>
                     <div class="content-transition">
-                        <div id="top-sales-title" style="font-size: 16px; font-weight: 700; color: #013a3a; margin-bottom: 16px;">Top Sales (<?php echo $timeframe_label; ?>)</div>
+                        <div id="top-sales-title" style="font-size: 16px; font-weight: 700; color: #013a3a; margin-bottom: 16px;">Top Sales (<?php echo $short_label; ?>)</div>
                         <div style="margin-top: 10px;" id="top-services-list">
                             <?php if (!empty($top_services)): ?>
                                 <?php foreach ($top_services as $service): ?>
@@ -534,7 +466,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
 var salesChartInstance = null;
 var dashAbortController = null;
 
-async function refreshDashboard(page = 1) {
+async function refreshDashboard(page = 1, status = null, timeframe = null) {
     const main = document.getElementById('dashboard-main');
     if (!main) return;
 
@@ -542,15 +474,21 @@ async function refreshDashboard(page = 1) {
     if (dashAbortController) dashAbortController.abort();
     dashAbortController = new AbortController();
 
-    const statusEl = document.getElementById('filter-status');
-    const timeframeEl = document.getElementById('filter-timeframe');
-    if (!statusEl || !timeframeEl) return;
+    // Use passed values or fallback to hidden inputs
+    if (status === null) {
+        const sEl = document.getElementById('filter-status');
+        status = sEl ? sEl.value : '';
+    }
+    if (timeframe === null) {
+        const tEl = document.getElementById('filter-timeframe');
+        timeframe = tEl ? tEl.value : 'today';
+    }
 
     // 2. Visual Feedback (Immediate)
     main.classList.add('is-loading');
     
     try {
-        const response = await fetch(`api_dashboard_stats.php?page=${page}&status=${encodeURIComponent(statusEl.value)}&timeframe=${encodeURIComponent(timeframeEl.value)}`, {
+        const response = await fetch(`api_dashboard_stats.php?page=${page}&status=${encodeURIComponent(status)}&timeframe=${encodeURIComponent(timeframe)}`, {
             signal: dashAbortController.signal
         });
         if (!response.ok) throw new Error('Refresh failed');
@@ -562,13 +500,12 @@ async function refreshDashboard(page = 1) {
         updateMetric('stat-revenue', data.stats.formatted_revenue || '₱0.00');
         updateMetric('stat-completed-products', data.stats.completed_products);
         updateMetric('stat-completed-custom', data.stats.completed_custom);
-        updateMetric('stat-pending', data.stats.pending_reviews);
         
         const subtitleEl = document.getElementById('kpi-subtitle');
         if (subtitleEl) subtitleEl.textContent = `Metrics for ${data.timeframe_label} at <?php echo addslashes($branch_name); ?>`;
 
         const salesTitleEl = document.getElementById('top-sales-title');
-        if (salesTitleEl) salesTitleEl.textContent = `Top Sales (${data.timeframe_label})`;
+        if (salesTitleEl) salesTitleEl.textContent = `Top Sales (${data.short_label || 'Today'})`;
 
         // Top Services list update
         const servicesList = document.getElementById('top-services-list');
@@ -624,7 +561,7 @@ async function refreshDashboard(page = 1) {
             let pagHtml = '<div style="display:flex; justify-content:center; gap:4px; margin-top:20px;">';
             for (let i = 1; i <= data.pagination.total_pages; i++) {
                 const active = i === data.pagination.current_page ? 'background:#06A1A1; color:#fff; border-color:#06A1A1;' : 'background:#fff; color:#64748b; border-color:#e2e8f0;';
-                pagHtml += `<button onclick="refreshDashboard(${i})" style="width:32px; height:32px; border:1px solid; border-radius:8px; cursor:pointer; font-weight:700; font-size:12px; transition:all 0.2s; ${active}">${i}</button>`;
+                pagHtml += `<button onclick="refreshDashboard(${i}, null, null)" style="width:32px; height:32px; border:1px solid; border-radius:8px; cursor:pointer; font-weight:700; font-size:12px; transition:all 0.2s; ${active}">${i}</button>`;
             }
             pagHtml += '</div>';
             pagWrapper.innerHTML = pagHtml;
@@ -738,3 +675,4 @@ document.addEventListener('turbo:load', initDashboardInteractions);
 
 </body>
 </html>
+
