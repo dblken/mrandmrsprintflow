@@ -22,6 +22,7 @@ function review_render_item_summary(array $item): void {
     $subtotal = $unit_price * $quantity;
     $estimated_total = review_item_estimated_total($item);
     $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
+    $show_service_unit_estimate = $is_service_item && $estimated_total > 0 && $unit_price > 0;
     ?>
     <div style="background:#0a2530;border:1px solid rgba(83,197,224,0.24);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;color:#eaf6fb;">
         <h3 style="font-size:0.95rem;font-weight:700;margin:0 0 0.35rem;"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></h3>
@@ -32,7 +33,7 @@ function review_render_item_summary(array $item): void {
             <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Unit Price</span><br><strong><?php echo format_currency($unit_price); ?></strong></div>
             <div><span style="color:#53c5e0;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Total</span><br><strong style="color:#53c5e0;"><?php echo format_currency($subtotal); ?></strong></div>
             <?php else: ?>
-                <?php if ($unit_price > 0): ?>
+                <?php if ($show_service_unit_estimate): ?>
                 <div><span style="color:#9fc4d4;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Estimated Unit Price</span><br><strong><?php echo format_currency($unit_price); ?></strong></div>
                 <?php endif; ?>
             <div><span style="color:#53c5e0;font-size:0.68rem;text-transform:uppercase;font-weight:700;">Estimated Price</span><br><strong style="color:#53c5e0;"><?php echo htmlspecialchars($estimated_total_display, ENT_QUOTES, 'UTF-8'); ?></strong></div>
