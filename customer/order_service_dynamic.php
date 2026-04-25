@@ -53,6 +53,92 @@ function pf_normalize_service_media_path($path, $base_path, $default_img) {
     return $path;
 }
 
+function pf_service_video_candidates($path, $base_path) {
+    $raw = trim((string)$path);
+    if ($raw === '') {
+        return [];
+    }
+
+    $normalized = pf_normalize_service_media_path($raw, $base_path, '');
+    $variants = [];
+    $basename = basename(str_replace('\\', '/', $raw));
+
+    foreach ([$raw, $normalized] as $candidate) {
+        $candidate = trim((string)$candidate);
+        if ($candidate === '') {
+            continue;
+        }
+
+        $candidate = str_replace('\\', '/', $candidate);
+        $variants[] = $candidate;
+
+        if (strpos($candidate, '/public/') !== false) {
+            $variants[] = str_replace('/public/', '/', $candidate);
+        } elseif (strpos($candidate, '/assets/videos/services/') !== false) {
+            $variants[] = preg_replace('#/assets/videos/services/#', '/public/assets/videos/services/', $candidate, 1);
+        }
+
+        if ($base_path !== '' && strpos($candidate, $base_path . '/public/') === 0) {
+            $variants[] = $base_path . substr($candidate, strlen($base_path . '/public'));
+        }
+    }
+
+    if ($basename !== '' && $basename !== '.' && $basename !== '/') {
+        $variants[] = '/public/assets/videos/services/' . $basename;
+        $variants[] = '/assets/videos/services/' . $basename;
+        if ($base_path !== '') {
+            $variants[] = $base_path . '/public/assets/videos/services/' . $basename;
+            $variants[] = $base_path . '/assets/videos/services/' . $basename;
+        }
+    }
+
+    $clean = [];
+    foreach ($variants as $variant) {
+        $variant = trim((string)$variant);
+        if ($variant === '') {
+            continue;
+        }
+
+        if (preg_match('#^https?://#i', $variant)) {
+            $parts = parse_url($variant);
+            if (!empty($parts['path'])) {
+                $variant = $parts['path'];
+            }
+        }
+
+        if ($variant !== '' && $variant[0] !== '/' && !preg_match('#^https?://#i', $variant)) {
+            $variant = '/' . ltrim($variant, '/');
+        }
+
+        if ($base_path !== '' && strpos($variant, 'http') !== 0 && strpos($variant, $base_path . '/') !== 0) {
+            $variant = $base_path . $variant;
+        }
+
+        $clean[$variant] = true;
+    }
+
+    return array_keys($clean);
+}
+
+function pf_video_mime_type($src) {
+    $ext = strtolower(pathinfo(parse_url((string)$src, PHP_URL_PATH) ?? (string)$src, PATHINFO_EXTENSION));
+    return match ($ext) {
+        'webm' => 'video/webm',
+        'mov' => 'video/quicktime',
+        'ogv' => 'video/ogg',
+        'avi' => 'video/x-msvideo',
+        default => 'video/mp4',
+    };
+}
+
+function pf_render_video_sources($sources) {
+    $html = '';
+    foreach ($sources as $src) {
+        $html .= '<source src="' . htmlspecialchars($src) . '" type="' . htmlspecialchars(pf_video_mime_type($src)) . '">' . "\n";
+    }
+    return $html;
+}
+
 function pf_normalize_review_media_path($path, $base_path, $folder = '') {
     $path = trim((string)$path);
     if ($path === '') {
@@ -416,11 +502,16 @@ if (!empty($service['display_image'])) {
 
 // Include video if present
 $display_video = '';
+$display_video_sources = [];
 if (!empty($service['video_url'])) {
     $vid = trim($service['video_url']);
     if ($vid !== '') {
         $vid = pf_normalize_service_media_path($vid, $base_path, $default_service_img);
         $display_video = $vid;
+        $display_video_sources = pf_service_video_candidates($service['video_url'], $base_path);
+        if (empty($display_video_sources)) {
+            $display_video_sources = [$vid];
+        }
         $display_images[] = ['type' => 'video', 'src' => $vid];
     }
 }
@@ -434,6 +525,9 @@ if (empty($display_images) && !empty($service['hero_image'])) {
 // Use first item or placeholder
 $display_img = !empty($display_images) ? $display_images[0]['src'] : 'https://placehold.co/600x600/f8fafc/0f172a?text=' . urlencode($service['name']);
 $display_img_type = !empty($display_images) ? $display_images[0]['type'] : 'image';
+$display_video_poster = !empty($service['hero_image'])
+    ? pf_normalize_service_media_path($service['hero_image'], $base_path, $default_service_img)
+    : (!empty($display_images) && $display_images[0]['type'] === 'image' ? $display_images[0]['src'] : $default_service_img);
 
 $stats = service_order_get_page_stats($service['customer_link'] ?? '');
 $avg_rating = number_format((float)($stats['avg_rating'] ?? 0), 1);
@@ -465,11 +559,20 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <div id="image-carousel" data-current-index="0" style="position:relative;width:100%;height:500px;overflow:hidden;border-radius:0;background:#f9fafb;isolation:isolate;pointer-events:auto;">
                                 <?php foreach ($display_images as $index => $media): ?>
                                     <?php if ($media['type'] === 'video'): ?>
-                                        <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:none;">
+                                        <div class="carousel-item" data-index="<?php echo $index; ?>" style="position:absolute;top:0;left:<?php echo $index === 0 ? '0' : '100%'; ?>;width:100%;height:100%;transition:left 0.4s ease-in-out;pointer-events:auto;">
                                             <video id="carousel-video-<?php echo $index; ?>"
-                                                   src="<?php echo htmlspecialchars($media['src']); ?>"
+                                                   poster="<?php echo htmlspecialchars($display_video_poster); ?>"
                                                    style="width:100%;height:100%;object-fit:cover;display:block;"
-                                                   autoplay muted loop playsinline>
+                                                   controls
+                                                   controlsList="nodownload"
+                                                   disablePictureInPicture
+                                                   preload="metadata"
+                                                   autoplay
+                                                   muted
+                                                   loop
+                                                   playsinline
+                                                   webkit-playsinline="true">
+                                                <?php echo pf_render_video_sources($display_video_sources); ?>
                                             </video>
                                             <div style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:0.05em;">VIDEO</div>
                                         </div>
@@ -525,7 +628,10 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                                         var video = item.querySelector ? item.querySelector('video') : null;
                                         if (!video) return;
                                         if (i === next) video.play().catch(function() {});
-                                        else video.pause();
+                                        else {
+                                            video.pause();
+                                            try { video.currentTime = 0; } catch (e) {}
+                                        }
                                     });
 
                                     window.setTimeout(function() {
@@ -594,11 +700,22 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             </div>
                         <?php else: ?>
                             <!-- Single Media -->
-                            <div style="width:100%;height:500px;border-radius:8px;background:#f9fafb;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e5e7eb;position:relative;">
+                            <div class="single-media-frame" style="width:100%;height:500px;border-radius:8px;background:#f9fafb;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e5e7eb;position:relative;">
                                 <?php if ($display_img_type === 'video'): ?>
-                                    <video id="single-video" src="<?php echo htmlspecialchars($display_img); ?>"
+                                    <video id="single-video"
+                                           poster="<?php echo htmlspecialchars($display_video_poster); ?>"
                                            style="width:100%;height:100%;object-fit:cover;display:block;"
-                                           autoplay muted loop playsinline></video>
+                                           controls
+                                           controlsList="nodownload"
+                                           disablePictureInPicture
+                                           preload="metadata"
+                                           autoplay
+                                           muted
+                                           loop
+                                           playsinline
+                                           webkit-playsinline="true">
+                                        <?php echo pf_render_video_sources($display_video_sources); ?>
+                                    </video>
                                     <button type="button" onclick="toggleSingleMute()" title="Toggle sound"
                                         style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20;padding:0;"
                                         onmouseover="this.style.background='rgba(0,0,0,0.85)'" onmouseout="this.style.background='rgba(0,0,0,0.6)'">
@@ -846,7 +963,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     $created_raw = trim((string)($review['created_at'] ?? ''));
                     $created_ts = $created_raw !== '' ? strtotime($created_raw) : false;
                     $created_label = ($created_ts !== false && $created_ts >= strtotime('2000-01-01 00:00:00'))
-                        ? date('Y-m-d H:i', $created_ts)
+                        ? date('M j, Y g:i A', $created_ts)
                         : '';
                 ?>
                 <div id="review-<?php echo $review['id']; ?>" class="poc-review-item" data-rating="<?php echo $rating; ?>" data-has-comment="<?php echo $has_comment?'1':'0'; ?>" data-has-media="<?php echo $has_media?'1':'0'; ?>" style="padding:1.5rem;border-bottom:1px solid #e5e7eb;">
@@ -1011,6 +1128,24 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
     .service-action-buttons > a,
     .service-action-buttons > button { flex: 1 1 100%; width: 100%; }
 }
+@media (max-width: 640px) {
+    .sticky-image-container,
+    #estimated-price-display { position: static !important; top: auto !important; }
+    .single-media-frame,
+    #image-carousel { height: min(72vw, 320px) !important; max-height: 320px !important; }
+    .shopee-card { padding: 1rem !important; gap: 1rem !important; }
+    .shopee-form-section { padding-right: 0 !important; }
+    .shopee-form-field > .input-field,
+    .shopee-form-field > .shopee-opt-btn,
+    .shopee-form-field > .shopee-opt-group,
+    .shopee-form-field select,
+    .shopee-form-field textarea,
+    .shopee-form-field input[type="date"],
+    .shopee-form-field input[type="text"],
+    .shopee-form-field input[type="number"] { width: 100% !important; max-width: 100% !important; }
+    .shopee-opt-group { width: 100%; }
+    .poc-video-thumb { max-width: 100%; }
+}
 .field-error { display: flex !important; align-items: center; gap: 0.375rem; color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; padding-left: 0; width: 100% !important; min-width: 100% !important; flex-basis: 100% !important; order: 999; clear: both; }
 .field-error::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; }
 .field-invalid { border-color: #ef4444 !important; }
@@ -1159,6 +1294,7 @@ function updateCarouselVideos(items) {
             }
         } else {
             vid.pause();
+            try { vid.currentTime = 0; } catch (e) {}
         }
     });
 

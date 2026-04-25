@@ -6,6 +6,49 @@
 
 require_once __DIR__ . '/service_field_config_helper.php';
 
+function pf_format_service_time_label($value) {
+    $value = trim((string)$value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (preg_match('/\b(am|pm)\b/i', $value)) {
+        return $value;
+    }
+
+    $formatSingle = static function ($time) {
+        $time = trim((string)$time);
+        if (!preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $time, $m)) {
+            return null;
+        }
+
+        $hour = (int)$m[1];
+        $minute = $m[2];
+        $suffix = $hour >= 12 ? 'PM' : 'AM';
+        $hour12 = $hour % 12;
+        if ($hour12 === 0) {
+            $hour12 = 12;
+        }
+
+        return $hour12 . ':' . $minute . ' ' . $suffix;
+    };
+
+    if (preg_match('/^([01]?\d|2[0-3]):([0-5]\d)\s*-\s*([01]?\d|2[0-3]):([0-5]\d)$/', $value, $m)) {
+        $start = $formatSingle($m[1] . ':' . $m[2]);
+        $end = $formatSingle($m[3] . ':' . $m[4]);
+        if ($start !== null && $end !== null) {
+            return $start . ' - ' . $end;
+        }
+    }
+
+    $single = $formatSingle($value);
+    return $single !== null ? $single : $value;
+}
+
+function pf_service_option_label($value) {
+    return pf_format_service_time_label($value);
+}
+
 /**
  * Render a single field based on configuration
  */
@@ -114,7 +157,8 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                     if (isset($nestedValuesSet[strtolower(trim($optionValue))])) continue;
                     
                     $value = htmlspecialchars($optionValue);
-                    $html .= '<option value="' . $value . '" data-price="' . htmlspecialchars((string)$optionPrice) . '">' . $value . '</option>';
+                    $displayValue = htmlspecialchars(pf_service_option_label($optionValue));
+                    $html .= '<option value="' . $value . '" data-price="' . htmlspecialchars((string)$optionPrice) . '">' . $displayValue . '</option>';
                 }
                 $html .= '</select>';
             }
@@ -130,11 +174,12 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 if (empty($nestedFields) && isset($nestedValuesSet[strtolower(trim($optionValue))])) continue;
                 
                 $value = htmlspecialchars($optionValue);
+                $displayValue = htmlspecialchars(pf_service_option_label($optionValue));
                 $is_checked = ($saved_value == $optionValue) ? ' checked' : '';
                 $optionPrice = is_array($option) ? ($option['price'] ?? 0) : 0;
                 $html .= '<label class="shopee-opt-btn' . ($is_checked ? ' active' : '') . '">';
                 $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="' . htmlspecialchars((string)$optionPrice) . '" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \'' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
-                $html .= '<span>' . $value . '</span>';
+                $html .= '<span>' . $displayValue . '</span>';
                 $html .= '</label>';
             }
             $html .= '</div>';
@@ -173,7 +218,8 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                                 foreach ($nestedField['options'] ?? [] as $nOpt) {
                                     $nOptVal = is_array($nOpt) ? ($nOpt['value'] ?? '') : $nOpt;
                                     $nVal = htmlspecialchars($nOptVal);
-                                    $html .= '<option value="' . $nVal . '">' . $nVal . '</option>';
+                                    $nDisplay = htmlspecialchars(pf_service_option_label($nOptVal));
+                                    $html .= '<option value="' . $nVal . '">' . $nDisplay . '</option>';
                                 }
                                 $html .= '</select>';
                                 break;
@@ -183,9 +229,10 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                                 foreach ($nestedField['options'] ?? [] as $nOpt) {
                                     $nOptVal = is_array($nOpt) ? ($nOpt['value'] ?? '') : $nOpt;
                                     $nVal = htmlspecialchars($nOptVal);
+                                    $nDisplay = htmlspecialchars(pf_service_option_label($nOptVal));
                                     $html .= '<label class="shopee-opt-btn">';
                                     $html .= '<input type="radio" name="' . htmlspecialchars($nestedKey) . '" value="' . $nVal . '" style="display:none;" ' . $nestedRequired . ' onchange="updateOptVisual(this)">';
-                                    $html .= '<span>' . $nVal . '</span>';
+                                    $html .= '<span>' . $nDisplay . '</span>';
                                     $html .= '</label>';
                                 }
                                 $html .= '</div>';
