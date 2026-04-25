@@ -154,13 +154,14 @@ if (!function_exists('pf_order_ui_is_product_item')) {
         $item_type = strtolower(trim((string)($item['type'] ?? '')));
         $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
         $product_id = (int)($item['product_id'] ?? 0);
+        $service_id = (int)($item['service_id'] ?? 0);
+
+        if ($source_page === 'services' || $item_type === 'service' || strpos($cart_key, 'service_') === 0 || $service_id > 0 || !empty($custom['service_type'])) {
+            return false;
+        }
 
         if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
             return true;
-        }
-
-        if (!empty($custom['service_type'])) {
-            return false;
         }
 
         return $product_id > 0;

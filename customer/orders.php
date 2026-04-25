@@ -923,30 +923,66 @@ require_once __DIR__ . '/../includes/header.php';
 <?php 
 // Inline helper for this specific page theme
 function get_preview_image_for_order_ui($order, $display_name) {
+    $custom = [];
+    if (!empty($order['first_item_customization'])) {
+        $decoded = json_decode((string)$order['first_item_customization'], true);
+        $custom = is_array($decoded) ? $decoded : [];
+    }
+
+    $is_service_order = !empty($custom['service_type']);
+
     if (!empty($order['first_item_has_design']) && !empty($order['first_item_id'])) {
         return BASE_URL . "/public/serve_design.php?type=order_item&id=" . (int)$order['first_item_id'];
     }
-    $product_img = "";
-    $pn = trim($order['first_product_name'] ?? '');
-    if ($pn && strtolower($display_name) === strtolower($pn)) {
+
+    if (!$is_service_order) {
         if (!empty($order['first_product_image'])) {
-            $img = $order['first_product_image'];
-            if ($img[0] !== '/' && strpos($img, 'http') === false) {
-                if (file_exists(__DIR__ . '/../uploads/products/' . $img)) {
-                    return BASE_URL . '/uploads/products/' . $img;
+            $img = (string)$order['first_product_image'];
+            if ($img !== '') {
+                if ($img[0] !== '/' && strpos($img, 'http') === false) {
+                    if (file_exists(__DIR__ . '/../uploads/products/' . $img)) {
+                        return BASE_URL . '/uploads/products/' . $img;
+                    }
+                    if (file_exists(__DIR__ . '/../public/images/products/' . $img)) {
+                        return BASE_URL . '/public/images/products/' . $img;
+                    }
+                } else {
+                    return $img;
                 }
-            } else {
-                return $img;
             }
         }
+
         $prod_id = (int)($order['first_product_id'] ?? 0);
         if ($prod_id > 0) {
             $img_base = __DIR__ . "/../public/images/products/product_" . $prod_id;
             if (file_exists($img_base . ".jpg")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".jpg";
             if (file_exists($img_base . ".png")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".png";
+            if (file_exists($img_base . ".jpeg")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".jpeg";
+            if (file_exists($img_base . ".webp")) return BASE_URL . "/public/images/products/product_" . $prod_id . ".webp";
         }
     }
-    return get_service_image_url($display_name);
+
+    $service_name = trim((string)($custom['service_type'] ?? $display_name));
+    if ($service_name !== '') {
+        $service_rows = db_query(
+            "SELECT display_image, hero_image FROM services WHERE name = ? LIMIT 1",
+            's',
+            [$service_name]
+        );
+        if (!empty($service_rows)) {
+            $display_image = trim((string)($service_rows[0]['display_image'] ?? ''));
+            $hero_image = trim((string)($service_rows[0]['hero_image'] ?? ''));
+            $candidate = $display_image !== '' ? trim(explode(',', $display_image)[0]) : $hero_image;
+            if ($candidate !== '') {
+                $resolved = pf_order_ui_asset_url($candidate);
+                if (!empty($resolved)) {
+                    return $resolved;
+                }
+            }
+        }
+    }
+
+    return get_service_image_url($service_name !== '' ? $service_name : $display_name);
 }
 ?>
 
