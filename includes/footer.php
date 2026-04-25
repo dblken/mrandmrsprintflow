@@ -223,11 +223,11 @@ function _ft_detect_social(string $url): array {
     <?php
     $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
     $current_script_name = strtolower(basename($request_path));
-    $current_script_dir = strtolower(trim(str_replace('\\', '/', dirname($request_path)), '/'));
+    $current_script_dir = strtolower(basename(trim(str_replace('\\', '/', dirname($request_path)), '/')));
     if ($current_script_name === '' || substr($current_script_name, -4) !== '.php') {
         $current_script_name = strtolower(basename($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
     }
-    if ($current_script_dir === '.' || $current_script_dir === '/') {
+    if ($current_script_dir === '.' || $current_script_dir === '/' || $current_script_dir === '\\') {
         $current_script_dir = '';
     }
     $chatbot_allowed_pages = ['index.php', 'about.php', 'services.php', 'products.php'];
