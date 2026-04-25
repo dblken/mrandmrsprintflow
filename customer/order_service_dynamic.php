@@ -646,7 +646,80 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 
         <!-- Product Ratings Section -->
         <?php
-        $reviews = printflow_get_service_reviews((string)$service['name'], null, (int)$customer_id);
+        $review_schema = printflow_review_schema();
+        $review_aliases = printflow_service_name_aliases((string)$service['name']);
+        $review_tables = array_flip(array_column(db_query("SHOW TABLES") ?: [], 0));
+        $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+        $review_message_expr = isset($review_cols['comment']) ? 'r.comment' : (isset($review_cols['message']) ? 'r.message' : "''");
+        $review_user_expr = isset($review_cols['user_id']) ? 'r.user_id' : (isset($review_cols['customer_id']) ? 'r.customer_id' : '0');
+        $review_service_expr = !empty($review_schema['service_col']) ? 'r.' . $review_schema['service_col'] : "''";
+        $review_created_expr = !empty($review_schema['created_col']) ? 'r.' . $review_schema['created_col'] : 'NOW()';
+        $review_video_expr = isset($review_cols['video_path']) ? 'r.video_path' : "''";
+        $review_helpful_sql = isset($review_tables['review_helpful'])
+            ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
+            : '0 as helpful_count,';
+        $review_voted_sql = isset($review_tables['review_helpful'])
+            ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND user_id = ?) as user_voted'
+            : '0 as user_voted';
+
+        $reviews = [];
+        if (!empty($review_aliases)) {
+            $review_where_parts = [];
+            $review_types = '';
+            $review_params = [];
+
+            if (!empty($review_schema['service_col'])) {
+                $service_placeholders = implode(',', array_fill(0, count($review_aliases), '?'));
+                $review_where_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci IN ($service_placeholders)";
+                $review_types .= str_repeat('s', count($review_aliases));
+                array_push($review_params, ...$review_aliases);
+            }
+
+            $order_match_parts = [];
+            $order_name_placeholders = implode(',', array_fill(0, count($review_aliases), '?'));
+            $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_name_placeholders)";
+            $review_types .= str_repeat('s', count($review_aliases));
+            array_push($review_params, ...$review_aliases);
+
+            foreach ($review_aliases as $alias) {
+                $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
+                $review_types .= 's';
+                $review_params[] = '%' . $alias . '%';
+            }
+
+            $review_where_parts[] = "EXISTS (
+                SELECT 1
+                FROM order_items oi
+                LEFT JOIN products p ON p.product_id = oi.product_id
+                WHERE oi.order_id = r.order_id
+                  AND (" . implode(' OR ', $order_match_parts) . ")
+            )";
+
+            $review_sql = "SELECT DISTINCT
+                 r.id,
+                 {$review_user_expr} AS user_id,
+                 {$review_service_expr} AS service_type,
+                 r.rating,
+                 {$review_message_expr} AS comment,
+                 {$review_video_expr} AS video_path,
+                 {$review_created_expr} AS created_at,
+                 c.first_name,
+                 c.last_name,
+                 c.profile_picture,
+                 {$review_helpful_sql}
+                 {$review_voted_sql}
+                 FROM reviews r
+                 LEFT JOIN customers c ON {$review_user_expr} = c.customer_id
+                 WHERE " . implode(' OR ', $review_where_parts) . "
+                 ORDER BY {$review_created_expr} DESC";
+
+            if (isset($review_tables['review_helpful'])) {
+                $review_types = 'i' . $review_types;
+                array_unshift($review_params, (int)$customer_id);
+            }
+
+            $reviews = db_query($review_sql, $review_types, $review_params) ?: [];
+        }
 
         $total_reviews = count($reviews);
         $avg_rating = $total_reviews > 0 ? array_sum(array_column($reviews, 'rating')) / $total_reviews : 0;
