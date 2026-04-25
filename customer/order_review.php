@@ -32,8 +32,73 @@ function review_render_item_summary(array $item): void {
     <?php
 }
 
+function review_item_is_product(array $item): bool {
+    $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
+    $item_type = strtolower(trim((string)($item['type'] ?? '')));
+    $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
+
+    return $source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0;
+}
+
+function review_catalog_unit_price(array $item): ?float {
+    static $cache = [];
+
+    $product_id = (int)($item['product_id'] ?? 0);
+    if ($product_id <= 0) {
+        return null;
+    }
+
+    $variant_id = isset($item['variant_id']) ? (int)$item['variant_id'] : 0;
+    $cache_key = $product_id . ':' . $variant_id;
+    if (array_key_exists($cache_key, $cache)) {
+        return $cache[$cache_key];
+    }
+
+    if ($variant_id > 0) {
+        $variant = db_query(
+            "SELECT price FROM product_variants WHERE variant_id = ? AND product_id = ? LIMIT 1",
+            'ii',
+            [$variant_id, $product_id]
+        );
+        if (!empty($variant)) {
+            return $cache[$cache_key] = (float)$variant[0]['price'];
+        }
+    }
+
+    $product = db_query(
+        "SELECT price FROM products WHERE product_id = ? LIMIT 1",
+        'i',
+        [$product_id]
+    );
+
+    return $cache[$cache_key] = (!empty($product) ? (float)$product[0]['price'] : null);
+}
+
 function review_item_unit_price(array $item): float {
-    return (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0);
+    $raw_price = (float)($item['price'] ?? $item['unit_price'] ?? $item['estimated_price'] ?? 0);
+    if (!review_item_is_product($item)) {
+        return $raw_price;
+    }
+
+    $catalog_unit_price = review_catalog_unit_price($item);
+    if ($catalog_unit_price === null || $catalog_unit_price <= 0) {
+        return $raw_price;
+    }
+
+    $quantity = review_item_quantity($item);
+    if ($raw_price <= 0) {
+        return $catalog_unit_price;
+    }
+
+    if (abs($raw_price - $catalog_unit_price) < 0.01) {
+        return $catalog_unit_price;
+    }
+
+    if ($quantity > 1 && abs($raw_price - ($catalog_unit_price * $quantity)) < 0.01) {
+        return $catalog_unit_price;
+    }
+
+    return $raw_price;
 }
 
 function review_item_quantity(array $item): int {

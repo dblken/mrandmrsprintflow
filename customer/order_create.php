@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 'source_page'     => 'products',
                 'product_id'      => $product_id,
                 'name'            => $product['name'],
-                'price'           => (float)$product['price'] * $quantity,
+                'price'           => (float)$product['price'],
                 'quantity'        => $quantity,
                 'category'        => $product['category'],
                 'branch_id'       => $branch_id,

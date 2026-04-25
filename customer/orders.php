@@ -648,7 +648,7 @@ require_once __DIR__ . '/../includes/header.php';
 .im-total-value { color: #0f172a; }
 .im-note-card { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #94a3b8; border-radius: 8px; }
 .im-note-label { font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.45rem; }
-.im-note-copy { font-size: 0.82rem; color: #334155; line-height: 1.6; font-weight: 600; }
+.im-note-copy { display:block; margin-top:0.2rem; font-size: 0.82rem; color: #334155; line-height: 1.6; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .im-reject-card {
     padding: 0.95rem 1rem;
     background: #fff7f7;
