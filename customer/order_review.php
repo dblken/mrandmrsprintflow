@@ -490,15 +490,7 @@ foreach ($items_to_review as $key => $item) {
 // Determine if any item has customization
 $is_product_order = true;
 foreach ($items_to_review as $item) {
-    $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
-    $item_type = strtolower(trim((string)($item['type'] ?? '')));
-    $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
-    if ($source_page === 'products' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
-        continue;
-    }
-
-    $custom = review_item_customization($item);
-    if ($source_page === 'services' || $item_type === 'service' || !empty($custom)) {
+    if (review_item_is_service($item)) {
         $is_product_order = false;
         break;
     }

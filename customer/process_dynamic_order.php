@@ -173,13 +173,13 @@ if ($action === 'buy_now') {
         $customer_id,
         $branch_id,
         $product_id,
-        0, // total_amount - will be set by staff
+        0, // total_amount
         0, // downpayment_amount
-        'Pending', // status
+        'To Pay', // status
         'Unpaid', // payment_status
         'full_payment', // payment_type
         null, // notes
-        'custom' // order_type
+        'product' // order_type
     ]);
     
     if ($order_id) {

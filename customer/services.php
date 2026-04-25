@@ -156,14 +156,14 @@ function render_service_card($srv) {
     <div class="shopee-card" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_images; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
         <?php if ($is_video): ?>
             <video
-                src="<?php echo htmlspecialchars($img); ?>#t=0.1"
+                src="<?php echo htmlspecialchars($img); ?>#t=1"
                 class="shopee-img"
                 muted
                 playsinline
                 preload="metadata"
-                autoplay
-                loop
-                onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
+                onloadedmetadata="try{this.currentTime=1;}catch(e){}"
+                onseeked="this.style.opacity='1';"
+                style="background:#f8fafc;opacity:0;"
             ></video>
         <?php else: ?>
             <img src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($srv['name']); ?>" class="shopee-img" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($default_service_img); ?>';">
@@ -458,14 +458,17 @@ function openServiceModal(id, name, category, images, link, is_service, price, s
         let mediaEl;
         if (isVideoMedia(img)) {
             mediaEl = document.createElement('video');
-            mediaEl.src = img + (String(img).includes('#') ? '' : '#t=0.1');
+            mediaEl.src = img + (String(img).includes('#') ? '' : '#t=1');
             mediaEl.muted = true;
-            mediaEl.autoplay = true;
-            mediaEl.loop = true;
             mediaEl.playsInline = true;
             mediaEl.preload = 'metadata';
+            mediaEl.style.background = '#f8fafc';
+            mediaEl.style.opacity = '0';
             mediaEl.onloadedmetadata = function() {
-                try { this.currentTime = 0.1; } catch (e) {}
+                try { this.currentTime = 1; } catch (e) {}
+            };
+            mediaEl.onseeked = function() {
+                this.style.opacity = '1';
             };
         } else {
             mediaEl = document.createElement('img');
@@ -628,7 +631,7 @@ function loadModalReviews(serviceId) {
                     if (rv.video_path) {
                         html += `<div style="margin-bottom:0.75rem; max-width:260px;">`;
                         html += `<div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:8px; overflow:hidden; border:1px solid rgba(83,197,224,0.2);">`;
-                        html += `<video src="${rv.video_path}#t=0.1" controls playsinline preload="metadata" style="width:100%; height:100%; object-fit:cover;" onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"></video>`;
+                        html += `<video src="${rv.video_path}#t=1" controls playsinline preload="metadata" style="width:100%; height:100%; object-fit:cover;background:#f8fafc;" onloadedmetadata="try{this.currentTime=1;}catch(e){}"></video>`;
                         html += `</div></div>`;
                     }
 

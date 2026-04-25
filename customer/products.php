@@ -9,6 +9,11 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
 
+function pf_product_media_is_video($path) {
+    $path = strtolower(trim((string)$path));
+    return (bool)preg_match('/\.(mp4|webm|mov|m4v)(?:[\?#].*)?$/', $path);
+}
+
 // Reviews table columns vary across deployments
 $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
 $review_service_expr = isset($review_cols['service_type']) ? 'r.service_type' : "''";
@@ -326,6 +331,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php foreach ($products as $product): 
                     $display_img = $product['photo_path'] ?: $product['product_image'] ?: "/printflow/public/assets/images/services/default.png";
                     if ($display_img[0] !== '/' && strpos($display_img, 'http') === false) $display_img = '/' . $display_img;
+                    $is_video_media = pf_product_media_is_video($display_img);
                     
                     $sold_count = (int)$product['sold_count'];
                     $avg_rating = (float)$product['avg_rating'];
@@ -335,7 +341,20 @@ require_once __DIR__ . '/../includes/header.php';
                     $stock_display = $stock >= 1000 ? number_format($stock / 1000, 1) . 'k' : $stock;
                 ?>
                     <div class="shopee-card" onclick="window.location.href='order_create.php?product_id=<?php echo $product['product_id']; ?>'">
-                        <img src="<?php echo htmlspecialchars($display_img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="shopee-img">
+                        <?php if ($is_video_media): ?>
+                            <video
+                                src="<?php echo htmlspecialchars($display_img); ?>#t=1"
+                                class="shopee-img"
+                                muted
+                                playsinline
+                                preload="metadata"
+                                onloadedmetadata="try{this.currentTime=1;}catch(e){}"
+                                onseeked="this.style.opacity='1';"
+                                style="background:#f8fafc;opacity:0;"
+                            ></video>
+                        <?php else: ?>
+                            <img src="<?php echo htmlspecialchars($display_img); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="shopee-img">
+                        <?php endif; ?>
                         <div class="shopee-body">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                                 <span class="shopee-category"><?php echo htmlspecialchars($product['category']); ?></span>

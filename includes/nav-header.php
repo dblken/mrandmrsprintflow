@@ -64,6 +64,7 @@ if ($initials === '') {
             --pf-notif-empty: <?php echo $pf_customer_notif_theme ? '#64748b' : 'rgba(255,255,255,0.4)'; ?>;
             --pf-notif-scroll-track: <?php echo $pf_customer_notif_theme ? '#f8fafc' : 'rgba(83,197,224,0.05)'; ?>;
             --pf-notif-scroll-thumb: <?php echo $pf_customer_notif_theme ? 'rgba(14, 116, 144, 0.28)' : 'rgba(83,197,224,0.3)'; ?>;
+            --pf-notif-footer-bg: <?php echo $pf_customer_notif_theme ? '#ffffff' : 'transparent'; ?>;
         }
         #main-header .pf-header-shell { display: flex; align-items: center; gap: 1rem; }
         #main-header .pf-header-left { flex: 0 0 auto; min-width: 0; }
@@ -92,23 +93,23 @@ if ($initials === '') {
         @media (max-width: 768px) {
             #main-header .pf-notif-dropdown { right: -10px; width: 300px; }
         }
-        #main-header .pf-notif-header { padding: 12px 16px; border-bottom: 1px solid var(--pf-notif-item-border); display: flex; align-items: center; justify-content: space-between; background: var(--pf-notif-header-bg); }
-        #main-header .pf-notif-header span { font-size: 0.7rem; font-weight: 800; color: var(--pf-notif-header-text); text-transform: uppercase; letter-spacing: 0.05em; }
-        #main-header .pf-notif-header a { font-size: 0.7rem !important; color: var(--pf-notif-header-text); text-decoration: none; font-weight: 800 !important; text-transform: uppercase; letter-spacing: 0.05em; }
+        #main-header .pf-notif-header { padding: 16px 20px; border-bottom: 1px solid var(--pf-notif-item-border); display: flex; align-items: center; justify-content: space-between; background: var(--pf-notif-header-bg); }
+        #main-header .pf-notif-header span { font-size: 0.72rem; font-weight: 800; color: var(--pf-notif-header-text); text-transform: uppercase; letter-spacing: 0.05em; }
+        #main-header .pf-notif-header a { font-size: 0.72rem !important; color: var(--pf-notif-header-text); text-decoration: none; font-weight: 800 !important; text-transform: none; letter-spacing: 0; }
         #main-header .pf-notif-list { overflow-y: auto; flex: 1; }
         #main-header .pf-notif-list::-webkit-scrollbar { width: 6px; }
         #main-header .pf-notif-list::-webkit-scrollbar-track { background: var(--pf-notif-scroll-track); border-radius: 10px; }
         #main-header .pf-notif-list::-webkit-scrollbar-thumb { background: var(--pf-notif-scroll-thumb); border-radius: 10px; }
         #main-header .pf-notif-list::-webkit-scrollbar-thumb:hover { background: var(--pf-notif-header-text); }
-        #main-header .pf-notif-item { display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--pf-notif-item-border); transition: background 0.2s; text-decoration: none; align-items: flex-start; }
+        #main-header .pf-notif-item { display: flex; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--pf-notif-item-border); transition: background 0.2s; text-decoration: none; align-items: flex-start; }
         #main-header .pf-notif-item:hover { background: var(--pf-notif-item-hover); }
-        #main-header .pf-notif-item.unread { background: var(--pf-notif-item-unread); border-left: 3px solid #53c5e0; }
+        #main-header .pf-notif-item.unread { background: var(--pf-notif-item-unread); border-left: 3px solid #53c5e0; padding-left: 17px; }
         #main-header .pf-notif-item-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--pf-notif-item-icon-bg); display: flex; align-items: center; justify-content: center; color: #53c5e0; flex-shrink: 0; }
         #main-header .pf-notif-item-content { flex: 1; min-width: 0; }
         #main-header .pf-notif-item-text { font-size: 0.8rem; color: var(--pf-notif-text); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         #main-header .pf-notif-item-time { font-size: 0.7rem; color: var(--pf-notif-time); font-weight: 600; }
-        #main-header .pf-notif-footer { padding: 8px; border-top: 1px solid var(--pf-notif-item-border); text-align: center; }
-        #main-header .pf-notif-footer a { font-size: 0.7rem !important; color: var(--pf-notif-header-text); font-weight: 800 !important; text-decoration: none; text-transform: uppercase; letter-spacing: 0.05em; }
+        #main-header .pf-notif-footer { padding: 12px; border-top: 1px solid var(--pf-notif-item-border); text-align: center; background: var(--pf-notif-footer-bg); }
+        #main-header .pf-notif-footer a { font-size: 0.72rem !important; color: var(--pf-notif-header-text); font-weight: 800 !important; text-decoration: none; text-transform: none; letter-spacing: 0; }
         #main-header .pf-notif-empty { padding: 32px 16px; text-align: center; color: var(--pf-notif-empty); font-size: 0.85rem; }
         #main-header .pf-avatar { width: 2.55rem; height: 2.55rem; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(83,197,224,.45); background: linear-gradient(135deg, rgba(83,197,224,.24), rgba(50,161,196,.4)); display: inline-flex; align-items: center; justify-content: center; color: #e6f7fc; font-size: .78rem; font-weight: 700; letter-spacing: .02em; }
         #main-header .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }

@@ -11,6 +11,32 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
+function checkout_item_is_service(array $item): bool {
+    $custom = $item['customization'] ?? [];
+    if (is_string($custom)) {
+        $decoded = json_decode($custom, true);
+        $custom = is_array($decoded) ? $decoded : [];
+    }
+
+    $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
+    $item_type = strtolower(trim((string)($item['type'] ?? '')));
+    $product_id = (int)($item['product_id'] ?? 0);
+
+    if ($source_page === 'services' || $item_type === 'service') {
+        return true;
+    }
+
+    if (!empty($custom['service_type'])) {
+        return true;
+    }
+
+    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product') {
+        return false;
+    }
+
+    return $product_id <= 0;
+}
+
 $cart_items = $_SESSION['cart'] ?? [];
 
 if (empty($cart_items)) {
@@ -75,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             if ($reference_id === null && !empty($item['product_id'])) {
                 $reference_id = $item['product_id'];
             }
-            if (($item['type'] ?? '') === 'Service' || !empty($item['customization'])) {
+            if (checkout_item_is_service($item)) {
                 $order_type = 'custom';
                 break;
             }
@@ -93,8 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             foreach ($cart_items as $pid => $item) {
                 // Determine service_type for better display in history/notifications
                 $custom = $item['customization'] ?? [];
-                if (empty($custom['service_type']) && !empty($item['name']) && ($item['type'] ?? '') === 'Service') {
+                if (checkout_item_is_service($item) && empty($custom['service_type']) && !empty($item['name'])) {
                     $custom['service_type'] = $item['name'];
+                } elseif (!checkout_item_is_service($item) && empty($custom['product_type']) && !empty($item['name'])) {
+                    $custom['product_type'] = $item['name'];
                 }
                 
                 $custom_data    = json_encode($custom);
