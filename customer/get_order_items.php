@@ -211,16 +211,18 @@ foreach ($service_items_raw as $entry) {
 foreach ($service_items_raw as $index => $entry) {
     $payload = $entry['payload'];
     $raw_subtotal = (float)($entry['raw_subtotal'] ?? 0);
-    $final_item_amount = $raw_subtotal;
+    $final_item_amount = null;
 
-    if ($item_count === 1) {
+    if ($order_total_amount > 0 && $item_count === 1) {
         $final_item_amount = $order_total_amount > 0 ? $order_total_amount : $raw_subtotal;
     } elseif ($estimated_sum > 0 && $order_total_amount > 0) {
         $final_item_amount = ($raw_subtotal / $estimated_sum) * $order_total_amount;
     }
 
     $payload['estimated_price'] = format_currency($raw_subtotal);
-    $payload['final_price'] = format_currency($final_item_amount);
+    $payload['final_price'] = ($final_item_amount !== null && $final_item_amount > 0)
+        ? format_currency($final_item_amount)
+        : 'To Be Discussed';
     $items_out[] = $payload;
 }
 
@@ -278,7 +280,9 @@ customer_order_items_json([
             ? format_currency($estimated_order_amount)
             : 'Pending')
         : null,
-    'total_amount'     => format_currency($order['total_amount']),
+    'total_amount'     => ($is_service_order && $order_total_amount <= 0)
+        ? 'To Be Discussed'
+        : format_currency($order['total_amount']),
     'status'           => $order['status'],
     'payment_status'   => $payment_status,
     'payment_method'   => $order['payment_method'] ?? 'Not Specified',
