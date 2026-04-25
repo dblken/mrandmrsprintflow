@@ -401,7 +401,11 @@ window.pfUrl = function(path) {
         fetch(base + '/public/api/support_chat_presence.php', { credentials: 'same-origin' }).catch(function() {});
     }
     supportPresenceBeat();
-    setInterval(supportPresenceBeat, 30000);
+    setInterval(supportPresenceBeat, 10000);
+    window.addEventListener('focus', supportPresenceBeat);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') supportPresenceBeat();
+    });
 })();
 </script>
 <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>

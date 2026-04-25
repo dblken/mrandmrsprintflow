@@ -1080,6 +1080,20 @@ function _ft_detect_social(string $url): array {
         logoUrl: <?php echo json_encode($shop_logo_url); ?>
     });
     </script>
+    <script>
+    (function() {
+        function supportPresenceBeat() {
+            var base = (window.PFConfig && window.PFConfig.basePath) || '';
+            fetch(base + '/public/api/support_chat_presence.php', { credentials: 'same-origin' }).catch(function() {});
+        }
+        supportPresenceBeat();
+        setInterval(supportPresenceBeat, 10000);
+        window.addEventListener('focus', supportPresenceBeat);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') supportPresenceBeat();
+        });
+    })();
+    </script>
     <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
     <script src="<?php echo $base_url; ?>/public/assets/js/notifications.js?v=<?php echo $notif_js_ver; ?>" defer></script>
     <script src="<?php echo $base_url; ?>/public/assets/js/inactivity_logout.js" defer></script>

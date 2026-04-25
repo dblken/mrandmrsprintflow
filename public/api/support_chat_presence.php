@@ -41,8 +41,7 @@ function pf_support_staff_online(): bool {
         "SELECT user_id
          FROM users
          WHERE role IN ('Admin', 'Manager', 'Staff')
-           AND status = 'Activated'
-           AND last_activity >= DATE_SUB(NOW(), INTERVAL 90 SECOND)
+           AND last_activity >= DATE_SUB(NOW(), INTERVAL 120 SECOND)
          LIMIT 1"
     );
 
@@ -59,7 +58,7 @@ function pf_support_customer_online(?int $conversationId): bool {
          FROM chatbot_conversations cc
          INNER JOIN customers c ON c.customer_id = cc.customer_id
          WHERE cc.id = ?
-           AND c.last_activity >= DATE_SUB(NOW(), INTERVAL 90 SECOND)
+           AND c.last_activity >= DATE_SUB(NOW(), INTERVAL 120 SECOND)
          LIMIT 1",
         'i',
         [$conversationId]
