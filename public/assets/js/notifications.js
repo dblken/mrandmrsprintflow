@@ -322,7 +322,8 @@
                 '  <button type="button" data-action="enable" style="border:1px solid #0891b2;background:#0891b2;color:#ffffff;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;">' + escHtml(copy.primaryLabel) + '</button>' +
                 '</div>';
 
-            document.body.appendChild(prompt);
+            var mountTarget = document.querySelector('.main-content') || document.querySelector('.dashboard-container') || document.body;
+            mountTarget.appendChild(prompt);
 
             var closeBtn = prompt.querySelector('button[aria-label="Close"]');
             var laterBtn = prompt.querySelector('button[data-action="later"]');
