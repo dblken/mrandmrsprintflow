@@ -289,17 +289,14 @@ function service_order_get_page_stats($keyword) {
     );
     $sold_count = (int)(($sold_row[0]['cnt'] ?? 0));
 
-    $stats = db_query(
-        "SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
-         FROM reviews
-         WHERE service_type COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci",
-        's', [$s_name]
-    );
+    $review_stats = function_exists('printflow_get_service_review_stats')
+        ? printflow_get_service_review_stats($s_name)
+        : ['avg_rating' => 0, 'review_count' => 0];
 
     return [
         'sold_count'   => $sold_count,
-        'avg_rating'   => $stats[0]['avg_rating'] ?? 0,
-        'review_count' => (int)($stats[0]['review_count'] ?? 0),
+        'avg_rating'   => $review_stats['avg_rating'] ?? 0,
+        'review_count' => (int)($review_stats['review_count'] ?? 0),
         'service_id'   => $s_id,
     ];
 }

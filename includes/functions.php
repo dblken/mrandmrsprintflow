@@ -2118,6 +2118,88 @@ function normalize_service_name($name, $fallback = 'Custom Order') {
     return ucwords($clean);
 }
 
+function printflow_review_schema(): array
+{
+    static $schema = null;
+    if ($schema !== null) {
+        return $schema;
+    }
+
+    $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
+    $schema = [
+        'user_col' => isset($review_cols['user_id']) ? 'user_id' : (isset($review_cols['customer_id']) ? 'customer_id' : 'user_id'),
+        'message_col' => isset($review_cols['comment']) ? 'comment' : (isset($review_cols['message']) ? 'message' : 'comment'),
+        'service_col' => isset($review_cols['service_type']) ? 'service_type' : '',
+        'created_col' => isset($review_cols['created_at']) ? 'created_at' : '',
+    ];
+
+    return $schema;
+}
+
+function printflow_service_name_aliases(string $name): array
+{
+    $raw = trim(preg_replace('/\s+/', ' ', $name));
+    if ($raw === '') {
+        return [];
+    }
+
+    $normalized = normalize_service_name($raw, $raw);
+    $aliases = [$raw, $normalized];
+
+    $alias_map = [
+        'Tarpaulin Printing' => ['Tarpaulin', 'Tarp'],
+        'T-Shirt Printing' => ['T-Shirt', 'Tshirt', 'Tshirt Printing'],
+        'Decals/Stickers (Print/Cut)' => ['Sticker', 'Stickers', 'Decal', 'Decals'],
+        'Sintraboard Standees' => ['Sintraboard', 'Sintra Board', 'Standee', 'Standees'],
+        'Glass/Wall Stickers' => ['Glass Stickers / Wall / Frosted Stickers', 'Glass Sticker', 'Wall Sticker', 'Frosted Sticker'],
+        'Transparent Stickers' => ['Transparent Sticker'],
+        'Reflectorized' => ['Reflectorized Signage', 'Reflectorized (Subdivision Stickers/Signages)'],
+        'Souvenirs' => ['Souvenir'],
+    ];
+
+    foreach ($alias_map as $canonical => $variants) {
+        if ($raw === $canonical || $normalized === $canonical || in_array($raw, $variants, true) || in_array($normalized, $variants, true)) {
+            $aliases[] = $canonical;
+            foreach ($variants as $variant) {
+                $aliases[] = $variant;
+            }
+        }
+    }
+
+    $aliases = array_values(array_unique(array_filter(array_map(static function ($value) {
+        return trim((string)$value);
+    }, $aliases), static fn($value) => $value !== '')));
+
+    return $aliases;
+}
+
+function printflow_get_service_review_stats(string $service_name): array
+{
+    $schema = printflow_review_schema();
+    if ($schema['service_col'] === '') {
+        return ['avg_rating' => 0.0, 'review_count' => 0];
+    }
+
+    $aliases = printflow_service_name_aliases($service_name);
+    if (empty($aliases)) {
+        return ['avg_rating' => 0.0, 'review_count' => 0];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($aliases), '?'));
+    $rows = db_query(
+        "SELECT AVG(rating) AS avg_rating, COUNT(*) AS review_count
+         FROM reviews
+         WHERE {$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)",
+        str_repeat('s', count($aliases)),
+        $aliases
+    ) ?: [];
+
+    return [
+        'avg_rating' => (float)($rows[0]['avg_rating'] ?? 0),
+        'review_count' => (int)($rows[0]['review_count'] ?? 0),
+    ];
+}
+
 function get_service_name_from_customization($custom, $fallback = 'Custom Order') {
     if (!$custom) return $fallback;
     $custom = is_string($custom) ? json_decode($custom, true) : $custom;

@@ -93,6 +93,13 @@ foreach ($visible_rows as $row) {
     ];
 }
 
+foreach ($core_services as &$service_row) {
+    $review_stats = printflow_get_service_review_stats($service_row['name']);
+    $service_row['avg_rating'] = (float)($review_stats['avg_rating'] ?? 0);
+    $service_row['review_count'] = (int)($review_stats['review_count'] ?? 0);
+}
+unset($service_row);
+
 $csrf_token = generate_csrf_token();
 $page_title = 'Services - PrintFlow';
 $use_customer_css = true;

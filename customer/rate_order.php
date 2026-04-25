@@ -12,6 +12,7 @@ ensure_order_status_values(['To Rate', 'Rated']);
 
 $customer_id = get_user_id();
 $order_id = (int)($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
+$app_base = function_exists('pf_app_base_path') ? pf_app_base_path() : '';
 
 $review_cols_raw = db_query("SHOW COLUMNS FROM reviews") ?: [];
 $review_cols = array_map(static function ($col) {
@@ -34,11 +35,12 @@ if (isset($_GET['mark_read'])) {
 
 if ($order_id <= 0) {
     $_SESSION['error'] = 'Invalid order selected for rating.';
-    redirect('/printflow/customer/orders.php?tab=completed');
+    redirect($app_base . '/customer/orders.php?tab=completed');
 }
 
 $order_rows = db_query("
     SELECT o.order_id, o.customer_id, o.status,
+           (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) AS order_sku,
            (SELECT oi.customization_data FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS customization_data,
            (SELECT p.name FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS product_name,
            (SELECT oi.order_item_id FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS first_item_id
@@ -49,13 +51,13 @@ $order_rows = db_query("
 
 if (empty($order_rows)) {
     $_SESSION['error'] = 'Order not found.';
-    redirect('/printflow/customer/orders.php?tab=completed');
+    redirect($app_base . '/customer/orders.php?tab=completed');
 }
 
 $order = $order_rows[0];
 if (!in_array((string)$order['status'], ['Completed', 'To Rate', 'Rated'], true)) {
     $_SESSION['error'] = 'You can only rate completed orders.';
-    redirect('/printflow/customer/orders.php');
+    redirect($app_base . '/customer/orders.php');
 }
 
 $existing = db_query("SELECT id, rating, {$review_message_col} AS review_message, created_at FROM reviews WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
@@ -81,6 +83,7 @@ function resolve_service_type_label(array $order): string
 }
 
 $service_type_label = resolve_service_type_label($order);
+$order_code = printflow_format_order_code($order['order_id'] ?? 0, $order['order_sku'] ?? '');
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -243,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     notify_shop_users($staff_msg, 'Rating', false, false, $order_id, ['Staff', 'Admin', 'Manager']);
 
                     $_SESSION['success'] = 'Thank you! Your review has been submitted.';
-                    redirect('/printflow/customer/orders.php?tab=completed&highlight=' . $order_id);
+                    redirect($app_base . '/customer/orders.php?tab=completed&highlight=' . $order_id);
                 } catch (Throwable $e) {
                     error_log('[rate_order] order_id=' . $order_id . ' customer_id=' . $customer_id . ' error=' . $e->getMessage());
                     $error = 'Could not submit your review: ' . $e->getMessage();
@@ -269,7 +272,7 @@ require_once __DIR__ . '/../includes/header.php';
 .rate-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
 .rate-shell { background: rgba(0, 49, 61, 0.88); border: 1px solid rgba(83, 197, 224, 0.18); border-radius: 12px; overflow: hidden; }
 .rate-shell-head { background: rgba(0, 28, 36, 0.98); border-bottom: 1px solid rgba(83, 197, 224, 0.15); padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
-.rate-shell-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: #e0f2fe; }
+.rate-shell-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: #e0f2fe !important; }
 .rate-shell-sub { margin: 0.2rem 0 0; font-size: 0.92rem; color: #94a3b8; font-weight: 600; }
 .rate-back-link { display: inline-flex; align-items: center; gap: 0.45rem; color: #d7e7ee; text-decoration: none; font-weight: 700; font-size: 0.92rem; }
 .rate-back-link:hover { color: #ffffff; }
@@ -320,7 +323,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <h1 class="rate-shell-title">Rate Your Order</h1>
                     <p class="rate-shell-sub">Share your feedback for this completed order.</p>
                 </div>
-                <a class="rate-back-link" href="<?php echo BASE_URL; ?>/customer/orders.php?tab=completed">
+                <a class="rate-back-link" href="<?php echo $app_base; ?>/customer/orders.php?tab=completed">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                     Back to Orders
                 </a>
@@ -331,7 +334,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="rate-info-grid">
                         <div class="rate-info-item">
                             <span class="rate-info-label">Order</span>
-                            <div class="rate-info-value">#<?php echo str_pad((string)$order_id, 5, '0', STR_PAD_LEFT); ?></div>
+                            <div class="rate-info-value"><?php echo htmlspecialchars($order_code); ?></div>
                         </div>
                         <div class="rate-info-item">
                             <span class="rate-info-label">Service</span>
@@ -345,8 +348,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <span style="font-weight: 700;">You already submitted a review for this order.</span>
                         </div>
                         <div class="rate-actions">
-                            <a class="rate-btn-primary" href="<?php echo BASE_URL; ?>/customer/orders.php?tab=completed&highlight=<?php echo $order_id; ?>">View Your Review</a>
-                            <a class="rate-btn-secondary" href="<?php echo BASE_URL; ?>/customer/orders.php?tab=completed">Back to Orders</a>
+                            <a class="rate-btn-primary" href="<?php echo $app_base; ?>/customer/orders.php?tab=completed&highlight=<?php echo $order_id; ?>">View Your Review</a>
+                            <a class="rate-btn-secondary" href="<?php echo $app_base; ?>/customer/orders.php?tab=completed">Back to Orders</a>
                         </div>
                     <?php else: ?>
                         <?php if ($error !== ''): ?><div class="rate-error"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
@@ -400,7 +403,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div id="charCount" style="text-align: right; font-size: 11.5px; color: #64748b; margin-top: 6px; font-family: inherit; font-weight: 600;"><?php echo strlen($needs_message_update ? $existing_message : ''); ?> / 500</div>
 
                                     <div class="rate-actions" style="justify-content: flex-end; margin-top: 2rem;">
-                                        <a class="rate-btn-secondary" href="<?php echo BASE_URL; ?>/customer/orders.php?tab=completed">Skip for now</a>
+                                        <a class="rate-btn-secondary" href="<?php echo $app_base; ?>/customer/orders.php?tab=completed">Skip for now</a>
                                         <button type="submit" id="submitBtn" class="rate-btn-primary"><?php echo $needs_message_update ? 'Update Review' : 'Submit Review'; ?></button>
                                     </div>
                                 </div>
