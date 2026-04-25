@@ -259,9 +259,10 @@ function _ft_detect_social(string $url): array {
         <!-- Header -->
         <div style="padding: 18px; background: linear-gradient(135deg, #00232b, #1a5a6f); color: white; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,35,43,0.3); flex-shrink: 0;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px;">Support chat</h3>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #ffffff;">Support chat</h3>
                 <div style="display: flex; align-items: center; gap: 6px;">
-                    <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.8);">Always online</p>
+                    <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.16); display: inline-block;"></span>
+                    <p style="margin: 0; font-size: 11px; color: #ffffff; font-weight: 600;">Online</p>
                 </div>
             </div>
             <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; padding: 0; width: 28px; height: 28px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.7;" type="button" title="Close chat" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
@@ -773,8 +774,6 @@ function _ft_detect_social(string $url): array {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 typing.remove();
-                appendBotMessage('Thanks for your question! Your message has been sent to our team. We\'ll get back to you as soon as possible.');
-
                 if (data.success && data.inquiry_id) {
                     setActiveConversationId(data.conversation_id || data.inquiry_id);
                     var ids = JSON.parse(localStorage.getItem('chatbot_inquiry_ids') || '[]');
@@ -791,7 +790,7 @@ function _ft_detect_social(string $url): array {
             })
             .catch(function() {
                 typing.remove();
-                appendBotMessage('Thanks for your question! Our team will get back to you shortly.');
+                appendBotMessage('Message sent. Replies should appear here automatically.');
             });
         }
 

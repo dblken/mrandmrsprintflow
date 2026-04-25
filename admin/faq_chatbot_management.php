@@ -353,7 +353,7 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             margin: 0;
             font-size: 17px;
             font-weight: 700;
-            color: #0f172a;
+            color: #ffffff;
             line-height: 1.25;
             letter-spacing: -0.02em;
         }
@@ -362,20 +362,42 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             margin-top: 2px;
             font-size: 13px;
             font-weight: 500;
-            color: #64748b;
+            color: rgba(255,255,255,0.85);
             text-decoration: none;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             max-width: 100%;
         }
-        #modal-conversation .chat-modal-email:hover { color: #00232b; text-decoration: underline; }
+        #modal-conversation .chat-modal-email:hover { color: #ffffff; text-decoration: underline; }
         #modal-conversation .chat-modal-email-muted {
             display: block;
             margin-top: 2px;
             font-size: 13px;
-            color: #94a3b8;
+            color: rgba(255,255,255,0.72);
             font-style: italic;
+        }
+        #modal-conversation .chat-modal-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            margin-top: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(34, 197, 94, 0.16);
+            color: #dcfce7;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        #modal-conversation .chat-modal-live::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
         }
         #modal-conversation .chat-modal-close {
             flex-shrink: 0;
@@ -1024,6 +1046,7 @@ foreach ($inq_conversations as $c):
                 <div class="chat-modal-avatar" id="modal-conv-avatar" aria-hidden="true">?</div>
                 <div class="chat-modal-header-text">
                     <h2 id="modal-conv-name" class="chat-modal-title">Conversation</h2>
+                    <span class="chat-modal-live">Online</span>
                     <a href="#" id="modal-conv-email" class="chat-modal-email" style="display:none;"></a>
                     <span id="modal-conv-email-none" class="chat-modal-email-muted" style="display:none;">No email on file</span>
                 </div>
