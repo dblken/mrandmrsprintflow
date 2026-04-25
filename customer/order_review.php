@@ -13,6 +13,79 @@ require_once __DIR__ . '/../includes/order_ui_helper.php';
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
+function review_resolve_catalog_image(?string $path): ?string {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return null;
+    }
+
+    $resolved = pf_order_ui_asset_url($path);
+    return $resolved !== '' ? $resolved : null;
+}
+
+function review_enrich_cart_item(array $item): array {
+    $custom = review_item_customization($item);
+    $is_product = review_item_is_product($item);
+    $product_id = (int)($item['product_id'] ?? 0);
+
+    if ($is_product && $product_id > 0) {
+        $product_rows = db_query(
+            "SELECT name, category, photo_path, product_image FROM products WHERE product_id = ? LIMIT 1",
+            'i',
+            [$product_id]
+        );
+        if (!empty($product_rows)) {
+            $product = $product_rows[0];
+            if (empty($item['name']) && !empty($product['name'])) {
+                $item['name'] = $product['name'];
+            }
+            if (empty($item['category']) && !empty($product['category'])) {
+                $item['category'] = $product['category'];
+            }
+            $catalog_image = review_resolve_catalog_image($product['photo_path'] ?? '')
+                ?: review_resolve_catalog_image($product['product_image'] ?? '');
+            if (!empty($catalog_image)) {
+                $item['product_image'] = $catalog_image;
+            }
+        }
+    } else {
+        $service_name = '';
+        if (!empty($item['service_id'])) {
+            $service_rows = db_query(
+                "SELECT name, category, display_image, hero_image FROM services WHERE service_id = ? LIMIT 1",
+                'i',
+                [(int)$item['service_id']]
+            );
+            if (!empty($service_rows)) {
+                $service = $service_rows[0];
+                $service_name = trim((string)($service['name'] ?? ''));
+                if ($service_name !== '') {
+                    $item['name'] = $service_name;
+                    if (empty($item['category']) && !empty($service['category'])) {
+                        $item['category'] = $service['category'];
+                    }
+                }
+                $display_image = trim((string)($service['display_image'] ?? ''));
+                $hero_image = trim((string)($service['hero_image'] ?? ''));
+                $first_image = $display_image !== '' ? trim(explode(',', $display_image)[0]) : $hero_image;
+                $catalog_image = review_resolve_catalog_image($first_image);
+                if (!empty($catalog_image)) {
+                    $item['product_image'] = $catalog_image;
+                }
+            }
+        }
+
+        if ($service_name === '') {
+            $resolved_name = printflow_resolve_order_item_name($item['name'] ?? 'Order Item', $custom, 'Order Item');
+            if ($resolved_name !== '') {
+                $item['name'] = $resolved_name;
+            }
+        }
+    }
+
+    return $item;
+}
+
 function review_render_item_summary(array $item): void {
     $name = trim((string)($item['name'] ?? 'Order Item'));
     $category = trim((string)($item['category'] ?? 'Service'));
@@ -160,6 +233,7 @@ foreach ($item_keys as $key) {
     if (isset($cart[$key]) && is_array($cart[$key])) {
         $items_to_review[$key] = $cart[$key];
         $items_to_review[$key]['_cart_key'] = $key;
+        $items_to_review[$key] = review_enrich_cart_item($items_to_review[$key]);
     }
 }
 
