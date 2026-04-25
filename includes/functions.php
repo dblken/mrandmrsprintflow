@@ -485,6 +485,38 @@ function notify_staff_new_order(int $order_id, string $customer_first_name): voi
 }
 
 /**
+ * Notify the opposite side about a new chat event for an order.
+ * Sender role is the chat sender stored in order_messages: 'Customer' or 'Staff'.
+ */
+function printflow_notify_chat_message(int $order_id, string $senderRole, string $messageKind = 'message'): void {
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) {
+        return;
+    }
+
+    $senderRole = trim($senderRole);
+    $kind = strtolower(trim($messageKind));
+    $kindLabel = match ($kind) {
+        'voice' => 'voice message',
+        'image', 'attachment', 'media', 'video' => 'attachment',
+        default => 'message',
+    };
+
+    if ($senderRole === 'Customer') {
+        notify_shop_users("New {$kindLabel} from customer for Order #{$order_id}", 'Message', false, false, $order_id, ['Staff', 'Admin', 'Manager']);
+        return;
+    }
+
+    $rows = db_query("SELECT customer_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
+    $customerId = (int)($rows[0]['customer_id'] ?? 0);
+    if ($customerId <= 0) {
+        return;
+    }
+
+    create_notification($customerId, 'Customer', "New {$kindLabel} from PrintFlow for Order #{$order_id}", 'Message', false, false, $order_id);
+}
+
+/**
  * Target URL when a staff user opens a notification (dashboard, list, etc.).
  */
 function staff_notification_target_url(array $n): string {
@@ -1512,6 +1544,9 @@ function customer_notification_title($type, $message) {
     $type = (string)$type;
     $message = strtolower((string)$message);
 
+    if ($type === 'Message' || strpos($message, 'message') !== false || strpos($message, 'chat') !== false) {
+        return 'New message';
+    }
     if ($type === 'Rating' || $type === 'Review' || strpos($message, 'rate') !== false || strpos($message, 'review') !== false) {
         return 'Review update';
     }
@@ -1527,6 +1562,9 @@ function customer_notification_title($type, $message) {
     if ($type === 'Status') {
         return 'Status update';
     }
+    if ($type === 'System') {
+        return 'Account update';
+    }
 
     return 'Notification';
 }
@@ -1539,11 +1577,20 @@ function customer_notification_target_url(array $notification) {
     $message_l = strtolower($message);
 
     if ($data_id > 0) {
+        if ($type === 'Message' || strpos($message_l, 'message') !== false || strpos($message_l, 'chat') !== false) {
+            return $base . '/customer/chat.php?order_id=' . $data_id;
+        }
         if ($type === 'Rating' || $type === 'Review' || strpos($message_l, 'rate your') !== false || strpos($message_l, 'rate here') !== false) {
             return $base . '/customer/rate_order.php?order_id=' . $data_id;
         }
-        if ($type === 'Payment' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
+        if ($type === 'Payment' || $type === 'Payment Issue' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
             return $base . '/customer/orders.php?highlight=' . $data_id;
+        }
+        if ($type === 'Design' || strpos($message_l, 'design') !== false || strpos($message_l, 'revision') !== false) {
+            return $base . '/customer/chat.php?order_id=' . $data_id;
+        }
+        if ($type === 'Job Order') {
+            return $base . '/customer/new_job_order.php';
         }
         return $base . '/customer/orders.php?highlight=' . $data_id;
     }
@@ -1573,6 +1620,12 @@ function printflow_push_title_for_notification(string $type, string $message, st
     }
 
     if ($type !== '') {
+        if (strcasecmp($type, 'Message') === 0) {
+            return 'New message';
+        }
+        if (strcasecmp($type, 'Payment Issue') === 0) {
+            return 'Payment issue';
+        }
         return 'PrintFlow ' . $type;
     }
 

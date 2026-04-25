@@ -34,7 +34,13 @@ function get_webpush(): ?WebPush
  */
 function push_url_for_type(string $type, ?int $data_id, string $user_type): string
 {
-    $base = '/printflow';
+    $base = function_exists('printflow_notification_base_path')
+        ? printflow_notification_base_path()
+        : '/printflow';
+    if ($base === '') {
+        $base = '';
+    }
+
     switch ($type) {
         case 'Order':
         case 'New Order':
@@ -55,25 +61,83 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
         case 'Job Order':
             return $user_type === 'Customer'
                 ? $base . '/customer/new_job_order.php'
-                : $base . '/admin/orders_management.php';
+                : (($user_type === 'Staff' || $user_type === 'Manager')
+                    ? ($data_id ? $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER' : $base . '/staff/customizations.php')
+                    : $base . '/admin/orders_management.php');
         case 'Chat':
         case 'Message':
+            if ($user_type === 'Customer') {
+                return $data_id
+                    ? $base . '/customer/chat.php?order_id=' . $data_id
+                    : $base . '/customer/messages.php';
+            }
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                return $data_id
+                    ? $base . '/staff/chats.php?order_id=' . (int)$data_id
+                    : $base . '/staff/chats.php';
+            }
             return $data_id
-                ? $base . '/customer/chat.php?order_id=' . $data_id
-                : $base . '/customer/orders.php';
+                ? $base . '/admin/orders_management.php?order_id=' . (int)$data_id
+                : $base . '/admin/notifications.php';
         case 'Stock':
         case 'Inventory':
+            if ($user_type === 'Manager') return $base . '/manager/inventory_items.php';
+            if ($user_type === 'Staff') return $base . '/staff/notifications.php';
             return $base . '/admin/inv_items_management.php';
         case 'Design':
         case 'Customization':
             if ($data_id && $user_type === 'Customer') {
                 return $base . '/customer/chat.php?order_id=' . $data_id;
             }
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                return $data_id
+                    ? $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER'
+                    : $base . '/staff/customizations.php';
+            }
             return $base . '/admin/orders_management.php';
+        case 'Payment':
+        case 'Payment Issue':
+            if ($user_type === 'Customer') {
+                return $data_id
+                    ? $base . '/customer/orders.php?highlight=' . (int)$data_id
+                    : $base . '/customer/notifications.php';
+            }
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                return $data_id
+                    ? $base . '/staff/orders.php?order_id=' . (int)$data_id
+                    : $base . '/staff/notifications.php';
+            }
+            return $base . '/admin/notifications.php';
+        case 'Rating':
+        case 'Review':
+            if ($user_type === 'Customer') return $base . '/customer/reviews.php';
+            if ($user_type === 'Staff') return $base . '/staff/reviews.php';
+            if ($user_type === 'Manager') return $base . '/manager/notifications.php';
+            return $base . '/admin/notifications.php';
+        case 'Status':
+            if ($user_type === 'Customer') {
+                return $data_id
+                    ? $base . '/customer/orders.php?highlight=' . (int)$data_id
+                    : $base . '/customer/notifications.php';
+            }
+            if ($user_type === 'Staff' || $user_type === 'Manager') {
+                return $data_id
+                    ? $base . '/staff/orders.php?order_id=' . (int)$data_id
+                    : $base . '/staff/notifications.php';
+            }
+            return $base . '/admin/notifications.php';
         case 'Profile':
             return $base . '/admin/user_staff_management.php';
+        case 'System':
+            if ($user_type === 'Customer') return $base . '/customer/notifications.php';
+            if ($user_type === 'Manager') return $base . '/manager/notifications.php';
+            if ($user_type === 'Staff') return $base . '/staff/notifications.php';
+            return $base . '/admin/notifications.php';
         default:
-            return $base . '/';
+            if ($user_type === 'Customer') return $base . '/customer/notifications.php';
+            if ($user_type === 'Manager') return $base . '/manager/notifications.php';
+            if ($user_type === 'Staff') return $base . '/staff/notifications.php';
+            return $base . '/admin/notifications.php';
     }
 }
 

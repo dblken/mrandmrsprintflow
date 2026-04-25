@@ -101,8 +101,12 @@ if ($messages_sent === 0) {
     exit();
 }
 
-// 3. Automated notifications for messages are disabled per user request
-// (Reduces notification clutter as users prefer checking the chat sidebar directly)
+// 3. Notify the opposite side so chat messages also trigger real notifications.
+$message_kind = 'message';
+if ($message === '' && isset($_FILES['image'])) {
+    $message_kind = 'attachment';
+}
+printflow_notify_chat_message($order_id, $db_sender, $message_kind);
 
 
 // Clear accidental output before sending JSON

@@ -61,6 +61,7 @@ if (move_uploaded_file($file['tmp_name'], $target_path)) {
     // Actually we keep it as 'voice' since the ALTER worked.
     
     if (db_execute($sql, 'isis', [$order_id, $db_sender, $user_id, $relative_path])) {
+        printflow_notify_chat_message($order_id, $db_sender, 'voice');
         echo json_encode(['success' => true, 'file' => $relative_path]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Database insertion failed: ' . ($conn->error ?? 'unknown')]);

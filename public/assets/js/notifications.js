@@ -608,6 +608,15 @@
             url = base + '/admin/user_staff_management.php?open_user=' + did;
         } else if (isStaff) {
             if (t.indexOf('inventory') !== -1) url = base + '/admin/inv_items_management.php';
+            else if (t.indexOf('message') !== -1 || t.indexOf('chat') !== -1) {
+                url = did ? base + '/staff/chats.php?order_id=' + did : base + '/staff/chats.php';
+            }
+            else if (t.indexOf('rating') !== -1 || t.indexOf('review') !== -1) {
+                url = USER_TYPE.toLowerCase() === 'staff' ? base + '/staff/reviews.php' : base + '/admin/notifications.php';
+            }
+            else if (t.indexOf('payment') !== -1) {
+                url = did ? base + '/staff/orders.php?order_id=' + did : base + '/staff/notifications.php';
+            }
             else if (t.indexOf('order') !== -1 || t.indexOf('job') !== -1 || t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) {
                 var oType = (orderType || '').toLowerCase();
                 if (oType === 'custom' || t.indexOf('job') !== -1 || t.indexOf('custom') !== -1) {
@@ -616,13 +625,13 @@
                     url = base + '/staff/orders.php?order_id=' + did;
                 }
             }
-            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/staff/orders.php?order_id=' + did : base + '/staff/orders.php';
             else url = base + '/staff/dashboard.php';
         } else {
-            if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1) url = base + '/customer/orders.php?highlight=' + did;
-            else if (t.indexOf('payment') !== -1) url = base + '/customer/payment.php?order_id=' + did;
+            if (t.indexOf('message') !== -1 || t.indexOf('chat') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
+            else if (t.indexOf('order') !== -1 || t.indexOf('status') !== -1) url = base + '/customer/orders.php?highlight=' + did;
+            else if (t.indexOf('payment') !== -1) url = did ? base + '/customer/orders.php?highlight=' + did : base + '/customer/notifications.php';
             else if (t.indexOf('job') !== -1) url = base + '/customer/new_job_order.php';
-            else if (t.indexOf('chat') !== -1 || t.indexOf('message') !== -1) url = did ? base + '/customer/chat.php?order_id=' + did : base + '/customer/messages.php';
+            else if (t.indexOf('rating') !== -1 || t.indexOf('review') !== -1) url = did ? base + '/customer/rate_order.php?order_id=' + did : base + '/customer/reviews.php';
             else if ((t.indexOf('design') !== -1 || t.indexOf('custom') !== -1) && did) url = base + '/customer/chat.php?order_id=' + did;
             else url = base + '/customer/notifications.php';
         }
