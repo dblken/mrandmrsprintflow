@@ -62,8 +62,13 @@ class WebPush
             'Content-Type: application/octet-stream',
             'Content-Encoding: aes128gcm',
             'TTL: ' . $ttl,
+            'Urgency: high',
+            'Topic: ' . self::sanitizeTopic((string)($payload['tag'] ?? 'pf-general')),
             'Content-Length: ' . strlen($body),
         ];
+
+        $isLocalEndpoint = str_contains($audience, '://localhost')
+            || str_contains($audience, '://127.0.0.1');
 
         $ch = curl_init($endpoint);
         curl_setopt_array($ch, [
@@ -71,8 +76,10 @@ class WebPush
             CURLOPT_POSTFIELDS     => $body,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT        => 15,
-            CURLOPT_SSL_VERIFYPEER => false,  // OK for localhost dev
+            CURLOPT_SSL_VERIFYHOST => $isLocalEndpoint ? 0 : 2,
+            CURLOPT_SSL_VERIFYPEER => $isLocalEndpoint ? false : true,
         ]);
         $response = curl_exec($ch);
         $code     = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -280,6 +287,16 @@ class WebPush
         return "-----BEGIN PUBLIC KEY-----\n"
              . chunk_split(base64_encode($der), 64, "\n")
              . "-----END PUBLIC KEY-----\n";
+    }
+
+    private static function sanitizeTopic(string $topic): string
+    {
+        $topic = preg_replace('/[^A-Za-z0-9._-]/', '-', $topic) ?? 'pf-general';
+        $topic = trim($topic, '-');
+        if ($topic === '') {
+            $topic = 'pf-general';
+        }
+        return substr($topic, 0, 32);
     }
 
     /**
