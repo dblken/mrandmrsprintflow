@@ -268,7 +268,17 @@ require_once __DIR__ . '/shop_config.php';
 $_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
 $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Staff';
 ?>
-<script>window.PFConfig = { userId: <?php echo json_encode($_pf_uid); ?>, userType: <?php echo json_encode($_pf_utype); ?>, basePath: <?php echo json_encode($base_path); ?>, logoUrl: <?php echo json_encode($shop_logo_url); ?>, logoutUrl: <?php echo json_encode($base_path . '/logout'); ?>, loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>, apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>, sessionStatusUrl: <?php echo json_encode($base_path . '/public/api_session_status.php'); ?> };</script>
+<script>
+window.PFConfig = { userId: <?php echo json_encode($_pf_uid); ?>, userType: <?php echo json_encode($_pf_utype); ?>, basePath: <?php echo json_encode($base_path); ?>, logoUrl: <?php echo json_encode($shop_logo_url); ?>, logoutUrl: <?php echo json_encode($base_path . '/logout'); ?>, loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>, apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>, sessionStatusUrl: <?php echo json_encode($base_path . '/public/api_session_status.php'); ?> };
+(function() {
+    function supportPresenceBeat() {
+        var base = (window.PFConfig && window.PFConfig.basePath) || '';
+        fetch(base + '/public/api/support_chat_presence.php', { credentials: 'same-origin' }).catch(function() {});
+    }
+    supportPresenceBeat();
+    setInterval(supportPresenceBeat, 30000);
+})();
+</script>
 <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
 <script src="<?php echo $base_path; ?>/public/assets/js/notifications.js?v=<?php echo $notif_js_ver; ?>" defer></script>
 <script src="<?php echo $base_path; ?>/public/assets/js/inactivity_logout.js" defer></script>

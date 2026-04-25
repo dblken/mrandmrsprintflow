@@ -98,7 +98,9 @@ require_once __DIR__ . '/../includes/header.php';
     .cs-window { display:flex; flex-direction:column; overflow:hidden; background:#fff; position:relative; }
     .cs-header { display:flex; align-items:center; gap:12px; padding:1rem 1.5rem; border-bottom:1px solid var(--pf-border); background:#fff; z-index:20; flex-shrink:0; }
     .cs-header-info { flex:1; min-width:0; }
-    .cs-header-name { font-size:1rem; font-weight:800; color:#0f172a; margin:0; display:flex; align-items:center; gap:8px; }
+    .cs-header-name { font-size:1rem; font-weight:800; color:#0f172a; margin:0; display:flex; align-items:center; gap:8px; min-width:0; }
+    .cs-header-name #hName { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cs-header-name #hOnline { flex-shrink:0; }
     .cs-header-meta { font-size:.75rem; color:var(--pf-dim); font-weight:700; opacity:.9; margin:0; }
 
     .cs-h-actions { display: flex; gap: 8px; }

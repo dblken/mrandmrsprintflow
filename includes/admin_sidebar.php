@@ -394,6 +394,15 @@ window.pfUrl = function(path) {
     var base = window.PFConfig.basePath || '';
     return base + '/' + path;
 };
+
+(function() {
+    function supportPresenceBeat() {
+        var base = (window.PFConfig && window.PFConfig.basePath) || '';
+        fetch(base + '/public/api/support_chat_presence.php', { credentials: 'same-origin' }).catch(function() {});
+    }
+    supportPresenceBeat();
+    setInterval(supportPresenceBeat, 30000);
+})();
 </script>
 <?php $notif_js_ver = @filemtime(__DIR__ . '/../public/assets/js/notifications.js') ?: time(); ?>
 <script src="<?php echo $base_path; ?>/public/assets/js/notifications.js?v=<?php echo $notif_js_ver; ?>" defer></script>

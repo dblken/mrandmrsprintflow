@@ -356,6 +356,9 @@ $inq_api_url = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https'
             color: #ffffff;
             line-height: 1.25;
             letter-spacing: -0.02em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         #modal-conversation .chat-modal-email {
             display: block;
