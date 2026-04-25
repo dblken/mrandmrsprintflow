@@ -59,7 +59,7 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
         case 'Chat':
         case 'Message':
             return $data_id
-                ? $base . '/customer/order_chat.php?order_id=' . $data_id
+                ? $base . '/customer/chat.php?order_id=' . $data_id
                 : $base . '/customer/orders.php';
         case 'Stock':
         case 'Inventory':
@@ -88,8 +88,38 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
  */
 function push_notify_user(int $user_id, string $user_type, array $payload, int $ttl = 86400): int
 {
+    $result = push_dispatch_user($user_id, $user_type, $payload, $ttl);
+    return (int)($result['sent'] ?? 0);
+}
+
+/**
+ * Push a notification payload to every subscribed device of one user and
+ * return delivery diagnostics for retry/logging decisions.
+ *
+ * @return array{
+ *   user_id:int,
+ *   user_type:string,
+ *   subscriptions:int,
+ *   sent:int,
+ *   expired:int,
+ *   failed:int,
+ *   last_error:string
+ * }
+ */
+function push_dispatch_user(int $user_id, string $user_type, array $payload, int $ttl = 86400): array
+{
     $wp = get_webpush();
-    if (!$wp) return 0;
+    if (!$wp) {
+        return [
+            'user_id' => $user_id,
+            'user_type' => $user_type,
+            'subscriptions' => 0,
+            'sent' => 0,
+            'expired' => 0,
+            'failed' => 0,
+            'last_error' => 'webpush_unavailable',
+        ];
+    }
 
     $rows = db_query(
         'SELECT id, endpoint, p256dh, auth_key FROM push_subscriptions
@@ -97,7 +127,17 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
         'is',
         [$user_id, $user_type]
     );
-    if (empty($rows)) return 0;
+    if (empty($rows)) {
+        return [
+            'user_id' => $user_id,
+            'user_type' => $user_type,
+            'subscriptions' => 0,
+            'sent' => 0,
+            'expired' => 0,
+            'failed' => 0,
+            'last_error' => 'no_subscriptions',
+        ];
+    }
 
     // Defaults
     $payload += [
@@ -108,6 +148,9 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
     ];
 
     $sent = 0;
+    $expired = 0;
+    $failed = 0;
+    $lastError = '';
     foreach ($rows as $row) {
         try {
             $ok = $wp->send(
@@ -115,16 +158,37 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
                 $payload,
                 $ttl
             );
-            if ($ok) $sent++;
+            if ($ok) {
+                $sent++;
+            } else {
+                $failed++;
+                $lastError = 'push_send_failed';
+            }
         } catch (RuntimeException $e) {
             if ($e->getMessage() === 'subscription_expired') {
                 db_execute('DELETE FROM push_subscriptions WHERE id = ?', 'i', [(int)$row['id']]);
+                $expired++;
             } else {
                 error_log('[push_notify_user] Unexpected error: ' . $e->getMessage());
+                $failed++;
+                $lastError = $e->getMessage();
             }
+        } catch (Throwable $e) {
+            error_log('[push_notify_user] Fatal push error: ' . $e->getMessage());
+            $failed++;
+            $lastError = $e->getMessage();
         }
     }
-    return $sent;
+
+    return [
+        'user_id' => $user_id,
+        'user_type' => $user_type,
+        'subscriptions' => count($rows),
+        'sent' => $sent,
+        'expired' => $expired,
+        'failed' => $failed,
+        'last_error' => $lastError,
+    ];
 }
 
 /**

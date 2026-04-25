@@ -237,24 +237,51 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
     // ── Web Push dispatch ────────────────────────────────────────────────────
     if ($result) {
         $push_helper = __DIR__ . '/push_helper.php';
+        $push_queue_helper = __DIR__ . '/push_queue_helper.php';
+
+        if (file_exists($push_queue_helper)) {
+            require_once $push_queue_helper;
+        }
+
         if (file_exists($push_helper)) {
             require_once $push_helper;
-            if (function_exists('push_notify_user') && function_exists('push_url_for_type')) {
+            if (function_exists('push_dispatch_user') && function_exists('push_url_for_type')) {
                 $push_url = push_url_for_type($type, $data_id, $user_type);
                 $push_media = printflow_push_media_payload((string)$type, $data_id, (string)$message);
+                $push_title = printflow_push_title_for_notification((string)$type, (string)$message, (string)$user_type);
                 if ($type === 'System' && $data_id !== null && $data_id !== '' && (int)$data_id > 0) {
                     $ml = strtolower((string)$message);
                     if (strpos($ml, 'ready for admin review') !== false || strpos($ml, 'completed their profile') !== false) {
                         $push_url = printflow_notification_base_path() . '/admin/user_staff_management.php?open_user=' . (int)$data_id;
                     }
                 }
-                push_notify_user((int)$user_id, $user_type, [
+                $push_payload = [
+                    'title' => $push_title,
                     'body' => $message,
                     'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
                     'url'  => $push_url,
                     'icon' => $push_media['icon'],
                     'image' => $push_media['image'],
-                ]);
+                ];
+
+                if (function_exists('printflow_enqueue_push_notification')) {
+                    printflow_enqueue_push_notification((int)$result, (int)$user_id, (string)$user_type, $push_payload);
+                }
+
+                $dispatch = push_dispatch_user((int)$user_id, $user_type, $push_payload);
+
+                if ((int)($dispatch['sent'] ?? 0) > 0) {
+                    if (function_exists('printflow_mark_push_queue_sent')) {
+                        printflow_mark_push_queue_sent((int)$result, (int)$user_id, (string)$user_type);
+                    }
+                } else {
+                    error_log('[push] Initial send did not complete for notification ' . (int)$result
+                        . ' user=' . (int)$user_id
+                        . ' type=' . (string)$user_type
+                        . ' subscriptions=' . (int)($dispatch['subscriptions'] ?? 0)
+                        . ' failed=' . (int)($dispatch['failed'] ?? 0)
+                        . ' error=' . (string)($dispatch['last_error'] ?? ''));
+                }
             }
         }
     }
@@ -1535,6 +1562,21 @@ function customer_notification_image_url(array $notification, string $fallback) 
     }
     $preview = printflow_order_notification_preview($data_id);
     return $preview['image_url'] ?: $fallback;
+}
+
+function printflow_push_title_for_notification(string $type, string $message, string $userType): string {
+    $type = trim($type);
+    $message = trim($message);
+
+    if ($userType === 'Customer') {
+        return customer_notification_title($type, $message);
+    }
+
+    if ($type !== '') {
+        return 'PrintFlow ' . $type;
+    }
+
+    return 'PrintFlow';
 }
 
 function printflow_push_media_payload(string $type, $data_id, string $message): array {
