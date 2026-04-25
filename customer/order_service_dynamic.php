@@ -602,7 +602,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     <!-- Estimated Price Display -->
                     <div id="estimated-price-display" style="position:sticky;top:80px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;z-index:10;">
                         <div style="border-top:1px solid #e5e7eb;padding-top:1rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.125rem;color:#0a2530;font-weight:800;">Estimated Total:</span>
+                            <span style="font-size:1.125rem;color:#0a2530;font-weight:800;">Estimated Price:</span>
                             <span id="estimated-total" style="font-size:1.5rem;color:#0a2530;font-weight:900;">₱0</span>
                         </div>
                         <div style="margin-top:0.5rem;font-size:0.875rem;color:#64748b;text-align:right;font-weight:500;">

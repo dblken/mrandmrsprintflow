@@ -256,7 +256,6 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
     $subtotal = $unit_price * $quantity;
     $estimated_total = $is_service_item ? pf_order_ui_item_estimated_total($item, $is_cart_item) : $subtotal;
     $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
-    $show_service_unit_estimate = $is_service_item && $estimated_total > 0 && $unit_price > 0;
     $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     // Design previews
@@ -341,10 +340,6 @@ function render_order_item_neubrutalism($item, $is_cart_item = false, $show_pric
                     <?php if ($show_price && !$is_service_item): ?>
                     <div style="min-width: 120px;">
                         <div style="font-size: 0.95rem; font-weight: 800;">Price: <?php echo format_currency($unit_price); ?></div>
-                    </div>
-                    <?php elseif ($show_price && $show_service_unit_estimate): ?>
-                    <div style="min-width: 150px;">
-                        <div style="font-size: 0.95rem; font-weight: 800;">Est. Unit Price: <?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
                     <div style="min-width: 80px;">
@@ -436,7 +431,6 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
     $subtotal = $unit_price * $quantity;
     $estimated_total = $is_service_item ? pf_order_ui_item_estimated_total($item, $is_cart_item) : $subtotal;
     $estimated_total_display = $estimated_total > 0 ? format_currency($estimated_total) : 'To Be Discussed';
-    $show_service_unit_estimate = $is_service_item && $estimated_total > 0 && $unit_price > 0;
     $base_url = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');
     
     $design_url = null;
@@ -525,11 +519,6 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     <?php if (!$is_service_item): ?>
                     <div class="review-detail-row" style="flex: 1; min-width: 100px;">
                         <div class="review-detail-label" style="font-size: 0.68rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Unit Price</div>
-                        <div class="review-detail-value" style="font-size: 1rem; color: #eaf6fb; font-weight: 700;"><?php echo format_currency($unit_price); ?></div>
-                    </div>
-                    <?php elseif ($show_service_unit_estimate): ?>
-                    <div class="review-detail-row" style="flex: 1; min-width: 100px;">
-                        <div class="review-detail-label" style="font-size: 0.68rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Estimated Unit Price</div>
                         <div class="review-detail-value" style="font-size: 1rem; color: #eaf6fb; font-weight: 700;"><?php echo format_currency($unit_price); ?></div>
                     </div>
                     <?php endif; ?>
