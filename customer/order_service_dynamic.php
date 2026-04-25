@@ -139,6 +139,30 @@ function pf_render_video_sources($sources) {
     return $html;
 }
 
+function pf_review_helpful_columns(): array {
+    global $conn;
+
+    $conn->query("CREATE TABLE IF NOT EXISTS review_helpful (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        review_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_review_user (review_id, user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $columns = array_flip(array_column(db_query("SHOW COLUMNS FROM review_helpful") ?: [], 'Field'));
+    if (!isset($columns['customer_id'])) {
+        db_execute("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
+        $columns['customer_id'] = true;
+    }
+    if (!isset($columns['user_type'])) {
+        db_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
+        $columns['user_type'] = true;
+    }
+
+    return $columns;
+}
+
 function pf_normalize_review_media_path($path, $base_path, $folder = '') {
     $path = trim((string)$path);
     if ($path === '') {
@@ -475,19 +499,7 @@ $page_title = 'Order ' . $service['name'] . ' - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 
-// Ensure review_helpful table exists
-global $conn;
-$conn->query("CREATE TABLE IF NOT EXISTS review_helpful (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    review_id INT NOT NULL,
-    user_id INT NOT NULL,
-    customer_id INT NULL,
-    user_type VARCHAR(20) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_review_user (review_id, user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$conn->query("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
-$conn->query("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
+$review_helpful_columns = pf_review_helpful_columns();
 
 $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 
@@ -827,7 +839,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         $review_helpful_sql = isset($review_tables['review_helpful'])
             ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
             : '0 as helpful_count,';
-        $review_voted_sql = isset($review_tables['review_helpful'])
+        $review_voted_sql = (isset($review_tables['review_helpful']) && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type']))
             ? "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND ((customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer') OR (customer_id IS NULL AND user_id = ?))) as user_voted"
             : '0 as user_voted';
 
@@ -883,7 +895,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                  WHERE " . implode(' OR ', $review_where_parts) . "
                  ORDER BY {$review_created_expr} DESC";
 
-            if (isset($review_tables['review_helpful'])) {
+            if (isset($review_tables['review_helpful']) && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])) {
                 $review_types = 'ii' . $review_types;
                 array_unshift($review_params, (int)$customer_id, (int)$customer_id);
             }

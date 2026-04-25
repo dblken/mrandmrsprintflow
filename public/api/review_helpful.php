@@ -10,6 +10,31 @@ function review_helpful_json(array $payload, int $status = 200): void {
     exit;
 }
 
+function review_helpful_ensure_schema(): array {
+    $table_ready = db_execute("CREATE TABLE IF NOT EXISTS review_helpful (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        review_id INT NOT NULL,
+        user_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_review_user (review_id, user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!$table_ready) {
+        throw new RuntimeException('Could not prepare review helpful table.');
+    }
+
+    $columns = array_flip(array_column(db_query("SHOW COLUMNS FROM review_helpful") ?: [], 'Field'));
+    if (!isset($columns['customer_id'])) {
+        db_execute("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
+        $columns['customer_id'] = true;
+    }
+    if (!isset($columns['user_type'])) {
+        db_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
+        $columns['user_type'] = true;
+    }
+
+    return $columns;
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         review_helpful_json(['success' => false, 'error' => 'Method not allowed'], 405);
@@ -24,21 +49,7 @@ try {
         review_helpful_json(['success' => false, 'error' => 'Invalid review'], 422);
     }
 
-    $table_ready = db_execute("CREATE TABLE IF NOT EXISTS review_helpful (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        review_id INT NOT NULL,
-        user_id INT NOT NULL,
-        customer_id INT NULL,
-        user_type VARCHAR(20) NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_review_user (review_id, user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    if (!$table_ready) {
-        throw new RuntimeException('Could not prepare review helpful table.');
-    }
-
-    db_execute("ALTER TABLE review_helpful ADD COLUMN customer_id INT NULL AFTER user_id");
-    db_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
+    $helpful_columns = review_helpful_ensure_schema();
 
     $review_exists = db_query("SELECT id FROM reviews WHERE id = ? LIMIT 1", 'i', [$review_id]);
     if (empty($review_exists)) {
@@ -49,7 +60,7 @@ try {
     $user_type = (string)($_SESSION['user_type'] ?? '');
     $customer_id = $user_type === 'Customer' ? $user_id : 0;
 
-    if ($customer_id > 0) {
+    if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
         $existing = db_query(
             "SELECT id
              FROM review_helpful
@@ -67,7 +78,7 @@ try {
     }
 
     if (!empty($existing)) {
-        if ($customer_id > 0) {
+        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "DELETE FROM review_helpful
                  WHERE review_id = ?
@@ -83,7 +94,7 @@ try {
         }
         $voted = false;
     } else {
-        if ($customer_id > 0) {
+        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type) VALUES (?, ?, ?, 'Customer')",
                 'iii',
