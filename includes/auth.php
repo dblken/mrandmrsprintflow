@@ -642,7 +642,7 @@ function register_customer_direct($type, $identifier, $password) {
             VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0, 0)";
 
     $result = db_execute($sql, 'sssss', [
-        'Customer',   // placeholder first_name
+        '',           // placeholder first_name
         '',           // placeholder last_name
         $email,
         $contact_number,
@@ -717,9 +717,8 @@ function customer_profile_completion_status($customer_id = null): array {
     }
 
     $required_cols = ['first_name', 'last_name', 'dob', 'gender', 'email', 'contact_number'];
-    $address_cols = ['province', 'city', 'barangay', 'street_address'];
     $select_cols = array_values(array_filter(
-        array_unique(array_merge($required_cols, $address_cols, ['is_profile_complete'])),
+        array_unique(array_merge($required_cols, ['is_profile_complete'])),
         static fn($col) => !empty($existing_cols[$col])
     ));
 
@@ -759,17 +758,6 @@ function customer_profile_completion_status($customer_id = null): array {
     }
     if (empty($customer['email']) || !filter_var((string)$customer['email'], FILTER_VALIDATE_EMAIL)) {
         $missing[] = 'Email address';
-    }
-
-    foreach ([
-        'province' => 'Province',
-        'city' => 'City / Municipality',
-        'barangay' => 'Barangay',
-        'street_address' => 'Street address',
-    ] as $col => $label) {
-        if (empty($existing_cols[$col]) || trim((string)($customer[$col] ?? '')) === '') {
-            $missing[] = $label;
-        }
     }
 
     return ['complete' => empty($missing), 'missing' => array_values(array_unique($missing))];

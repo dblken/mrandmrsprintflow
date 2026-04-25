@@ -793,7 +793,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php if ($requires_profile_completion && !$profile_completion_status['complete']): ?>
         <div class="pf-alert pf-alert-error" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;">
             <strong>Complete your profile first:</strong>
-            Please fill in all required personal and delivery information before placing an order.
+            Please fill in all required personal information before placing an order.
             <?php if (!empty($profile_completion_status['missing'])): ?>
                 Missing: <?php echo htmlspecialchars(implode(', ', $profile_completion_status['missing'])); ?>.
             <?php endif; ?>
