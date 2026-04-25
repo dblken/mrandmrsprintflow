@@ -312,14 +312,14 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
                     $display_order_status = staff_orders_display_status((string)$order['status']);
                     ?>
-                    <div style="display:flex; justify-content:center; align-items:center;">
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
                         <?php echo status_badge($display_order_status, 'order'); ?>
+                        <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
+                            <div>
+                                <?php echo status_badge('Revision Submitted', 'order'); ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                    <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
-                        <div style="margin-top: 6px;">
-                            <?php echo status_badge('Revision Submitted', 'order'); ?>
-                        </div>
-                    <?php endif; ?>
                 </td>
                 <td class="px-4 py-4 text-right">
                     <div class="action-cell" style="justify-content:flex-end;">
@@ -1858,14 +1858,15 @@ $page_title = 'Orders - Staff';
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-center">
-                                        <?php
-                                        $display_order_status2 = staff_orders_display_status((string)$order['status']);
-                                        echo status_badge($display_order_status2, 'order'); ?>
-                                        <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
-                                            <div style="margin-top: 6px;">
-                                                <?php echo status_badge('Revision Submitted', 'order'); ?>
-                                            </div>
-                                        <?php endif; ?>
+                                        <?php $display_order_status2 = staff_orders_display_status((string)$order['status']); ?>
+                                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                                            <?php echo status_badge($display_order_status2, 'order'); ?>
+                                            <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
+                                                <div>
+                                                    <?php echo status_badge('Revision Submitted', 'order'); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-4 text-right">
                                         <div class="action-cell" style="justify-content:flex-end;">

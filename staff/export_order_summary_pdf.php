@@ -126,7 +126,7 @@ if (class_exists(\Dompdf\Dompdf::class)) {
     $dompdf->render();
     $file = 'order_summary_' . strtolower($range) . '_' . strtolower($status_filter === 'ALL' ? 'all' : preg_replace('/\s+/', '_', $status_filter)) . '.pdf';
     header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $file . '"');
+    header('Content-Disposition: inline; filename="' . $file . '"');
     echo $dompdf->output();
     exit;
 }

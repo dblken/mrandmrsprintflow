@@ -662,6 +662,7 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
         width: 36px;
         height: 36px;
         border-radius: 50%;
+        overflow: hidden;
         background: linear-gradient(135deg, #124a58 0%, #53C5E0 100%);
         display: flex;
         align-items: center;
