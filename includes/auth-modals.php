@@ -601,9 +601,22 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
     }
 
     document.addEventListener('click', function(e) {
-        if (e.target.matches('[data-auth-modal], [data-auth-open]')) {
+        var authTrigger = e.target.closest('[data-auth-modal], [data-auth-open]');
+        if (authTrigger) {
             e.preventDefault();
-            var name = (e.target.getAttribute('data-auth-modal') || e.target.getAttribute('data-auth-open') || '').toLowerCase();
+            var name = (authTrigger.getAttribute('data-auth-modal') || authTrigger.getAttribute('data-auth-open') || '').toLowerCase();
+            var redirectTarget = authTrigger.getAttribute('data-auth-redirect') || '';
+            if (redirectTarget) {
+                try {
+                    var targetUrl = new URL(redirectTarget, window.location.origin);
+                    if (targetUrl.origin === window.location.origin) {
+                        localStorage.setItem('pf_auth_return_target', JSON.stringify({
+                            ts: Date.now(),
+                            returnUrl: targetUrl.href
+                        }));
+                    }
+                } catch (err) {}
+            }
             if (name === 'login' || name === 'register') openModal(name);
         }
         if (e.target.matches('[data-auth-close]') || e.target === backdrop) {
@@ -1720,6 +1733,20 @@ $auth_success = isset($_GET['success']) ? $_GET['success'] : '';
 
             function resolveChatbotResumeTarget(defaultTarget) {
                 try {
+                    var authRaw = localStorage.getItem('pf_auth_return_target');
+                    if (authRaw) {
+                        var authParsed = JSON.parse(authRaw);
+                        var authAgeMs = Date.now() - (parseInt(authParsed.ts || 0, 10) || 0);
+                        if (authAgeMs <= 30 * 60 * 1000 && authParsed.returnUrl) {
+                            var authTargetUrl = new URL(authParsed.returnUrl, window.location.origin);
+                            if (authTargetUrl.origin === window.location.origin) {
+                                localStorage.removeItem('pf_auth_return_target');
+                                return authTargetUrl.href;
+                            }
+                        }
+                        localStorage.removeItem('pf_auth_return_target');
+                    }
+
                     var raw = localStorage.getItem('pf_chatbot_login_resume');
                     if (!raw) return defaultTarget;
                     var parsed = JSON.parse(raw);

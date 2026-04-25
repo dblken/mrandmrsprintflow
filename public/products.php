@@ -208,15 +208,16 @@ foreach ($products_by_category as $cat_name => $cat_products):
                             <div style="font-size:1.5rem;font-weight:800;color:<?php echo $dark ? '#fff' : '#0f172a'; ?>;line-height:1;">₱<?php echo number_format($product['price'], 2); ?></div>
                             <div style="font-size:.75rem;color:<?php echo $desc_col; ?>;margin-top:2px;">Starting price</div>
                         </div>
+                        <?php $order_url = $base_path . '/customer/order_create.php?product_id=' . (int)$product['product_id']; ?>
                         <?php if (is_logged_in() && is_customer()): ?>
-                            <a href="<?php echo $base_path; ?>/customer/order.php?product_id=<?php echo $product['product_id']; ?>"
+                            <a href="<?php echo htmlspecialchars($order_url); ?>"
                                style="display:inline-flex;align-items:center;gap:.4rem;background:var(--lp-accent);color:#fff;padding:.55rem 1.125rem;border-radius:.625rem;font-size:.875rem;font-weight:700;transition:background .2s;"
                                onmouseover="this.style.background='#2a82a3'" onmouseout="this.style.background='var(--lp-accent)'">
                                 Order
                                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                             </a>
                         <?php else: ?>
-                            <a href="#" data-auth-modal="login"
+                            <a href="#" data-auth-modal="login" data-auth-redirect="<?php echo htmlspecialchars($order_url); ?>"
                                style="display:inline-flex;align-items:center;gap:.4rem;background:<?php echo $dark ? 'rgba(50,161,196,0.15)' : '#eef7fa'; ?>;color:var(--lp-accent);padding:.55rem 1.125rem;border-radius:.625rem;font-size:.875rem;font-weight:700;transition:background .2s;border:1px solid rgba(50,161,196,0.25);"
                                onmouseover="this.style.background='var(--lp-accent)';this.style.color='#fff'" onmouseout="this.style.background='<?php echo $dark ? 'rgba(50,161,196,0.15)' : '#eef7fa'; ?>'; this.style.color='var(--lp-accent)'">
                                 Order
