@@ -738,22 +738,51 @@ require_once __DIR__ . '/../includes/header.php';
 }
 #cancelModal.open { opacity: 1; pointer-events: auto; }
 .cm-box {
-    background: #0a2530 !important;
-    border: 1px solid rgba(83,197,224,0.2);
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0;
     border-radius: 20px;
     width: 100%; max-width: 460px;
     padding: 2rem;
-    box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
 }
 .cm-opt-label {
     display: flex; align-items: center; gap: 1rem; padding: 1rem;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 10px; margin-bottom: 0.6rem;
-    cursor: pointer; transition: all 0.2s; color: #fff;
+    cursor: pointer; transition: all 0.2s; color: #0f172a;
 }
-.cm-opt-label:hover { background: rgba(255,255,255,0.06); }
-.cm-opt-label.active { border-color: #53c5e0; background: rgba(83,197,224,0.1); }
+.cm-opt-label:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.cm-opt-label.active { border-color: #0a2530; background: #e2f3f8; }
+.cm-opt-label input[type="radio"] { accent-color: #0a2530; }
+.cm-btn {
+    min-height: 44px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 0.83rem;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+.cm-btn-secondary {
+    background: #ffffff;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+.cm-btn-secondary:hover {
+    background: #f8fafc;
+    color: #0f172a;
+}
+.cm-btn-danger {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+}
+.cm-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
+.cm-btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
 @media (max-width: 640px) {
     .im-dashboard { grid-template-columns: 1fr; }
@@ -1069,20 +1098,20 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- Modal: Cancellation -->
 <div id="cancelModal" onclick="if(event.target === this) closeCancelModal()">
     <div class="cm-box">
-        <h2 class="text-2xl font-black text-white mb-2">Cancel Order?</h2>
-        <p class="text-slate-400 font-medium text-sm mb-6">Please tell us why you want to cancel. This action cannot be undone once confirmed.</p>
+        <h2 class="text-2xl font-black text-slate-900 mb-2">Cancel Order?</h2>
+        <p class="text-slate-600 font-medium text-sm mb-6">Please tell us why you want to cancel. This action cannot be undone once confirmed.</p>
         
         <div class="space-y-2">
             <label class="cm-opt-label"><input type="radio" name="cancel_reason" value="Change of mind"><span class="font-bold">Change of mind</span></label>
             <label class="cm-opt-label"><input type="radio" name="cancel_reason" value="Incorrect order details"><span class="font-bold">Incorrect details</span></label>
             <label class="cm-opt-label"><input type="radio" name="cancel_reason" value="Found another provider"><span class="font-bold">Found cheaper elsewhere</span></label>
             <label class="cm-opt-label"><input type="radio" name="cancel_reason" value="Other"><span class="font-bold">Other reasons</span></label>
-            <textarea id="cmOtherInput" class="w-full mt-3 p-4 bg-white/5 border-2 border-white/10 rounded-2xl hidden focus:border-blue-400 transition-all outline-none text-sm font-medium text-white" placeholder="Please specify your reason..."></textarea>
+            <textarea id="cmOtherInput" class="w-full mt-3 p-4 bg-white border-2 border-slate-200 rounded-2xl hidden focus:border-slate-500 transition-all outline-none text-sm font-medium text-slate-900" placeholder="Please specify your reason..."></textarea>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mt-8">
-            <button class="btn-secondary" onclick="closeCancelModal()">Go Back</button>
-            <button class="btn-danger" id="cmConfirmBtn" onclick="submitOrderCancellation()" disabled>Cancel Order</button>
+            <button class="cm-btn cm-btn-secondary" type="button" onclick="closeCancelModal()">Go Back</button>
+            <button class="cm-btn cm-btn-danger" type="button" id="cmConfirmBtn" onclick="submitOrderCancellation()" disabled>Cancel Order</button>
         </div>
     </div>
 </div>
@@ -1358,6 +1387,14 @@ function closeItemsModal() {
 let cancelOrderId = null, cancelCsrfToken = null;
 function openCancelModal(id, token) {
     cancelOrderId = id; cancelCsrfToken = token;
+    document.querySelectorAll('input[name="cancel_reason"]').forEach((input) => { input.checked = false; });
+    document.querySelectorAll('.cm-opt-label').forEach((label) => label.classList.remove('active'));
+    const otherInput = document.getElementById('cmOtherInput');
+    otherInput.value = '';
+    otherInput.classList.add('hidden');
+    const confirmBtn = document.getElementById('cmConfirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Cancel Order';
     document.getElementById('cancelModal').classList.add('open');
 }
 function closeCancelModal() {
@@ -1387,15 +1424,24 @@ function submitOrderCancellation() {
     fd.append('csrf_token', cancelCsrfToken); fd.append('reason', reason); fd.append('details', details);
 
     fetch(`${CUSTOMER_BASE_URL}/customer/cancel_order.php`, { method: 'POST', body: fd })
-    .then(r => r.json())
+    .then((r) => {
+        if (!r.ok) throw new Error(`Request failed (${r.status})`);
+        return r.json();
+    })
     .then(data => {
         if (data.success) {
             showToast("Order Cancelled Successfullly.");
             window.location.reload();
         } else {
             showToast(data.error || "Failed to cancel.");
-            btn.disabled = false; btn.textContent = 'Cancel Order';
         }
+    })
+    .catch((error) => {
+        showToast(error && error.message ? error.message : "Failed to cancel.");
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Cancel Order';
     });
 }
 
