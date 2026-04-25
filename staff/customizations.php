@@ -1232,7 +1232,11 @@ if ($showLatestCustomizationOnly) {
                                 <div style="margin-bottom:20px;">
                                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                                         <svg width="16" height="16" fill="none" stroke="#0f766e" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <label style="font-size:11px; font-weight:700; color:#0f766e; text-transform:uppercase; letter-spacing:0.04em;">[3] Set Final Price</label>
+                                        <label style="font-size:11px; font-weight:700; color:#0f766e; text-transform:uppercase; letter-spacing:0.04em;">[2] Set Final Price</label>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:10px 12px; border-radius:10px; border:1px solid #99f6e4; background:#ffffff;">
+                                        <div style="font-size:12px; font-weight:700; color:#0f766e; text-transform:uppercase; letter-spacing:0.04em;">Estimated Price</div>
+                                        <div style="font-size:16px; font-weight:800; color:#0f766e;" x-text="'₱' + Number(currentJo.estimated_price || currentJo.estimated_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})"></div>
                                     </div>
                                     <div style="position:relative;">
                                         <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); font-weight:800; color:#0f766e; font-size:20px;">₱</span>
@@ -2681,7 +2685,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
-                            this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
+                            this.jobPriceInput = this.currentJo.final_price || 0;
                         } else {
                             this.showStaffAlert('Error', 'Customization details could not be loaded.');
                             this.showDetailsModal = false;
@@ -2753,7 +2757,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     this.currentJo = { ...order, order_type: 'ORDER' };
                     this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                     this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
-                    this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
+                    this.jobPriceInput = this.currentJo.final_price || 0;
                     if (!this.currentJo.job_order_id) {
                         await this.resolveEffectiveJobId();
                     }
@@ -2775,7 +2779,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             this.currentJo = { ...res.data, order_type: 'JOB' };
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
-                            this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || 0;
+                            this.jobPriceInput = this.currentJo.final_price || 0;
                             this.resetMaterialForm();
                             this.resetInkForm();
                             for (const m of this.currentJo.materials || []) {
@@ -2790,7 +2794,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
                                 this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                                 this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
-                                this.jobPriceInput = this.currentJo.estimated_total || this.currentJo.estimated_price || this.currentJo.total_amount || 0;
+                                this.jobPriceInput = this.currentJo.final_price || 0;
                                 if (!this.currentJo.job_order_id) {
                                     await this.resolveEffectiveJobId();
                                 }
@@ -3384,7 +3388,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                        return false;
                    }
                    this.currentJo.total_amount = price;
-                   this.currentJo.estimated_total = price;
+                   this.currentJo.final_price = price;
                    console.log('Price updated successfully to:', price);
                    return true;
                 } else if (this.currentJo.order_type === 'CUSTOMIZATION') {
@@ -3398,13 +3402,13 @@ window.pfCustomizationPreloadedOrders = (() => {
                        this.showStaffAlert('Error', 'Failed to update customization price: ' + res.error);
                        return false;
                    }
-                   this.currentJo.estimated_total = price;
+                   this.currentJo.final_price = price;
                    console.log('Customization price updated successfully to:', price);
                    return true;
                 } else {
                     const success = await this.setJobPrice(jid);
                     if (success !== false) {
-                        this.currentJo.estimated_total = price;
+                        this.currentJo.final_price = price;
                         console.log('Job price updated successfully to:', price);
                         return true;
                     }
@@ -3423,7 +3427,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 fd.append('price', price);
                 const res = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fd })).json();
                 if (res.success) {
-                    this.currentJo.estimated_total = price;
+                    this.currentJo.final_price = price;
                     console.log('Job price set to:', price);
                     return true;
                 } else {
