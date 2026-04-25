@@ -125,6 +125,9 @@ if ($is_rejected_payment) {
     $payment_status = 'Partial';
 }
 
+$service_final_price_pending_statuses = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
+$service_final_price_locked = in_array((string)($order['status'] ?? ''), $service_final_price_pending_statuses, true);
+
 $first_item_customization = [];
 $first_item_raw_customization = db_query(
     "SELECT customization_data FROM order_items WHERE order_id = ? ORDER BY order_item_id ASC LIMIT 1",
@@ -213,9 +216,9 @@ foreach ($service_items_raw as $index => $entry) {
     $raw_subtotal = (float)($entry['raw_subtotal'] ?? 0);
     $final_item_amount = null;
 
-    if ($order_total_amount > 0 && $item_count === 1) {
+    if (!$service_final_price_locked && $order_total_amount > 0 && $item_count === 1) {
         $final_item_amount = $order_total_amount > 0 ? $order_total_amount : $raw_subtotal;
-    } elseif ($estimated_sum > 0 && $order_total_amount > 0) {
+    } elseif (!$service_final_price_locked && $estimated_sum > 0 && $order_total_amount > 0) {
         $final_item_amount = ($raw_subtotal / $estimated_sum) * $order_total_amount;
     }
 
@@ -280,7 +283,7 @@ customer_order_items_json([
             ? format_currency($estimated_order_amount)
             : 'Pending')
         : null,
-    'total_amount'     => ($is_service_order && $order_total_amount <= 0)
+    'total_amount'     => ($is_service_order && ($service_final_price_locked || $order_total_amount <= 0))
         ? 'To Be Discussed'
         : format_currency($order['total_amount']),
     'status'           => $order['status'],
