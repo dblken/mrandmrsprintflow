@@ -7,6 +7,7 @@
     var SEEN_STORAGE_KEY       = 'pf_seen_notifications';
     var LAST_TOAST_ID_KEY      = 'pf_last_toast_notification_id';
     var PERM_ASKED_KEY         = 'pf_notify_perm_asked';
+    var AUTO_RESTORE_KEY       = 'pf_push_autorestore_attempted';
     var BADGE_SELECTOR         = '#sidebar-notif-badge, #nav-notif-badge, [data-notif-badge]';
 
     function normalizeBasePath(rawBase) {
@@ -218,6 +219,47 @@
                     alert('Notification setup failed: ' + (err && err.message ? err.message : 'unknown error'));
                 }
                 return null;
+            });
+    }
+
+    function autoRestorePushSubscription() {
+        if (!isPushSupported()) return;
+        if (Notification.permission !== 'granted') return;
+
+        try {
+            if (localStorage.getItem(AUTO_RESTORE_KEY) === 'done') return;
+        } catch (e) {}
+
+        ensureServiceWorker()
+            .then(function(reg) {
+                return reg.pushManager.getSubscription().then(function(existing) {
+                    if (existing) {
+                        return sendSubscription(existing, 'subscribe').then(function() {
+                            try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                            return existing;
+                        });
+                    }
+
+                    return fetchVapidPublicKey().then(function(pubKey) {
+                        if (!pubKey) return null;
+
+                        return reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlB64ToUint8Array(pubKey)
+                        }).then(function(sub) {
+                            return sendSubscription(sub, 'subscribe').then(function() {
+                                try { localStorage.setItem(AUTO_RESTORE_KEY, 'done'); } catch (e) {}
+                                return sub;
+                            });
+                        });
+                    });
+                });
+            })
+            .then(function() {
+                initPushToggle();
+            })
+            .catch(function() {
+                try { localStorage.removeItem(AUTO_RESTORE_KEY); } catch (e) {}
             });
     }
 
@@ -596,6 +638,7 @@
         initStarted = true;
         bindPushMessages();
         initPushToggle();
+        autoRestorePushSubscription();
         poll();
         schedulePoll();
     }

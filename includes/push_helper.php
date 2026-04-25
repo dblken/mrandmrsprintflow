@@ -7,6 +7,7 @@
 if (!class_exists('WebPush')) {
     require_once __DIR__ . '/WebPush.php';
 }
+require_once __DIR__ . '/vapid_bootstrap.php';
 
 /**
  * Return a WebPush instance using the stored VAPID config.
@@ -17,10 +18,7 @@ function get_webpush(): ?WebPush
     static $instance = null;
     if ($instance !== null) return $instance;
 
-    $cfg_file = __DIR__ . '/vapid_config.php';
-    if (!file_exists($cfg_file)) return null;
-
-    $cfg = require $cfg_file;
+    $cfg = printflow_vapid_config();
     if (empty($cfg['public_key']) || empty($cfg['private_key'])) return null;
 
     $instance = new WebPush(
