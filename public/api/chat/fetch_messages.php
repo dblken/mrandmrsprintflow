@@ -77,8 +77,15 @@ try {
 
             $image_path = (string) ($msg['image_path'] ?? '');
             if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
-                if (strpos($image_path, '/printflow/') !== 0)
-                    $image_path = '/printflow/' . ltrim($image_path, '/');
+                // Use BASE_PATH constant ('' on production, '/printflow' on localhost)
+                $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+                if ($image_path[0] !== '/') {
+                    // Relative path — prefix with base
+                    $image_path = $bp . '/' . $image_path;
+                } elseif ($bp !== '' && strpos($image_path, $bp . '/') !== 0) {
+                    // Absolute but missing base prefix (localhost only)
+                    $image_path = $bp . $image_path;
+                }
             }
 
             $sender_avatar = get_profile_image($msg['sender_avatar'] ?? null);

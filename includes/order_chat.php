@@ -208,7 +208,7 @@ async function sendMessage() {
     renderImagePreviews();
     
     try {
-        const response = await fetch(BASE_PATH . '/public/api/chat/send_message.php', {
+        const response = await fetch(`<?php echo BASE_PATH; ?>/public/api/chat/send_message.php`, {
             method: 'POST',
             body: formData
         });
@@ -231,14 +231,14 @@ function handleTyping() {
     formData.append('order_id', currentChatOrderId);
     formData.append('is_typing', 1);
     
-    fetch(BASE_PATH . '/public/api/chat/status.php', { method: 'POST', body: formData });
+    fetch(`<?php echo BASE_PATH; ?>/public/api/chat/status.php`, { method: 'POST', body: formData });
     
     if (typingTimeout) clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
         const stopData = new FormData();
         stopData.append('order_id', currentChatOrderId);
         stopData.append('is_typing', 0);
-        fetch(BASE_PATH . '/public/api/chat/status.php', { method: 'POST', body: stopData });
+        fetch(`<?php echo BASE_PATH; ?>/public/api/chat/status.php`, { method: 'POST', body: stopData });
     }, 3000);
 }
 

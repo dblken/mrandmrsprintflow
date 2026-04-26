@@ -4,7 +4,11 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+// Load config first so production gets empty BASE_URL, not /printflow
+if (!defined('BASE_URL') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+if (!defined('BASE_URL')) define('BASE_URL', '');
 
 require_role('Customer');
 

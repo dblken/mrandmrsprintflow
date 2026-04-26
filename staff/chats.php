@@ -5,11 +5,13 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+// Load environment config first so BASE_URL/BASE_PATH are correct for production
+if (!defined('BASE_URL') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+if (!defined('BASE_URL')) define('BASE_URL', '');
 
 require_role(['Staff', 'Admin', 'Manager']);
-
-if (!defined('BASE_URL'))
-    define('BASE_URL', '/printflow');
 
 $page_title = 'Chats - PrintFlow';
 $current_user = get_logged_in_user();
@@ -956,7 +958,19 @@ $current_user = get_logged_in_user();
     </div>
 </div>
 
+<!-- Socket.IO for WebRTC signaling -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<!-- Load call system assets -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css">
+<script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js"></script>
 <script>
+// Inject the socket server URL so PFCall connects to the right server on production
+window.PF_CALL_SERVER_URL = '<?php
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // Use port 3000 on same host — Nginx/Apache proxy should forward /socket.io/ to this
+    echo rtrim($proto . '://' . $host, '/') . ':3000';
+?>';
 window.baseUrl = '<?php echo BASE_URL; ?>';
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;

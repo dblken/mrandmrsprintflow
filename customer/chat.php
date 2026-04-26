@@ -4,7 +4,11 @@ require_once __DIR__ . '/../includes/functions.php';
 
 require_role('Customer');
 
-if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
+// Load config first — production needs empty BASE_URL, localhost needs /printflow
+if (!defined('BASE_URL') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+if (!defined('BASE_URL')) define('BASE_URL', '');
 
 $user_id    = get_user_id();
 $user_name  = $_SESSION['user_name'] ?? 'Customer';
@@ -155,6 +159,17 @@ require_once __DIR__ . '/../includes/header.php';
 
     .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
+
+    /* Call Log Bubbles */
+    .call-log-bubble { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:20px; font-size:.88rem; font-weight:600; cursor:default; user-select:none; max-width:260px; }
+    .brow.other .call-log-bubble { background:#fff; color:#1e293b; border:1px solid var(--pf-border); }
+    .brow.self .call-log-bubble { background:#fff; color:#0a2530; border:1px solid rgba(10,37,48,0.1); }
+    .call-log-icon { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1.1rem; }
+    .brow.other .call-log-icon { background:#f1f5f9; color:#64748b; }
+    .brow.self .call-log-icon { background:#f1f5f9; color:#0a2530; }
+    .call-log-details { display:flex; flex-direction:column; gap:1px; }
+    .call-log-title { font-weight:800; font-size:.9rem; line-height: 1.2; }
+    .call-log-status { font-size:.72rem; font-weight:600; opacity:0.6; line-height: 1.2; }
 
     .brow.system.order-update-card { justify-content:flex-end; margin:12px 0; }
     .order-update-bubble { background:rgba(255,255,255,0.92); border:1px solid var(--pf-border); border-radius:18px; padding:1rem; max-width:320px; position:relative; box-shadow:0 4px 12px rgba(15,23,42,0.05); cursor:pointer; transition:all .2s cubic-bezier(.4,0,.2,1); }
@@ -619,7 +634,16 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="<?= BASE_URL ?>/public/assets/js/printflow_call.js"></script>
+<script>
+// Inject socket server URL for production — must come before PFCall.initialize()
+window.PF_CALL_SERVER_URL = '<?php
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $h = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    echo rtrim($proto . '://' . $h, '/') . ':3000';
+?>';
+</script>
 <script>
 const BASE = '<?= BASE_URL ?>';
 const ME_ID = <?= (int)$user_id ?>;
@@ -837,13 +861,16 @@ function appendMsgUI(m) {
     const currentMin = getMinute(m.created_at);
     const prevMin = prevRow ? getMinute(prevRow.getAttribute('data-time')) : null;
     
+    const isCallLog = m.message_type === 'call_log' || m.message_type === 'call_event' || /voice call|video call|missed|declined|busy/i.test(m.message);
+    const rowClass = (m.is_system && !isCallLog) ? 'system' : (m.is_self ? 'self' : 'other');
+    
     const isGrouped = prevRow && !m.is_system && 
                       prevRow.getAttribute('data-sender') === (m.is_self ? 'self' : m.sender) && 
                       currentMin === prevMin;
 
     const row = document.createElement('div');
     row.id = `ms-${m.id}`;
-    row.className = `brow ${m.is_system ? 'system' : (m.is_self ? 'self' : 'other')}`;
+    row.className = `brow ${rowClass}`;
     row.setAttribute('data-sender', m.is_self ? 'self' : m.sender);
     row.setAttribute('data-time', m.created_at);
 
@@ -852,7 +879,7 @@ function appendMsgUI(m) {
         row.classList.add('grouped-msg-next');
     }
 
-    if (m.is_system) {
+    if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
             let payload = {};
             try { payload = JSON.parse(m.message || '{}'); } catch (e) {}
@@ -884,7 +911,23 @@ function appendMsgUI(m) {
     const avHtml = (!m.is_self) ? `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end;">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="border-radius:50%;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${(m.sender_name||'S')[0].toUpperCase()}</span>`}</div>` : '';
     
     let contentHtml = '';
-    if (m.message_type === 'voice') {
+    if (isCallLog) {
+        const isVideo = m.message.toLowerCase().includes('video');
+        const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy');
+        const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
+        let title = m.message;
+        const statusText = m.is_self ? 'Outgoing' : 'Incoming';
+
+        contentHtml = `
+            <div class="call-log-bubble">
+                <div class="call-log-icon" style="${isMissed ? 'color: #ef4444; background: #fef2f2;' : ''}">${icon}</div>
+                <div class="call-log-details">
+                    <div class="call-log-title" style="${isMissed ? 'color: #ef4444;' : ''}">${esc(title)}</div>
+                    <div class="call-log-status">${statusText}</div>
+                </div>
+            </div>
+        `;
+    } else if (m.message_type === 'voice') {
         const audioSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         contentHtml = `
         <div class="voice-bubble-player" id="v-p-${m.id}">
@@ -1497,14 +1540,23 @@ if (!window.__pfCustomerChatCloseMenusBound) {
 
 function initiateCall(type) {
     if (!activeId) return;
-    if (!pfc) pfc = new PrintFlowCall({ userId: ME_ID, userName: ME_NAME, role: 'Customer', userAvatar: ME_AVATAR });
+    if (!window.PFCall || !window.PFCall.userId) {
+        // Initialize if not ready
+        window.PFCall.initialize(ME_ID, 'Customer', ME_NAME, ME_AVATAR, BASE);
+    }
     const fd = new FormData(); fd.append('order_id', activeId);
     api('/public/api/chat/status.php','POST',fd).then(res => {
-        if (!res.partner) {
+        if (!res || !res.partner) {
             alert('Staff is unavailable right now.');
             return;
         }
-        pfc.startCall(res.partner.id, 'Staff', type, activeId, res.partner.name, resolveProfileUrl(res.partner.avatar));
+        window.PFCall.startCall(
+            res.partner.id,
+            'Staff',
+            res.partner.name,
+            resolveProfileUrl(res.partner.avatar),
+            type
+        );
     });
 }
 
