@@ -124,6 +124,17 @@ try {
                 $params[] = $joStaffBranch;
                 $types .= 'i';
             }
+            if ($serviceOnly) {
+                $sql .= " AND (
+                    jo.order_id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM orders o_scope
+                        WHERE o_scope.order_id = jo.order_id
+                          AND o_scope.order_type = 'custom'
+                    )
+                )";
+            }
             
             // Pagination
             $page = max(1, (int)($_GET['page'] ?? 1));

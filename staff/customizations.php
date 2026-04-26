@@ -40,9 +40,9 @@ $jobCustomizationScopeSql = " AND (
     jo.order_id IS NULL
     OR EXISTS (
         SELECT 1
-        FROM order_items oi_scope
-        WHERE oi_scope.order_id = jo.order_id
-          AND oi_scope.customization_data LIKE '%\"service_type\"%'
+        FROM orders o_scope
+        WHERE o_scope.order_id = jo.order_id
+          AND o_scope.order_type = 'custom'
     )
 )";
 
@@ -107,9 +107,9 @@ $job_rows = db_query(
         jo.order_id IS NULL
         OR EXISTS (
             SELECT 1
-            FROM order_items oi_scope
-            WHERE oi_scope.order_id = jo.order_id
-              AND oi_scope.customization_data LIKE '%\"service_type\"%'
+            FROM orders o_scope
+            WHERE o_scope.order_id = jo.order_id
+              AND o_scope.order_type = 'custom'
         )
      )" . $joBranchSql . "
      ORDER BY jo.created_at DESC

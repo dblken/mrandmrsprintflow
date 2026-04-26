@@ -189,6 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             
             // 4. Auto-create Job Orders for Production Workflow
             foreach ($cart_items as $pid => $item) {
+                if (!checkout_item_is_service($item)) {
+                    continue;
+                }
+
                 // Determine service type accurately for ENUM matching
                 $service_type = 'Tarpaulin Printing'; // Default
                 $cat_lower = strtolower(($item['category'] ?? '') . ' ' . ($item['name'] ?? ''));
