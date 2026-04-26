@@ -1519,6 +1519,8 @@ function get_customer_notifications_for_display($customer_id, $limit = 10, $offs
         return [];
     }
 
+    $rows = printflow_dedupe_notifications($rows, 120);
+
     $notifications = [];
     foreach ($rows as $row) {
         $type = (string)($row['type'] ?? 'System');
@@ -1550,6 +1552,55 @@ function get_customer_notifications_for_display($customer_id, $limit = 10, $offs
     }
 
     return $notifications;
+}
+
+/**
+ * Remove near-identical duplicate notifications generated within a short window.
+ * Keeps the most recent row for each duplicate signature.
+ */
+function printflow_dedupe_notifications(array $rows, int $windowSeconds = 120): array
+{
+    if (empty($rows)) {
+        return [];
+    }
+
+    $windowSeconds = max(1, $windowSeconds);
+    $seen = [];
+    $out = [];
+
+    foreach ($rows as $row) {
+        $type = strtolower(trim((string)($row['type'] ?? '')));
+        $message = strtolower(trim((string)($row['message'] ?? '')));
+        $dataId = (int)($row['data_id'] ?? 0);
+        $tsRaw = $row['ts'] ?? null;
+        $ts = is_numeric($tsRaw)
+            ? (int)$tsRaw
+            : (strtotime((string)($row['created_at'] ?? '')) ?: 0);
+        $nid = (int)($row['notification_id'] ?? ($row['id'] ?? 0));
+        $signature = $type . '|' . $dataId . '|' . $message;
+
+        if (isset($seen[$signature])) {
+            $prevIdx = $seen[$signature];
+            $prevRow = $out[$prevIdx];
+            $prevTsRaw = $prevRow['ts'] ?? null;
+            $prevTs = is_numeric($prevTsRaw)
+                ? (int)$prevTsRaw
+                : (strtotime((string)($prevRow['created_at'] ?? '')) ?: 0);
+            $prevNid = (int)($prevRow['notification_id'] ?? ($prevRow['id'] ?? 0));
+
+            if ($ts > 0 && $prevTs > 0 && abs($ts - $prevTs) <= $windowSeconds) {
+                if ($ts > $prevTs || ($ts === $prevTs && $nid > $prevNid)) {
+                    $out[$prevIdx] = $row;
+                }
+                continue;
+            }
+        }
+
+        $seen[$signature] = count($out);
+        $out[] = $row;
+    }
+
+    return $out;
 }
 
 function customer_notification_title($type, $message) {

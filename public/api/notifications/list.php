@@ -47,6 +47,8 @@ try {
         $rows = printflow_filter_notifications_for_user($rows ?: [], (string)$user_type, $branchId > 0 ? (int)$branchId : null);
     }
 
+    $rows = printflow_dedupe_notifications($rows ?: [], 120);
+
     // Return rows with unread count
     foreach ($rows as &$row) {
         $row['target_url'] = printflow_notification_target_url_for_user((string)$user_type, $row);
