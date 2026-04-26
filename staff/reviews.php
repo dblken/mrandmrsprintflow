@@ -30,6 +30,7 @@ $review_reference_expr = isset($review_columns['reference_id']) ? 'r.reference_i
 $review_type_expr = isset($review_columns['review_type']) ? 'r.review_type' : "'custom'";
 $review_service_expr = isset($review_columns['service_type']) ? 'r.service_type' : "''";
 $review_video_expr = isset($review_columns['video_path']) ? 'r.video_path' : "''";
+$review_title_expr = isset($review_columns['title']) ? 'r.title' : (isset($review_columns['review_title']) ? 'r.review_title' : "''");
 $review_branch_from = 'FROM reviews r';
 $review_kpi_types = '';
 $review_kpi_params = [];
@@ -125,6 +126,7 @@ $query_sql = "
         {$review_reference_expr} as reference_id,
         {$review_type_expr} as review_type,
         {$review_service_expr} as legacy_service_type,
+        {$review_title_expr} as review_title,
         r.rating,
         {$review_message_expr} as comment,
         {$review_video_expr} as video_path,
@@ -673,8 +675,8 @@ $page_title = 'Review Management - Staff';
 
         .pf-reviews-table-card .review-item {
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) minmax(280px, 1fr);
-            gap: 20px;
+            grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+            gap: 24px;
             padding: 28px 24px;
             border-bottom: 1px solid #eef2f7;
         }
@@ -685,8 +687,8 @@ $page_title = 'Review Management - Staff';
 
         .reviews-table-head {
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) minmax(280px, 1fr);
-            gap: 20px;
+            grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+            gap: 24px;
             padding: 16px 24px;
             border-bottom: 2px solid #f3f4f6;
             background: #f9fafb;
@@ -700,8 +702,7 @@ $page_title = 'Review Management - Staff';
             color: #6b7280;
         }
 
-        .review-customer-col,
-        .review-content-col,
+        .review-customer-review-col,
         .review-response-col {
             min-width: 0;
         }
@@ -721,47 +722,64 @@ $page_title = 'Review Management - Staff';
             text-align: center;
         }
 
-        .review-customer-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: #111827;
-            line-height: 1.4;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .customer-review-col {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-width: 0;
         }
 
-        .review-meta-stack {
+        .customer-review-head {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .review-customer-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.35;
+        }
+
+        .customer-review-meta {
             display: flex;
             flex-wrap: wrap;
             gap: 8px 10px;
             align-items: center;
-            margin-top: 8px;
             font-size: 12px;
             color: #64748b;
         }
 
-        .review-item-title {
-            font-size: 13px;
-            font-weight: 500;
-            color: #111827;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .customer-review-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
         }
 
-        .review-summary {
+        .review-item-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.4;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+        }
+
+        .review-rating-row {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 8px 10px;
-            margin-bottom: 12px;
+            gap: 8px 12px;
         }
 
-        .review-detail-cell {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
+        .review-helpful {
+            font-size: 12px;
+            font-weight: 600;
+            color: #059669;
         }
 
         .reply-layout {
@@ -797,23 +815,6 @@ $page_title = 'Review Management - Staff';
             width: 100%;
         }
 
-        .review-user {
-            font-size: 13px;
-            font-weight: 500;
-            color: #111827;
-            margin-bottom: 4px;
-        }
-
-        .review-meta {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            font-size: 11px;
-            color: #6b7280;
-            font-weight: 400;
-            flex-wrap: wrap;
-        }
-
         .reply-panel {
             min-height: 100%;
         }
@@ -829,9 +830,9 @@ $page_title = 'Review Management - Staff';
 
         .review-stars {
             color: #f59e0b;
-            font-size: 16px;
-            margin-bottom: 12px;
-            font-weight: 400;
+            font-size: 18px;
+            margin-bottom: 0;
+            font-weight: 700;
             letter-spacing: 0.01em;
         }
 
@@ -931,8 +932,7 @@ $page_title = 'Review Management - Staff';
                 gap: 0;
             }
 
-            .review-customer-col,
-            .review-content-col {
+            .review-customer-review-col {
                 margin-bottom: 18px;
             }
         }
@@ -1133,32 +1133,38 @@ $page_title = 'Review Management - Staff';
                     <?php else: ?>
                         <div class="rv-card">
                             <div class="reviews-table-head">
-                                <span>Customer</span>
-                                <span>Review</span>
+                                <span>Customer Review</span>
                                 <span>Response</span>
                             </div>
                             <?php foreach ($reviews as $review): ?>
                                 <div class="review-item" id="review-<?php echo $review['id']; ?>">
-                                    <div class="review-customer-col">
-                                        <div class="review-user truncate-ellipsis" title="<?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>">
-                                            <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
+                                    <div class="review-customer-review-col customer-review-col">
+                                        <div class="customer-review-head">
+                                            <div class="review-customer-name" title="<?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>">
+                                                <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
+                                            </div>
+                                            <div class="customer-review-meta">
+                                                <span class="type-badge <?php echo $review['review_type'] === 'product' ? 'type-product' : 'type-custom'; ?>">
+                                                    <?php echo $review['review_type'] === 'product' ? 'Fixed Product' : 'Custom Service'; ?>
+                                                </span>
+                                                <span><?php echo date('M d, Y h:i A', strtotime($review['created_at'])); ?></span>
+                                            </div>
                                         </div>
-                                        <div class="review-meta">
-                                            <span class="type-badge <?php echo $review['review_type'] === 'product' ? 'type-product' : 'type-custom'; ?>">
-                                                <?php echo $review['review_type'] === 'product' ? 'Fixed Product' : 'Custom Service'; ?>
-                                            </span>
-                                            <span><?php echo date('M d, Y h:i A', strtotime($review['created_at'])); ?></span>
-                                            <?php if (($review['helpful_count'] ?? 0) > 0): ?>
-                                                <span style="color:#059669; font-weight:700;"><?php echo $review['helpful_count']; ?> Helpful</span>
+                                        <div class="customer-review-body">
+                                            <?php if (!empty(trim((string)($review['review_title'] ?? '')))): ?>
+                                                <div class="review-item-title"><?php echo htmlspecialchars($review['review_title']); ?></div>
+                                            <?php endif; ?>
+                                            <div class="review-rating-row">
+                                                <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
+                                                <?php if (($review['helpful_count'] ?? 0) > 0): ?>
+                                                    <span class="review-helpful"><?php echo (int)$review['helpful_count']; ?> Helpful</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
+                                            <?php if (!empty($review['item_name'] ?: ($review['legacy_service_type'] ?: ''))): ?>
+                                                <div class="table-text-sub"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
                                             <?php endif; ?>
                                         </div>
-                                    </div>
-                                    <div class="review-content-col">
-                                        <div class="review-summary">
-                                            <div class="review-item-title truncate-ellipsis" title="<?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?>"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
-                                            <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
-                                        </div>
-                                        <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
 
                                         <?php
                                         $has_imgs = !empty($review['images']);
