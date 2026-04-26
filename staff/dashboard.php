@@ -26,23 +26,21 @@ $search_filter = $_GET['search'] ?? '';
 $timeframe = $_GET['timeframe'] ?? 'today';
 
 $today = date('Y-m-d');
-$timeframe_sql = "DATE(o.order_date) = '$today'";
-$timeframe_sql_no_alias = "DATE(order_date) = '$today'";
+$range_start = $today;
+$range_end = $today;
 $timeframe_label = "Today (" . date('F j, Y') . ")";
 $short_label = "Today";
 
 switch ($timeframe) {
     case 'week': 
-        $monday = date('Y-m-d', strtotime('monday this week'));
-        $sunday = date('Y-m-d', strtotime('sunday this week'));
-        $timeframe_sql = "DATE(o.order_date) BETWEEN '$monday' AND '$sunday'"; 
-        $timeframe_sql_no_alias = "DATE(order_date) BETWEEN '$monday' AND '$sunday'"; 
+        $range_start = date('Y-m-d', strtotime('monday this week'));
+        $range_end = date('Y-m-d', strtotime('sunday this week'));
         
-        $start_day = date('j', strtotime($monday));
-        $end_day = date('j', strtotime($sunday));
-        $start_month = date('F', strtotime($monday));
-        $end_month = date('F', strtotime($sunday));
-        $year = date('Y', strtotime($sunday));
+        $start_day = date('j', strtotime($range_start));
+        $end_day = date('j', strtotime($range_end));
+        $start_month = date('F', strtotime($range_start));
+        $end_month = date('F', strtotime($range_end));
+        $year = date('Y', strtotime($range_end));
         
         if ($start_month === $end_month) {
             $timeframe_label = "This Week ($start_month $start_day-$end_day, $year)";
@@ -52,14 +50,22 @@ switch ($timeframe) {
         $short_label = "This Week";
         break;
     case 'month': 
-        $first_day = date('Y-m-01');
-        $last_day = date('Y-m-t');
-        $timeframe_sql = "DATE(o.order_date) BETWEEN '$first_day' AND '$last_day'"; 
-        $timeframe_sql_no_alias = "DATE(order_date) BETWEEN '$first_day' AND '$last_day'"; 
+        $range_start = date('Y-m-01');
+        $range_end = date('Y-m-t');
         $timeframe_label = "This Month (" . date('F Y') . ")"; 
         $short_label = "This Month";
         break;
+    case 'all':
+        $range_start = null;
+        $range_end = null;
+        $timeframe_label = 'All Time';
+        $short_label = 'All Time';
+        break;
 }
+
+$has_timeframe_range = ($range_start !== null && $range_end !== null);
+$timeframe_sql = "DATE(o.order_date) BETWEEN ? AND ?";
+$timeframe_sql_no_alias = "DATE(order_date) BETWEEN ? AND ?";
 
 // Get dashboard statistics (scoped to this staff member's branch)
 $pending_orders_result = db_query(
@@ -84,41 +90,81 @@ $ready_orders_result = db_query(
 $ready_orders = $ready_orders_result[0]['count'] ?? 0;
 
 // Get today's completed orders
-$today_completed_result = db_query(
-    "SELECT COUNT(*) as count FROM orders 
-    WHERE status = 'Completed' AND $timeframe_sql_no_alias AND branch_id = ?",
-    'i',
-    [$staffBranchId]
-);
+$today_completed_sql = "SELECT COUNT(*) as count FROM orders WHERE status = 'Completed' AND branch_id = ?";
+$today_completed_types = 'i';
+$today_completed_params = [$staffBranchId];
+if ($has_timeframe_range) {
+    $today_completed_sql .= " AND $timeframe_sql_no_alias";
+    $today_completed_types .= 'ss';
+    $today_completed_params[] = $range_start;
+    $today_completed_params[] = $range_end;
+}
+$today_completed_result = db_query($today_completed_sql, $today_completed_types, $today_completed_params);
 $completed_today = $today_completed_result[0]['count'] ?? 0;
 
 // Total Orders Today (Scoped)
-$today_orders_res = db_query("SELECT COUNT(*) as count FROM orders WHERE $timeframe_sql_no_alias AND branch_id = ?", 'i', [$staffBranchId]);
+$today_orders_sql = "SELECT COUNT(*) as count FROM orders WHERE branch_id = ?";
+$today_orders_types = 'i';
+$today_orders_params = [$staffBranchId];
+if ($has_timeframe_range) {
+    $today_orders_sql .= " AND $timeframe_sql_no_alias";
+    $today_orders_types .= 'ss';
+    $today_orders_params[] = $range_start;
+    $today_orders_params[] = $range_end;
+}
+$today_orders_res = db_query($today_orders_sql, $today_orders_types, $today_orders_params);
 $total_orders_today = $today_orders_res[0]['count'] ?? 0;
 
 // Total Sales Today (Scoped)
-$sales_today_res = db_query("SELECT SUM(total_amount) as total FROM orders WHERE $timeframe_sql_no_alias AND status != 'Cancelled' AND branch_id = ?", 'i', [$staffBranchId]);
+$sales_today_sql = "SELECT SUM(total_amount) as total FROM orders WHERE status != 'Cancelled' AND branch_id = ?";
+$sales_today_types = 'i';
+$sales_today_params = [$staffBranchId];
+if ($has_timeframe_range) {
+    $sales_today_sql .= " AND $timeframe_sql_no_alias";
+    $sales_today_types .= 'ss';
+    $sales_today_params[] = $range_start;
+    $sales_today_params[] = $range_end;
+}
+$sales_today_res = db_query($sales_today_sql, $sales_today_types, $sales_today_params);
 $total_sales_today = $sales_today_res[0]['total'] ?? 0;
 
 // --- Dashboard Global/Summary Metrics ---
-$completed_products_res = db_query("
+$completed_products_sql = "
     SELECT COUNT(DISTINCT o.order_id) as count 
     FROM orders o 
     JOIN order_items oi ON o.order_id = oi.order_id
     JOIN products p ON oi.product_id = p.product_id
-    WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product' AND $timeframe_sql_no_alias
-", 'i', [$staffBranchId]);
+    WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product'";
+$completed_products_types = 'i';
+$completed_products_params = [$staffBranchId];
+if ($has_timeframe_range) {
+    $completed_products_sql .= " AND $timeframe_sql_no_alias";
+    $completed_products_types .= 'ss';
+    $completed_products_params[] = $range_start;
+    $completed_products_params[] = $range_end;
+}
+$completed_products_res = db_query($completed_products_sql, $completed_products_types, $completed_products_params);
 $completed_products_count = $completed_products_res[0]['count'] ?? 0;
 
-$completed_custom_res = db_query("
+$completed_custom_sql = "
     SELECT COUNT(DISTINCT o.order_id) as count 
     FROM orders o 
     JOIN order_items oi ON o.order_id = oi.order_id
     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
-    LEFT JOIN services s ON oi.product_id = s.service_id
-    WHERE o.status = 'Completed' AND o.branch_id = ? AND $timeframe_sql_no_alias
-      AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
-", 'i', [$staffBranchId]);
+    LEFT JOIN services s ON oi.product_id = s.service_id";
+$completed_custom_types = 'i';
+$completed_custom_params = [$staffBranchId];
+$completed_custom_sql .= "
+    WHERE o.status = 'Completed' AND o.branch_id = ?";
+if ($has_timeframe_range) {
+    $completed_custom_sql .= " AND $timeframe_sql_no_alias";
+    $completed_custom_types .= 'ss';
+    $completed_custom_params[] = $range_start;
+    $completed_custom_params[] = $range_end;
+}
+$completed_custom_sql .= "
+      AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')";
+$completed_custom_res = db_query($completed_custom_sql, $completed_custom_types, $completed_custom_params);
 $completed_custom_count = $completed_custom_res[0]['count'] ?? 0;
 $pending_reviews_res = db_query("SELECT COUNT(*) as count FROM reviews");
 $pending_reviews_count = $pending_reviews_res[0]['count'] ?? 0;
@@ -134,17 +180,13 @@ for ($i = 6; $i >= 0; $i--) {
 }
 
 // Top Sales (Dynamic Timeframe) (Scoped)
-$ts_where = $timeframe_sql;
-if ($timeframe === 'all') $ts_where = "1=1";
-
-$top_services = db_query("
+$top_services_sql = "
     SELECT COALESCE(p.name, s.name, 'Custom Product') as name, COUNT(*) as order_count
     FROM order_items oi
     JOIN orders o ON oi.order_id = o.order_id
     LEFT JOIN products p ON oi.product_id = p.product_id
     LEFT JOIN services s ON oi.product_id = s.service_id
-    WHERE $ts_where 
-      AND o.branch_id = ?
+    WHERE o.branch_id = ?
       AND (
           (p.product_id IS NOT NULL AND p.status = 'Activated')
           OR (s.service_id IS NOT NULL AND s.status = 'Activated')
@@ -152,8 +194,16 @@ $top_services = db_query("
       )
     GROUP BY name
     ORDER BY order_count DESC
-    LIMIT 5
-", 'i', [$staffBranchId]);
+    LIMIT 5";
+$top_services_types = 'i';
+$top_services_params = [$staffBranchId];
+if ($has_timeframe_range) {
+    $top_services_sql = str_replace('WHERE o.branch_id = ?', 'WHERE o.branch_id = ? AND ' . $timeframe_sql, $top_services_sql);
+    $top_services_types .= 'ss';
+    $top_services_params[] = $range_start;
+    $top_services_params[] = $range_end;
+}
+$top_services = db_query($top_services_sql, $top_services_types, $top_services_params);
 
 // Recent Orders with filters (Scoped)
 $sql_cond = " WHERE o.branch_id = ?";
@@ -165,8 +215,11 @@ if ($status_filter) {
     $params[] = $status_filter;
     $types .= "s";
 }
-if ($timeframe !== 'all') {
+if ($has_timeframe_range) {
     $sql_cond .= " AND " . $timeframe_sql;
+    $params[] = $range_start;
+    $params[] = $range_end;
+    $types .= "ss";
 }
 if ($search_filter) {
     $sql_cond .= " AND (o.order_id LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ?)";
@@ -676,4 +729,3 @@ document.addEventListener('turbo:load', initDashboardInteractions);
 
 </body>
 </html>
-
