@@ -365,6 +365,11 @@ class SessionManager
         }
     }
 
+    /**
+     * Remove only stale cookies from old paths (e.g. /printflow when site moved to root).
+     * Do NOT expire path=/ for the live session: PHP may not re-issue Set-Cookie on read-only
+     * requests, so the browser would drop the session cookie and the next page load looks logged out.
+     */
     private static function cleanupLegacyCookies(): void
     {
         if (headers_sent()) {
@@ -372,13 +377,13 @@ class SessionManager
         }
 
         $domain = self::cookieDomain();
+        $legacyOnlyPaths = ['/printflow', '/staff'];
         foreach (self::cookieDomainsToClear($domain) as $cookieDomain) {
-            foreach (self::cookiePathsToClear('/') as $path) {
+            foreach ($legacyOnlyPaths as $path) {
                 self::expireCookie('PHPSESSID', $path, $cookieDomain);
                 self::expireCookie(PRINTFLOW_SESSION_NAME, $path, $cookieDomain);
             }
         }
-
     }
 
     /**
