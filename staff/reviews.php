@@ -230,6 +230,95 @@ function pf_normalize_review_media_path($path, $base_path, $default = '')
     return $path;
 }
 
+function pf_review_video_candidates($path, $base_path, $review_id = 0)
+{
+    $raw = trim((string)$path);
+    if ($raw === '') {
+        return [];
+    }
+
+    $normalized = pf_normalize_review_media_path($raw, $base_path, '');
+    $variants = [];
+    $basename = basename(str_replace('\\', '/', $raw));
+
+    foreach ([$raw, $normalized] as $candidate) {
+        $candidate = trim((string)$candidate);
+        if ($candidate === '') {
+            continue;
+        }
+
+        $candidate = str_replace('\\', '/', $candidate);
+        $variants[] = $candidate;
+
+        if (strpos($candidate, '/public/') !== false) {
+            $variants[] = str_replace('/public/', '/', $candidate);
+        }
+    }
+
+    if ($basename !== '' && $basename !== '.' && $basename !== '/') {
+        $variants[] = '/uploads/reviews_videos/' . $basename;
+        $variants[] = '/public/uploads/reviews_videos/' . $basename;
+        $variants[] = '/public/assets/uploads/reviews_videos/' . $basename;
+        if ($base_path !== '') {
+            $variants[] = $base_path . '/uploads/reviews_videos/' . $basename;
+            $variants[] = $base_path . '/public/uploads/reviews_videos/' . $basename;
+            $variants[] = $base_path . '/public/assets/uploads/reviews_videos/' . $basename;
+        }
+    }
+
+    if ($review_id > 0) {
+        $variants[] = rtrim((string)$base_path, '/') . '/public/serve_review_video.php?review_id=' . (int)$review_id;
+    }
+
+    $clean = [];
+    foreach ($variants as $variant) {
+        $variant = trim((string)$variant);
+        if ($variant === '') {
+            continue;
+        }
+
+        if (preg_match('#^https?://#i', $variant)) {
+            $parts = parse_url($variant);
+            if (!empty($parts['path'])) {
+                $variant = $parts['path'];
+            }
+        }
+
+        if ($variant !== '' && $variant[0] !== '/' && strpos($variant, 'http') !== 0) {
+            $variant = '/' . ltrim($variant, '/');
+        }
+
+        if ($base_path !== '' && strpos($variant, 'http') !== 0 && strpos($variant, $base_path . '/') !== 0) {
+            $variant = $base_path . $variant;
+        }
+
+        $clean[$variant] = true;
+    }
+
+    return array_keys($clean);
+}
+
+function pf_review_video_mime_type($src)
+{
+    $ext = strtolower(pathinfo(parse_url((string)$src, PHP_URL_PATH) ?? (string)$src, PATHINFO_EXTENSION));
+    return match ($ext) {
+        'webm' => 'video/webm',
+        'mov' => 'video/quicktime',
+        'ogv' => 'video/ogg',
+        'avi' => 'video/x-msvideo',
+        default => 'video/mp4',
+    };
+}
+
+function pf_render_review_video_sources($sources)
+{
+    $html = '';
+    foreach ($sources as $src) {
+        $html .= '<source src="' . htmlspecialchars($src) . '" type="' . htmlspecialchars(pf_review_video_mime_type($src)) . '">' . "\n";
+    }
+    return $html;
+}
+
 function pf_review_value_looks_like_path($value): bool
 {
     $value = trim((string)$value);
@@ -1282,20 +1371,18 @@ $page_title = 'Review Management - Staff';
                                         if ($has_imgs || $has_vid): ?>
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
                                                 <?php if ($has_vid):
-                                                    $vpath = pf_get_review_video_url((int)$review['id'], (string)($review['video_path'] ?? ''), BASE_PATH);
-                                                    if ($vpath === '') {
-                                                        $vpath = pf_normalize_review_media_path((string)($review['video_path'] ?? ''), BASE_PATH, '');
-                                                    }
+                                                    $video_sources = pf_review_video_candidates((string)($review['video_path'] ?? ''), BASE_PATH, (int)$review['id']);
+                                                    $vpath = $video_sources[0] ?? '';
                                                     ?>
                                                     <?php if ($vpath !== ''): ?>
                                                         <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
                                                             <video
-                                                                src="<?php echo htmlspecialchars($vpath); ?>"
                                                                 muted
                                                                 playsinline
                                                                 preload="metadata"
                                                                 onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
                                                                 onclick="event.stopPropagation();">
+                                                                <?php echo pf_render_review_video_sources($video_sources); ?>
                                                             </video>
                                                         </div>
                                                     <?php endif; ?>
