@@ -36,34 +36,44 @@ if ($branchFilter !== null) {
 }
 
 // Get statistics for KPIs from job/customization work only.
+$jobCustomizationScopeSql = " AND (
+    jo.order_id IS NULL
+    OR EXISTS (
+        SELECT 1
+        FROM orders o_scope
+        WHERE o_scope.order_id = jo.order_id
+          AND COALESCE(o_scope.order_type, 'custom') = 'custom'
+    )
+)";
+
 $total_jobs_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE 1=1" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
 $total_jobs = $total_jobs_jobs;
 
 $pending_jobs_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'PENDING'" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
 $pending_jobs = $pending_jobs_jobs;
 
 $approval_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'APPROVED'" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
 $in_production_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'IN_PRODUCTION'" . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'IN_PRODUCTION'" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
 $in_production = $in_production_jobs;
 
 $completed_jobs_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'COMPLETED'" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
@@ -93,7 +103,7 @@ $job_rows = db_query(
      FROM job_orders jo
      LEFT JOIN customers c ON jo.customer_id = c.customer_id
      LEFT JOIN orders ord ON ord.order_id = jo.order_id
-     WHERE 1=1" . $joBranchSql . "
+     WHERE (jo.order_id IS NULL OR COALESCE(ord.order_type, 'custom') = 'custom')" . $joBranchSql . "
      ORDER BY jo.created_at DESC
      LIMIT 200",
     $joBranchTypes ?: null,
