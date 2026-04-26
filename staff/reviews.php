@@ -175,6 +175,20 @@ foreach ($reviews_raw as $r) {
 
     $r['images'] = $images;
     $r['replies'] = $replies;
+    $displayItemName = trim((string)($r['item_name'] ?? ''));
+    $legacyServiceType = trim((string)($r['legacy_service_type'] ?? ''));
+    if ($displayItemName === '' || pf_review_value_looks_like_path($displayItemName)) {
+        if ($legacyServiceType !== '' && !pf_review_value_looks_like_path($legacyServiceType)) {
+            $displayItemName = $legacyServiceType;
+        } elseif (!empty($r['order_id'])) {
+            $preview = printflow_order_notification_preview((int)$r['order_id']);
+            $previewName = trim((string)($preview['display_name'] ?? ''));
+            if ($previewName !== '' && !pf_review_value_looks_like_path($previewName)) {
+                $displayItemName = $previewName;
+            }
+        }
+    }
+    $r['display_item_name'] = $displayItemName;
     $reviews[] = $r;
 }
 
@@ -214,6 +228,15 @@ function pf_normalize_review_media_path($path, $base_path, $default = '')
         $path = $base_path . $path;
     }
     return $path;
+}
+
+function pf_review_value_looks_like_path($value): bool
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return false;
+    }
+    return (bool)preg_match('#(^/|\\\\|/uploads/|/public/|\.mp4$|\.mov$|\.jpg$|\.jpeg$|\.png$|\.webp$)#i', $value);
 }
 
 function stars_text($value)
@@ -1213,14 +1236,14 @@ $page_title = 'Review Management - Staff';
                                             <?php endif; ?>
                                             <div class="review-rating-row">
                                                 <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
+                                                <?php if (!empty($review['display_item_name'])): ?>
+                                                    <div class="review-product-name"><?php echo htmlspecialchars($review['display_item_name']); ?></div>
+                                                <?php endif; ?>
                                                 <?php if (($review['helpful_count'] ?? 0) > 0): ?>
                                                     <span class="review-helpful"><?php echo (int)$review['helpful_count']; ?> Like<?php echo ((int)$review['helpful_count'] === 1) ? '' : 's'; ?></span>
                                                 <?php endif; ?>
                                             </div>
                                             <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
-                                            <?php if (!empty($review['item_name'] ?: ($review['legacy_service_type'] ?: ''))): ?>
-                                                <div class="review-product-name"><strong>Product:</strong> <?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
-                                            <?php endif; ?>
                                         </div>
 
                                         <?php
@@ -1229,20 +1252,18 @@ $page_title = 'Review Management - Staff';
                                         if ($has_imgs || $has_vid): ?>
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
                                                 <?php if ($has_vid):
-                                                    $vpath = pf_normalize_review_media_path((string)($review['video_path'] ?? ''), BASE_PATH, '');
+                                                    $vpath = (BASE_PATH ?: '') . '/public/serve_review_video.php?review_id=' . (int)$review['id'];
                                                     ?>
-                                                    <?php if ($vpath !== ''): ?>
-                                                        <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
-                                                            <video
-                                                                src="<?php echo htmlspecialchars($vpath); ?>"
-                                                                muted
-                                                                playsinline
-                                                                preload="metadata"
-                                                                onloadeddata="this.currentTime = 0.2"
-                                                                onclick="event.stopPropagation();">
-                                                            </video>
-                                                        </div>
-                                                    <?php endif; ?>
+                                                    <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
+                                                        <video
+                                                            src="<?php echo htmlspecialchars($vpath); ?>"
+                                                            muted
+                                                            playsinline
+                                                            preload="metadata"
+                                                            onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
+                                                            onclick="event.stopPropagation();">
+                                                        </video>
+                                                    </div>
                                                 <?php endif; ?>
 
                                                 <?php foreach ($review['images'] as $img):
