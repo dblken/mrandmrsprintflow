@@ -1,4 +1,16 @@
 <?php
+// Public pages set this in header.php; many admin/manager pages use a custom head and omit it. Treat as logged out
+// (wrong) and the footer will embed customer auth modals and overwrite window.openModal — breaking admin UIs
+// (e.g. customers_management.php customer profile modal). Resolve from session when unset.
+if (!function_exists('is_logged_in') && file_exists(__DIR__ . '/auth.php')) {
+    require_once __DIR__ . '/auth.php';
+}
+if (!isset($is_logged_in) && function_exists('is_logged_in')) {
+    $is_logged_in = is_logged_in();
+} elseif (!isset($is_logged_in)) {
+    $is_logged_in = false;
+}
+
 // Load configs for the footer
 $_ft_shop_path   = __DIR__ . '/../public/assets/uploads/shop_config.json';
 $_ft_footer_path = __DIR__ . '/../public/assets/uploads/footer_config.json';
