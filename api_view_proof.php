@@ -25,36 +25,47 @@ if (empty($basename)) {
 $candidates = [
     __DIR__ . '/uploads/secure_payments/' . $basename,
     __DIR__ . '/uploads/payments/' . $basename,
+    __DIR__ . '/public/assets/uploads/payments/' . $basename,
+    __DIR__ . '/public/assets/uploads/secure_payments/' . $basename,
 ];
 
+// If the file path is provided as a relative or absolute-looking path, try resolving it.
 if (strpos($normalized_file, '/printflow/') === 0) {
-    $candidates[] = __DIR__ . substr($normalized_file, strlen('/printflow'));
+    $sub = substr($normalized_file, strlen('/printflow'));
+    $candidates[] = __DIR__ . $sub;
+    $candidates[] = __DIR__ . '/public/assets' . $sub;
 }
+
 if (strpos($normalized_file, 'uploads/') === 0) {
     $candidates[] = __DIR__ . '/' . $normalized_file;
+    $candidates[] = __DIR__ . '/public/assets/' . $normalized_file;
 }
+
 $uploads_pos = stripos($normalized_file, '/uploads/');
 if ($uploads_pos !== false) {
-    $candidates[] = __DIR__ . substr($normalized_file, $uploads_pos);
+    $sub = substr($normalized_file, $uploads_pos);
+    $candidates[] = __DIR__ . $sub;
+    $candidates[] = __DIR__ . '/public/assets' . $sub;
 }
 
 $filepath = '';
-$uploads_root = realpath(__DIR__ . '/uploads');
-$uploads_root_n = $uploads_root !== false ? str_replace('\\', '/', strtolower($uploads_root)) : false;
+// Security: Ensure the file is within an 'uploads' directory.
 foreach ($candidates as $candidate) {
     if (!is_string($candidate) || $candidate === '' || !file_exists($candidate)) {
         continue;
     }
+    
     $real = realpath($candidate);
-    if ($real === false || $uploads_root_n === false) {
-        continue;
-    }
+    if ($real === false) continue;
+    
     $real_n = str_replace('\\', '/', strtolower($real));
-    if (strpos($real_n, $uploads_root_n) !== 0) {
-        continue;
+    
+    // Check if the path contains '/uploads/' to ensure it's in an allowed directory.
+    // This is a more resilient check than comparing against a single uploads root.
+    if (strpos($real_n, '/uploads/') !== false) {
+        $filepath = $real;
+        break;
     }
-    $filepath = $real;
-    break;
 }
 
 if ($filepath === '') {

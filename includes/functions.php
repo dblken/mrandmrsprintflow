@@ -960,8 +960,18 @@ function upload_file($file, $allowed_extensions = [], $destination = 'uploads', 
     }
     
     $target_path = $upload_dir . '/' . $new_name;
-    $base = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
-    $relative_path = $base . '/uploads/' . $destination . '/' . $new_name;
+    
+    // Determine base path correctly for relative path generation
+    $base = '';
+    if (defined('BASE_PATH')) {
+        $base = BASE_PATH;
+    } elseif (defined('BASE_URL')) {
+        $base = BASE_URL;
+    } else {
+        $base = '/printflow';
+    }
+    
+    $relative_path = rtrim($base, '/') . '/uploads/' . $destination . '/' . $new_name;
     
     if (move_uploaded_file($file['tmp_name'], $target_path)) {
         return [
