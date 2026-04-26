@@ -9,6 +9,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
@@ -540,6 +541,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                     $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
                     if (empty($customer_name)) $customer_name = 'Customer';
                     if ($order_type === 'custom') {
+                        // Auto-create job_orders rows for each service item so that the
+                        // notification deep-link (customizations.php?order_id=X&job_type=ORDER)
+                        // can resolve to a JOB and display the order in customizations.php.
+                        // Without this, orders placed via order_review.php had no job_orders row
+                        // and the deep-link incorrectly fell back to orders.php.
+                        if (class_exists('JobOrderService')) {
+                            foreach ($items_to_review as $rev_item) {
+                                if (!review_item_is_service($rev_item)) {
+                                    continue;
+                                }
+                                $rev_custom = review_item_customization($rev_item);
+                                $rev_job_title = get_service_name_from_customization($rev_custom, $rev_item['name'] ?? 'Service Order');
+                                $rev_cat_lower = strtolower(($rev_item['category'] ?? '') . ' ' . ($rev_item['name'] ?? ''));
+                                $rev_service_type = 'Tarpaulin Printing';
+                                if (strpos($rev_cat_lower, 'tarpaulin') !== false)           $rev_service_type = 'Tarpaulin Printing';
+                                elseif (strpos($rev_cat_lower, 't-shirt') !== false || strpos($rev_cat_lower, 'shirt') !== false) $rev_service_type = 'T-shirt Printing';
+                                elseif (strpos($rev_cat_lower, 'sticker') !== false || strpos($rev_cat_lower, 'decal') !== false)  $rev_service_type = 'Decals/Stickers (Print/Cut)';
+                                elseif (strpos($rev_cat_lower, 'sintraboard') !== false)      $rev_service_type = 'Stickers on Sintraboard';
+                                elseif (strpos($rev_cat_lower, 'glass') !== false || strpos($rev_cat_lower, 'frosted') !== false)   $rev_service_type = 'Glass Stickers / Wall / Frosted Stickers';
+                                elseif (strpos($rev_cat_lower, 'transparent') !== false)      $rev_service_type = 'Transparent Stickers';
+                                elseif (strpos($rev_cat_lower, 'reflectorized') !== false)    $rev_service_type = 'Reflectorized (Subdivision Stickers/Signages)';
+                                elseif (strpos($rev_cat_lower, 'souvenir') !== false)         $rev_service_type = 'Souvenirs';
+                                elseif (strpos($rev_cat_lower, 'layout') !== false)           $rev_service_type = 'Layouts';
+                                $rev_dim = $rev_custom['dimensions'] ?? $rev_custom['Size'] ?? '';
+                                $rev_w = 0; $rev_h = 0;
+                                if ($rev_dim && (strpos($rev_dim, 'x') !== false || strpos($rev_dim, '×') !== false)) {
+                                    $dp = preg_split('/[x×]/', strtolower($rev_dim));
+                                    $rev_w = (float)(trim($dp[0] ?? 0));
+                                    $rev_h = (float)(trim($dp[1] ?? 0));
+                                }
+                                try {
+                                    JobOrderService::createOrder([
+                                        'order_id'        => $order_id,
+                                        'customer_id'     => $customer_id,
+                                        'job_title'       => $rev_job_title,
+                                        'service_type'    => $rev_service_type,
+                                        'width_ft'        => $rev_w,
+                                        'height_ft'       => $rev_h,
+                                        'quantity'        => review_item_quantity($rev_item),
+                                        'total_sqft'      => $rev_w * $rev_h * review_item_quantity($rev_item),
+                                        'price_per_sqft'  => null,
+                                        'price_per_piece' => null,
+                                        'estimated_total' => review_item_estimated_total($rev_item),
+                                        'notes'           => $notes_summary,
+                                        'due_date'        => null,
+                                        'priority'        => 'NORMAL',
+                                        'artwork_path'    => null,
+                                        'created_by'      => null,
+                                    ]);
+                                } catch (Exception $e) {
+                                    error_log("order_review: Failed to create job order for Order #$order_id: " . $e->getMessage());
+                                }
+                            }
+                        }
                         notify_staff_new_order($order_id, $customer_name);
                     }
                     

@@ -26,8 +26,10 @@ if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
     );
     $deepLinkOrderType = strtolower(trim((string)($deepLinkOrder[0]['order_type'] ?? '')));
     if ($deepLinkOrderType === 'product') {
+        // Strictly a product order — redirect to orders.php
         redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
     }
+    // For custom/service orders: try to find a linked job_orders row for a cleaner display
     $linkedJob = db_query(
         "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
         'i',
@@ -35,9 +37,14 @@ if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
     );
     $linkedJobId = (int)($linkedJob[0]['id'] ?? 0);
     if ($linkedJobId > 0) {
+        // Redirect to the specific job order view
         redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/customizations.php?order_id=' . $linkedJobId . '&job_type=JOB');
     }
-    redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+    // Custom order exists but no job_orders row yet (e.g. ordered via order_review.php).
+    // Stay on customizations.php — the page will show the order from the orders table.
+    // Do NOT redirect to orders.php; that page only shows product orders.
+    // Fall through to render customizations.php normally with the order_id context.
+    unset($deepLinkOrderId, $deepLinkJobType, $deepLinkOrder, $deepLinkOrderType, $linkedJob, $linkedJobId);
 }
 
 $page_title = 'Customizations - PrintFlow';
