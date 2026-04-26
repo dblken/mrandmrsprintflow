@@ -40,9 +40,9 @@ $jobCustomizationScopeSql = " AND (
     jo.order_id IS NULL
     OR EXISTS (
         SELECT 1
-        FROM orders o_scope
-        WHERE o_scope.order_id = jo.order_id
-          AND COALESCE(o_scope.order_type, 'custom') = 'custom'
+        FROM order_items oi_scope
+        WHERE oi_scope.order_id = jo.order_id
+          AND oi_scope.customization_data LIKE '%\"service_type\"%'
     )
 )";
 
@@ -103,7 +103,15 @@ $job_rows = db_query(
      FROM job_orders jo
      LEFT JOIN customers c ON jo.customer_id = c.customer_id
      LEFT JOIN orders ord ON ord.order_id = jo.order_id
-     WHERE (jo.order_id IS NULL OR COALESCE(ord.order_type, 'custom') = 'custom')" . $joBranchSql . "
+     WHERE (
+        jo.order_id IS NULL
+        OR EXISTS (
+            SELECT 1
+            FROM order_items oi_scope
+            WHERE oi_scope.order_id = jo.order_id
+              AND oi_scope.customization_data LIKE '%\"service_type\"%'
+        )
+     )" . $joBranchSql . "
      ORDER BY jo.created_at DESC
      LIMIT 200",
     $joBranchTypes ?: null,
@@ -113,6 +121,14 @@ $job_rows = db_query(
 foreach ($job_rows as $row) {
     if (!empty($row['order_id'])) {
         $payload = JobOrderService::getStoreOrderItemsPayload((int)$row['order_id']);
+        $serviceItems = array_values(array_filter($payload['items'] ?? [], static function ($item): bool {
+            $custom = is_array($item['customization'] ?? null) ? $item['customization'] : [];
+            return !empty($custom['service_type']);
+        }));
+        if (empty($serviceItems)) {
+            continue;
+        }
+        $payload['items'] = $serviceItems;
         if (!empty($payload['service_type'])) {
             $row['service_type'] = $payload['service_type'];
             $row['job_title'] = $payload['service_type'];
