@@ -95,6 +95,7 @@ function jo_api_normalize_customer_type($customerType, $transactionCount = null)
 }
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+$serviceOnly = in_array(strtolower((string)($_GET['service_only'] ?? $_POST['service_only'] ?? '')), ['1', 'true', 'yes'], true);
 
 try {
     switch ($action) {
@@ -201,10 +202,14 @@ try {
                 }
 
                 // 4. Enrich orders using the pre-fetched data
-                foreach ($orders as &$jo) {
+                $visibleOrders = [];
+                foreach ($orders as $jo) {
                     $jo['order_type'] = 'JOB';
                     if (!empty($jo['order_id'])) {
-                        $payload = JobOrderService::getStoreOrderItemsPayload((int)$jo['order_id']);
+                        $payload = JobOrderService::getStoreOrderItemsPayload((int)$jo['order_id'], $serviceOnly);
+                        if ($serviceOnly && empty($payload['items'])) {
+                            continue;
+                        }
                         if (!empty($payload['service_type'])) {
                             $jo['service_type'] = $payload['service_type'];
                             $jo['job_title'] = $payload['service_type'];
@@ -245,7 +250,9 @@ try {
 
                     $jo['readiness'] = $readiness;
                     $jo['estimated_cost'] = $total_cost;
+                    $visibleOrders[] = $jo;
                 }
+                $orders = $visibleOrders;
             }
             
             $response = ['success' => true, 'data' => $orders];
@@ -370,7 +377,10 @@ try {
                 }
                 
                 // Fetch dynamic correct names based on ordered items customizations
-                $payload = JobOrderService::getStoreOrderItemsPayload($order['order_id']);
+                $payload = JobOrderService::getStoreOrderItemsPayload($order['order_id'], $serviceOnly);
+                if ($serviceOnly && empty($payload['items'])) {
+                    continue;
+                }
                 if (!empty($payload['service_type']) && $payload['service_type'] !== 'Custom Order') {
                     $order['service_type'] = $payload['service_type'];
                 }
@@ -847,7 +857,7 @@ try {
                 $payment_proof_status = 'VERIFIED';
             }
 
-            $payload = JobOrderService::getStoreOrderItemsPayload($order_id);
+            $payload = JobOrderService::getStoreOrderItemsPayload($order_id, $serviceOnly);
             $items_out = $payload['items'];
             $width_ft = $payload['width_ft'];
             $height_ft = $payload['height_ft'];

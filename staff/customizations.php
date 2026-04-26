@@ -120,11 +120,8 @@ $job_rows = db_query(
 
 foreach ($job_rows as $row) {
     if (!empty($row['order_id'])) {
-        $payload = JobOrderService::getStoreOrderItemsPayload((int)$row['order_id']);
-        $serviceItems = array_values(array_filter($payload['items'] ?? [], static function ($item): bool {
-            $custom = is_array($item['customization'] ?? null) ? $item['customization'] : [];
-            return !empty($custom['service_type']);
-        }));
+        $payload = JobOrderService::getStoreOrderItemsPayload((int)$row['order_id'], true);
+        $serviceItems = array_values($payload['items'] ?? []);
         if (empty($serviceItems)) {
             continue;
         }
@@ -2552,8 +2549,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                     });
                     const refreshToken = Date.now();
                     const [joRes, ordersRes] = await Promise.all([
-                        fetch(`../admin/job_orders_api.php?action=list_orders&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r)),
-                        fetch(`../admin/job_orders_api.php?action=list_pending_orders&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r))
+                        fetch(`../admin/job_orders_api.php?action=list_orders&service_only=1&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r)),
+                        fetch(`../admin/job_orders_api.php?action=list_pending_orders&service_only=1&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r))
                     ]);
 
                     const jobOrders = joRes.success ? joRes.data : [];
@@ -2870,7 +2867,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         } else {
                             const fallbackOrderId = order?.order_id ?? id;
                             const fallbackRes = await this.parseJsonResponse(
-                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${fallbackOrderId}`))
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${fallbackOrderId}`))
                             );
                             if (fallbackRes.success && fallbackRes.data) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
@@ -2890,7 +2887,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         try {
                             const fallbackOrderId = order?.order_id ?? id;
                             const fallbackRes = await this.parseJsonResponse(
-                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${fallbackOrderId}`))
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${fallbackOrderId}`))
                             );
                             if (fallbackRes.success && fallbackRes.data) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
@@ -2917,7 +2914,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     let detailErrorMessage = '';
                     try {
                         const detailRes = await this.parseJsonResponse(
-                            await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${regularOrderId}`))
+                            await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${regularOrderId}`))
                         );
                         if (detailRes.success) {
                             order = detailRes.data;
@@ -3001,7 +2998,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         } else {
                             // Fallback: It might be a regular order ID passed with job_type=JOB
                             const fallbackRes = await this.parseJsonResponse(
-                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&id=${jid}`))
+                                await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${jid}`))
                             );
                             if (fallbackRes.success) {
                                 this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };

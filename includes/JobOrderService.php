@@ -731,15 +731,26 @@ class JobOrderService {
         }
     }
 
+    private static function isServiceStoreOrderItem(array $item, array $custom): bool {
+        $productType = strtolower(trim((string)($item['product_type'] ?? '')));
+        if (in_array($productType, ['fixed', 'fixed product', 'product'], true)) {
+            return false;
+        }
+        if (in_array($productType, ['custom', 'service'], true)) {
+            return true;
+        }
+        return get_service_name_from_customization($custom, '') !== '';
+    }
+
     /**
      * Store order line items + design URLs for staff modal (same shape as job_orders_api get_regular_order).
      */
-    public static function getStoreOrderItemsPayload(int $storeOrderId): array {
+    public static function getStoreOrderItemsPayload(int $storeOrderId, bool $serviceOnly = false): array {
         if ($storeOrderId <= 0) {
             return ['items' => [], 'width_ft' => '1', 'height_ft' => '1', 'service_type' => ''];
         }
         $items = db_query(
-            "SELECT oi.*, p.name as product_name, p.category
+            "SELECT oi.*, p.name as product_name, p.category, p.product_type
              FROM order_items oi
              LEFT JOIN products p ON oi.product_id = p.product_id
              WHERE oi.order_id = ?",
@@ -754,6 +765,9 @@ class JobOrderService {
         $height_ft = '1';
         foreach ($items as $item) {
             $custom = json_decode($item['customization_data'] ?? '{}', true) ?: [];
+            if ($serviceOnly && !self::isServiceStoreOrderItem($item, $custom)) {
+                continue;
+            }
             if (empty($first_custom)) {
                 $first_custom = $custom;
             }
@@ -792,6 +806,7 @@ class JobOrderService {
             $items_out[] = [
                 'order_item_id'   => $item['order_item_id'],
                 'product_name'    => $name,
+                'product_type'    => $item['product_type'] ?? 'custom',
                 'quantity'        => (int)$item['quantity'],
                 'customization'   => $custom,
                 'design_url'      => (!empty($item['design_image']) || !empty($item['design_file']))
