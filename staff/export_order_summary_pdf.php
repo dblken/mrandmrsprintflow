@@ -14,7 +14,13 @@ if (!in_array($userType, ['Staff', 'Admin', 'Manager'], true)) {
     die('Unauthorized access.');
 }
 
-$staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
+$staffId = $_SESSION['user_id'] ?? 0;
+$staffData = db_query("SELECT first_name, last_name, email, contact_number, branch_id FROM users WHERE user_id = ?", 'i', [$staffId])[0] ?? [];
+$staffName = trim(($staffData['first_name'] ?? '') . ' ' . ($staffData['last_name'] ?? '')) ?: 'Staff Account';
+$staffEmail = $staffData['email'] ?? '';
+$staffContact = $staffData['contact_number'] ?? '';
+
+$staffBranchId = printflow_branch_filter_for_user() ?? (int)($staffData['branch_id'] ?? 1);
 $branchInfo = db_query("SELECT * FROM branches WHERE id = ?", 'i', [$staffBranchId])[0] ?? [];
 $branchName = $branchInfo['branch_name'] ?? 'Mr. and Mrs. Print Main';
 $branchAddress = trim(($branchInfo['address'] ?? '') . ' ' . ($branchInfo['address_line'] ?? '') . ' ' . ($branchInfo['barangay'] ?? '') . ' ' . ($branchInfo['city'] ?? '') . ' ' . ($branchInfo['province'] ?? ''));
@@ -79,7 +85,6 @@ foreach ($orders as $row) {
     $grandTotal += (float)($row['total_amount'] ?? 0);
 }
 
-$staffName = $_SESSION['user_name'] ?? 'Staff Account';
 $sessionDate = date('F d, Y');
 $generatedAt = date('M d, Y g:i A');
 
@@ -99,8 +104,8 @@ if (empty($orders)) {
     foreach ($orders as $o) {
         $rowsHtml .= '<tr>'
             . '<td style="text-align:center;">' . (int)$o['order_id'] . '</td>'
-            . '<td>' . htmlspecialchars((string)$o['customer_name']) . '</td>'
-            . '<td>' . htmlspecialchars((string)$o['service_type']) . '</td>'
+            . '<td style="word-wrap: break-word; overflow-wrap: break-word;">' . htmlspecialchars((string)$o['customer_name']) . '</td>'
+            . '<td style="word-wrap: break-word; overflow-wrap: break-word;">' . htmlspecialchars((string)$o['service_type']) . '</td>'
             . '<td style="text-align:center;">' . htmlspecialchars((string)$o['status']) . '</td>'
             . '<td style="text-align:center;">' . date('Y-m-d', strtotime((string)$o['order_date'])) . '</td>'
             . '<td style="text-align:right;">' . number_format((float)$o['total_amount'], 2) . '</td>'
@@ -114,37 +119,37 @@ $html = '
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 20px 30px 80px 30px; }
-        body { font-family: "Helvetica", "Arial", sans-serif; font-size: 11px; color: #333; margin: 0; padding: 0; }
+        @page { margin: 30px 40px 110px 40px; }
+        body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10px; color: #333; margin: 0; padding: 0; line-height: 1.3; }
         
-        .header { width: 100%; border-bottom: 1.5px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+        .header { width: 100%; border-bottom: 1.2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
         .header-table { width: 100%; border: none; }
         .header-table td { border: none; vertical-align: middle; }
-        .logo { width: 75px; height: auto; }
-        .business-details { text-align: center; padding-right: 75px; } /* Offset for logo to center text */
-        .business-details h1 { margin: 0; font-size: 18px; color: #000; font-weight: bold; }
-        .business-details p { margin: 1px 0; font-size: 10px; color: #333; }
+        .logo { width: 60px; height: auto; }
+        .business-details { text-align: center; padding-right: 60px; }
+        .business-details h1 { margin: 0; font-size: 16px; color: #000; font-weight: bold; }
+        .business-details p { margin: 1px 0; font-size: 9px; color: #333; }
 
-        .report-title { color: #0047AB; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .meta-info { margin-bottom: 15px; font-size: 11px; line-height: 1.4; }
+        .report-title { color: #0047AB; font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+        .meta-info { margin-bottom: 12px; font-size: 10px; line-height: 1.4; }
         
-        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        .summary-table td { border: 1px solid #000; padding: 5px 10px; font-size: 11px; }
-        .summary-label { background-color: #f8fafc; font-weight: bold; width: 20%; }
-        .summary-value { text-align: center; width: 30%; font-weight: bold; }
+        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
+        .summary-table td { border: 1.2px solid #000; padding: 5px 10px; font-size: 10px; }
+        .summary-label { background-color: #f8fafc; font-weight: bold; width: 22%; }
+        .summary-value { text-align: center; width: 28%; font-weight: bold; }
         .summary-total-label { background-color: #f8fafc; font-weight: bold; width: 25%; }
-        .summary-total-value { text-align: right; width: 25%; font-weight: bold; }
+        .summary-total-value { text-align: right; width: 25%; font-weight: bold; font-size: 11px; }
 
-        .orders-table { width: 100%; border-collapse: collapse; }
-        .orders-table th { background-color: #0047AB; color: #ffffff; padding: 8px; border: 1px solid #000; font-weight: bold; text-transform: uppercase; font-size: 10px; text-align: center; }
-        .orders-table td { border: 1px solid #000; padding: 6px; vertical-align: middle; }
-        .orders-table tr:nth-child(even) { background-color: #f2f2f2; }
+        .orders-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .orders-table th { background-color: #0047AB; color: #ffffff; padding: 6px; border: 1.2px solid #000; font-weight: bold; text-transform: uppercase; font-size: 9px; text-align: center; }
+        .orders-table td { border: 1.2px solid #000; padding: 6px; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; }
+        .orders-table tr:nth-child(even) { background-color: #f9f9f9; }
 
-        footer { position: fixed; bottom: -60px; left: 0px; right: 0px; height: 70px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 9px; color: #444; }
+        footer { position: fixed; bottom: -90px; left: 0px; right: 0px; height: 90px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 9px; color: #444; }
         .footer-table { width: 100%; border: none; }
         .footer-table td { border: none; padding: 0; vertical-align: top; line-height: 1.3; }
         .footer-right { text-align: right; }
-        .rev-code { font-weight: bold; margin-top: 5px; font-size: 10px; }
+        .rev-code { font-weight: bold; margin-top: 5px; font-size: 9px; }
     </style>
 </head>
 <body>
@@ -152,7 +157,7 @@ $html = '
 <div class="header">
     <table class="header-table">
         <tr>
-            <td style="width: 80px;">
+            <td style="width: 70px;">
                 <img src="' . $logoData . '" class="logo">
             </td>
             <td class="business-details">
@@ -172,10 +177,11 @@ $html = '
                 ' . htmlspecialchars($branchName) . '<br>
                 ' . htmlspecialchars($branchAddress) . '<br>
                 Website: mrandmrsprintflow.com<br>
-                Prepared By: ' . htmlspecialchars($staffName) . ' | Branch: ' . htmlspecialchars($branchName) . '
+                Prepared By: ' . htmlspecialchars($staffName) . ' | Branch: ' . htmlspecialchars($branchName) . '<br>
+                Contact: ' . htmlspecialchars($staffContact) . ' | Email: ' . htmlspecialchars($staffEmail) . '
             </td>
             <td class="footer-right">
-                Generated On: ' . $generatedAt . ' | <span id="page-placeholder">Page {PAGE_NUM} of {PAGE_COUNT}</span>
+                Generated On: ' . $generatedAt . ' | <span id="page-placeholder"></span>
                 <div class="rev-code">PF-REP-SUMMARY-01-Rev00</div>
             </td>
         </tr>
@@ -185,7 +191,8 @@ $html = '
 <div class="report-title">Order Summary Details</div>
 <div class="meta-info">
     Session Date: ' . $sessionDate . '<br>
-    Staff Account: ' . htmlspecialchars($staffName) . '
+    Staff Account: ' . htmlspecialchars($staffName) . '<br>
+    Contact Info: ' . htmlspecialchars($staffContact) . ' | ' . htmlspecialchars($staffEmail) . '
 </div>
 
 <table class="summary-table">
@@ -200,12 +207,12 @@ $html = '
 <table class="orders-table">
     <thead>
         <tr>
-            <th style="width: 10%;">Order #</th>
-            <th style="width: 25%;">Customer Name</th>
-            <th style="width: 20%;">Service Type</th>
+            <th style="width: 8%;">Order #</th>
+            <th style="width: 27%;">Customer Name</th>
+            <th style="width: 25%;">Service Type</th>
             <th style="width: 15%;">Status</th>
-            <th style="width: 15%;">Date Created</th>
-            <th style="width: 15%;">Amount</th>
+            <th style="width: 13%;">Date Created</th>
+            <th style="width: 12%;">Amount</th>
         </tr>
     </thead>
     <tbody>
@@ -235,8 +242,8 @@ if (class_exists(\Dompdf\Dompdf::class)) {
     $font = $dompdf->getFontMetrics()->get_font("helvetica", "normal");
     $size = 9;
     
-    // Page text placement (bottom right)
-    $canvas->page_text(450, $canvas->get_height() - 38, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, $size, array(0.2, 0.2, 0.2));
+    // Explicitly place page text using canvas to ensure it is visible and properly positioned
+    $canvas->page_text(460, $canvas->get_height() - 40, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, $size, array(0.2, 0.2, 0.2));
 
     $file = 'order_summary_' . strtolower($range) . '_' . strtolower($status_filter === 'ALL' ? 'all' : preg_replace('/\s+/', '_', $status_filter)) . '.pdf';
     header('Content-Type: application/pdf');
@@ -249,6 +256,8 @@ if (class_exists(\Dompdf\Dompdf::class)) {
 header('Content-Type: text/html; charset=utf-8');
 echo $html;
 exit;
+
+
 
 
 
