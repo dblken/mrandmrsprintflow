@@ -179,7 +179,7 @@ if ($action === 'buy_now') {
         'Unpaid', // payment_status
         'full_payment', // payment_type
         null, // notes
-        'product' // order_type
+        'custom' // order_type
     ]);
     
     if ($order_id) {

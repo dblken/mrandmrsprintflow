@@ -626,22 +626,16 @@ function staff_notification_target_url(array $n): string {
         }
 
         $ord_row = db_query(
-            "SELECT order_id, order_type, order_source FROM orders WHERE order_id = ? LIMIT 1",
+            "SELECT order_id, order_source FROM orders WHERE order_id = ? LIMIT 1",
             'i',
             [$data_id]
         );
         if (!empty($ord_row)) {
-            $order_type = strtolower((string)($ord_row[0]['order_type'] ?? 'product'));
             $order_source = strtolower((string)($ord_row[0]['order_source'] ?? 'customer'));
-
-            if ($order_type === 'custom') {
-                if ($order_source === 'pos' || $order_source === 'walk-in') {
-                    return printflow_staff_order_management_url($data_id, false);
-                }
-                return printflow_staff_order_management_url($data_id, true);
-            }
-
-            return $base . '/staff/orders.php?order_id=' . $data_id;
+            return printflow_staff_order_management_url(
+                $data_id,
+                $order_source !== 'pos' && $order_source !== 'walk-in'
+            );
         }
 
         if (strpos($type, 'payment') !== false || strpos($type, 'order') !== false) {
@@ -1959,8 +1953,28 @@ function printflow_staff_order_management_url(int $orderId, bool $preferPendingS
     );
     $orderType = strtolower(trim((string)($orderRows[0]['order_type'] ?? 'product')));
     $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? 'customer')));
+    $isCustom = ($orderType === 'custom');
 
-    if ($orderType === 'custom') {
+    if (!$isCustom) {
+        $jobRows = db_query(
+            "SELECT id FROM job_orders WHERE order_id = ? LIMIT 1",
+            'i',
+            [$orderId]
+        );
+        if (!empty($jobRows)) {
+            $isCustom = true;
+        }
+    }
+
+    if (!$isCustom) {
+        $preview = printflow_order_notification_preview($orderId);
+        $itemKind = strtolower(trim((string)($preview['item_kind'] ?? '')));
+        if ($itemKind === 'service') {
+            $isCustom = true;
+        }
+    }
+
+    if ($isCustom) {
         $url = $base . '/staff/customizations.php?order_id=' . $orderId . '&job_type=ORDER';
         if ($preferPendingStatus && $orderSource !== 'pos' && $orderSource !== 'walk-in') {
             $url .= '&status=PENDING';

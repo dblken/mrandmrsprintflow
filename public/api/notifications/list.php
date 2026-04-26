@@ -51,6 +51,13 @@ try {
 
     // Return rows with unread count
     foreach ($rows as &$row) {
+        $dataId = (int)($row['data_id'] ?? 0);
+        if ($dataId > 0) {
+            $snapshot = printflow_notification_order_snapshot($dataId);
+            $row['order_type'] = (string)($snapshot['order_type'] ?? '');
+        } else {
+            $row['order_type'] = '';
+        }
         $row['target_url'] = printflow_notification_target_url_for_user((string)$user_type, $row);
         if ($user_type === 'Customer') {
             $base = defined('BASE_URL') ? BASE_URL : '/printflow';
