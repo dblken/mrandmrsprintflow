@@ -69,6 +69,11 @@ if ($action === 'add') {
         exit;
     }
     $product = $product[0];
+    $ptype = strtolower(trim((string)($product['product_type'] ?? 'fixed')));
+    if (!in_array($ptype, ['fixed', 'fixed product', 'product', ''], true)) {
+        echo json_encode(['success' => false, 'message' => 'Only fixed products can be added from the Products page.']);
+        exit;
+    }
     $price        = (float)$product['price'];
     $variant_name = '';
 

@@ -41,7 +41,7 @@ $review_count_sql = "(SELECT COUNT(*) FROM reviews r WHERE {$review_match_sql}) 
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 
-// Build query — show all Activated products
+// Build query — restore activated catalog items
 $sql = "SELECT p.*, 
     (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count,
     (SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE oi.product_id = p.product_id AND o.status != 'Cancelled' AND (oi.customization_data IS NULL OR oi.customization_data = '' OR oi.customization_data NOT LIKE '%\"service_type\"%')) as sold_count,

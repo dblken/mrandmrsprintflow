@@ -124,6 +124,20 @@ try {
                 $params[] = $joStaffBranch;
                 $types .= 'i';
             }
+            if ($serviceOnly) {
+                $sql .= " AND (
+                    jo.order_id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM orders o_scope
+                        JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
+                        LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
+                        WHERE o_scope.order_id = jo.order_id
+                          AND o_scope.order_type = 'custom'
+                          AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
+                    )
+                )";
+            }
             
             // Pagination
             $page = max(1, (int)($_GET['page'] ?? 1));
@@ -358,7 +372,8 @@ try {
                 ? (db_query($sql, 'i', [$joStaffBranch]) ?: [])
                 : (db_query($sql) ?: []);
             
-            foreach ($pending_orders as &$order) {
+            $visiblePendingOrders = [];
+            foreach ($pending_orders as $order) {
                 $order['readiness'] = 'READY';
                 $order['estimated_cost'] = 0;
                 $order['order_code'] = printflow_get_order_inventory_reference((int)($order['order_id'] ?? 0))['code'] ?? '';
@@ -394,8 +409,9 @@ try {
                 if (!empty($title_parts)) {
                     $order['job_title'] = implode(', ', array_unique($title_parts));
                 }
+                $visiblePendingOrders[] = $order;
             }
-            unset($order);
+            $pending_orders = $visiblePendingOrders;
 
             // Customizations from POS (customizations table)
             $custom_sql = "SELECT 

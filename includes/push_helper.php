@@ -62,7 +62,11 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
             return $user_type === 'Customer'
                 ? $base . '/customer/new_job_order.php'
                 : (($user_type === 'Staff' || $user_type === 'Manager')
-                    ? ($data_id ? $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER' : $base . '/staff/customizations.php')
+                    ? ($data_id
+                        ? (function_exists('printflow_staff_order_management_url')
+                            ? printflow_staff_order_management_url((int)$data_id, true)
+                            : $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER')
+                        : $base . '/staff/customizations.php')
                     : $base . '/admin/orders_management.php');
         case 'Chat':
         case 'Message':
@@ -91,7 +95,9 @@ function push_url_for_type(string $type, ?int $data_id, string $user_type): stri
             }
             if ($user_type === 'Staff' || $user_type === 'Manager') {
                 return $data_id
-                    ? $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER'
+                    ? (function_exists('printflow_staff_order_management_url')
+                        ? printflow_staff_order_management_url((int)$data_id, true)
+                        : $base . '/staff/customizations.php?order_id=' . (int)$data_id . '&job_type=ORDER')
                     : $base . '/staff/customizations.php';
             }
             return $base . '/admin/orders_management.php';

@@ -488,9 +488,12 @@ function printflow_notification_target_url_for_user(string $userType, array $not
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
     $preview = printflow_order_notification_preview($order_id);
     $service_name = $preview['display_name'] ?? 'Product Order';
+    $kind_label = trim((string)($preview['item_kind'] ?? ''));
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
     // Format: "Customer Name placed an order for Service Name"
-    $msg = "{$name} placed an order for {$service_name}";
+    $msg = $kind_label !== ''
+        ? "{$name} placed a {$kind_label} order for {$service_name}"
+        : "{$name} placed an order for {$service_name}";
 
     notify_shop_users($msg, 'Order', false, false, $order_id);
 }
@@ -570,7 +573,7 @@ function staff_notification_target_url(array $n): string {
             strpos($msg_lower, 'design re-upload') !== false ||
             strpos($msg_lower, 'revision') !== false
         ) {
-            return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+            return printflow_staff_order_management_url($data_id, true);
         }
 
         $job_row = db_query(
@@ -593,9 +596,9 @@ function staff_notification_target_url(array $n): string {
 
             if ($order_type === 'custom') {
                 if ($order_source === 'pos' || $order_source === 'walk-in') {
-                    return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+                    return printflow_staff_order_management_url($data_id, false);
                 }
-                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+                return printflow_staff_order_management_url($data_id, true);
             }
 
             return $base . '/staff/orders.php?order_id=' . $data_id;
@@ -605,7 +608,7 @@ function staff_notification_target_url(array $n): string {
             return $base . '/staff/orders.php?order_id=' . $data_id;
         }
 
-        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+        return printflow_staff_order_management_url($data_id, false);
     }
 
     return $base . '/staff/notifications.php';
@@ -756,9 +759,11 @@ function load_customer_cart_into_session($customer_id) {
         $vid = isset($r['variant_id']) && $r['variant_id'] !== '' && $r['variant_id'] !== null ? (int)$r['variant_id'] : null;
         $qty = max(0, (int)$r['quantity']);
         if ($qty <= 0 || $pid <= 0) continue;
-        $product = db_query("SELECT name, price, category FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
+        $product = db_query("SELECT name, price, category, product_type FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
         if (empty($product)) continue;
         $product = $product[0];
+        $ptype = strtolower(trim((string)($product['product_type'] ?? 'fixed')));
+        if (!in_array($ptype, ['fixed', 'fixed product', 'product', ''], true)) continue;
         $price = (float)$product['price'];
         $variant_name = '';
         if ($vid) {
@@ -774,6 +779,7 @@ function load_customer_cart_into_session($customer_id) {
             'variant_id' => $vid,
             'name' => $product['name'],
             'category' => $product['category'] ?? '',
+            'catalog_product_type' => $product['product_type'] ?? 'fixed',
             'source_page' => 'products',
             'variant_name' => $variant_name,
             'quantity' => $qty,
@@ -1754,12 +1760,60 @@ function printflow_notification_display_message(array $notification): string {
     return $message;
 }
 
+function printflow_staff_order_management_url(int $orderId, bool $preferPendingStatus = false): string {
+    $base = printflow_notification_base_path();
+    $orderId = (int)$orderId;
+    if ($orderId <= 0) {
+        return $base . '/staff/orders.php';
+    }
+
+    $orderRows = db_query(
+        "SELECT order_type, order_source FROM orders WHERE order_id = ? LIMIT 1",
+        'i',
+        [$orderId]
+    );
+    $orderType = strtolower(trim((string)($orderRows[0]['order_type'] ?? 'product')));
+    $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? 'customer')));
+
+    if ($orderType === 'custom') {
+        $url = $base . '/staff/customizations.php?order_id=' . $orderId . '&job_type=ORDER';
+        if ($preferPendingStatus && $orderSource !== 'pos' && $orderSource !== 'walk-in') {
+            $url .= '&status=PENDING';
+        }
+        return $url;
+    }
+
+    return $base . '/staff/orders.php?order_id=' . $orderId;
+}
+
+function printflow_notification_item_kind(array $notification): string {
+    $data_id = (int)($notification['data_id'] ?? 0);
+    if ($data_id <= 0) {
+        return '';
+    }
+
+    $type = strtolower(trim((string)($notification['type'] ?? '')));
+    $message = strtolower(trim((string)($notification['message'] ?? '')));
+    $order_linked_types = ['order', 'job order', 'payment', 'payment issue', 'design', 'message', 'status'];
+    $is_order_linked = in_array($type, $order_linked_types, true)
+        || str_contains($message, 'order')
+        || str_contains($message, 'design')
+        || str_contains($message, 'payment');
+
+    if (!$is_order_linked) {
+        return '';
+    }
+
+    $preview = printflow_order_notification_preview($data_id);
+    return trim((string)($preview['item_kind'] ?? ''));
+}
+
 function printflow_order_notification_preview(int $order_id): array {
     static $cache = [];
 
     $order_id = (int)$order_id;
     if ($order_id <= 0) {
-        return ['display_name' => '', 'image_url' => ''];
+        return ['display_name' => '', 'image_url' => '', 'item_kind' => ''];
     }
     if (isset($cache[$order_id])) {
         return $cache[$order_id];
@@ -1788,9 +1842,12 @@ function printflow_order_notification_preview(int $order_id): array {
                 oi.customization_data,
                 p.name AS product_name,
                 p.product_id,
+                p.product_type,
+                o.order_type,
                 {$product_image_expr}
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.product_id
+         LEFT JOIN orders o ON o.order_id = oi.order_id
          WHERE oi.order_id = ?
          ORDER BY oi.order_item_id ASC
          LIMIT 1",
@@ -1798,7 +1855,7 @@ function printflow_order_notification_preview(int $order_id): array {
         [$order_id]
     );
 
-    $preview = ['display_name' => '', 'image_url' => ''];
+    $preview = ['display_name' => '', 'image_url' => '', 'item_kind' => ''];
     if (empty($item[0])) {
         $cache[$order_id] = $preview;
         return $preview;
@@ -1806,6 +1863,13 @@ function printflow_order_notification_preview(int $order_id): array {
 
     $row = $item[0];
     $custom = !empty($row['customization_data']) ? json_decode((string)$row['customization_data'], true) : [];
+    $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
+    $product_type = strtolower(trim((string)($row['product_type'] ?? '')));
+    if ($order_type === 'product' || $product_type === 'fixed') {
+        $preview['item_kind'] = 'Product';
+    } elseif ($order_type === 'custom' || get_service_name_from_customization(is_array($custom) ? $custom : [], '') !== '') {
+        $preview['item_kind'] = 'Service';
+    }
     $preview['display_name'] = printflow_resolve_order_item_name(
         (string)($row['product_name'] ?? 'Order Item'),
         is_array($custom) ? $custom : [],
