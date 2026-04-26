@@ -219,7 +219,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <template x-if="isRollBased">
                                 <div class="flex justify-between">
                                     <span class="text-xs text-gray-400 font-bold uppercase">Total Area</span>
-                                    <span class="text-xs font-black text-right" x-text="totalSqft.toFixed(2) + ' sqft'"></span>
+                                    <span class="text-xs font-black text-right" x-text="totalSqft.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' sqft'"></span>
                                 </div>
                             </template>
                             <div class="flex justify-between">

@@ -851,15 +851,12 @@ function sync_cart_to_db($customer_id) {
 }
 
 /**
- * Get customer cancellation count (last 30 days)
+ * Get customer cancellation count (stubbed)
  * @param int $customer_id
  * @return int
  */
 function get_customer_cancel_count($customer_id) {
-    if (!$customer_id) return 0;
-    $sql = "SELECT COUNT(*) as count FROM orders WHERE customer_id = ? AND status = 'Cancelled' AND order_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-    $result = db_query($sql, 'i', [$customer_id]);
-    return (int)($result[0]['count'] ?? 0);
+    return 0;
 }
 
 /**
@@ -868,9 +865,6 @@ function get_customer_cancel_count($customer_id) {
  * @return bool
  */
 function is_customer_restricted($customer_id) {
-    if (!$customer_id) return false;
-    // Temporary business override: allow customers to place orders
-    // even when historical cancellation thresholds were met.
     return false;
 }
 

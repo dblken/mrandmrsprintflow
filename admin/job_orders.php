@@ -571,11 +571,11 @@ function jo_payment_badge($status) {
                     <div class="detail-row">
                         <div class="detail-block">
                             <label>Estimated Total</label>
-                            <span x-text="job?.estimated_total ? '₱' + parseFloat(job.estimated_total).toFixed(2) : 'Pending'"></span>
+                            <span x-text="job?.estimated_total ? '₱' + parseFloat(job.estimated_total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'Pending'"></span>
                         </div>
                         <div class="detail-block">
                             <label>Amount Paid</label>
-                            <span x-text="'₱' + parseFloat(job?.amount_paid ?? 0).toFixed(2)"></span>
+                            <span x-text="'₱' + parseFloat(job?.amount_paid ?? 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span>
                         </div>
                     </div>
                     <div class="detail-row">
@@ -643,7 +643,7 @@ function jo_payment_badge($status) {
                                     <div style="font-size:11px;color:#9ca3af;" x-text="new Date(ord.order_date).toLocaleDateString()"></div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div style="font-size:13px;font-weight:700;color:#1f2937;" x-text="'₱' + parseFloat(ord.total_amount).toFixed(2)"></div>
+                                    <div style="font-size:13px;font-weight:700;color:#1f2937;" x-text="'₱' + parseFloat(ord.total_amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></div>
                                     <div x-html="statusBadge(ord.status)" style="transform:scale(0.85);transform-origin:right;"></div>
                                 </div>
                             </div>
@@ -660,7 +660,7 @@ function jo_payment_badge($status) {
                                     <div style="font-size:11px;color:#9ca3af;" x-text="new Date(cst.created_at).toLocaleDateString()"></div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div style="font-size:13px;font-weight:700;color:#1f2937;" x-text="cst.estimated_total ? '₱' + parseFloat(cst.estimated_total).toFixed(2) : 'Pending'"></div>
+                                    <div style="font-size:13px;font-weight:700;color:#1f2937;" x-text="cst.estimated_total ? '₱' + parseFloat(cst.estimated_total).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'Pending'"></div>
                                     <div x-html="statusBadge(cst.status)" style="transform:scale(0.85);transform-origin:right;"></div>
                                 </div>
                             </div>

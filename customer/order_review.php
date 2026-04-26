@@ -348,10 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
             
             $notes_summary = !empty($all_notes) ? implode('; ', $all_notes) : null;
 
-            // Check restriction AGAIN at submission
-            $is_restricted = is_customer_restricted($customer_id);
-
-            if ($is_restricted) {
+            if (false) {
                 $order_error = "🚫 Your account is restricted from placing new orders.";
             } else {
                 global $conn;

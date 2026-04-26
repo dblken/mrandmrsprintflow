@@ -1578,7 +1578,7 @@ $page_title = 'Orders - Staff';
                     '</div>' +
                     '<div style="flex:1;">' +
                         '<div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:4px;">' + esc(item.product_name) + ' × ' + item.quantity + '</div>' +
-                        '<div style="font-size:12px; color:#64748b;">₱' + parseFloat(item.unit_price).toFixed(2) + ' each</div>' +
+                        '<div style="font-size:12px; color:#64748b;">₱' + parseFloat(item.unit_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' each</div>' +
                     '</div>' +
                 '</div>' +
                 specHTML +

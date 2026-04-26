@@ -49,7 +49,7 @@ $config = $config[0];
 
 // Check customer restrictions
 $customer_id = get_user_id();
-if (is_customer_restricted($customer_id)) {
+if (false) {
     $_SESSION['error'] = "Account restricted. Cannot place order.";
     header("Location: order_dynamic.php?product_id=" . $product_id);
     exit;
@@ -155,7 +155,7 @@ if ($action === 'buy_now') {
     // This restores the original behavior
     
     // Check customer restrictions again
-    if (is_customer_restricted($customer_id)) {
+    if (false) {
         $_SESSION['error'] = "Account restricted. Cannot place order.";
         header("Location: order_dynamic.php?product_id=" . $product_id);
         exit;

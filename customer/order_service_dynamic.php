@@ -1620,7 +1620,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const estimatedPriceInputEl = document.getElementById('calculated-estimated-price');
         
         if (estimatedTotalEl) {
-            estimatedTotalEl.textContent = '₱' + estimatedTotal.toFixed(2);
+            estimatedTotalEl.textContent = '₱' + estimatedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         }
         
         if (qtyDisplayEl) {

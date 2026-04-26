@@ -52,20 +52,13 @@ foreach ($cart_items as $item) {
 $customer_id = get_user_id();
 $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
 
-// Fetch cancel count for downpayment check (needed on both GET and POST)
-$cancel_count = get_customer_cancel_count($customer_id);
-$is_restricted = is_customer_restricted($customer_id);
 $customer_type = $customer['customer_type'] ?? 'new';
 
 // Handle Order Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
     global $conn; // needed for send_long_data BLOB insertion
     
-    // Check restriction AGAIN at submission
-    $cancel_count = get_customer_cancel_count($customer_id);
-    $is_restricted = is_customer_restricted($customer_id);
-    
-    if ($is_restricted) {
+    if (false) {
         $error = "🚫 Your account is restricted from placing new orders.";
     } elseif (verify_csrf_token($_POST['csrf_token'] ?? '')) {
         // Pricing and payment are determined AFTER staff review.

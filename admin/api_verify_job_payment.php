@@ -250,10 +250,12 @@ if ($action === 'verify_payment') {
         
         // Log activity (user_id must be a valid staff users.user_id)
         if ($user_id > 0) {
-            log_activity($user_id, 'Job payment verified', "Job #{$job_id}: verified ₱{$submitted_amount} ({$user_name})");
+            $amt_f = format_currency($submitted_amount);
+            log_activity($user_id, 'Job payment verified', "Job #{$job_id}: verified {$amt_f} ({$user_name})");
         }
         if (!empty($job['customer_id'])) {
-            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was verified. (₱{$submitted_amount})", 'Job Order', true, true);
+            $amt_f = format_currency($submitted_amount);
+            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was verified. ({$amt_f})", 'Job Order', true, true);
         }
 
         if ($new_order_status !== $job['status'] && $user_id > 0) {

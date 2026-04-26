@@ -1279,6 +1279,9 @@ if ($showLatestCustomizationOnly) {
                                                onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(6, 161, 161, 0.08)'"
                                                onblur="this.style.borderColor='#5eead4'; this.style.boxShadow='none'">
                                     </div>
+                                    <div x-show="jobPriceInput > 0" style="margin-top: 6px; font-size: 13px; font-weight: 700; color: #0d9488;">
+                                        Preview: <span x-text="'₱' + Number(jobPriceInput).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span>
+                                    </div>
                                     <div style="font-size:11px; color:#0f766e; margin-top:8px; line-height:1.45;">This is the total amount the customer will pay.</div>
                                 </div>
                                 <div x-show="approvalStockErrors.length > 0" style="margin-bottom:12px; padding:12px 14px; border-radius:10px; border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; font-size:12px; font-weight:700; line-height:1.5;">

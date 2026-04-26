@@ -46,7 +46,7 @@ try {
     if ($user_type === 'Customer') {
         // Check if is_archived column exists
         $has_archived = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
-        $archive_col = $has_archived ? "o.is_archived" : "0";
+        $archive_col = $has_archived ? "COALESCE(o.is_archived, 0)" : "0";
 
         $sql = "
         SELECT o.order_id, o.status, o.order_date, $archive_col as is_archived,
