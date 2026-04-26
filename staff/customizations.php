@@ -885,7 +885,7 @@ if ($showLatestCustomizationOnly) {
                                     <td class="px-4 py-4">
                                         <div class="flex items-center gap-3">
                                             <div class="flex flex-col gap-0 min-w-0">
-                                                <div class="table-text-main truncate-ellipsis" :title="jo.job_title || jo.service_type" x-text="jo.job_title || jo.service_type"></div>
+                                                <div class="table-text-main truncate-ellipsis" :title="getRowDisplayName(jo)" x-text="getRowDisplayName(jo)"></div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="false && jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'Ã—<span x-text="jo.height_ft"></span>' â€¢ <span x-text="jo.quantity"></span> pcs</div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'" x-text="formatCustomizationInfo(jo)"></div>
@@ -2662,6 +2662,40 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 const raw = String(jo.service_type || jo.job_title || '').trim();
                 return raw || 'Custom Service';
+            },
+            getRowDisplayName(jo) {
+                if (!jo) return 'Custom Service';
+                const resolvedService = String(this.getCorrectServiceType(jo) || '').trim();
+                const rawTitle = String(jo.job_title || '').trim();
+                if (!rawTitle) {
+                    return resolvedService || 'Custom Service';
+                }
+                if (!resolvedService) {
+                    return rawTitle;
+                }
+
+                const titleUpper = rawTitle.toUpperCase();
+                const serviceUpper = resolvedService.toUpperCase();
+                const compatibilityMap = {
+                    'REFLECTORIZED': ['REFLECTORIZED', 'SIGNAGE', 'GATE PASS', 'TEMPORARY PLATE', 'PLATE NUMBER'],
+                    'TARPAULIN PRINTING': ['TARPAULIN', 'TARP'],
+                    'T-SHIRT PRINTING': ['T-SHIRT', 'TSHIRT', 'SHIRT', 'VINYL'],
+                    'DECALS/STICKERS (PRINT/CUT)': ['DECAL', 'STICKER', 'PRINT/CUT'],
+                    'SINTRA BOARD': ['SINTRA', 'STANDEE'],
+                    'SINTRABOARD STANDEES': ['SINTRA', 'STANDEE'],
+                    'TRANSPARENT STICKERS': ['TRANSPARENT'],
+                    'GLASS/WALL STICKERS': ['GLASS', 'WALL', 'FROSTED'],
+                    'SOUVENIRS': ['SOUVENIR', 'MUG', 'KEYCHAIN', 'TOTE', 'TUMBLER']
+                };
+
+                const expectedTerms = compatibilityMap[serviceUpper] || [serviceUpper];
+                const titleMatchesService = expectedTerms.some(term => titleUpper.includes(term));
+
+                if (!titleMatchesService) {
+                    return resolvedService;
+                }
+
+                return rawTitle;
             },
             getServiceFilterValue(jo) {
                 const raw = this.getCorrectServiceType(jo).toUpperCase();
