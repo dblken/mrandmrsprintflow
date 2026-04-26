@@ -8,21 +8,26 @@ const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
 
+// Detect base path dynamically (works in both /printflow/ and root)
+const SW_BASE = self.location.pathname.includes('/public/') 
+    ? self.location.pathname.split('/public/')[0] 
+    : (self.location.pathname.includes('/sw.js') ? '' : '/printflow');
+
 // App shell — cached immediately on install so the app opens instantly
 const APP_SHELL = [
-    '/printflow/public/offline.html',
-    '/printflow/public/assets/css/output.css',
-    '/printflow/public/assets/js/pwa.js',
-    '/printflow/public/assets/images/icon-192.png',
-    '/printflow/public/assets/images/icon-512.png',
-    '/printflow/public/manifest.json',
+    SW_BASE + '/public/offline.html',
+    SW_BASE + '/public/assets/css/output.css',
+    SW_BASE + '/public/assets/js/pwa.js',
+    SW_BASE + '/public/assets/images/icon-192.png',
+    SW_BASE + '/public/assets/images/icon-512.png',
+    SW_BASE + '/public/manifest.json',
 ];
 
 // Pages to pre-cache so they open instantly (served from cache, updated in bg)
 const PRE_CACHE_PAGES = [
-    '/printflow/',
-    '/printflow/public/index.php',
-    '/printflow/public/products.php',
+    SW_BASE + '/',
+    SW_BASE + '/public/index.php',
+    SW_BASE + '/public/products.php',
 ];
 
 // ── Install: cache shell + pages immediately ─────────────────────────────────
@@ -149,7 +154,7 @@ async function staleWhileRevalidate(request, cacheName) {
     if (networkResponse) return networkResponse;
 
     // Both failed — show offline page
-    const offline = await caches.match('/printflow/public/offline.html');
+    const offline = await caches.match(SW_BASE + '/public/offline.html');
     return offline || new Response('<h1>Offline</h1>', {
         headers: { 'Content-Type': 'text/html' }
     });
@@ -186,10 +191,10 @@ self.addEventListener('push', (event) => {
     const defaults = {
         title: 'PrintFlow',
         body:  'You have a new update',
-        icon:  '/printflow/public/assets/images/icon-192.png',
-        badge: '/printflow/public/assets/images/icon-72.png',
+        icon:  SW_BASE + '/public/assets/images/icon-192.png',
+        badge: SW_BASE + '/public/assets/images/icon-72.png',
         tag:   'pf-general',
-        url:   '/printflow/',
+        url:   SW_BASE + '/',
     };
 
     let payload = { ...defaults };
@@ -232,7 +237,7 @@ self.addEventListener('push', (event) => {
  */
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const target = event.notification.data?.url || '/printflow/';
+    const target = event.notification.data?.url || (SW_BASE + '/');
 
     event.waitUntil(
         (async () => {

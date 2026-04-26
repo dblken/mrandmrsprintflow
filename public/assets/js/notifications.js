@@ -21,7 +21,7 @@
         if (window.PFConfig && Object.prototype.hasOwnProperty.call(window.PFConfig, 'basePath')) {
             return normalizeBasePath(window.PFConfig.basePath);
         }
-        return normalizeBasePath('/printflow');
+        return normalizeBasePath(window.PF_BASE_PATH || '');
     }
 
     function buildAppUrl(path) {
@@ -38,7 +38,7 @@
 
         try {
             var target = new URL(url, window.location.origin);
-            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1 && target.pathname.indexOf('/printflow/') === 0) {
+            if (!base && host.indexOf('mrandmrsprintflow.com') !== -1 && target.pathname.indexOf(window.PF_BASE_PATH + '/') === 0) {
                 target.pathname = target.pathname.replace(/^\/printflow(?=\/)/, '');
             }
             return target.pathname + target.search + target.hash;
@@ -718,7 +718,7 @@
     }
 
     function getNotifUrl(type, dataId, message, notifId, orderType) {
-        var base = '/printflow';
+        var base = getBasePath();
         var t = (type || '').toLowerCase();
         var isStaff = (USER_TYPE.toLowerCase() === 'admin' || USER_TYPE.toLowerCase() === 'staff' || USER_TYPE.toLowerCase() === 'manager');
         var msg = (message || '').toLowerCase();

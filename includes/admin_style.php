@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/favicon_links.php';
-$__pf_base_path = defined('BASE_PATH') ? rtrim((string) BASE_PATH, '/') : '/printflow';
+$__pf_base_path = defined('BASE_PATH') ? (string) BASE_PATH : (defined('BASE_URL') ? (string) BASE_URL : '/printflow');
+$__pf_base_path = rtrim($__pf_base_path, '/');
 $__pf_asset_path = $__pf_base_path . '/public/assets';
 $__pf_output_css_file = __DIR__ . '/../public/assets/css/output.css';
 $__pf_output_css_ver = file_exists($__pf_output_css_file) ? (string)filemtime($__pf_output_css_file) : '1';
@@ -16,7 +17,7 @@ $__pf_admin_mobile_css_ver = file_exists($__pf_admin_mobile_css_file) ? (string)
 
     function normalizePrintflowPath(value) {
         if (typeof value !== 'string') return value;
-        if (value === '/printflow') return basePath || '/';
+        if (value === '/printflow') return basePath || '';
         if (value.indexOf('/printflow/') !== 0) return value;
         return (basePath || '') + value.slice('/printflow'.length);
     }
@@ -61,7 +62,7 @@ if (!isset($base_path)) {
     if (file_exists(__DIR__ . '/../config.php')) {
         require_once __DIR__ . '/../config.php';
     }
-    $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
+    $base_path = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '/printflow');
 }
 
 if (empty($GLOBALS['__printflow_shell_core_js'])) {

@@ -1,410 +1,457 @@
 <?php
 /**
  * Staff Dashboard API
- * Returns real-time statistics and filtered data
+ * Returns real-time statistics and filtered data (JSON only).
  */
+
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
+// Keep output JSON-clean even if an include echoes/warns.
+ob_start();
+
+$__pf_debug_requested = isset($_GET['debug']) && (string)$_GET['debug'] === '1';
+$__pf_debug_allowed = false; // enabled after auth check
+$__pf_captured_errors = [];
+
+set_error_handler(function ($errno, $errstr, $errfile, $errline) use (&$__pf_captured_errors) {
+    $__pf_captured_errors[] = [
+        'type' => (int)$errno,
+        'message' => (string)$errstr,
+        'file' => (string)$errfile,
+        'line' => (int)$errline,
+    ];
+    return true; // prevent default output into the response body
+});
+
+set_exception_handler(function ($e) use (&$__pf_debug_allowed) {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    $payload = ['success' => false, 'error' => 'Server error'];
+    if ($__pf_debug_allowed) {
+        $payload['debug'] = [
+            'exception' => get_class($e),
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ];
+    }
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+});
+
+register_shutdown_function(function () use (&$__pf_debug_allowed, &$__pf_debug_requested, &$__pf_captured_errors) {
+    $output = '';
+    if (ob_get_level()) {
+        $output = (string)ob_get_clean();
+    }
+
+    $err = error_get_last();
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+    if ($err && in_array((int)$err['type'], $fatalTypes, true)) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        $payload = ['success' => false, 'error' => 'Server error'];
+        if ($__pf_debug_allowed || $__pf_debug_requested) {
+            $payload['debug'] = ['fatal' => $err];
+        }
+        echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        return;
+    }
+
+    if ($output !== '') {
+        $decoded = json_decode($output, true);
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            $payload = ['success' => false, 'error' => 'Invalid API response format'];
+            if ($__pf_debug_allowed || $__pf_debug_requested) {
+                $payload['debug'] = [
+                    'raw_output' => $output,
+                    'captured' => $__pf_captured_errors,
+                ];
+            }
+            echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            return;
+        }
+
+        if (($__pf_debug_allowed || $__pf_debug_requested) && is_array($decoded) && $__pf_captured_errors) {
+            $decoded['debug'] = $decoded['debug'] ?? [];
+            $decoded['debug']['captured'] = $__pf_captured_errors;
+            $output = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
+    }
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo $output;
+});
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
-require_once __DIR__ . '/../includes/service_order_helper.php';
 
-// Check staff access
 if (!has_role('Staff')) {
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Unauthorized']);
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 
+$__pf_debug_allowed = $__pf_debug_requested; // staff-authenticated endpoint
+
 $staffCtx = init_branch_context();
-service_order_ensure_tables();
-$staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
+$staffBranchId = $staffCtx['selected_branch_id'] === 'all'
+    ? (int)($_SESSION['branch_id'] ?? 1)
+    : (int)$staffCtx['selected_branch_id'];
 
 // --- Inputs ---
 $page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 15;
 $offset = ($page - 1) * $limit;
 
-$status_filter = $_GET['status'] ?? '';
-$search_filter = $_GET['search'] ?? '';
-$timeframe = $_GET['timeframe'] ?? 'today';
+$status_filter = (string)($_GET['status'] ?? '');
+$search_filter = (string)($_GET['search'] ?? '');
+$timeframe = (string)($_GET['timeframe'] ?? 'today');
 
-function build_staff_status_filter_sql(string $status_filter, array &$params, string &$types, string $alias = 'o'): string {
-    if ($status_filter === '') {
-        return '';
-    }
-    if ($status_filter === 'Pending') {
-        return " AND {$alias}.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify')";
-    }
-    if ($status_filter === 'Ready for Pickup') {
-        return " AND {$alias}.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design')";
-    }
-    $params[] = $status_filter;
-    $types .= 's';
-    return " AND {$alias}.status = ?";
-}
-function build_staff_service_status_filter_sql(string $status_filter, array &$params, string &$types, string $alias = 'so'): string {
-    if ($status_filter === '') {
-        return " AND {$alias}.status NOT IN ('Cancelled', 'Rejected')";
-    }
-    if ($status_filter === 'Pending') {
-        return " AND {$alias}.status IN ('Pending', 'Pending Review', 'Pending Approval', 'For Revision')";
-    }
-    if ($status_filter === 'Ready for Pickup') {
-        return " AND {$alias}.status IN ('Ready for Pickup', 'Ready For Pickup', 'Processing', 'In Production', 'Printing')";
-    }
-    if ($status_filter === 'Cancelled') {
-        return " AND {$alias}.status IN ('Cancelled', 'Rejected')";
-    }
-    $params[] = $status_filter;
-    $types .= 's';
-    return " AND {$alias}.status = ?";
-}
-
-// --- Timeframe Logic ---
+// --- Timeframe Logic (prepared-safe) ---
 $today = date('Y-m-d');
-$range_start = $today;
-$range_end = $today;
-$timeframe_label = 'Today (' . date('F j, Y') . ')';
+
+$display_label = "Today (" . date('F j, Y') . ")";
 $short_label = 'Today';
+$time_sql = "DATE(o.order_date) = CURDATE()";
+$time_sql_no_alias = "DATE(order_date) = CURDATE()";
+$time_types = '';
+$time_params = [];
 
-switch ($timeframe) {
-    case 'week':
-        $range_start = date('Y-m-d', strtotime('monday this week'));
-        $range_end = date('Y-m-d', strtotime('sunday this week'));
-        $start_day = date('j', strtotime($range_start));
-        $end_day = date('j', strtotime($range_end));
-        $start_month = date('F', strtotime($range_start));
-        $end_month = date('F', strtotime($range_end));
-        $year = date('Y', strtotime($range_end));
-        $timeframe_label = ($start_month === $end_month)
-            ? "This Week ($start_month $start_day-$end_day, $year)"
-            : "This Week ($start_month $start_day - $end_month $end_day, $year)";
-        $short_label = 'This Week';
-        break;
-    case 'month':
-        $range_start = date('Y-m-01');
-        $range_end = date('Y-m-t');
-        $timeframe_label = 'This Month (' . date('F Y') . ')';
-        $short_label = 'This Month';
-        break;
-    case 'all':
-        $range_start = null;
-        $range_end = null;
-        $timeframe_label = 'All Time';
-        $short_label = 'All Time';
-        break;
+if ($timeframe === 'week') {
+    $start = date('Y-m-d', strtotime('monday this week'));
+    $end = date('Y-m-d', strtotime('sunday this week'));
+
+    $time_sql = "DATE(o.order_date) BETWEEN ? AND ?";
+    $time_sql_no_alias = "DATE(order_date) BETWEEN ? AND ?";
+    $time_types = 'ss';
+    $time_params = [$start, $end];
+
+    $start_day = date('j', strtotime($start));
+    $end_day = date('j', strtotime($end));
+    $start_month = date('F', strtotime($start));
+    $end_month = date('F', strtotime($end));
+    $year = date('Y', strtotime($end));
+
+    $display_label = ($start_month === $end_month)
+        ? "This Week ($start_month $start_day-$end_day, $year)"
+        : "This Week ($start_month $start_day - $end_month $end_day, $year)";
+    $short_label = 'This Week';
+} elseif ($timeframe === 'month') {
+    $start = date('Y-m-01');
+    $end = date('Y-m-t');
+
+    $time_sql = "DATE(o.order_date) BETWEEN ? AND ?";
+    $time_sql_no_alias = "DATE(order_date) BETWEEN ? AND ?";
+    $time_types = 'ss';
+    $time_params = [$start, $end];
+
+    $display_label = "This Month (" . date('F Y') . ")";
+    $short_label = 'This Month';
+} elseif ($timeframe === 'all') {
+    $time_sql = "1=1";
+    $time_sql_no_alias = "1=1";
+    $time_types = '';
+    $time_params = [];
+
+    $display_label = 'All Time';
+    $short_label = 'All Time';
+} elseif ($timeframe !== 'today') {
+    // Default: last 7 days
+    $start = date('Y-m-d', strtotime('-6 days'));
+    $end = $today;
+
+    $time_sql = "DATE(o.order_date) BETWEEN ? AND ?";
+    $time_sql_no_alias = "DATE(order_date) BETWEEN ? AND ?";
+    $time_types = 'ss';
+    $time_params = [$start, $end];
+
+    $display_label = "Last 7 Days (" . date('M j', strtotime($start)) . "-" . date('M j, Y', strtotime($end)) . ")";
+    $short_label = 'Last 7 Days';
 }
 
-$latestBranchDate = $today;
-$timeframe_sql = 'DATE(o.order_date) BETWEEN ? AND ?';
-$timeframe_sql_no_alias = 'DATE(order_date) BETWEEN ? AND ?';
-$service_timeframe_sql = 'DATE(so.created_at) BETWEEN ? AND ?';
-$has_timeframe_range = ($range_start !== null && $range_end !== null);
-
-// 1. Stats
-$stats_order_params = [$staffBranchId];
-$stats_order_types = 'i';
-$stats_order_time_sql = '';
-if ($has_timeframe_range) {
-    $stats_order_time_sql = " AND {$timeframe_sql_no_alias}";
-    $stats_order_params[] = $range_start;
-    $stats_order_params[] = $range_end;
-    $stats_order_types .= 'ss';
+// --- Status filter for chart ---
+$status_sql = "o.status != 'Cancelled'";
+$status_types = '';
+$status_params = [];
+if ($status_filter !== '') {
+    if ($status_filter === 'Cancelled') {
+        $status_sql = "o.status = 'Cancelled'";
+    } else {
+        $status_sql = "o.status = ?";
+        $status_types = 's';
+        $status_params = [$status_filter];
+    }
 }
-$stats_order_where = build_staff_status_filter_sql($status_filter, $stats_order_params, $stats_order_types, 'o');
-$completed_products = db_query("
-    SELECT COUNT(DISTINCT o.order_id) as count 
-    FROM orders o 
-    JOIN order_items oi ON o.order_id = oi.order_id
-    JOIN products p ON oi.product_id = p.product_id
-    WHERE o.branch_id = ? AND o.order_type = 'product'{$stats_order_time_sql}{$stats_order_where}
-", $stats_order_types, $stats_order_params)[0]['count'] ?? 0;
 
-$stats_custom_params = [$staffBranchId];
-$stats_custom_types = 'i';
-$stats_custom_time_sql = '';
-if ($has_timeframe_range) {
-    $stats_custom_time_sql = " AND {$timeframe_sql_no_alias}";
-    $stats_custom_params[] = $range_start;
-    $stats_custom_params[] = $range_end;
-    $stats_custom_types .= 'ss';
-}
-$stats_custom_where = build_staff_status_filter_sql($status_filter, $stats_custom_params, $stats_custom_types, 'o');
-$completed_custom = db_query("
-    SELECT COUNT(DISTINCT o.order_id) as count 
-    FROM orders o 
-    JOIN order_items oi ON o.order_id = oi.order_id
-    LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
-    LEFT JOIN services s ON oi.product_id = s.service_id
-    WHERE o.branch_id = ?{$stats_custom_time_sql}{$stats_custom_where}
-      AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
-", $stats_custom_types, $stats_custom_params)[0]['count'] ?? 0;
-$stats_service_params = [$staffBranchId];
-$stats_service_types = 'i';
-$stats_service_time_sql = '';
-if ($has_timeframe_range) {
-    $stats_service_time_sql = " AND {$service_timeframe_sql}";
-    $stats_service_params[] = $range_start;
-    $stats_service_params[] = $range_end;
-    $stats_service_types .= 'ss';
-}
-$stats_service_where = build_staff_service_status_filter_sql($status_filter, $stats_service_params, $stats_service_types, 'so');
-$completed_custom += (int)(db_query("
-    SELECT COUNT(*) AS count
-    FROM service_orders so
-    WHERE (so.branch_id = ? OR so.branch_id IS NULL)
-      {$stats_service_time_sql}
-      {$stats_service_where}
-", $stats_service_types, $stats_service_params)[0]['count'] ?? 0);
+// 1) Stats
+$res_products = db_query(
+    "SELECT COUNT(DISTINCT o.order_id) as count
+     FROM orders o
+     JOIN order_items oi ON o.order_id = oi.order_id
+     JOIN products p ON oi.product_id = p.product_id
+     WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product' AND {$time_sql}",
+    'i' . $time_types,
+    array_merge([$staffBranchId], $time_params)
+);
+$completed_products = (int)($res_products[0]['count'] ?? 0);
 
-$pending_reviews = db_query("
-    SELECT COUNT(*) as count
-    FROM reviews r
-    LEFT JOIN orders o ON o.order_id = r.order_id
-    WHERE o.branch_id = ? OR r.order_id IS NULL OR r.order_id = 0
-", 'i', [$staffBranchId])[0]['count'] ?? 0;
+$res_custom = db_query(
+    "SELECT COUNT(DISTINCT o.order_id) as count
+     FROM orders o
+     JOIN order_items oi ON o.order_id = oi.order_id
+     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+     LEFT JOIN services s ON oi.product_id = s.service_id
+     WHERE o.status = 'Completed' AND o.branch_id = ? AND {$time_sql}
+       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')",
+    'i' . $time_types,
+    array_merge([$staffBranchId], $time_params)
+);
+$completed_custom = (int)($res_custom[0]['count'] ?? 0);
 
-$revenue_order_params = [$staffBranchId];
-$revenue_order_types = 'i';
-$revenue_service_params = [$staffBranchId];
-$revenue_service_types = 'i';
-$revenue_order_time_sql = '';
-$revenue_service_time_sql = '';
-if ($has_timeframe_range) {
-    $revenue_order_time_sql = " AND {$timeframe_sql}";
-    $revenue_order_params[] = $range_start;
-    $revenue_order_params[] = $range_end;
-    $revenue_order_types .= 'ss';
-    $revenue_service_time_sql = " AND {$service_timeframe_sql}";
-    $revenue_service_params[] = $range_start;
-    $revenue_service_params[] = $range_end;
-    $revenue_service_types .= 'ss';
-}
-$revenue_order_where = build_staff_status_filter_sql($status_filter, $revenue_order_params, $revenue_order_types);
-$revenue_service_where = build_staff_service_status_filter_sql($status_filter, $revenue_service_params, $revenue_service_types);
-$total_revenue = db_query("
-    SELECT SUM(total) AS total
-    FROM (
-        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders o WHERE o.branch_id = ?{$revenue_order_time_sql}{$revenue_order_where}
-        UNION ALL
-        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL){$revenue_service_time_sql}{$revenue_service_where}
-    ) branch_revenue
-", $revenue_order_types . $revenue_service_types, array_merge($revenue_order_params, $revenue_service_params))[0]['total'] ?? 0;
+$res_rev = db_query(
+    "SELECT COALESCE(SUM(total_amount), 0) as total
+     FROM orders
+     WHERE {$time_sql_no_alias} AND status != 'Cancelled' AND branch_id = ?",
+    $time_types . 'i',
+    array_merge($time_params, [$staffBranchId])
+);
+$total_revenue = (float)($res_rev[0]['total'] ?? 0);
 
-// 2. Optimized & Dynamic Chart Data
+// 2) Chart (aggregated in one query to avoid timeouts)
 $chart_labels = [];
 $chart_values = [];
-$chart_title = "Revenue Trend (Last 7 Days)";
+$chart_title = 'Revenue Trend';
 
-$chart_sql_cond = " WHERE o.branch_id = ? AND o.status != 'Cancelled'";
-$chart_params = [$staffBranchId];
-$chart_types = "i";
+if ($timeframe === 'today') {
+    $chart_title = "Today's Performance (Hourly)";
+    $rows = db_query(
+        "SELECT HOUR(o.order_date) AS k, COALESCE(SUM(o.total_amount), 0) AS total
+         FROM orders o
+         WHERE o.branch_id = ? AND {$status_sql} AND DATE(o.order_date) = CURDATE()
+         GROUP BY HOUR(o.order_date)
+         ORDER BY k ASC",
+        'i' . $status_types,
+        array_merge([$staffBranchId], $status_params)
+    );
 
-if ($status_filter) {
-    $chart_sql_cond = " WHERE o.branch_id = ?";
-    $chart_params = [$staffBranchId];
-    $chart_types = "i";
-    $chart_sql_cond .= build_staff_status_filter_sql($status_filter, $chart_params, $chart_types, 'o');
-}
+    $map = [];
+    foreach ($rows as $r) $map[(int)$r['k']] = (float)$r['total'];
 
-switch($timeframe) {
-    case 'today':
-        $chart_title = "Today's Performance (Hourly)";
-        for ($i = 0; $i < 24; $i++) {
-            $h = str_pad($i, 2, "0", STR_PAD_LEFT);
-            $chart_labels[] = $h . ":00";
-            $chartDate = $latestBranchDate ?: date('Y-m-d');
-            $res = db_query("
-                SELECT SUM(total) AS total
-                FROM (
-                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ? AND HOUR(o.order_date) = ?
-                    UNION ALL
-                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ? AND HOUR(so.created_at) = ?
-                ) hourly_revenue
-            ", $chart_types.'siisi', array_merge($chart_params, [$chartDate, $i, $staffBranchId, $chartDate, $i]));
-            $chart_values[] = (float)($res[0]['total'] ?? 0);
-        }
-        break;
-        
-    case 'week':
-        $chart_title = "Weekly Trend (Daily)";
-        for ($i = 6; $i >= 0; $i--) {
-            $d = date('Y-m-d', strtotime("-$i days", strtotime($latestBranchDate ?: date('Y-m-d'))));
-            $chart_labels[] = date('D', strtotime($d));
-            $res = db_query("
-                SELECT SUM(total) AS total
-                FROM (
-                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
-                    UNION ALL
-                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
-                ) daily_revenue
-            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
-            $chart_values[] = (float)($res[0]['total'] ?? 0);
-        }
-        break;
-        
-    case 'month':
-        $chart_title = "Monthly Performance (Daily)";
-        $days_in_month = date('t', strtotime($latestBranchDate ?: date('Y-m-d')));
-        for ($i = 1; $i <= $days_in_month; $i++) {
-            $monthAnchor = $latestBranchDate ?: date('Y-m-d');
-            $d = date('Y-m-', strtotime($monthAnchor)) . str_pad($i, 2, "0", STR_PAD_LEFT);
-            $chart_labels[] = $i;
-            $res = db_query("
-                SELECT SUM(total) AS total
-                FROM (
-                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
-                    UNION ALL
-                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
-                ) daily_revenue
-            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
-            $chart_values[] = (float)($res[0]['total'] ?? 0);
-        }
-        break;
-        
-        break;
-
-    default: // 7 Days
-        $chart_title = "Last 7 Days (Trend)";
-        for ($i = 6; $i >= 0; $i--) {
-            $d = date('Y-m-d', strtotime("-$i days", strtotime($latestBranchDate ?: date('Y-m-d'))));
-            $chart_labels[] = date('D', strtotime($d));
-            $res = db_query("
-                SELECT SUM(total) AS total
-                FROM (
-                    SELECT COALESCE(SUM(o.total_amount), 0) AS total FROM orders o $chart_sql_cond AND DATE(o.order_date) = ?
-                    UNION ALL
-                    SELECT COALESCE(SUM(so.total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL) AND so.status NOT IN ('Cancelled', 'Rejected') AND DATE(so.created_at) = ?
-                ) daily_revenue
-            ", $chart_types.'sis', array_merge($chart_params, [$d, $staffBranchId, $d]));
-            $chart_values[] = (float)($res[0]['total'] ?? 0);
-        }
-}
-
-// 3. Top Sales (Dynamic Timeframe)
-$top_services_status_params = [$staffBranchId];
-$top_services_status_types = 'i';
-$top_services_time_sql = '';
-if ($has_timeframe_range) {
-    $top_services_time_sql = " AND {$timeframe_sql}";
-    $top_services_status_params[] = $range_start;
-    $top_services_status_params[] = $range_end;
-    $top_services_status_types .= 'ss';
-}
-$top_services_status_where = build_staff_status_filter_sql($status_filter, $top_services_status_params, $top_services_status_types, 'o');
-$top_services = db_query("
-    SELECT 
-        TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, s.name, p.name), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name, 
-        COUNT(DISTINCT oi.order_item_id) as order_count
-    FROM order_items oi
-    JOIN orders o ON oi.order_id = o.order_id
-    LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
-    LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
-    LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name AND s.status = 'Activated'))
-    WHERE o.branch_id = ?
-      {$top_services_time_sql}
-      {$top_services_status_where}
-      AND (
-          (p.product_id IS NOT NULL AND p.status = 'Activated')
-          OR (s.service_id IS NOT NULL AND s.status = 'Activated')
-          OR (jo.id IS NOT NULL AND EXISTS (SELECT 1 FROM services WHERE name = jo.service_type AND status = 'Activated'))
-      )
-    GROUP BY name
-    ORDER BY order_count DESC
-    LIMIT 10
-", $top_services_status_types, $top_services_status_params);
-if (empty($top_services)) {
-    $svc_top_params = [$staffBranchId];
-    $svc_top_types = 'i';
-    $svc_top_time_sql = '';
-    if ($has_timeframe_range) {
-        $svc_top_time_sql = " AND {$service_timeframe_sql}";
-        $svc_top_params[] = $range_start;
-        $svc_top_params[] = $range_end;
-        $svc_top_types .= 'ss';
+    for ($h = 0; $h < 24; $h++) {
+        $chart_labels[] = str_pad((string)$h, 2, '0', STR_PAD_LEFT) . ':00';
+        $chart_values[] = (float)($map[$h] ?? 0);
     }
-    $svc_top_where = build_staff_service_status_filter_sql($status_filter, $svc_top_params, $svc_top_types, 'so');
-    $top_services = db_query("
-        SELECT service_name AS name, COUNT(*) AS order_count
-        FROM service_orders so
-        WHERE (so.branch_id = ? OR so.branch_id IS NULL)
-          {$svc_top_time_sql}
-          {$svc_top_where}
-        GROUP BY service_name
-        ORDER BY order_count DESC
-        LIMIT 10
-    ", $svc_top_types, $svc_top_params);
+} elseif ($timeframe === 'week') {
+    $chart_title = "Weekly Trend (Mon-Sun)";
+    $start = $time_params[0] ?? date('Y-m-d', strtotime('monday this week'));
+    $end = $time_params[1] ?? date('Y-m-d', strtotime('sunday this week'));
+
+    $rows = db_query(
+        "SELECT DATE(o.order_date) AS d, COALESCE(SUM(o.total_amount), 0) AS total
+         FROM orders o
+         WHERE o.branch_id = ? AND {$status_sql} AND DATE(o.order_date) BETWEEN ? AND ?
+         GROUP BY DATE(o.order_date)
+         ORDER BY d ASC",
+        'i' . $status_types . 'ss',
+        array_merge([$staffBranchId], $status_params, [$start, $end])
+    );
+
+    $map = [];
+    foreach ($rows as $r) $map[(string)$r['d']] = (float)$r['total'];
+
+    $monday_ts = strtotime($start);
+    for ($i = 0; $i < 7; $i++) {
+        $d = date('Y-m-d', strtotime("+$i day", $monday_ts));
+        $chart_labels[] = date('D', strtotime($d));
+        $chart_values[] = (float)($map[$d] ?? 0);
+    }
+} elseif ($timeframe === 'month') {
+    $chart_title = "Monthly Performance (Daily)";
+    $start = $time_params[0] ?? date('Y-m-01');
+    $end = $time_params[1] ?? date('Y-m-t');
+
+    $rows = db_query(
+        "SELECT DATE(o.order_date) AS d, COALESCE(SUM(o.total_amount), 0) AS total
+         FROM orders o
+         WHERE o.branch_id = ? AND {$status_sql} AND DATE(o.order_date) BETWEEN ? AND ?
+         GROUP BY DATE(o.order_date)
+         ORDER BY d ASC",
+        'i' . $status_types . 'ss',
+        array_merge([$staffBranchId], $status_params, [$start, $end])
+    );
+
+    $map = [];
+    foreach ($rows as $r) $map[(string)$r['d']] = (float)$r['total'];
+
+    $days_in_month = (int)date('t', strtotime($start));
+    for ($day = 1; $day <= $days_in_month; $day++) {
+        $d = date('Y-m-', strtotime($start)) . str_pad((string)$day, 2, '0', STR_PAD_LEFT);
+        $chart_labels[] = $day;
+        $chart_values[] = (float)($map[$d] ?? 0);
+    }
+} elseif ($timeframe === 'all') {
+    $chart_title = "All Time (Last 30 Days Trend)";
+    $start = date('Y-m-d', strtotime('-29 days'));
+    $end = $today;
+
+    $rows = db_query(
+        "SELECT DATE(o.order_date) AS d, COALESCE(SUM(o.total_amount), 0) AS total
+         FROM orders o
+         WHERE o.branch_id = ? AND {$status_sql} AND DATE(o.order_date) BETWEEN ? AND ?
+         GROUP BY DATE(o.order_date)
+         ORDER BY d ASC",
+        'i' . $status_types . 'ss',
+        array_merge([$staffBranchId], $status_params, [$start, $end])
+    );
+
+    $map = [];
+    foreach ($rows as $r) $map[(string)$r['d']] = (float)$r['total'];
+
+    for ($i = 29; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $chart_labels[] = date('M j', strtotime($d));
+        $chart_values[] = (float)($map[$d] ?? 0);
+    }
+} else {
+    // Default: last 7 days
+    $chart_title = "Last 7 Days (Trend)";
+    $start = $time_params[0] ?? date('Y-m-d', strtotime('-6 days'));
+    $end = $time_params[1] ?? $today;
+
+    $rows = db_query(
+        "SELECT DATE(o.order_date) AS d, COALESCE(SUM(o.total_amount), 0) AS total
+         FROM orders o
+         WHERE o.branch_id = ? AND {$status_sql} AND DATE(o.order_date) BETWEEN ? AND ?
+         GROUP BY DATE(o.order_date)
+         ORDER BY d ASC",
+        'i' . $status_types . 'ss',
+        array_merge([$staffBranchId], $status_params, [$start, $end])
+    );
+
+    $map = [];
+    foreach ($rows as $r) $map[(string)$r['d']] = (float)$r['total'];
+
+    for ($i = 6; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $chart_labels[] = date('D', strtotime($d));
+        $chart_values[] = (float)($map[$d] ?? 0);
+    }
 }
 
-// 4. Recent Orders
+// 3) Top sales/services
+$top_services = db_query(
+    "SELECT
+        TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, s.name, p.name), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name,
+        COUNT(DISTINCT oi.order_item_id) as order_count
+     FROM order_items oi
+     JOIN orders o ON oi.order_id = o.order_id
+     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+     LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
+     LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name AND s.status = 'Activated'))
+     WHERE o.branch_id = ? AND {$time_sql}
+       AND (
+           (p.product_id IS NOT NULL AND p.status = 'Activated')
+           OR (s.service_id IS NOT NULL AND s.status = 'Activated')
+           OR (jo.id IS NOT NULL AND EXISTS (SELECT 1 FROM services WHERE name = jo.service_type AND status = 'Activated'))
+       )
+     GROUP BY name
+     ORDER BY order_count DESC
+     LIMIT 10",
+    'i' . $time_types,
+    array_merge([$staffBranchId], $time_params)
+);
+
+// 4) Recent orders list (filters + pagination)
 $sql_cond = " WHERE o.branch_id = ?";
 $params = [$staffBranchId];
 $types = "i";
 
-if ($status_filter) {
-    $sql_cond .= build_staff_status_filter_sql($status_filter, $params, $types, 'o');
+if ($status_filter !== '') {
+    $sql_cond .= " AND o.status = ?";
+    $params[] = $status_filter;
+    $types .= "s";
 }
-if ($has_timeframe_range) {
-    $sql_cond .= " AND " . $timeframe_sql;
-    $params[] = $range_start;
-    $params[] = $range_end;
-    $types .= 'ss';
+
+if ($timeframe !== 'all') {
+    $sql_cond .= " AND " . $time_sql;
+    $params = array_merge($params, $time_params);
+    $types .= $time_types;
 }
-if ($search_filter) {
+
+if ($search_filter !== '') {
     $sql_cond .= " AND (o.order_id LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ?)";
-    $lk = "%$search_filter%";
+    $lk = '%' . $search_filter . '%';
     $params[] = $lk;
     $params[] = $lk;
     $types .= "ss";
 }
 
-$total_rows = db_query("SELECT COUNT(*) as count FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id" . $sql_cond, $types, $params)[0]['count'] ?? 0;
+$res_rows = db_query(
+    "SELECT COUNT(*) as count FROM orders o LEFT JOIN customers c ON o.customer_id = c.customer_id" . $sql_cond,
+    $types,
+    $params
+);
+$total_rows = (int)($res_rows[0]['count'] ?? 0);
 
-$orders = db_query("
-    SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
-    (SELECT COALESCE(p.name, 'Custom Service') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) as service_type,
-    o.order_date, o.total_amount, o.status
-    FROM orders o 
-    LEFT JOIN customers c ON o.customer_id = c.customer_id 
-    $sql_cond
-    ORDER BY o.order_date DESC 
-    LIMIT $limit OFFSET $offset
-", $types, $params);
+$orders = db_query(
+    "SELECT o.order_id,
+            CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            (SELECT COALESCE(p.name, 'Custom Service')
+             FROM order_items oi
+             LEFT JOIN products p ON oi.product_id = p.product_id
+             WHERE oi.order_id = o.order_id
+             LIMIT 1) as service_type,
+            o.order_date,
+            o.total_amount,
+            o.status
+     FROM orders o
+     LEFT JOIN customers c ON o.customer_id = c.customer_id
+     {$sql_cond}
+     ORDER BY o.order_date DESC
+     LIMIT {$limit} OFFSET {$offset}",
+    $types,
+    $params
+);
 
-// Add HTML badge to orders for easier rendering on frontend
+$peso = '₱';
 foreach ($orders as &$order) {
-    if (function_exists('status_badge')) {
-        $order['status_html'] = status_badge($order['status'], 'order');
-    } else {
-        $order['status_html'] = '<span class="status-badge">' . $order['status'] . '</span>';
-    }
-    $order['formatted_date'] = date('M d, Y', strtotime($order['order_date']));
-    $order['formatted_total'] = '₱' . number_format($order['total_amount'], 2);
-    $order['manage_url'] = printflow_staff_order_management_url((int)$order['order_id'], true);
+    $order['status_html'] = function_exists('status_badge')
+        ? status_badge($order['status'], 'order')
+        : ('<span class="status-badge">' . $order['status'] . '</span>');
+    $order['formatted_date'] = date('M d, Y', strtotime((string)$order['order_date']));
+    $order['formatted_total'] = $peso . number_format((float)$order['total_amount'], 2);
+    $order['manage_url'] = "customizations.php?order_id={$order['order_id']}&status=" . urlencode((string)$order['status']) . "&job_type=ORDER";
 }
+unset($order);
 
-header('Content-Type: application/json');
 echo json_encode([
+    'success' => true,
     'stats' => [
-        'revenue' => (float)$total_revenue,
-        'formatted_revenue' => '₱' . number_format($total_revenue, 2),
-        'completed_products' => (int)$completed_products,
-        'completed_custom' => (int)$completed_custom,
-        'pending_reviews' => (int)$pending_reviews
+        'revenue' => $total_revenue,
+        'formatted_revenue' => $peso . number_format($total_revenue, 2),
+        'completed_products' => $completed_products,
+        'completed_custom' => $completed_custom,
     ],
     'chart' => [
         'labels' => $chart_labels,
         'values' => $chart_values,
-        'title' => $chart_title
+        'title' => $chart_title,
     ],
-    'top_services' => $top_services,
-    'orders' => $orders,
+    'top_services' => $top_services ?: [],
+    'orders' => $orders ?: [],
     'pagination' => [
         'current_page' => $page,
-        'total_pages' => ceil($total_rows / $limit),
-        'total_rows' => (int)$total_rows
+        'total_pages' => (int)ceil($total_rows / $limit),
+        'total_rows' => $total_rows,
     ],
-    'timeframe_label' => $timeframe_label,
-    'short_label' => $short_label
-]);
+    'timeframe_label' => $display_label,
+    'short_label' => $short_label,
+], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+

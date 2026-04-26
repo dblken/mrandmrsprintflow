@@ -158,7 +158,7 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="/printflow/public/assets/css/chat.css">
+<link rel="stylesheet" href="<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/public/assets/css/chat.css">
 
 <style>
 /* TikTok Style Orders Nav */
@@ -471,11 +471,11 @@ body.customer-theme.orders-page footer.ft-footer {
                             <?php if (in_array($order['status'], ['Completed', 'To Rate', 'Rated'], true)): ?>
                                 <?php $rating_value = (int)($order['rating_value'] ?? 0); ?>
                                 <?php if ($rating_value > 0): ?>
-                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; gap:6px; border:1px solid #fde68a; background:#fffbeb; color:#b45309; font-size:12px; font-weight:800; border-radius:999px; padding:6px 10px; text-decoration:none; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.borderColor='#f59e0b';" onmouseout="this.style.background='#fffbeb';this.style.borderColor='#fde68a';" title="View your review">
+                                    <a href="<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; gap:6px; border:1px solid #fde68a; background:#fffbeb; color:#b45309; font-size:12px; font-weight:800; border-radius:999px; padding:6px 10px; text-decoration:none; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.borderColor='#f59e0b';" onmouseout="this.style.background='#fffbeb';this.style.borderColor='#fde68a';" title="View your review">
                                         Rated <?php echo str_repeat('★', $rating_value) . str_repeat('☆', max(0, 5 - $rating_value)); ?>
                                     </a>
                                 <?php else: ?>
-                                    <a href="/printflow/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; justify-content:center; border-radius:8px; padding:8px 12px; background:#f59e0b; color:#fff; font-size:12px; font-weight:800; text-decoration:none; letter-spacing:0.02em;">
+                                    <a href="<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/customer/rate_order.php?order_id=<?php echo (int)$order['order_id']; ?>" style="display:inline-flex; align-items:center; justify-content:center; border-radius:8px; padding:8px 12px; background:#f59e0b; color:#fff; font-size:12px; font-weight:800; text-decoration:none; letter-spacing:0.02em;">
                                         Rate Order
                                     </a>
                                 <?php endif; ?>

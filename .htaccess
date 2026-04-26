@@ -17,6 +17,9 @@ AddType text/css .css
     RewriteEngine On
     RewriteBase /
 
+    # Redirect legacy /printflow/ paths to root (fixes 500/404 on moved assets)
+    RewriteRule ^printflow/(.*)$ /$1 [R=301,L]
+
     # Canonical host: force non-www so session cookies stay on one host.
     RewriteCond %{HTTP_HOST} ^www\.mrandmrsprintflow\.com$ [NC]
     RewriteRule ^ https://mrandmrsprintflow.com%{REQUEST_URI} [R=301,L]

@@ -204,7 +204,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($active_pms as $pm): ?>
                     <div class="border rounded-lg p-4 flex gap-4 items-center bg-gray-50">
                         <?php if (!empty($pm['file'])): ?>
-                        <img src="/printflow/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1 shadow-sm">
+                        <img src="<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/public/assets/uploads/qr/<?php echo htmlspecialchars($pm['file']); ?>?t=<?php echo time(); ?>" alt="QR" class="w-20 h-20 object-contain rounded border bg-white p-1 shadow-sm">
                         <?php endif; ?>
                         <div>
                             <p class="font-bold text-gray-900 leading-tight"><?php echo htmlspecialchars($pm['provider']); ?></p>
