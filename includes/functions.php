@@ -573,7 +573,7 @@ function staff_notification_target_url(array $n): string {
             strpos($msg_lower, 'design re-upload') !== false ||
             strpos($msg_lower, 'revision') !== false
         ) {
-            return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+            return printflow_staff_order_management_url($data_id, true);
         }
 
         $job_row = db_query(
@@ -596,9 +596,9 @@ function staff_notification_target_url(array $n): string {
 
             if ($order_type === 'custom') {
                 if ($order_source === 'pos' || $order_source === 'walk-in') {
-                    return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+                    return printflow_staff_order_management_url($data_id, false);
                 }
-                return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER&status=PENDING';
+                return printflow_staff_order_management_url($data_id, true);
             }
 
             return $base . '/staff/orders.php?order_id=' . $data_id;
@@ -608,7 +608,7 @@ function staff_notification_target_url(array $n): string {
             return $base . '/staff/orders.php?order_id=' . $data_id;
         }
 
-        return $base . '/staff/customizations.php?order_id=' . $data_id . '&job_type=ORDER';
+        return printflow_staff_order_management_url($data_id, false);
     }
 
     return $base . '/staff/notifications.php';
@@ -1755,6 +1755,32 @@ function printflow_notification_display_message(array $notification): string {
     }
 
     return $message;
+}
+
+function printflow_staff_order_management_url(int $orderId, bool $preferPendingStatus = false): string {
+    $base = printflow_notification_base_path();
+    $orderId = (int)$orderId;
+    if ($orderId <= 0) {
+        return $base . '/staff/orders.php';
+    }
+
+    $orderRows = db_query(
+        "SELECT order_type, order_source FROM orders WHERE order_id = ? LIMIT 1",
+        'i',
+        [$orderId]
+    );
+    $orderType = strtolower(trim((string)($orderRows[0]['order_type'] ?? 'product')));
+    $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? 'customer')));
+
+    if ($orderType === 'custom') {
+        $url = $base . '/staff/customizations.php?order_id=' . $orderId . '&job_type=ORDER';
+        if ($preferPendingStatus && $orderSource !== 'pos' && $orderSource !== 'walk-in') {
+            $url .= '&status=PENDING';
+        }
+        return $url;
+    }
+
+    return $base . '/staff/orders.php?order_id=' . $orderId;
 }
 
 function printflow_notification_item_kind(array $notification): string {

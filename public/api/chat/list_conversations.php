@@ -163,7 +163,8 @@ foreach ($rows ?: [] as $r) {
         'last_message_at' => $r['last_message_at'] ?? $r['order_date'] ?? null,
         'unread_count' => (int)($r['unread_count'] ?? 0),
         'is_archived' => (bool)$r['is_archived'],
-        'is_online' => $is_online
+        'is_online' => $is_online,
+        'manage_url' => ($user_type === 'Customer') ? null : printflow_staff_order_management_url((int)$r['order_id'], true)
     ];
     if ($user_type === 'Customer') {
         $conv['staff_name'] = $staff_name;

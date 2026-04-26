@@ -493,7 +493,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
                                                  <?php echo status_badge($order['status'], 'order'); ?>
                                              </td>
                                             <td style="text-align:right;">
-                                                <a href="customizations.php?order_id=<?php echo $order['order_id']; ?>&status=<?php echo urlencode($order['status']); ?>&job_type=ORDER" class="btn-staff-action btn-staff-action-blue">Manage</a>
+                                                <a href="<?php echo htmlspecialchars(printflow_staff_order_management_url((int)$order['order_id'], true)); ?>" class="btn-staff-action btn-staff-action-blue">Manage</a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

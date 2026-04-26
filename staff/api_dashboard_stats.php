@@ -381,7 +381,7 @@ foreach ($orders as &$order) {
     }
     $order['formatted_date'] = date('M d, Y', strtotime($order['order_date']));
     $order['formatted_total'] = '₱' . number_format($order['total_amount'], 2);
-    $order['manage_url'] = "customizations.php?order_id={$order['order_id']}&status=" . urlencode($order['status']) . "&job_type=ORDER";
+    $order['manage_url'] = printflow_staff_order_management_url((int)$order['order_id'], true);
 }
 
 header('Content-Type: application/json');

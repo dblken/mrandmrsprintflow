@@ -15,6 +15,21 @@ require_role(['Admin', 'Staff', 'Manager']);
 if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
     require_once __DIR__ . '/../includes/staff_pending_check.php';
 }
+
+$deepLinkOrderId = (int)($_GET['order_id'] ?? 0);
+$deepLinkJobType = strtoupper(trim((string)($_GET['job_type'] ?? '')));
+if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
+    $deepLinkOrder = db_query(
+        "SELECT order_type FROM orders WHERE order_id = ? LIMIT 1",
+        'i',
+        [$deepLinkOrderId]
+    );
+    $deepLinkOrderType = strtolower(trim((string)($deepLinkOrder[0]['order_type'] ?? '')));
+    if ($deepLinkOrderType === 'product') {
+        redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+    }
+}
+
 $page_title = 'Customizations - PrintFlow';
 $showLatestCustomizationOnly = false;
 

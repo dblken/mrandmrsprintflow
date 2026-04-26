@@ -157,6 +157,7 @@ echo json_encode([
     'customer' => $customer,
     'order' => [
         'order_id'       => (int)$order['order_id'],
+        'manage_url'     => ($user_type === 'Customer') ? null : printflow_staff_order_management_url((int)$order['order_id'], true),
         'order_date'     => format_datetime($order['order_date']),
         'status'         => $order['status'],
         'payment_status' => $order['payment_status'] ?? '',
