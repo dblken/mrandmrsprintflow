@@ -178,6 +178,44 @@ foreach ($reviews_raw as $r) {
     $reviews[] = $r;
 }
 
+function pf_normalize_review_media_path($path, $base_path, $default = '')
+{
+    $path = trim((string)$path);
+    if ($path === '') {
+        return $default;
+    }
+    $path = str_replace('\\', '/', $path);
+    if (preg_match('#^https?://#i', $path)) {
+        $parts = parse_url($path);
+        if (!empty($parts['path'])) {
+            $path = $parts['path'];
+        } else {
+            return $path;
+        }
+    }
+    if (preg_match('#^[A-Za-z]:/#', $path)) {
+        $path = preg_replace('#^[A-Za-z]:#', '', $path);
+    }
+    $public_pos = strpos($path, '/public/');
+    if ($public_pos !== false) {
+        $path = substr($path, $public_pos);
+    }
+    $uploads_pos = strpos($path, '/uploads/');
+    if ($uploads_pos !== false && ($public_pos === false || $uploads_pos < $public_pos)) {
+        $path = substr($path, $uploads_pos);
+    }
+    if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+        $path = substr($path, strlen('/printflow'));
+    }
+    if ($path !== '' && $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+    if ($base_path !== '' && strpos($path, $base_path . '/') !== 0) {
+        $path = $base_path . $path;
+    }
+    return $path;
+}
+
 function stars_text($value)
 {
     $v = max(1, min(5, (int) $value));
@@ -476,6 +514,14 @@ $page_title = 'Review Management - Staff';
             font-weight: 800;
             color: #3b82f6;
             letter-spacing: 0.1em;
+        }
+
+        .video-thumb video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+            background: #0f172a;
         }
 
         .replies-container {
@@ -780,6 +826,17 @@ $page_title = 'Review Management - Staff';
             font-size: 12px;
             font-weight: 600;
             color: #059669;
+        }
+
+        .review-product-name {
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.45;
+        }
+
+        .review-product-name strong {
+            color: #111827;
+            font-weight: 700;
         }
 
         .reply-layout {
@@ -1157,12 +1214,12 @@ $page_title = 'Review Management - Staff';
                                             <div class="review-rating-row">
                                                 <div class="review-stars"><?php echo stars_text($review['rating']); ?></div>
                                                 <?php if (($review['helpful_count'] ?? 0) > 0): ?>
-                                                    <span class="review-helpful"><?php echo (int)$review['helpful_count']; ?> Helpful</span>
+                                                    <span class="review-helpful"><?php echo (int)$review['helpful_count']; ?> Like<?php echo ((int)$review['helpful_count'] === 1) ? '' : 's'; ?></span>
                                                 <?php endif; ?>
                                             </div>
                                             <div class="review-msg"><?php echo nl2br(htmlspecialchars($review['comment'] ?: '')); ?></div>
                                             <?php if (!empty($review['item_name'] ?: ($review['legacy_service_type'] ?: ''))): ?>
-                                                <div class="table-text-sub"><?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
+                                                <div class="review-product-name"><strong>Product:</strong> <?php echo htmlspecialchars($review['item_name'] ?: ($review['legacy_service_type'] ?: 'Unknown Item')); ?></div>
                                             <?php endif; ?>
                                         </div>
 
@@ -1172,19 +1229,28 @@ $page_title = 'Review Management - Staff';
                                         if ($has_imgs || $has_vid): ?>
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
                                                 <?php if ($has_vid):
-                                                    $vpath = $review['video_path'];
-                                                    if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/'))
-                                                        $vpath = BASE_PATH . '/' . ltrim($vpath, '/');
+                                                    $vpath = pf_normalize_review_media_path((string)($review['video_path'] ?? ''), BASE_PATH, '');
                                                     ?>
-                                                    <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')"></div>
+                                                    <?php if ($vpath !== ''): ?>
+                                                        <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
+                                                            <video
+                                                                src="<?php echo htmlspecialchars($vpath); ?>"
+                                                                muted
+                                                                playsinline
+                                                                preload="metadata"
+                                                                onloadeddata="this.currentTime = 0.2"
+                                                                onclick="event.stopPropagation();">
+                                                            </video>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 <?php endif; ?>
 
                                                 <?php foreach ($review['images'] as $img):
-                                                    $ipath = $img['image_path'];
-                                                    if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/'))
-                                                        $ipath = BASE_PATH . '/' . ltrim($ipath, '/');
+                                                    $ipath = pf_normalize_review_media_path((string)($img['image_path'] ?? ''), BASE_PATH, '');
                                                     ?>
-                                                    <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
+                                                    <?php if ($ipath !== ''): ?>
+                                                        <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" alt="Review image" onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
+                                                    <?php endif; ?>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
@@ -1297,7 +1363,7 @@ $page_title = 'Review Management - Staff';
             const modal = document.getElementById('mediaModal');
             const content = document.getElementById('modalContent');
             if (type === 'video') {
-                content.innerHTML = `<video src="${src}" controls autoplay style="max-height: 80vh; max-width: 100%; border-radius: 12px;"></video>`;
+                content.innerHTML = `<video src="${src}" controls autoplay playsinline preload="metadata" style="max-height: 80vh; max-width: 100%; border-radius: 12px; background:#000;"></video>`;
             } else {
                 content.innerHTML = `<img src="${src}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">`;
             }
