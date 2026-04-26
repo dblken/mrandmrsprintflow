@@ -30,7 +30,7 @@ function review_enrich_cart_item(array $item): array {
 
     if ($is_product && $product_id > 0) {
         $product_rows = db_query(
-            "SELECT name, category, photo_path, product_image FROM products WHERE product_id = ? LIMIT 1",
+            "SELECT name, category, photo_path, product_image, product_type FROM products WHERE product_id = ? LIMIT 1",
             'i',
             [$product_id]
         );
@@ -42,6 +42,7 @@ function review_enrich_cart_item(array $item): array {
             if (empty($item['category']) && !empty($product['category'])) {
                 $item['category'] = $product['category'];
             }
+            $item['catalog_product_type'] = $product['product_type'] ?? 'fixed';
             $catalog_image = review_resolve_catalog_image($product['photo_path'] ?? '')
                 ?: review_resolve_catalog_image($product['product_image'] ?? '');
             if (!empty($catalog_image)) {
@@ -118,9 +119,17 @@ function review_item_is_product(array $item): bool {
     $custom = review_item_customization($item);
     $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
     $item_type = strtolower(trim((string)($item['type'] ?? '')));
+    $catalog_product_type = strtolower(trim((string)($item['catalog_product_type'] ?? '')));
     $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
     $product_id = (int)($item['product_id'] ?? 0);
     $service_id = (int)($item['service_id'] ?? 0);
+
+    if (in_array($catalog_product_type, ['fixed', 'fixed product', 'product'], true)) {
+        return true;
+    }
+    if ($catalog_product_type === 'custom') {
+        return false;
+    }
 
     if ($source_page === 'services' || $item_type === 'service' || strpos($cart_key, 'service_') === 0 || $service_id > 0 || !empty($custom['service_type'])) {
         return false;

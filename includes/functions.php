@@ -759,9 +759,11 @@ function load_customer_cart_into_session($customer_id) {
         $vid = isset($r['variant_id']) && $r['variant_id'] !== '' && $r['variant_id'] !== null ? (int)$r['variant_id'] : null;
         $qty = max(0, (int)$r['quantity']);
         if ($qty <= 0 || $pid <= 0) continue;
-        $product = db_query("SELECT name, price, category FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
+        $product = db_query("SELECT name, price, category, product_type FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
         if (empty($product)) continue;
         $product = $product[0];
+        $ptype = strtolower(trim((string)($product['product_type'] ?? 'fixed')));
+        if (!in_array($ptype, ['fixed', 'fixed product', 'product', ''], true)) continue;
         $price = (float)$product['price'];
         $variant_name = '';
         if ($vid) {
@@ -777,6 +779,7 @@ function load_customer_cart_into_session($customer_id) {
             'variant_id' => $vid,
             'name' => $product['name'],
             'category' => $product['category'] ?? '',
+            'catalog_product_type' => $product['product_type'] ?? 'fixed',
             'source_page' => 'products',
             'variant_name' => $variant_name,
             'quantity' => $qty,
