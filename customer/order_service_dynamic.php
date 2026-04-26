@@ -514,28 +514,6 @@ $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
 
 $review_helpful_columns = pf_review_helpful_columns();
-$review_user_type = (string)($_SESSION['user_type'] ?? '');
-$review_current_customer_id = $review_user_type === 'Customer' ? (int)$customer_id : 0;
-$review_user_voted_sql = "(SELECT COUNT(*)
-            FROM review_helpful rh
-            WHERE rh.review_id = r.id
-              AND rh.user_id = ?
-              AND COALESCE(rh.user_type, ?) = ?)
-              as user_voted";
-$review_user_voted_types = 'iss';
-$review_user_voted_params = [(int)$customer_id, $review_user_type !== '' ? $review_user_type : 'Customer', $review_user_type !== '' ? $review_user_type : 'Customer'];
-if ($review_current_customer_id > 0 && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])) {
-    $review_user_voted_sql = "(SELECT COUNT(*)
-                FROM review_helpful rh
-                WHERE rh.review_id = r.id
-                  AND (
-                        (rh.customer_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
-                        OR (rh.customer_id IS NULL AND rh.user_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
-                  ))
-                  as user_voted";
-    $review_user_voted_types = 'ii';
-    $review_user_voted_params = [$review_current_customer_id, (int)$customer_id];
-}
 
 $branches = db_query("SELECT id, branch_name FROM branches WHERE status = 'Active'");
 
@@ -859,7 +837,31 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         <?php
         $review_schema = printflow_review_schema();
         $review_aliases = printflow_service_name_aliases((string)$service['name']);
-        $review_tables = array_flip(array_column(db_query("SHOW TABLES") ?: [], 0));
+        $current_user_id = (int)get_user_id();
+        $current_user_type = (string)($_SESSION['user_type'] ?? '');
+        $current_customer_id = $current_user_type === 'Customer' ? $current_user_id : 0;
+        $review_user_voted_sql = "(SELECT COUNT(*)
+                FROM review_helpful rh
+                WHERE rh.review_id = r.id
+                  AND rh.user_id = ?
+                  AND COALESCE(rh.user_type, ?) = ?)";
+        $review_user_voted_types = 'iss';
+        $review_user_voted_params = [
+            $current_user_id,
+            $current_user_type !== '' ? $current_user_type : 'Customer',
+            $current_user_type !== '' ? $current_user_type : 'Customer'
+        ];
+        if ($current_customer_id > 0 && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])) {
+            $review_user_voted_sql = "(SELECT COUNT(*)
+                    FROM review_helpful rh
+                    WHERE rh.review_id = r.id
+                      AND (
+                            (rh.customer_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+                            OR (rh.customer_id IS NULL AND rh.user_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+                      ))";
+            $review_user_voted_types = 'ii';
+            $review_user_voted_params = [$current_customer_id, $current_user_id];
+        }
         $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
         $review_message_expr = isset($review_cols['comment']) ? 'r.comment' : (isset($review_cols['message']) ? 'r.message' : "''");
         $review_user_expr = isset($review_cols['user_id']) ? 'r.user_id' : (isset($review_cols['customer_id']) ? 'r.customer_id' : '0');
@@ -872,12 +874,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                END"
             : 'COALESCE(o.updated_at, o.order_date)';
         $review_video_expr = isset($review_cols['video_path']) ? 'r.video_path' : "''";
-        $review_helpful_sql = isset($review_tables['review_helpful'])
-            ? '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,'
-            : '0 as helpful_count,';
-        $review_voted_sql = isset($review_tables['review_helpful'])
-            ? $review_user_voted_sql
-            : '0 as user_voted';
+        $review_helpful_sql = '(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,';
+        $review_voted_sql = $review_user_voted_sql . ' as user_voted';
 
         $reviews = [];
         if (!empty($review_aliases)) {
@@ -931,10 +929,8 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                  WHERE " . implode(' OR ', $review_where_parts) . "
                  ORDER BY {$review_created_expr} DESC";
 
-            if (isset($review_tables['review_helpful'])) {
-                $review_types = $review_user_voted_types . $review_types;
-                array_unshift($review_params, ...$review_user_voted_params);
-            }
+            $review_types = $review_user_voted_types . $review_types;
+            array_unshift($review_params, ...$review_user_voted_params);
 
             $reviews = db_query($review_sql, $review_types, $review_params) ?: [];
         }
