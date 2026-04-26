@@ -626,20 +626,16 @@ function staff_notification_target_url(array $n): string {
         }
 
         $ord_row = db_query(
-            "SELECT order_id, order_source FROM orders WHERE order_id = ? LIMIT 1",
+            "SELECT order_id FROM orders WHERE order_id = ? LIMIT 1",
             'i',
             [$data_id]
         );
         if (!empty($ord_row)) {
-            $order_source = strtolower((string)($ord_row[0]['order_source'] ?? 'customer'));
-            return printflow_staff_order_management_url(
-                $data_id,
-                $order_source !== 'pos' && $order_source !== 'walk-in'
-            );
+            return printflow_staff_order_management_url($data_id, true);
         }
 
         if (strpos($type, 'payment') !== false || strpos($type, 'order') !== false) {
-            return $base . '/staff/orders.php?order_id=' . $data_id;
+            return printflow_staff_order_management_url($data_id, false);
         }
 
         return printflow_staff_order_management_url($data_id, false);
@@ -647,6 +643,7 @@ function staff_notification_target_url(array $n): string {
 
     return $base . '/staff/notifications.php';
 }
+
 /**
  * Link for a staff notification row (marks read then redirects when unread).
  */
@@ -1700,7 +1697,7 @@ function customer_notification_target_url(array $notification) {
         if ($type === 'Rating' || $type === 'Review' || strpos($message_l, 'rate your') !== false || strpos($message_l, 'rate here') !== false) {
             return $base . '/customer/rate_order.php?order_id=' . $data_id;
         }
-        if ($type === 'Payment' || $type === 'Payment Issue' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
+        if ($type === 'Payment' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
             return $base . '/customer/orders.php?highlight=' . $data_id;
         }
         if ($type === 'Design' || strpos($message_l, 'design') !== false || strpos($message_l, 'revision') !== false) {
@@ -1946,13 +1943,27 @@ function printflow_staff_order_management_url(int $orderId, bool $preferPendingS
         return $base . '/staff/orders.php';
     }
 
-    $orderRows = db_query(
-        "SELECT order_type, order_source FROM orders WHERE order_id = ? LIMIT 1",
-        'i',
-        [$orderId]
-    );
-    $orderType = strtolower(trim((string)($orderRows[0]['order_type'] ?? 'product')));
-    $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? 'customer')));
+    // Try to fetch order_type and order_source if they exist
+    $orderType = 'product';
+    $orderSource = 'customer';
+    
+    // Check columns first to avoid query failure if table hasn't been updated
+    $hasTypeCol = db_table_has_column('orders', 'order_type');
+    $hasSourceCol = db_table_has_column('orders', 'order_source');
+    
+    $cols = [];
+    if ($hasTypeCol) $cols[] = 'order_type';
+    if ($hasSourceCol) $cols[] = 'order_source';
+    
+    if (!empty($cols)) {
+        $sql = "SELECT " . implode(', ', $cols) . " FROM orders WHERE order_id = ? LIMIT 1";
+        $orderRows = db_query($sql, 'i', [$orderId]);
+        if (!empty($orderRows)) {
+            if ($hasTypeCol) $orderType = strtolower(trim((string)($orderRows[0]['order_type'] ?? 'product')));
+            if ($hasSourceCol) $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? 'customer')));
+        }
+    }
+
     $isCustom = ($orderType === 'custom');
 
     if (!$isCustom) {
@@ -1976,6 +1987,7 @@ function printflow_staff_order_management_url(int $orderId, bool $preferPendingS
 
     if ($isCustom) {
         $url = $base . '/staff/customizations.php?order_id=' . $orderId . '&job_type=ORDER';
+        // For custom orders, we often want to default to PENDING status if they haven't been reviewed
         if ($preferPendingStatus && $orderSource !== 'pos' && $orderSource !== 'walk-in') {
             $url .= '&status=PENDING';
         }
