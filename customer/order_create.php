@@ -46,10 +46,6 @@ $product = db_query(
 );
 if (empty($product)) { header('Location: products.php'); exit; }
 $product = $product[0];
-$product_type = strtolower(trim((string)($product['product_type'] ?? 'fixed')));
-if (!in_array($product_type, ['fixed', 'fixed product', 'product', ''], true)) {
-    header('Location: products.php'); exit;
-}
 $main_branch_id = function_exists('printflow_get_default_admin_branch_id')
     ? (int)printflow_get_default_admin_branch_id()
     : 1;

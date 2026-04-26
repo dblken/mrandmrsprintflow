@@ -762,8 +762,6 @@ function load_customer_cart_into_session($customer_id) {
         $product = db_query("SELECT name, price, category, product_type FROM products WHERE product_id = ? AND status = 'Activated'", 'i', [$pid]);
         if (empty($product)) continue;
         $product = $product[0];
-        $ptype = strtolower(trim((string)($product['product_type'] ?? 'fixed')));
-        if (!in_array($ptype, ['fixed', 'fixed product', 'product', ''], true)) continue;
         $price = (float)$product['price'];
         $variant_name = '';
         if ($vid) {

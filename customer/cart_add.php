@@ -22,11 +22,6 @@ if (empty($product)) {
     redirect('cart.php');
 }
 $product = $product[0];
-$ptype = strtolower(trim((string)($product['product_type'] ?? '')));
-$is_fixed = ($ptype === '' || in_array($ptype, ['fixed', 'fixed product', 'product'], true));
-if (!$is_fixed) {
-    redirect('order_create.php?product_id=' . urlencode((string)$product_id));
-}
 
 $variant_id = null;
 $variant_name = '';
@@ -75,4 +70,3 @@ if ($cid > 0 && function_exists('sync_cart_to_db')) {
 }
 
 redirect('cart.php');
-

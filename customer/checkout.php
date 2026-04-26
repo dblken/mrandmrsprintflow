@@ -20,7 +20,12 @@ function checkout_item_is_service(array $item): bool {
 
     $source_page = strtolower(trim((string)($item['source_page'] ?? '')));
     $item_type = strtolower(trim((string)($item['type'] ?? '')));
+    $cart_key = strtolower(trim((string)($item['_cart_key'] ?? '')));
     $product_id = (int)($item['product_id'] ?? 0);
+
+    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
+        return false;
+    }
 
     if ($source_page === 'services' || $item_type === 'service') {
         return true;
@@ -28,10 +33,6 @@ function checkout_item_is_service(array $item): bool {
 
     if (!empty($custom['service_type'])) {
         return true;
-    }
-
-    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product') {
-        return false;
     }
 
     return $product_id <= 0;
