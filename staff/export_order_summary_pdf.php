@@ -266,15 +266,16 @@ $logoPath = '../public/images/logo.jpg';
                 <img src="<?php echo $logoPath; ?>" alt="Logo">
             </div>
             <div class="header-details">
-                <h1><?php echo htmlspecialchars($branchName); ?></h1>
+                <h1>Mr. and Mrs. Print Main</h1>
                 <p><?php echo htmlspecialchars($branchAddress); ?></p>
-                <p>Contact: <?php echo htmlspecialchars($branchContact); ?> | Email: <?php echo htmlspecialchars($branchEmail); ?></p>
-                <p>Facebook: <?php echo htmlspecialchars($branchName); ?></p>
+                <p>Contact: 0921 212 2293 | Email: mrandmrsprints@gmail.com</p>
+                <p>Facebook: Mr. and Mrs.Print Main</p>
             </div>
         </header>
 
         <div class="report-title">Order Summary Details</div>
         <div class="meta-info">
+            <strong>Branch:</strong> <?php echo htmlspecialchars($branchName); ?><br>
             <strong>Session Date:</strong> <?php echo $sessionDate; ?><br>
             <strong>Staff Account:</strong> <?php echo htmlspecialchars($staffName); ?><br>
             <strong>Contact Info:</strong> <?php echo htmlspecialchars($staffContact); ?> | <?php echo htmlspecialchars($staffEmail); ?>
