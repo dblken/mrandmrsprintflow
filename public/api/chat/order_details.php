@@ -76,7 +76,7 @@ if ($customer_id) {
         $addr_sel = ", CONCAT_WS(', ', NULLIF(TRIM(c.street_address),''), NULLIF(TRIM(c.barangay),''), NULLIF(TRIM(c.city),''), NULLIF(TRIM(c.province),'')) as address";
     }
     $cust_result = db_query("
-        SELECT c.first_name, c.middle_name, c.last_name, c.email, c.contact_number
+        SELECT c.first_name, c.middle_name, c.last_name, c.email, c.contact_number, c.profile_picture
         $addr_sel
         FROM customers c WHERE c.customer_id = ?
     ", 'i', [$customer_id]);
@@ -86,6 +86,9 @@ if ($customer_id) {
             'full_name' => trim(($c['first_name'] ?? '') . ' ' . ($c['middle_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
             'contact_number' => $c['contact_number'] ?? '',
             'email' => $c['email'] ?? '',
+            'profile_picture' => !empty($c['profile_picture'])
+                ? pf_chat_order_public_url('/public/assets/uploads/profiles/' . ltrim((string)$c['profile_picture'], '/'))
+                : null,
         ];
         if (isset($c['address']) && trim((string)$c['address']) !== '') {
             $customer['address'] = trim($c['address']);

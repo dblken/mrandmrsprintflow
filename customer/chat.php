@@ -156,6 +156,19 @@ require_once __DIR__ . '/../includes/header.php';
     .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
 
+    .brow.system.order-update-card { justify-content:flex-end; margin:12px 0; }
+    .order-update-bubble { background:rgba(255,255,255,0.92); border:1px solid var(--pf-border); border-radius:18px; padding:1rem; max-width:320px; position:relative; box-shadow:0 4px 12px rgba(15,23,42,0.05); cursor:pointer; transition:all .2s cubic-bezier(.4,0,.2,1); }
+    .order-update-bubble:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,23,42,0.08); border-color:#0ea5a5; background:#fff; }
+    .order-update-bubble:active { transform:translateY(0); }
+    .order-update-label { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--pf-dim); margin-bottom:.55rem; }
+    .order-update-content { display:flex; gap:12px; align-items:center; }
+    .order-thumb-wrap { width:50px; height:50px; border-radius:10px; overflow:hidden; background:#f1f5f9; border:1px solid var(--pf-border); flex-shrink:0; }
+    .order-thumb { width:100%; height:100%; object-fit:cover; display:block; }
+    .order-text { flex:1; min-width:0; }
+    .order-title { font-size:.88rem; font-weight:800; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
+    .order-message { font-size:.78rem; color:var(--pf-dim); line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .order-update-time { font-size:.65rem; color:#94a3b8; text-align:right; margin-top:4px; font-weight:700; }
+
     /* Action Bar (Messenger Style) */
     .brow:hover .b-actions, .brow.has-active-menu .b-actions { opacity:1; pointer-events:auto; }
     .b-actions {
@@ -306,6 +319,19 @@ require_once __DIR__ . '/../includes/header.php';
     .fwd-body { flex:1; max-height:380px; overflow-y:auto; padding:1rem 1.25rem; display:flex; flex-direction:column; gap:8px; }
     .fwd-body::-webkit-scrollbar { width:4px; }
     .fwd-body::-webkit-scrollbar-thumb { background:var(--pf-border); border-radius:10px; }
+
+    .details-modal-overlay { display:none !important; position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:3000; align-items:center; justify-content:center; padding:1.5rem; backdrop-filter:blur(8px); }
+    .details-modal-overlay.active { display:flex !important; }
+    .details-modal-panel { background:#fff; border-radius:32px; width:100%; max-width:840px; max-height:85vh; overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
+    .details-modal-header { padding:1.25rem 2rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fff; flex-shrink:0; }
+    .details-modal-content { display:grid; grid-template-columns:260px 1fr; flex:1; overflow:hidden; }
+    .details-sidebar { background:linear-gradient(180deg,#f8fbff 0%, #f1f5f9 100%); border-right:1px solid #eef2f7; padding:1.5rem; overflow-y:auto; }
+    .details-main { padding:1.5rem; overflow-y:auto; background:#fff; }
+    .pf-mini-card { background:#fff; border-radius:20px; padding:1.25rem; border:1px solid #eef2f6; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02); }
+    .pf-spec-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:.5rem; margin-top:.75rem; }
+    .pf-spec-box { background:#f8fafc; border:1px solid #f1f5f9; padding:8px 10px; border-radius:12px; overflow:hidden; min-width:0; }
+    .pf-spec-key { font-size:8px; font-weight:900; color:#94a3b8; text-transform:uppercase; margin-bottom:3px; letter-spacing:.05em; }
+    .pf-spec-val { font-size:10.5px; font-weight:800; color:#1e293b; line-height:1.3; overflow-wrap:break-word; }
     .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid var(--pf-border); display:flex; justify-content:flex-end; gap:12px; }
 
     .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:#fff; border:1px solid var(--pf-border); }
@@ -580,16 +606,16 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
     <!-- Order Details Modal -->
-    <div id="detailsModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:3000; align-items:center; justify-content:center;">
-        <div style="background:#fff; border:1px solid var(--pf-border); border-radius:32px; width:100%; max-width:600px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 100px rgba(15,23,42,0.2);">
-            <div style="padding:1.5rem; border-bottom:1px solid var(--pf-border); display:flex; justify-content:space-between; align-items:center;">
+    <div id="detailsModal" class="details-modal-overlay" onclick="closeDetailsModal()">
+        <div class="details-modal-panel" onclick="event.stopPropagation()">
+            <div class="details-modal-header">
                 <div>
-                   <h2 style="color:#0f172a; font-size:1.4rem; font-weight:900; margin:0;">Order Specifications</h2>
-                   <p style="color:var(--pf-dim); font-size:0.7rem; font-weight:800; text-transform:uppercase; margin-top:2px;">Production Metadata</p>
+                   <h2 style="color:#0f172a; font-size:1.1rem; font-weight:900; margin:0;">Customer Order Overview</h2>
+                   <p style="color:#94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; margin-top:2px;">Production Specifications</p>
                 </div>
-                <button onclick="document.getElementById('detailsModal').style.display='none'" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:1.5rem;"><i class="bi bi-x-lg"></i></button>
+                <button type="button" onclick="closeDetailsModal()" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:1.5rem;"><i class="bi bi-x-lg"></i></button>
             </div>
-            <div id="detailsBody" style="flex:1; overflow-y:auto; padding:1.5rem;"></div>
+            <div id="detailsBody" class="details-modal-content"></div>
         </div>
     </div>
 
@@ -827,6 +853,29 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system) {
+        if (m.message_type === 'order_update') {
+            let payload = {};
+            try { payload = JSON.parse(m.message || '{}'); } catch (e) {}
+            row.className = 'brow system order-update-card';
+            row.innerHTML = `
+                <div class="b-col">
+                    <div class="order-update-bubble" onclick="openOrderDetails(activeId)" title="Click to view order details">
+                        <div class="order-update-label">[ Order Update ]</div>
+                        <div class="order-update-content">
+                            <div class="order-thumb-wrap">
+                                <img src="${resolveAppUrl(payload.product_image, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
+                            </div>
+                            <div class="order-text">
+                                <div class="order-title">${esc(payload.product_name || 'Order')}</div>
+                                <div class="order-message">${esc(payload.status_text || payload.message || '')}</div>
+                            </div>
+                        </div>
+                        <div class="order-update-time">${fmtShort(m.created_at)}</div>
+                    </div>
+                </div>`;
+            box.appendChild(row);
+            return;
+        }
         row.innerHTML = `<div class="b-col"><div class="bubble">${esc(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
@@ -1321,34 +1370,109 @@ async function doForward() {
 
 function openOrderDetails(id) {
     if (!id) return;
-    const modal = document.getElementById('detailsModal'), body = document.getElementById('detailsBody');
-    body.innerHTML = '<div class="text-center p-8 text-white opacity-50"><i class="bi bi-hourglass-split animate-spin text-2xl"></i></div>';
-    modal.style.display = 'flex';
-    api(`/public/api/chat/order_details.php?order_id=${id}`).then(res => {
-        if (!res.success) { body.innerHTML = `<p class='text-red-400 p-4'>${res.error}</p>`; return; }
-        const { order, items } = res;
-        let itemsHtml = items.map(it => {
-            const specs = it.customization || {};
-            const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
-            return `
-            <div style="background:#fff; border:1px solid var(--pf-border); border-radius:20px; padding:1.25rem; margin-bottom:1rem;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
-                    <div><div style="font-size:0.75rem; color:var(--pf-cyan); font-weight:800; text-transform:uppercase;">${it.category}</div><div style="font-size:1.1rem; font-weight:900; color:#0f172a;">${it.product_name}</div></div>
-                    <div style="background:var(--pf-cyan); color:#fff; font-size:0.7rem; font-weight:900; padding:4px 10px; border-radius:10px;">QTY: ${it.quantity}</div>
+    const modal = document.getElementById('detailsModal');
+    const body = document.getElementById('detailsBody');
+    modal.classList.add('active');
+    body.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; padding:3rem 0;">
+            <div style="display:inline-block; width:32px; height:32px; border:3px solid #f1f5f9; border-top-color:#0ea5a5; border-radius:50%; animation:spin .8s linear infinite;"></div>
+            <p style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-top:1rem; letter-spacing:.1em;">Analyzing Workflow...</p>
+        </div>`;
+    api(`/public/api/chat/order_details.php?order_id=${id}`).then(data => {
+        if (!data.success) {
+            body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">Access Denied: ${esc(data.error || 'Unknown')}</div>`;
+            return;
+        }
+        const c = data.customer || {};
+        const o = data.order || {};
+        const items = data.items || [];
+        const actionUrl = o.manage_url || `${BASE}/customer/orders.php?highlight=${o.order_id}`;
+        const actionLabel = o.manage_url ? 'MANAGE ORDER' : 'VIEW ORDER';
+        body.innerHTML = `
+            <div class="details-sidebar" style="gap:1rem;">
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
+                    <div style="display:flex; align-items:center; gap:.75rem;">
+                        <div style="width:52px; height:52px; border-radius:14px; background:#0ea5a5; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1rem; overflow:hidden; flex-shrink:0;">
+                            ${c.profile_picture ? `<img src="${c.profile_picture}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : esc((c.full_name || '?').charAt(0).toUpperCase())}
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:.85rem; font-weight:900; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(c.full_name || 'Guest')}</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(c.email || '')}</div>
+                        </div>
+                    </div>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:0.85rem;">
-                    ${entries.map(([k,v]) => `<div><div style="font-size:0.65rem; color:var(--pf-dim); font-weight:800; text-transform:uppercase;">${k.replace(/_/g,' ')}</div><div style="font-weight:700; color:#0f172a;">${v}</div></div>`).join('')}
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${esc(o.status || 'Pending')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${o.status === 'Completed' ? '#10b981' : '#3b82f6'};"></span>
+                    </div>
+                </div>
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Payment Summary</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${esc(o.payment_status || 'Unverified')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${o.payment_status === 'Paid' ? '#10b981' : '#f59e0b'};"></span>
+                    </div>
+                </div>
+                <div class="pf-mini-card" style="background:#0f172a; color:#fff; border:none; padding:.75rem; margin-bottom:0;">
+                     <div class="pf-spec-key" style="color:#22d3ee; margin-bottom:2px; font-size:9px;">Total</div>
+                     <div style="font-size:1.1rem; font-weight:900; line-height:1; margin-bottom:.75rem;">${o.total_amount || 'To be finalized'}</div>
+                     <a href="${actionUrl}" style="display:block; text-align:center; background:#0ea5a5; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
+                </div>
+            </div>
+            <div class="details-main" style="padding-left:1rem;">
+                <div style="font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem;">Production Roadmap Details</div>
+                <div style="display:flex; flex-direction:column; gap:.75rem;">
+                    ${items.length ? items.map(it => {
+                        const specs = it.customization || {};
+                        const entries = Object.entries(specs).filter(([k, v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
+                        let displayImg = it.design_url || `${BASE}/public/assets/images/services/default.png`;
+                        const placement = specs.print_placement || specs.placement || '';
+                        if (!it.design_url && placement.includes('Front Center')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
+                        if (!it.design_url && placement.includes('Sleeve')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
+                        if (!it.design_url && placement.includes('Upper')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
+                        return `
+                        <div style="background:#fff; border:1px solid #f1f5f9; border-radius:16px; padding:1rem;">
+                            <div style="display:flex; align-items:flex-start; gap:1rem;">
+                                <div style="width:96px; height:96px; border-radius:14px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${BASE}/public/assets/images/services/default.png';">
+                                </div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:6px;">
+                                        <div style="min-width:0;">
+                                            <div style="font-size:1.1rem; font-weight:900; color:#1e293b; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(it.product_name || 'Order Item')}">${esc(it.product_name || 'Order Item')}</div>
+                                            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                                                <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${esc(it.category || 'Service')}</span>
+                                                <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${it.quantity}</span>
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right; flex-shrink:0;">
+                                             <div class="pf-spec-key" style="margin:0; font-size:9px;">Total</div>
+                                             <div style="font-size:1.1rem; font-weight:900; color:#0ea5a5;">${it.subtotal || 'TBA'}</div>
+                                        </div>
+                                    </div>
+                                    <div class="pf-spec-grid" style="margin-top:1rem; gap:6px;">
+                                        ${entries.map(([k, v]) => `
+                                            <div class="pf-spec-box" style="padding:6px 8px; border-radius:8px;">
+                                                <div class="pf-spec-key" style="font-size:8px;">${esc(k.replace(/_/g, ' ').replace('shirt ', ''))}</div>
+                                                <div class="pf-spec-val" style="word-break:break-all; font-size:11px;">${esc(String(v))}</div>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Production Roadmap is currently empty.</div>'}
                 </div>
             </div>`;
-        }).join('');
-        body.innerHTML = `
-            <div style="margin-bottom:1.5rem; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <div style="background:var(--pf-cyan-glow); padding:1rem; border-radius:16px; border:1px solid rgba(10,37,48,0.2);"><div style="font-size:0.65rem; font-weight:800; color:var(--pf-cyan); text-transform:uppercase;">Status</div><div style="font-size:1rem; font-weight:900; color:#0f172a;">${order.status}</div></div>
-                <div style="background:rgba(245,158,11,0.08); padding:1rem; border-radius:16px; border:1px solid rgba(245,158,11,0.2);"><div style="font-size:0.65rem; font-weight:800; color:#b45309; text-transform:uppercase;">Order Date</div><div style="font-size:1rem; font-weight:900; color:#0f172a;">${order.order_date}</div></div>
-            </div>
-            ${itemsHtml || '<div class="text-center p-8 opacity-40 italic">No items found.</div>'}
-        `;
+    }).catch(err => {
+        body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">System Error: ${esc(err.message)}</div>`;
     });
+}
+
+function closeDetailsModal() {
+    document.getElementById('detailsModal').classList.remove('active');
 }
 
 function openGallery() {

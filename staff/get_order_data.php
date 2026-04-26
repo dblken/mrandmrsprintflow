@@ -109,8 +109,9 @@ function staff_order_data_product_image_url(array $item): ?string {
         }
 
         $clean = '/' . ltrim($raw, '/');
-        if ($base !== '' && (strncmp($clean, rtrim($base, '/', strlen(rtrim($base, '/')) === 0) . '/')) {
-            $clean = substr($clean, strlen(rtrim($base, '/')));
+        $basePrefix = rtrim($base, '/');
+        if ($basePrefix !== '' && strncmp($clean, $basePrefix . '/', strlen($basePrefix . '/')) === 0) {
+            $clean = substr($clean, strlen($basePrefix));
             $clean = '/' . ltrim((string)$clean, '/');
         }
 
