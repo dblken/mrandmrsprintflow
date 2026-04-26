@@ -1315,41 +1315,50 @@ $page_title = 'Review Management - Staff';
                                         <?php
                                         $has_imgs = !empty($review['images']);
                                         $has_vid = !empty($review['video_path']);
-                                        if ($has_imgs || $has_vid): ?>
+                                        if ($has_imgs || $has_vid):
+                                            $video_sources = $has_vid ? pf_review_video_candidates((string)($review['video_path'] ?? ''), BASE_PATH, (int)$review['id']) : [];
+                                            $vpath = $video_sources[0] ?? '';
+                                            $normalized_images = [];
+                                            foreach (($review['images'] ?? []) as $imgRow) {
+                                                $ipath = pf_normalize_review_media_path((string)($imgRow['image_path'] ?? ''), BASE_PATH, '');
+                                                if ($ipath !== '') {
+                                                    $normalized_images[] = $ipath;
+                                                }
+                                            }
+                                            $media_items = [];
+                                            if ($vpath !== '') {
+                                                $media_items[] = [
+                                                    'type' => 'video',
+                                                    'src' => $vpath,
+                                                    'sources' => array_values($video_sources),
+                                                ];
+                                            }
+                                            foreach ($normalized_images as $imgSrc) {
+                                                $media_items[] = ['type' => 'image', 'src' => $imgSrc];
+                                            }
+                                            $media_items_json = json_encode($media_items, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                                        ?>
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
-                                                <?php if ($has_vid):
-                                                    $video_sources = pf_review_video_candidates((string)($review['video_path'] ?? ''), BASE_PATH, (int)$review['id']);
-                                                    $vpath = $video_sources[0] ?? '';
-                                                    ?>
-                                                    <?php if ($vpath !== ''): ?>
-                                                        <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
-                                                            <video
-                                                                muted
-                                                                playsinline
-                                                                preload="metadata"
-                                                                onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
-                                                                onclick="event.stopPropagation();">
-                                                                <?php echo pf_render_review_video_sources($video_sources); ?>
-                                                            </video>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <div style="display:flex;align-items:center;justify-content:center;min-height:100px;border:1px solid #e5e7eb;border-radius:10px;color:#6b7280;font-size:0.9rem;background:#f8fafc;">
-                                                            Video not available
-                                                        </div>
-                                                    <?php endif; ?>
+                                                <?php if ($vpath !== ''): ?>
+                                                    <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick='openReviewMediaCarousel(<?php echo $media_items_json ?: "[]"; ?>, 0)'>
+                                                        <video
+                                                            muted
+                                                            playsinline
+                                                            preload="metadata"
+                                                            onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
+                                                            onclick="event.stopPropagation();">
+                                                            <?php echo pf_render_review_video_sources($video_sources); ?>
+                                                        </video>
+                                                    </div>
+                                                <?php elseif ($has_vid): ?>
+                                                    <div style="display:flex;align-items:center;justify-content:center;min-height:100px;border:1px solid #e5e7eb;border-radius:10px;color:#6b7280;font-size:0.9rem;background:#f8fafc;">
+                                                        Video not available
+                                                    </div>
                                                 <?php endif; ?>
 
-                                                <?php
-                                                $imageGalleryPaths = array_values(array_filter(array_map(static function ($mediaImg) {
-                                                    return pf_normalize_review_media_path((string)($mediaImg['image_path'] ?? ''), BASE_PATH, '');
-                                                }, $review['images'] ?? [])));
-                                                $imageGalleryJson = json_encode($imageGalleryPaths, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-                                                foreach ($review['images'] as $imgIndex => $img):
-                                                    $ipath = pf_normalize_review_media_path((string)($img['image_path'] ?? ''), BASE_PATH, '');
-                                                    ?>
-                                                    <?php if ($ipath !== ''): ?>
-                                                        <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" alt="Review image" onclick='openImageGallery(<?php echo $imageGalleryJson ?: "[]"; ?>, <?php echo (int)$imgIndex; ?>)'>
-                                                    <?php endif; ?>
+                                                <?php foreach ($normalized_images as $imgIndex => $ipath): ?>
+                                                    <?php $mediaStartIndex = ($vpath !== '' ? 1 : 0) + (int)$imgIndex; ?>
+                                                    <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" alt="Review image" onclick='openReviewMediaCarousel(<?php echo $media_items_json ?: "[]"; ?>, <?php echo $mediaStartIndex; ?>)'>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
@@ -1467,45 +1476,51 @@ $page_title = 'Review Management - Staff';
         let rvModalGallery = [];
         let rvModalIndex = 0;
 
-        function renderModalImage() {
+        function renderModalItem() {
             const content = document.getElementById('modalContent');
             const prevBtn = document.getElementById('rvPrevBtn');
             const nextBtn = document.getElementById('rvNextBtn');
-            const src = rvModalGallery[rvModalIndex] || '';
-            content.innerHTML = src ? `<img src="${src}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">` : '';
+            const item = rvModalGallery[rvModalIndex] || null;
+            if (!item) {
+                content.innerHTML = '';
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+                return;
+            }
+            if (item.type === 'video') {
+                const sources = Array.isArray(item.sources) ? item.sources : [item.src];
+                const sourcesHtml = sources
+                    .filter(Boolean)
+                    .map((src) => `<source src="${src}" type="${String(src).toLowerCase().includes('.webm') ? 'video/webm' : 'video/mp4'}">`)
+                    .join('');
+                content.innerHTML = `<video controls autoplay playsinline preload="metadata" style="max-height: 80vh; max-width: 100%; border-radius: 12px; background:#000;">${sourcesHtml}</video>`;
+            } else {
+                content.innerHTML = `<img src="${item.src || ''}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">`;
+            }
             const hasMultiple = rvModalGallery.length > 1;
             prevBtn.style.display = hasMultiple ? 'inline-flex' : 'none';
             nextBtn.style.display = hasMultiple ? 'inline-flex' : 'none';
         }
 
-        function openImageGallery(images, startIndex = 0) {
-            rvModalGallery = Array.isArray(images) ? images.filter(Boolean) : [];
+        function openReviewMediaCarousel(items, startIndex = 0) {
+            rvModalGallery = Array.isArray(items) ? items.filter((item) => item && item.src) : [];
             if (!rvModalGallery.length) return;
             rvModalIndex = Math.max(0, Math.min(Number(startIndex) || 0, rvModalGallery.length - 1));
-            renderModalImage();
+            renderModalItem();
             document.getElementById('mediaModal').classList.add('open');
         }
 
         function changeModalImage(step) {
             if (!rvModalGallery.length) return;
             rvModalIndex = (rvModalIndex + step + rvModalGallery.length) % rvModalGallery.length;
-            renderModalImage();
+            renderModalItem();
         }
 
         function openMediaModal(src, type) {
-            const modal = document.getElementById('mediaModal');
-            const content = document.getElementById('modalContent');
-            const prevBtn = document.getElementById('rvPrevBtn');
-            const nextBtn = document.getElementById('rvNextBtn');
-            rvModalGallery = [];
-            if (type === 'video') {
-                content.innerHTML = `<video src="${src}" controls autoplay playsinline preload="metadata" style="max-height: 80vh; max-width: 100%; border-radius: 12px; background:#000;"></video>`;
-                prevBtn.style.display = 'none';
-                nextBtn.style.display = 'none';
-            } else {
-                content.innerHTML = `<img src="${src}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">`;
-            }
-            modal.classList.add('open');
+            const item = type === 'video'
+                ? { type: 'video', src: src, sources: [src] }
+                : { type: 'image', src: src };
+            openReviewMediaCarousel([item], 0);
         }
 
         function closeMediaModal() {
