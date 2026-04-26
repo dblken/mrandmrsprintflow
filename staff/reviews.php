@@ -1282,18 +1282,20 @@ $page_title = 'Review Management - Staff';
                                         if ($has_imgs || $has_vid): ?>
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
                                                 <?php if ($has_vid):
-                                                    $vpath = (BASE_PATH ?: '') . '/public/serve_review_video.php?review_id=' . (int)$review['id'];
+                                                    $vpath = pf_get_review_video_url((int)$review['id'], (string)($review['video_path'] ?? ''), BASE_PATH);
                                                     ?>
-                                                    <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
-                                                        <video
-                                                            src="<?php echo htmlspecialchars($vpath); ?>"
-                                                            muted
-                                                            playsinline
-                                                            preload="metadata"
-                                                            onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
-                                                            onclick="event.stopPropagation();">
-                                                        </video>
-                                                    </div>
+                                                    <?php if ($vpath !== ''): ?>
+                                                        <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
+                                                            <video
+                                                                src="<?php echo htmlspecialchars($vpath); ?>"
+                                                                muted
+                                                                playsinline
+                                                                preload="metadata"
+                                                                onloadedmetadata="try{this.currentTime=0.1;}catch(e){}"
+                                                                onclick="event.stopPropagation();">
+                                                            </video>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 <?php endif; ?>
 
                                                 <?php
@@ -1515,4 +1517,3 @@ $page_title = 'Review Management - Staff';
 </body>
 
 </html>
-

@@ -20,49 +20,7 @@ if ($video_path === '') {
     exit('Video not found');
 }
 
-$normalized = str_replace('\\', '/', $video_path);
-$candidates = [];
-
-if (preg_match('#^https?://#i', $normalized)) {
-    $parts = parse_url($normalized);
-    $normalized = (string)($parts['path'] ?? '');
-}
-
-if ($normalized !== '') {
-    $normalized = urldecode($normalized);
-    $normalized = preg_replace('#^[A-Za-z]:#', '', $normalized);
-    $normalized = preg_replace('#^/printflow#i', '', $normalized);
-    $normalized = '/' . ltrim($normalized, '/');
-
-    $uploadsPos = strpos($normalized, '/uploads/');
-    if ($uploadsPos !== false) {
-        $relativeFromUploads = substr($normalized, $uploadsPos + 9);
-        $candidates[] = realpath(__DIR__ . '/../uploads/' . $relativeFromUploads) ?: (__DIR__ . '/../uploads/' . $relativeFromUploads);
-    }
-
-    $publicPos = strpos($normalized, '/public/');
-    if ($publicPos !== false) {
-        $relativeFromPublic = substr($normalized, $publicPos + 8);
-        $candidates[] = realpath(__DIR__ . '/' . $relativeFromPublic) ?: (__DIR__ . '/' . $relativeFromPublic);
-    }
-
-    $basename = basename($normalized);
-    if ($basename !== '') {
-        $candidates[] = realpath(__DIR__ . '/../uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/../uploads/reviews_videos/' . $basename);
-        $candidates[] = realpath(__DIR__ . '/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/uploads/reviews_videos/' . $basename);
-        $candidates[] = realpath(__DIR__ . '/assets/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/assets/uploads/reviews_videos/' . $basename);
-        $candidates[] = realpath(__DIR__ . '/../public/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/../public/uploads/reviews_videos/' . $basename);
-    }
-}
-
-$fullPath = '';
-foreach ($candidates as $candidate) {
-    if ($candidate && is_file($candidate)) {
-        $fullPath = $candidate;
-        break;
-    }
-}
-
+$fullPath = pf_resolve_review_video_file($video_path);
 if ($fullPath === '') {
     http_response_code(404);
     exit('Video file missing');

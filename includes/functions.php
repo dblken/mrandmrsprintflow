@@ -2714,6 +2714,79 @@ function pf_app_base_path(): string {
 }
 
 /**
+ * Resolve a stored review video path to an on-disk file path if it still exists.
+ */
+function pf_resolve_review_video_file(string $video_path): string
+{
+    $normalized = trim(str_replace('\\', '/', $video_path));
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $normalized)) {
+        $parts = parse_url($normalized);
+        $normalized = (string)($parts['path'] ?? '');
+    }
+
+    if ($normalized === '') {
+        return '';
+    }
+
+    $normalized = urldecode($normalized);
+    $normalized = preg_replace('#^[A-Za-z]:#', '', $normalized);
+    $normalized = preg_replace('#^/printflow#i', '', $normalized);
+    $normalized = '/' . ltrim($normalized, '/');
+
+    $candidates = [];
+
+    $uploads_pos = strpos($normalized, '/uploads/');
+    if ($uploads_pos !== false) {
+        $relative = ltrim(substr($normalized, $uploads_pos + 9), '/');
+        $candidates[] = __DIR__ . '/../uploads/' . $relative;
+    }
+
+    $public_pos = strpos($normalized, '/public/');
+    if ($public_pos !== false) {
+        $relative = ltrim(substr($normalized, $public_pos + 8), '/');
+        $candidates[] = __DIR__ . '/../public/' . $relative;
+    }
+
+    $basename = basename($normalized);
+    if ($basename !== '' && $basename !== '.' && $basename !== '/') {
+        $candidates[] = __DIR__ . '/../uploads/reviews_videos/' . $basename;
+        $candidates[] = __DIR__ . '/../public/uploads/reviews_videos/' . $basename;
+        $candidates[] = __DIR__ . '/../public/assets/uploads/reviews_videos/' . $basename;
+    }
+
+    foreach ($candidates as $candidate) {
+        $real = realpath($candidate);
+        $path = $real !== false ? $real : $candidate;
+        if (is_file($path)) {
+            return $path;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Build a safe review video URL only when the stored file still exists.
+ */
+function pf_get_review_video_url(int $review_id, string $video_path, ?string $base_path = null): string
+{
+    if ($review_id <= 0 || pf_resolve_review_video_file($video_path) === '') {
+        return '';
+    }
+
+    $base = $base_path;
+    if ($base === null) {
+        $base = pf_app_base_path();
+    }
+
+    return rtrim((string)$base, '/') . '/public/serve_review_video.php?review_id=' . $review_id;
+}
+
+/**
  * Build an absolute app URL for a script under admin/ with optional query and fragment.
  *
  * @param string $script File name (e.g. orders_management.php) or path starting with admin/

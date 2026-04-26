@@ -1016,7 +1016,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                             <?php endif; ?>
 
                             <?php if($has_video): 
-                                $vpath = (BASE_PATH ?: '') . '/public/serve_review_video.php?review_id=' . (int)$review['id'];
+                                $vpath = pf_get_review_video_url((int)$review['id'], (string)($review['video_path'] ?? ''), $base_path);
                             ?>
                                 <?php if ($vpath !== ''): ?>
                                     <div style="margin-bottom:0.75rem;">
@@ -1307,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function markHelpful(reviewId, btn) {
-    const basePath = <?php echo json_encode(rtrim(defined('BASE_PATH') ? BASE_PATH : '', '/')); ?>;
+    const basePath = <?php echo json_encode(rtrim((string)$base_path, '/')); ?>;
     btn.disabled = true;
     try {
         const res = await fetch(basePath + '/public/api/review_helpful.php', {
