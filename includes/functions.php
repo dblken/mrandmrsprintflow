@@ -2062,16 +2062,18 @@ function printflow_order_notification_preview(int $order_id): array {
 
     $row = $item[0];
     $custom = !empty($row['customization_data']) ? json_decode((string)$row['customization_data'], true) : [];
+    $custom = is_array($custom) ? $custom : [];
     $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
     $product_type = strtolower(trim((string)($row['product_type'] ?? '')));
-    if ($order_type === 'product' || $product_type === 'fixed') {
-        $preview['item_kind'] = 'Product';
-    } elseif ($order_type === 'custom' || get_service_name_from_customization(is_array($custom) ? $custom : [], '') !== '') {
+    $service_name = get_service_name_from_customization($custom, '');
+    if ($order_type === 'custom' || $service_name !== '') {
         $preview['item_kind'] = 'Service';
+    } elseif ($order_type === 'product' || $product_type === 'fixed') {
+        $preview['item_kind'] = 'Product';
     }
     $preview['display_name'] = printflow_resolve_order_item_name(
-        (string)($row['product_name'] ?? 'Order Item'),
-        is_array($custom) ? $custom : [],
+        $service_name !== '' ? $service_name : (string)($row['product_name'] ?? 'Order Item'),
+        $custom,
         'Order Item'
     );
 
