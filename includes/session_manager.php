@@ -13,8 +13,20 @@
  * PRODUCTION NOTE: Change SESSION_HMAC_SECRET to a strong random value unique per deployment.
  */
 
+/**
+ * Inactivity timeout for sessions without "Remember me" (seconds).
+ * 8h default — 1h was too aggressive and caused repeat logins / stale CSRF on long-open tabs.
+ */
 if (!defined('SESSION_LIFETIME')) {
-    define('SESSION_LIFETIME', 3600); // 1-hour inactivity timeout (seconds)
+    define('SESSION_LIFETIME', 8 * 3600);
+}
+
+/**
+ * When true, a User-Agent change invalidates the session (can false-positive on browser updates / mobile).
+ * Default false: rely on HTTPS + HttpOnly cookies; set true only if you need stricter binding.
+ */
+if (!defined('PRINTFLOW_ENFORCE_FINGERPRINT')) {
+    define('PRINTFLOW_ENFORCE_FINGERPRINT', false);
 }
 
 if (!defined('SESSION_HMAC_SECRET')) {
@@ -228,10 +240,13 @@ class SessionManager
 
     private static function validateFingerprint(): bool
     {
+        if (!PRINTFLOW_ENFORCE_FINGERPRINT) {
+            return true;
+        }
         if (!isset($_SESSION['_fingerprint'])) {
             return true;
         }
-        
+
         $current = self::buildFingerprint();
         if (hash_equals($_SESSION['_fingerprint'], $current)) {
             return true;
@@ -301,13 +316,6 @@ class SessionManager
             return '.mrandmrsprintflow.com';
         }
 
-<<<<<<< HEAD
-        if ($host === 'mrandmrsprintflow.com') {
-            return '.mrandmrsprintflow.com';
-        }
-
-=======
->>>>>>> f427c8b6 (update)
         return $host;
     }
 

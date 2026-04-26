@@ -39,60 +39,12 @@ if (!function_exists('log_activity')) {
     }
 }
 
-/**
- * Case-fold email (UTF-8) without requiring mbstring (some hosts disable it).
- */
-if (!function_exists('printflow_email_lower')) {
-    function printflow_email_lower($email) {
-        if (!is_string($email) || $email === '') {
-            return '';
-        }
-        $t = trim($email);
-        if (function_exists('mb_strtolower')) {
-            return mb_strtolower($t, 'UTF-8');
-        }
-        return strtolower($t);
-    }
-}
-
-/**
- * Ensure customers.auth_provider exists (values: NULL | password | google).
- * Uses SHOW COLUMNS / db_table_has_column (avoids information_schema and fragile AFTER clauses).
- */
-function printflow_ensure_customers_auth_provider_column() {
-    static $done = false;
-    if ($done) {
-        return;
-    }
-    $done = true;
-    try {
-        $has = false;
-        if (function_exists('db_table_has_column')) {
-            $has = db_table_has_column('customers', 'auth_provider');
-        } else {
-            $r = db_query("SHOW COLUMNS FROM `customers` LIKE 'auth_provider'");
-            $has = !empty($r);
-        }
-        if (!$has) {
-            @db_execute("ALTER TABLE `customers` ADD COLUMN `auth_provider` varchar(20) NULL DEFAULT NULL");
-        }
-    } catch (Exception $e) {
-        error_log('printflow_ensure_customers_auth_provider_column: ' . $e->getMessage());
-    }
-}
-
 // Helper functions for checking duplicate emails/phones
 if (!function_exists('email_in_use_across_accounts')) {
     function email_in_use_across_accounts($email) {
-        if (empty($email)) {
-            return false;
-        }
-        $e = printflow_email_lower($email);
-        if ($e === '') {
-            return false;
-        }
-        $users = db_query("SELECT user_id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$e]);
-        $customers = db_query("SELECT customer_id FROM customers WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$e]);
+        if (empty($email)) return false;
+        $users = db_query("SELECT user_id FROM users WHERE email = ?", 's', [$email]);
+        $customers = db_query("SELECT customer_id FROM customers WHERE email = ?", 's', [$email]);
         return !empty($users) || !empty($customers);
     }
 }
@@ -431,10 +383,7 @@ function login_user($email, $password, $remember_me = false) {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_customer($email, $password, $remember_me = false) {
-    $emailLower = printflow_email_lower($email);
-    $result = $emailLower === ''
-        ? []
-        : db_query("SELECT * FROM customers WHERE LOWER(TRIM(email)) = ?", 's', [$emailLower]);
+    $result = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
 
     // Also try phone-based accounts (contact_number match or phone@phone.local email)
     if (empty($result)) {
@@ -501,17 +450,15 @@ function login_customer($email, $password, $remember_me = false) {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_customer_by_google($email, $first_name, $last_name) {
-    printflow_ensure_customers_auth_provider_column();
-    $email = printflow_email_lower($email);
+    $email = trim($email);
     $first_name = trim($first_name) ?: 'User';
     $last_name = trim($last_name) ?: '';
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['success' => false, 'message' => 'Invalid email from Google'];
     }
-    $existing = db_query("SELECT * FROM customers WHERE LOWER(TRIM(email)) = ?", 's', [$email]);
+    $existing = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
     if (!empty($existing)) {
         $customer = $existing[0];
-        db_execute("UPDATE customers SET auth_provider = 'google' WHERE customer_id = ?", 'i', [(int)$customer['customer_id']]);
         $_SESSION['user_id'] = $customer['customer_id'];
         $_SESSION['user_type'] = 'Customer';
         $_SESSION['user_name'] = ($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '');
@@ -523,15 +470,14 @@ function login_customer_by_google($email, $first_name, $last_name) {
         SessionManager::commit();
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
-    $staff = db_query("SELECT user_id, user_type FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$email]);
-    if (!empty($staff)) {
+    if (email_in_use_across_accounts($email)) {
         return [
             'success' => false,
-            'message' => 'This email is already registered to a staff or admin account. Please sign in with your work email and password, not Google.',
+            'message' => 'This email is already used for a staff or admin account. Sign in with your work credentials instead of Google.',
         ];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?, 'google')";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?)";
     $cid = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
     if (!$cid) {
         return ['success' => false, 'message' => 'Could not create account. Please try again.'];
@@ -605,10 +551,6 @@ function login($email, $password, $remember_me = false) {
  * @return array ['success' => bool, 'message' => string]
  */
 function register_customer($data) {
-    printflow_ensure_customers_auth_provider_column();
-    if (!empty($data['email']) && is_string($data['email'])) {
-        $data['email'] = printflow_email_lower($data['email']);
-    }
     if (email_in_use_across_accounts($data['email'] ?? '')) {
         return ['success' => false, 'message' => 'This email is already in use. Please sign in.'];
     }
@@ -621,8 +563,8 @@ function register_customer($data) {
     $password_hash = password_hash($data['password'], PASSWORD_BCRYPT);
     
     // Insert customer
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'password')";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     
     $result = db_execute($sql, 'ssssssss', [
         $data['first_name'],

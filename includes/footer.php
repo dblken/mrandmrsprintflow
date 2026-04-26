@@ -124,9 +124,7 @@ function _ft_detect_social(string $url): array {
                             <?php if ($_sicon): ?>
                                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><?php echo $_sicon; ?></svg>
                             <?php else: ?>
-                                <?php echo function_exists('mb_substr')
-                                    ? strtoupper(mb_substr($_slabel, 0, 2, 'UTF-8'))
-                                    : strtoupper(substr($_slabel, 0, 2)); ?>
+                                <?php echo strtoupper(mb_substr($_slabel, 0, 2)); ?>
                             <?php endif; ?>
                         </a>
                         <?php endforeach; ?>

@@ -62,15 +62,58 @@ switch ($action) {
         $parts = explode(' ', $name, 2);
         $firstName = $parts[0] ?? 'User';
         $lastName  = $parts[1] ?? '';
+        
+        $intent = $_SESSION['google_auth_intent'] ?? 'login';
         unset($_SESSION['google_auth_intent']);
-
-        $loginResult = login_customer_by_google($email, $firstName, $lastName);
-        if (!empty($loginResult['success'])) {
-            $dest = $loginResult['redirect'] ?? (BASE_PATH . '/customer/services.php');
-            header('Location: ' . $dest);
-            exit;
+        
+        // Check if customer already exists
+        $existing = db_query("SELECT * FROM customers WHERE email = ?", 's', [$email]);
+        
+        if ($existing) {
+            // User exists — log them in directly
+            $customer = $existing[0];
+            $_SESSION['user_id']    = $customer['customer_id'];
+            $_SESSION['user_type']  = 'Customer';
+            $_SESSION['user_name']  = $customer['first_name'] . ' ' . ($customer['last_name'] ?? '');
+            $_SESSION['user_email'] = $customer['email'];
+            redirect(BASE_PATH . '/customer/services.php');
+        } else {
+            // Also check users table (Admin/Staff)
+            $existingUser = db_query("SELECT * FROM users WHERE email = ?", 's', [$email]);
+            if ($existingUser) {
+                $user = $existingUser[0];
+                $_SESSION['user_id']    = $user['user_id'];
+                $_SESSION['user_type']  = $user['user_type'];
+                $_SESSION['user_name']  = $user['first_name'] . ' ' . ($user['last_name'] ?? '');
+                $_SESSION['user_email'] = $user['email'];
+                
+                if ($user['user_type'] === 'Admin') {
+                    redirect(BASE_PATH . '/admin/dashboard.php');
+                } else {
+                    redirect(BASE_PATH . '/staff/dashboard.php');
+                }
+            }
+            
+            // New user — register as Customer
+            $randomPassword = bin2hex(random_bytes(16));
+            $passwordHash = password_hash($randomPassword, PASSWORD_BCRYPT);
+            
+            $result = db_execute(
+                "INSERT INTO customers (first_name, last_name, email, password_hash, is_profile_complete) VALUES (?, ?, ?, ?, 0)",
+                'ssss',
+                [$firstName, $lastName, $email, $passwordHash]
+            );
+            
+            if ($result) {
+                $_SESSION['user_id']    = $result;
+                $_SESSION['user_type']  = 'Customer';
+                $_SESSION['user_name']  = $firstName . ' ' . $lastName;
+                $_SESSION['user_email'] = $email;
+                redirect(BASE_PATH . '/customer/services.php');
+            } else {
+                redirect(BASE_PATH . '/public/register.php?error=' . urlencode('Registration failed. Please try again.'));
+            }
         }
-        redirect(BASE_PATH . '/public/login.php?error=' . urlencode($loginResult['message'] ?? 'Google sign-in failed. Please try again.'));
         break;
 
     default:
