@@ -102,17 +102,6 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
-<<<<<<< HEAD
-if (!has_role('Staff')) {
-    http_response_code(403);
-    $flags = JSON_UNESCAPED_SLASHES;
-    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
-    echo json_encode(['success' => false, 'error' => 'Unauthorized'], $flags);
-    exit;
-}
-
-$__pf_debug_allowed = $__pf_debug_requested; // staff-authenticated endpoint
-=======
 if ($__pf_debug_requested && defined('PRINTFLOW_DEBUG_SESSION_LOG') && PRINTFLOW_DEBUG_SESSION_LOG) {
     $sessionCookieName = session_name();
     $debugSnapshot = [

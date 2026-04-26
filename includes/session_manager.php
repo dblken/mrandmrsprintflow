@@ -301,13 +301,6 @@ class SessionManager
             return '.mrandmrsprintflow.com';
         }
 
-<<<<<<< HEAD
-        if ($host === 'mrandmrsprintflow.com') {
-            return '.mrandmrsprintflow.com';
-        }
-
-=======
->>>>>>> f427c8b6 (update)
         return $host;
     }
 
