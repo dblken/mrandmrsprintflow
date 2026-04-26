@@ -62,38 +62,74 @@ function build_staff_service_status_filter_sql(string $status_filter, array &$pa
 }
 
 // --- Timeframe Logic ---
-$timeframe_sql = "DATE(o.order_date) = CURDATE()";
-$timeframe_sql_no_alias = "DATE(order_date) = CURDATE()";
+$today = date('Y-m-d');
+$range_start = $today;
+$range_end = $today;
+$timeframe_label = 'Today (' . date('F j, Y') . ')';
+$short_label = 'Today';
 
 switch ($timeframe) {
-    case 'week': 
-        $timeframe_sql = "YEARWEEK(o.order_date, 1) = YEARWEEK(CURDATE(), 1)"; 
-        $timeframe_sql_no_alias = "YEARWEEK(order_date, 1) = YEARWEEK(CURDATE(), 1)"; 
+    case 'week':
+        $range_start = date('Y-m-d', strtotime('monday this week'));
+        $range_end = date('Y-m-d', strtotime('sunday this week'));
+        $start_day = date('j', strtotime($range_start));
+        $end_day = date('j', strtotime($range_end));
+        $start_month = date('F', strtotime($range_start));
+        $end_month = date('F', strtotime($range_end));
+        $year = date('Y', strtotime($range_end));
+        $timeframe_label = ($start_month === $end_month)
+            ? "This Week ($start_month $start_day-$end_day, $year)"
+            : "This Week ($start_month $start_day - $end_month $end_day, $year)";
+        $short_label = 'This Week';
         break;
-    case 'month': 
-        $timeframe_sql = "YEAR(o.order_date) = YEAR(CURDATE()) AND MONTH(o.order_date) = MONTH(CURDATE())"; 
-        $timeframe_sql_no_alias = "YEAR(order_date) = YEAR(CURDATE()) AND MONTH(order_date) = MONTH(CURDATE())"; 
+    case 'month':
+        $range_start = date('Y-m-01');
+        $range_end = date('Y-m-t');
+        $timeframe_label = 'This Month (' . date('F Y') . ')';
+        $short_label = 'This Month';
+        break;
+    case 'all':
+        $range_start = null;
+        $range_end = null;
+        $timeframe_label = 'All Time';
+        $short_label = 'All Time';
         break;
 }
 
-$timeframe_label = $timeframe === 'today' ? 'Today' : ($timeframe === 'week' ? 'This Week' : 'This Month');
-$latestBranchDate = date('Y-m-d');
-$service_timeframe_sql = str_replace('o.order_date', 'so.created_at', $timeframe_sql);
+$latestBranchDate = $today;
+$timeframe_sql = 'DATE(o.order_date) BETWEEN ? AND ?';
+$timeframe_sql_no_alias = 'DATE(order_date) BETWEEN ? AND ?';
+$service_timeframe_sql = 'DATE(so.created_at) BETWEEN ? AND ?';
+$has_timeframe_range = ($range_start !== null && $range_end !== null);
 
 // 1. Stats
 $stats_order_params = [$staffBranchId];
 $stats_order_types = 'i';
+$stats_order_time_sql = '';
+if ($has_timeframe_range) {
+    $stats_order_time_sql = " AND {$timeframe_sql_no_alias}";
+    $stats_order_params[] = $range_start;
+    $stats_order_params[] = $range_end;
+    $stats_order_types .= 'ss';
+}
 $stats_order_where = build_staff_status_filter_sql($status_filter, $stats_order_params, $stats_order_types, 'o');
 $completed_products = db_query("
     SELECT COUNT(DISTINCT o.order_id) as count 
     FROM orders o 
     JOIN order_items oi ON o.order_id = oi.order_id
     JOIN products p ON oi.product_id = p.product_id
-    WHERE o.branch_id = ? AND o.order_type = 'product' AND $timeframe_sql_no_alias {$stats_order_where}
+    WHERE o.branch_id = ? AND o.order_type = 'product'{$stats_order_time_sql}{$stats_order_where}
 ", $stats_order_types, $stats_order_params)[0]['count'] ?? 0;
 
 $stats_custom_params = [$staffBranchId];
 $stats_custom_types = 'i';
+$stats_custom_time_sql = '';
+if ($has_timeframe_range) {
+    $stats_custom_time_sql = " AND {$timeframe_sql_no_alias}";
+    $stats_custom_params[] = $range_start;
+    $stats_custom_params[] = $range_end;
+    $stats_custom_types .= 'ss';
+}
 $stats_custom_where = build_staff_status_filter_sql($status_filter, $stats_custom_params, $stats_custom_types, 'o');
 $completed_custom = db_query("
     SELECT COUNT(DISTINCT o.order_id) as count 
@@ -101,17 +137,24 @@ $completed_custom = db_query("
     JOIN order_items oi ON o.order_id = oi.order_id
     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
     LEFT JOIN services s ON oi.product_id = s.service_id
-    WHERE o.branch_id = ? AND $timeframe_sql_no_alias {$stats_custom_where}
+    WHERE o.branch_id = ?{$stats_custom_time_sql}{$stats_custom_where}
       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')
 ", $stats_custom_types, $stats_custom_params)[0]['count'] ?? 0;
 $stats_service_params = [$staffBranchId];
 $stats_service_types = 'i';
+$stats_service_time_sql = '';
+if ($has_timeframe_range) {
+    $stats_service_time_sql = " AND {$service_timeframe_sql}";
+    $stats_service_params[] = $range_start;
+    $stats_service_params[] = $range_end;
+    $stats_service_types .= 'ss';
+}
 $stats_service_where = build_staff_service_status_filter_sql($status_filter, $stats_service_params, $stats_service_types, 'so');
 $completed_custom += (int)(db_query("
     SELECT COUNT(*) AS count
     FROM service_orders so
     WHERE (so.branch_id = ? OR so.branch_id IS NULL)
-      AND {$service_timeframe_sql}
+      {$stats_service_time_sql}
       {$stats_service_where}
 ", $stats_service_types, $stats_service_params)[0]['count'] ?? 0);
 
@@ -124,16 +167,28 @@ $pending_reviews = db_query("
 
 $revenue_order_params = [$staffBranchId];
 $revenue_order_types = 'i';
-$revenue_order_where = build_staff_status_filter_sql($status_filter, $revenue_order_params, $revenue_order_types);
 $revenue_service_params = [$staffBranchId];
 $revenue_service_types = 'i';
+$revenue_order_time_sql = '';
+$revenue_service_time_sql = '';
+if ($has_timeframe_range) {
+    $revenue_order_time_sql = " AND {$timeframe_sql}";
+    $revenue_order_params[] = $range_start;
+    $revenue_order_params[] = $range_end;
+    $revenue_order_types .= 'ss';
+    $revenue_service_time_sql = " AND {$service_timeframe_sql}";
+    $revenue_service_params[] = $range_start;
+    $revenue_service_params[] = $range_end;
+    $revenue_service_types .= 'ss';
+}
+$revenue_order_where = build_staff_status_filter_sql($status_filter, $revenue_order_params, $revenue_order_types);
 $revenue_service_where = build_staff_service_status_filter_sql($status_filter, $revenue_service_params, $revenue_service_types);
 $total_revenue = db_query("
     SELECT SUM(total) AS total
     FROM (
-        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders o WHERE {$timeframe_sql} AND o.branch_id = ? {$revenue_order_where}
+        SELECT COALESCE(SUM(total_amount), 0) AS total FROM orders o WHERE o.branch_id = ?{$revenue_order_time_sql}{$revenue_order_where}
         UNION ALL
-        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE {$service_timeframe_sql} AND (so.branch_id = ? OR so.branch_id IS NULL) {$revenue_service_where}
+        SELECT COALESCE(SUM(total_price), 0) AS total FROM service_orders so WHERE (so.branch_id = ? OR so.branch_id IS NULL){$revenue_service_time_sql}{$revenue_service_where}
     ) branch_revenue
 ", $revenue_order_types . $revenue_service_types, array_merge($revenue_order_params, $revenue_service_params))[0]['total'] ?? 0;
 
@@ -228,9 +283,15 @@ switch($timeframe) {
 }
 
 // 3. Top Sales (Dynamic Timeframe)
-$ts_where = $timeframe_sql;
 $top_services_status_params = [$staffBranchId];
 $top_services_status_types = 'i';
+$top_services_time_sql = '';
+if ($has_timeframe_range) {
+    $top_services_time_sql = " AND {$timeframe_sql}";
+    $top_services_status_params[] = $range_start;
+    $top_services_status_params[] = $range_end;
+    $top_services_status_types .= 'ss';
+}
 $top_services_status_where = build_staff_status_filter_sql($status_filter, $top_services_status_params, $top_services_status_types, 'o');
 $top_services = db_query("
     SELECT 
@@ -241,8 +302,8 @@ $top_services = db_query("
     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
     LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
     LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name AND s.status = 'Activated'))
-    WHERE $ts_where 
-      AND o.branch_id = ?
+    WHERE o.branch_id = ?
+      {$top_services_time_sql}
       {$top_services_status_where}
       AND (
           (p.product_id IS NOT NULL AND p.status = 'Activated')
@@ -256,12 +317,19 @@ $top_services = db_query("
 if (empty($top_services)) {
     $svc_top_params = [$staffBranchId];
     $svc_top_types = 'i';
+    $svc_top_time_sql = '';
+    if ($has_timeframe_range) {
+        $svc_top_time_sql = " AND {$service_timeframe_sql}";
+        $svc_top_params[] = $range_start;
+        $svc_top_params[] = $range_end;
+        $svc_top_types .= 'ss';
+    }
     $svc_top_where = build_staff_service_status_filter_sql($status_filter, $svc_top_params, $svc_top_types, 'so');
     $top_services = db_query("
         SELECT service_name AS name, COUNT(*) AS order_count
         FROM service_orders so
-        WHERE {$service_timeframe_sql}
-          AND (so.branch_id = ? OR so.branch_id IS NULL)
+        WHERE (so.branch_id = ? OR so.branch_id IS NULL)
+          {$svc_top_time_sql}
           {$svc_top_where}
         GROUP BY service_name
         ORDER BY order_count DESC
@@ -277,8 +345,11 @@ $types = "i";
 if ($status_filter) {
     $sql_cond .= build_staff_status_filter_sql($status_filter, $params, $types, 'o');
 }
-if ($timeframe !== 'all' && isset($timeframe_sql)) {
+if ($has_timeframe_range) {
     $sql_cond .= " AND " . $timeframe_sql;
+    $params[] = $range_start;
+    $params[] = $range_end;
+    $types .= 'ss';
 }
 if ($search_filter) {
     $sql_cond .= " AND (o.order_id LIKE ? OR CONCAT(c.first_name, ' ', c.last_name) LIKE ?)";
@@ -335,5 +406,5 @@ echo json_encode([
         'total_rows' => (int)$total_rows
     ],
     'timeframe_label' => $timeframe_label,
-    'short_label' => $timeframe_label
+    'short_label' => $short_label
 ]);

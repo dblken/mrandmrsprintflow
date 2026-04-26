@@ -2005,6 +2005,99 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 return `${String(row?.order_type || 'JOB').toUpperCase()}:${row?.id ?? ''}`;
             },
+            isGenericServiceLabel(value) {
+                const raw = String(value || '').trim().toUpperCase();
+                if (!raw) return true;
+                return [
+                    'CUSTOM ORDER',
+                    'CUSTOM SERVICE',
+                    'SERVICE',
+                    'SERVICE ORDER',
+                    'ORDER ITEM',
+                    'STANDARD PRODUCT',
+                    'GENERAL'
+                ].includes(raw);
+            },
+            descriptiveTypePriority(row) {
+                const type = String(row?.order_type || 'JOB').toUpperCase();
+                const priorities = {
+                    CUSTOMIZATION: 4,
+                    ORDER: 3,
+                    JOB: 2,
+                    SERVICE: 1
+                };
+                return priorities[type] || 0;
+            },
+            mergeGroupedRows(existing, incoming) {
+                const existingTs = existing?._ts || 0;
+                const incomingTs = incoming?._ts || 0;
+                let winner = existing;
+                let loser = incoming;
+
+                if (incomingTs > existingTs) {
+                    winner = incoming;
+                    loser = existing;
+                } else if (incomingTs === existingTs) {
+                    const statusDiff = this.statusPriority(incoming) - this.statusPriority(existing);
+                    if (statusDiff > 0 || (statusDiff === 0 && this.typePriority(incoming) > this.typePriority(existing))) {
+                        winner = incoming;
+                        loser = existing;
+                    }
+                }
+
+                const merged = { ...winner };
+                const winnerTypePriority = this.descriptiveTypePriority(winner);
+                const loserTypePriority = this.descriptiveTypePriority(loser);
+                const winnerService = String(winner?.service_type || '').trim();
+                const loserService = String(loser?.service_type || '').trim();
+                const winnerTitle = String(winner?.job_title || '').trim();
+                const loserTitle = String(loser?.job_title || '').trim();
+
+                const shouldUseLoserService =
+                    loserService &&
+                    (
+                        this.isGenericServiceLabel(winnerService) ||
+                        (!this.isGenericServiceLabel(loserService) && loserTypePriority > winnerTypePriority)
+                    );
+                if (shouldUseLoserService) {
+                    merged.service_type = loserService;
+                }
+
+                const shouldUseLoserTitle =
+                    loserTitle &&
+                    (
+                        !winnerTitle ||
+                        this.isGenericServiceLabel(winnerTitle) ||
+                        (!this.isGenericServiceLabel(loserTitle) && loserTypePriority > winnerTypePriority)
+                    );
+                if (shouldUseLoserTitle) {
+                    merged.job_title = loserTitle;
+                }
+
+                if ((!merged.width_ft || merged.width_ft === '1') && loser?.width_ft && loser.width_ft !== '1') {
+                    merged.width_ft = loser.width_ft;
+                }
+                if ((!merged.height_ft || merged.height_ft === '1') && loser?.height_ft && loser.height_ft !== '1') {
+                    merged.height_ft = loser.height_ft;
+                }
+                if ((!Number(merged.quantity) || Number(merged.quantity) <= 1) && Number(loser?.quantity) > 1) {
+                    merged.quantity = loser.quantity;
+                }
+                if (!merged.order_code && loser?.order_code) {
+                    merged.order_code = loser.order_code;
+                }
+                if ((!merged.order_source || merged.order_source === 'customer') && loser?.order_source) {
+                    merged.order_source = loser.order_source;
+                }
+                if (!merged.job_order_id && loser?.job_order_id) {
+                    merged.job_order_id = loser.job_order_id;
+                }
+                if ((!merged.items || !merged.items.length) && Array.isArray(loser?.items) && loser.items.length) {
+                    merged.items = loser.items;
+                }
+
+                return merged;
+            },
             getDisplayOrderCode(row) {
                 if (!row) return '';
                 const explicit = String(row.order_code || '').trim();
@@ -2082,30 +2175,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                         grouped.set(key, row);
                         return;
                     }
-
-                    // Prefer fresher records first so tab placement reflects latest status changes.
-                    const timeDiff = (row._ts || 0) - (existing._ts || 0);
-                    if (timeDiff > 0) {
-                        grouped.set(key, row);
-                        return;
-                    }
-                    if (timeDiff < 0) {
-                        return;
-                    }
-
-                    // If timestamps are equal, use status progression as tie-breaker.
-                    const statusDiff = this.statusPriority(row) - this.statusPriority(existing);
-                    if (statusDiff > 0) {
-                        grouped.set(key, row);
-                        return;
-                    }
-                    if (statusDiff < 0) {
-                        return;
-                    }
-
-                    if (this.typePriority(row) > this.typePriority(existing)) {
-                        grouped.set(key, row);
-                    }
+                    grouped.set(key, this.mergeGroupedRows(existing, row));
                 });
 
                 return Array.from(grouped.values()).sort((a, b) => (b._ts || 0) - (a._ts || 0));
