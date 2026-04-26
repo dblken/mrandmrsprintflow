@@ -1283,6 +1283,9 @@ $page_title = 'Review Management - Staff';
                                             <div class="review-media" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:12px; max-width:600px;">
                                                 <?php if ($has_vid):
                                                     $vpath = pf_get_review_video_url((int)$review['id'], (string)($review['video_path'] ?? ''), BASE_PATH);
+                                                    if ($vpath === '') {
+                                                        $vpath = pf_normalize_review_media_path((string)($review['video_path'] ?? ''), BASE_PATH, '');
+                                                    }
                                                     ?>
                                                     <?php if ($vpath !== ''): ?>
                                                         <div class="media-thumb video-thumb" style="width:100%; aspect-ratio:1;" onclick="openMediaModal('<?php echo htmlspecialchars($vpath); ?>', 'video')">
