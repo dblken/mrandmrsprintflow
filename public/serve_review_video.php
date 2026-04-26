@@ -13,7 +13,7 @@ if ($review_id <= 0) {
     exit('Invalid review id');
 }
 
-$review = db_query("SELECT video_path FROM reviews WHERE id = ? LIMIT 1", 'i', [$review_id]);
+$review = db_query("SELECT video_path, created_at FROM reviews WHERE id = ? LIMIT 1", 'i', [$review_id]);
 $video_path = trim((string)($review[0]['video_path'] ?? ''));
 if ($video_path === '') {
     http_response_code(404);
@@ -21,6 +21,35 @@ if ($video_path === '') {
 }
 
 $fullPath = pf_resolve_review_video_file($video_path);
+if ($fullPath === '') {
+    $timeRaw = trim((string)($review[0]['created_at'] ?? ''));
+    $timeProbe = preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/', $video_path) ? $video_path : $timeRaw;
+    $stamp = '';
+    if ($timeProbe !== '') {
+        $ts = strtotime($timeProbe);
+        if ($ts !== false) {
+            $stamp = date('Ymd_His', $ts);
+        }
+    }
+    if ($stamp !== '') {
+        $roots = [
+            __DIR__ . '/../uploads/reviews_videos',
+            __DIR__ . '/../public/uploads/reviews_videos',
+            __DIR__ . '/../public/assets/uploads/reviews_videos',
+        ];
+        foreach ($roots as $root) {
+            $root = rtrim((string)$root, '/\\');
+            if (!is_dir($root)) {
+                continue;
+            }
+            $matches = glob($root . '/review_' . $stamp . '_*.mp4');
+            if (!empty($matches[0]) && is_file($matches[0])) {
+                $fullPath = $matches[0];
+                break;
+            }
+        }
+    }
+}
 if ($fullPath === '') {
     http_response_code(404);
     exit('Video file missing');

@@ -232,7 +232,17 @@ function pf_normalize_review_media_path($path, $base_path, $default = '')
 
 function pf_review_video_candidates($path, $base_path, $review_id = 0)
 {
-    return pf_review_video_direct_candidates((string)$path, (string)$base_path);
+    $sources = [];
+    $base = rtrim((string)$base_path, '/');
+    if ((int)$review_id > 0) {
+        $sources[] = ($base !== '' ? $base : '') . '/public/serve_review_video.php?review_id=' . (int)$review_id;
+    }
+    foreach (pf_review_video_direct_candidates((string)$path, (string)$base_path) as $candidate) {
+        if (!in_array($candidate, $sources, true)) {
+            $sources[] = $candidate;
+        }
+    }
+    return $sources;
 }
 
 function pf_review_video_mime_type($src)
