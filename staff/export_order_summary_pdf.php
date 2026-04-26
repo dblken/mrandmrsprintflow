@@ -16,10 +16,13 @@ if (!in_array($userType, ['Staff', 'Admin', 'Manager'], true)) {
 
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 $branchInfo = db_query("SELECT * FROM branches WHERE id = ?", 'i', [$staffBranchId])[0] ?? [];
-$branchName = $branchInfo['branch_name'] ?? 'Mr. and Mrs. Print';
+$branchName = $branchInfo['branch_name'] ?? 'Mr. and Mrs. Print Main';
 $branchAddress = trim(($branchInfo['address'] ?? '') . ' ' . ($branchInfo['address_line'] ?? '') . ' ' . ($branchInfo['barangay'] ?? '') . ' ' . ($branchInfo['city'] ?? '') . ' ' . ($branchInfo['province'] ?? ''));
-$branchContact = $branchInfo['contact_number'] ?? '';
-$branchEmail = $branchInfo['email'] ?? '';
+if (empty($branchAddress)) {
+    $branchAddress = "#240 corner M.L. Quezon St., Cabuyao, Philippines, 4025";
+}
+$branchContact = $branchInfo['contact_number'] ?? '0921 212 2293';
+$branchEmail = $branchInfo['email'] ?? 'mrandmrsprints@gmail.com';
 
 $range = $_GET['range'] ?? 'week';
 $status_filter = $_GET['status'] ?? 'ALL';
@@ -111,46 +114,45 @@ $html = '
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 100px 25px 50px 25px; }
-        header { position: fixed; top: -80px; left: 0px; right: 0px; height: 100px; text-align: center; border-bottom: 2px solid #000; }
-        footer { position: fixed; bottom: -30px; left: 0px; right: 0px; height: 50px; border-top: 1px solid #ccc; font-size: 10px; color: #444; }
-        body { font-family: "Helvetica", "Arial", sans-serif; font-size: 11px; color: #333; margin-top: 20px; }
+        @page { margin: 20px 30px 80px 30px; }
+        body { font-family: "Helvetica", "Arial", sans-serif; font-size: 11px; color: #333; margin: 0; padding: 0; }
         
+        .header { width: 100%; border-bottom: 1.5px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
         .header-table { width: 100%; border: none; }
         .header-table td { border: none; vertical-align: middle; }
-        .logo-container { width: 80px; }
-        .logo { width: 70px; height: auto; }
-        .business-details { text-align: center; }
+        .logo { width: 75px; height: auto; }
+        .business-details { text-align: center; padding-right: 75px; } /* Offset for logo to center text */
         .business-details h1 { margin: 0; font-size: 18px; color: #000; font-weight: bold; }
         .business-details p { margin: 1px 0; font-size: 10px; color: #333; }
 
-        .report-title { color: #0047AB; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; }
-        .meta-info { margin-bottom: 20px; font-size: 12px; line-height: 1.5; }
+        .report-title { color: #0047AB; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .meta-info { margin-bottom: 15px; font-size: 11px; line-height: 1.4; }
         
-        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .summary-table td { border: 1px solid #000; padding: 6px 10px; font-size: 12px; }
-        .summary-label { background-color: #f8fafc; font-weight: bold; width: 25%; }
-        .summary-value { text-align: center; width: 25%; font-weight: bold; }
-        .summary-total-label { background-color: #f8fafc; font-weight: bold; width: 30%; }
-        .summary-total-value { text-align: right; width: 20%; font-weight: bold; font-size: 13px; }
+        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .summary-table td { border: 1px solid #000; padding: 5px 10px; font-size: 11px; }
+        .summary-label { background-color: #f8fafc; font-weight: bold; width: 20%; }
+        .summary-value { text-align: center; width: 30%; font-weight: bold; }
+        .summary-total-label { background-color: #f8fafc; font-weight: bold; width: 25%; }
+        .summary-total-value { text-align: right; width: 25%; font-weight: bold; }
 
         .orders-table { width: 100%; border-collapse: collapse; }
-        .orders-table th { background-color: #0047AB; color: #ffffff; padding: 8px; border: 1px solid #000; font-weight: bold; text-transform: uppercase; font-size: 10px; }
+        .orders-table th { background-color: #0047AB; color: #ffffff; padding: 8px; border: 1px solid #000; font-weight: bold; text-transform: uppercase; font-size: 10px; text-align: center; }
         .orders-table td { border: 1px solid #000; padding: 6px; vertical-align: middle; }
         .orders-table tr:nth-child(even) { background-color: #f2f2f2; }
 
+        footer { position: fixed; bottom: -60px; left: 0px; right: 0px; height: 70px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 9px; color: #444; }
         .footer-table { width: 100%; border: none; }
-        .footer-table td { border: none; padding: 2px 0; }
+        .footer-table td { border: none; padding: 0; vertical-align: top; line-height: 1.3; }
         .footer-right { text-align: right; }
-        .rev-code { font-weight: bold; margin-top: 5px; }
+        .rev-code { font-weight: bold; margin-top: 5px; font-size: 10px; }
     </style>
 </head>
 <body>
 
-<header>
+<div class="header">
     <table class="header-table">
         <tr>
-            <td class="logo-container">
+            <td style="width: 80px;">
                 <img src="' . $logoData . '" class="logo">
             </td>
             <td class="business-details">
@@ -161,7 +163,7 @@ $html = '
             </td>
         </tr>
     </table>
-</header>
+</div>
 
 <footer>
     <table class="footer-table">
@@ -173,7 +175,7 @@ $html = '
                 Prepared By: ' . htmlspecialchars($staffName) . ' | Branch: ' . htmlspecialchars($branchName) . '
             </td>
             <td class="footer-right">
-                Generated On: ' . $generatedAt . ' | <span id="page-placeholder"></span>
+                Generated On: ' . $generatedAt . ' | <span id="page-placeholder">Page {PAGE_NUM} of {PAGE_COUNT}</span>
                 <div class="rev-code">PF-REP-SUMMARY-01-Rev00</div>
             </td>
         </tr>
@@ -231,9 +233,10 @@ if (class_exists(\Dompdf\Dompdf::class)) {
     
     $canvas = $dompdf->getCanvas();
     $font = $dompdf->getFontMetrics()->get_font("helvetica", "normal");
-    $size = 10;
-    // Position the page text at the bottom right, aligned with the rest of the footer
-    $canvas->page_text(450, $canvas->get_height() - 48, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, $size, array(0.2, 0.2, 0.2));
+    $size = 9;
+    
+    // Page text placement (bottom right)
+    $canvas->page_text(450, $canvas->get_height() - 38, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, $size, array(0.2, 0.2, 0.2));
 
     $file = 'order_summary_' . strtolower($range) . '_' . strtolower($status_filter === 'ALL' ? 'all' : preg_replace('/\s+/', '_', $status_filter)) . '.pdf';
     header('Content-Type: application/pdf');
@@ -242,10 +245,10 @@ if (class_exists(\Dompdf\Dompdf::class)) {
     exit;
 }
 
-
-// Graceful fallback if PDF dependency is not available.
+// Fallback
 header('Content-Type: text/html; charset=utf-8');
 echo $html;
 exit;
+
 
 
