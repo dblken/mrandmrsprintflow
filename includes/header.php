@@ -25,14 +25,15 @@ if (file_exists(__DIR__ . '/../config.php')) {
     require_once __DIR__ . '/../config.php';
 } else {
     // Fallback if config.php doesn't exist
-    define('BASE_PATH', '/printflow');
-    define('BASE_URL', '/printflow');
+    $is_prod = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false);
+    define('BASE_PATH', $is_prod ? '' : '/printflow');
+    define('BASE_URL', $is_prod ? '' : '/printflow');
 }
 
 // Determine base URL and asset path
-$base_url = defined('BASE_URL') ? BASE_URL : '/printflow';
-$base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
-$asset_base = $base_url . '/public';
+$base_url = defined('BASE_URL') ? BASE_URL : (defined('BASE_PATH') ? BASE_PATH : '');
+$base_path = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '');
+$asset_base = rtrim($base_url, '/') . '/public';
 
 // Timestamp for cache busting
 $ver = time();
@@ -248,6 +249,10 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
                 <?php echo json_encode((((string)$base_url !== '' ? rtrim((string)$base_url, '/') : '')) . '/customer/'); ?>
             ];
 
+            function getBasePath() {
+                return window.PF_BASE_PATH || '';
+            }
+
             function normalizePath(path) {
                 var out = (path || '/').replace(/\/+$/, '');
                 return out || '/';
@@ -255,6 +260,11 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
 
             function shouldRedirectCurrentPage() {
                 return homePaths.has(normalizePath(window.location.pathname));
+            }
+
+            function getNotifUrl(type, dataId, message, notifId, orderType) {
+                var base = getBasePath();
+                // ...
             }
 
             function isProtectedCurrentPage() {

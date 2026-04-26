@@ -24,25 +24,27 @@ if (file_exists(__DIR__ . '/.env')) {
 $is_production = (
     isset($_SERVER['HTTP_HOST']) && 
     (strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false ||
-     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false)
+     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false ||
+     strpos($_SERVER['HTTP_HOST'], 'printflow.com') !== false)
 );
 
 // Set base path based on environment
 if ($is_production) {
     // Production: domain root - force empty values
-    // Clear any .env overrides first
+    // Clear any .env overrides first to avoid inheritance issues
     putenv('BASE_PATH=');
     putenv('BASE_URL=');
     $_ENV['BASE_PATH'] = '';
     $_ENV['BASE_URL'] = '';
     $_SERVER['BASE_PATH'] = '';
     $_SERVER['BASE_URL'] = '';
-    define('BASE_PATH', '');
-    define('BASE_URL', '');
+    
+    if (!defined('BASE_PATH')) define('BASE_PATH', '');
+    if (!defined('BASE_URL')) define('BASE_URL', '');
 } else {
     // Local development: /printflow subdirectory
-    define('BASE_PATH', '/printflow');
-    define('BASE_URL', '/printflow');
+    if (!defined('BASE_PATH')) define('BASE_PATH', '/printflow');
+    if (!defined('BASE_URL')) define('BASE_URL', '/printflow');
 }
 
 // Asset paths

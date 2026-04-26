@@ -831,7 +831,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         }
                                         
                                         if ($data_service_id > 0) {
-                                            $onclick_handler = "window.location.href='/printflow/customer/order/{$data_service_id}';";
+                                            $onclick_handler = "window.location.href='<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/customer/order/{$data_service_id}';";
                                         }
                                     }
                                 ?>
