@@ -147,6 +147,11 @@ foreach ($map as $key => $envKey) {
  * CONNECT DATABASE
  * ==========================
  */
+if (function_exists('mysqli_report')) {
+    // Some hosts enable STRICT reporting (SQL errors become exceptions -> 500).
+    // Keep the app resilient and rely on error_log + printflow_db_errors() instead.
+    mysqli_report(MYSQLI_REPORT_OFF);
+}
 $conn = @new mysqli(
     $db_config['host'],
     $db_config['user'],
@@ -216,76 +221,93 @@ $conn->query("SET time_zone = '+08:00'");
 
 function db_query($sql, $types = '', $params = []) {
     global $conn;
-    
-    if (empty($types) || empty($params)) {
-        $result = $conn->query($sql);
-    } else {
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            printflow_db_record_error([
-                'stage' => 'prepare',
-                'error' => $conn->error,
-                'errno' => $conn->errno,
-                'sql' => $sql,
-            ]);
-            error_log("DB Prepare Error: " . $conn->error);
-            return [];
-        }
-        $stmt->bind_param($types, ...$params);
-        if (!$stmt->execute()) {
-            printflow_db_record_error([
-                'stage' => 'execute',
-                'error' => $stmt->error,
-                'errno' => $stmt->errno,
-                'sql' => $sql,
-            ]);
-            error_log("DB Execute Error: " . $stmt->error);
-            $stmt->close();
-            return [];
-        }
 
-        // Prefer mysqlnd-powered get_result(), but fall back if unavailable.
-        $result = null;
-        if (method_exists($stmt, 'get_result')) {
-            $result = $stmt->get_result();
-            if ($result === false) {
+    $stmt = null;
+    $result = null;
+
+    try {
+        if (empty($types) || empty($params)) {
+            $result = $conn->query($sql);
+        } else {
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
                 printflow_db_record_error([
-                    'stage' => 'get_result',
+                    'stage' => 'prepare',
+                    'error' => $conn->error,
+                    'errno' => $conn->errno,
+                    'sql' => $sql,
+                ]);
+                error_log("DB Prepare Error: " . $conn->error);
+                return [];
+            }
+            $stmt->bind_param($types, ...$params);
+            if (!$stmt->execute()) {
+                printflow_db_record_error([
+                    'stage' => 'execute',
                     'error' => $stmt->error,
                     'errno' => $stmt->errno,
                     'sql' => $sql,
                 ]);
-                error_log("DB get_result Error: " . $stmt->error);
-                $stmt->close();
-                return [];
-            }
-        } else {
-            $meta = $stmt->result_metadata();
-            if (!$meta) {
+                error_log("DB Execute Error: " . $stmt->error);
                 $stmt->close();
                 return [];
             }
 
-            $fields = $meta->fetch_fields();
-            $row = [];
-            $bind = [];
-            foreach ($fields as $field) {
-                $row[$field->name] = null;
-                $bind[] = &$row[$field->name];
+            // Prefer mysqlnd-powered get_result(), but fall back if unavailable.
+            $result = null;
+            if (method_exists($stmt, 'get_result')) {
+                $result = $stmt->get_result();
+                if ($result === false) {
+                    printflow_db_record_error([
+                        'stage' => 'get_result',
+                        'error' => $stmt->error,
+                        'errno' => $stmt->errno,
+                        'sql' => $sql,
+                    ]);
+                    error_log("DB get_result Error: " . $stmt->error);
+                    $stmt->close();
+                    return [];
+                }
+            } else {
+                $meta = $stmt->result_metadata();
+                if (!$meta) {
+                    $stmt->close();
+                    return [];
+                }
+
+                $fields = $meta->fetch_fields();
+                $row = [];
+                $bind = [];
+                foreach ($fields as $field) {
+                    $row[$field->name] = null;
+                    $bind[] = &$row[$field->name];
+                }
+
+                // bind_result requires references.
+                call_user_func_array([$stmt, 'bind_result'], $bind);
+
+                $data = [];
+                while ($stmt->fetch()) {
+                    // Copy since $row values are reused by reference each fetch.
+                    $data[] = array_map(static fn($v) => $v, $row);
+                }
+
+                $stmt->close();
+                return $data;
             }
-
-            // bind_result requires references.
-            call_user_func_array([$stmt, 'bind_result'], $bind);
-
-            $data = [];
-            while ($stmt->fetch()) {
-                // Copy since $row values are reused by reference each fetch.
-                $data[] = array_map(static fn($v) => $v, $row);
-            }
-
-            $stmt->close();
-            return $data;
         }
+    } catch (Throwable $e) {
+        printflow_db_record_error([
+            'stage' => 'exception',
+            'error' => $e->getMessage(),
+            'class' => get_class($e),
+            'sql' => $sql,
+        ]);
+        error_log("DB Exception: " . $e->getMessage());
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->close();
+        }
+        return [];
     }
 
     if (!$result) {
@@ -335,33 +357,64 @@ function db_table_has_column(string $table, string $column): bool {
 function db_execute($sql, $types = '', $params = []) {
     global $conn;
 
-    if (empty($types) || empty($params)) {
-        if (!$conn->query($sql)) {
+    $stmt = null;
+
+    try {
+        if (empty($types) || empty($params)) {
+            if (!$conn->query($sql)) {
+                printflow_db_record_error([
+                    'stage' => 'execute_query',
+                    'error' => $conn->error,
+                    'errno' => $conn->errno,
+                    'sql' => $sql,
+                ]);
+                error_log("DB Execute Error: " . $conn->error);
+                return false;
+            }
+            return $conn->insert_id ?: true;
+        }
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
             printflow_db_record_error([
-                'stage' => 'execute_query',
+                'stage' => 'prepare',
                 'error' => $conn->error,
                 'errno' => $conn->errno,
                 'sql' => $sql,
             ]);
-            error_log("DB Execute Error: " . $conn->error);
+            error_log("DB Prepare Error: " . $conn->error);
             return false;
         }
-        return $conn->insert_id ?: true;
-    }
-    
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        error_log("DB Prepare Error: " . $conn->error);
+
+        $stmt->bind_param($types, ...$params);
+        if (!$stmt->execute()) {
+            printflow_db_record_error([
+                'stage' => 'execute',
+                'error' => $stmt->error,
+                'errno' => $stmt->errno,
+                'sql' => $sql,
+            ]);
+            error_log("DB Execute Error: " . $stmt->error);
+            $stmt->close();
+            return false;
+        }
+
+        $insertId = $stmt->insert_id ?: $conn->insert_id;
+        $stmt->close();
+        return $insertId ?: true;
+    } catch (Throwable $e) {
+        printflow_db_record_error([
+            'stage' => 'exception',
+            'error' => $e->getMessage(),
+            'class' => get_class($e),
+            'sql' => $sql,
+        ]);
+        error_log("DB Exception: " . $e->getMessage());
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->close();
+        }
         return false;
     }
-    
-    $stmt->bind_param($types, ...$params);
-    if (!$stmt->execute()) {
-        error_log("DB Execute Error: " . $stmt->error);
-        return false;
-    }
-    
-    return $stmt->insert_id ?: true;
 }
 
 function db_escape($str) {

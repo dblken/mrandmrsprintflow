@@ -16,6 +16,9 @@ $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all' ? (int)($_SESSION['branch_id'] ?? 1) : (int)$staffCtx['selected_branch_id'];
 $branch_name = $staffCtx['branch_name'];
 
+// Some production databases may not have `orders.order_type` (older schema).
+$hasOrderType = function_exists('db_table_has_column') ? db_table_has_column('orders', 'order_type') : true;
+
 // --- 1. SET DATE RANGE & FILTERS ---
 $page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 15;
@@ -129,12 +132,19 @@ $sales_today_res = db_query($sales_today_sql, $sales_today_types, $sales_today_p
 $total_sales_today = $sales_today_res[0]['total'] ?? 0;
 
 // --- Dashboard Global/Summary Metrics ---
-$completed_products_sql = "
-    SELECT COUNT(DISTINCT o.order_id) as count 
-    FROM orders o 
-    JOIN order_items oi ON o.order_id = oi.order_id
-    JOIN products p ON oi.product_id = p.product_id
-    WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product'";
+$completed_products_sql = $hasOrderType
+    ? "
+        SELECT COUNT(DISTINCT o.order_id) as count 
+        FROM orders o 
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
+        WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product'"
+    : "
+        SELECT COUNT(DISTINCT o.order_id) as count 
+        FROM orders o 
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
+        WHERE o.status = 'Completed' AND o.branch_id = ?";
 $completed_products_types = 'i';
 $completed_products_params = [$staffBranchId];
 if ($has_timeframe_range) {
@@ -162,8 +172,11 @@ if ($has_timeframe_range) {
     $completed_custom_params[] = $range_start;
     $completed_custom_params[] = $range_end;
 }
-$completed_custom_sql .= "
-      AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')";
+$completed_custom_sql .= $hasOrderType
+    ? "
+          AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')"
+    : "
+          AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL)";
 $completed_custom_res = db_query($completed_custom_sql, $completed_custom_types, $completed_custom_params);
 $completed_custom_count = $completed_custom_res[0]['count'] ?? 0;
 $pending_reviews_res = db_query("SELECT COUNT(*) as count FROM reviews");
