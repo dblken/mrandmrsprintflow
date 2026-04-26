@@ -95,7 +95,9 @@ try {
         );
     }
 
-    if (!empty($existing)) {
+    $action = strtolower(trim((string)($_POST['action'] ?? 'like')));
+
+    if (!empty($existing) && $action === 'unlike') {
         if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "DELETE FROM review_helpful
@@ -119,7 +121,10 @@ try {
         }
         $voted = false;
     } else {
-        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
+        if (!empty($existing) && $action !== 'unlike') {
+            $ok = true;
+            $voted = true;
+        } elseif ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type)
                  VALUES (?, ?, ?, 'Customer')
@@ -129,10 +134,11 @@ try {
                 'iii',
                 [$review_id, $user_id, $customer_id]
             );
+            $voted = true;
         } else {
             $ok = db_execute("INSERT INTO review_helpful (review_id, user_id, user_type) VALUES (?, ?, ?)", 'iis', [$review_id, $user_id, $user_type !== '' ? $user_type : 'User']);
+            $voted = true;
         }
-        $voted = true;
     }
     if (!$ok) {
         throw new RuntimeException('Could not update helpful vote.');

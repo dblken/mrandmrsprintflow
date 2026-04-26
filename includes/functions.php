@@ -1510,7 +1510,16 @@ function redirect($url) {
  */
 function get_unread_notification_count($user_id, $user_type) {
     if ($user_type === 'Customer') {
-        $result = db_query("SELECT COUNT(*) as count FROM notifications WHERE customer_id = ? AND is_read = 0", 'i', [$user_id]);
+        $rows = db_query(
+            "SELECT notification_id, customer_id, message, type, data_id, is_read, created_at
+             FROM notifications
+             WHERE customer_id = ? AND is_read = 0
+             ORDER BY created_at DESC, notification_id DESC",
+            'i',
+            [$user_id]
+        ) ?: [];
+        $rows = printflow_dedupe_notifications($rows, 300);
+        return count($rows);
     } else {
         $rows = db_query(
             "SELECT notification_id, user_id, message, type, data_id, is_read, created_at
@@ -1526,10 +1535,10 @@ function get_unread_notification_count($user_id, $user_type) {
             $branchId = printflow_branch_filter_for_user();
         }
 
-        return count(printflow_filter_notifications_for_user($rows, (string)$user_type, is_int($branchId) ? $branchId : null));
+        $rows = printflow_filter_notifications_for_user($rows, (string)$user_type, is_int($branchId) ? $branchId : null);
+        $rows = printflow_dedupe_notifications($rows, 300);
+        return count($rows);
     }
-    
-    return (!empty($result) && isset($result[0]['count'])) ? (int)$result[0]['count'] : 0;
 }
 
 /**

@@ -1337,7 +1337,7 @@ async function markHelpful(reviewId, btn) {
         if (data.success) {
             btn.dataset.voted = data.voted ? '1' : '0';
             btn.classList.toggle('voted', !!data.voted);
-            btn.querySelector('.helpful-label').textContent = data.voted ? data.count : 'Helpful';
+            btn.querySelector('.helpful-label').textContent = data.count;
         } else {
             console.error('Helpful vote failed:', data.error || res.statusText);
         }
