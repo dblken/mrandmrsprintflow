@@ -1733,10 +1733,93 @@ function staff_admin_notification_image_url(array $notification, string $fallbac
     return $preview['image_url'] ?: $fallback;
 }
 
+function printflow_notification_order_snapshot(int $order_id): array {
+    static $cache = [];
+
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) {
+        return ['status' => '', 'order_type' => ''];
+    }
+    if (isset($cache[$order_id])) {
+        return $cache[$order_id];
+    }
+
+    $rows = db_query(
+        "SELECT status, order_type
+         FROM orders
+         WHERE order_id = ?
+         LIMIT 1",
+        'i',
+        [$order_id]
+    );
+
+    $cache[$order_id] = [
+        'status' => trim((string)($rows[0]['status'] ?? '')),
+        'order_type' => strtolower(trim((string)($rows[0]['order_type'] ?? ''))),
+    ];
+
+    return $cache[$order_id];
+}
+
+function printflow_notification_customer_status(string $status, string $order_type): string {
+    $status = trim($status);
+    $order_type = strtolower(trim($order_type));
+
+    if ($order_type === 'product' && in_array($status, ['Processing', 'In Production', 'Printing', 'Approved Design', 'Ready for Pickup'], true)) {
+        return 'Ready for Pickup';
+    }
+
+    return $status;
+}
+
+function printflow_message_is_status_update(string $message): bool {
+    $message = strtolower(trim($message));
+    if ($message === '') {
+        return false;
+    }
+
+    $markers = [
+        'pending confirmation',
+        'needs revision',
+        'ready for payment',
+        'being verified',
+        'being processed',
+        'in production',
+        'ready for pickup',
+        'to pickup',
+        'status has been updated',
+        'has been completed',
+        'may now rate',
+        'has been cancelled',
+    ];
+
+    foreach ($markers as $marker) {
+        if (strpos($message, $marker) !== false) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function printflow_notification_display_message(array $notification): string {
     $message = (string)($notification['message'] ?? '');
     $data_id = (int)($notification['data_id'] ?? 0);
     $type = strtolower((string)($notification['type'] ?? ''));
+
+    if ($data_id > 0 && in_array($type, ['order', 'status'], true) && printflow_message_is_status_update($message)) {
+        $snapshot = printflow_notification_order_snapshot($data_id);
+        $current_status = printflow_notification_customer_status(
+            (string)($snapshot['status'] ?? ''),
+            (string)($snapshot['order_type'] ?? '')
+        );
+        if ($current_status !== '') {
+            $payload = get_order_status_notification_payload($data_id, $current_status);
+            if (!empty($payload['message'])) {
+                return (string)$payload['message'];
+            }
+        }
+    }
 
     if ($data_id > 0 && $type === 'order') {
         $preview = printflow_order_notification_preview($data_id);
