@@ -9,8 +9,8 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0, 5, 10, 0.65);
-        backdrop-filter: blur(8px);
+        background: rgba(0, 5, 10, 0.45);
+        backdrop-filter: blur(6px);
         z-index: 30000;
         align-items: center;
         justify-content: center;
@@ -22,23 +22,22 @@
         opacity: 1;
     }
     .pf-modal-card {
-        background: #081d26; /* Solid dark color to support the SVG masking */
-        background-image: linear-gradient(165deg, rgba(10, 37, 48, 0.98), rgba(7, 26, 34, 1));
-        border-radius: 1.5rem;
+        background: #ffffff;
+        border-radius: 1.25rem;
         width: 100%;
         max-width: 420px;
         padding: 2.5rem 2rem;
         text-align: center;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 35, 43, 0.08);
         transform: scale(0.9);
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        border: 1px solid rgba(83, 197, 224, 0.2);
+        border: 1px solid #e5e7eb;
     }
     .pf-modal-overlay.active .pf-modal-card {
         transform: scale(1);
     }
-    
-    /* Checkmark Animation */
+
+    /* Checkmark Animation — masks must match card background (#ffffff) */
     .pf-success-checkmark {
         width: 80px;
         height: 80px;
@@ -72,7 +71,7 @@
         content: '';
         height: 100px;
         position: absolute;
-        background: #081d26; /* Masks the animation over the dark background */
+        background: #ffffff; /* Must match card background */
         transform: rotate(-45deg);
     }
     .pf-icon-line {
@@ -82,7 +81,7 @@
         border-radius: 2px;
         position: absolute;
         z-index: 10;
-        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
     }
     .pf-icon-line.line-tip {
         top: 46px;
@@ -117,7 +116,7 @@
         height: 85px;
         position: absolute;
         transform: rotate(-45deg);
-        background-color: #081d26; /* Masks the animation over the dark background */
+        background-color: #ffffff; /* Must match card background */
     }
 
     @keyframes rotate-circle {
@@ -141,17 +140,17 @@
     }
 
     .pf-modal-title {
-        font-size: 1.65rem;
+        font-size: 1.5rem;
         font-weight: 800;
-        color: #ffffff;
-        margin-bottom: 0.75rem;
+        color: #0f172a;
+        margin-bottom: 0.6rem;
         letter-spacing: -0.01em;
     }
     .pf-modal-message {
-        color: #a6e7f6;
+        color: #475569;
         line-height: 1.6;
         margin-bottom: 2rem;
-        font-size: 0.95rem;
+        font-size: 0.925rem;
         font-weight: 500;
     }
     .pf-modal-actions {
@@ -160,37 +159,38 @@
         gap: 0.75rem;
     }
     .pf-modal-btn {
-        padding: 0.95rem 1.5rem;
-        border-radius: 0.85rem;
+        padding: 0.9rem 1.5rem;
+        border-radius: 0.65rem;
         font-weight: 800;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
         text-decoration: none;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         border: none;
         cursor: pointer;
         text-transform: uppercase;
         letter-spacing: 0.04em;
+        display: block;
     }
     .pf-modal-btn-primary {
-        background: linear-gradient(135deg, #53C5E0, #32a1c4);
+        background: #00232b;
         color: #ffffff;
-        box-shadow: 0 6px 16px rgba(50, 161, 196, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 14px rgba(0, 35, 43, 0.2);
     }
     .pf-modal-btn-primary:hover {
-        background: linear-gradient(135deg, #32a1c4, #2788a8);
+        background: #003d4d;
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(50, 161, 196, 0.35);
+        box-shadow: 0 6px 18px rgba(0, 35, 43, 0.28);
+        color: #ffffff;
     }
     .pf-modal-btn-secondary {
-        background: rgba(10, 37, 48, 0.6);
-        color: #e2e8f0;
-        border: 1px solid rgba(83, 197, 224, 0.25);
+        background: #f1f5f9;
+        color: #374151;
+        border: 1px solid #e2e8f0;
     }
     .pf-modal-btn-secondary:hover {
-        background: rgba(15, 54, 70, 0.9);
-        border-color: #53c5e0;
-        color: #ffffff;
+        background: #e2e8f0;
+        color: #111827;
+        transform: translateY(-1px);
     }
 </style>
 
