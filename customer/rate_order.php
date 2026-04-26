@@ -112,7 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif ($_FILES['review_video']['size'] > 15 * 1024 * 1024) {
                     $error = 'Video size exceeds 15MB limit.';
                 } else {
-                    $upload = upload_file($_FILES['review_video'], ['mp4'], 'reviews_videos');
+                    $video_name = 'review_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.mp4';
+                    $upload = upload_file($_FILES['review_video'], ['mp4'], 'reviews_videos', $video_name);
                     if (empty($upload['success'])) {
                         $error = $upload['error'] ?? 'Failed to upload video.';
                     } else {

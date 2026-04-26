@@ -2770,20 +2770,144 @@ function pf_resolve_review_video_file(string $video_path): string
 }
 
 /**
- * Build a safe review video URL only when the stored file still exists.
+ * Encode URL path segments while preserving slashes and optional query/fragment.
  */
-function pf_get_review_video_url(int $review_id, string $video_path, ?string $base_path = null): string
+function pf_encode_url_path(string $url): string
 {
-    if ($review_id <= 0 || pf_resolve_review_video_file($video_path) === '') {
-        return '';
+    $url = trim($url);
+    if ($url === '') {
+        return $url;
     }
 
-    $base = $base_path;
-    if ($base === null) {
-        $base = pf_app_base_path();
+    if (preg_match('#^https?://#i', $url)) {
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return $url;
+        }
+
+        $path = $parts['path'] ?? '';
+        $path = implode('/', array_map('rawurlencode', array_map('rawurldecode', explode('/', $path))));
+        $rebuilt = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '');
+        if (!empty($parts['port'])) {
+            $rebuilt .= ':' . $parts['port'];
+        }
+        $rebuilt .= $path;
+        if (isset($parts['query'])) {
+            $rebuilt .= '?' . $parts['query'];
+        }
+        if (isset($parts['fragment'])) {
+            $rebuilt .= '#' . $parts['fragment'];
+        }
+        return $rebuilt;
     }
 
-    return rtrim((string)$base, '/') . '/public/serve_review_video.php?review_id=' . $review_id;
+    $fragment = '';
+    $query = '';
+    $path = $url;
+
+    $hash_pos = strpos($path, '#');
+    if ($hash_pos !== false) {
+        $fragment = substr($path, $hash_pos);
+        $path = substr($path, 0, $hash_pos);
+    }
+
+    $query_pos = strpos($path, '?');
+    if ($query_pos !== false) {
+        $query = substr($path, $query_pos);
+        $path = substr($path, 0, $query_pos);
+    }
+
+    $segments = explode('/', $path);
+    $encoded = [];
+    foreach ($segments as $index => $segment) {
+        if ($segment === '' && ($index === 0 || $index === count($segments) - 1)) {
+            $encoded[] = $segment;
+            continue;
+        }
+        $encoded[] = rawurlencode(rawurldecode($segment));
+    }
+
+    return implode('/', $encoded) . $query . $fragment;
+}
+
+/**
+ * Build direct public review-video URLs, avoiding PHP file serving in normal playback.
+ */
+function pf_review_video_direct_candidates(string $video_path, ?string $base_path = null): array
+{
+    $raw = trim($video_path);
+    if ($raw === '') {
+        return [];
+    }
+
+    $base = rtrim((string)($base_path ?? pf_app_base_path()), '/');
+    $variants = [];
+
+    $normalized = str_replace('\\', '/', $raw);
+    if (preg_match('#^https?://#i', $normalized)) {
+        $variants[] = pf_encode_url_path($normalized);
+    } else {
+        if (preg_match('#^[A-Za-z]:/#', $normalized)) {
+            $normalized = preg_replace('#^[A-Za-z]:#', '', $normalized);
+        }
+        if (strpos($normalized, '/printflow/') === 0) {
+            $normalized = substr($normalized, strlen('/printflow'));
+        }
+
+        $uploads_pos = strpos($normalized, '/uploads/');
+        $public_pos = strpos($normalized, '/public/');
+        if ($uploads_pos !== false) {
+            $normalized = substr($normalized, $uploads_pos);
+        } elseif ($public_pos !== false) {
+            $normalized = substr($normalized, $public_pos);
+        } elseif ($normalized !== '' && $normalized[0] !== '/') {
+            $normalized = '/' . ltrim($normalized, '/');
+        }
+
+        if ($normalized !== '') {
+            $variants[] = $normalized;
+            if (strpos($normalized, '/public/') === 0) {
+                $variants[] = substr($normalized, strlen('/public'));
+            }
+        }
+
+        $basename = basename($normalized !== '' ? $normalized : $raw);
+        if ($basename !== '' && $basename !== '.' && $basename !== '/') {
+            $variants[] = '/uploads/reviews_videos/' . $basename;
+            $variants[] = '/public/uploads/reviews_videos/' . $basename;
+            $variants[] = '/public/assets/uploads/reviews_videos/' . $basename;
+        }
+    }
+
+    $resolved = pf_resolve_review_video_file($raw);
+    if ($resolved !== '') {
+        $resolved = str_replace('\\', '/', $resolved);
+        $uploads_root = str_replace('\\', '/', realpath(__DIR__ . '/../uploads') ?: (__DIR__ . '/../uploads'));
+        $public_root = str_replace('\\', '/', realpath(__DIR__ . '/../public') ?: (__DIR__ . '/../public'));
+
+        if (strpos($resolved, $uploads_root . '/') === 0) {
+            $variants[] = '/uploads/' . ltrim(substr($resolved, strlen($uploads_root) + 1), '/');
+        } elseif (strpos($resolved, $public_root . '/') === 0) {
+            $variants[] = '/public/' . ltrim(substr($resolved, strlen($public_root) + 1), '/');
+        }
+    }
+
+    $clean = [];
+    foreach ($variants as $variant) {
+        $variant = trim((string)$variant);
+        if ($variant === '') {
+            continue;
+        }
+        if (!preg_match('#^https?://#i', $variant) && $variant[0] !== '/') {
+            $variant = '/' . ltrim($variant, '/');
+        }
+        if ($base !== '' && !preg_match('#^https?://#i', $variant) && strpos($variant, $base . '/') !== 0) {
+            $variant = $base . $variant;
+        }
+        $clean[pf_encode_url_path($variant)] = true;
+    }
+
+    return array_keys($clean);
 }
 
 /**
