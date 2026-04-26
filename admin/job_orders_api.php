@@ -134,7 +134,10 @@ try {
                         LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
                         WHERE o_scope.order_id = jo.order_id
                           AND o_scope.order_type = 'custom'
-                          AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
+                          AND (
+                              COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
+                              OR LOWER(TRIM(p_scope.category)) LIKE '%service%'
+                          )
                     )
                 )";
             }
@@ -683,7 +686,6 @@ try {
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
                        o.total_amount AS order_total,
-                       COALESCE(o.estimated_price, 0) AS order_estimated_price,
                        o.payment_proof_path, o.downpayment_amount,
                        o.order_source
                 FROM customizations cust
@@ -753,7 +755,7 @@ try {
             }
 
             // Use order total if set (price was already approved)
-            $estimated_total = (float)($cust['order_estimated_price'] ?? 0);
+            $estimated_total = (float)($cust['order_estimated_price'] ?? $cust['order_total'] ?? 0);
             $final_price = (float)($cust['order_total'] ?? 0);
             $linked_job_id = 0;
             $linked_job = null;
@@ -939,8 +941,8 @@ try {
                 'height_ft'            => $height_ft,
                 'quantity'             => $total_qty,
                 'status'               => $mapped_status,
-                'estimated_total'      => (float)($o['estimated_price'] ?? 0),
-                'estimated_price'      => (float)($o['estimated_price'] ?? 0),
+                'estimated_total'      => (float)($o['total_amount'] ?? 0),
+                'estimated_price'      => (float)($o['total_amount'] ?? 0),
                 'final_price'          => (float)($o['total_amount'] ?? 0),
                 'amount_paid'          => (($o['payment_status'] ?? '') === 'Paid') ? (float)($o['total_amount'] ?? 0) : (float)($o['amount_paid'] ?? 0),
                 'job_order_id'         => $linked_job_id > 0 ? $linked_job_id : null,

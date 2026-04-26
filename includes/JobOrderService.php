@@ -733,6 +733,13 @@ class JobOrderService {
 
     private static function isServiceStoreOrderItem(array $item, array $custom): bool {
         $productType = strtolower(trim((string)($item['product_type'] ?? '')));
+        $category = strtolower(trim((string)($item['category'] ?? '')));
+        
+        // If category contains 'service', it's a service order
+        if (strpos($category, 'service') !== false) {
+            return true;
+        }
+
         if (in_array($productType, ['fixed', 'fixed product', 'product'], true)) {
             return false;
         }

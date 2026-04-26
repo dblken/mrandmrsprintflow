@@ -1274,6 +1274,7 @@ if ($showLatestCustomizationOnly) {
                                         <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); font-weight:800; color:#0f766e; font-size:20px;">₱</span>
                                         <input type="text" 
                                                placeholder="0.00"
+                                               x-init="$watch('showDetailsModal', v => { if(v) $nextTick(() => { $el.value = Number(jobPriceInput || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }); })"
                                                x-on:input="
                                                    let val = $event.target.value.replace(/[^0-9.]/g, '');
                                                    let parts = val.split('.');
