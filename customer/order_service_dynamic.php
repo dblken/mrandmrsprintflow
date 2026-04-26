@@ -1005,18 +1005,18 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                              
                              <?php if(!empty($rev_imgs)): ?>
                                 <div style="display:flex; overflow-x:auto; gap:12px; margin-bottom:1rem; padding-bottom:10px; scrollbar-width: thin;">
-                                    <?php foreach($rev_imgs as $img): 
+                                    <?php foreach($rev_imgs as $imgIndex => $img): 
                                         $ipath = pf_normalize_service_media_path((string)($img['image_path'] ?? ''), $base_path, '');
                                     ?>
                                         <div style="flex: 0 0 140px; aspect-ratio:1; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; background: #f9fafb;">
-                                            <img src="<?php echo htmlspecialchars($ipath); ?>" alt="Review image" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(this.src, '_blank')" onerror="this.closest('div').style.display='none'">
+                                            <img src="<?php echo htmlspecialchars($ipath); ?>" alt="Review image" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="openReviewImageGallery(<?php echo (int)$review['id']; ?>, <?php echo (int)$imgIndex; ?>)" data-review-id="<?php echo (int)$review['id']; ?>" data-image-index="<?php echo (int)$imgIndex; ?>" class="review-image-item" onerror="this.closest('div').style.display='none'">
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
 
                             <?php if($has_video): 
-                                $vpath = pf_normalize_service_media_path((string)$review['video_path'], $base_path, '');
+                                $vpath = (BASE_PATH ?: '') . '/public/serve_review_video.php?review_id=' . (int)$review['id'];
                             ?>
                                 <?php if ($vpath !== ''): ?>
                                     <div style="margin-bottom:0.75rem;">
@@ -1079,10 +1079,16 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 <div id="pocMediaModal" class="poc-media-modal" aria-hidden="true">
     <div class="poc-media-modal-inner" role="dialog" aria-modal="true" aria-label="Media viewer">
         <button type="button" id="pocMediaClose" class="poc-media-close" aria-label="Close media viewer">&times;</button>
+        <button type="button" id="pocMediaPrev" class="poc-media-nav" aria-label="Previous image" hidden>
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
         <img id="pocMediaImg" class="poc-media-full" alt="Media preview" hidden>
         <video id="pocMediaVideo" class="poc-media-full" controls controlsList="nodownload" disablePictureInPicture playsinline hidden oncontextmenu="return false">
             <source id="pocMediaVideoSource" src="" type="video/mp4">
         </video>
+        <button type="button" id="pocMediaNext" class="poc-media-nav" aria-label="Next image" hidden>
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
     </div>
 </div>
 
@@ -1106,6 +1112,9 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .poc-media-modal-inner { position:relative; max-width:90vw; max-height:90vh; }
 .poc-media-full { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#0b1220; }
 .poc-media-close { position:absolute; top:-12px; right:-12px; width:36px; height:36px; border-radius:999px; border:none; background:#111827; color:#fff; font-size:1.5rem; line-height:1; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
+.poc-media-nav { position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border:none; border-radius:999px; background:rgba(2,6,23,0.76); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; z-index:5; }
+#pocMediaPrev { left:-52px; }
+#pocMediaNext { right:-52px; }
 
 .service-media-video-wrap { background: #0b1220; display: flex; align-items: center; justify-content: center; padding: 0; box-sizing: border-box; }
 .service-media-video { width: 100%; height: 100%; display: block; object-fit: cover; background: #0b1220; border-radius: 0; }
@@ -1197,20 +1206,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalVideo = document.getElementById('pocMediaVideo');
     const modalVideoSource = document.getElementById('pocMediaVideoSource');
     const closeBtn = document.getElementById('pocMediaClose');
+    const prevBtn = document.getElementById('pocMediaPrev');
+    const nextBtn = document.getElementById('pocMediaNext');
+    let modalGallery = [];
+    let modalGalleryIndex = 0;
 
-    if (!modal || !modalImg || !modalVideo || !modalVideoSource || !closeBtn) return;
+    if (!modal || !modalImg || !modalVideo || !modalVideoSource || !closeBtn || !prevBtn || !nextBtn) return;
+
+    const renderGalleryNav = () => {
+        const show = modalGallery.length > 1 && !modalImg.hidden;
+        prevBtn.hidden = !show;
+        nextBtn.hidden = !show;
+    };
+
+    const renderGalleryImage = () => {
+        const src = modalGallery[modalGalleryIndex] || '';
+        if (!src) return;
+        modalVideo.hidden = true;
+        modalImg.hidden = false;
+        modalImg.src = src;
+        renderGalleryNav();
+    };
 
     const openMedia = (type, src) => {
         if (!src) return;
+        modalGallery = [];
+        modalGalleryIndex = 0;
         if (type === 'video') {
             modalImg.hidden = true;
             modalVideo.hidden = false;
             modalVideoSource.src = src;
             modalVideo.load();
+            modalVideo.play().catch(() => {});
+            renderGalleryNav();
         } else {
             modalVideo.hidden = true;
             modalImg.hidden = false;
             modalImg.src = src;
+            renderGalleryNav();
         }
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
@@ -1224,8 +1257,37 @@ document.addEventListener('DOMContentLoaded', function() {
         modalVideo.pause();
         modalVideoSource.src = '';
         modalVideo.load();
+        modalGallery = [];
+        modalGalleryIndex = 0;
+        prevBtn.hidden = true;
+        nextBtn.hidden = true;
         document.body.style.overflow = '';
     };
+
+    window.openReviewImageGallery = (reviewId, startIndex) => {
+        const imgs = Array.from(document.querySelectorAll('.review-image-item[data-review-id="' + Number(reviewId) + '"]'));
+        modalGallery = imgs.map((img) => img.getAttribute('src')).filter(Boolean);
+        if (!modalGallery.length) return;
+        modalGalleryIndex = Math.max(0, Math.min(Number(startIndex) || 0, modalGallery.length - 1));
+        renderGalleryImage();
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    prevBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!modalGallery.length) return;
+        modalGalleryIndex = (modalGalleryIndex - 1 + modalGallery.length) % modalGallery.length;
+        renderGalleryImage();
+    });
+
+    nextBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!modalGallery.length) return;
+        modalGalleryIndex = (modalGalleryIndex + 1) % modalGallery.length;
+        renderGalleryImage();
+    });
 
     document.querySelectorAll('.poc-media-trigger').forEach(btn => {
         btn.addEventListener('click', function() {

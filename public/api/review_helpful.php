@@ -15,8 +15,10 @@ function review_helpful_ensure_schema(): array {
         id INT AUTO_INCREMENT PRIMARY KEY,
         review_id INT NOT NULL,
         user_id INT NOT NULL,
+        customer_id INT NULL,
+        user_type VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_review_user (review_id, user_id)
+        UNIQUE KEY uq_review_actor (review_id, user_id, user_type, customer_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     if (!$table_ready) {
         throw new RuntimeException('Could not prepare review helpful table.');
@@ -30,6 +32,14 @@ function review_helpful_ensure_schema(): array {
     if (!isset($columns['user_type'])) {
         db_execute("ALTER TABLE review_helpful ADD COLUMN user_type VARCHAR(20) NULL AFTER customer_id");
         $columns['user_type'] = true;
+    }
+
+    $indexes = array_column(db_query("SHOW INDEX FROM review_helpful") ?: [], 'Key_name');
+    if (in_array('uq_review_user', $indexes, true)) {
+        db_execute("ALTER TABLE review_helpful DROP INDEX uq_review_user");
+    }
+    if (!in_array('uq_review_actor', $indexes, true)) {
+        db_execute("ALTER TABLE review_helpful ADD UNIQUE KEY uq_review_actor (review_id, user_id, user_type, customer_id)");
     }
 
     return $columns;
@@ -65,32 +75,41 @@ try {
             "SELECT id
              FROM review_helpful
              WHERE review_id = ?
-               AND (
-                    (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
-                    OR (customer_id IS NULL AND user_id = ?)
-               )
+              AND customer_id = ?
+              AND COALESCE(user_type, 'Customer') = 'Customer'
              LIMIT 1",
-            'iii',
-            [$review_id, $customer_id, $user_id]
+            'ii',
+            [$review_id, $customer_id]
         );
     } else {
-        $existing = db_query("SELECT id FROM review_helpful WHERE review_id = ? AND user_id = ? LIMIT 1", 'ii', [$review_id, $user_id]);
+        $existing = db_query(
+            "SELECT id FROM review_helpful
+             WHERE review_id = ?
+             AND user_id = ?
+             AND COALESCE(user_type, 'User') <> 'Customer'
+             LIMIT 1",
+            'ii',
+            [$review_id, $user_id]
+        );
     }
 
     if (!empty($existing)) {
         if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "DELETE FROM review_helpful
-                 WHERE review_id = ?
-                   AND (
-                        (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
-                        OR (customer_id IS NULL AND user_id = ?)
-                   )",
-                'iii',
-                [$review_id, $customer_id, $user_id]
+                 WHERE review_id = ? AND customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer'",
+                'ii',
+                [$review_id, $customer_id]
             );
         } else {
-            $ok = db_execute("DELETE FROM review_helpful WHERE review_id = ? AND user_id = ?", 'ii', [$review_id, $user_id]);
+            $ok = db_execute(
+                "DELETE FROM review_helpful
+                 WHERE review_id = ?
+                 AND user_id = ?
+                 AND COALESCE(user_type, 'User') <> 'Customer'",
+                'ii',
+                [$review_id, $user_id]
+            );
         }
         $voted = false;
     } else {

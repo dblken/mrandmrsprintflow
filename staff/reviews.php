@@ -527,6 +527,12 @@ $page_title = 'Review Management - Staff';
             color: #fff;
             font-size: 24px;
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            pointer-events: none;
         }
 
         .video-thumb::before {
@@ -653,6 +659,10 @@ $page_title = 'Review Management - Staff';
             max-width: 90%;
             max-height: 90%;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
         }
 
         .rv-close {
@@ -662,6 +672,26 @@ $page_title = 'Review Management - Staff';
             color: #fff;
             font-size: 30px;
             cursor: pointer;
+        }
+
+        .rv-nav-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(15, 23, 42, 0.78);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.18s ease, background 0.18s ease;
+            z-index: 2;
+        }
+
+        .rv-nav-btn:hover {
+            background: rgba(2, 6, 23, 0.9);
+            transform: scale(1.08);
         }
 
         .main-content {
@@ -1266,11 +1296,16 @@ $page_title = 'Review Management - Staff';
                                                     </div>
                                                 <?php endif; ?>
 
-                                                <?php foreach ($review['images'] as $img):
+                                                <?php
+                                                $imageGalleryPaths = array_values(array_filter(array_map(static function ($mediaImg) {
+                                                    return pf_normalize_review_media_path((string)($mediaImg['image_path'] ?? ''), BASE_PATH, '');
+                                                }, $review['images'] ?? [])));
+                                                $imageGalleryJson = json_encode($imageGalleryPaths, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                                                foreach ($review['images'] as $imgIndex => $img):
                                                     $ipath = pf_normalize_review_media_path((string)($img['image_path'] ?? ''), BASE_PATH, '');
                                                     ?>
                                                     <?php if ($ipath !== ''): ?>
-                                                        <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" alt="Review image" onclick="openMediaModal('<?php echo htmlspecialchars($ipath); ?>', 'image')">
+                                                        <img src="<?php echo htmlspecialchars($ipath); ?>" class="media-thumb" style="width:100%; aspect-ratio:1;" alt="Review image" onclick='openImageGallery(<?php echo $imageGalleryJson ?: "[]"; ?>, <?php echo (int)$imgIndex; ?>)'>
                                                     <?php endif; ?>
                                                 <?php endforeach; ?>
                                             </div>
@@ -1324,7 +1359,13 @@ $page_title = 'Review Management - Staff';
     <!-- Media Modal -->
     <div id="mediaModal" class="rv-modal" onclick="closeMediaModal()">
         <span class="rv-close">&times;</span>
+        <button type="button" id="rvPrevBtn" class="rv-nav-btn" style="display:none;" onclick="event.stopPropagation(); changeModalImage(-1);" aria-label="Previous image">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
         <div class="rv-modal-content" id="modalContent" onclick="event.stopPropagation()"></div>
+        <button type="button" id="rvNextBtn" class="rv-nav-btn" style="display:none;" onclick="event.stopPropagation(); changeModalImage(1);" aria-label="Next image">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
     </div>
 
     <script>
@@ -1380,11 +1421,44 @@ $page_title = 'Review Management - Staff';
             };
         }
 
+        let rvModalGallery = [];
+        let rvModalIndex = 0;
+
+        function renderModalImage() {
+            const content = document.getElementById('modalContent');
+            const prevBtn = document.getElementById('rvPrevBtn');
+            const nextBtn = document.getElementById('rvNextBtn');
+            const src = rvModalGallery[rvModalIndex] || '';
+            content.innerHTML = src ? `<img src="${src}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">` : '';
+            const hasMultiple = rvModalGallery.length > 1;
+            prevBtn.style.display = hasMultiple ? 'inline-flex' : 'none';
+            nextBtn.style.display = hasMultiple ? 'inline-flex' : 'none';
+        }
+
+        function openImageGallery(images, startIndex = 0) {
+            rvModalGallery = Array.isArray(images) ? images.filter(Boolean) : [];
+            if (!rvModalGallery.length) return;
+            rvModalIndex = Math.max(0, Math.min(Number(startIndex) || 0, rvModalGallery.length - 1));
+            renderModalImage();
+            document.getElementById('mediaModal').classList.add('open');
+        }
+
+        function changeModalImage(step) {
+            if (!rvModalGallery.length) return;
+            rvModalIndex = (rvModalIndex + step + rvModalGallery.length) % rvModalGallery.length;
+            renderModalImage();
+        }
+
         function openMediaModal(src, type) {
             const modal = document.getElementById('mediaModal');
             const content = document.getElementById('modalContent');
+            const prevBtn = document.getElementById('rvPrevBtn');
+            const nextBtn = document.getElementById('rvNextBtn');
+            rvModalGallery = [];
             if (type === 'video') {
                 content.innerHTML = `<video src="${src}" controls autoplay playsinline preload="metadata" style="max-height: 80vh; max-width: 100%; border-radius: 12px; background:#000;"></video>`;
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
             } else {
                 content.innerHTML = `<img src="${src}" style="max-height: 80vh; max-width: 100%; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">`;
             }
@@ -1394,6 +1468,8 @@ $page_title = 'Review Management - Staff';
         function closeMediaModal() {
             document.getElementById('mediaModal').classList.remove('open');
             document.getElementById('modalContent').innerHTML = '';
+            rvModalGallery = [];
+            rvModalIndex = 0;
         }
 
         function applyQuickReply(select, id) {

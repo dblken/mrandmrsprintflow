@@ -67,7 +67,16 @@ $size = filesize($fullPath);
 $start = 0;
 $end = $size - 1;
 
-header('Content-Type: video/mp4');
+$ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+$mime = match ($ext) {
+    'webm' => 'video/webm',
+    'mov' => 'video/quicktime',
+    'ogv' => 'video/ogg',
+    'avi' => 'video/x-msvideo',
+    default => 'video/mp4',
+};
+
+header('Content-Type: ' . $mime);
 header('Accept-Ranges: bytes');
 header('X-Content-Type-Options: nosniff');
 
