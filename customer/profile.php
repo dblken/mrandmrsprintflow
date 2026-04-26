@@ -157,6 +157,7 @@ if (function_exists('printflow_ensure_customers_auth_provider_column')) {
 // Get customer data
 $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
 $customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+$omit_current_password_on_profile = $customer_uses_google_signin && empty($customer['password_hash']);
 
 function customer_profile_redirect_after_completion(string $return_to): void {
     if ($return_to === '' || !is_profile_complete()) {
@@ -304,6 +305,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         $new_password = (string)($_POST['new_password'] ?? '');
         $confirm_password = (string)($_POST['confirm_password'] ?? '');
         $googleMode = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+        $has_stored_password = !empty($customer['password_hash']);
+        $google_set_password_first_time = $googleMode && !$has_stored_password;
 
         $validate_new_password = static function (string $pw) {
             $pw_errors = [];
@@ -325,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
             return $pw_errors;
         };
 
-        if ($googleMode) {
+        if ($google_set_password_first_time) {
             if (empty($new_password)) {
                 $error = 'New password is required.';
             } else {
@@ -341,6 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                         $success = 'Password set successfully! You can now sign in with your email and this password, or continue using Google.';
                         $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
                         $customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+                        $omit_current_password_on_profile = $customer_uses_google_signin && empty($customer['password_hash']);
                     } else {
                         $error = 'Failed to set password.';
                     }
@@ -364,6 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                         $success = 'Password changed successfully!';
                         $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
                         $customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+                        $omit_current_password_on_profile = $customer_uses_google_signin && empty($customer['password_hash']);
                     } else {
                         $error = 'Failed to change password.';
                     }
@@ -1011,7 +1016,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- Security Section -->
                 <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
                     <h3 class="profile-card-title">Security & Password</h3>
-                    <?php if (!empty($customer_uses_google_signin)): ?>
+                    <?php if (!empty($omit_current_password_on_profile)): ?>
                     <p style="font-size:0.875rem;color:#64748b;margin:0 0 1rem;line-height:1.5;">You signed in with Google. Create a password here if you want to sign in with your email and password as well.</p>
                     <?php endif; ?>
 
@@ -1020,7 +1025,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <input type="hidden" name="change_password" value="1">
 
                         <div class="form-grid">
-                            <?php if (empty($customer_uses_google_signin)): ?>
+                            <?php if (empty($omit_current_password_on_profile)): ?>
                             <div class="pf-field-group" id="group_current_password">
                                 <label for="current_password" class="pf-label">Current Password</label>
                                 <div class="password-wrapper">
@@ -1040,7 +1045,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <input type="hidden" name="current_password" value="">
                             <?php endif; ?>
                             <div class="pf-field-group" id="group_new_password">
-                                <label for="new_password" class="pf-label"><?php echo !empty($customer_uses_google_signin) ? 'Create password' : 'New Password'; ?></label>
+                                <label for="new_password" class="pf-label"><?php echo !empty($omit_current_password_on_profile) ? 'Create password' : 'New Password'; ?></label>
                                 <div class="password-wrapper">
                                     <input type="password" id="new_password" name="new_password" class="pf-input" placeholder="8+ characters" minlength="8" autocomplete="new-password">
                                     <button type="button" class="password-toggle" onclick="togglePassword('new_password', this)">
@@ -1062,7 +1067,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                            <button type="submit" class="pf-btn-primary"><?php echo !empty($customer_uses_google_signin) ? 'Set password' : 'Update Password'; ?></button>
+                            <button type="submit" class="pf-btn-primary"><?php echo !empty($omit_current_password_on_profile) ? 'Set password' : 'Update Password'; ?></button>
                         </div>
                     </form>
                 </div>
@@ -1756,18 +1761,18 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     // Password validation (Google-only accounts: no current password field; first-time "set password")
-    const profileGooglePassword = <?php echo !empty($customer_uses_google_signin) ? 'true' : 'false'; ?>;
+    const profileOmitCurrentPassword = <?php echo !empty($omit_current_password_on_profile) ? 'true' : 'false'; ?>;
     const passwordForm = document.querySelector('form[action=""]');
-    const passwordFieldIds = profileGooglePassword
+    const passwordFieldIds = profileOmitCurrentPassword
         ? ['new_password', 'confirm_password']
         : ['current_password', 'new_password', 'confirm_password'];
-    const passwordTouched = profileGooglePassword
+    const passwordTouched = profileOmitCurrentPassword
         ? { new_password: false, confirm_password: false }
         : { current_password: false, new_password: false, confirm_password: false };
 
     const passwordValidators = {
         new_password: (val) => {
-            if (!val) return profileGooglePassword ? "Password is required." : "New password is required.";
+            if (!val) return profileOmitCurrentPassword ? "Password is required." : "New password is required.";
             if (val.length < 8) return "Password must be at least 8 characters.";
             if (val.length > 100) return "Password must be at most 100 characters.";
             if (!/[A-Z]/.test(val)) return "Password must have an uppercase letter.";
@@ -1819,9 +1824,9 @@ require_once __DIR__ . '/../includes/header.php';
         const newPass = document.getElementById('new_password');
         const confirm = document.getElementById('confirm_password');
         if (!newPass || !confirm) return;
-        if (!profileGooglePassword && !current) return;
+        if (!profileOmitCurrentPassword && !current) return;
 
-        const hasAnyInput = profileGooglePassword
+        const hasAnyInput = profileOmitCurrentPassword
             ? (newPass.value + confirm.value).trim().length > 0
             : (current.value + newPass.value + confirm.value).trim().length > 0;
         const mustValidate = force || hasAnyInput || Object.values(passwordTouched).some(Boolean);
@@ -1831,7 +1836,7 @@ require_once __DIR__ . '/../includes/header.php';
             return;
         }
 
-        if (!profileGooglePassword) {
+        if (!profileOmitCurrentPassword) {
             validatePasswordField('current_password', (val) => !val ? 'Current password is required.' : null, {
                 onlyWhenTouched: !force,
                 isTouched: passwordTouched.current_password || (current && current.value.length > 0)
