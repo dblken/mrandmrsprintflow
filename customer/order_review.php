@@ -124,19 +124,19 @@ function review_item_is_product(array $item): bool {
     $product_id = (int)($item['product_id'] ?? 0);
     $service_id = (int)($item['service_id'] ?? 0);
 
-    if (in_array($catalog_product_type, ['fixed', 'fixed product', 'product'], true)) {
+    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
         return true;
-    }
-    if ($catalog_product_type === 'custom') {
-        return false;
     }
 
     if ($source_page === 'services' || $item_type === 'service' || strpos($cart_key, 'service_') === 0 || $service_id > 0 || !empty($custom['service_type'])) {
         return false;
     }
 
-    if ($source_page === 'products' || $source_page === 'dynamic_form' || $item_type === 'product' || strpos($cart_key, 'product_') === 0) {
+    if (in_array($catalog_product_type, ['fixed', 'fixed product', 'product'], true)) {
         return true;
+    }
+    if ($catalog_product_type === 'custom') {
+        return false;
     }
 
     return $product_id > 0;
