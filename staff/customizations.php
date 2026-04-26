@@ -1272,15 +1272,24 @@ if ($showLatestCustomizationOnly) {
                                     </div>
                                     <div style="position:relative;">
                                         <span style="position:absolute; left:16px; top:50%; transform:translateY(-50%); font-weight:800; color:#0f766e; font-size:20px;">₱</span>
-                                        <input type="number" x-model.number="jobPriceInput" 
-                                               min="0" step="0.01" placeholder="0.00"
-                                               @input="jobPriceInput = parseFloat($event.target.value) || 0"
+                                        <input type="text" 
+                                               placeholder="0.00"
+                                               x-on:input="
+                                                   let val = $event.target.value.replace(/[^0-9.]/g, '');
+                                                   let parts = val.split('.');
+                                                   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                                                   $event.target.value = parts.join('.');
+                                                   jobPriceInput = $event.target.value.replace(/,/g, '');
+                                               "
+                                               x-on:blur="
+                                                   if (jobPriceInput) {
+                                                       jobPriceInput = parseFloat(jobPriceInput).toFixed(2);
+                                                       $event.target.value = Number(jobPriceInput).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                                   }
+                                               "
                                                style="width:100%; height:42px; padding:0 12px 0 42px; border:1px solid #5eead4; border-radius:10px; font-size:18px; font-weight:700; color:#0f766e; outline:none; background:#ffffff; transition:all 0.2s;"
                                                onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(6, 161, 161, 0.08)'"
                                                onblur="this.style.borderColor='#5eead4'; this.style.boxShadow='none'">
-                                    </div>
-                                    <div x-show="jobPriceInput > 0" style="margin-top: 6px; font-size: 13px; font-weight: 700; color: #0d9488;">
-                                        Preview: <span x-text="'₱' + Number(jobPriceInput).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span>
                                     </div>
                                     <div style="font-size:11px; color:#0f766e; margin-top:8px; line-height:1.45;">This is the total amount the customer will pay.</div>
                                 </div>

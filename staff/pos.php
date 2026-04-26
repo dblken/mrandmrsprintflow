@@ -2098,9 +2098,11 @@ try {
                 <label style="display:block; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.05em;">Negotiated Price *</label>
                 <div style="position: relative;">
                     <span style="position: absolute; left: 16px; top: 14px; font-weight: 700; color: #94a3b8;">₱</span>
-                    <input type="number" id="cm-price-input" oninput="document.getElementById('cm-price-preview').textContent = 'Preview: ' + formatMoney(this.value || 0)" style="width:100%; padding:14px 14px 14px 32px; border:1px solid #e2e8f0; border-radius:12px; font-weight:800; font-size:24px; background:#f8fafc; color:#1e293b; outline:none;" placeholder="0.00" step="0.01">
+                    <input type="text" id="cm-price-input" 
+                           oninput="let v = this.value.replace(/[^0-9.]/g, ''); let p = v.split('.'); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); this.value = p.join('.');"
+                           onblur="if(this.value){ let n = parseFloat(this.value.replace(/,/g, '')) || 0; this.value = n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }"
+                           style="width:100%; padding:14px 14px 14px 32px; border:1px solid #e2e8f0; border-radius:12px; font-weight:800; font-size:24px; background:#f8fafc; color:#1e293b; outline:none;" placeholder="0.00">
                 </div>
-                <div id="cm-price-preview" style="margin-top:8px; font-size:14px; font-weight:700; color:#06A1A1;">Preview: ₱0.00</div>
             </div>`;
                 container.insertAdjacentHTML('beforeend', priceHtml);
 
@@ -2262,7 +2264,7 @@ try {
             if (price === 0) {
                 const pInput = document.getElementById('cm-price-input');
                 if (pInput) {
-                    price = parseFloat(pInput.value);
+                    price = parseFloat(pInput.value.replace(/,/g, ''));
                     if (isNaN(price) || price <= 0) {
                         await showPOSAlert('Invalid Price', 'Please enter a valid negotiated price.', 'warning');
                         pInput.focus();
