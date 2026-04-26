@@ -95,36 +95,11 @@ try {
         );
     }
 
-    $action = strtolower(trim((string)($_POST['action'] ?? 'like')));
-
-    if (!empty($existing) && $action === 'unlike') {
-        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
-            $ok = db_execute(
-                "DELETE FROM review_helpful
-                 WHERE review_id = ?
-                 AND (
-                    (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
-                    OR (customer_id IS NULL AND user_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
-                 )",
-                'iii',
-                [$review_id, $customer_id, $user_id]
-            );
-        } else {
-            $ok = db_execute(
-                "DELETE FROM review_helpful
-                 WHERE review_id = ?
-                 AND user_id = ?
-                 AND COALESCE(user_type, 'User') <> 'Customer'",
-                'ii',
-                [$review_id, $user_id]
-            );
-        }
-        $voted = false;
+    if (!empty($existing)) {
+        $ok = true;
+        $voted = true;
     } else {
-        if (!empty($existing) && $action !== 'unlike') {
-            $ok = true;
-            $voted = true;
-        } elseif ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
+        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type)
                  VALUES (?, ?, ?, 'Customer')

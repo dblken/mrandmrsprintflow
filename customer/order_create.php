@@ -195,7 +195,14 @@ $reviews = order_create_optional_query(
      c.last_name,
      c.profile_picture,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
-     " . "(SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id AND (user_id = ? OR (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')))" . " as user_voted
+     " . "(SELECT COUNT(*)
+            FROM review_helpful rh
+            WHERE rh.review_id = r.id
+              AND (
+                    (rh.customer_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+                    OR (rh.customer_id IS NULL AND rh.user_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+              )
+          )" . " as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
      WHERE {$review_where}
@@ -800,6 +807,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function markHelpful(reviewId, btn) {
     const basePath = <?php echo json_encode(rtrim(defined('BASE_PATH') ? BASE_PATH : '', '/')); ?>;
+    if (btn.dataset.voted === '1') {
+        return;
+    }
     btn.disabled = true;
     try {
         const res = await fetch(basePath + '/public/api/review_helpful.php', {
@@ -810,16 +820,19 @@ async function markHelpful(reviewId, btn) {
         });
         const data = await res.json().catch(() => ({success: false, error: 'Invalid server response'}));
         if (data.success) {
-            btn.dataset.voted = data.voted ? '1' : '0';
-            btn.classList.toggle('voted', !!data.voted);
-            btn.querySelector('.helpful-label').textContent = data.voted ? data.count : 'Helpful';
+            btn.dataset.voted = '1';
+            btn.classList.add('voted');
+            btn.querySelector('.helpful-label').textContent = data.count;
+            btn.disabled = true;
         } else {
             console.error('Helpful vote failed:', data.error || res.statusText);
         }
     } catch(e) {
         console.error('Helpful vote failed:', e);
     } finally {
-        btn.disabled = false;
+        if (btn.dataset.voted !== '1') {
+            btn.disabled = false;
+        }
     }
 }
 </script>
