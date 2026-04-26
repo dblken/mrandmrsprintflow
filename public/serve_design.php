@@ -38,10 +38,10 @@ function pf_serve_design_file_candidates(?string $storedPath): array {
     }
 
     $variants = [$path];
-    if ($basePath !== '' && str_starts_with($path, $basePath . '/')) {
+    if ($basePath !== '' && substr($path, 0, strlen($basePath . '/')) === $basePath . '/') {
         $variants[] = substr($path, strlen($basePath));
     }
-    if (str_starts_with($path, '/printflow/')) {
+    if (substr($path, 0, strlen('/printflow/')) === '/printflow/') {
         $variants[] = substr($path, strlen('/printflow'));
     }
     if (preg_match('#/uploads/#', $path, $m, PREG_OFFSET_CAPTURE)) {
@@ -54,7 +54,7 @@ function pf_serve_design_file_candidates(?string $storedPath): array {
     $candidates = [];
     foreach (array_unique(array_filter($variants, fn($v) => trim((string)$v) !== '')) as $variant) {
         $variant = str_replace('\\', '/', (string)$variant);
-        if (preg_match('#^[A-Za-z]:/#', $variant) || str_starts_with($variant, '//')) {
+        if (preg_match('#^[A-Za-z]:/#', $variant) || substr($variant, 0, 2) === '//') {
             $candidates[] = $variant;
             continue;
         }
@@ -88,7 +88,8 @@ function pf_serve_design_read_file(?string $storedPath): bool {
 
         $allowed = false;
         foreach ($allowedRoots as $root) {
-            if ($root !== '' && str_starts_with($real, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+            $checkPath = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            if ($root !== '' && substr($real, 0, strlen($checkPath)) === $checkPath) {
                 $allowed = true;
                 break;
             }

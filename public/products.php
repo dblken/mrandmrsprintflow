@@ -73,7 +73,7 @@ function public_product_image_url(array $product, string $base_path): string
         }
 
         $clean = '/' . ltrim($raw, '/');
-        if ($base_path !== '' && str_starts_with($clean, rtrim($base_path, '/') . '/')) {
+        if ($base_path !== '' && (strncmp($clean, rtrim($base_path, '/', strlen(rtrim($base_path, '/')) === 0) . '/')) {
             $clean = substr($clean, strlen(rtrim($base_path, '/')));
         }
 

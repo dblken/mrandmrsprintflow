@@ -705,7 +705,7 @@ if (isset($_GET['ajax'])) {
                                     
                                     $catNameRaw = (string)($item['category_name'] ?? '');
                                     $catNameUpper = strtoupper($catNameRaw);
-                                    $isPrintedSticker = str_contains($catNameUpper, 'PRINTED') && (str_contains($catNameUpper, 'STKR') || str_contains($catNameUpper, 'STICKER'));
+                                    $isPrintedSticker = (strpos($catNameUpper, 'PRINTED') !== false) && ((strpos($catNameUpper, 'STKR') !== false) || (strpos($catNameUpper, 'STICKER') !== false));
                                     $effectiveUom = $isPrintedSticker ? 'pcs' : ($item['unit_of_measure'] ?? '');
                                     $effectiveTrackByRoll = $isPrintedSticker ? 0 : (int)($item['track_by_roll'] ?? 0);
                                     

@@ -41,7 +41,7 @@ function printflow_load_dotenv(string $path): array {
     foreach ($lines as $line) {
         $line = trim($line);
         if ($line === '' || $line[0] === '#') continue;
-        if (!str_contains($line, '=')) continue;
+        if (strpos($line, '=') === false) continue;
 
         [$key, $value] = explode('=', $line, 2);
         $env[trim($key)] = trim($value, " \t\"'");
@@ -60,7 +60,8 @@ function printflow_load_dotenv(string $path): array {
 $is_production = (
     isset($_SERVER['HTTP_HOST']) && 
     (strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false ||
-     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false)
+     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false ||
+     strpos($_SERVER['HTTP_HOST'], 'printflow.com') !== false)
 );
 
 if ($is_production) {

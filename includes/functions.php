@@ -515,11 +515,15 @@ function printflow_notification_base_path(): string {
  * Resolve the correct notification destination URL for the current user role.
  */
 function printflow_notification_target_url_for_user(string $userType, array $notification): string {
-    return match ($userType) {
-        'Staff' => staff_notification_target_url($notification),
-        'Admin', 'Manager' => admin_notification_target_url($notification),
-        default => customer_notification_target_url($notification),
-    };
+    switch ($userType) {
+        case 'Staff':
+            return staff_notification_target_url($notification);
+        case 'Admin':
+        case 'Manager':
+            return admin_notification_target_url($notification);
+        default:
+            return customer_notification_target_url($notification);
+    }
 }
 
 /**
@@ -1981,9 +1985,9 @@ function printflow_notification_item_kind(array $notification): string {
     $message = strtolower(trim((string)($notification['message'] ?? '')));
     $order_linked_types = ['order', 'job order', 'payment', 'payment issue', 'design', 'message', 'status'];
     $is_order_linked = in_array($type, $order_linked_types, true)
-        || str_contains($message, 'order')
-        || str_contains($message, 'design')
-        || str_contains($message, 'payment');
+        || strpos($message, 'order') !== false
+        || strpos($message, 'design') !== false
+        || strpos($message, 'payment') !== false;
 
     if (!$is_order_linked) {
         return '';

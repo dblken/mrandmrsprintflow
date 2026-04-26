@@ -128,7 +128,7 @@ class JobOrderService {
 
     private static function itemUsesLiters(array $item): bool {
         $uom = strtolower(trim((string)($item['unit_of_measure'] ?? '')));
-        return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || str_contains($uom, 'liter') || str_contains($uom, '(l)');
+        return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || (strpos($uom, 'liter') !== false) || (strpos($uom, '(l)') !== false);
     }
 
     private static function convertInkMlToItemUom(float $quantityMl, array $item): float {

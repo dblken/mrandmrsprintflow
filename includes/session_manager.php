@@ -288,7 +288,7 @@ class SessionManager
             return '';
         }
 
-        if (str_ends_with($host, '.mrandmrsprintflow.com')) {
+        if (substr($host, -strlen('.mrandmrsprintflow.com')) === '.mrandmrsprintflow.com') {
             return '.mrandmrsprintflow.com';
         }
 
