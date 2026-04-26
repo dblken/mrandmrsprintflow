@@ -2122,6 +2122,32 @@ function normalize_service_name($name, $fallback = 'Custom Order') {
         return $map[$normalized];
     }
 
+    // Handle noisy labels from cart / legacy flows, e.g. "Reflectorized: ABC123"
+    // while keeping arbitrary user-entered subtype fields out of the main service name.
+    $contains_map = [
+        'reflectorized' => 'Reflectorized',
+        'tarpaulin' => 'Tarpaulin Printing',
+        'tarp' => 'Tarpaulin Printing',
+        't-shirt' => 'T-Shirt Printing',
+        'tshirt' => 'T-Shirt Printing',
+        'shirt printing' => 'T-Shirt Printing',
+        'transparent sticker' => 'Transparent Stickers',
+        'glass sticker' => 'Glass/Wall Stickers',
+        'wall sticker' => 'Glass/Wall Stickers',
+        'frosted sticker' => 'Glass/Wall Stickers',
+        'sintra' => 'Sintraboard Standees',
+        'standee' => 'Sintraboard Standees',
+        'souvenir' => 'Souvenirs',
+    ];
+    foreach ($contains_map as $needle => $canonical) {
+        if (strpos($normalized, $needle) !== false) {
+            return $canonical;
+        }
+    }
+    if (strpos($normalized, 'sticker') !== false || strpos($normalized, 'decal') !== false) {
+        return 'Decals/Stickers (Print/Cut)';
+    }
+
     return ucwords($clean);
 }
 
@@ -2326,12 +2352,37 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     $custom = is_string($custom) ? json_decode($custom, true) : $custom;
     if (!is_array($custom)) return $fallback;
 
+    $explicit_service_label = static function ($value): string {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return '';
+        }
+        $normalized = normalize_service_name($raw, '');
+        $known = [
+            'Tarpaulin Printing',
+            'T-Shirt Printing',
+            'Decals/Stickers (Print/Cut)',
+            'Sintraboard Standees',
+            'Glass/Wall Stickers',
+            'Transparent Stickers',
+            'Reflectorized',
+            'Souvenirs',
+            'Layouts',
+        ];
+        return in_array($normalized, $known, true) ? $normalized : '';
+    };
+
     // Source of truth: if the customer explicitly selected a service, prefer it.
-    if (!empty($custom['service_type'])) {
-        return normalize_service_name($custom['service_type'], $fallback);
+    $explicit_service = $explicit_service_label($custom['service_type'] ?? '');
+    if ($explicit_service !== '') {
+        return $explicit_service;
     }
-    if (!empty($custom['product_type'])) {
-        return normalize_service_name($custom['product_type'], $fallback);
+
+    // `product_type` is often a subtype/detail (especially for Reflectorized),
+    // so only trust it when it clearly names a real service.
+    $explicit_product_service = $explicit_service_label($custom['product_type'] ?? '');
+    if ($explicit_product_service !== '') {
+        return $explicit_product_service;
     }
     
     // User Requested Priority Logic
@@ -2346,6 +2397,23 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     // 3. T-Shirt Printing
     if (!empty($custom['vinyl_type']) || !empty($custom['print_placement']) || !empty($custom['tshirt_color']) || !empty($custom['shirt_source'])) {
         return 'T-Shirt Printing';
+    }
+    // 3.5 Reflectorized
+    if (
+        !empty($custom['gate_pass_subdivision']) ||
+        !empty($custom['gate_pass_number']) ||
+        !empty($custom['gate_pass_plate']) ||
+        !empty($custom['gate_pass_year']) ||
+        !empty($custom['temp_plate_material']) ||
+        !empty($custom['temp_plate_number']) ||
+        !empty($custom['temp_plate_text']) ||
+        !empty($custom['mv_file_number']) ||
+        !empty($custom['dealer_name']) ||
+        !empty($custom['material_type']) ||
+        !empty($custom['reflective_color']) ||
+        (!empty($custom['product_type']) && stripos((string)$custom['product_type'], 'reflectorized') !== false)
+    ) {
+        return 'Reflectorized';
     }
     // 4. Decals/Stickers
     if (!empty($custom['sticker_type']) || !empty($custom['Sticker Type']) || !empty($custom['shape']) || !empty($custom['Cut_Type'])) {
