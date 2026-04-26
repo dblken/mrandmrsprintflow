@@ -7,6 +7,8 @@
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 ini_set('log_errors', '1');
+// Prefer a dedicated log file (if writable) so production debugging doesn't leak to users.
+ini_set('error_log', __DIR__ . '/../tmp/php_staff_api_errors.log');
 error_reporting(E_ALL);
 
 // Keep output JSON-clean even if an include echoes/warns.
@@ -161,12 +163,13 @@ if (!has_role(['Admin', 'Manager', 'Staff'])) {
 }
 
 $__pf_debug_allowed = $__pf_debug_requested;
->>>>>>> f427c8b6 (update)
 
 $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all'
     ? (int)($_SESSION['branch_id'] ?? 1)
     : (int)$staffCtx['selected_branch_id'];
+
+$hasOrderType = function_exists('db_table_has_column') ? db_table_has_column('orders', 'order_type') : true;
 
 // --- Inputs ---
 $page = max(1, (int)($_GET['page'] ?? 1));
@@ -258,28 +261,48 @@ if ($status_filter !== '') {
 }
 
 // 1) Stats
-$res_products = db_query(
-    "SELECT COUNT(DISTINCT o.order_id) as count
-     FROM orders o
-     JOIN order_items oi ON o.order_id = oi.order_id
-     JOIN products p ON oi.product_id = p.product_id
-     WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product' AND {$time_sql}",
-    'i' . $time_types,
-    array_merge([$staffBranchId], $time_params)
-);
+$res_products = $hasOrderType
+    ? db_query(
+        "SELECT COUNT(DISTINCT o.order_id) as count
+         FROM orders o
+         JOIN order_items oi ON o.order_id = oi.order_id
+         JOIN products p ON oi.product_id = p.product_id
+         WHERE o.status = 'Completed' AND o.branch_id = ? AND o.order_type = 'product' AND {$time_sql}",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    )
+    : db_query(
+        "SELECT COUNT(DISTINCT o.order_id) as count
+         FROM orders o
+         JOIN order_items oi ON o.order_id = oi.order_id
+         JOIN products p ON oi.product_id = p.product_id
+         WHERE o.status = 'Completed' AND o.branch_id = ? AND {$time_sql}",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    );
 $completed_products = (int)($res_products[0]['count'] ?? 0);
 
-$res_custom = db_query(
-    "SELECT COUNT(DISTINCT o.order_id) as count
-     FROM orders o
-     JOIN order_items oi ON o.order_id = oi.order_id
-     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
-     LEFT JOIN services s ON oi.product_id = s.service_id
-     WHERE o.status = 'Completed' AND o.branch_id = ? AND {$time_sql}
-       AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')",
-    'i' . $time_types,
-    array_merge([$staffBranchId], $time_params)
-);
+$res_custom = $hasOrderType
+    ? db_query(
+        "SELECT COUNT(DISTINCT o.order_id) as count
+         FROM orders o
+         JOIN order_items oi ON o.order_id = oi.order_id
+         LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+         LEFT JOIN services s ON oi.product_id = s.service_id
+         WHERE o.status = 'Completed' AND o.branch_id = ? AND {$time_sql}
+           AND (s.service_id IS NOT NULL OR jo.id IS NOT NULL OR o.order_type = 'custom')",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    )
+    : db_query(
+        "SELECT COUNT(DISTINCT o.order_id) as count
+         FROM orders o
+         JOIN order_items oi ON o.order_id = oi.order_id
+         JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+         WHERE o.status = 'Completed' AND o.branch_id = ? AND {$time_sql}",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    );
 $completed_custom = (int)($res_custom[0]['count'] ?? 0);
 
 $res_rev = db_query(
@@ -374,22 +397,38 @@ if ($timeframe === 'today') {
 }
 
 // 3) Top services
-$top_services = db_query(
-    "SELECT
-        TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, s.name, p.name), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name,
-        COUNT(DISTINCT oi.order_item_id) as order_count
-     FROM order_items oi
-     JOIN orders o ON oi.order_id = o.order_id
-     LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
-     LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
-     LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name))
-     WHERE o.branch_id = ? AND {$time_sql}
-     GROUP BY name
-     ORDER BY order_count DESC
-     LIMIT 10",
-    'i' . $time_types,
-    array_merge([$staffBranchId], $time_params)
-);
+$top_services = $hasOrderType
+    ? db_query(
+        "SELECT
+            TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, s.name, p.name), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name,
+            COUNT(DISTINCT oi.order_item_id) as order_count
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.order_id
+         LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+         LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
+         LEFT JOIN services s ON ((oi.product_id = s.service_id AND o.order_type = 'custom') OR (jo.service_type = s.name))
+         WHERE o.branch_id = ? AND {$time_sql}
+         GROUP BY name
+         ORDER BY order_count DESC
+         LIMIT 10",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    )
+    : db_query(
+        "SELECT
+            TRIM(REPLACE(REPLACE(REPLACE(COALESCE(jo.service_type, p.name, 'General'), ' Printing', ''), ' (Print/Cut)', ''), ' Print', '')) as name,
+            COUNT(DISTINCT oi.order_item_id) as order_count
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.order_id
+         LEFT JOIN job_orders jo ON oi.order_item_id = jo.order_item_id
+         LEFT JOIN products p ON oi.product_id = p.product_id
+         WHERE o.branch_id = ? AND {$time_sql}
+         GROUP BY name
+         ORDER BY order_count DESC
+         LIMIT 10",
+        'i' . $time_types,
+        array_merge([$staffBranchId], $time_params)
+    );
 
 // 4) Recent orders list
 $sql_cond = " WHERE o.branch_id = ?";
@@ -417,7 +456,12 @@ $res_rows = db_query("SELECT COUNT(*) as count FROM orders o LEFT JOIN customers
 $total_rows = (int)($res_rows[0]['count'] ?? 0);
 
 $orders = db_query(
-    "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name, o.order_date, o.total_amount, o.status
+    "SELECT o.order_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name, o.order_date, o.total_amount, o.status,
+            (SELECT COALESCE(p.name, s.name, 'General') 
+             FROM order_items oi 
+             LEFT JOIN products p ON (oi.product_id = p.product_id AND o.order_type = 'product')
+             LEFT JOIN services s ON (oi.product_id = s.service_id AND o.order_type = 'custom')
+             WHERE oi.order_id = o.order_id LIMIT 1) as service_type
      FROM orders o
      LEFT JOIN customers c ON o.customer_id = c.customer_id
      {$sql_cond}
@@ -459,6 +503,18 @@ $payload = [
         'total_rows' => $total_rows
     ]
 ];
+
+if ($__pf_debug_allowed) {
+    $payload['debug'] = $payload['debug'] ?? [];
+    $payload['debug']['schema'] = [
+        'orders_has_order_type' => $hasOrderType,
+        'orders_has_order_date' => function_exists('db_table_has_column') ? db_table_has_column('orders', 'order_date') : null,
+        'orders_has_branch_id' => function_exists('db_table_has_column') ? db_table_has_column('orders', 'branch_id') : null,
+    ];
+    if (function_exists('printflow_db_errors')) {
+        $payload['debug']['db_errors'] = printflow_db_errors();
+    }
+}
 
 $flags = JSON_UNESCAPED_SLASHES;
 if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
