@@ -42,6 +42,7 @@ $review_count_sql = "(SELECT COUNT(*) FROM reviews r WHERE {$review_match_sql}) 
 $category = $_GET['category'] ?? '';
 
 // Build query — fixed products only
+$fixed_product_sql = "(p.product_type IS NULL OR TRIM(p.product_type) = '' OR LOWER(TRIM(p.product_type)) IN ('fixed', 'fixed product', 'product'))";
 $sql = "SELECT p.*, 
     (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.product_id AND pv.status = 'Active') as variant_count,
     (SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE oi.product_id = p.product_id AND o.status != 'Cancelled' AND (oi.customization_data IS NULL OR oi.customization_data = '' OR oi.customization_data NOT LIKE '%\"service_type\"%')) as sold_count,
@@ -49,7 +50,7 @@ $sql = "SELECT p.*,
     {$review_count_sql}
     FROM products p 
     WHERE p.status = 'Activated'
-      AND COALESCE(LOWER(TRIM(p.product_type)), 'fixed') = 'fixed'";
+      AND {$fixed_product_sql}";
 $params = [];
 $types = '';
 
@@ -65,7 +66,7 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 // Count total items for pagination
-$count_sql = "SELECT COUNT(*) as total FROM products WHERE status = 'Activated' AND COALESCE(LOWER(TRIM(product_type)), 'fixed') = 'fixed'";
+$count_sql = "SELECT COUNT(*) as total FROM products p WHERE p.status = 'Activated' AND {$fixed_product_sql}";
 $count_params = [];
 $count_types = '';
 
