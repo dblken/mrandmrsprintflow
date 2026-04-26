@@ -58,6 +58,7 @@ try {
         } else {
             $fallback = (defined('BASE_URL') ? BASE_URL : '/printflow') . '/public/assets/images/services/default.png';
             $row['message'] = printflow_notification_display_message($row);
+            $row['item_kind'] = printflow_notification_item_kind($row);
             $row['image'] = staff_admin_notification_image_url($row, $fallback);
             $row['fallback'] = $fallback;
         }

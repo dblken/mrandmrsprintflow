@@ -296,6 +296,27 @@ $page_title = 'Notifications - Staff';
             font-weight: 600;
         }
         .notif-header-primary:hover { background: #058f8f; color: #fff !important; }
+        .notif-item-kind-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 62px;
+            height: 22px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .notif-item-kind-pill.product {
+            background: #e0f2fe;
+            color: #075985;
+        }
+        .notif-item-kind-pill.service {
+            background: #dcfce7;
+            color: #166534;
+        }
 
         .notif-item {
             display: flex;
@@ -500,6 +521,7 @@ $page_title = 'Notifications - Staff';
                                 $defaultNotifImage = $base_url . '/public/assets/images/services/default.png';
                                 $notifImage = staff_admin_notification_image_url($notif, $defaultNotifImage);
                                 $displayMessage = printflow_notification_display_message($notif);
+                                $itemKind = strtolower(printflow_notification_item_kind($notif));
                                 ?>
                             <div class="notif-item <?php echo $is_unread ? '' : 'read'; ?>"
                                  role="button"
@@ -519,6 +541,9 @@ $page_title = 'Notifications - Staff';
                                         <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <?php echo htmlspecialchars(time_ago($notif['created_at'])); ?>
                                         <span class="type-pill <?php echo htmlspecialchars($type_slug); ?>"><?php echo htmlspecialchars($notif['type']); ?></span>
+                                        <?php if ($itemKind === 'product' || $itemKind === 'service'): ?>
+                                            <span class="notif-item-kind-pill <?php echo htmlspecialchars($itemKind); ?>"><?php echo htmlspecialchars(ucfirst($itemKind)); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="notif-actions-wrap">

@@ -488,9 +488,12 @@ function printflow_notification_target_url_for_user(string $userType, array $not
 function notify_staff_new_order(int $order_id, string $customer_first_name): void {
     $preview = printflow_order_notification_preview($order_id);
     $service_name = $preview['display_name'] ?? 'Product Order';
+    $kind_label = trim((string)($preview['item_kind'] ?? ''));
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
     // Format: "Customer Name placed an order for Service Name"
-    $msg = "{$name} placed an order for {$service_name}";
+    $msg = $kind_label !== ''
+        ? "{$name} placed a {$kind_label} order for {$service_name}"
+        : "{$name} placed an order for {$service_name}";
 
     notify_shop_users($msg, 'Order', false, false, $order_id);
 }
@@ -1754,12 +1757,34 @@ function printflow_notification_display_message(array $notification): string {
     return $message;
 }
 
+function printflow_notification_item_kind(array $notification): string {
+    $data_id = (int)($notification['data_id'] ?? 0);
+    if ($data_id <= 0) {
+        return '';
+    }
+
+    $type = strtolower(trim((string)($notification['type'] ?? '')));
+    $message = strtolower(trim((string)($notification['message'] ?? '')));
+    $order_linked_types = ['order', 'job order', 'payment', 'payment issue', 'design', 'message', 'status'];
+    $is_order_linked = in_array($type, $order_linked_types, true)
+        || str_contains($message, 'order')
+        || str_contains($message, 'design')
+        || str_contains($message, 'payment');
+
+    if (!$is_order_linked) {
+        return '';
+    }
+
+    $preview = printflow_order_notification_preview($data_id);
+    return trim((string)($preview['item_kind'] ?? ''));
+}
+
 function printflow_order_notification_preview(int $order_id): array {
     static $cache = [];
 
     $order_id = (int)$order_id;
     if ($order_id <= 0) {
-        return ['display_name' => '', 'image_url' => ''];
+        return ['display_name' => '', 'image_url' => '', 'item_kind' => ''];
     }
     if (isset($cache[$order_id])) {
         return $cache[$order_id];
@@ -1788,9 +1813,12 @@ function printflow_order_notification_preview(int $order_id): array {
                 oi.customization_data,
                 p.name AS product_name,
                 p.product_id,
+                p.product_type,
+                o.order_type,
                 {$product_image_expr}
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.product_id
+         LEFT JOIN orders o ON o.order_id = oi.order_id
          WHERE oi.order_id = ?
          ORDER BY oi.order_item_id ASC
          LIMIT 1",
@@ -1798,7 +1826,7 @@ function printflow_order_notification_preview(int $order_id): array {
         [$order_id]
     );
 
-    $preview = ['display_name' => '', 'image_url' => ''];
+    $preview = ['display_name' => '', 'image_url' => '', 'item_kind' => ''];
     if (empty($item[0])) {
         $cache[$order_id] = $preview;
         return $preview;
@@ -1806,6 +1834,13 @@ function printflow_order_notification_preview(int $order_id): array {
 
     $row = $item[0];
     $custom = !empty($row['customization_data']) ? json_decode((string)$row['customization_data'], true) : [];
+    $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
+    $product_type = strtolower(trim((string)($row['product_type'] ?? '')));
+    if ($order_type === 'product' || $product_type === 'fixed') {
+        $preview['item_kind'] = 'Product';
+    } elseif ($order_type === 'custom' || get_service_name_from_customization(is_array($custom) ? $custom : [], '') !== '') {
+        $preview['item_kind'] = 'Service';
+    }
     $preview['display_name'] = printflow_resolve_order_item_name(
         (string)($row['product_name'] ?? 'Order Item'),
         is_array($custom) ? $custom : [],

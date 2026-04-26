@@ -648,11 +648,19 @@
                         mediaHtml = iconSvg;
                     }
 
+                    var itemKindHtml = '';
+                    var itemKind = (n.item_kind || '').toLowerCase();
+                    if (itemKind === 'product' || itemKind === 'service') {
+                        var kindBg = itemKind === 'product' ? '#e0f2fe' : '#dcfce7';
+                        var kindColor = itemKind === 'product' ? '#075985' : '#166534';
+                        itemKindHtml = ' <span style="display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:18px;padding:0 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;background:' + kindBg + ';color:' + kindColor + ';">' + escHtml(itemKind) + '</span>';
+                    }
+
                     html += '<a href="' + target + '" class="pf-notif-item ' + unreadClass + '">' +
                             '  <div class="pf-notif-item-icon">' + mediaHtml + '</div>' +
                             '  <div class="pf-notif-item-content">' +
                             '    <div class="pf-notif-item-text">' + escHtml(n.message) + '</div>' +
-                            '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + '</div>' +
+                            '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + itemKindHtml + '</div>' +
                             '  </div>' +
                             '</a>';
                 }
