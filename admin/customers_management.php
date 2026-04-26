@@ -97,6 +97,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verif
 $current_user = get_logged_in_user();
 $can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
 
+if (function_exists('printflow_ensure_customers_auth_provider_column')) {
+    printflow_ensure_customers_auth_provider_column();
+}
+
+function pf_admin_customer_sign_in_label(array $customer): string {
+    $a = strtolower(trim((string)($customer['auth_provider'] ?? '')));
+    return $a === 'google' ? 'Google' : 'Email / password';
+}
+
 function pf_customer_id_status_normalize($status): string {
     $raw = trim((string)$status);
     return match (strtolower($raw)) {
@@ -130,6 +139,7 @@ function pf_build_customer_modal_payload(array $customer, string $base_path): ar
         'id_type' => (string)($customer['id_type'] ?? ''),
         'id_image' => $id_image_raw !== '' ? $base_path . '/uploads/ids/' . ltrim($id_image_raw, '/') : null,
         'id_reject_reason' => (string)($customer['id_reject_reason'] ?? ''),
+        'sign_in' => pf_admin_customer_sign_in_label($customer),
     ];
 }
 
@@ -217,6 +227,7 @@ if (isset($_GET['ajax'])) {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Contact</th>
+                <th>Sign-in</th>
                 <th>Registered</th>
                 <th>Status</th>
                 <th style="text-align:right;" class="no-print">Actions</th>
@@ -234,6 +245,7 @@ if (isset($_GET['ajax'])) {
                 <?php foreach ($customers as $customer): 
                     $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
                     $customer_payload_attr = pf_customer_payload_attr($customer, $base_path);
+                    $sign_in = pf_admin_customer_sign_in_label($customer);
                     $status_style = match($id_status) {
                         'Verified'   => 'background:#dcfce7;color:#166534;',
                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -257,6 +269,13 @@ if (isset($_GET['ajax'])) {
                             <div style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?>">
                                 <?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?>
                             </div>
+                        </td>
+                        <td>
+                            <?php if ($sign_in === 'Google'): ?>
+                                <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#e8f0fe;color:#1967d2;">Google</span>
+                            <?php else: ?>
+                                <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#f3f4f6;color:#4b5563;">Email</span>
+                            <?php endif; ?>
                         </td>
                         <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
                         <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $status_style; ?>"><?php echo htmlspecialchars($id_status); ?></span></td>
@@ -1168,6 +1187,7 @@ $page_title = 'Customers Management - Admin';
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Contact</th>
+                                <th>Sign-in</th>
                                 <th>Registered</th>
                                 <th>Status</th>
                                 <th style="text-align:right;" class="no-print">Actions</th>
@@ -1185,6 +1205,7 @@ $page_title = 'Customers Management - Admin';
                                 <?php foreach ($customers as $customer):
                                     $id_status = pf_customer_id_status_normalize($customer['id_status'] ?? 'Pending');
                                     $customer_payload_attr = pf_customer_payload_attr($customer, $base_path);
+                                    $sign_in = pf_admin_customer_sign_in_label($customer);
                                     $status_style = match($id_status) {
                                         'Verified'   => 'background:#dcfce7;color:#166534;',
                                         'Rejected'   => 'background:#fee2e2;color:#991b1b;',
@@ -1208,6 +1229,13 @@ $page_title = 'Customers Management - Admin';
                                             <div style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?>">
                                                 <?php echo htmlspecialchars($customer['contact_number'] ?? 'N/A'); ?>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <?php if ($sign_in === 'Google'): ?>
+                                                <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#e8f0fe;color:#1967d2;">Google</span>
+                                            <?php else: ?>
+                                                <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#f3f4f6;color:#4b5563;">Email</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td style="color:#6b7280;font-size:12px;"><?php echo format_date($customer['created_at']); ?></td>
                                         <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $status_style; ?>"><?php echo htmlspecialchars($id_status); ?></span></td>
@@ -1280,6 +1308,10 @@ $page_title = 'Customers Management - Admin';
                         <div>
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;display:block;">Email</label>
                             <span style="color:#1f2937;font-weight:500;word-wrap:break-word;overflow-wrap:break-word;display:block;" x-text="customer?.email || 'N/A'"></span>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;display:block;">Sign-in</label>
+                            <span style="color:#1f2937;font-weight:500;word-wrap:break-word;overflow-wrap:break-word;display:block;" x-text="customer?.sign_in || 'Email / password'"></span>
                         </div>
                         <div>
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;display:block;">Contact Number</label>
