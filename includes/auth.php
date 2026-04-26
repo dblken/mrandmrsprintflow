@@ -40,19 +40,45 @@ if (!function_exists('log_activity')) {
 }
 
 /**
- * Ensure customers.auth_provider exists (values: NULL | password | google).
+ * Case-fold email (UTF-8) without requiring mbstring (some hosts disable it).
  */
-function printflow_ensure_customers_auth_provider_column(): void {
+if (!function_exists('printflow_email_lower')) {
+    function printflow_email_lower($email) {
+        if (!is_string($email) || $email === '') {
+            return '';
+        }
+        $t = trim($email);
+        if (function_exists('mb_strtolower')) {
+            return mb_strtolower($t, 'UTF-8');
+        }
+        return strtolower($t);
+    }
+}
+
+/**
+ * Ensure customers.auth_provider exists (values: NULL | password | google).
+ * Uses SHOW COLUMNS / db_table_has_column (avoids information_schema and fragile AFTER clauses).
+ */
+function printflow_ensure_customers_auth_provider_column() {
     static $done = false;
     if ($done) {
         return;
     }
     $done = true;
-    $row = db_query("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'customers' AND COLUMN_NAME = 'auth_provider' LIMIT 1");
-    if (!empty($row)) {
-        return;
+    try {
+        $has = false;
+        if (function_exists('db_table_has_column')) {
+            $has = db_table_has_column('customers', 'auth_provider');
+        } else {
+            $r = db_query("SHOW COLUMNS FROM `customers` LIKE 'auth_provider'");
+            $has = !empty($r);
+        }
+        if (!$has) {
+            @db_execute("ALTER TABLE `customers` ADD COLUMN `auth_provider` varchar(20) NULL DEFAULT NULL");
+        }
+    } catch (Throwable $e) {
+        error_log('printflow_ensure_customers_auth_provider_column: ' . $e->getMessage());
     }
-    @db_execute("ALTER TABLE `customers` ADD COLUMN `auth_provider` varchar(20) NULL DEFAULT NULL COMMENT 'password, google' AFTER `password_hash`");
 }
 
 // Helper functions for checking duplicate emails/phones
@@ -61,7 +87,7 @@ if (!function_exists('email_in_use_across_accounts')) {
         if (empty($email)) {
             return false;
         }
-        $e = mb_strtolower(trim($email));
+        $e = printflow_email_lower($email);
         if ($e === '') {
             return false;
         }
@@ -405,7 +431,7 @@ function login_user($email, $password, $remember_me = false) {
  * @return array ['success' => bool, 'message' => string, 'redirect' => string]
  */
 function login_customer($email, $password, $remember_me = false) {
-    $emailLower = mb_strtolower(trim($email));
+    $emailLower = printflow_email_lower($email);
     $result = $emailLower === ''
         ? []
         : db_query("SELECT * FROM customers WHERE LOWER(TRIM(email)) = ?", 's', [$emailLower]);
@@ -476,7 +502,7 @@ function login_customer($email, $password, $remember_me = false) {
  */
 function login_customer_by_google($email, $first_name, $last_name) {
     printflow_ensure_customers_auth_provider_column();
-    $email = mb_strtolower(trim($email));
+    $email = printflow_email_lower($email);
     $first_name = trim($first_name) ?: 'User';
     $last_name = trim($last_name) ?: '';
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -581,7 +607,7 @@ function login($email, $password, $remember_me = false) {
 function register_customer($data) {
     printflow_ensure_customers_auth_provider_column();
     if (!empty($data['email']) && is_string($data['email'])) {
-        $data['email'] = mb_strtolower(trim($data['email']));
+        $data['email'] = printflow_email_lower($data['email']);
     }
     if (email_in_use_across_accounts($data['email'] ?? '')) {
         return ['success' => false, 'message' => 'This email is already in use. Please sign in.'];
