@@ -29,7 +29,9 @@ if (preg_match('#^https?://#i', $normalized)) {
 }
 
 if ($normalized !== '') {
+    $normalized = urldecode($normalized);
     $normalized = preg_replace('#^[A-Za-z]:#', '', $normalized);
+    $normalized = preg_replace('#^/printflow#i', '', $normalized);
     $normalized = '/' . ltrim($normalized, '/');
 
     $uploadsPos = strpos($normalized, '/uploads/');
@@ -47,6 +49,9 @@ if ($normalized !== '') {
     $basename = basename($normalized);
     if ($basename !== '') {
         $candidates[] = realpath(__DIR__ . '/../uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/../uploads/reviews_videos/' . $basename);
+        $candidates[] = realpath(__DIR__ . '/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/uploads/reviews_videos/' . $basename);
+        $candidates[] = realpath(__DIR__ . '/assets/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/assets/uploads/reviews_videos/' . $basename);
+        $candidates[] = realpath(__DIR__ . '/../public/uploads/reviews_videos/' . $basename) ?: (__DIR__ . '/../public/uploads/reviews_videos/' . $basename);
     }
 }
 

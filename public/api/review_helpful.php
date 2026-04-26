@@ -75,11 +75,13 @@ try {
             "SELECT id
              FROM review_helpful
              WHERE review_id = ?
-              AND customer_id = ?
-              AND COALESCE(user_type, 'Customer') = 'Customer'
+              AND (
+                    (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+                    OR (customer_id IS NULL AND user_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+               )
              LIMIT 1",
-            'ii',
-            [$review_id, $customer_id]
+            'iii',
+            [$review_id, $customer_id, $user_id]
         );
     } else {
         $existing = db_query(
@@ -97,9 +99,13 @@ try {
         if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
                 "DELETE FROM review_helpful
-                 WHERE review_id = ? AND customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer'",
-                'ii',
-                [$review_id, $customer_id]
+                 WHERE review_id = ?
+                 AND (
+                    (customer_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+                    OR (customer_id IS NULL AND user_id = ? AND COALESCE(user_type, 'Customer') = 'Customer')
+                 )",
+                'iii',
+                [$review_id, $customer_id, $user_id]
             );
         } else {
             $ok = db_execute(
@@ -115,7 +121,11 @@ try {
     } else {
         if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
             $ok = db_execute(
-                "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type) VALUES (?, ?, ?, 'Customer')",
+                "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type)
+                 VALUES (?, ?, ?, 'Customer')
+                 ON DUPLICATE KEY UPDATE
+                    customer_id = VALUES(customer_id),
+                    user_type = VALUES(user_type)",
                 'iii',
                 [$review_id, $user_id, $customer_id]
             );
