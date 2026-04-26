@@ -108,6 +108,14 @@ if ($initials === '') {
         #main-header .pf-notif-item-content { flex: 1; min-width: 0; }
         #main-header .pf-notif-item-text { font-size: 0.8rem; color: var(--pf-notif-text); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         #main-header .pf-notif-item-time { font-size: 0.7rem; color: var(--pf-notif-time); font-weight: 600; }
+        #main-header .pf-notif-group-label { font-size: 0.64rem; font-weight: 800; color: var(--pf-notif-header-text); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 20px 6px; }
+        #main-header .pf-notif-item.pf-notif-item-customer { align-items: stretch; }
+        #main-header .pf-notif-image-wrap { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; border: 1px solid var(--pf-notif-item-border); background: var(--pf-notif-item-icon-bg); }
+        #main-header .pf-notif-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #main-header .pf-notif-item-title { font-size: 0.78rem; font-weight: 800; color: var(--pf-notif-text); margin-bottom: 3px; line-height: 1.35; }
+        #main-header .pf-notif-item.pf-notif-item-customer .pf-notif-item-text { -webkit-line-clamp: initial; display: block; margin-bottom: 6px; }
+        #main-header .pf-notif-item-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        #main-header .pf-notif-view-btn { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 8px; border: 1px solid var(--pf-notif-border); border-radius: 7px; color: var(--pf-notif-header-text); background: transparent; }
         #main-header .pf-notif-footer { padding: 12px; border-top: 1px solid var(--pf-notif-item-border); text-align: center; background: var(--pf-notif-footer-bg); }
         #main-header .pf-notif-footer a { font-size: 0.72rem !important; color: var(--pf-notif-header-text) !important; font-weight: 800 !important; text-decoration: none; text-transform: none; letter-spacing: 0; }
         #main-header .pf-notif-empty { padding: 32px 16px; text-align: center; color: var(--pf-notif-empty); font-size: 0.85rem; }

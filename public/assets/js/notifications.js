@@ -626,43 +626,89 @@
                 updateBadge(data.unread_count || 0);
 
                 var html = '';
-                for (var j = 0; j < data.notifications.length; j++) {
-                    var n = data.notifications[j];
-                    var target = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
-                    var unreadClass = n.is_read == 0 ? 'unread' : '';
-                    var type = (n.type || '').toLowerCase();
-                    var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
-                    var mediaHtml = '';
-                    
-                    if (type.indexOf('order') !== -1 || type.indexOf('status') !== -1) {
-                        iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>';
-                    } else if (type.indexOf('message') !== -1 || type.indexOf('chat') !== -1) {
-                        iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>';
-                    } else if (type.indexOf('payment') !== -1) {
-                        iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+                if (String(USER_TYPE || '').toLowerCase() === 'customer') {
+                    var newItems = [];
+                    var oldItems = [];
+                    for (var j = 0; j < data.notifications.length; j++) {
+                        if (String(data.notifications[j].is_read) === '0') newItems.push(data.notifications[j]);
+                        else oldItems.push(data.notifications[j]);
                     }
 
-                    if (n.image) {
-                        mediaHtml = '<img src="' + escAttr(n.image) + '" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" onerror="this.onerror=null;this.src=\'' + escJsString(n.fallback || buildAppUrl('public/assets/images/icon-192.png')) + '\'">';
-                    } else {
-                        mediaHtml = iconSvg;
+                    function renderCustomerGroup(label, rows) {
+                        if (!rows.length) return '';
+                        var out = '<div class="pf-notif-group-label">' + escHtml(label) + '</div>';
+                        for (var i = 0; i < rows.length; i++) {
+                            var n = rows[i];
+                            var target = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
+                            var unreadClass = String(n.is_read) === '0' ? 'unread' : '';
+                            var title = n.title || 'Notification';
+                            var messageHtml = escHtml(n.message || '').replace(/(Order #\d+)/g, '<b>$1</b>');
+                            var typeText = String(n.type || '').toLowerCase();
+                            var isRating = typeText.indexOf('rating') !== -1 || typeText.indexOf('review') !== -1 ||
+                                String(n.message || '').toLowerCase().indexOf('rate your order') !== -1 ||
+                                String(n.message || '').toLowerCase().indexOf('rate your experience') !== -1;
+                            var cta = isRating ? 'Rate Now' : 'View';
+                            var img = n.image || '';
+                            var fallback = n.fallback || buildAppUrl('public/assets/images/services/default.png');
+
+                            out += '<a href="' + target + '" class="pf-notif-item pf-notif-item-customer ' + unreadClass + '">' +
+                                '<div class="pf-notif-item-icon pf-notif-image-wrap">' +
+                                '<img src="' + escAttr(img || fallback) + '" alt="' + escAttr(title) + '" class="pf-notif-image" onerror="this.onerror=null;this.src=\'' + escJsString(fallback) + '\'">' +
+                                '</div>' +
+                                '<div class="pf-notif-item-content">' +
+                                '<div class="pf-notif-item-title">' + escHtml(title) + '</div>' +
+                                '<div class="pf-notif-item-text">' + messageHtml + '</div>' +
+                                '<div class="pf-notif-item-meta">' +
+                                '<span class="pf-notif-item-time">' + escHtml(timeAgo(n.created_at)) + '</span>' +
+                                '<span class="pf-notif-view-btn">' + cta + '</span>' +
+                                '</div>' +
+                                '</div>' +
+                                '</a>';
+                        }
+                        return out;
                     }
 
-                    var itemKindHtml = '';
-                    var itemKind = (n.item_kind || '').toLowerCase();
-                    if (itemKind === 'product' || itemKind === 'service') {
-                        var kindBg = itemKind === 'product' ? '#e0f2fe' : '#dcfce7';
-                        var kindColor = itemKind === 'product' ? '#075985' : '#166534';
-                        itemKindHtml = ' <span style="display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:18px;padding:0 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;background:' + kindBg + ';color:' + kindColor + ';">' + escHtml(itemKind) + '</span>';
-                    }
+                    html += renderCustomerGroup('New', newItems);
+                    html += renderCustomerGroup('Earlier', oldItems);
+                } else {
+                    for (var m = 0; m < data.notifications.length; m++) {
+                        var n = data.notifications[m];
+                        var target = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
+                        var unreadClass = n.is_read == 0 ? 'unread' : '';
+                        var type = (n.type || '').toLowerCase();
+                        var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
+                        var mediaHtml = '';
 
-                    html += '<a href="' + target + '" class="pf-notif-item ' + unreadClass + '">' +
-                            '  <div class="pf-notif-item-icon">' + mediaHtml + '</div>' +
-                            '  <div class="pf-notif-item-content">' +
-                            '    <div class="pf-notif-item-text">' + escHtml(n.message) + '</div>' +
-                            '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + itemKindHtml + '</div>' +
-                            '  </div>' +
-                            '</a>';
+                        if (type.indexOf('order') !== -1 || type.indexOf('status') !== -1) {
+                            iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>';
+                        } else if (type.indexOf('message') !== -1 || type.indexOf('chat') !== -1) {
+                            iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>';
+                        } else if (type.indexOf('payment') !== -1) {
+                            iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+                        }
+
+                        if (n.image) {
+                            mediaHtml = '<img src="' + escAttr(n.image) + '" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;" onerror="this.onerror=null;this.src=\'' + escJsString(n.fallback || buildAppUrl('public/assets/images/icon-192.png')) + '\'">';
+                        } else {
+                            mediaHtml = iconSvg;
+                        }
+
+                        var itemKindHtml = '';
+                        var itemKind = (n.item_kind || '').toLowerCase();
+                        if (itemKind === 'product' || itemKind === 'service') {
+                            var kindBg = itemKind === 'product' ? '#e0f2fe' : '#dcfce7';
+                            var kindColor = itemKind === 'product' ? '#075985' : '#166534';
+                            itemKindHtml = ' <span style="display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:18px;padding:0 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;background:' + kindBg + ';color:' + kindColor + ';">' + escHtml(itemKind) + '</span>';
+                        }
+
+                        html += '<a href="' + target + '" class="pf-notif-item ' + unreadClass + '">' +
+                                '  <div class="pf-notif-item-icon">' + mediaHtml + '</div>' +
+                                '  <div class="pf-notif-item-content">' +
+                                '    <div class="pf-notif-item-text">' + escHtml(n.message) + '</div>' +
+                                '    <div class="pf-notif-item-time">' + timeAgo(n.created_at) + itemKindHtml + '</div>' +
+                                '  </div>' +
+                                '</a>';
+                    }
                 }
                 for (var k = 0; k < lists.length; k++) lists[k].innerHTML = html;
             })
