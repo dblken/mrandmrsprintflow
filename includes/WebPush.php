@@ -70,8 +70,8 @@ class WebPush
             'Content-Length: ' . strlen($body),
         ];
 
-        $isLocalEndpoint = str_contains($audience, '://localhost')
-            || str_contains($audience, '://127.0.0.1');
+        $isLocalEndpoint = (strpos($audience, '://localhost') !== false)
+            || (strpos($audience, '://127.0.0.1') !== false);
 
         $ch = curl_init($endpoint);
         curl_setopt_array($ch, [

@@ -9,11 +9,41 @@ date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email_sms_config.php';
-require_once __DIR__ . '/../vendor/autoload.php';
+// Composer autoload (optional). Some production deployments don't ship `vendor/`.
+// We only require it when present (and also lazily inside functions that need it).
+$__printflow_vendor_autoload = __DIR__ . '/../vendor/autoload.php';
+if (is_file($__printflow_vendor_autoload)) {
+    require_once $__printflow_vendor_autoload;
+}
 require_once __DIR__ . '/ensure_order_source_column.php'; // Ensure order_source column exists
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+
+/**
+ * Ensure Composer autoload is available for vendor libraries (PHPMailer, Twilio, etc).
+ * Returns true if autoload is loaded, false otherwise.
+ */
+function printflow_require_vendor_autoload(): bool {
+    static $loaded = null;
+    if ($loaded !== null) return $loaded;
+
+    $paths = [
+        __DIR__ . '/../vendor/autoload.php',
+        dirname(__DIR__) . '/vendor/autoload.php',
+    ];
+
+    foreach ($paths as $p) {
+        if (is_file($p)) {
+            require_once $p;
+            $loaded = true;
+            return true;
+        }
+    }
+
+    $loaded = false;
+    return false;
+}
 
 /**
  * Check if request is AJAX/XHR
@@ -36,6 +66,14 @@ function send_email($to, $subject, $message, $is_html = true) {
     if (!EMAIL_ENABLED) {
         error_log("Email sending disabled. Would send to: {$to}");
         return false;
+    }
+
+    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+        // PHPMailer is provided via Composer in most setups; don't fatal if vendor/ is missing.
+        if (!printflow_require_vendor_autoload() || !class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            error_log('Email sending failed: PHPMailer not available (missing vendor/autoload.php).');
+            return false;
+        }
     }
     
     try {
@@ -153,7 +191,12 @@ function send_sms($phone, $message) {
             
         } elseif (SMS_SERVICE === 'twilio') {
             // Twilio SMS API
-            require_once __DIR__ . '/../vendor/autoload.php';
+            if (!class_exists(\Twilio\Rest\Client::class)) {
+                if (!printflow_require_vendor_autoload() || !class_exists(\Twilio\Rest\Client::class)) {
+                    error_log('Twilio SMS failed: Twilio SDK not available (missing vendor/autoload.php).');
+                    return false;
+                }
+            }
             
             $twilio = new \Twilio\Rest\Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
             $twilio->messages->create($phone, [
@@ -515,11 +558,15 @@ function printflow_notification_base_path(): string {
  * Resolve the correct notification destination URL for the current user role.
  */
 function printflow_notification_target_url_for_user(string $userType, array $notification): string {
-    return match ($userType) {
-        'Staff' => staff_notification_target_url($notification),
-        'Admin', 'Manager' => admin_notification_target_url($notification),
-        default => customer_notification_target_url($notification),
-    };
+    switch ($userType) {
+        case 'Staff':
+            return staff_notification_target_url($notification);
+        case 'Admin':
+        case 'Manager':
+            return admin_notification_target_url($notification);
+        default:
+            return customer_notification_target_url($notification);
+    }
 }
 
 /**
@@ -1981,9 +2028,9 @@ function printflow_notification_item_kind(array $notification): string {
     $message = strtolower(trim((string)($notification['message'] ?? '')));
     $order_linked_types = ['order', 'job order', 'payment', 'payment issue', 'design', 'message', 'status'];
     $is_order_linked = in_array($type, $order_linked_types, true)
-        || str_contains($message, 'order')
-        || str_contains($message, 'design')
-        || str_contains($message, 'payment');
+        || strpos($message, 'order') !== false
+        || strpos($message, 'design') !== false
+        || strpos($message, 'payment') !== false;
 
     if (!$is_order_linked) {
         return '';

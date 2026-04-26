@@ -41,13 +41,34 @@ function printflow_load_dotenv(string $path): array {
     foreach ($lines as $line) {
         $line = trim($line);
         if ($line === '' || $line[0] === '#') continue;
-        if (!str_contains($line, '=')) continue;
+        if (strpos($line, '=') === false) continue;
 
         [$key, $value] = explode('=', $line, 2);
         $env[trim($key)] = trim($value, " \t\"'");
     }
 
     return $env;
+}
+
+/**
+ * Collect DB errors for API debugging (kept in-memory for the request only).
+ * Avoid exposing these in responses unless you explicitly include them (e.g. debug mode).
+ */
+if (!isset($GLOBALS['printflow_db_errors']) || !is_array($GLOBALS['printflow_db_errors'])) {
+    $GLOBALS['printflow_db_errors'] = [];
+}
+
+function printflow_db_record_error(array $info): void {
+    if (!isset($GLOBALS['printflow_db_errors']) || !is_array($GLOBALS['printflow_db_errors'])) {
+        $GLOBALS['printflow_db_errors'] = [];
+    }
+    $GLOBALS['printflow_db_errors'][] = $info;
+}
+
+function printflow_db_errors(): array {
+    return (isset($GLOBALS['printflow_db_errors']) && is_array($GLOBALS['printflow_db_errors']))
+        ? $GLOBALS['printflow_db_errors']
+        : [];
 }
 
 /**
@@ -60,7 +81,8 @@ function printflow_load_dotenv(string $path): array {
 $is_production = (
     isset($_SERVER['HTTP_HOST']) && 
     (strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false ||
-     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false)
+     strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false ||
+     strpos($_SERVER['HTTP_HOST'], 'printflow.com') !== false)
 );
 
 if ($is_production) {
@@ -105,8 +127,18 @@ $map = [
 ];
 
 foreach ($map as $key => $envKey) {
-    if (!empty($env[$envKey])) {
-        $db_config[$key] = $env[$envKey];
+    // .env overrides (local) + real environment variables (production panels).
+    $fromDotenv = $env[$envKey] ?? '';
+    $fromEnvVar = printflow_env($envKey);
+
+    if ($fromEnvVar !== false && $fromEnvVar !== '') {
+        $db_config[$key] = $fromEnvVar;
+        continue;
+    }
+
+    if ($fromDotenv !== '') {
+        $db_config[$key] = $fromDotenv;
+        continue;
     }
 }
 
@@ -130,14 +162,24 @@ $conn = @new mysqli(
  */
 if ($conn->connect_error) {
     error_log('Database Connection Failed: ' . $conn->connect_error);
+    printflow_db_record_error([
+        'stage' => 'connect',
+        'error' => $conn->connect_error,
+        'errno' => $conn->connect_errno,
+        'host' => $db_config['host'],
+        'db' => $db_config['name'],
+        'user' => $db_config['user'],
+    ]);
 
     if (printflow_expects_json()) {
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
+        $flags = JSON_UNESCAPED_SLASHES;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
         echo json_encode([
             'success' => false,
             'error' => 'Database connection failed',
-        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        ], $flags);
         exit;
     }
 
@@ -180,11 +222,23 @@ function db_query($sql, $types = '', $params = []) {
     } else {
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            printflow_db_record_error([
+                'stage' => 'prepare',
+                'error' => $conn->error,
+                'errno' => $conn->errno,
+                'sql' => $sql,
+            ]);
             error_log("DB Prepare Error: " . $conn->error);
             return [];
         }
         $stmt->bind_param($types, ...$params);
         if (!$stmt->execute()) {
+            printflow_db_record_error([
+                'stage' => 'execute',
+                'error' => $stmt->error,
+                'errno' => $stmt->errno,
+                'sql' => $sql,
+            ]);
             error_log("DB Execute Error: " . $stmt->error);
             $stmt->close();
             return [];
@@ -195,6 +249,12 @@ function db_query($sql, $types = '', $params = []) {
         if (method_exists($stmt, 'get_result')) {
             $result = $stmt->get_result();
             if ($result === false) {
+                printflow_db_record_error([
+                    'stage' => 'get_result',
+                    'error' => $stmt->error,
+                    'errno' => $stmt->errno,
+                    'sql' => $sql,
+                ]);
                 error_log("DB get_result Error: " . $stmt->error);
                 $stmt->close();
                 return [];
@@ -229,6 +289,12 @@ function db_query($sql, $types = '', $params = []) {
     }
 
     if (!$result) {
+        printflow_db_record_error([
+            'stage' => 'query',
+            'error' => $conn->error,
+            'errno' => $conn->errno,
+            'sql' => $sql,
+        ]);
         error_log("DB Query Error: " . $conn->error);
         if (isset($stmt) && $stmt instanceof mysqli_stmt) {
             $stmt->close();
@@ -248,11 +314,35 @@ function db_query($sql, $types = '', $params = []) {
     return $data;
 }
 
+/**
+ * Schema helper: check if a table has a specific column.
+ */
+function db_table_has_column(string $table, string $column): bool {
+    static $cache = [];
+
+    $t = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+    $c = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+    if ($t === '' || $c === '') return false;
+
+    $key = $t . '.' . $c;
+    if (array_key_exists($key, $cache)) return (bool)$cache[$key];
+
+    $rows = db_query("SHOW COLUMNS FROM `{$t}` LIKE ?", 's', [$c]);
+    $cache[$key] = !empty($rows);
+    return (bool)$cache[$key];
+}
+
 function db_execute($sql, $types = '', $params = []) {
     global $conn;
 
     if (empty($types) || empty($params)) {
         if (!$conn->query($sql)) {
+            printflow_db_record_error([
+                'stage' => 'execute_query',
+                'error' => $conn->error,
+                'errno' => $conn->errno,
+                'sql' => $sql,
+            ]);
             error_log("DB Execute Error: " . $conn->error);
             return false;
         }

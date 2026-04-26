@@ -149,12 +149,18 @@ class SessionManager
         // Expire the session cookie immediately
         if (ini_get('session.use_cookies')) {
             $p = session_get_cookie_params();
-            self::expireCookie(session_name(), $p['path'] ?: '/', $p['domain'] ?? self::cookieDomain());
-            self::expireLegacyCookies();
-            self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', self::cookieDomain());
-            if (self::cookieDomain() !== '') {
-                self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', ltrim(self::cookieDomain(), '.'));
+            $path = $p['path'] ?: '/';
+            $domain = (string)($p['domain'] ?? self::cookieDomain());
+
+            // Expire current cookie params plus common legacy domain/path variants.
+            foreach (self::cookieDomainsToClear($domain) as $cookieDomain) {
+                foreach (self::cookiePathsToClear($path) as $cookiePath) {
+                    self::expireCookie(session_name(), $cookiePath, $cookieDomain);
+                }
+                self::expireCookie(PRINTFLOW_REMEMBER_COOKIE, '/', $cookieDomain);
             }
+
+            self::expireLegacyCookies();
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -288,14 +294,20 @@ class SessionManager
             return '';
         }
 
-        if (str_ends_with($host, '.mrandmrsprintflow.com')) {
+        // Ensure a single, consistent cookie domain across apex + subdomains.
+        // This prevents duplicate cookies (same name, different Domain) that can
+        // cause PHP to read the wrong session id and appear "logged out" on some requests.
+        if ($host === 'mrandmrsprintflow.com' || substr($host, -strlen('.mrandmrsprintflow.com')) === '.mrandmrsprintflow.com') {
             return '.mrandmrsprintflow.com';
         }
 
+<<<<<<< HEAD
         if ($host === 'mrandmrsprintflow.com') {
             return '.mrandmrsprintflow.com';
         }
 
+=======
+>>>>>>> f427c8b6 (update)
         return $host;
     }
 
@@ -337,10 +349,10 @@ class SessionManager
     private static function expireLegacyCookies(): void
     {
         $domain = self::cookieDomain();
-        foreach (['/', '/printflow'] as $path) {
-            self::expireCookie('PHPSESSID', $path, $domain);
-            if ($domain !== '') {
-                self::expireCookie('PHPSESSID', $path, ltrim($domain, '.'));
+        foreach (self::cookieDomainsToClear($domain) as $cookieDomain) {
+            foreach (self::cookiePathsToClear('/') as $path) {
+                self::expireCookie('PHPSESSID', $path, $cookieDomain);
+                self::expireCookie(PRINTFLOW_SESSION_NAME, $path, $cookieDomain);
             }
         }
     }
@@ -352,25 +364,72 @@ class SessionManager
         }
 
         $domain = self::cookieDomain();
-        $domains = array_filter(array_unique([
-            '',
-            $domain,
-            $domain !== '' ? ltrim($domain, '.') : '',
-        ]), static fn($value) => $value !== null);
-
-        $targets = [
-            ['name' => 'PHPSESSID', 'paths' => ['/', '/printflow']],
-            ['name' => PRINTFLOW_SESSION_NAME, 'paths' => ['/printflow']],
-        ];
-
-        foreach ($targets as $target) {
-            foreach ($target['paths'] as $path) {
-                foreach ($domains as $cookieDomain) {
-                    self::expireCookie($target['name'], $path, (string) $cookieDomain);
-                }
+        foreach (self::cookieDomainsToClear($domain) as $cookieDomain) {
+            foreach (self::cookiePathsToClear('/') as $path) {
+                self::expireCookie('PHPSESSID', $path, $cookieDomain);
+                self::expireCookie(PRINTFLOW_SESSION_NAME, $path, $cookieDomain);
             }
         }
 
+    }
+
+    /**
+     * Return a list of cookie domain variants to clear (host-only + dot/no-dot variants).
+     *
+     * PHP can behave unexpectedly when multiple cookies with the same name exist.
+     * Clearing common variants reduces "works on localhost but not production" issues
+     * after a deployment changes cookie Domain handling.
+     *
+     * @param string $domain The preferred domain, e.g. ".example.com" or "example.com" or ""
+     * @return array<int, string>
+     */
+    private static function cookieDomainsToClear(string $domain): array
+    {
+        $domain = (string)$domain;
+        $domain = trim($domain);
+
+        $domains = [''];
+        if ($domain !== '') {
+            $domains[] = $domain;
+            $domains[] = ltrim($domain, '.');
+            if ($domain[0] !== '.') {
+                $domains[] = '.' . $domain;
+            }
+        }
+
+        $unique = [];
+        foreach ($domains as $d) {
+            $d = (string)$d;
+            if ($d === null) continue;
+            $unique[$d] = true;
+        }
+        return array_keys($unique);
+    }
+
+    /**
+     * Return common cookie path variants to clear.
+     *
+     * @param string $currentPath The current cookie path (usually "/")
+     * @return array<int, string>
+     */
+    private static function cookiePathsToClear(string $currentPath): array
+    {
+        $currentPath = $currentPath !== '' ? $currentPath : '/';
+
+        $paths = [
+            '/',
+            '/printflow',
+            '/staff',
+            $currentPath,
+        ];
+
+        $unique = [];
+        foreach ($paths as $p) {
+            $p = (string)$p;
+            if ($p === '') $p = '/';
+            $unique[$p] = true;
+        }
+        return array_keys($unique);
     }
 
 }

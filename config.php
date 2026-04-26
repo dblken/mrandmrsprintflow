@@ -55,3 +55,10 @@ define('UPLOAD_PATH', BASE_PATH . '/uploads');
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 define('SITE_URL', $protocol . '://' . $host . BASE_PATH);
+
+// Debug toggles (default off). Enable via environment variables in production as needed.
+if (!defined('PRINTFLOW_DEBUG_SESSION_LOG')) {
+    $raw = getenv('PRINTFLOW_DEBUG_SESSION_LOG');
+    $raw = is_string($raw) ? strtolower(trim($raw)) : '';
+    define('PRINTFLOW_DEBUG_SESSION_LOG', in_array($raw, ['1', 'true', 'yes', 'on'], true));
+}

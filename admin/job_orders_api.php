@@ -708,8 +708,8 @@ try {
                     $normalized_key === 'design_upload' ||
                     $normalized_key === 'design_file' ||
                     $normalized_key === 'design_upload_path' ||
-                    str_contains($normalized_key, 'upload design') ||
-                    str_contains($normalized_key, 'design upload')
+                    (strpos($normalized_key, 'upload design') !== false) ||
+                    (strpos($normalized_key, 'design upload') !== false)
                 )) {
                     $design_name = (string)$detail_value;
                     continue;
@@ -718,7 +718,7 @@ try {
                     $normalized_key === 'reference_upload' ||
                     $normalized_key === 'reference_file' ||
                     $normalized_key === 'reference_upload_path' ||
-                    str_contains($normalized_key, 'reference upload')
+                    (strpos($normalized_key, 'reference upload') !== false)
                 )) {
                     $reference_name = (string)$detail_value;
                 }

@@ -109,7 +109,7 @@ function staff_order_data_product_image_url(array $item): ?string {
         }
 
         $clean = '/' . ltrim($raw, '/');
-        if ($base !== '' && str_starts_with($clean, rtrim($base, '/') . '/')) {
+        if ($base !== '' && (strncmp($clean, rtrim($base, '/', strlen(rtrim($base, '/')) === 0) . '/')) {
             $clean = substr($clean, strlen(rtrim($base, '/')));
             $clean = '/' . ltrim((string)$clean, '/');
         }

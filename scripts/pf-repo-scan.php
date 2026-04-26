@@ -26,8 +26,8 @@ foreach ($ri as $file) {
         continue;
     }
     $path = $file->getPathname();
-    if (str_contains($path, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)
-        || str_contains($path, DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR)) {
+    if ((strpos($path, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR) !== false)
+        || (strpos($path, DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR) !== false)) {
         continue;
     }
     $ext = strtolower($file->getExtension());
@@ -38,7 +38,7 @@ foreach ($ri as $file) {
     if ($c === false) {
         continue;
     }
-    if (str_contains($c, $mStart) || str_contains($c, $mEnd)) {
+    if ((strpos($c, $mStart) !== false) || (strpos($c, $mEnd) !== false)) {
         fwrite(STDERR, "MERGE MARKERS: {$path}\n");
         $errors++;
     }
@@ -53,8 +53,8 @@ if (!$markersOnly) {
             continue;
         }
         $path = $file->getPathname();
-        if (str_contains($path, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)
-            || str_contains($path, DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR)) {
+        if ((strpos($path, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR) !== false)
+            || (strpos($path, DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR) !== false)) {
             continue;
         }
         $out = [];
