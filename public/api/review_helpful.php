@@ -55,8 +55,12 @@ try {
     }
 
     $review_id = (int)($_POST['review_id'] ?? 0);
+    $action = strtolower(trim((string)($_POST['action'] ?? 'like')));
     if ($review_id < 1) {
         review_helpful_json(['success' => false, 'error' => 'Invalid review'], 422);
+    }
+    if (!in_array($action, ['like', 'unlike', 'toggle'], true)) {
+        $action = 'like';
     }
 
     $helpful_columns = review_helpful_ensure_schema();
@@ -95,25 +99,43 @@ try {
         );
     }
 
-    if (!empty($existing)) {
+    $has_existing_vote = !empty($existing);
+
+    if ($action === 'toggle') {
+        $action = $has_existing_vote ? 'unlike' : 'like';
+    }
+
+    if ($action === 'unlike') {
+        if ($has_existing_vote) {
+            $existing_id = (int)($existing[0]['id'] ?? 0);
+            $ok = $existing_id > 0
+                ? db_execute("DELETE FROM review_helpful WHERE id = ? LIMIT 1", 'i', [$existing_id])
+                : false;
+        } else {
+            $ok = true;
+        }
+        $voted = false;
+    } elseif ($has_existing_vote) {
         $ok = true;
         $voted = true;
+    } elseif ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
+        $ok = db_execute(
+            "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type)
+             VALUES (?, ?, ?, 'Customer')
+             ON DUPLICATE KEY UPDATE
+                customer_id = VALUES(customer_id),
+                user_type = VALUES(user_type)",
+            'iii',
+            [$review_id, $user_id, $customer_id]
+        );
+        $voted = true;
     } else {
-        if ($customer_id > 0 && isset($helpful_columns['customer_id'], $helpful_columns['user_type'])) {
-            $ok = db_execute(
-                "INSERT INTO review_helpful (review_id, user_id, customer_id, user_type)
-                 VALUES (?, ?, ?, 'Customer')
-                 ON DUPLICATE KEY UPDATE
-                    customer_id = VALUES(customer_id),
-                    user_type = VALUES(user_type)",
-                'iii',
-                [$review_id, $user_id, $customer_id]
-            );
-            $voted = true;
-        } else {
-            $ok = db_execute("INSERT INTO review_helpful (review_id, user_id, user_type) VALUES (?, ?, ?)", 'iis', [$review_id, $user_id, $user_type !== '' ? $user_type : 'User']);
-            $voted = true;
-        }
+        $ok = db_execute(
+            "INSERT INTO review_helpful (review_id, user_id, user_type) VALUES (?, ?, ?)",
+            'iis',
+            [$review_id, $user_id, $user_type !== '' ? $user_type : 'User']
+        );
+        $voted = true;
     }
     if (!$ok) {
         throw new RuntimeException('Could not update helpful vote.');

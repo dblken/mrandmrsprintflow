@@ -804,32 +804,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function markHelpful(reviewId, btn) {
     const basePath = <?php echo json_encode(rtrim(defined('BASE_PATH') ? BASE_PATH : '', '/')); ?>;
-    if (btn.dataset.voted === '1') {
-        return;
-    }
+    const label = btn.querySelector('.helpful-label');
+    const originalLabel = btn.dataset.defaultLabel || 'Helpful';
+    const nextAction = btn.dataset.voted === '1' ? 'unlike' : 'like';
     btn.disabled = true;
     try {
         const res = await fetch(basePath + '/public/api/review_helpful.php', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'review_id=' + encodeURIComponent(reviewId) + '&action=like'
+            body: 'review_id=' + encodeURIComponent(reviewId) + '&action=' + encodeURIComponent(nextAction)
         });
         const data = await res.json().catch(() => ({success: false, error: 'Invalid server response'}));
         if (data.success) {
-            btn.dataset.voted = '1';
-            btn.classList.add('voted');
-            btn.querySelector('.helpful-label').textContent = data.count;
-            btn.disabled = true;
+            if (data.voted) {
+                btn.dataset.voted = '1';
+                btn.classList.add('voted');
+                label.textContent = data.count;
+            } else {
+                delete btn.dataset.voted;
+                btn.classList.remove('voted');
+                label.textContent = originalLabel;
+            }
         } else {
             console.error('Helpful vote failed:', data.error || res.statusText);
         }
     } catch(e) {
         console.error('Helpful vote failed:', e);
     } finally {
-        if (btn.dataset.voted !== '1') {
-            btn.disabled = false;
-        }
+        btn.disabled = false;
     }
 }
 </script>
