@@ -148,6 +148,26 @@ if (!isset($review_helpful_columns['user_type'])) {
 }
 
 $current_user_id = get_user_id();
+$current_user_type = (string)($_SESSION['user_type'] ?? '');
+$current_customer_id = $current_user_type === 'Customer' ? $current_user_id : 0;
+$review_user_voted_sql = "(SELECT COUNT(*)
+        FROM review_helpful rh
+        WHERE rh.review_id = r.id
+          AND rh.user_id = ?
+          AND COALESCE(rh.user_type, ?) = ?)";
+$review_user_voted_types = 'iss';
+$review_user_voted_params = [$current_user_id, $current_user_type !== '' ? $current_user_type : 'Customer', $current_user_type !== '' ? $current_user_type : 'Customer'];
+if ($current_customer_id > 0 && isset($review_helpful_columns['customer_id'], $review_helpful_columns['user_type'])) {
+    $review_user_voted_sql = "(SELECT COUNT(*)
+            FROM review_helpful rh
+            WHERE rh.review_id = r.id
+              AND (
+                    (rh.customer_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+                    OR (rh.customer_id IS NULL AND rh.user_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
+              ))";
+    $review_user_voted_types = 'ii';
+    $review_user_voted_params = [$current_customer_id, $current_user_id];
+}
 $review_columns = array_flip(array_column(order_create_optional_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
 $review_customer_expr = isset($review_columns['customer_id']) ? 'r.customer_id' : (isset($review_columns['user_id']) ? 'r.user_id' : '0');
 $review_comment_expr = isset($review_columns['comment']) ? 'r.comment' : (isset($review_columns['message']) ? 'r.message' : "''");
@@ -195,17 +215,13 @@ $reviews = order_create_optional_query(
      c.last_name,
      c.profile_picture,
      (SELECT COUNT(*) FROM review_helpful WHERE review_id = r.id) as helpful_count,
-     " . "(SELECT COUNT(*)
-            FROM review_helpful rh
-            WHERE rh.review_id = r.id
-              AND (rh.user_id = ? OR rh.customer_id = ?)
-          )" . " as user_voted
+     {$review_user_voted_sql} as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
      WHERE {$review_where}
      ORDER BY {$review_created_expr} DESC",
-    'ii' . $review_types,
-    array_merge([$current_user_id, $current_user_id], $review_params)
+    $review_user_voted_types . $review_types,
+    array_merge($review_user_voted_params, $review_params)
 ) ?: [];
 
 $total_reviews = count($reviews);
