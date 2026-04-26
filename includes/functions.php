@@ -1566,7 +1566,7 @@ function get_customer_notifications_for_display($customer_id, $limit = 10, $offs
         $type = (string)($row['type'] ?? 'System');
         $message = printflow_notification_display_message($row);
         $data_id = (int)($row['data_id'] ?? 0);
-        $title = customer_notification_title($type, $message);
+        $title = customer_notification_title($type, $message, $row);
         $target = customer_notification_target_url($row);
         $link = $target;
 
@@ -1647,26 +1647,57 @@ function printflow_dedupe_notifications(array $rows, int $windowSeconds = 300): 
     return $out;
 }
 
-function customer_notification_title($type, $message) {
-    $type = (string)$type;
-    $message = strtolower((string)$message);
+/**
+ * Generate a customer-facing notification title.
+ * Accepts an optional $notification array so we can enrich the title with
+ * the real service/product name from the linked order.
+ */
+function customer_notification_title($type, $message, array $notification = []) {
+    $type    = (string)$type;
+    $message_l = strtolower((string)$message);
 
-    if (strpos($message, 'support chat') !== false || strpos($message, 'chatbot') !== false) {
+    if (strpos($message_l, 'support chat') !== false || strpos($message_l, 'chatbot') !== false) {
         return 'Support chat update';
     }
-    if ($type === 'Message' || strpos($message, 'message') !== false || strpos($message, 'chat') !== false) {
+    if ($type === 'Message' || strpos($message_l, 'message') !== false || strpos($message_l, 'chat') !== false) {
         return 'New message';
     }
-    if ($type === 'Rating' || $type === 'Review' || strpos($message, 'rate') !== false || strpos($message, 'review') !== false) {
+    if ($type === 'Rating' || $type === 'Review' || strpos($message_l, 'rate') !== false || strpos($message_l, 'review') !== false) {
         return 'Review update';
     }
-    if ($type === 'Payment' || strpos($message, 'payment') !== false || strpos($message, 'pay') !== false) {
+
+    // For payment / to-pay notifications, try to surface the service/product name
+    $is_payment = (
+        $type === 'Payment' ||
+        strpos($message_l, 'proceed to payment') !== false ||
+        strpos($message_l, 'ready for payment') !== false ||
+        strpos($message_l, 'payment of') !== false
+    );
+    if ($is_payment) {
+        $data_id = (int)($notification['data_id'] ?? 0);
+        if ($data_id > 0) {
+            $snapshot = printflow_notification_order_snapshot($data_id);
+            $name = trim((string)($snapshot['service_name'] ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
         return 'Payment update';
     }
-    if ($type === 'Design' || strpos($message, 'design') !== false || strpos($message, 'revision') !== false) {
+
+    if ($type === 'Design' || strpos($message_l, 'design') !== false || strpos($message_l, 'revision') !== false) {
         return 'Design update';
     }
-    if ($type === 'Order' || $type === 'Job Order' || strpos($message, 'order') !== false) {
+    if ($type === 'Order' || $type === 'Job Order' || strpos($message_l, 'order') !== false) {
+        // Also try to surface the service/product name for order status updates
+        $data_id = (int)($notification['data_id'] ?? 0);
+        if ($data_id > 0) {
+            $snapshot = printflow_notification_order_snapshot($data_id);
+            $name = trim((string)($snapshot['service_name'] ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
         return 'Order update';
     }
     if ($type === 'Status') {
@@ -1697,7 +1728,23 @@ function customer_notification_target_url(array $notification) {
         if ($type === 'Rating' || $type === 'Review' || strpos($message_l, 'rate your') !== false || strpos($message_l, 'rate here') !== false) {
             return $base . '/customer/rate_order.php?order_id=' . $data_id;
         }
-        if ($type === 'Payment' || strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
+        // Payment-related: check live order status — if To Pay, send directly to payment page
+        $is_payment_msg = (
+            $type === 'Payment' ||
+            strpos($message_l, 'proceed to payment') !== false ||
+            strpos($message_l, 'payment of') !== false ||
+            strpos($message_l, 'ready for payment') !== false
+        );
+        if ($is_payment_msg) {
+            // Always redirect to payment page for these notifications
+            return $base . '/customer/payment.php?order_id=' . $data_id;
+        }
+        // Generic pay/payment keyword — check live DB status before routing
+        if (strpos($message_l, 'payment') !== false || strpos($message_l, 'pay') !== false) {
+            $snap = printflow_notification_order_snapshot($data_id);
+            if (in_array($snap['status'], ['To Pay', 'Approved'], true)) {
+                return $base . '/customer/payment.php?order_id=' . $data_id;
+            }
             return $base . '/customer/orders.php?highlight=' . $data_id;
         }
         if ($type === 'Design' || strpos($message_l, 'design') !== false || strpos($message_l, 'revision') !== false) {
@@ -1833,24 +1880,31 @@ function printflow_notification_order_snapshot(int $order_id): array {
 
     $order_id = (int)$order_id;
     if ($order_id <= 0) {
-        return ['status' => '', 'order_type' => ''];
+        return ['status' => '', 'order_type' => '', 'service_name' => '', 'total_amount' => 0.0];
     }
     if (isset($cache[$order_id])) {
         return $cache[$order_id];
     }
 
     $rows = db_query(
-        "SELECT status, order_type
-         FROM orders
-         WHERE order_id = ?
+        "SELECT o.status, o.order_type, o.total_amount,
+                COALESCE(
+                    (SELECT JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')) FROM order_items oi WHERE oi.order_id = o.order_id AND JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')) IS NOT NULL LIMIT 1),
+                    (SELECT JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.product_type')) FROM order_items oi WHERE oi.order_id = o.order_id AND JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.product_type')) IS NOT NULL LIMIT 1),
+                    (SELECT p.name FROM order_items oi JOIN products p ON p.product_id = oi.product_id WHERE oi.order_id = o.order_id LIMIT 1)
+                ) AS service_name
+         FROM orders o
+         WHERE o.order_id = ?
          LIMIT 1",
         'i',
         [$order_id]
     );
 
     $cache[$order_id] = [
-        'status' => trim((string)($rows[0]['status'] ?? '')),
-        'order_type' => strtolower(trim((string)($rows[0]['order_type'] ?? ''))),
+        'status'       => trim((string)($rows[0]['status'] ?? '')),
+        'order_type'   => strtolower(trim((string)($rows[0]['order_type'] ?? ''))),
+        'service_name' => trim((string)($rows[0]['service_name'] ?? '')),
+        'total_amount' => (float)($rows[0]['total_amount'] ?? 0),
     ];
 
     return $cache[$order_id];

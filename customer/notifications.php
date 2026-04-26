@@ -21,7 +21,14 @@ if (isset($_GET['mark_read'])) {
         $path = parse_url($next, PHP_URL_PATH);
         $host = parse_url($next, PHP_URL_HOST);
         $base_path = parse_url($base_url, PHP_URL_PATH) ?: $base_url;
-        if (!$host && $path && strpos($path, rtrim($base_path, '/') . '/') === 0) {
+        // Only redirect to paths within our own app base (no external redirects)
+        $allowed_paths = ['/customer/', '/public/'];
+        $path_without_base = str_replace(rtrim($base_path, '/'), '', $path ?? '');
+        $is_safe = !$host && $path && (
+            strpos($path, rtrim($base_path, '/') . '/') === 0 ||
+            preg_match('#^/(customer|public)/#', $path_without_base ?: $path)
+        );
+        if ($is_safe) {
             redirect($next);
         }
     }
@@ -322,7 +329,19 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="notif-meta">
                                     <div class="notif-time"><?php echo htmlspecialchars((string)$notif['time_ago']); ?></div>
                                     <?php if (!empty($notif['data_id'])): ?>
-                                        <span class="notif-view-btn"><?php echo $is_rating_notif ? 'Rate Now' : 'View'; ?></span>
+                                        <?php
+                                        $btn_label = 'View';
+                                        if ($is_rating_notif) {
+                                            $btn_label = 'Rate Now';
+                                        } elseif (
+                                            strpos(strtolower((string)($notif['link'] ?? '')), 'payment.php') !== false ||
+                                            strpos(strtolower((string)($notif['message'] ?? '')), 'proceed to payment') !== false ||
+                                            strpos(strtolower((string)($notif['message'] ?? '')), 'payment of') !== false
+                                        ) {
+                                            $btn_label = 'Pay Now';
+                                        }
+                                        ?>
+                                        <span class="notif-view-btn"><?php echo $btn_label; ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
