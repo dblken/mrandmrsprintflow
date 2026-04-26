@@ -1,7 +1,0 @@
-<?php
-/**
- * Job Orders API
- * Admin/Staff CRUD for job orders and material assignment.
- */
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/functions.php';
