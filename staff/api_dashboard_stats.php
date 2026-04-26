@@ -100,6 +100,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 
+<<<<<<< HEAD
 if (!has_role('Staff')) {
     http_response_code(403);
     $flags = JSON_UNESCAPED_SLASHES;
@@ -109,6 +110,58 @@ if (!has_role('Staff')) {
 }
 
 $__pf_debug_allowed = $__pf_debug_requested; // staff-authenticated endpoint
+=======
+if ($__pf_debug_requested && defined('PRINTFLOW_DEBUG_SESSION_LOG') && PRINTFLOW_DEBUG_SESSION_LOG) {
+    $sessionCookieName = session_name();
+    $debugSnapshot = [
+        'endpoint' => 'staff/api_dashboard_stats.php',
+        'host' => $_SERVER['HTTP_HOST'] ?? null,
+        'https' => $_SERVER['HTTPS'] ?? null,
+        'x_forwarded_proto' => $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? null,
+        'session_status' => session_status(),
+        'session_name' => $sessionCookieName,
+        'has_session_cookie' => isset($_COOKIE[$sessionCookieName]),
+        'session_keys' => array_values(array_slice(array_keys($_SESSION ?? []), 0, 50)),
+        'user_id' => $_SESSION['user_id'] ?? null,
+        'user_type' => $_SESSION['user_type'] ?? null,
+        'branch_id' => $_SESSION['branch_id'] ?? null,
+        'selected_branch_id' => $_SESSION['selected_branch_id'] ?? null,
+    ];
+
+    $flags = JSON_UNESCAPED_SLASHES;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    error_log('[PrintFlow] Session debug: ' . json_encode($debugSnapshot, $flags));
+}
+
+if (!has_role(['Admin', 'Manager', 'Staff'])) {
+    http_response_code(403);
+    $flags = JSON_UNESCAPED_SLASHES;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    
+    $payload = ['success' => false, 'error' => 'Unauthorized'];
+    if ($__pf_debug_requested) {
+        $sessionCookieName = session_name();
+        $payload['debug'] = [
+            'debug_note' => 'Debug is limited until authorized.',
+            'session_status' => session_status(),
+            'session_name' => $sessionCookieName,
+            'has_session_cookie' => isset($_COOKIE[$sessionCookieName]),
+            'cookie_names' => array_values(array_slice(array_keys($_COOKIE ?? []), 0, 20)),
+            'host' => $_SERVER['HTTP_HOST'] ?? null,
+            'https' => $_SERVER['HTTPS'] ?? null,
+            'x_forwarded_proto' => $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? null,
+            'origin' => $_SERVER['HTTP_ORIGIN'] ?? null,
+            'referer' => $_SERVER['HTTP_REFERER'] ?? null,
+            'user_type' => $_SESSION['user_type'] ?? null,
+            'user_id' => $_SESSION['user_id'] ?? null
+        ];
+    }
+    echo json_encode($payload, $flags);
+    exit;
+}
+
+$__pf_debug_allowed = $__pf_debug_requested;
+>>>>>>> f427c8b6 (update)
 
 $staffCtx = init_branch_context();
 $staffBranchId = $staffCtx['selected_branch_id'] === 'all'
