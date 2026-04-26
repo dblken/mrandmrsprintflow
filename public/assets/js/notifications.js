@@ -628,7 +628,7 @@
                 var html = '';
                 for (var j = 0; j < data.notifications.length; j++) {
                     var n = data.notifications[j];
-                    var target = normalizeNotificationTarget((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type));
+                    var target = normalizeNotificationTarget((n && n.link) ? n.link : ((n && n.target_url) ? n.target_url : getNotifUrl(n.type, n.data_id, n.message, n.id, n.order_type)));
                     var unreadClass = n.is_read == 0 ? 'unread' : '';
                     var type = (n.type || '').toLowerCase();
                     var iconSvg = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
@@ -746,7 +746,7 @@
                         markSeen(String(itemId));
                         highestId = Math.max(highestId, itemId);
                     }
-                    var targetUrl = normalizeNotificationTarget((item && item.target_url) ? item.target_url : getNotifUrl(item.type, item.data_id, item.message, item.id, item.order_type));
+                    var targetUrl = normalizeNotificationTarget((item && item.link) ? item.link : ((item && item.target_url) ? item.target_url : getNotifUrl(item.type, item.data_id, item.message, item.id, item.order_type)));
                     showToast(item.title || 'PrintFlow', item.message, targetUrl, item.image || '', item.fallback || '');
                 }
 

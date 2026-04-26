@@ -207,6 +207,46 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
 
     $customer_id = $user_type === 'Customer' ? $user_id : null;
     $staff_user_id = $user_type !== 'Customer' ? $user_id : null;
+    $safe_type = trim((string)$type);
+    $safe_message = trim((string)$message);
+    $safe_data_id = ($data_id === null || $data_id === '') ? 0 : (int)$data_id;
+
+    // Guard against accidental duplicate inserts fired within a few seconds.
+    if ($customer_id !== null) {
+        $dup = db_query(
+            "SELECT notification_id
+             FROM notifications
+             WHERE customer_id = ?
+               AND type = ?
+               AND message = ?
+               AND COALESCE(data_id, 0) = ?
+               AND created_at >= (NOW() - INTERVAL 20 SECOND)
+             ORDER BY notification_id DESC
+             LIMIT 1",
+            'issi',
+            [$customer_id, $safe_type, $safe_message, $safe_data_id]
+        );
+        if (!empty($dup)) {
+            return (int)($dup[0]['notification_id'] ?? 0);
+        }
+    } else {
+        $dup = db_query(
+            "SELECT notification_id
+             FROM notifications
+             WHERE user_id = ?
+               AND type = ?
+               AND message = ?
+               AND COALESCE(data_id, 0) = ?
+               AND created_at >= (NOW() - INTERVAL 20 SECOND)
+             ORDER BY notification_id DESC
+             LIMIT 1",
+            'iisi',
+            [$staff_user_id, $safe_type, $safe_message, $safe_data_id]
+        );
+        if (!empty($dup)) {
+            return (int)($dup[0]['notification_id'] ?? 0);
+        }
+    }
     
     $sql = "INSERT INTO notifications (user_id, customer_id, message, type, data_id, is_read, send_email, send_sms) 
             VALUES (?, ?, ?, ?, ?, 0, ?, ?)";
@@ -214,9 +254,9 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
     $result = db_execute($sql, 'iissiii', [
         $staff_user_id,
         $customer_id,
-        $message,
-        $type,
-        $data_id,
+        $safe_message,
+        $safe_type,
+        $safe_data_id,
         $send_email ? 1 : 0,
         $send_sms ? 1 : 0
     ]);
@@ -1558,7 +1598,7 @@ function get_customer_notifications_for_display($customer_id, $limit = 10, $offs
  * Remove near-identical duplicate notifications generated within a short window.
  * Keeps the most recent row for each duplicate signature.
  */
-function printflow_dedupe_notifications(array $rows, int $windowSeconds = 120): array
+function printflow_dedupe_notifications(array $rows, int $windowSeconds = 300): array
 {
     if (empty($rows)) {
         return [];
@@ -1570,8 +1610,12 @@ function printflow_dedupe_notifications(array $rows, int $windowSeconds = 120): 
 
     foreach ($rows as $row) {
         $type = strtolower(trim((string)($row['type'] ?? '')));
-        $message = strtolower(trim((string)($row['message'] ?? '')));
+        $displayMessage = printflow_notification_display_message($row);
+        $message = strtolower(trim(preg_replace('/\s+/', ' ', (string)$displayMessage)));
         $dataId = (int)($row['data_id'] ?? 0);
+        if ($dataId <= 0 && preg_match('/order\s*#?(\d+)/i', (string)$displayMessage, $m)) {
+            $dataId = (int)($m[1] ?? 0);
+        }
         $tsRaw = $row['ts'] ?? null;
         $ts = is_numeric($tsRaw)
             ? (int)$tsRaw
