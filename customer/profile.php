@@ -150,8 +150,13 @@ foreach ($add_cols as list($col, $len, $after)) {
     }
 }
 
+if (function_exists('printflow_ensure_customers_auth_provider_column')) {
+    printflow_ensure_customers_auth_provider_column();
+}
+
 // Get customer data
 $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+$customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
 
 function customer_profile_redirect_after_completion(string $return_to): void {
     if ($return_to === '' || !is_profile_complete()) {
@@ -295,34 +300,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid request. Please try again.';
     } else {
-        $current_password = $_POST['current_password'] ?? '';
-        $new_password = $_POST['new_password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
-        
-        $pw_errors = [];
-        if (empty($current_password) || empty($new_password)) {
-            $error = 'All password fields are required.';
-        } elseif (!password_verify($current_password, $customer['password_hash'])) {
-            $error = 'Current password is incorrect.';
-        } else {
-            if (strlen($new_password) < 8 || strlen($new_password) > 64) $pw_errors[] = '8-64 characters';
-            if (!preg_match('/[A-Z]/', $new_password)) $pw_errors[] = 'uppercase letter';
-            if (!preg_match('/[a-z]/', $new_password)) $pw_errors[] = 'lowercase letter';
-            if (!preg_match('/[0-9]/', $new_password)) $pw_errors[] = 'number';
-            if (!preg_match('/[^A-Za-z0-9]/', $new_password)) $pw_errors[] = 'special character';
+        $current_password = (string)($_POST['current_password'] ?? '');
+        $new_password = (string)($_POST['new_password'] ?? '');
+        $confirm_password = (string)($_POST['confirm_password'] ?? '');
+        $googleMode = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
 
-            if (!empty($pw_errors)) {
-                $error = 'Password must contain: ' . implode(', ', $pw_errors) . '.';
-            } elseif ($new_password !== $confirm_password) {
-                $error = 'New passwords do not match.';
+        $validate_new_password = static function (string $pw) {
+            $pw_errors = [];
+            if (strlen($pw) < 8 || strlen($pw) > 64) {
+                $pw_errors[] = '8-64 characters';
+            }
+            if (!preg_match('/[A-Z]/', $pw)) {
+                $pw_errors[] = 'uppercase letter';
+            }
+            if (!preg_match('/[a-z]/', $pw)) {
+                $pw_errors[] = 'lowercase letter';
+            }
+            if (!preg_match('/[0-9]/', $pw)) {
+                $pw_errors[] = 'number';
+            }
+            if (!preg_match('/[^A-Za-z0-9]/', $pw)) {
+                $pw_errors[] = 'special character';
+            }
+            return $pw_errors;
+        };
+
+        if ($googleMode) {
+            if (empty($new_password)) {
+                $error = 'New password is required.';
             } else {
-                $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
-                $result = db_execute("UPDATE customers SET password_hash = ? WHERE customer_id = ?", 'si', [$password_hash, $customer_id]);
-                
-                if ($result) {
-                    $success = 'Password changed successfully!';
+                $pw_errors = $validate_new_password($new_password);
+                if (!empty($pw_errors)) {
+                    $error = 'Password must contain: ' . implode(', ', $pw_errors) . '.';
+                } elseif ($new_password !== $confirm_password) {
+                    $error = 'New passwords do not match.';
                 } else {
-                    $error = 'Failed to change password.';
+                    $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+                    $result = db_execute("UPDATE customers SET password_hash = ? WHERE customer_id = ?", 'si', [$password_hash, $customer_id]);
+                    if ($result) {
+                        $success = 'Password set successfully! You can now sign in with your email and this password, or continue using Google.';
+                        $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+                        $customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+                    } else {
+                        $error = 'Failed to set password.';
+                    }
+                }
+            }
+        } else {
+            if (empty($current_password) || empty($new_password)) {
+                $error = 'All password fields are required.';
+            } elseif (empty($customer['password_hash']) || !password_verify($current_password, $customer['password_hash'])) {
+                $error = 'Current password is incorrect.';
+            } else {
+                $pw_errors = $validate_new_password($new_password);
+                if (!empty($pw_errors)) {
+                    $error = 'Password must contain: ' . implode(', ', $pw_errors) . '.';
+                } elseif ($new_password !== $confirm_password) {
+                    $error = 'New passwords do not match.';
+                } else {
+                    $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+                    $result = db_execute("UPDATE customers SET password_hash = ? WHERE customer_id = ?", 'si', [$password_hash, $customer_id]);
+                    if ($result) {
+                        $success = 'Password changed successfully!';
+                        $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0];
+                        $customer_uses_google_signin = (strtolower(trim((string)($customer['auth_provider'] ?? ''))) === 'google');
+                    } else {
+                        $error = 'Failed to change password.';
+                    }
                 }
             }
         }
@@ -967,16 +1011,20 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- Security Section -->
                 <div class="profile-card" id="section-password" style="padding-top: 2rem; border-top: 1px solid #e2e8f0;">
                     <h3 class="profile-card-title">Security & Password</h3>
-                    
+                    <?php if (!empty($customer_uses_google_signin)): ?>
+                    <p style="font-size:0.875rem;color:#64748b;margin:0 0 1rem;line-height:1.5;">You signed in with Google. Create a password here if you want to sign in with your email and password as well.</p>
+                    <?php endif; ?>
+
                     <form method="POST" action="" novalidate>
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="change_password" value="1">
 
                         <div class="form-grid">
+                            <?php if (empty($customer_uses_google_signin)): ?>
                             <div class="pf-field-group" id="group_current_password">
                                 <label for="current_password" class="pf-label">Current Password</label>
                                 <div class="password-wrapper">
-                                    <input type="password" id="current_password" name="current_password" class="pf-input" placeholder="Enter current password">
+                                    <input type="password" id="current_password" name="current_password" class="pf-input" placeholder="Enter current password" autocomplete="current-password">
                                     <button type="button" class="password-toggle" onclick="togglePassword('current_password', this)">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     </button>
@@ -984,15 +1032,17 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="error-message" id="error_current_password">Current password is required.</div>
                             </div>
                             <div class="pf-field-group">
-                                <!-- empty column for alignment or extra info -->
                                 <div style="font-size:0.813rem; color:#64748b; padding-top:2rem;">
                                     Confirm your identity to make security changes.
                                 </div>
                             </div>
+                            <?php else: ?>
+                            <input type="hidden" name="current_password" value="">
+                            <?php endif; ?>
                             <div class="pf-field-group" id="group_new_password">
-                                <label for="new_password" class="pf-label">New Password</label>
+                                <label for="new_password" class="pf-label"><?php echo !empty($customer_uses_google_signin) ? 'Create password' : 'New Password'; ?></label>
                                 <div class="password-wrapper">
-                                    <input type="password" id="new_password" name="new_password" class="pf-input" placeholder="8+ characters" minlength="8">
+                                    <input type="password" id="new_password" name="new_password" class="pf-input" placeholder="8+ characters" minlength="8" autocomplete="new-password">
                                     <button type="button" class="password-toggle" onclick="togglePassword('new_password', this)">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     </button>
@@ -1012,7 +1062,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                            <button type="submit" class="pf-btn-primary">Update Password</button>
+                            <button type="submit" class="pf-btn-primary"><?php echo !empty($customer_uses_google_signin) ? 'Set password' : 'Update Password'; ?></button>
                         </div>
                     </form>
                 </div>
@@ -1705,14 +1755,19 @@ require_once __DIR__ . '/../includes/header.php';
         });
     }
 
-    // Password validation
+    // Password validation (Google-only accounts: no current password field; first-time "set password")
+    const profileGooglePassword = <?php echo !empty($customer_uses_google_signin) ? 'true' : 'false'; ?>;
     const passwordForm = document.querySelector('form[action=""]');
-    const passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
-    const passwordTouched = { current_password: false, new_password: false, confirm_password: false };
+    const passwordFieldIds = profileGooglePassword
+        ? ['new_password', 'confirm_password']
+        : ['current_password', 'new_password', 'confirm_password'];
+    const passwordTouched = profileGooglePassword
+        ? { new_password: false, confirm_password: false }
+        : { current_password: false, new_password: false, confirm_password: false };
 
     const passwordValidators = {
         new_password: (val) => {
-            if (!val) return "New password is required.";
+            if (!val) return profileGooglePassword ? "Password is required." : "New password is required.";
             if (val.length < 8) return "Password must be at least 8 characters.";
             if (val.length > 100) return "Password must be at most 100 characters.";
             if (!/[A-Z]/.test(val)) return "Password must have an uppercase letter.";
@@ -1763,9 +1818,12 @@ require_once __DIR__ . '/../includes/header.php';
         const current = document.getElementById('current_password');
         const newPass = document.getElementById('new_password');
         const confirm = document.getElementById('confirm_password');
-        if (!current || !newPass || !confirm) return;
+        if (!newPass || !confirm) return;
+        if (!profileGooglePassword && !current) return;
 
-        const hasAnyInput = (current.value + newPass.value + confirm.value).trim().length > 0;
+        const hasAnyInput = profileGooglePassword
+            ? (newPass.value + confirm.value).trim().length > 0
+            : (current.value + newPass.value + confirm.value).trim().length > 0;
         const mustValidate = force || hasAnyInput || Object.values(passwordTouched).some(Boolean);
 
         if (!mustValidate) {
@@ -1773,10 +1831,12 @@ require_once __DIR__ . '/../includes/header.php';
             return;
         }
 
-        const currentValid = validatePasswordField('current_password', (val) => !val ? 'Current password is required.' : null, {
-            onlyWhenTouched: !force,
-            isTouched: passwordTouched.current_password || current.value.length > 0
-        });
+        if (!profileGooglePassword) {
+            validatePasswordField('current_password', (val) => !val ? 'Current password is required.' : null, {
+                onlyWhenTouched: !force,
+                isTouched: passwordTouched.current_password || (current && current.value.length > 0)
+            });
+        }
 
         const nValid = validatePasswordField('new_password', passwordValidators.new_password, {
             onlyWhenTouched: !force,
