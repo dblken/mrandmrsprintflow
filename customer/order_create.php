@@ -198,10 +198,7 @@ $reviews = order_create_optional_query(
      " . "(SELECT COUNT(*)
             FROM review_helpful rh
             WHERE rh.review_id = r.id
-              AND (
-                    (rh.customer_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
-                    OR (rh.customer_id IS NULL AND rh.user_id = ? AND COALESCE(rh.user_type, 'Customer') = 'Customer')
-              )
+              AND (rh.user_id = ? OR rh.customer_id = ?)
           )" . " as user_voted
      FROM reviews r
      LEFT JOIN customers c ON {$review_customer_expr} = c.customer_id
@@ -816,7 +813,7 @@ async function markHelpful(reviewId, btn) {
             method: 'POST',
             credentials: 'same-origin',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'review_id=' + encodeURIComponent(reviewId)
+            body: 'review_id=' + encodeURIComponent(reviewId) + '&action=like'
         });
         const data = await res.json().catch(() => ({success: false, error: 'Invalid server response'}));
         if (data.success) {
