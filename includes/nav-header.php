@@ -32,19 +32,28 @@ if ($is_logged_in) {
     }
 }
 
-$first = trim((string)($current_user['first_name'] ?? ''));
-$last = trim((string)($current_user['last_name'] ?? ''));
+// PHP 8+ throws if $current_user is null; guests must use an empty array.
+$cu = is_array($current_user) ? $current_user : [];
+$first = trim((string)($cu['first_name'] ?? ''));
+$last = trim((string)($cu['last_name'] ?? ''));
 $pf_customer_notif_theme = $is_logged_in && function_exists('is_customer') && is_customer();
 $initials = '';
+$pf_str_up = static function (string $s): string {
+    if (function_exists('mb_strtoupper') && function_exists('mb_substr')) {
+        return mb_strtoupper(mb_substr($s, 0, 1, 'UTF-8'), 'UTF-8');
+    }
+    $one = (string) substr($s, 0, 1);
+    return strtoupper($one);
+};
 if ($first !== '') {
-    $initials .= mb_strtoupper(mb_substr($first, 0, 1));
+    $initials .= $pf_str_up($first);
 }
 if ($last !== '') {
-    $initials .= mb_strtoupper(mb_substr($last, 0, 1));
+    $initials .= $pf_str_up($last);
 }
 if ($initials === '') {
-    $emailInitial = trim((string)($current_user['email'] ?? 'U'));
-    $initials = mb_strtoupper(mb_substr($emailInitial, 0, 1));
+    $emailInitial = trim((string)($cu['email'] ?? 'U'));
+    $initials = $pf_str_up($emailInitial);
 }
 ?>
 <header class="<?php echo htmlspecialchars($nav_header_class); ?>" id="main-header">
@@ -737,8 +746,8 @@ if ($initials === '') {
                         <button type="button" data-pf-profile-toggle class="pf-icon-btn nav-link flex items-center gap-3" style="width:auto;padding:0 0.5rem;" title="My Account">
                             <div class="pf-avatar transition-all duration-300"
                                  style="width:1.85rem;height:1.85rem;font-size:0.7rem;<?php echo (stripos($_SERVER['REQUEST_URI'] ?? '', '/profile.php') !== false) ? 'color:#53C5E0;' : ''; ?>">
-                                <?php if (!empty($current_user['profile_picture'])): ?>
-                                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($current_user['profile_picture']); ?>?t=<?php echo time(); ?>"
+                                <?php if (!empty($cu['profile_picture'])): ?>
+                                    <img src="<?php echo $asset_base; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($cu['profile_picture']); ?>?t=<?php echo time(); ?>"
                                          alt="Profile"
                                          class="w-full h-full object-cover">
                                 <?php else: ?>

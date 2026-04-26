@@ -61,6 +61,11 @@ function get_logo_html(string $size = '32px'): string {
             . ' style="width:' . $size . ';height:' . $size . ';border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;flex-shrink:0;display:block;"'
             . ' onerror="this.style.display=\'none\';">';
     }
-    $first = strtoupper(mb_substr(strip_tags($shop_name), 0, 1));
+    $tag = strip_tags($shop_name);
+    if (function_exists('mb_substr')) {
+        $first = strtoupper(mb_substr($tag, 0, 1, 'UTF-8'));
+    } else {
+        $first = strtoupper(substr($tag, 0, 1));
+    }
     return '<div class="logo-icon">' . $first . '</div>';
 }

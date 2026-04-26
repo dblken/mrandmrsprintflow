@@ -76,7 +76,7 @@ function printflow_ensure_customers_auth_provider_column() {
         if (!$has) {
             @db_execute("ALTER TABLE `customers` ADD COLUMN `auth_provider` varchar(20) NULL DEFAULT NULL");
         }
-    } catch (Throwable $e) {
+    } catch (Exception $e) {
         error_log('printflow_ensure_customers_auth_provider_column: ' . $e->getMessage());
     }
 }
