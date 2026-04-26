@@ -1,6 +1,6 @@
 <?php
 /**
- * Export Order Summary to PDF
+ * Export Order Summary - Professional HTML Report Viewer
  * PrintFlow - Staff Reports
  */
 
@@ -89,173 +89,268 @@ $sessionDate = date('F d, Y');
 $generatedAt = date('M d, Y g:i A');
 
 // Logo path
-$logoPath = __DIR__ . '/../public/images/logo.jpg';
-$logoData = '';
-if (file_exists($logoPath)) {
-    $type = pathinfo($logoPath, PATHINFO_EXTENSION);
-    $data = file_get_contents($logoPath);
-    $logoData = 'data:image/' . $type . ';base64,' . base64_encode($data);
-}
-
-$rowsHtml = '';
-if (empty($orders)) {
-    $rowsHtml = '<tr><td colspan="6" style="text-align:center;padding:18px;color:#64748b;">No records found.</td></tr>';
-} else {
-    foreach ($orders as $o) {
-        $rowsHtml .= '<tr>'
-            . '<td style="text-align:center;">' . (int)$o['order_id'] . '</td>'
-            . '<td style="word-wrap: break-word; overflow-wrap: break-word;">' . htmlspecialchars((string)$o['customer_name']) . '</td>'
-            . '<td style="word-wrap: break-word; overflow-wrap: break-word;">' . htmlspecialchars((string)$o['service_type']) . '</td>'
-            . '<td style="text-align:center;">' . htmlspecialchars((string)$o['status']) . '</td>'
-            . '<td style="text-align:center;">' . date('Y-m-d', strtotime((string)$o['order_date'])) . '</td>'
-            . '<td style="text-align:right;">' . number_format((float)$o['total_amount'], 2) . '</td>'
-            . '</tr>';
-    }
-}
-
-$html = '
-<!doctype html>
-<html>
+$logoPath = '../public/images/logo.jpg';
+?>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Summary Report - <?php echo $sessionDate; ?></title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        @page { margin: 30px 40px 110px 40px; }
-        body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10px; color: #333; margin: 0; padding: 0; line-height: 1.3; }
-        
-        .header { width: 100%; border-bottom: 1.2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
-        .header-table { width: 100%; border: none; }
-        .header-table td { border: none; vertical-align: middle; }
-        .logo { width: 60px; height: auto; }
-        .business-details { text-align: center; padding-right: 60px; }
-        .business-details h1 { margin: 0; font-size: 16px; color: #000; font-weight: bold; }
-        .business-details p { margin: 1px 0; font-size: 9px; color: #333; }
+        :root {
+            --primary-blue: #0047AB;
+            --bg-grey: #f1f5f9;
+            --paper-width: 850px;
+        }
 
-        .report-title { color: #0047AB; font-size: 16px; font-weight: bold; margin-bottom: 4px; }
-        .meta-info { margin-bottom: 12px; font-size: 10px; line-height: 1.4; }
-        
-        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
-        .summary-table td { border: 1.2px solid #000; padding: 5px 10px; font-size: 10px; }
-        .summary-label { background-color: #f8fafc; font-weight: bold; width: 22%; }
-        .summary-value { text-align: center; width: 28%; font-weight: bold; }
-        .summary-total-label { background-color: #f8fafc; font-weight: bold; width: 25%; }
-        .summary-total-value { text-align: right; width: 25%; font-weight: bold; font-size: 11px; }
+        * { box-sizing: border-box; }
+        body { font-family: "Inter", "Segoe UI", Helvetica, Arial, sans-serif; background-color: var(--bg-grey); margin: 0; padding: 0; color: #1e293b; }
 
-        .orders-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .orders-table th { background-color: #0047AB; color: #ffffff; padding: 6px; border: 1.2px solid #000; font-weight: bold; text-transform: uppercase; font-size: 9px; text-align: center; }
-        .orders-table td { border: 1.2px solid #000; padding: 6px; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; }
-        .orders-table tr:nth-child(even) { background-color: #f9f9f9; }
+        /* Actions Bar */
+        .actions {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 15px 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
 
-        footer { position: fixed; bottom: -90px; left: 0px; right: 0px; height: 90px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 9px; color: #444; }
-        .footer-table { width: 100%; border: none; }
-        .footer-table td { border: none; padding: 0; vertical-align: top; line-height: 1.3; }
-        .footer-right { text-align: right; }
-        .rev-code { font-weight: bold; margin-top: 5px; font-size: 9px; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-print { background: #0f172a; color: #fff; }
+        .btn-print:hover { background: #1e293b; }
+        .btn-download { background: var(--primary-blue); color: #fff; }
+        .btn-download:hover { background: #003580; }
+
+        /* Report Container (A4 Style) */
+        .report-wrapper {
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .report-container {
+            width: var(--paper-width);
+            background: #fff;
+            padding: 50px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            border-radius: 4px;
+            min-height: 1123px; /* A4 aspect ratio */
+        }
+
+        /* Header Styling */
+        .report-header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-logo { width: 90px; margin-right: 20px; }
+        .header-logo img { width: 100%; height: auto; border-radius: 50%; }
+        .header-details { flex: 1; text-align: center; padding-right: 90px; }
+        .header-details h1 { margin: 0; font-size: 24px; font-weight: 800; color: #000; }
+        .header-details p { margin: 4px 0; font-size: 13px; color: #475569; }
+
+        /* Content Sections */
+        .report-title { font-size: 20px; font-weight: 800; color: var(--primary-blue); margin-bottom: 8px; }
+        .meta-info { font-size: 13px; color: #64748b; margin-bottom: 25px; line-height: 1.6; }
+        .meta-info strong { color: #1e293b; }
+
+        /* Summary Boxes */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr;
+            border: 1.5px solid #000;
+            margin-bottom: 25px;
+        }
+        .summary-item { padding: 12px 15px; font-size: 14px; display: flex; align-items: center; border-right: 1.5px solid #000; }
+        .summary-item:last-child { border-right: none; }
+        .summary-label { background: #f8fafc; font-weight: 700; text-transform: uppercase; font-size: 11px; color: #475569; }
+        .summary-value { font-weight: 800; font-size: 15px; justify-content: center; }
+        .summary-total { font-weight: 800; font-size: 16px; color: #000; justify-content: flex-end; }
+
+        /* Table Design */
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .orders-table th {
+            background-color: var(--primary-blue);
+            color: #fff;
+            padding: 12px 8px;
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            border: 1.5px solid #000;
+        }
+        .orders-table td {
+            padding: 10px 8px;
+            border: 1.5px solid #000;
+            vertical-align: middle;
+        }
+        .orders-table tr:nth-child(even) { background-color: #f9fafb; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+
+        /* Footer */
+        .report-footer {
+            margin-top: 50px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .footer-left p { margin: 4px 0; }
+        .footer-right { text-align: right; font-weight: 700; color: #1e293b; }
+
+        /* Print Specifics */
+        @media print {
+            .actions { display: none !important; }
+            body { background: #fff !important; }
+            .report-wrapper { padding: 0 !important; }
+            .report-container { 
+                width: 100% !important; 
+                box-shadow: none !important; 
+                padding: 0 !important; 
+                margin: 0 !important;
+                min-height: auto;
+            }
+            .summary-item, .orders-table th, .orders-table td { border-width: 1pt !important; }
+        }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <table class="header-table">
-        <tr>
-            <td style="width: 70px;">
-                <img src="' . $logoData . '" class="logo">
-            </td>
-            <td class="business-details">
-                <h1>' . htmlspecialchars($branchName) . '</h1>
-                <p>' . htmlspecialchars($branchAddress) . '</p>
-                <p>Contact: ' . htmlspecialchars($branchContact) . ' | Email: ' . htmlspecialchars($branchEmail) . '</p>
-                <p>Facebook: ' . htmlspecialchars($branchName) . '</p>
-            </td>
-        </tr>
-    </table>
+<div class="actions">
+    <button onclick="window.print()" class="btn btn-print">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print Report
+    </button>
+    <button id="download-btn" class="btn btn-download">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download PDF
+    </button>
 </div>
 
-<footer>
-    <table class="footer-table">
-        <tr>
-            <td>
-                ' . htmlspecialchars($branchName) . '<br>
-                ' . htmlspecialchars($branchAddress) . '<br>
-                Website: mrandmrsprintflow.com<br>
-                Prepared By: ' . htmlspecialchars($staffName) . ' | Branch: ' . htmlspecialchars($branchName) . '<br>
-                Contact: ' . htmlspecialchars($staffContact) . ' | Email: ' . htmlspecialchars($staffEmail) . '
-            </td>
-            <td class="footer-right">
-                Generated On: ' . $generatedAt . ' | <span id="page-placeholder"></span>
-                <div class="rev-code">PF-REP-SUMMARY-01-Rev00</div>
-            </td>
-        </tr>
-    </table>
-</footer>
+<div class="report-wrapper">
+    <div class="report-container" id="report-content">
+        
+        <header class="report-header">
+            <div class="header-logo">
+                <img src="<?php echo $logoPath; ?>" alt="Logo">
+            </div>
+            <div class="header-details">
+                <h1><?php echo htmlspecialchars($branchName); ?></h1>
+                <p><?php echo htmlspecialchars($branchAddress); ?></p>
+                <p>Contact: <?php echo htmlspecialchars($branchContact); ?> | Email: <?php echo htmlspecialchars($branchEmail); ?></p>
+                <p>Facebook: <?php echo htmlspecialchars($branchName); ?></p>
+            </div>
+        </header>
 
-<div class="report-title">Order Summary Details</div>
-<div class="meta-info">
-    Session Date: ' . $sessionDate . '<br>
-    Staff Account: ' . htmlspecialchars($staffName) . '<br>
-    Contact Info: ' . htmlspecialchars($staffContact) . ' | ' . htmlspecialchars($staffEmail) . '
+        <div class="report-title">Order Summary Details</div>
+        <div class="meta-info">
+            <strong>Session Date:</strong> <?php echo $sessionDate; ?><br>
+            <strong>Staff Account:</strong> <?php echo htmlspecialchars($staffName); ?><br>
+            <strong>Contact Info:</strong> <?php echo htmlspecialchars($staffContact); ?> | <?php echo htmlspecialchars($staffEmail); ?>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-item summary-label">TOTAL ORDERS</div>
+            <div class="summary-item summary-value"><?php echo count($orders); ?></div>
+            <div class="summary-item summary-label">TOTAL GROSS SALES</div>
+            <div class="summary-item summary-total">₱ <?php echo number_format($grandTotal, 2); ?></div>
+        </div>
+
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Order #</th>
+                    <th style="width: 25%;">Customer Name</th>
+                    <th style="width: 20%;">Service Type</th>
+                    <th style="width: 15%;">Status</th>
+                    <th style="width: 15%;">Date Created</th>
+                    <th style="width: 15%;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($orders)): ?>
+                    <tr><td colspan="6" class="text-center">No orders found for this period.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($orders as $o): ?>
+                        <tr>
+                            <td class="text-center"><?php echo (int)$o['order_id']; ?></td>
+                            <td><?php echo htmlspecialchars((string)$o['customer_name']); ?></td>
+                            <td><?php echo htmlspecialchars((string)$o['service_type']); ?></td>
+                            <td class="text-center"><?php echo htmlspecialchars((string)$o['status']); ?></td>
+                            <td class="text-center"><?php echo date('Y-m-d', strtotime((string)$o['order_date'])); ?></td>
+                            <td class="text-right">₱ <?php echo number_format((float)$o['total_amount'], 2); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+
+        <footer class="report-footer">
+            <div class="footer-left">
+                <p>Generated by <strong>PrintFlow System</strong></p>
+                <p><?php echo htmlspecialchars($branchName); ?> | <?php echo htmlspecialchars($branchAddress); ?></p>
+                <p>Prepared By: <?php echo htmlspecialchars($staffName); ?></p>
+            </div>
+            <div class="footer-right">
+                Generated On: <?php echo $generatedAt; ?><br>
+                <span style="font-size: 14px; margin-top: 10px; display: inline-block;">PF-REP-SUMMARY-01-Rev00</span>
+            </div>
+        </footer>
+
+    </div>
 </div>
 
-<table class="summary-table">
-    <tr>
-        <td class="summary-label">TOTAL ORDERS</td>
-        <td class="summary-value">' . count($orders) . '</td>
-        <td class="summary-total-label">TOTAL GROSS SALES</td>
-        <td class="summary-total-value">₱ ' . number_format($grandTotal, 2) . '</td>
-    </tr>
-</table>
+<script>
+    document.getElementById('download-btn').addEventListener('click', function() {
+        const element = document.getElementById('report-content');
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     'Order_Summary_<?php echo date('Ymd'); ?>.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
 
-<table class="orders-table">
-    <thead>
-        <tr>
-            <th style="width: 8%;">Order #</th>
-            <th style="width: 27%;">Customer Name</th>
-            <th style="width: 25%;">Service Type</th>
-            <th style="width: 15%;">Status</th>
-            <th style="width: 13%;">Date Created</th>
-            <th style="width: 12%;">Amount</th>
-        </tr>
-    </thead>
-    <tbody>
-        ' . $rowsHtml . '
-    </tbody>
-</table>
+        // New Promise-based usage:
+        html2pdf().set(opt).from(element).save();
+    });
+</script>
 
 </body>
-</html>';
+</html>
+<?php exit; ?>
 
-$autoload = __DIR__ . '/../vendor/autoload.php';
-if (file_exists($autoload)) {
-    require_once $autoload;
-}
-
-if (class_exists(\Dompdf\Dompdf::class)) {
-    $dompdf = new \Dompdf\Dompdf([
-        'isRemoteEnabled' => true,
-        'isHtml5ParserEnabled' => true,
-    ]);
-    
-    $dompdf->loadHtml($html, 'UTF-8');
-    $dompdf->setPaper('A4', 'portrait');
-    $dompdf->render();
-    
-    $canvas = $dompdf->getCanvas();
-    $font = $dompdf->getFontMetrics()->get_font("helvetica", "normal");
-    $size = 9;
-    
-    // Explicitly place page text using canvas to ensure it is visible and properly positioned
-    $canvas->page_text(460, $canvas->get_height() - 40, "Page {PAGE_NUM} of {PAGE_COUNT}", $font, $size, array(0.2, 0.2, 0.2));
-
-    $file = 'order_summary_' . strtolower($range) . '_' . strtolower($status_filter === 'ALL' ? 'all' : preg_replace('/\s+/', '_', $status_filter)) . '.pdf';
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: inline; filename="' . $file . '"');
-    echo $dompdf->output();
-    exit;
-}
-
-// Fallback
-header('Content-Type: text/html; charset=utf-8');
-echo $html;
-exit;
 
 
 
