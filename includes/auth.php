@@ -508,9 +508,25 @@ function login_customer_by_google($email, $first_name, $last_name) {
     if ($email === '') {
         return ['success' => false, 'message' => 'Invalid email from Google'];
     }
-    $existing = db_query("SELECT * FROM customers WHERE LOWER(TRIM(email)) = ?", 's', [$email]);
+    $staff = db_query("SELECT user_id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$email]);
+    if (!empty($staff)) {
+        return [
+            'success' => false,
+            'message' => 'This email is already used for a staff or admin account. You cannot use Google sign-in for this address. Please sign in with your work email and password.',
+        ];
+    }
+
+    $existing = db_query("SELECT * FROM customers WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$email]);
     if (!empty($existing)) {
         $customer = $existing[0];
+        $ap = strtolower(trim((string)($customer['auth_provider'] ?? '')));
+        // Only allow Google if this customer account was created for Google (one email, one sign-in method).
+        if ($ap !== 'google') {
+            return [
+                'success' => false,
+                'message' => 'This email is already registered. Please use Sign in with your email and password — Google sign-in is not available for this address (one email, one sign-in method).',
+            ];
+        }
         db_execute("UPDATE customers SET auth_provider = 'google' WHERE customer_id = ?", 'i', [(int)$customer['customer_id']]);
         $_SESSION['user_id'] = $customer['customer_id'];
         $_SESSION['user_type'] = 'Customer';
@@ -522,13 +538,6 @@ function login_customer_by_google($email, $first_name, $last_name) {
         }
         SessionManager::commit();
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
-    }
-    $staff = db_query("SELECT user_id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1", 's', [$email]);
-    if (!empty($staff)) {
-        return [
-            'success' => false,
-            'message' => 'This email is already registered to a staff or admin account. Use your work email and password to sign in — Google sign-in is not available for that account.',
-        ];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
     $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?, 'google')";
