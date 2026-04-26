@@ -28,6 +28,16 @@ if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
     if ($deepLinkOrderType === 'product') {
         redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
     }
+    $linkedJob = db_query(
+        "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+        'i',
+        [$deepLinkOrderId]
+    );
+    $linkedJobId = (int)($linkedJob[0]['id'] ?? 0);
+    if ($linkedJobId > 0) {
+        redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/customizations.php?order_id=' . $linkedJobId . '&job_type=JOB');
+    }
+    redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
 }
 
 $page_title = 'Customizations - PrintFlow';
@@ -156,73 +166,6 @@ foreach ($job_rows as $row) {
         $row['order_code'] = printflow_get_job_inventory_reference((int)($row['id'] ?? 0))['code'] ?? '';
     }
     $row['order_type'] = 'JOB';
-    $preloaded_customization_rows[] = $row;
-}
-
-$custom_branch_sql = '';
-$custom_branch_types = '';
-$custom_branch_params = [];
-if ($branchFilter !== null) {
-    $custom_branch_sql = " AND o.branch_id = ?";
-    $custom_branch_types = 'i';
-    $custom_branch_params = [(int)$branchFilter];
-}
-
-$customization_rows = db_query(
-    "SELECT cust.customization_id AS id,
-            cust.order_id,
-            (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = cust.order_id) AS job_order_id,
-            cust.customization_details,
-            c.first_name,
-            c.last_name,
-            c.profile_picture AS customer_profile_picture,
-            c.customer_type,
-            c.transaction_count,
-            COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
-            'CUSTOMIZATION' AS order_type,
-            cust.service_type AS service_type,
-            cust.service_type AS job_title,
-            '1' AS width_ft,
-            '1' AS height_ft,
-            1 AS quantity,
-            CASE
-                WHEN cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision') THEN 'PENDING'
-                WHEN cust.status = 'Approved' THEN 'APPROVED'
-                WHEN cust.status = 'To Pay' THEN 'TO_PAY'
-                WHEN cust.status IN ('Pending Verification', 'Downpayment Submitted', 'To Verify') THEN 'VERIFY_PAY'
-                WHEN cust.status IN ('Processing', 'In Production') THEN 'IN_PRODUCTION'
-                WHEN cust.status IN ('Ready for Pickup', 'Ready For Pickup') THEN 'TO_RECEIVE'
-                WHEN cust.status = 'Completed' THEN 'COMPLETED'
-                WHEN cust.status = 'Rejected' THEN 'REJECTED'
-                WHEN cust.status = 'Cancelled' THEN 'CANCELLED'
-                ELSE 'PENDING'
-            END AS status,
-            cust.created_at,
-            cust.updated_at,
-            'pos' AS order_source
-     FROM customizations cust
-     LEFT JOIN customers c ON cust.customer_id = c.customer_id
-     LEFT JOIN orders o ON cust.order_id = o.order_id
-     WHERE cust.status IN ('Pending Review', 'Pending', 'Pending Approval', 'For Revision', 'Approved', 'To Pay', 'Pending Verification', 'Downpayment Submitted', 'To Verify', 'Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')
-       " . $custom_branch_sql . "
-     ORDER BY cust.created_at DESC
-     LIMIT 200",
-    $custom_branch_types ?: null,
-    $custom_branch_params ?: null
-) ?: [];
-
-foreach ($customization_rows as $row) {
-    $summary = printflow_customization_summary($row['customization_details'] ?? [], $row['service_type'] ?? 'Custom Service');
-    $row['service_type'] = $summary['service_type'];
-    $row['job_title'] = $summary['job_title'];
-    $row['width_ft'] = $summary['width_ft'];
-    $row['height_ft'] = $summary['height_ft'];
-    $row['quantity'] = $summary['quantity'];
-    if (!empty($row['order_id'])) {
-        $row['order_code'] = printflow_get_order_inventory_reference((int)$row['order_id'])['code'] ?? '';
-    } else {
-        $row['order_code'] = printflow_format_customization_code((int)($row['id'] ?? 0));
-    }
     $preloaded_customization_rows[] = $row;
 }
 
@@ -2569,20 +2512,11 @@ window.pfCustomizationPreloadedOrders = (() => {
                         }
                     });
                     const refreshToken = Date.now();
-                    const [joRes, ordersRes] = await Promise.all([
-                        fetch(`../admin/job_orders_api.php?action=list_orders&service_only=1&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r)),
-                        fetch(`../admin/job_orders_api.php?action=list_pending_orders&service_only=1&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r))
-                    ]);
+                    const joRes = await fetch(`../admin/job_orders_api.php?action=list_orders&service_only=1&per_page=200&_=${refreshToken}`, { cache: 'no-store' }).then(r => this.parseJsonResponse(r));
 
                     const jobOrders = joRes.success ? joRes.data : [];
-                    if (!ordersRes.success) {
-                        console.warn('list_pending_orders failed:', ordersRes.error || ordersRes);
-                    }
-                    const regularOrders = ordersRes.success ? ordersRes.data : [];
-                    // Keep all rows from list_pending_orders (ORDER, CUSTOMIZATION, SERVICE).
-                    // The prepareOrderRows() grouper will de-duplicate by order group key and retain the best status row.
-                    const combined = [...jobOrders, ...regularOrders];
-                    const preparedRows = this.prepareOrderRows(combined);
+                    const jobOnlyRows = jobOrders.filter(row => String(row?.order_type || 'JOB').toUpperCase() === 'JOB');
+                    const preparedRows = this.prepareOrderRows(jobOnlyRows);
                     const visibleRows = <?php echo $showLatestCustomizationOnly ? 'preparedRows.slice(0, 1)' : 'preparedRows'; ?>;
                     this.orders = visibleRows;
                     this.bumpOrdersVersion();
