@@ -128,6 +128,7 @@ $customization_rows = db_query(
     "SELECT cust.customization_id AS id,
             cust.order_id,
             (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = cust.order_id) AS job_order_id,
+            cust.customization_details,
             c.first_name,
             c.last_name,
             c.profile_picture AS customer_profile_picture,
@@ -167,6 +168,12 @@ $customization_rows = db_query(
 ) ?: [];
 
 foreach ($customization_rows as $row) {
+    $summary = printflow_customization_summary($row['customization_details'] ?? [], $row['service_type'] ?? 'Custom Service');
+    $row['service_type'] = $summary['service_type'];
+    $row['job_title'] = $summary['job_title'];
+    $row['width_ft'] = $summary['width_ft'];
+    $row['height_ft'] = $summary['height_ft'];
+    $row['quantity'] = $summary['quantity'];
     if (!empty($row['order_id'])) {
         $row['order_code'] = printflow_get_order_inventory_reference((int)$row['order_id'])['code'] ?? '';
     } else {
@@ -565,6 +572,9 @@ if ($showLatestCustomizationOnly) {
         /* Unified Table Typography */
         .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
         .table-text-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .pf-customizations-table-card .table-text-sub.uppercase.tracking-wider:not([x-text]):has(> span[x-text="jo.width_ft"]) {
+            display: none !important;
+        }
         .truncate-ellipsis {
             display: block;
             min-width: 0;
@@ -877,6 +887,8 @@ if ($showLatestCustomizationOnly) {
                                             <div class="flex flex-col gap-0 min-w-0">
                                                 <div class="table-text-main truncate-ellipsis" :title="jo.job_title || jo.service_type" x-text="jo.job_title || jo.service_type"></div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
+                                                <div class="table-text-sub uppercase tracking-wider" x-show="false && jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'Ã—<span x-text="jo.height_ft"></span>' â€¢ <span x-text="jo.quantity"></span> pcs</div>
+                                                <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'" x-text="formatCustomizationInfo(jo)"></div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type === 'SERVICE'">Service purchase</div>
                                             </div>
                                         </div>
@@ -2010,6 +2022,25 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 const orderId = row.order_id ?? row.id ?? 0;
                 return 'ORD-' + String(orderId).padStart(5, '0');
+            },
+            formatCustomizationInfo(row) {
+                if (!row) return 'Custom service';
+                const width = String(row.width_ft ?? '').trim();
+                const height = String(row.height_ft ?? '').trim();
+                const quantity = Number(row.quantity || 0);
+                const parts = [];
+
+                if (width && height) {
+                    parts.push(`${width}'×${height}'`);
+                } else if (width) {
+                    parts.push(width);
+                }
+
+                if (quantity > 0) {
+                    parts.push(`${quantity} pcs`);
+                }
+
+                return parts.join(' • ') || 'Custom service';
             },
             normalizeOrderRow(row) {
                 const normalized = {

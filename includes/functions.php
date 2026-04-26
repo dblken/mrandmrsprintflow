@@ -2355,6 +2355,103 @@ function get_service_name_from_customization($custom, $fallback = 'Custom Order'
     return normalize_service_name($fallback, $fallback);
 }
 
+function printflow_customization_summary($custom, $fallback = 'Custom Service') {
+    $custom = is_string($custom) ? json_decode($custom, true) : $custom;
+    if (!is_array($custom)) {
+        $custom = [];
+    }
+
+    $normalizeKey = static function ($key) {
+        $key = strtolower(trim((string)$key));
+        $key = str_replace(['-', '_'], ' ', $key);
+        return preg_replace('/\s+/', ' ', $key);
+    };
+
+    $firstValue = static function (array $source, array $candidates) use ($normalizeKey) {
+        $wanted = [];
+        foreach ($candidates as $candidate) {
+            $wanted[$normalizeKey($candidate)] = true;
+        }
+        foreach ($source as $key => $value) {
+            if (is_array($value) || $value === null || $value === '') {
+                continue;
+            }
+            if (isset($wanted[$normalizeKey($key)])) {
+                return $value;
+            }
+        }
+        return null;
+    };
+
+    $formatScalar = static function ($value): string {
+        if ($value === null) {
+            return '';
+        }
+        $value = trim((string)$value);
+        if ($value === '') {
+            return '';
+        }
+        if (is_numeric($value)) {
+            $number = (float)$value;
+            if (abs($number - round($number)) < 0.00001) {
+                return (string)(int)round($number);
+            }
+            $formatted = rtrim(rtrim(number_format($number, 2, '.', ''), '0'), '.');
+            return $formatted;
+        }
+        return $value;
+    };
+
+    $fallback = trim((string)$fallback);
+    if ($fallback === '') {
+        $fallback = 'Custom Service';
+    }
+
+    $service_type = get_service_name_from_customization($custom, $fallback);
+    $job_title = printflow_resolve_order_item_name($fallback, $custom, $service_type);
+    if (trim((string)$job_title) === '') {
+        $job_title = $service_type;
+    }
+
+    $quantity_raw = $firstValue($custom, ['quantity', 'qty']);
+    $quantity = is_numeric((string)$quantity_raw) ? max(1, (int)$quantity_raw) : 1;
+
+    $width_ft = $formatScalar($firstValue($custom, ['width_ft', 'width']));
+    $height_ft = $formatScalar($firstValue($custom, ['height_ft', 'height']));
+
+    $dimension_raw = $firstValue($custom, [
+        'dimensions',
+        'dimension',
+        'size',
+        'size dimensions',
+        'exact size',
+        'tarp size',
+        'size ft'
+    ]);
+    $dimension_text = trim((string)$dimension_raw);
+
+    if (($width_ft === '' || $height_ft === '') && $dimension_text !== '') {
+        $normalized_dimension = preg_replace('/\s*(ft|feet|in|inch|inches|cm|mm|m)\s*$/i', '', $dimension_text);
+        $normalized_dimension = str_replace(['X', 'x', '*', '-'], '×', $normalized_dimension);
+        if (preg_match('/(\d+(?:\.\d+)?)\s*×\s*(\d+(?:\.\d+)?)/u', $normalized_dimension, $m)) {
+            if ($width_ft === '') {
+                $width_ft = $formatScalar($m[1]);
+            }
+            if ($height_ft === '') {
+                $height_ft = $formatScalar($m[2]);
+            }
+        }
+    }
+
+    return [
+        'service_type' => $service_type,
+        'job_title' => $job_title,
+        'width_ft' => $width_ft,
+        'height_ft' => $height_ft,
+        'quantity' => $quantity,
+    ];
+}
+
 function printflow_resolve_order_item_name($raw_name, $custom, $fallback = 'Order Item') {
     $custom = is_string($custom) ? json_decode($custom, true) : $custom;
     if (!is_array($custom)) {

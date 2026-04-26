@@ -392,6 +392,7 @@ try {
                     cust.customization_id AS id,
                     cust.order_id,
                     (SELECT MIN(jo.id) FROM job_orders jo WHERE jo.order_id = cust.order_id) AS job_order_id,
+                    cust.customization_details,
                     cust.customer_id,
                     c.first_name,
                     c.last_name,
@@ -440,6 +441,12 @@ try {
                 ? (db_query($custom_sql, 'i', [$joStaffBranch]) ?: [])
                 : (db_query($custom_sql) ?: []);
             foreach ($custom_orders as &$co) {
+                $summary = printflow_customization_summary($co['customization_details'] ?? [], $co['service_type'] ?? 'Custom Service');
+                $co['service_type'] = $summary['service_type'];
+                $co['job_title'] = $summary['job_title'];
+                $co['width_ft'] = $summary['width_ft'];
+                $co['height_ft'] = $summary['height_ft'];
+                $co['quantity'] = $summary['quantity'];
                 $co['readiness'] = 'READY';
                 $co['estimated_cost'] = 0;
                 if (!empty($co['order_id'])) {
@@ -739,12 +746,16 @@ try {
 
             $items = [[
                 'order_item_id' => $cust['order_item_id'] ?? null,
-                'product_name'  => $cust['service_type'] ?? 'Service',
+                'product_name'  => $details['service_type'] ?? ($cust['service_type'] ?? 'Service'),
                 'quantity'      => 1,
                 'customization' => $details,
                 'design_name'   => $design_name,
                 'reference_name'=> $reference_name,
             ]];
+
+            $summary = printflow_customization_summary($details, $cust['service_type'] ?? 'Service');
+            $items[0]['product_name'] = $summary['job_title'];
+            $items[0]['quantity'] = $summary['quantity'];
 
             $data = [
                 'id'                       => $cust['customization_id'],
@@ -759,11 +770,11 @@ try {
                 'customer_address'         => $cust['customer_address'] ?? '',
                 'customer_type'            => jo_api_normalize_customer_type($cust['customer_type'] ?? '', $cust['transaction_count'] ?? 0),
                 'transaction_count'        => (int)($cust['transaction_count'] ?? 0),
-                'service_type'             => $cust['service_type'] ?? 'Service',
-                'job_title'                => $cust['service_type'] ?? 'Service',
-                'width_ft'                 => '1',
-                'height_ft'                => '1',
-                'quantity'                 => 1,
+                'service_type'             => $summary['service_type'],
+                'job_title'                => $summary['job_title'],
+                'width_ft'                 => $summary['width_ft'],
+                'height_ft'                => $summary['height_ft'],
+                'quantity'                 => $summary['quantity'],
                 'status'                   => $mapped_status,
                 'estimated_total'          => $estimated_total,
                 'estimated_price'          => $estimated_total,
