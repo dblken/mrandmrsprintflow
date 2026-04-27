@@ -100,8 +100,10 @@ $approval_jobs = db_query(
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
+$pending_approved_jobs = $pending_jobs + $approval_jobs;
+
 $in_production_jobs = db_query(
-    "SELECT COUNT(*) as count FROM job_orders jo WHERE status = 'IN_PRODUCTION'" . $jobCustomizationScopeSql . $joBranchSql,
+    "SELECT COUNT(*) as count FROM job_orders jo WHERE status IN ('IN_PRODUCTION','PROCESSING','PRINTING')" . $jobCustomizationScopeSql . $joBranchSql,
     $joBranchTypes ?: null,
     $joBranchParams ?: null
 )[0]['count'];
@@ -709,23 +711,23 @@ if ($showLatestCustomizationOnly) {
                 </div>
                 <div class="kpi-card amber">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">Pending Approval</span>
-                        <span class="kpi-value"><?php echo number_format($pending_jobs); ?></span>
-                        <span class="kpi-sub">Awaiting review</span>
+                        <span class="kpi-label">Pending / Approved</span>
+                        <span class="kpi-value"><?php echo number_format($pending_approved_jobs); ?></span>
+                        <span class="kpi-sub">Awaiting production</span>
                     </span>
                 </div>
                 <div class="kpi-card blue">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">Approved</span>
-                        <span class="kpi-value"><?php echo number_format($approval_jobs); ?></span>
-                        <span class="kpi-sub">Ready for production</span>
+                        <span class="kpi-label">In Production</span>
+                        <span class="kpi-value"><?php echo number_format($in_production); ?></span>
+                        <span class="kpi-sub">Currently printing</span>
                     </span>
                 </div>
                 <div class="kpi-card emerald">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">In Production</span>
-                        <span class="kpi-value"><?php echo number_format($in_production); ?></span>
-                        <span class="kpi-sub">Active task tracks</span>
+                        <span class="kpi-label">Completed</span>
+                        <span class="kpi-value"><?php echo number_format($completed_jobs); ?></span>
+                        <span class="kpi-sub">Finished orders</span>
                     </span>
                 </div>
             </div>

@@ -571,7 +571,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         <div class="text-sm text-gray-500 mb-6 flex items-center gap-2">
             <a href="services.php" class="hover:text-blue-600">Services</a>
             <span>/</span>
-            <span class="font-semibold text-gray-900"><?php echo htmlspecialchars($service['name']); ?></span>
+            <span class="font-semibold text-gray-900 text-ellipsis-single" title="<?php echo htmlspecialchars($service['name']); ?>"><?php echo htmlspecialchars($service['name']); ?></span>
         </div>
 
         <?php if ($error): ?>
@@ -767,14 +767,14 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     <?php if (!empty($service['description'])): ?>
                         <div style="margin-top:20px;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
                             <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Description</h3>
-                            <p style="font-size:14px;line-height:1.6;color:#64748b;white-space:pre-wrap;text-align:justify;"><?php echo nl2br(htmlspecialchars($service['description'])); ?></p>
+                            <p class="service-copy-safe" style="font-size:14px;line-height:1.6;color:#64748b;white-space:pre-wrap;text-align:justify;"><?php echo nl2br(htmlspecialchars($service['description'])); ?></p>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <div class="shopee-form-section">
-                <h1 class="text-2xl font-bold text-gray-900 mb-2"><?php echo htmlspecialchars($service['name']); ?></h1>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2 service-name-safe" title="<?php echo htmlspecialchars($service['name']); ?>"><?php echo htmlspecialchars($service['name']); ?></h1>
                 
                 <div class="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
                     <div class="flex items-center gap-1">
@@ -1159,13 +1159,16 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
 .shopee-opt-group .field-error { flex-basis: 100%; width: 100%; }
 .field-price-display { animation: slideIn 0.3s ease-out; }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-.shopee-opt-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; background: white; cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; color: #374151; min-height: 2.5rem; }
+.shopee-opt-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; background: white; cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; color: #374151; min-height: 2.5rem; text-align:center; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
 .shopee-opt-btn:hover { border-color: #0d9488; background: #f0fdfa; }
 .shopee-opt-btn.active { border-color: #0d9488; background: #0d9488; color: white; }
 .quantity-container:hover { border-color: #e5e7eb !important; background: white !important; }
 textarea.shopee-opt-btn:hover, textarea.shopee-opt-btn:focus { border-color: #e5e7eb !important; background: white !important; outline: none; }
 .notes-textarea { font-size: 0.875rem; font-weight: 500; color: #374151; resize: none !important; overflow-y: auto !important; min-height: 100px !important; max-height: 100px !important; scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9; }
 .notes-textarea::placeholder { font-size: 0.875rem; font-weight: 500; color: #9ca3af; }
+.text-ellipsis-single { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom; }
+.service-name-safe { overflow-wrap:anywhere; word-break:break-word; }
+.service-copy-safe { overflow-wrap:anywhere; word-break:break-word; }
 textarea.notes-textarea { resize: none !important; }
 textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .notes-textarea::-webkit-scrollbar { width: 8px; }
@@ -1176,7 +1179,7 @@ textarea.notes-textarea::-webkit-resizer { display: none !important; }
 .qty-input-field[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .dim-label { font-size:0.7rem;color:#94a3b8;font-weight:600;margin-bottom:4px;display:block;text-transform:uppercase; }
 .shopee-form-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: flex-start; position: relative; flex-wrap: wrap; }
-.shopee-form-label { min-width: 130px; padding-top: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151; flex-shrink: 0; }
+.shopee-form-label { min-width: 130px; padding-top: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #374151; flex-shrink: 0; overflow-wrap:anywhere; word-break:break-word; }
 .shopee-form-field { flex: 1; position: relative; display: flex !important; flex-direction: column !important; min-width: 0; gap: 4px; }
 .service-action-row { align-items: center; margin-bottom: 0; }
 .service-action-row > div:first-child { width: 130px; flex: 0 0 130px; }

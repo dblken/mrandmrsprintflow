@@ -143,7 +143,7 @@ if (isset($_GET['ajax'])) {
     <table class="w-full text-sm customs-table">
         <thead>
             <tr style="border-bottom: 1px solid #e5e7eb;">
-                <th class="text-left py-3" style="width:1%;">Order Code</th>
+                <th class="text-left py-3 order-code-header" style="width:1%;">Order Code</th>
                 <th class="text-left py-3">Customer</th>
                 <th class="text-left py-3">Service</th>
                 <th class="text-center py-3">Date Submitted</th>
@@ -162,7 +162,12 @@ if (isset($_GET['ajax'])) {
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
                                     <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>)">
-                        <td class="py-3 text-gray-900"><?php echo htmlspecialchars($jo['order_code'] ?? admin_customization_order_code($jo)); ?></td>
+                        <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
+                        <td class="py-3 text-gray-900">
+                            <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
+                                <?php echo htmlspecialchars($adminOrderCode); ?>
+                            </span>
+                        </td>
                         <td class="py-3">
                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
@@ -498,6 +503,15 @@ function custom_payment_badge($status) {
         /* Table hover + clickable rows (inventory-style) */
         .customs-table tbody tr { cursor: pointer; transition: background 0.1s; }
         .customs-table tbody tr:hover td { background: #f9fafb; }
+        .order-code-header,
+        .order-code-text { white-space: nowrap; }
+        .order-code-text {
+            display: inline-block;
+            max-width: 130px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
         .filter-badge {
             display: inline-flex;
             align-items: center;
@@ -1044,7 +1058,7 @@ function custom_payment_badge($status) {
                     <table class="w-full text-sm customs-table">
                         <thead>
                             <tr style="border-bottom: 1px solid #e5e7eb;">
-                                <th class="text-left py-3" style="width:1%;">Order Code</th>
+                                <th class="text-left py-3 order-code-header" style="width:1%;">Order Code</th>
                                 <th class="text-left py-3">Customer</th>
                                 <th class="text-left py-3">Service</th>
                                 <th class="text-center py-3">Date Submitted</th>
@@ -1074,7 +1088,12 @@ function custom_payment_badge($status) {
                                     }
                                 ?>
                                     <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>)">
-                                        <td class="py-3 text-gray-900"><?php echo htmlspecialchars($jo['order_code'] ?? admin_customization_order_code($jo)); ?></td>
+                                        <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
+                                        <td class="py-3 text-gray-900">
+                                            <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
+                                                <?php echo htmlspecialchars($adminOrderCode); ?>
+                                            </span>
+                                        </td>
                                         <td class="py-3">
                                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
                                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
