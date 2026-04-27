@@ -245,11 +245,29 @@ function staff_orders_display_status(string $status): string {
     return $status;
 }
 
+function staff_orders_product_name(array $order): string {
+    $display_items = (string)($order['item_names'] ?? '');
+    if ($display_items === '') {
+        return 'Custom Product';
+    }
+
+    if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
+        $firstCustomization = $order['first_item_customization'] ?? '{}';
+        $display_items = get_service_name_from_customization($firstCustomization, $display_items);
+        $cJson = json_decode((string)$firstCustomization, true);
+        if (is_array($cJson) && !empty($cJson['product_type']) && $cJson['product_type'] !== $display_items) {
+            $display_items .= ' (' . $cJson['product_type'] . ')';
+        }
+    }
+
+    return $display_items;
+}
+
 // Handle specific AJAX request for drawing the table
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     ob_start();
     if (empty($orders)) {
-        echo '<tr><td colspan="7" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;"><div style="font-size:24px; margin-bottom:8px;">📁</div>No orders found matching your filters.</td></tr>';
+        echo '<tr><td colspan="8" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;"><div style="font-size:24px; margin-bottom:8px;">📁</div>No orders found matching your filters.</td></tr>';
     } else {
         foreach ($orders as $order) {
             ?>
@@ -268,21 +286,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                                 </span>
                             <?php endif; ?>
                         </div>
-                        <?php if (!empty($order['item_names'])): ?>
-                            <?php 
-                                $display_items = $order['item_names'];
-                                if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
-                                    $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
-                                    $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
-                                    if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
-                                        $display_items .= " (" . $c_json['product_type'] . ")";
-                                    }
-                                }
-                            ?>
-                            <div class="order-items-sub table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars($display_items); ?>">
-                                <?php echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); ?>
-                            </div>
-                        <?php endif; ?>
+                    </div>
+                </td>
+                <td class="px-4 py-4">
+                    <?php $display_product_name = staff_orders_product_name($order); ?>
+                    <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars($display_product_name); ?>">
+                        <?php echo htmlspecialchars(strlen($display_product_name) > 120 ? substr($display_product_name, 0, 120) . '...' : $display_product_name); ?>
                     </div>
                 </td>
                 <td class="px-4 py-4">
@@ -1843,7 +1852,6 @@ $page_title = 'Orders - Staff';
                                         <select id="fp_status" class="filter-select" @change="applyFilters()">
                                             <option value="">All statuses</option>
                                             <option value="Pending"               <?php echo $status_filter === 'Pending'               ? 'selected' : ''; ?>>TO VERIFY</option>
-                                            <option value="Downpayment Submitted" <?php echo $status_filter === 'Downpayment Submitted' ? 'selected' : ''; ?>>ToCheck</option>
                                             <option value="Ready for Pickup"      <?php echo $status_filter === 'Ready for Pickup'      ? 'selected' : ''; ?>>TO PICK UP</option>
                                             <option value="Completed"             <?php echo $status_filter === 'Completed'             ? 'selected' : ''; ?>>COMPLETED</option>
                                             <option value="Cancelled"             <?php echo $status_filter === 'Cancelled'             ? 'selected' : ''; ?>>CANCELLED</option>
@@ -1859,6 +1867,38 @@ $page_title = 'Orders - Staff';
                                         <input type="text" id="fp_customer" class="filter-input" placeholder="Search..." value="<?php echo htmlspecialchars($customer_filter); ?>" @change="applyFilters()">
                                     </div>
 
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Product type</span>
+                                            <button @click="resetFilterField(['product_type'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <input type="text" id="fp_product_type" class="filter-input" placeholder="e.g. Stickers, T-shirt..." value="<?php echo htmlspecialchars($product_type_filter); ?>" @change="applyFilters()">
+                                    </div>
+
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Payment status</span>
+                                            <button @click="resetFilterField(['payment_status'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <select id="fp_payment_status" class="filter-select" @change="applyFilters()">
+                                            <option value="">Any payment status</option>
+                                            <option value="Unpaid" <?php echo $payment_status_filter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
+                                            <option value="Partial" <?php echo $payment_status_filter === 'Partial' ? 'selected' : ''; ?>>Partial</option>
+                                            <option value="Paid" <?php echo $payment_status_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="filter-section">
+                                        <div class="filter-section-head">
+                                            <span class="filter-label" style="margin:0;">Price range</span>
+                                            <button @click="resetFilterField(['min_price','max_price'])" class="filter-reset-link">Reset</button>
+                                        </div>
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                            <input type="number" id="fp_min_price" class="filter-input" placeholder="Min" value="<?php echo htmlspecialchars($min_price_filter); ?>" @change="applyFilters()">
+                                            <input type="number" id="fp_max_price" class="filter-input" placeholder="Max" value="<?php echo htmlspecialchars($max_price_filter); ?>" @change="applyFilters()">
+                                        </div>
+                                    </div>
+
                                     <div class="filter-footer">
                                         <button class="filter-btn-reset" style="width:100%;" @click="applyFilters(true)">Reset all filters</button>
                                     </div>
@@ -1872,12 +1912,13 @@ $page_title = 'Orders - Staff';
                         <thead>
                             <tr>
                                 <th class="pl-6 pr-4 py-4 w-[19%] border-b border-gray-100">Order #</th>
-                                <th class="px-4 py-4 w-[17%] border-b border-gray-100">Customer</th>
-                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-center">Source</th>
-                                <th class="px-4 py-4 w-[14%] border-b border-gray-100">Date</th>
-                                <th class="px-4 py-4 w-[12%] border-b border-gray-100">Total</th>
+                                <th class="px-4 py-4 w-[17%] border-b border-gray-100">Product Name</th>
+                                <th class="px-4 py-4 w-[16%] border-b border-gray-100">Customer</th>
+                                <th class="px-4 py-4 w-[9%] border-b border-gray-100 text-center">Source</th>
+                                <th class="px-4 py-4 w-[12%] border-b border-gray-100">Date</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100">Total</th>
                                 <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
-                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[9%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1897,21 +1938,12 @@ $page_title = 'Orders - Staff';
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
-                                            <?php if (!empty($order['item_names'])): ?>
-                                                <?php 
-                                                    $display_items = $order['item_names'];
-                                                    if ($display_items === 'Custom Product' || $display_items === 'Custom Order') {
-                                                        $display_items = get_service_name_from_customization($order['first_item_customization'] ?? '{}', $display_items);
-                                                        $c_json = json_decode($order['first_item_customization'] ?? '{}', true);
-                                                        if (!empty($c_json['product_type']) && $c_json['product_type'] !== $display_items) {
-                                                            $display_items .= " (" . $c_json['product_type'] . ")";
-                                                        }
-                                                    }
-                                                ?>
-                                                <div class="order-items-sub table-text-sub truncate-ellipsis" title="<?php echo htmlspecialchars($display_items); ?>">
-                                                    <?php echo htmlspecialchars(strlen($display_items) > 100 ? substr($display_items, 0, 100) . '...' : $display_items); ?>
-                                                </div>
-                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <?php $display_product_name = staff_orders_product_name($order); ?>
+                                        <div class="table-text-main truncate-ellipsis" title="<?php echo htmlspecialchars($display_product_name); ?>">
+                                            <?php echo htmlspecialchars(strlen($display_product_name) > 120 ? substr($display_product_name, 0, 120) . '...' : $display_product_name); ?>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4">
