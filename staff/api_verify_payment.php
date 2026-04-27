@@ -152,6 +152,7 @@ try {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
             add_order_system_message($order_id, "[PAYMENT REJECTION] " . $reason);
+            printflow_send_order_update($order_id, 'payment_rejected');
             log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}. Reason: {$reason}");
             db_execute(
                 "UPDATE job_orders SET payment_proof_status = 'REJECTED', status = 'TO_PAY',

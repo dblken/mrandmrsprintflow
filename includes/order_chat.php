@@ -135,9 +135,75 @@ async function fetchMessages() {
 function appendMessage(msg) {
     const container = document.createElement('div');
     const isSystem = msg.is_system || false;
-    container.className = 'chat-bubble-container ' + (isSystem ? 'system' : (msg.is_self ? 'self' : 'other'));
-    
     const isSelf = msg.is_self;
+
+    // ── ORDER UPDATE CARD ─────────────────────────────────────────────────────
+    if (msg.message_type === 'order_update') {
+        container.className = 'chat-bubble-container order-update-wrapper';
+        container.style.cssText = 'display:flex;flex-direction:column;align-items:center;align-self:center;max-width:92%;margin-bottom:1.25rem;';
+
+        const actionType  = msg.action_type  || 'view_only';
+        const actionUrl   = msg.action_url   || '';
+        const thumbnail   = msg.thumbnail    || '';
+        const messageText = msg.message      || '';
+
+        // Action-type → icon + label + color
+        const actionConfigs = {
+            redirect_payment: { icon: '💳', label: 'Proceed to Payment', color: '#0f4d5e', badge: '#53c5e0' },
+            retry_payment:    { icon: '🔄', label: 'Re-upload Proof',    color: '#7c2d12', badge: '#ef4444' },
+            rate_order:       { icon: '⭐', label: 'Rate This Order',    color: '#713f12', badge: '#f59e0b' },
+            view_only:        { icon: '📋', label: '',                   color: '#0f4d5e', badge: '' },
+        };
+        const cfg = actionConfigs[actionType] || actionConfigs.view_only;
+        const isClickable = actionType !== 'view_only' && actionUrl !== '';
+
+        const thumb = thumbnail
+            ? `<img src="${thumbnail}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:0.5rem;flex-shrink:0;border:1px solid rgba(255,255,255,0.12);">`
+            : `<div style="width:52px;height:52px;border-radius:0.5rem;background:rgba(83,197,224,0.15);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${cfg.icon}</div>`;
+
+        const actionBtn = isClickable
+            ? `<div style="margin-top:0.6rem;padding:0.45rem 0.9rem;border-radius:8px;background:${cfg.badge};color:#fff;font-size:0.75rem;font-weight:700;text-align:center;letter-spacing:0.02em;">${cfg.label}</div>`
+            : '';
+
+        container.innerHTML = `
+            <div class="order-update-card" data-action="${actionType}" data-url="${actionUrl}"
+                 style="cursor:${isClickable ? 'pointer' : 'default'};background:linear-gradient(135deg,${cfg.color},#0a2530);border:1px solid rgba(83,197,224,0.22);border-radius:1rem;padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.4rem;box-shadow:0 4px 16px rgba(2,6,23,0.18);min-width:260px;max-width:340px;">
+                <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+                    ${thumb}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.65rem;font-weight:700;color:rgba(83,197,224,0.85);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.2rem;">PrintFlow Update</div>
+                        <div style="font-size:0.82rem;color:#e2f4f9;line-height:1.45;word-break:break-word;">${escapeHtml(messageText)}</div>
+                    </div>
+                </div>
+                ${actionBtn}
+            </div>
+            <div class="chat-time" style="font-size:0.7rem;color:#94a3b8;margin-top:0.35rem;">${msg.created_at}</div>`;
+
+        if (isClickable) {
+            container.querySelector('.order-update-card').addEventListener('click', function() {
+                const userType = document.body.getAttribute('data-user-type') || '';
+                if (userType === 'Customer') {
+                    window.location.href = actionUrl;
+                } else {
+                    // Staff: try to open order modal if available
+                    const meta = (() => { try { return JSON.parse(msg.meta_json || '{}'); } catch(e) { return {}; } })();
+                    const orderId = meta.order_id || currentChatOrderId;
+                    if (orderId && typeof viewOrderDetails === 'function') {
+                        viewOrderDetails(orderId, 'ORDER');
+                    } else if (orderId && typeof openOrderModal === 'function') {
+                        openOrderModal(orderId);
+                    }
+                }
+            });
+        }
+
+        document.getElementById('chatMessages').appendChild(container);
+        return;
+    }
+    // ── END ORDER UPDATE CARD ─────────────────────────────────────────────────
+
+    container.className = 'chat-bubble-container ' + (isSystem ? 'system' : (isSelf ? 'self' : 'other'));
+    
     const bubbleBg = isSystem ? '#e0f2fe' : (isSelf ? '#0084ff' : '#f1f5f9');
     const textColor = isSystem ? '#0c4a6e' : (isSelf ? '#ffffff' : '#1e293b');
     const alignSelf = isSystem ? 'center' : (isSelf ? 'flex-end' : 'flex-start');
@@ -163,7 +229,7 @@ function appendMessage(msg) {
     
     contentHtml += `<div class="chat-time" style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.35rem;">${msg.created_at}</div>`;
     
-    if (!isSystem && msg.is_self && msg.is_seen) {
+    if (!isSystem && isSelf && msg.is_seen) {
         contentHtml += `<div class="chat-seen" style="font-size: 0.65rem; color: #6b7280; font-weight: 700; margin-top: 0.1rem;">Seen</div>`;
     }
     

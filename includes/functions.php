@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Helper Functions
  * PrintFlow - Printing Shop PWA
@@ -3269,56 +3269,149 @@ function pf_admin_url(string $script, array $query = [], ?string $fragment = nul
  * Send an automated order update message to the chat.
  *
  * @param int    $order_id
- * @param string $step         'approved', 'approved_with_price', 'payment_verified', 'ready_to_pickup', 'completed'
- * @param string $custom_text  Optional custom message text
- * @return bool
+ * @param string $step         'inquiry', 'approved', 'send_to_payment', 'payment_verified',
+ *                             'payment_rejected', 'in_production', 'ready_to_pickup', 'completed'
+ * @param string $custom_text  Optional override message text
+ * @return bool|int
  */
 function printflow_send_order_update($order_id, $step, $custom_text = '') {
     $order_id = (int)$order_id;
     if ($order_id <= 0) return false;
 
-    // 1. Get order and product details
-    $order = db_query("SELECT o.* FROM orders o WHERE o.order_id = ?", 'i', [$order_id]);
+    // 1. Get order + customer details
+    $order = db_query(
+        "SELECT o.*, c.first_name, c.last_name
+         FROM orders o
+         LEFT JOIN customers c ON c.customer_id = o.customer_id
+         WHERE o.order_id = ?",
+        'i', [$order_id]
+    );
     if (empty($order)) return false;
     $order = $order[0];
 
-    // Get the first item for preview
-    $item = db_query("SELECT oi.*, p.name as product_name, p.photo_path 
-                     FROM order_items oi 
-                     LEFT JOIN products p ON p.product_id = oi.product_id 
-                     WHERE oi.order_id = ? LIMIT 1", 'i', [$order_id]);
+    // 2. Get first item + product image for thumbnail
+    $item = db_query(
+        "SELECT oi.*, p.name as product_name, p.photo_path
+         FROM order_items oi
+         LEFT JOIN products p ON p.product_id = oi.product_id
+         WHERE oi.order_id = ? LIMIT 1",
+        'i', [$order_id]
+    );
     $item = !empty($item) ? $item[0] : null;
 
-    // 2. Map steps to messages
-    $messages = [
-        'approved' => "Your inquiry has been approved and is now moving to the next step. Please wait while we prepare your order details.",
-        'approved_with_price' => "Your order for " . ($item['product_name'] ?? 'Order') . " has been approved. The total price is ₱" . number_format((float)($order['total_amount'] ?? 0), 2) . ". Please proceed to payment.",
-        'payment_verified' => "Your payment has been verified. Your order is now in production.",
-        'ready_to_pickup' => "Your order is ready for pickup. You may visit the store to claim your item.",
-        'completed' => "Your order has been completed. Thank you for choosing our service! If you’re satisfied, we would appreciate your feedback."
+    $base          = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+    $product_name  = $item['product_name'] ?? 'Your Order';
+    $amount        = number_format((float)($order['total_amount'] ?? 0), 2);
+    $customer_name = trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')) ?: 'Customer';
+
+    // 3. Resolve thumbnail
+    $thumbnail = '';
+    if (!empty($item['photo_path'])) {
+        $thumbnail = $item['photo_path'];
+        if (!preg_match('#^https?://#i', $thumbnail) && strpos($thumbnail, $base) !== 0) {
+            $thumbnail = $base . '/' . ltrim($thumbnail, '/');
+        }
+    } else {
+        // Try fetching from services table via customization_data service_type
+        $svc_data = db_query(
+            "SELECT s.image_path
+             FROM order_items oi
+             LEFT JOIN services s ON LOWER(TRIM(s.name)) LIKE CONCAT('%', LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')))), '%')
+             WHERE oi.order_id = ? AND s.image_path IS NOT NULL LIMIT 1",
+            'i', [$order_id]
+        );
+        if (!empty($svc_data) && !empty($svc_data[0]['image_path'])) {
+            $thumbnail = $svc_data[0]['image_path'];
+            if (!preg_match('#^https?://#i', $thumbnail) && strpos($thumbnail, $base) !== 0) {
+                $thumbnail = $base . '/' . ltrim($thumbnail, '/');
+            }
+        } else {
+            $thumbnail = $base . '/public/assets/images/services/default.png';
+        }
+    }
+
+    // 4. Step â†’ message, action_type, action_url
+    $step_configs = [
+        'inquiry' => [
+            'message'     => "{$customer_name} submitted an inquiry for \"{$product_name}\". Our team will review it shortly.",
+            'action_type' => 'view_only',
+            'action_url'  => '',
+        ],
+        'approved' => [
+            'message'     => "Your inquiry for \"{$product_name}\" has been reviewed. We are now preparing the final price.",
+            'action_type' => 'view_only',
+            'action_url'  => '',
+        ],
+        'send_to_payment' => [
+            'message'     => "Your order for \"{$product_name}\" is ready for payment (â‚±{$amount}). Tap this card to proceed.",
+            'action_type' => 'redirect_payment',
+            'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
+        ],
+        'payment_verified' => [
+            'message'     => "Your payment has been verified! Your order is now in production.",
+            'action_type' => 'view_only',
+            'action_url'  => '',
+        ],
+        'payment_rejected' => [
+            'message'     => "Your payment proof was rejected. Please re-upload a valid proof of payment.",
+            'action_type' => 'retry_payment',
+            'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
+        ],
+        'in_production' => [
+            'message'     => "Great news! Your order is now being produced. We'll notify you when it's ready.",
+            'action_type' => 'view_only',
+            'action_url'  => '',
+        ],
+        'ready_to_pickup' => [
+            'message'     => "Your order is ready for pickup! Please visit our store to claim your item.",
+            'action_type' => 'view_only',
+            'action_url'  => '',
+        ],
+        'completed' => [
+            'message'     => "Your order has been completed. Thank you for choosing PrintFlow! We'd love to hear your feedback.",
+            'action_type' => 'rate_order',
+            'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
+        ],
     ];
 
-    $text = $custom_text ?: ($messages[$step] ?? "Order status updated to " . $order['status']);
+    // Legacy step aliases for backward compatibility
+    $aliases = [
+        'approved_with_price' => 'send_to_payment',
+        'ready'               => 'ready_to_pickup',
+    ];
+    if (isset($aliases[$step])) {
+        $step = $aliases[$step];
+    }
 
-    // 3. Construct JSON payload
-    $payload = [
-        'type' => 'order_update',
-        'step' => $step,
-        'text' => $text,
-        'order' => [
-            'id' => (int)$order['order_id'],
-            'product_name' => $item['product_name'] ?? 'Order',
-            'image' => $item['photo_path'] ?? '',
-            'price' => (float)($order['total_amount'] ?? 0)
-        ]
+    $config = $step_configs[$step] ?? [
+        'message'     => "Your order status has been updated.",
+        'action_type' => 'view_only',
+        'action_url'  => '',
     ];
 
-    $json = json_encode($payload);
+    $message     = $custom_text ?: $config['message'];
+    $action_type = $config['action_type'];
+    $action_url  = $config['action_url'];
 
-    // 4. Insert into order_messages
-    // Use System sender (sender_id = 0)
-    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) 
-            VALUES (?, 'System', 0, ?, 'order_update', 0)";
-    
-    return db_execute($sql, 'is', [$order_id, $json]);
+    // 5. meta_json for extra context (used by frontend card renderer)
+    $meta = json_encode([
+        'step'         => $step,
+        'order_id'     => $order_id,
+        'product_name' => $product_name,
+        'amount'       => (float)($order['total_amount'] ?? 0),
+    ]);
+
+    // 6. Insert into order_messages using dedicated schema columns
+    $sql = "INSERT INTO order_messages
+                (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt)
+            VALUES (?, 'System', 0, ?, 'order_update', ?, ?, ?, ?, 0)";
+
+    return db_execute($sql, 'isssss', [
+        $order_id,
+        $message,
+        $thumbnail,
+        $action_type,
+        $action_url,
+        $meta,
+    ]);
 }

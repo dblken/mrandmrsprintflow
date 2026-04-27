@@ -89,10 +89,12 @@ add_order_system_message($order_id, $notif['message']);
 
 // Automated Chat Update (Shopee/Messenger Style)
 $chat_steps = [
-    'Approved' => 'approved',
-    'To Pay' => 'approved_with_price',
-    'Ready for Pickup' => 'ready_to_pickup',
-    'Completed' => 'completed'
+    'Approved'          => 'approved',
+    'To Pay'            => 'send_to_payment',
+    'Processing'        => 'in_production',
+    'In Production'     => 'in_production',
+    'Ready for Pickup'  => 'ready_to_pickup',
+    'Completed'         => 'completed',
 ];
 $chat_step = $chat_steps[$new_status] ?? null;
 if ($chat_step) {

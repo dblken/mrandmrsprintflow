@@ -159,7 +159,11 @@ try {
                 'sender_name' => $msg['sender_name'],
                 'sender_role' => $msg['sender_role'],
                 'sender_avatar' => $sender_avatar,
-                'is_pinned' => (bool) ($msg['is_pinned'] ?? false)
+                'is_pinned' => (bool) ($msg['is_pinned'] ?? false),
+                'thumbnail' => $msg['thumbnail'] ?? null,
+                'action_type' => $msg['action_type'] ?? null,
+                'action_url' => $msg['action_url'] ?? null,
+                'meta_json' => $msg['meta_json'] ?? null
             ];
         }
     }

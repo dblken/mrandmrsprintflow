@@ -593,6 +593,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                             }
                         }
                         notify_staff_new_order($order_id, $customer_name);
+                        printflow_send_order_update($order_id, 'inquiry');
                     }
                     
                     // Log activity (skip for customers as log_activity only works for staff users)

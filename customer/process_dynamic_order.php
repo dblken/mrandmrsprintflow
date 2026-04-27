@@ -262,6 +262,7 @@ if ($action === 'buy_now') {
         if (empty($customer_name)) $customer_name = 'Customer';
         
         notify_staff_new_order((int)$order_id, $customer_name);
+        printflow_send_order_update((int)$order_id, 'inquiry');
         
         // Log activity
         log_activity($customer_id, 'Order Placed', "Customer placed order #$order_id");

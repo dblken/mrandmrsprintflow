@@ -654,7 +654,7 @@ if ($showLatestCustomizationOnly) {
 
     </style>
 </head>
-<body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
+<body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>" data-user-type="<?php echo htmlspecialchars($_SESSION['user_type'] ?? 'Staff'); ?>">
 <div class="dashboard-container">
     <?php 
     if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'])) {

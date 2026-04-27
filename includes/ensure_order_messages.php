@@ -53,6 +53,19 @@ if (empty($existing['is_forwarded'])) {
 @$conn->query("ALTER TABLE order_messages MODIFY COLUMN sender_id INT DEFAULT 0");
 @$conn->query("ALTER TABLE order_messages MODIFY COLUMN file_type VARCHAR(20) DEFAULT 'text'");
 
+if (empty($existing['thumbnail'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN thumbnail VARCHAR(255) DEFAULT NULL");
+}
+if (empty($existing['action_type'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN action_type VARCHAR(50) DEFAULT NULL");
+}
+if (empty($existing['action_url'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN action_url TEXT DEFAULT NULL");
+}
+if (empty($existing['meta_json'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN meta_json TEXT DEFAULT NULL");
+}
+
 @$conn->query("CREATE TABLE IF NOT EXISTS message_reactions (
     reaction_id INT NOT NULL AUTO_INCREMENT,
     message_id INT NOT NULL,

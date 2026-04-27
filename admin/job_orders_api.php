@@ -667,6 +667,21 @@ try {
                 }
             }
 
+            // ── Automated chat update card ───────────────────────────────────────
+            if ($linked_order_id) {
+                $chat_step_map = [
+                    'Approved'          => 'approved',
+                    'To Pay'            => 'send_to_payment',
+                    'Processing'        => 'in_production',
+                    'Ready for Pickup'  => 'ready_to_pickup',
+                    'Completed'         => 'completed',
+                ];
+                if (isset($chat_step_map[$new_status])) {
+                    require_once __DIR__ . '/../includes/functions.php';
+                    printflow_send_order_update($linked_order_id, $chat_step_map[$new_status]);
+                }
+            }
+
             jo_api_json_response(['success' => true]);
             break;
 
