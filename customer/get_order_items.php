@@ -144,6 +144,20 @@ if (!$is_service_order) {
     $is_service_order = $order_type_normalized === 'custom' && empty($first_item_customization['product_type']);
 }
 
+$display_status = (string)($order['status'] ?? '');
+$order_type_normalized = strtolower(trim((string)($order['order_type'] ?? '')));
+if ($order_type_normalized === 'product' && !$is_service_order) {
+    if (in_array($display_status, ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved', 'To Pay', 'To Verify', 'Downpayment Submitted', 'Pending Verification'], true)) {
+        $display_status = 'TO VERIFY';
+    } elseif (in_array($display_status, ['Ready for Pickup', 'Approved Design', 'To Receive', 'In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'], true)) {
+        $display_status = 'TO PICK UP';
+    } elseif (in_array($display_status, ['Completed', 'To Rate', 'Rated'], true)) {
+        $display_status = 'COMPLETED';
+    } elseif ($display_status === 'Cancelled') {
+        $display_status = 'CANCELLED';
+    }
+}
+
 // Get items with design info
 $items = db_query("
     SELECT oi.*, p.name as product_name, p.category
@@ -284,6 +298,7 @@ customer_order_items_json([
         ? 'To Be Discussed'
         : format_currency($order['total_amount']),
     'status'           => $order['status'],
+    'display_status'   => $display_status,
     'payment_status'   => $payment_status,
     'payment_method'   => $order['payment_method'] ?? 'Not Specified',
     'payment_proof_status' => $latest_payment_proof_status,

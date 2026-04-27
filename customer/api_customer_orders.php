@@ -17,7 +17,7 @@ $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For 
 
 try {
     $orders = db_query(
-        "SELECT o.order_id, o.status, o.total_amount, o.order_date, o.updated_at, o.cancelled_at,
+        "SELECT o.order_id, o.status, o.order_type, o.total_amount, o.order_date, o.updated_at, o.cancelled_at,
                 (SELECT COALESCE(p.name, 'Order Item')
                  FROM order_items oi
                  LEFT JOIN products p ON oi.product_id = p.product_id
@@ -52,6 +52,7 @@ try {
         $result[] = [
             'order_id'     => (int)$o['order_id'],
             'status'       => $o['status'],
+            'order_type'   => (string)($o['order_type'] ?? ''),
             'display_name' => $display_name,
             'total_amount' => $show_price ? (float)($o['total_amount'] ?? 0) : null,
             'price_hidden' => !$show_price,

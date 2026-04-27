@@ -55,8 +55,24 @@ $tab_status_map = [
 $tab_status_map['production'] = ['In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'];
 $tab_status_map['pickup'] = ['Ready for Pickup', 'Approved Design'];
 
-function customer_orders_display_status(string $status): string {
+function customer_orders_display_status(string $status, string $order_type = ''): string {
     $status = trim($status);
+    $order_type = strtolower(trim($order_type));
+    if ($order_type === 'product') {
+        if (in_array($status, ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved', 'To Pay', 'To Verify', 'Downpayment Submitted', 'Pending Verification'], true)) {
+            return 'TO VERIFY';
+        }
+        if (in_array($status, ['Ready for Pickup', 'Approved Design', 'To Receive', 'In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'], true)) {
+            return 'TO PICK UP';
+        }
+        if (in_array($status, ['Completed', 'To Rate', 'Rated'], true)) {
+            return 'COMPLETED';
+        }
+        if ($status === 'Cancelled') {
+            return 'CANCELLED';
+        }
+    }
+
     if ($status === 'Approved Design' || $status === 'To Receive') {
         return 'Ready for Pickup';
     }
@@ -874,7 +890,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($orders as $index => $order): ?>
                         <?php 
                             // ... (logic remains same)
-                            $display_status = customer_orders_display_status((string)$order['status']);
+                            $display_status = customer_orders_display_status((string)$order['status'], (string)($order['order_type'] ?? ''));
                             $s = strtolower($display_status);
                             $st_cls = 'st-pending';
                             if (strpos($s, 'approved') !== false) $st_cls = 'st-approved';
@@ -889,7 +905,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $preview_url = get_preview_image_for_order_ui($order, $d_name);
                             $timestamp_meta = $order['_display_timestamp_meta'] ?? printflow_customer_order_timestamp_meta($order);
                         ?>
-                        <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
+                        <div class="ct-order-card" id="order-card-<?php echo $order['order_id']; ?>" data-order-id="<?php echo $order['order_id']; ?>" data-status="<?php echo htmlspecialchars($order['status']); ?>" data-order-type="<?php echo htmlspecialchars((string)($order['order_type'] ?? '')); ?>" onclick="openItemsModal(<?php echo $order['order_id']; ?>)">
                             <div class="card-top-row">
                                 <span class="order-id-chip"><?php echo htmlspecialchars($order['order_code']); ?></span>
                                 <div class="status-pill <?php echo $st_cls; ?>"><?php echo htmlspecialchars($display_status); ?></div>
@@ -1129,7 +1145,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <script>
 function imBadge(val) {
-    const s = String(val || '').toLowerCase();
+    const raw = String(val || '');
+    const s = raw.toLowerCase();
     let cls = 'st-pending';
     if (s.includes('unpaid')) cls = 'st-unpaid';
     else if (s.includes('approved')) cls = 'st-approved';
@@ -1137,7 +1154,7 @@ function imBadge(val) {
     else if (s.includes('ready') || s.includes('pickup')) cls = 'st-ready';
     else if (s.includes('completed') || s.includes('rated') || s.includes('paid')) cls = 'st-completed';
     else if (s.includes('rejected') || s.includes('cancelled')) cls = 'st-cancelled';
-    return `<span class="status-pill ${cls}">${escIM(val)}</span>`;
+    return `<span class="status-pill ${cls}">${escIM(raw)}</span>`;
 }
 
 let currentOrderItemsRequest = null;
@@ -1302,10 +1319,10 @@ function openItemsModal(orderId, event) {
                             <div>
                                 <div class="im-label">Current status</div>
                                 ${data.status === 'Rejected'
-                                    ? `<div style="margin-top: 0.5rem;">${imBadge(data.status)}</div>`
+                                    ? `<div style="margin-top: 0.5rem;">${imBadge(data.display_status || data.status)}</div>`
                                     : `<div class="im-val">${data.status}</div>`}
                             </div>
-                            ${data.status === 'Rejected' ? '' : `<div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.status)}</div>`}
+                            ${data.status === 'Rejected' ? '' : `<div style="transform: scale(0.9); transform-origin: top right;">${imBadge(data.display_status || data.status)}</div>`}
                         </div>
                         <div class="im-label" style="margin-top: 16px;">Branch processing</div>
                         <div class="im-val">${escIM(data.branch_name)}</div>
@@ -1692,8 +1709,19 @@ async function refreshOrdersList() {
         }
     }
 
-    function normalizeDisplayStatus(status) {
+    function normalizeDisplayStatus(status, orderType = '') {
         const s = String(status || '').trim();
+        const type = String(orderType || '').trim().toLowerCase();
+        if (type === 'product') {
+            if (['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved', 'To Pay', 'To Verify', 'Downpayment Submitted', 'Pending Verification'].includes(s)) {
+                return 'TO VERIFY';
+            }
+            if (['Ready for Pickup', 'Approved Design', 'To Receive', 'In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'].includes(s)) {
+                return 'TO PICK UP';
+            }
+            if (['Completed', 'To Rate', 'Rated'].includes(s)) return 'COMPLETED';
+            if (s === 'Cancelled') return 'CANCELLED';
+        }
         if (s === 'Approved Design' || s === 'To Receive') return 'Ready for Pickup';
         if (s === 'Downpayment Submitted' || s === 'Pending Verification') return 'To Verify';
         if (['Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'].includes(s)) return 'In Production';
@@ -1738,14 +1766,14 @@ async function refreshOrdersList() {
     function shouldReloadForNewOrder(order) {
         if (!order) return false;
         if (activeTab === 'all') return true;
-        const mapped = statusToTab[normalizeDisplayStatus(order.status)] || 'pending';
+        const mapped = statusToTab[order.status] || 'pending';
         return mapped === activeTab;
     }
 
     function doesOrderBelongToActiveTab(order) {
         if (!order) return false;
         if (activeTab === 'all') return true;
-        const mapped = statusToTab[normalizeDisplayStatus(order.status)] || 'pending';
+        const mapped = statusToTab[order.status] || 'pending';
         if (activeTab === 'completed') {
             return mapped === 'completed' || mapped === 'torate';
         }
@@ -1779,7 +1807,8 @@ async function refreshOrdersList() {
                 card.dataset.status = order.status;
                 const pill = card.querySelector('.status-pill');
                 if (pill) {
-                    const displayStatus = normalizeDisplayStatus(order.status);
+                    const orderType = card.dataset.orderType || order.order_type || '';
+                    const displayStatus = normalizeDisplayStatus(order.status, orderType);
                     pill.textContent = displayStatus;
                     pill.className = 'status-pill ' + statusClassFor(displayStatus);
                 }
