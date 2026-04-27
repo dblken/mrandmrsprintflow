@@ -41,7 +41,7 @@ $per_page = 10;
 // Build query (always join branches)
 $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email, b.branch_name,
                GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') as order_sku,
-               GROUP_CONCAT(DISTINCT p.product_name ORDER BY p.product_name SEPARATOR ', ') as product_names
+               GROUP_CONCAT(DISTINCT p.name ORDER BY p.name SEPARATOR ', ') as product_names
         FROM orders o 
         LEFT JOIN customers c ON o.customer_id = c.customer_id 
         LEFT JOIN branches b ON o.branch_id = b.id
