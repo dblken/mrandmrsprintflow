@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Helper Functions
  * PrintFlow - Printing Shop PWA
@@ -11,6 +11,15 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email_sms_config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/ensure_order_source_column.php'; // Ensure order_source column exists
+
+// Global Environment Detection
+if (!defined('BASE_PATH')) {
+    $is_prod = (isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'mrandmrsprintflow.com') !== false || strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false));
+    define('BASE_PATH', $is_prod ? '' : '/printflow');
+}
+if (!defined('BASE_URL')) {
+    define('BASE_URL', BASE_PATH);
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -3299,7 +3308,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     );
     $item = !empty($item) ? $item[0] : null;
 
-    $base          = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+    $base          = rtrim(BASE_URL, '/');
     $product_name  = $item['product_name'] ?? 'Your Order';
     $amount        = number_format((float)($order['total_amount'] ?? 0), 2);
     $customer_name = trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')) ?: 'Customer';

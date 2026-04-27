@@ -768,9 +768,23 @@ try {
 
             // Determine payment proof status
             $payment_proof_status = 'NONE';
+            $payment_proof_url = null;
             if (!empty($cust['payment_proof_path'])) {
                 $payment_proof_status = in_array($mapped_status, ['IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED'])
                     ? 'VERIFIED' : 'SUBMITTED';
+                
+                // Resolve path to URL
+                $raw_path = $cust['payment_proof_path'];
+                if (!preg_match('#^https?://#i', $raw_path)) {
+                    $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '/printflow';
+                    if (strpos($raw_path, 'uploads/') !== false) {
+                        $payment_proof_url = $bp . '/' . substr($raw_path, strpos($raw_path, 'uploads/'));
+                    } else {
+                        $payment_proof_url = $bp . '/public/serve_design.php?type=order_payment&id=' . (int)$cust['order_id'];
+                    }
+                } else {
+                    $payment_proof_url = $raw_path;
+                }
             }
 
             // Use order total if set (price was already approved)
@@ -797,7 +811,9 @@ try {
                 'quantity'      => 1,
                 'customization' => $details,
                 'design_name'   => $design_name,
+                'design_url'    => $design_name ? (defined('BASE_PATH') ? BASE_PATH : '/printflow') . '/public/serve_design.php?type=order_item&id=' . (int)($cust['order_item_id'] ?? 0) : null,
                 'reference_name'=> $reference_name,
+                'reference_url' => $reference_name ? (defined('BASE_PATH') ? BASE_PATH : '/printflow') . '/public/serve_design.php?type=order_item&id=' . (int)($cust['order_item_id'] ?? 0) . '&field=reference' : null,
             ]];
 
             $summary = printflow_customization_summary($details, $cust['service_type'] ?? 'Service');
@@ -831,7 +847,7 @@ try {
                 'notes'                    => '',
                 'store_order_notes'        => '',
                 'payment_proof_status'     => $payment_proof_status,
-                'payment_proof_path'       => $cust['payment_proof_path'] ?? null,
+                'payment_proof_path'       => $payment_proof_url,
                 'payment_submitted_amount' => (float)($cust['downpayment_amount'] ?? 0),
                 'payment_status'           => 'NO',
                 'readiness'                => $linked_job['readiness'] ?? 'READY',
@@ -888,10 +904,25 @@ try {
             
             // Map payment proof status for staff dashboard
             $payment_proof_status = 'NONE';
-            if (in_array($db_status, ['Pending Verification', 'Downpayment Submitted', 'To Verify'], true)) {
-                $payment_proof_status = 'SUBMITTED';
-            } elseif (in_array($db_status, ['Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process'], true)) {
-                $payment_proof_status = 'VERIFIED';
+            $payment_proof_url = null;
+            $raw_pp = $o['payment_proof_path'] ?? $o['payment_proof'] ?? null;
+            if ($raw_pp) {
+                if (in_array($db_status, ['Pending Verification', 'Downpayment Submitted', 'To Verify'], true)) {
+                    $payment_proof_status = 'SUBMITTED';
+                } elseif (in_array($db_status, ['Completed', 'Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Paid – In Process', 'Paid - In Process'], true)) {
+                    $payment_proof_status = 'VERIFIED';
+                }
+
+                if (!preg_match('#^https?://#i', $raw_pp)) {
+                    $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '/printflow';
+                    if (strpos($raw_pp, 'uploads/') !== false) {
+                        $payment_proof_url = $bp . '/' . substr($raw_pp, strpos($raw_pp, 'uploads/'));
+                    } else {
+                        $payment_proof_url = $bp . '/public/serve_design.php?type=order_payment&id=' . (int)$o['order_id'];
+                    }
+                } else {
+                    $payment_proof_url = $raw_pp;
+                }
             }
 
             $payload = JobOrderService::getStoreOrderItemsPayload($order_id, $serviceOnly);
@@ -970,7 +1001,7 @@ try {
                 'revision_reason'      => $o['revision_reason'] ?? '',
                 'customer_address'     => $o['customer_address'] ?? '',
                 'payment_proof_status' => $payment_proof_status,
-                'payment_proof_path'   => $o['payment_proof_path'] ?? $o['payment_proof'] ?? null,
+                'payment_proof_path'   => $payment_proof_url,
                 'payment_submitted_amount' => (float)($o['downpayment_amount'] ?? 0),
                 'payment_proof_uploaded_at' => $o['payment_submitted_at'] ?? null,
                 'payment_status'       => 'NO',

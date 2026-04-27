@@ -153,7 +153,7 @@ require_once __DIR__ . '/../includes/header.php';
     .brow.grouped-msg.self .bubble, .brow.grouped-msg.self .voice-bubble-player { border-radius: 20px 20px 4px 4px; }
     .brow.grouped-msg-next.self .bubble, .brow.grouped-msg-next.self .voice-bubble-player { border-radius: 20px 4px 4px 20px; }
 
-    .brow.system .bubble { background:#f1f5f9; color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .brow.system .bubble { background:#f1f5f9; color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; letter-spacing:.04em; }
 
     .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
@@ -175,7 +175,7 @@ require_once __DIR__ . '/../includes/header.php';
     .order-update-bubble { background:rgba(255,255,255,0.92); border:1px solid var(--pf-border); border-radius:18px; padding:1rem; max-width:320px; position:relative; box-shadow:0 4px 12px rgba(15,23,42,0.05); cursor:pointer; transition:all .2s cubic-bezier(.4,0,.2,1); }
     .order-update-bubble:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,23,42,0.08); border-color:#0ea5a5; background:#fff; }
     .order-update-bubble:active { transform:translateY(0); }
-    .order-update-label { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--pf-dim); margin-bottom:.55rem; }
+    .order-update-label { font-size:.65rem; font-weight:800; letter-spacing:.05em; color:var(--pf-cyan); margin-bottom:10px; }
     .order-update-content { display:flex; gap:12px; align-items:center; }
     .order-thumb-wrap { width:50px; height:50px; border-radius:10px; overflow:hidden; background:#f1f5f9; border:1px solid var(--pf-border); flex-shrink:0; }
     .order-thumb { width:100%; height:100%; object-fit:cover; display:block; }
@@ -251,7 +251,7 @@ require_once __DIR__ . '/../includes/header.php';
         padding:10px 1.5rem; justify-content:space-between; align-items:center; gap:10px;
     }
     .reply-wrap { border-left:3px solid var(--pf-cyan); padding-left:12px; overflow:hidden; }
-    .reply-head { font-size:.7rem; font-weight:800; color:var(--pf-cyan); text-transform:uppercase; margin-bottom:2px; }
+    .reply-head { font-size:.7rem; font-weight:800; color:var(--pf-cyan); margin-bottom:2px; }
     .reply-preview { font-size:.85rem; color:var(--pf-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:400px; }
     .reply-close { background:transparent; border:none; color:var(--pf-dim); cursor:pointer; font-size:1.2rem; }
 
@@ -894,7 +894,7 @@ function openChat(id, name, meta, archived, avatar = '') {
     document.getElementById('messagesArea').innerHTML = '';
     loadMsgs();
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(loadMsgs, 3000);
+    pollTimer = setInterval(loadMsgs, 2000);
 }
 
 function updateArchUI(arch) {
@@ -1056,34 +1056,40 @@ function appendMsgUI(m) {
 
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
-            let payload = {};
-            try { 
-                payload = JSON.parse(m.message || '{}'); 
-            } catch (e) {
-                payload = { text: m.message, step: 'unknown' };
-            }
-            const orderData = payload.order || {};
-            const step = payload.step || 'unknown';
-            const displayText = payload.text || m.message;
+            const actionType  = m.action_type  || 'view_only';
+            const actionUrl   = m.action_url   || '';
+            const thumbnail   = m.thumbnail    || '';
+            const messageText = m.message      || '';
+            let meta = {};
+            try { meta = JSON.parse(m.meta_json || '{}'); } catch(e) {}
+            const productName = meta.product_name || 'Order Update';
+            const step = meta.step || 'unknown';
             
             row.className = 'brow system order-update-card';
             row.innerHTML = `
                 <div class="b-col">
-                    <div class="order-update-bubble" onclick="handleOrderUpdateClick('${step}', ${activeId})" title="Click to take action">
+                    <div class="order-update-bubble" onclick="handleOrderUpdateClick('${step}', ${activeId})" title="Click to take action" style="cursor:${actionUrl ? 'pointer' : 'default'}">
                         <div class="order-update-label">[ Order Update ]</div>
                         <div class="order-update-content">
                             <div class="order-thumb-wrap">
-                                <img src="${resolveAppUrl(orderData.image, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
+                                <img src="${resolveAppUrl(thumbnail, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
                             </div>
                             <div class="order-text">
-                                <div class="order-title">${esc(orderData.product_name || 'Order')}</div>
-                                <div class="order-message">${esc(displayText)}</div>
+                                <div class="order-title">${esc(productName)}</div>
+                                <div class="order-message">${esc(messageText)}</div>
                             </div>
                         </div>
-                        ${step === 'completed' ? `
+                        ${actionType === 'rate_order' ? `
                             <div class="order-update-footer">
-                                <button class="feedback-btn" onclick="event.stopPropagation(); window.location.href='rate_order.php?order_id=${activeId}'">
+                                <button class="feedback-btn" onclick="event.stopPropagation(); window.location.href='${actionUrl || 'rate_order.php?order_id=' + activeId}'">
                                     <i class="bi bi-star-fill"></i> Leave a Review
+                                </button>
+                            </div>
+                        ` : ''}
+                        ${actionType === 'redirect_payment' || actionType === 'retry_payment' ? `
+                            <div class="order-update-footer">
+                                <button class="feedback-btn" style="background:var(--pf-cyan); color:#fff;" onclick="event.stopPropagation(); window.location.href='${actionUrl}'">
+                                    <i class="bi bi-credit-card-fill"></i> ${actionType === 'retry_payment' ? 'Re-upload Payment' : 'Proceed to Payment'}
                                 </button>
                             </div>
                         ` : ''}

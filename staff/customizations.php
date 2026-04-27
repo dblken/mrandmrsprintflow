@@ -1091,14 +1091,13 @@ if ($showLatestCustomizationOnly) {
                             
                             <div style="display:flex; flex-direction:column; gap:14px;">
                                 <template x-if="currentJo.payment_proof_path">
-                                        <a :href="currentJo.payment_proof_path"
-                                           target="_blank" rel="noopener noreferrer"
-                                           style="display:block;line-height:0;background:#fff;border:1px solid #d1d5db;border-radius:12px;overflow:hidden;box-shadow:0 8px 18px rgba(15,23,42,0.08);">
+                                        <div @click="previewFile = currentJo.payment_proof_path"
+                                             style="display:block;line-height:0;background:#fff;border:1px solid #d1d5db;border-radius:12px;overflow:hidden;box-shadow:0 8px 18px rgba(15,23,42,0.08);cursor:zoom-in;">
                                             <img :src="currentJo.payment_proof_path"
-                                                 style="display:block;width:100%;max-height:460px;object-fit:contain;background:#fff;cursor:pointer;"
+                                                 style="display:block;width:100%;max-height:460px;object-fit:contain;background:#fff;"
                                                  alt="Payment Proof"
-                                                 @error="$el.src = (document.body.getAttribute('data-base-url') || '') + '/public/assets/images/image_broken.png'; $el.style.opacity='0.4'">
-                                        </a>
+                                                 @error="$el.src = (document.body.getAttribute('data-base-url') || '') + '/public/assets/images/image_broken.php?text=Payment Proof'; $el.style.opacity='0.4'">
+                                        </div>
                                     </template>
                                 
                                 <div style="padding:14px 16px; border-radius:10px; background:#fff; border:1px solid #e5e7eb;">

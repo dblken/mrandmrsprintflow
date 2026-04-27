@@ -55,8 +55,9 @@ if (!function_exists('pf_order_ui_temp_preview_url')) {
         }
 
         $mime = (string)($item[$mime_key] ?? '');
-        if ($mime !== '' && stripos($mime, 'image/') !== 0) {
-            return null;
+        // Be permissive with MIME types for temp previews, but prioritize images
+        if ($mime !== '' && stripos($mime, 'image/') !== 0 && stripos($mime, 'application/octet-stream') === false) {
+            // Allow if it's likely a file we can serve
         }
 
         $base = defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '');

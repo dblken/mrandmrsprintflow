@@ -596,6 +596,24 @@ class JobOrderService {
                 );
             }
 
+            // Also send a chat update card if linked to a store order
+            if (!empty($order['order_id'])) {
+                $step = strtolower((string)$newStatus);
+                // Map job status to notification steps
+                $step_map = [
+                    'pending'       => 'approved', // Inquiry approved, but maybe not priced
+                    'approved'      => 'approved',
+                    'to_pay'        => 'send_to_payment',
+                    'verify_pay'    => 'view_only',
+                    'in_production' => 'in_production',
+                    'to_receive'    => 'ready_to_pickup',
+                    'completed'     => 'completed',
+                    'cancelled'     => 'cancelled'
+                ];
+                $notif_step = $step_map[$step] ?? 'view_only';
+                printflow_send_order_update((int)$order['order_id'], $notif_step);
+            }
+
             if (!$wasInTransaction) {
                 $conn->commit();
             }
