@@ -557,8 +557,26 @@ if ($showLatestCustomizationOnly) {
 
 
         /* Unified Table Typography */
-        .table-text-main { font-size: 13px; color: #111827; font-weight: 500; }
-        .table-text-sub { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .table-text-main {
+            font-size: 13px;
+            color: #111827;
+            font-weight: 500;
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .table-text-sub {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 400;
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .pf-customizations-table-card .table-text-sub.uppercase.tracking-wider:not([x-text]):has(> span[x-text="jo.width_ft"]) {
             display: none !important;
         }
@@ -586,6 +604,7 @@ if ($showLatestCustomizationOnly) {
             white-space: nowrap;
         }
         .status-badge-pill {
+            min-width: 100px;
             max-width: 100%;
         }
         .pf-pill {
@@ -598,6 +617,8 @@ if ($showLatestCustomizationOnly) {
             font-weight: 600;
             line-height: 1;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             max-width: 100%;
         }
         .badge-pending { background:#fef9c3; color:#92400e; }
@@ -904,15 +925,15 @@ if ($showLatestCustomizationOnly) {
                                 <tr @click="viewDetails(jo.id, jo.order_type || 'JOB')" class="group transition-all relative cursor-pointer">
                                     <td class="pl-6 pr-4 py-4 relative">
                                         <div class="row-indicator"></div>
-                                        <span class="table-text-main" :title="getDisplayOrderCode(jo)" x-text="getDisplayOrderCode(jo)"></span>
+                                        <span class="table-text-main truncate-ellipsis" :title="getDisplayOrderCode(jo)" x-text="getDisplayOrderCode(jo)"></span>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="flex items-center gap-3">
                                             <div class="flex flex-col gap-0 min-w-0">
                                                 <div class="table-text-main truncate-ellipsis" :title="getRowDisplayName(jo)" x-text="getRowDisplayName(jo)"></div>
-                                                <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
-                                                <div class="table-text-sub uppercase tracking-wider" x-show="false && jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'Ã—<span x-text="jo.height_ft"></span>' â€¢ <span x-text="jo.quantity"></span> pcs</div>
-                                                <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type !== 'SERVICE'" x-text="formatCustomizationInfo(jo)"></div>
+                                                <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
+                                                <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="false && jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'Ã—<span x-text="jo.height_ft"></span>' â€¢ <span x-text="jo.quantity"></span> pcs</div>
+                                                <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="jo.order_type !== 'SERVICE'" x-text="formatCustomizationInfo(jo)"></div>
                                                 <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type === 'SERVICE'">Service purchase</div>
                                             </div>
                                         </div>
