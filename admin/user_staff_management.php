@@ -1998,6 +1998,14 @@ function userManagement() {
                 const addressLine = parts.slice(0, -4).join(', ').trim();
                 return { address_province: province, address_city: city, address_barangay: barangay, address_line: addressLine };
             }
+            if (parts.length >= 3) {
+                const province = parts[parts.length - 1] || '';
+                const city = parts[parts.length - 2] || '';
+                const barangayRaw = parts[parts.length - 3] || '';
+                const barangay = barangayRaw.replace(/^Brgy\.?\s*/i, '').trim();
+                const addressLine = parts.slice(0, -3).join(', ').trim();
+                return { address_province: province, address_city: city, address_barangay: barangay, address_line: addressLine };
+            }
             return { address_province: '', address_city: '', address_barangay: '', address_line: addr || '' };
         },
         
@@ -2047,6 +2055,9 @@ function userManagement() {
                     // Ensure branch_id is properly set (convert to string for select binding)
                     u.branch_id = u.branch_id ? String(u.branch_id) : '';
                     this.editModal.user = u;
+                    if (!this.editModal.user.address && (u.address_line || u.address_barangay || u.address_city || u.address_province)) {
+                        this.buildAddress();
+                    }
                     // Load cities and barangays without rebuilding address
                     if (parsed.address_province) {
                         await this.loadCities(true); // Pass true to skip buildAddress
