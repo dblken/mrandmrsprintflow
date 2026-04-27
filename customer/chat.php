@@ -150,10 +150,10 @@ require_once __DIR__ . '/../includes/header.php';
     .brow.self .bubble { background: var(--pf-self-bubble); border:1px solid rgba(10,37,48,0.15); border-radius:20px 20px 4px 20px; color: #fff; }
     .brow.other .bubble { background:#fff; border:1px solid var(--pf-border); border-radius:20px 20px 20px 4px; color: #1e293b; }
 
-    .brow.grouped-msg.other .bubble { border-radius: 20px 20px 4px 4px; }
-    .brow.grouped-msg-next.other .bubble { border-radius: 4px 20px 20px 4px; }
-    .brow.grouped-msg.self .bubble { border-radius: 20px 20px 4px 4px; }
-    .brow.grouped-msg-next.self .bubble { border-radius: 20px 4px 4px 20px; }
+    .brow.grouped-msg.other .bubble, .brow.grouped-msg.other .voice-bubble-player { border-radius: 20px 20px 4px 4px; }
+    .brow.grouped-msg-next.other .bubble, .brow.grouped-msg-next.other .voice-bubble-player { border-radius: 4px 20px 20px 4px; }
+    .brow.grouped-msg.self .bubble, .brow.grouped-msg.self .voice-bubble-player { border-radius: 20px 20px 4px 4px; }
+    .brow.grouped-msg-next.self .bubble, .brow.grouped-msg-next.self .voice-bubble-player { border-radius: 20px 4px 4px 20px; }
 
     .brow.system .bubble { background:#f1f5f9; color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 
@@ -322,7 +322,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Voice Bubble Style */
     .voice-bubble-player { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 20px; min-width: 220px; }
-    .play-pause-bubble { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .brow.self .voice-bubble-player { background: var(--pf-self-bubble); color: #fff; border: 1px solid rgba(10,37,48,0.15); border-radius: 20px 20px 4px 20px; }
+    .brow.other .voice-bubble-player { background: #fff; color: #1e293b; border: 1px solid var(--pf-border); border-radius: 20px 20px 20px 4px; }
+    .play-pause-bubble { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .brow.self .play-pause-bubble { background: #fff; color: #0a2530; }
     .brow.other .play-pause-bubble { background: var(--pf-cyan); color: #fff; }
 

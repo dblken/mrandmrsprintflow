@@ -90,13 +90,52 @@ try {
 
             $sender_avatar = get_profile_image($msg['sender_avatar'] ?? null);
 
+            $raw_m_type = $msg['message_type'] ?? 'text';
+            $m_type = $raw_m_type;
+            $f_type = $msg['file_type'] ?? 'text';
+            
+            $raw_m_file = $msg['message_file'] ?? $image_path;
+            $media_ext = strtolower(pathinfo($raw_m_file, PATHINFO_EXTENSION));
+            
+            // Robust media type detection to fix older database rows
+            if ($media_ext !== '') {
+                if (in_array($media_ext, ['mp4', 'mov', 'avi'])) {
+                    $m_type = 'video';
+                    $f_type = 'video';
+                } elseif (in_array($media_ext, ['mp3', 'wav', 'ogg'])) {
+                    $m_type = 'voice';
+                    $f_type = 'voice';
+                } elseif (in_array($media_ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                    if ($m_type !== 'order_update') {
+                        $m_type = 'image';
+                        $f_type = 'image';
+                    }
+                }
+                
+                // .webm can be video or voice. If the DB says voice, trust it.
+                if ($media_ext === 'webm') {
+                    if ($raw_m_type === 'voice' || $f_type === 'voice') {
+                        $m_type = 'voice';
+                        $f_type = 'voice';
+                    } else {
+                        $m_type = 'video';
+                        $f_type = 'video';
+                    }
+                }
+            }
+            
+            // Explicit override if DB knows it's voice
+            if ($raw_m_type === 'voice') {
+                $m_type = 'voice';
+            }
+
             $messages[] = [
                 'id' => $msg['message_id'],
                 'message' => $msg['message'] ?? '',
-                'message_type' => $msg['message_type'] ?? 'text',
+                'message_type' => $m_type,
                 'image_path' => $image_path,
-                'message_file' => $msg['message_file'] ?? $image_path,
-                'file_type' => $msg['file_type'] ?? 'text',
+                'message_file' => $raw_m_file,
+                'file_type' => $f_type,
                 'file_path' => $msg['file_path'] ?? null,
                 'file_name' => $msg['file_name'] ?? null,
                 'file_size' => $msg['file_size'] ?? null,
