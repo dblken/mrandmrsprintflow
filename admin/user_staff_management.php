@@ -1944,6 +1944,14 @@ function userManagement() {
             }
         },
 
+        normalizeLocationName(value) {
+            return (value || '')
+                .toLowerCase()
+                .replace(/\b(barangay|brgy|pob\.?|poblacion)\b/gi, '')
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        },
+
         async loadProvinces() {
             try {
                 const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=provinces');
@@ -1954,7 +1962,12 @@ function userManagement() {
         },
         async loadCities(skipBuildAddress = false) {
             const pName = this.editModal.user?.address_province || '';
-            const p = this.addressProvinces.find(x => x.name.toLowerCase() === pName.toLowerCase());
+            let p = this.addressProvinces.find(x => x.name.toLowerCase() === pName.toLowerCase());
+            if (!p && pName) {
+                const pNorm = this.normalizeLocationName(pName);
+                p = this.addressProvinces.find(x => this.normalizeLocationName(x.name) === pNorm);
+                if (p) this.editModal.user.address_province = p.name;
+            }
             const code = p?.code || '';
             if (!code) { this.addressCities = []; this.addressBarangays = []; return; }
             this.loadingCities = true;
@@ -1963,13 +1976,27 @@ function userManagement() {
                 const d = await r.json();
                 if (d.success && d.data) this.addressCities = d.data;
                 this.addressBarangays = [];
+                if (this.editModal.user?.address_city) {
+                    const cName = this.editModal.user.address_city;
+                    let c = this.addressCities.find(x => x.name.toLowerCase() === cName.toLowerCase());
+                    if (!c) {
+                        const cNorm = this.normalizeLocationName(cName);
+                        c = this.addressCities.find(x => this.normalizeLocationName(x.name) === cNorm);
+                    }
+                    if (c) this.editModal.user.address_city = c.name;
+                }
                 if (!skipBuildAddress) this.buildAddress();
             } catch (e) { console.error('Cities load failed:', e); }
             finally { this.loadingCities = false; }
         },
         async loadBarangays(skipBuildAddress = false) {
             const cName = this.editModal.user?.address_city || '';
-            const c = this.addressCities.find(x => x.name.toLowerCase() === cName.toLowerCase());
+            let c = this.addressCities.find(x => x.name.toLowerCase() === cName.toLowerCase());
+            if (!c && cName) {
+                const cNorm = this.normalizeLocationName(cName);
+                c = this.addressCities.find(x => this.normalizeLocationName(x.name) === cNorm);
+                if (c) this.editModal.user.address_city = c.name;
+            }
             const code = c?.code || '';
             if (!code) { this.addressBarangays = []; if (!skipBuildAddress) this.buildAddress(); return; }
             this.loadingBarangays = true;
@@ -1977,6 +2004,15 @@ function userManagement() {
                 const r = await fetch('<?php echo $base_path; ?>/admin/api_address.php?address_action=barangays&city_code=' + encodeURIComponent(code));
                 const d = await r.json();
                 if (d.success && d.data) this.addressBarangays = d.data;
+                if (this.editModal.user?.address_barangay) {
+                    const bName = this.editModal.user.address_barangay;
+                    let b = this.addressBarangays.find(x => x.name.toLowerCase() === bName.toLowerCase());
+                    if (!b) {
+                        const bNorm = this.normalizeLocationName(bName);
+                        b = this.addressBarangays.find(x => this.normalizeLocationName(x.name) === bNorm);
+                    }
+                    if (b) this.editModal.user.address_barangay = b.name;
+                }
                 if (!skipBuildAddress) this.buildAddress();
             } catch (e) { console.error('Barangays load failed:', e); }
             finally { this.loadingBarangays = false; }
