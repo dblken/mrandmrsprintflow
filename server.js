@@ -14,15 +14,8 @@ const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
 
 const io = new Server(server, {
     cors: {
-        origin(origin, callback) {
-            if (!origin || configuredOrigins.length === 0 || configuredOrigins.includes(origin)) {
-                callback(null, true);
-                return;
-            }
-
-            callback(new Error(`Origin not allowed: ${origin}`));
-        },
-        methods: ['GET', 'POST']
+        origin: "*",
+        methods: ["GET", "POST"]
     }
 });
 
@@ -83,6 +76,7 @@ app.get('/health', (_req, res) => {
 });
 
 io.on('connection', (socket) => {
+    console.log("User connected:", socket.id);
     const queryUserId = socket.handshake.query.userId;
     const queryUserType = socket.handshake.query.userType;
 

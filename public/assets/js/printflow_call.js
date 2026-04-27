@@ -277,8 +277,8 @@ class PFCallManager {
         }
 
         try {
-            // Register Service Worker
-            const registration = await navigator.serviceWorker.register(`${this.basePath}/public/sw.js`);
+            // Register Service Worker explicitly to prevent redirects
+            const registration = await navigator.serviceWorker.register('/printflow/public/sw.js', { scope: '/printflow/' });
             console.log('[PFCall][Push] SW registered:', registration.scope);
 
             // Request Notification Permission on first load or if not granted
@@ -596,12 +596,17 @@ class PFCallManager {
         const configuredUrl = window.PF_CALL_SERVER_URL || document.documentElement?.dataset?.pfCallServerUrl || '';
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        const url = configuredUrl || `${protocol}//${host}:3000`;
+        
+        // Proxy through NGINX in production, use raw port 3000 locally
+        const isLocal = host === 'localhost' || host === '127.0.0.1';
+        const url = configuredUrl || (isLocal ? `${protocol}//${host}:3000` : `${protocol}//${host}`);
+        
         console.log(`[PFCall] Connecting socket to: ${url} ...`);
 
         this.socket = io(url, {
             transports: ['websocket'],
             query: { userId: this.userId, userType: this.userType },
+            secure: !isLocal,
             reconnection: true,
             reconnectionDelay: 500,
             reconnectionAttempts: 50

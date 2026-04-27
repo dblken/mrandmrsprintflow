@@ -18,6 +18,8 @@ AddType text/css .css
     RewriteBase /
 
     # Redirect legacy /printflow/ paths to root (fixes 500/404 on moved assets)
+    # EXCEPTION: Do not redirect service worker to prevent "script resource is behind a redirect"
+    RewriteCond %{REQUEST_URI} !sw\.(js|php)$
     RewriteRule ^printflow/(.*)$ /$1 [R=301,L]
 
     # Canonical host: force non-www so session cookies stay on one host.

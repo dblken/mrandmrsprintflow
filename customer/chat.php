@@ -557,9 +557,8 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </header>
 
-            <div id="pinnedBar" onclick="showPinnedModal()" style="display:none; background:var(--pf-navy-card); border-bottom:1px solid var(--pf-border); padding:10px 1.5rem; align-items:center; justify-content:space-between; cursor:pointer;">
+            <div id="pinnedBar" style="display:none; background:var(--pf-navy-card); border-bottom:1px solid var(--pf-border); padding:10px 1.5rem; align-items:center; justify-content:space-between;">
                 <div style="display:flex;align-items:center;gap:8px;"><i class="bi bi-pin-angle-fill" style="color:var(--pf-cyan);"></i><span id="pinnedTxt" style="font-size:0.75rem; font-weight:800; color:#0f172a;">0 pinned messages</span></div>
-                <i class="bi bi-chevron-right" style="color:var(--pf-dim);font-size:.85rem;"></i>
             </div>
 
             <div id="messagesArea"></div>
