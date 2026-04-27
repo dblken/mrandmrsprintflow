@@ -919,12 +919,33 @@ function openPinnedModal(pinned) {
     const modal = document.getElementById('pinnedModal');
     modal.classList.add('active');
     const list = document.getElementById('pinnedList');
-    list.innerHTML = pinned.map(m => `
-        <div onclick="goToMessage(${m.id}); document.getElementById('pinnedModal').classList.remove('active')" style="padding:12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;">
+    
+    list.innerHTML = pinned.map(m => {
+        let mediaHtml = '';
+        if (m.message_type === 'voice') {
+            const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+            mediaHtml = `<div style="margin-top:8px; background:#e2e8f0; padding:8px; border-radius:12px; display:flex; align-items:center; gap:10px;">
+                <audio controls src="${src}" style="height:30px; width:100%; outline:none;"></audio>
+            </div>`;
+        } else if (m.message_type === 'video' || m.file_type === 'video') {
+            const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+            mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#000;">
+                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"></video>
+            </div>`;
+        } else if (m.message_type === 'image' || m.image_path) {
+            const src = resolveAppUrl(m.image_path || m.message_file || m.file_path);
+            mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#f1f5f9;">
+                <img src="${src}" style="max-width:100%; max-height:200px; object-fit:contain; display:block;">
+            </div>`;
+        }
+
+        return `
+        <div style="padding:12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;" onclick="goToMessage(${m.id}); document.getElementById('pinnedModal').classList.remove('active')">
             <div style="font-size:0.7rem; color:#000000; font-weight:800; margin-bottom:4px;">${m.sender_name} • ${fmtShort(m.created_at)}</div>
-            <div style="font-size:0.95rem; color:#000000; line-height:1.4; word-break:break-word; overflow-wrap:anywhere;">${esc(m.message || (m.image_path ? '📸 Attachment' : 'Message'))}</div>
-        </div>
-    `).join('');
+            ${m.message ? `<div style="font-size:0.95rem; color:#000000; line-height:1.4; word-break:break-word; overflow-wrap:anywhere;">${esc(m.message)}</div>` : ''}
+            ${mediaHtml}
+        </div>`;
+    }).join('');
 }
 
 function goToMessage(id) {
