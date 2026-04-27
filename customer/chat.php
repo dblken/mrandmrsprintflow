@@ -1692,8 +1692,30 @@ function openGallery() {
     grid.innerHTML = '<div style="grid-column: span 3; padding:3rem; text-align:center;"><i class="bi bi-hourglass-split animate-spin text-2xl text-white opacity-20"></i></div>';
     gallery.classList.add('show');
     api(`/public/api/chat/fetch_media.php?order_id=${activeId}`).then(res => {
-        if (!res.media || !res.media.length) { grid.innerHTML = '<div style="grid-column: span 3; padding:5rem 1rem; text-align:center; color:rgba(15,23,42,0.35); font-weight:700;">No shared media yet.</div>'; return; }
-        grid.innerHTML = res.media.map(m => `<div class="gal-item" onclick="window.open('${m.message_file||m.image_path}')"><img src="${m.message_file||m.image_path}"></div>`).join('');
+        if (!res.media || !res.media.length) { 
+            grid.innerHTML = `
+            <div style="grid-column: span 3; padding:5rem 1rem; text-align:center; color:rgba(255,255,255,0.3);">
+                <i class="bi bi-images" style="font-size:3rem; display:block; margin-bottom:1rem; opacity:0.2;"></i>
+                <div style="font-weight:700; font-size:0.9rem;">No shared media yet</div>
+                <div style="font-size:0.75rem; opacity:0.6; margin-top:4px;">Images and videos from this chat will appear here.</div>
+            </div>`; 
+            return; 
+        }
+        grid.innerHTML = res.media.map(m => {
+            const isVid = m.file_type === 'video';
+            const url = resolveAppUrl(m.message_file);
+            if (isVid) {
+                return `<div class="gal-item" onclick="zoomVideo('${url.replace(/'/g, "\\'")}')">
+                    <video src="${url}#t=0.1" preload="metadata" muted style="width:100%; height:100%; object-fit:cover;"></video>
+                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.2);">
+                        <i class="bi bi-play-circle-fill" style="color:#fff; font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
+                    </div>
+                </div>`;
+            }
+            return `<div class="gal-item" onclick="zoomImg('${url.replace(/'/g, "\\'")}')">
+                <img src="${url}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">
+            </div>`;
+        }).join('');
     });
 }
 
