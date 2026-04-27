@@ -263,4 +263,121 @@
         color: #ffffff;
         transform: translateY(-1px);
     }
+
+    /* Staff-wide mobile hardening (parallel to admin shell behavior). */
+    @media (max-width: 768px) {
+        html.printflow-staff .content-area,
+        html.printflow-staff main {
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+            padding-bottom: 18px !important;
+        }
+
+        html.printflow-staff .top-bar,
+        html.printflow-staff header {
+            padding: 12px 14px !important;
+        }
+
+        html.printflow-staff .page-title,
+        html.printflow-staff h1,
+        html.printflow-staff h2 {
+            font-size: 20px !important;
+            line-height: 1.25 !important;
+        }
+
+        html.printflow-staff .toolbar-container,
+        html.printflow-staff .toolbar-group,
+        html.printflow-staff .table-header,
+        html.printflow-staff .filter-actions {
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            min-width: 0 !important;
+        }
+
+        html.printflow-staff .toolbar-container > *,
+        html.printflow-staff .toolbar-group > * {
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        html.printflow-staff .pill-tab {
+            max-width: 100% !important;
+        }
+
+        html.printflow-staff .pill-tab > :first-child {
+            max-width: 96px !important;
+        }
+
+        html.printflow-staff .card,
+        html.printflow-staff .stat-card,
+        html.printflow-staff .chart-card {
+            padding: 14px !important;
+        }
+
+        html.printflow-staff .kpi-row {
+            grid-template-columns: 1fr !important;
+        }
+
+        html.printflow-staff .kpi-card,
+        html.printflow-staff .kpi-card-v2,
+        html.printflow-staff .stat-card {
+            min-width: 0 !important;
+            width: 100% !important;
+        }
+
+        html.printflow-staff .kpi-value,
+        html.printflow-staff .stat-value {
+            font-size: 20px !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+        }
+
+        html.printflow-staff .overflow-x-auto,
+        html.printflow-staff .table-responsive,
+        html.printflow-staff .pf-table-scroll,
+        html.printflow-staff .card:has(table),
+        html.printflow-staff .chart-card:has(table) {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100% !important;
+        }
+
+        html.printflow-staff table {
+            min-width: max(700px, 100%) !important;
+        }
+
+        html.printflow-staff table th,
+        html.printflow-staff table td {
+            white-space: nowrap !important;
+        }
+
+        html.printflow-staff .btn-action,
+        html.printflow-staff .btn-action-primary,
+        html.printflow-staff .btn-action-secondary,
+        html.printflow-staff .btn-action-danger,
+        html.printflow-staff .btn-staff-action,
+        html.printflow-staff .table-action-btn {
+            min-height: 34px !important;
+            width: 100% !important;
+        }
+
+        html.printflow-staff .filter-panel,
+        html.printflow-staff .sort-dropdown {
+            width: min(420px, calc(100vw - 24px)) !important;
+            min-width: 0 !important;
+            max-width: calc(100vw - 24px) !important;
+        }
+
+        html.printflow-staff .modal-panel,
+        html.printflow-staff .modal-content,
+        html.printflow-staff .modal-dialog,
+        html.printflow-staff .modal-box,
+        html.printflow-staff .chat-modal-shell {
+            width: min(100%, 560px) !important;
+            max-width: calc(100vw - 24px) !important;
+            margin: 64px auto 20px !important;
+            max-height: calc(100dvh - 88px) !important;
+            overflow: auto !important;
+        }
+    }
 </style>
