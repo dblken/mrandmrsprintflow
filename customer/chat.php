@@ -183,6 +183,16 @@ require_once __DIR__ . '/../includes/header.php';
     .order-title { font-size:.88rem; font-weight:800; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
     .order-message { font-size:.78rem; color:var(--pf-dim); line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .order-update-time { font-size:.65rem; color:#94a3b8; text-align:right; margin-top:4px; font-weight:700; }
+    
+    .order-update-footer { margin-top: 12px; border-top: 1px solid var(--pf-border); padding-top: 10px; }
+    .feedback-btn { 
+        width: 100%; padding: 8px; border-radius: 10px; border: none; 
+        background: #0ea5a5; color: #fff; font-size: .8rem; font-weight: 800; 
+        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: all 0.2s;
+    }
+    .feedback-btn:hover { background: #0c8c8c; transform: scale(1.02); }
+    .feedback-btn i { font-size: 1rem; }
 
     /* Action Bar (Messenger Style) */
     .brow:hover .b-actions, .brow.has-active-menu .b-actions { opacity:1; pointer-events:auto; }
@@ -882,21 +892,36 @@ function appendMsgUI(m) {
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
             let payload = {};
-            try { payload = JSON.parse(m.message || '{}'); } catch (e) {}
+            try { 
+                payload = JSON.parse(m.message || '{}'); 
+            } catch (e) {
+                payload = { text: m.message, step: 'unknown' };
+            }
+            const orderData = payload.order || {};
+            const step = payload.step || 'unknown';
+            const displayText = payload.text || m.message;
+            
             row.className = 'brow system order-update-card';
             row.innerHTML = `
                 <div class="b-col">
-                    <div class="order-update-bubble" onclick="openOrderDetails(activeId)" title="Click to view order details">
+                    <div class="order-update-bubble" onclick="handleOrderUpdateClick('${step}', ${activeId})" title="Click to take action">
                         <div class="order-update-label">[ Order Update ]</div>
                         <div class="order-update-content">
                             <div class="order-thumb-wrap">
-                                <img src="${resolveAppUrl(payload.product_image, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
+                                <img src="${resolveAppUrl(orderData.image, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
                             </div>
                             <div class="order-text">
-                                <div class="order-title">${esc(payload.product_name || 'Order')}</div>
-                                <div class="order-message">${esc(payload.status_text || payload.message || '')}</div>
+                                <div class="order-title">${esc(orderData.product_name || 'Order')}</div>
+                                <div class="order-message">${esc(displayText)}</div>
                             </div>
                         </div>
+                        ${step === 'completed' ? `
+                            <div class="order-update-footer">
+                                <button class="feedback-btn" onclick="event.stopPropagation(); window.location.href='rate_order.php?order_id=${activeId}'">
+                                    <i class="bi bi-star-fill"></i> Leave a Review
+                                </button>
+                            </div>
+                        ` : ''}
                         <div class="order-update-time">${fmtShort(m.created_at)}</div>
                     </div>
                 </div>`;
@@ -1409,6 +1434,14 @@ async function doForward() {
         await api('/public/api/chat/send_message.php', 'POST', fd);
     }
     closeFwd(); loadConvs();
+}
+
+function handleOrderUpdateClick(step, orderId) {
+    if (step === 'approved_with_price') {
+        window.location.href = `payment.php?order_id=${orderId}`;
+    } else {
+        openOrderDetails(orderId);
+    }
 }
 
 function openOrderDetails(id) {

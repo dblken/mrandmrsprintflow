@@ -1438,7 +1438,14 @@ function appendMsgUI(m) {
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
             let payload = {};
-            try { payload = JSON.parse(m.message); } catch(e) { console.error("Invalid order update payload", m.message); }
+            try { 
+                payload = JSON.parse(m.message || '{}'); 
+            } catch (e) {
+                payload = { text: m.message, step: 'unknown' };
+            }
+            const orderData = payload.order || {};
+            const displayText = payload.text || m.message;
+            
             row.className = 'bubble-row system order-update staff-view';
             row.innerHTML = `
                 <div class="msg-content-col">
@@ -1446,11 +1453,11 @@ function appendMsgUI(m) {
                         <div class="order-update-label">[ Order Update ]</div>
                         <div class="order-update-content">
                             <div class="order-thumb-wrap">
-                                <img src="${payload.product_image || DEFAULT_PROFILE_IMAGE}" class="order-thumb" onerror="this.src='${DEFAULT_PROFILE_IMAGE}'" />
+                                <img src="${resolveAppUrl(orderData.image, DEFAULT_PROFILE_IMAGE)}" class="order-thumb" onerror="this.src='${DEFAULT_PROFILE_IMAGE}'" />
                             </div>
                             <div class="order-text">
-                                <div class="order-title">${escapeHtml(payload.product_name || 'Order')}</div>
-                                <div class="order-message">${escapeHtml(payload.status_text || '')}</div>
+                                <div class="order-title">${escapeHtml(orderData.product_name || 'Order')}</div>
+                                <div class="order-message">${escapeHtml(displayText)}</div>
                             </div>
                         </div>
                         <div class="order-update-time">${formatTime(m.created_at)}</div>

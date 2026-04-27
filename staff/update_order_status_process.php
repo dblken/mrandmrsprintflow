@@ -95,4 +95,16 @@ if ($customer_id > 0) {
 }
 add_order_system_message($order_id, $notif['message']);
 
+// Automated Chat Update (Shopee/Messenger Style)
+$chat_steps = [
+    'Approved' => 'approved',
+    'To Pay' => 'approved_with_price',
+    'Ready for Pickup' => 'ready_to_pickup',
+    'Completed' => 'completed'
+];
+$chat_step = $chat_steps[$new_status] ?? null;
+if ($chat_step) {
+    printflow_send_order_update($order_id, $chat_step);
+}
+
 echo json_encode(['success' => true, 'message' => "Order #$order_id marked as $new_status"]);

@@ -92,6 +92,7 @@ try {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
             add_order_system_message($order_id, $msg);
+            printflow_send_order_update($order_id, 'payment_verified');
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 

@@ -168,27 +168,10 @@ try {
     if ($partner_type === 'Staff') {
         $av_res = db_query(
             "SELECT user_id, profile_picture, first_name, last_name FROM users WHERE user_id = COALESCE(
-            (SELECT sender_id FROM order_messages
-             WHERE order_id = ?
-               AND sender_id > 0
-               AND (sender = 'Staff' OR sender = 'System')
-             ORDER BY message_id DESC
-             LIMIT 1),
-            (SELECT us.user_id
-             FROM user_status us
-             WHERE us.order_id = ? AND us.user_type = 'Staff'
-             ORDER BY us.last_activity DESC
-             LIMIT 1),
-            (SELECT al.user_id
-             FROM activity_logs al
-             WHERE al.details LIKE CONCAT('%Order #', ?, '%')
-             ORDER BY al.created_at DESC
-             LIMIT 1),
-            (SELECT COALESCE(NULLIF(jo.assigned_to, 0), NULLIF(jo.payment_verified_by, 0), NULLIF(jo.created_by, 0))
-             FROM job_orders jo
-             WHERE jo.order_id = ?
-             ORDER BY jo.updated_at DESC, jo.id DESC
-             LIMIT 1),
+            (SELECT jo.assigned_to FROM job_orders jo JOIN users u ON u.user_id = jo.assigned_to WHERE jo.order_id = ? AND jo.assigned_to IS NOT NULL AND u.role != 'Admin' ORDER BY jo.updated_at DESC LIMIT 1),
+            (SELECT m.sender_id FROM order_messages m JOIN users u ON u.user_id = m.sender_id WHERE m.order_id = ? AND m.sender_id > 0 AND m.sender = 'Staff' AND u.role != 'Admin' ORDER BY m.message_id DESC LIMIT 1),
+            (SELECT m.sender_id FROM order_messages m WHERE m.order_id = ? AND m.sender_id > 0 AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1),
+            (SELECT u.user_id FROM users u WHERE u.branch_id = (SELECT o.branch_id FROM orders o WHERE o.order_id = ?) AND u.role = 'Staff' AND u.status = 'Activated' ORDER BY u.user_id ASC LIMIT 1),
             (SELECT user_id FROM users WHERE role = 'Admin' ORDER BY user_id ASC LIMIT 1)
         )",
             'iiii',

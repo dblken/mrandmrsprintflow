@@ -3254,7 +3254,7 @@ function pf_review_video_direct_candidates(string $video_path, ?string $base_pat
  */
 function pf_admin_url(string $script, array $query = [], ?string $fragment = null): string {
     $script = ltrim($script, '/');
-    $path = (strpos($script, 'admin/') === 0) ? $script : ('admin/' . $script);
+        $path = (strpos($script, 'admin/') === 0) ? $script : ('admin/' . $script);
     $url = pf_app_base_path() . '/' . $path;
     if ($query !== []) {
         $url .= '?' . http_build_query($query);
@@ -3263,4 +3263,62 @@ function pf_admin_url(string $script, array $query = [], ?string $fragment = nul
         $url .= '#' . ltrim($fragment, '#');
     }
     return $url;
+}
+
+/**
+ * Send an automated order update message to the chat.
+ *
+ * @param int    $order_id
+ * @param string $step         'approved', 'approved_with_price', 'payment_verified', 'ready_to_pickup', 'completed'
+ * @param string $custom_text  Optional custom message text
+ * @return bool
+ */
+function printflow_send_order_update($order_id, $step, $custom_text = '') {
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) return false;
+
+    // 1. Get order and product details
+    $order = db_query("SELECT o.* FROM orders o WHERE o.order_id = ?", 'i', [$order_id]);
+    if (empty($order)) return false;
+    $order = $order[0];
+
+    // Get the first item for preview
+    $item = db_query("SELECT oi.*, p.name as product_name, p.photo_path 
+                     FROM order_items oi 
+                     LEFT JOIN products p ON p.product_id = oi.product_id 
+                     WHERE oi.order_id = ? LIMIT 1", 'i', [$order_id]);
+    $item = !empty($item) ? $item[0] : null;
+
+    // 2. Map steps to messages
+    $messages = [
+        'approved' => "Your inquiry has been approved and is now moving to the next step. Please wait while we prepare your order details.",
+        'approved_with_price' => "Your order for " . ($item['product_name'] ?? 'Order') . " has been approved. The total price is ₱" . number_format((float)($order['total_amount'] ?? 0), 2) . ". Please proceed to payment.",
+        'payment_verified' => "Your payment has been verified. Your order is now in production.",
+        'ready_to_pickup' => "Your order is ready for pickup. You may visit the store to claim your item.",
+        'completed' => "Your order has been completed. Thank you for choosing our service! If you’re satisfied, we would appreciate your feedback."
+    ];
+
+    $text = $custom_text ?: ($messages[$step] ?? "Order status updated to " . $order['status']);
+
+    // 3. Construct JSON payload
+    $payload = [
+        'type' => 'order_update',
+        'step' => $step,
+        'text' => $text,
+        'order' => [
+            'id' => (int)$order['order_id'],
+            'product_name' => $item['product_name'] ?? 'Order',
+            'image' => $item['photo_path'] ?? '',
+            'price' => (float)($order['total_amount'] ?? 0)
+        ]
+    ];
+
+    $json = json_encode($payload);
+
+    // 4. Insert into order_messages
+    // Use System sender (sender_id = 0)
+    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) 
+            VALUES (?, 'System', 0, ?, 'order_update', 0)";
+    
+    return db_execute($sql, 'is', [$order_id, $json]);
 }
