@@ -125,7 +125,7 @@ $sql_conditions .= branch_where('o', $staffBranchId, $types, $params);
 
 if ($status_filter !== '') {
     if ($status_filter === 'Pending') {
-        $sql_conditions .= " AND (o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify'))";
+        $sql_conditions .= " AND (o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'))";
     } elseif ($status_filter === 'Ready for Pickup') {
         // Include legacy production statuses so they appear in TO PICK UP tab
         $sql_conditions .= " AND (o.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design'))";
@@ -207,8 +207,8 @@ $kpi_types = '';
 $kpi_params = [];
 $kpi_conditions .= branch_where('o', $staffBranchId, $kpi_types, $kpi_params);
 
-$total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status NOT IN ('Processing', 'In Production', 'Printing', 'Approved Design') AND 1=1 {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
-$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE (o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify')) {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
+$total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE 1=1 {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
+$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE (o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted')) {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
 $ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design') {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
 $completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Completed' {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
 $cancelled_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Cancelled' {$kpi_conditions}", $kpi_types ?: null, $kpi_params ?: null)[0]['count'] ?? 0;
@@ -224,7 +224,7 @@ $all_counts = [
 ];
 
 function staff_orders_display_status(string $status): string {
-    $verification_statuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify'];
+    $verification_statuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'];
     if (in_array($status, $verification_statuses, true)) {
         return 'To Verify';
     }
@@ -966,7 +966,7 @@ $page_title = 'Orders - Staff';
         };
         var style = map[val] || 'background: #F3F4F6; color: #374151;';
         var display = val;
-        if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify'].includes(val)) display = 'TO VERIFY';
+        if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'].includes(val)) display = 'TO VERIFY';
         else if (val === 'Ready for Pickup' || val === 'To Pickup') display = 'TO PICK UP';
         else if (val === 'Completed') display = 'COMPLETED';
         else if (val === 'Cancelled') display = 'CANCELLED';
