@@ -502,6 +502,14 @@ require_once __DIR__ . '/../includes/header.php';
             display: none !important;
         }
     }
+
+    /* Pinned Messages Styles */
+    .pin-bar-active { background: rgba(14,165,233,0.06) !important; color: #0369a1 !important; cursor: pointer; }
+    .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
+    .details-modal-overlay.active { display: flex !important; }
+    .details-modal-panel { background: #fff; border-radius: 24px; width: 100%; max-width: 500px; max-height: 85vh; overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+    .details-modal-header { padding: 1.25rem 2rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; background: #fff; z-index: 10; flex-shrink: 0; }
+    @keyframes highlightStaffMsg { 0% { background: rgba(14,165,233,0.2); } 100% { background: transparent; } }
 </style>
 
 <div class="chat-shell">
@@ -587,7 +595,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <input type="file" id="customerMediaInput" multiple style="display:none;" onchange="onImgSelected()">
                             <i class="bi bi-image"></i>
                         </label>
-                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#fff; flex:1; resize:none; font-family:inherit; padding:10px 0;"></textarea>
+                        <textarea id="customerMsgInput" class="chat-input" placeholder="Type a message..." autocomplete="off" maxlength="500" rows="1" style="background:transparent; border:none; outline:none; color:#1e293b; flex:1; resize:none; font-family:inherit; padding:10px 0; font-weight: 500;"></textarea>
                         <span id="customerCharCount" class="char-counter">0/500</span>
                     </div>
 
@@ -873,6 +881,58 @@ function loadMsgs() {
         if (res.last_seen_message_id) updateSeenIndicator(res.last_seen_message_id);
         if (res.messages.length) box.scrollTo({top: box.scrollHeight, behavior: 'smooth'});
     });
+}
+
+function updatePinnedBar(pinned) {
+    const bar = document.getElementById('pinnedBar');
+    const text = document.getElementById('pinnedTxt');
+    if (!bar || !text) return;
+    if (!pinned || pinned.length === 0) {
+        bar.style.display = 'none';
+        bar.classList.remove('pin-bar-active');
+        return;
+    }
+    bar.style.display = 'flex';
+    bar.classList.add('pin-bar-active');
+    text.textContent = pinned.length === 1 ? '1 pinned message' : `${pinned.length} pinned messages`;
+    bar.onclick = () => openPinnedModal(pinned);
+}
+
+function openPinnedModal(pinned) {
+    if (!document.getElementById('pinnedModal')) {
+        const div = document.createElement('div');
+        div.id = 'pinnedModal';
+        div.className = 'details-modal-overlay';
+        div.innerHTML = `
+            <div class="details-modal-panel">
+                <div class="details-modal-header">
+                    <h2 style="font-size:1.1rem; font-weight:900; color:#1e293b; margin:0;">Pinned Messages</h2>
+                    <button type="button" onclick="document.getElementById('pinnedModal').classList.remove('active')" style="border:none; background:transparent; cursor:pointer;">
+                         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2.5"/></svg>
+                    </button>
+                </div>
+                <div id="pinnedList" style="padding:1.5rem; max-height:500px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+            </div>
+        `;
+        document.body.appendChild(div);
+    }
+    const modal = document.getElementById('pinnedModal');
+    modal.classList.add('active');
+    const list = document.getElementById('pinnedList');
+    list.innerHTML = pinned.map(m => `
+        <div onclick="goToMessage(${m.id}); document.getElementById('pinnedModal').classList.remove('active')" style="padding:12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;">
+            <div style="font-size:0.7rem; color:#000000; font-weight:800; margin-bottom:4px;">${m.sender_name} • ${fmtShort(m.created_at)}</div>
+            <div style="font-size:0.95rem; color:#000000; line-height:1.4; word-break:break-word; overflow-wrap:anywhere;">${esc(m.message || (m.image_path ? '📸 Attachment' : 'Message'))}</div>
+        </div>
+    `).join('');
+}
+
+function goToMessage(id) {
+    const el = document.getElementById(`ms-${id}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.animation = 'highlightStaffMsg 2s ease';
+    }
 }
 
 function appendMsgUI(m) {
