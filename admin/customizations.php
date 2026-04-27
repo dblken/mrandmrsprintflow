@@ -161,8 +161,8 @@ if (isset($_GET['ajax'])) {
                 <tr><td colspan="<?php echo $branchId === 'all' ? '8' : '9'; ?>" class="py-12 text-center text-gray-400">No customizations found</td></tr>
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
-                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)">
                         <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
+                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo htmlspecialchars(json_encode($adminOrderCode), ENT_QUOTES, 'UTF-8'); ?>)">
                         <td class="py-3 text-gray-900">
                             <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
                                 <?php echo htmlspecialchars($adminOrderCode); ?>
@@ -234,7 +234,7 @@ if (isset($_GET['ajax'])) {
                             </span>
                         </td>
                         <td class="py-3 text-right">
-                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)" class="btn-action blue">View</button>
+                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo htmlspecialchars(json_encode($adminOrderCode), ENT_QUOTES, 'UTF-8'); ?>)" class="btn-action blue">View</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -1089,8 +1089,8 @@ function custom_payment_badge($status) {
                                         $order_count = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$jo['customer_id']])[0]['c'] ?? 0;
                                     }
                                 ?>
-                                    <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)">
-                                        <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
+                                    <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
+                                    <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo htmlspecialchars(json_encode($adminOrderCode), ENT_QUOTES, 'UTF-8'); ?>)">
                                         <td class="py-3 text-gray-900">
                                             <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
                                                 <?php echo htmlspecialchars($adminOrderCode); ?>
@@ -1163,7 +1163,7 @@ function custom_payment_badge($status) {
                                             </span>
                                         </td>
                                         <td class="py-3 text-right">
-                                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)" class="btn-action blue">
+                                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo htmlspecialchars(json_encode($adminOrderCode), ENT_QUOTES, 'UTF-8'); ?>)" class="btn-action blue">
                                                 View
                                             </button>
                                         </td>
