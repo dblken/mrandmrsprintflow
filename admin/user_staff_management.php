@@ -1989,24 +1989,41 @@ function userManagement() {
             this.validateField('address');
         },
         parseAddressFromString(addr) {
-            const parts = (addr || '').split(',').map(p => p.trim()).filter(Boolean);
-            if (parts.length >= 4 && parts[parts.length - 1].toLowerCase() === 'philippines') {
-                const province = parts[parts.length - 2] || '';
-                const city = parts[parts.length - 3] || '';
-                const barangayRaw = parts[parts.length - 4] || '';
+            const raw = (addr || '').trim();
+            const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+            if (!parts.length) {
+                return { address_province: '', address_city: '', address_barangay: '', address_line: '' };
+            }
+
+            const hasCountry = parts[parts.length - 1].toLowerCase() === 'philippines';
+            const core = hasCountry ? parts.slice(0, -1) : parts.slice();
+
+            if (core.length >= 4) {
+                const province = core[core.length - 1] || '';
+                const city = core[core.length - 2] || '';
+                const barangayRaw = core[core.length - 3] || '';
                 const barangay = barangayRaw.replace(/^Brgy\.?\s*/i, '').trim();
-                const addressLine = parts.slice(0, -4).join(', ').trim();
+                const addressLine = core.slice(0, -3).join(', ').trim();
                 return { address_province: province, address_city: city, address_barangay: barangay, address_line: addressLine };
             }
-            if (parts.length >= 3) {
-                const province = parts[parts.length - 1] || '';
-                const city = parts[parts.length - 2] || '';
-                const barangayRaw = parts[parts.length - 3] || '';
-                const barangay = barangayRaw.replace(/^Brgy\.?\s*/i, '').trim();
-                const addressLine = parts.slice(0, -3).join(', ').trim();
+
+            if (core.length === 3) {
+                const province = core[2] || '';
+                const city = core[1] || '';
+                const first = core[0] || '';
+                const isBarangay = /^Brgy\.?\s*/i.test(first);
+                const barangay = isBarangay ? first.replace(/^Brgy\.?\s*/i, '').trim() : '';
+                const addressLine = isBarangay ? '' : first;
                 return { address_province: province, address_city: city, address_barangay: barangay, address_line: addressLine };
             }
-            return { address_province: '', address_city: '', address_barangay: '', address_line: addr || '' };
+
+            if (core.length === 2) {
+                const province = core[1] || '';
+                const city = core[0] || '';
+                return { address_province: province, address_city: city, address_barangay: '', address_line: '' };
+            }
+
+            return { address_province: '', address_city: '', address_barangay: '', address_line: core[0] || '' };
         },
         
         async viewUser(userId) {
