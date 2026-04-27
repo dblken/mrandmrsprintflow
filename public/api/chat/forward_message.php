@@ -62,20 +62,14 @@ $message_type = $orig['message_type'];
 if (($message_type !== 'text' && $message_type !== 'message') && $message_text === '[Forwarded Attachment]') {
     $message_text = '';
 }
-
-// Add [Forwarded] prefix if not already present
-if (!empty($message_text)) {
-    if (strpos($message_text, '[Forwarded]') === false) {
-        $message_text = "[Forwarded]: " . $message_text;
-    }
-}
+// Note: We no longer prepend "[Forwarded]:" because we now use a dedicated UI indicator via is_forwarded column.
 
 // 4. Insert the new message
 $sql = "INSERT INTO order_messages (
             order_id, sender, sender_id, message, message_type, 
             image_path, file_type, file_path, message_file, 
-            file_name, file_size, read_receipt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
+            file_name, file_size, is_forwarded, read_receipt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)";
 
 $success = db_execute($sql, 'isisssssssi', [
     $target_order_id, 

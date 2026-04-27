@@ -1095,6 +1095,7 @@ function appendMsgUI(m) {
             </div>
             <div class="bubble" style="position:relative;">
                 ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
+                ${m.is_forwarded ? `<div style="font-size:0.65rem; color:var(--pf-dim); margin-bottom:4px; font-style:italic; display:flex; align-items:center; gap:3px;"><i class="bi bi-arrow-90deg-right"></i> Forwarded</div>` : ''}
                 ${m.reply_id ? `<div style="background:#f1f5f9; padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
                 ${contentHtml}
                 <div class="react-display" id="rd-${m.id}" style="display:none;"></div>

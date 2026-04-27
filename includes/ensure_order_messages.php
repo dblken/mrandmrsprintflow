@@ -46,6 +46,9 @@ if (empty($existing['message_file'])) {
 if (empty($existing['is_pinned'])) {
     @$conn->query("ALTER TABLE order_messages ADD COLUMN is_pinned TINYINT(1) NOT NULL DEFAULT 0 AFTER read_receipt");
 }
+if (empty($existing['is_forwarded'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN is_forwarded TINYINT(1) NOT NULL DEFAULT 0 AFTER is_pinned");
+}
 @$conn->query("ALTER TABLE order_messages MODIFY COLUMN sender ENUM('Customer','Staff','System') NOT NULL DEFAULT 'Customer'");
 @$conn->query("ALTER TABLE order_messages MODIFY COLUMN sender_id INT DEFAULT 0");
 @$conn->query("ALTER TABLE order_messages MODIFY COLUMN file_type VARCHAR(20) DEFAULT 'text'");

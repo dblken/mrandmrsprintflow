@@ -1534,6 +1534,7 @@ function appendMsgUI(m) {
         </div>
         <div class="bubble" style="position:relative; ${isCallMsg ? 'max-width:none;' : ''}" id="bubble-${m.id}">
             ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
+            ${m.is_forwarded ? `<div style="font-size:0.65rem; color:var(--pf-dim); margin-bottom:4px; font-style:italic; display:flex; align-items:center; gap:3px;"><i class="bi bi-arrow-90deg-right"></i> Forwarded</div>` : ''}
             ${m.reply_id ? `<a href="javascript:void(0)" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior: 'smooth', block: 'center'})" class="reply-preview-bubble">↳ Replying: ${m.reply_image ? 'Photo' : (m.reply_message ? escapeHtml(m.reply_message) : 'Message')}</a>` : ''}
     `;
 

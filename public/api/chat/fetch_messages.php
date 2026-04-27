@@ -143,6 +143,7 @@ try {
                 'is_self' => $is_self,
                 'status' => (int) $msg['read_receipt'], // 0=Sent, 1=Delivered, 2=Seen
                 'is_system' => $is_system,
+                'is_forwarded' => (int) ($msg['is_forwarded'] ?? 0),
                 'reply_id' => $msg['reply_id'] ?: null,
                 'reply_message' => $msg['reply_message'] ?? null,
                 'reply_image' => $msg['reply_image'] ?? null,
