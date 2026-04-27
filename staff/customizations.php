@@ -1091,12 +1091,13 @@ if ($showLatestCustomizationOnly) {
                             
                             <div style="display:flex; flex-direction:column; gap:14px;">
                                 <template x-if="currentJo.payment_proof_path">
-                                        <a :href="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                        <a :href="currentJo.payment_proof_path"
                                            target="_blank" rel="noopener noreferrer"
                                            style="display:block;line-height:0;background:#fff;border:1px solid #d1d5db;border-radius:12px;overflow:hidden;box-shadow:0 8px 18px rgba(15,23,42,0.08);">
-                                            <img :src="(document.body.getAttribute('data-base-url') || '') + '/api_view_proof.php?file=' + encodeURIComponent(currentJo.payment_proof_path)"
+                                            <img :src="currentJo.payment_proof_path"
                                                  style="display:block;width:100%;max-height:460px;object-fit:contain;background:#fff;cursor:pointer;"
-                                                 alt="Proof — opens full size in new tab">
+                                                 alt="Payment Proof"
+                                                 @error="$el.src = (document.body.getAttribute('data-base-url') || '') + '/public/assets/images/image_broken.png'; $el.style.opacity='0.4'">
                                         </a>
                                     </template>
                                 

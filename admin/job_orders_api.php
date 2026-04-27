@@ -701,12 +701,16 @@ try {
                        COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
                        TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
                        o.total_amount AS order_total,
-                       o.payment_proof_path, o.downpayment_amount,
+                       COALESCE(NULLIF(o.payment_proof_path,''), NULLIF(o.payment_proof,''), NULLIF(jo.payment_proof_path,'')) AS payment_proof_path,
+                       COALESCE(jo.payment_submitted_amount, o.downpayment_amount, 0) AS downpayment_amount,
                        o.order_source
                 FROM customizations cust
                 LEFT JOIN customers c ON cust.customer_id = c.customer_id
                 LEFT JOIN orders o ON cust.order_id = o.order_id
+                LEFT JOIN job_orders jo ON jo.order_id = o.order_id AND jo.status NOT IN ('CANCELLED')
                 WHERE cust.customization_id = ?
+                ORDER BY jo.id ASC
+                LIMIT 1
             ", 'i', [$cust_id]);
 
             if (empty($cust_row)) throw new Exception("Customization not found.");

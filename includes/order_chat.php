@@ -140,44 +140,53 @@ function appendMessage(msg) {
     // ── ORDER UPDATE CARD ─────────────────────────────────────────────────────
     if (msg.message_type === 'order_update') {
         container.className = 'chat-bubble-container order-update-wrapper';
-        container.style.cssText = 'display:flex;flex-direction:column;align-items:center;align-self:center;max-width:92%;margin-bottom:1.25rem;';
+        container.style.cssText = 'display:flex;flex-direction:column;align-items:center;align-self:center;max-width:96%;width:100%;margin-bottom:1.25rem;';
 
         const actionType  = msg.action_type  || 'view_only';
         const actionUrl   = msg.action_url   || '';
         const thumbnail   = msg.thumbnail    || '';
         const messageText = msg.message      || '';
+        const meta        = (() => { try { return JSON.parse(msg.meta_json || '{}'); } catch(e) { return {}; } })();
+        const productName = meta.product_name || '';
+        const isClickable = (actionType !== 'view_only') && actionUrl !== '';
 
-        // Action-type → icon + label + color
-        const actionConfigs = {
-            redirect_payment: { icon: '💳', label: 'Proceed to Payment', color: '#0f4d5e', badge: '#53c5e0' },
-            retry_payment:    { icon: '🔄', label: 'Re-upload Proof',    color: '#7c2d12', badge: '#ef4444' },
-            rate_order:       { icon: '⭐', label: 'Rate This Order',    color: '#713f12', badge: '#f59e0b' },
-            view_only:        { icon: '📋', label: '',                   color: '#0f4d5e', badge: '' },
+        const ctaMap = {
+            redirect_payment: { label: '💳 Proceed to Payment',      bg: '#0d9488', hover: '#0f766e' },
+            retry_payment:    { label: '🔄 Re-upload Payment Proof',  bg: '#dc2626', hover: '#b91c1c' },
+            rate_order:       { label: '⭐ Rate This Order',          bg: '#d97706', hover: '#b45309' },
         };
-        const cfg = actionConfigs[actionType] || actionConfigs.view_only;
-        const isClickable = actionType !== 'view_only' && actionUrl !== '';
+        const cta = ctaMap[actionType] || null;
 
-        const thumb = thumbnail
-            ? `<img src="${thumbnail}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:0.5rem;flex-shrink:0;border:1px solid rgba(255,255,255,0.12);">`
-            : `<div style="width:52px;height:52px;border-radius:0.5rem;background:rgba(83,197,224,0.15);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${cfg.icon}</div>`;
+        const thumbHtml = thumbnail
+            ? '<img src="' + thumbnail + '" alt="" style="width:58px;height:58px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" onerror="this.style.display=\'none\'">'
+            : '<div style="width:58px;height:58px;border-radius:8px;background:#b2e6e1;display:flex;align-items:center;justify-content:center;font-size:1.7rem;flex-shrink:0;">🖨</div>';
 
-        const actionBtn = isClickable
-            ? `<div style="margin-top:0.6rem;padding:0.45rem 0.9rem;border-radius:8px;background:${cfg.badge};color:#fff;font-size:0.75rem;font-weight:700;text-align:center;letter-spacing:0.02em;">${cfg.label}</div>`
+        const ctaHtml = cta
+            ? '<div style="margin-top:10px;padding:8px 14px;border-radius:8px;background:' + cta.bg + ';color:#fff;font-size:0.79rem;font-weight:700;text-align:center;letter-spacing:0.02em;cursor:pointer;" onmouseover="this.style.background=\'' + cta.hover + '\'" onmouseout="this.style.background=\'' + cta.bg + '\'">' + cta.label + '</div>'
             : '';
 
-        container.innerHTML = `
-            <div class="order-update-card" data-action="${actionType}" data-url="${actionUrl}"
-                 style="cursor:${isClickable ? 'pointer' : 'default'};background:linear-gradient(135deg,${cfg.color},#0a2530);border:1px solid rgba(83,197,224,0.22);border-radius:1rem;padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.4rem;box-shadow:0 4px 16px rgba(2,6,23,0.18);min-width:260px;max-width:340px;">
-                <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-                    ${thumb}
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:0.65rem;font-weight:700;color:rgba(83,197,224,0.85);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.2rem;">PrintFlow Update</div>
-                        <div style="font-size:0.82rem;color:#e2f4f9;line-height:1.45;word-break:break-word;">${escapeHtml(messageText)}</div>
-                    </div>
-                </div>
-                ${actionBtn}
-            </div>
-            <div class="chat-time" style="font-size:0.7rem;color:#94a3b8;margin-top:0.35rem;">${msg.created_at}</div>`;
+        const truncatedMsg = messageText.length > 100 ? messageText.slice(0, 100) + '...' : messageText;
+        const nameHtml = productName
+            ? '<div style="font-size:0.88rem;font-weight:700;color:#1a3330;line-height:1.3;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(productName) + '</div>'
+            : '';
+
+        const hoverAttrs = isClickable
+            ? 'style="cursor:pointer;background:#edfaf8;border:1.5px solid #81d4cc;border-radius:14px;padding:12px 14px;min-width:260px;max-width:360px;box-shadow:0 2px 10px rgba(0,128,100,0.08);transition:box-shadow 0.2s,transform 0.15s;"'
+            : 'style="cursor:default;background:#edfaf8;border:1.5px solid #81d4cc;border-radius:14px;padding:12px 14px;min-width:260px;max-width:360px;box-shadow:0 2px 10px rgba(0,128,100,0.08);"';
+
+        container.innerHTML =
+            '<div class="order-update-card" data-action="' + actionType + '" data-url="' + actionUrl + '" ' + hoverAttrs + '>' +
+                '<div style="font-size:0.62rem;font-weight:800;color:#0b7b6e;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:9px;">[ Order Update ]</div>' +
+                '<div style="display:flex;align-items:flex-start;gap:11px;">' +
+                    thumbHtml +
+                    '<div style="flex:1;min-width:0;">' +
+                        nameHtml +
+                        '<div style="font-size:0.8rem;color:#374151;line-height:1.45;word-break:break-word;">' + escapeHtml(truncatedMsg) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                ctaHtml +
+                '<div style="text-align:right;font-size:0.68rem;color:#6b7280;margin-top:7px;">' + msg.created_at + '</div>' +
+            '</div>';
 
         if (isClickable) {
             container.querySelector('.order-update-card').addEventListener('click', function() {
@@ -185,15 +194,18 @@ function appendMessage(msg) {
                 if (userType === 'Customer') {
                     window.location.href = actionUrl;
                 } else {
-                    // Staff: try to open order modal if available
-                    const meta = (() => { try { return JSON.parse(msg.meta_json || '{}'); } catch(e) { return {}; } })();
-                    const orderId = meta.order_id || currentChatOrderId;
-                    if (orderId && typeof viewOrderDetails === 'function') {
-                        viewOrderDetails(orderId, 'ORDER');
-                    } else if (orderId && typeof openOrderModal === 'function') {
-                        openOrderModal(orderId);
-                    }
+                    const orderId = meta.order_id || (typeof currentChatOrderId !== 'undefined' ? currentChatOrderId : null);
+                    if (orderId && typeof viewOrderDetails === 'function') { viewOrderDetails(orderId, 'ORDER'); }
+                    else if (orderId && typeof openOrderModal === 'function') { openOrderModal(orderId); }
                 }
+            });
+            container.querySelector('.order-update-card').addEventListener('mouseover', function() {
+                this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)';
+                this.style.transform = 'translateY(-1px)';
+            });
+            container.querySelector('.order-update-card').addEventListener('mouseout', function() {
+                this.style.boxShadow = '0 2px 10px rgba(0,128,100,0.08)';
+                this.style.transform = '';
             });
         }
 
