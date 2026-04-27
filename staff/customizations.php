@@ -229,6 +229,7 @@ if ($showLatestCustomizationOnly) {
             flex: 1 1 100%;
             min-width: 0;
             overflow: visible;
+            margin-top: 8px;
         }
 
         .toolbar-group--actions {
@@ -496,17 +497,8 @@ if ($showLatestCustomizationOnly) {
         }
 
         .source-badge-pill {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             min-width: 76px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1;
             text-align: center;
-            white-space: nowrap;
         }
         .source-badge-pill.online {
             background: #dbeafe;
@@ -588,6 +580,9 @@ if ($showLatestCustomizationOnly) {
             white-space: nowrap;
         }
         .status-badge-pill {
+            max-width: 100%;
+        }
+        .pf-pill {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -596,8 +591,8 @@ if ($showLatestCustomizationOnly) {
             font-size: 12px;
             font-weight: 600;
             line-height: 1;
-            max-width: 100%;
             white-space: nowrap;
+            max-width: 100%;
         }
         .badge-pending { background:#fef9c3; color:#92400e; }
         .badge-approved { background:#dbeafe; color:#1e40af; }
@@ -839,52 +834,50 @@ if ($showLatestCustomizationOnly) {
                             </div>
                         </div>
                     </div>
-
-                    <div class="toolbar-group toolbar-group--tabs">
-                        <div class="pf-custom-tabs">
-                            <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab">
-                                <span>ALL</span>
-                                <span class="tab-count" x-text="getStatusCount('ALL')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'PENDING'" :class="activeStatus === 'PENDING' ? 'active' : ''" class="pill-tab">
-                                <span>PENDING</span>
-                                <span class="tab-count" x-text="getStatusCount('PENDING')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'APPROVED'" :class="activeStatus === 'APPROVED' ? 'active' : ''" class="pill-tab">
-                                <span>APPROVED</span>
-                                <span class="tab-count" x-text="getStatusCount('APPROVED')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_PAY'" :class="activeStatus === 'TO_PAY' ? 'active' : ''" class="pill-tab">
-                                <span>TO PAY</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab">
-                                <span>TO VERIFY</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab">
-                                <span>IN PRODUCTION</span>
-                                <span class="tab-count" x-text="getStatusCount('IN_PRODUCTION')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'TO_RECEIVE'" :class="activeStatus === 'TO_RECEIVE' ? 'active' : ''" class="pill-tab">
-                                <span>TO PICKUP</span>
-                                <span class="tab-count" x-text="getStatusCount('TO_RECEIVE')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'COMPLETED'" :class="activeStatus === 'COMPLETED' ? 'active' : ''" class="pill-tab">
-                                <span>COMPLETED</span>
-                                <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'REJECTED'" :class="activeStatus === 'REJECTED' ? 'active' : ''" class="pill-tab">
-                                <span>REJECTED</span>
-                                <span class="tab-count" x-text="getStatusCount('REJECTED')"></span>
-                            </button>
-                            <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab">
-                                <span>CANCELLED</span>
-                                <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
-                            </button>
-                        </div>
+                </div>
+                <div class="toolbar-group toolbar-group--tabs">
+                    <div class="pf-custom-tabs">
+                        <button type="button" @click="activeStatus = 'ALL'" :class="activeStatus === 'ALL' ? 'active' : ''" class="pill-tab">
+                            <span>ALL</span>
+                            <span class="tab-count" x-text="getStatusCount('ALL')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'PENDING'" :class="activeStatus === 'PENDING' ? 'active' : ''" class="pill-tab">
+                            <span>PENDING</span>
+                            <span class="tab-count" x-text="getStatusCount('PENDING')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'APPROVED'" :class="activeStatus === 'APPROVED' ? 'active' : ''" class="pill-tab">
+                            <span>APPROVED</span>
+                            <span class="tab-count" x-text="getStatusCount('APPROVED')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'TO_PAY'" :class="activeStatus === 'TO_PAY' ? 'active' : ''" class="pill-tab">
+                            <span>TO PAY</span>
+                            <span class="tab-count" x-text="getStatusCount('TO_PAY')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'TO_VERIFY'" :class="activeStatus === 'TO_VERIFY' ? 'active' : ''" class="pill-tab">
+                            <span>TO VERIFY</span>
+                            <span class="tab-count" x-text="getStatusCount('TO_VERIFY')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'IN_PRODUCTION'" :class="activeStatus === 'IN_PRODUCTION' ? 'active' : ''" class="pill-tab">
+                            <span>IN PRODUCTION</span>
+                            <span class="tab-count" x-text="getStatusCount('IN_PRODUCTION')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'TO_RECEIVE'" :class="activeStatus === 'TO_RECEIVE' ? 'active' : ''" class="pill-tab">
+                            <span>TO PICKUP</span>
+                            <span class="tab-count" x-text="getStatusCount('TO_RECEIVE')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'COMPLETED'" :class="activeStatus === 'COMPLETED' ? 'active' : ''" class="pill-tab">
+                            <span>COMPLETED</span>
+                            <span class="tab-count" x-text="getStatusCount('COMPLETED')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'REJECTED'" :class="activeStatus === 'REJECTED' ? 'active' : ''" class="pill-tab">
+                            <span>REJECTED</span>
+                            <span class="tab-count" x-text="getStatusCount('REJECTED')"></span>
+                        </button>
+                        <button type="button" @click="activeStatus = 'CANCELLED'" :class="activeStatus === 'CANCELLED' ? 'active' : ''" class="pill-tab">
+                            <span>CANCELLED</span>
+                            <span class="tab-count" x-text="getStatusCount('CANCELLED')"></span>
+                        </button>
                     </div>
-
                 </div>
 
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">
@@ -929,7 +922,7 @@ if ($showLatestCustomizationOnly) {
                                             'badge-pickup':     jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT',
                                             'badge-pending':    jo.status === 'PENDING',
                                             'badge-cancelled':  jo.status === 'REJECTED' || jo.status === 'CANCELLED'
-                                        }" class="status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Completed' : 
+                                        }" class="pf-pill status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Completed' : 
                                            (jo.status === 'APPROVED' ? 'Approved' : 
                                            (jo.status === 'TO_PAY' ? 'To Pay' : 
                                            (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
@@ -941,16 +934,16 @@ if ($showLatestCustomizationOnly) {
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <template x-if="['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span class="source-badge-pill pos">Pos</span>
+                                            <span class="pf-pill source-badge-pill pos">Pos</span>
                                         </template>
                                         <template x-if="!['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span class="source-badge-pill online">Online</span>
+                                            <span class="pf-pill source-badge-pill online">Online</span>
                                         </template>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="table-text-main truncate-ellipsis" :title="(jo.first_name + ' ' + (jo.last_name || '')).trim()" x-text="jo.first_name + ' ' + (jo.last_name || '')"></div>
                                         <div style="margin-top:4px;">
-                                            <span style="font-size:10px; font-weight:700; width:100px; padding:2px 0;" class="status-badge-pill" :class="normalizeCustomerType(jo.customer_type, jo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(jo.customer_type, jo.transaction_count)"></span>
+                                            <span style="min-width:100px;" class="pf-pill status-badge-pill" :class="normalizeCustomerType(jo.customer_type, jo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(jo.customer_type, jo.transaction_count)"></span>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-right">
@@ -1041,7 +1034,7 @@ if ($showLatestCustomizationOnly) {
                         <div>
                             <div style="font-size:16px;font-weight:700;color:#1f2937;" x-text="currentJo.customer_full_name"></div>
                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
-                                <span style="font-size:11px; font-weight:700; min-width:80px; padding:2px 8px;" class="status-badge-pill" :class="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count)"></span>
+                                <span style="min-width:80px;" class="pf-pill status-badge-pill" :class="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count) === 'NEW' ? 'badge-approved' : 'badge-fulfilled'" x-text="normalizeCustomerType(currentJo.customer_type, currentJo.transaction_count)"></span>
                                 <span style="font-size:12px;color:#6b7280;" x-text="currentJo.customer_contact"></span>
                             </div>
                             <div x-show="currentJo.customer_address" style="font-size:12px;color:#6b7280;margin-top:8px;max-width:100%;word-break:break-word;" x-text="currentJo.customer_address"></div>

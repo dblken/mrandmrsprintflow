@@ -254,7 +254,7 @@ function staff_orders_status_pill_style(string $displayStatus): string {
 function staff_orders_status_pill_html(string $displayStatus): string {
     $style = staff_orders_status_pill_style($displayStatus);
     $label = htmlspecialchars(ucwords(strtolower(trim($displayStatus))));
-    return '<span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;' . $style . '">' . $label . '</span>';
+    return '<span class="pf-pill" style="' . $style . '">' . $label . '</span>';
 }
 
 function staff_orders_product_name(array $order): string {
@@ -313,9 +313,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                 </td>
                 <td class="px-4 py-4 status-col-cell">
                     <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                        <span class="source-badge-pill pos">Pos</span>
+                        <span class="pf-pill source-badge-pill pos">Pos</span>
                     <?php else: ?>
-                        <span class="source-badge-pill online">Online</span>
+                        <span class="pf-pill source-badge-pill online">Online</span>
                     <?php endif; ?>
                 </td>
                 <td class="px-4 py-4">
@@ -472,6 +472,18 @@ $page_title = 'Orders - Staff';
             gap: 10px;
             flex-wrap: nowrap;
             margin-left: auto;
+        }
+        .pf-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            max-width: 100%;
         }
 
         /* ── Filter Panel ─── */
@@ -719,16 +731,7 @@ $page_title = 'Orders - Staff';
             white-space: nowrap;
         }
         .source-badge-pill {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             min-width: 76px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1;
-            white-space: nowrap;
             text-align: center;
         }
         .source-badge-pill.online {
@@ -931,7 +934,7 @@ $page_title = 'Orders - Staff';
         .om-co-row:last-child { border-bottom: none; }
 
         /* Status badge replicated in JS */
-        .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+        .badge { display: inline-flex; align-items:center; justify-content:center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; line-height:1; white-space:nowrap; }
         .badge-green { background: #d1fae5; color: #065f46; }
         .badge-yellow { background: #fef3c7; color: #92400e; }
         .badge-red { background: #fee2e2; color: #991b1b; }
@@ -1024,7 +1027,7 @@ $page_title = 'Orders - Staff';
         else if (val === 'Completed') display = 'Completed';
         else if (val === 'Cancelled') display = 'Cancelled';
 
-        return '<span class="px-3 py-1 text-xs rounded-full" style="' + style + ' display: inline-block; white-space: nowrap; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">' + display + '</span>';
+        return '<span class="pf-pill" style="' + style + '">' + display + '</span>';
     }
 
     function esc(str) {
@@ -1664,7 +1667,7 @@ $page_title = 'Orders - Staff';
             '<div>' +
                 '<div style="font-size:16px;font-weight:700;color:#1f2937;">' + esc(d.cust_name) + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">' +
-                    '<span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; ' + cTypeColor + '">' + cType + '</span>' +
+                    '<span class="pf-pill" style="' + cTypeColor + '">' + cType + '</span>' +
                     '<span style="font-size:12px;color:#6b7280;">' + esc(d.cust_phone) + '</span>' +
                 '</div>' +
                 (d.cust_address ? '<div style="font-size:12px;color:#6b7280;margin-top:6px;max-width:100%;word-break:break-word;">' + esc(d.cust_address) + '</div>' : '') +
@@ -1978,9 +1981,9 @@ $page_title = 'Orders - Staff';
                                     </td>
                                     <td class="px-4 py-4 status-col-cell">
                                         <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                                            <span class="source-badge-pill pos">Pos</span>
+                                            <span class="pf-pill source-badge-pill pos">Pos</span>
                                         <?php else: ?>
-                                            <span class="source-badge-pill online">Online</span>
+                                            <span class="pf-pill source-badge-pill online">Online</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-4">
