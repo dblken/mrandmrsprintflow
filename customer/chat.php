@@ -1091,7 +1091,7 @@ function appendMsgUI(m) {
             <div class="b-actions">
                 <div class="ab" onclick="toggleReact(${m.id},event)" style="position:relative;"><i class="bi bi-emoji-smile"></i><div class="react-picker" id="rp-${m.id}">${Object.entries(EMOJIS).map(([k,v])=>`<span onclick="react(${m.id},'${k}')">${v}</span>`).join('')}</div></div>
                 <div class="ab" onclick="initReply(${m.id},'${msgB64}')"><i class="bi bi-reply-fill"></i></div>
-                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
+                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}','${m.message_type}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
             </div>
             <div class="bubble" style="position:relative;">
                 ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
@@ -1491,14 +1491,19 @@ function goToMessage(id) {
 }
 
 let fwdMsgData = null, selectedFwd = [];
-function initFwd(id, msgB64) {
-    fwdMsgData = { id, text: decodeURIComponent(escape(atob(msgB64))) };
+function initFwd(id, msgB64, type) {
+    fwdMsgData = { id, text: decodeURIComponent(escape(atob(msgB64))), type };
     selectedFwd = [];
     const modal = document.getElementById('pfFwdModal');
     modal.classList.remove('hidden');
     modal.classList.add('show');
     const preview = document.getElementById('fwdPreview');
-    preview.textContent = fwdMsgData.text || '📸 Attachment';
+    if (fwdMsgData.text) {
+        preview.textContent = fwdMsgData.text;
+    } else {
+        const labels = { image: '📸 Image', video: '🎥 Video', voice: '🎤 Voice Message' };
+        preview.textContent = labels[fwdMsgData.type] || '📸 Attachment';
+    }
     const s = document.getElementById('fwdSearch');
     if(s) s.value = '';
     loadFwdList();
@@ -1554,8 +1559,8 @@ async function doForward() {
     for (const tid of selectedFwd) {
         const fd = new FormData();
         fd.append('order_id', tid);
-        fd.append('message', (fwdMsgData.text ? `[Forwarded]: ${fwdMsgData.text}` : '[Forwarded Attachment]'));
-        await api('/public/api/chat/send_message.php', 'POST', fd);
+        fd.append('message_id', fwdMsgData.id);
+        await api('/public/api/chat/forward_message.php', 'POST', fd);
     }
     closeFwd(); loadConvs();
 }

@@ -1526,7 +1526,7 @@ function appendMsgUI(m) {
                     <div class="m-menu-item" onclick="pinMessage(${m.id})">
                         <i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}
                     </div>
-                    <div class="m-menu-item" onclick="initForward(${m.id}, '${msgB64}', '${hasImg}')">
+                    <div class="m-menu-item" onclick="initForward(${m.id}, '${msgB64}', '${m.message_type}')">
                         <i class="bi bi-arrow-right-short"></i> Forward
                     </div>
                 </div>
@@ -1721,8 +1721,8 @@ function toggleReaction(msgId, reactionType) {
 var forwardMsgData = null;
 var selectedForwardTargets = [];
 
-function initForward(msgId, b64, hasImage) {
-    forwardMsgData = { msgId, text: safeBase64Decode(b64), hasImage };
+function initForward(msgId, b64, type) {
+    forwardMsgData = { msgId, text: safeBase64Decode(b64), type };
     openForwardModal();
     closeAllMenus();
 }
@@ -1789,7 +1789,12 @@ function openForwardModal() {
     }
     const modal = document.getElementById('forwardModal');
     modal.classList.add('active');
-    document.getElementById('forwardPreview').textContent = forwardMsgData.hasImage === '1' ? '📸 Attachment' : forwardMsgData.text;
+    if (forwardMsgData.text) {
+        document.getElementById('forwardPreview').textContent = forwardMsgData.text;
+    } else {
+        const labels = { image: '📸 Image', video: '🎥 Video', voice: '🎤 Voice Message' };
+        document.getElementById('forwardPreview').textContent = labels[forwardMsgData.type] || '📸 Attachment';
+    }
     selectedForwardTargets = [];
     updateForwardBtn();
     loadForwardList();
@@ -1857,15 +1862,9 @@ async function processForward() {
     for (const targetId of selectedForwardTargets) {
         const fd = new FormData();
         fd.append('order_id', targetId);
-        
-        let msgText = forwardMsgData.text;
-        if (forwardMsgData.hasImage === '1') {
-             msgText = '[Forwarded]: ' + (msgText || 'Attachment');
-        }
-        
-        fd.append('message', msgText);
+        fd.append('message_id', forwardMsgData.msgId);
 
-        const res = await api('/public/api/chat/send_message.php', 'POST', fd);
+        const res = await api('/public/api/chat/forward_message.php', 'POST', fd);
         if (res.success) successCount++;
     }
 
