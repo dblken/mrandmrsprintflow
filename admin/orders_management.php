@@ -40,7 +40,8 @@ $per_page = 10;
 
 // Build query (always join branches)
 $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email, b.branch_name,
-               GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') as order_sku
+               GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') as order_sku,
+               GROUP_CONCAT(DISTINCT p.product_name ORDER BY p.product_name SEPARATOR ', ') as product_names
         FROM orders o 
         LEFT JOIN customers c ON o.customer_id = c.customer_id 
         LEFT JOIN branches b ON o.branch_id = b.id
@@ -166,26 +167,27 @@ if (isset($_GET['ajax'])) {
         <thead>
             <tr style="border-bottom: 1px solid #e5e7eb;">
                 <th style="width:12%;white-space:nowrap;">Order Code</th>
-                <th style="text-align:left;width:<?php echo $branchId === 'all' ? '24%' : '20%'; ?>;">Customer</th>
-                <th style="width:<?php echo $branchId === 'all' ? '16%' : '14%'; ?>;">Date</th>
+                <th style="text-align:left;width:<?php echo $branchId === 'all' ? '20%' : '18%'; ?>;">Customer</th>
+                <th style="text-align:left;width:<?php echo $branchId === 'all' ? '20%' : '18%'; ?>;">Product</th>
+                <th style="width:<?php echo $branchId === 'all' ? '14%' : '12%'; ?>;">Date</th>
                 <?php if ($branchId !== 'all'): ?>
                 <th style="width:14%;">Branch</th>
                 <?php endif; ?>
-                <th style="width:<?php echo $branchId === 'all' ? '16%' : '14%'; ?>;">Amount</th>
-                <th style="width:<?php echo $branchId === 'all' ? '16%' : '14%'; ?>;">Status</th>
+                <th style="width:<?php echo $branchId === 'all' ? '14%' : '12%'; ?>;">Amount</th>
+                <th style="width:<?php echo $branchId === 'all' ? '14%' : '12%'; ?>;">Status</th>
                 <th style="width:12%; text-align:right;">Actions</th>
             </tr>
         </thead>
         <tbody id="ordersTableBody">
             <?php if (empty($orders)): ?>
                 <tr id="emptyOrdersRow">
-                    <td colspan="<?php echo $branchId === 'all' ? '6' : '7'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
+                    <td colspan="<?php echo $branchId === 'all' ? '7' : '8'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
                         <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
                     </td>
                 </tr>
             <?php else: ?>
                 <tr id="emptyOrdersRow" style="display:none;">
-                    <td colspan="<?php echo $branchId === 'all' ? '6' : '7'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
+                    <td colspan="<?php echo $branchId === 'all' ? '7' : '8'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">No orders found</td>
                 </tr>
                 <?php foreach ($orders as $order): ?>
                     <tr onclick="openOrderModal(<?php echo $order['order_id']; ?>)" title="Click to view Order #<?php echo $order['order_id']; ?>" style="border-bottom: 1px solid #f3f4f6;">
@@ -196,6 +198,10 @@ if (isset($_GET['ajax'])) {
                         <td>
                             <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                             <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                        </td>
+                        <td>
+                            <?php $product_names = trim((string)($order['product_names'] ?? '')); ?>
+                            <div class="cell-ellipsis" style="color:#1f2937; max-width:180px;" title="<?php echo htmlspecialchars($product_names ?: '—'); ?>"><?php echo htmlspecialchars($product_names ?: '—'); ?></div>
                         </td>
                         <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
                         <?php if ($branchId !== 'all'): ?>
@@ -1256,20 +1262,21 @@ if (isset($_GET['ajax'])) {
                         <thead>
                             <tr style="border-bottom: 1px solid #e5e7eb;">
                                 <th style="width:12%;white-space:nowrap;">Order Code</th>
-                                <th style="text-align:left;width:<?php echo $branchId !== 'all' ? '20%' : '24%'; ?>;">Customer</th>
-                                <th style="width:<?php echo $branchId !== 'all' ? '14%' : '16%'; ?>;">Date</th>
+                                <th style="text-align:left;width:<?php echo $branchId !== 'all' ? '18%' : '20%'; ?>;">Customer</th>
+                                <th style="text-align:left;width:<?php echo $branchId !== 'all' ? '18%' : '20%'; ?>;">Product</th>
+                                <th style="width:<?php echo $branchId !== 'all' ? '12%' : '14%'; ?>;">Date</th>
                                 <?php if ($branchId !== 'all'): ?>
                                 <th style="width:14%;">Branch</th>
                                 <?php endif; ?>
-                                <th style="width:<?php echo $branchId !== 'all' ? '14%' : '16%'; ?>;">Amount</th>
-                                <th style="width:<?php echo $branchId !== 'all' ? '14%' : '16%'; ?>;">Status</th>
+                                <th style="width:<?php echo $branchId !== 'all' ? '12%' : '14%'; ?>;">Amount</th>
+                                <th style="width:<?php echo $branchId !== 'all' ? '12%' : '14%'; ?>;">Status</th>
                                 <th style="width:12%; text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTableBody">
                             <?php if (empty($orders)): ?>
                                 <tr id="emptyOrdersRow">
-                                    <td colspan="<?php echo $branchId !== 'all' ? '7' : '6'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
+                                    <td colspan="<?php echo $branchId !== 'all' ? '8' : '7'; ?>" style="padding:40px; text-align:center; color:#9ca3af; font-size:14px; cursor:default;">
                                         <?php echo $search ? 'No orders found matching "' . htmlspecialchars($search) . '"' : 'No orders found'; ?>
                                     </td>
                                 </tr>
@@ -1283,6 +1290,10 @@ if (isset($_GET['ajax'])) {
                                         <td>
                                             <div class="cell-ellipsis" style="color:#1f2937; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_name']); ?>"><?php echo htmlspecialchars($order['customer_name']); ?></div>
                                             <div class="cell-ellipsis" style="font-size:11px; color:#9ca3af; max-width:160px;" title="<?php echo htmlspecialchars($order['customer_email']); ?>"><?php echo htmlspecialchars($order['customer_email']); ?></div>
+                                        </td>
+                                        <td>
+                                            <?php $product_names = trim((string)($order['product_names'] ?? '')); ?>
+                                            <div class="cell-ellipsis" style="color:#1f2937; max-width:180px;" title="<?php echo htmlspecialchars($product_names ?: '—'); ?>"><?php echo htmlspecialchars($product_names ?: '—'); ?></div>
                                         </td>
                                         <td style="color:#6b7280; font-size: 12px;"><?php echo format_date($order['order_date']); ?></td>
                                         <?php if ($branchId !== 'all'): ?>
