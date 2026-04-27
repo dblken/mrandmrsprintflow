@@ -686,21 +686,12 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="<?= BASE_URL ?>/public/assets/js/printflow_call.js"></script>
 <script>
-// Inject socket server URL for production — must come before PFCall.initialize()
-window.PF_CALL_SERVER_URL = '<?php
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $h = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    echo rtrim($proto . '://' . $h, '/') . ':3000';
-?>';
-</script>
-<script>
-const BASE = '<?= BASE_URL ?>';
+window.PF_CALL_SERVER_URL = <?= json_encode(((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':3000') ?>;
+const BASE = <?= json_encode(BASE_URL) ?>;
 const ME_ID = <?= (int)$user_id ?>;
-const ME_NAME = '<?= addslashes($user_name) ?>';
-const ME_AVATAR = '<?= addslashes(get_profile_image($user_avatar)) ?>';
+const ME_NAME = <?= json_encode($user_name) ?>;
+const ME_AVATAR = <?= json_encode(get_profile_image($user_avatar)) ?>;
 const DEFAULT_PROFILE_IMAGE = `${BASE}/public/assets/uploads/profiles/default.png`;
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;
 const EMOJIS = {like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢', angry:'😡'};

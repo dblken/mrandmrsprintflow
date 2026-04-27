@@ -19,20 +19,24 @@ if ($file === '') {
 
 // Security: Prevent directory traversal
 $file = basename($file);
-$fullPath = __DIR__ . '/../uploads/chat/videos/' . $file;
+// Prioritize public/uploads as that's where the chat folder actually lives
+$fallbacks = [
+    __DIR__ . '/uploads/chat/videos/' . $file, // Relative to public/
+    __DIR__ . '/../uploads/chat/videos/' . $file, // Project root
+];
 
-if (!is_file($fullPath)) {
-    // Check fallback locations
-    $fallbacks = [
-        __DIR__ . '/../public/uploads/chat/videos/' . $file,
-        __DIR__ . '/../public/assets/uploads/chat/videos/' . $file
-    ];
-    foreach ($fallbacks as $fb) {
-        if (is_file($fb)) {
-            $fullPath = $fb;
-            break;
-        }
+$fullPath = '';
+foreach ($fallbacks as $path) {
+    if (is_file($path)) {
+        $fullPath = $path;
+        break;
     }
+}
+
+if (!$fullPath) {
+    http_response_code(404);
+    error_log("[PrintFlow][Video] File missing: " . $file);
+    exit('Video file missing');
 }
 
 if (!is_file($fullPath)) {

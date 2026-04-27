@@ -970,7 +970,32 @@ $current_user = get_logged_in_user();
     </div>
 </div>
 
-<!-- Socket.IO and Call System now loaded globally via header.php -->
+<!-- PrintFlow Call & Signaling System (Global) -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css?v=1.1">
+<script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js?v=1.1" defer></script>
+<script>
+    (function() {
+        function initPFCall() {
+            if (window.PFCall && typeof window.PFCall.init === "function") {
+                window.PFCall.init({
+                    userId: <?php echo json_encode(get_user_id()); ?>,
+                    userType: <?php echo json_encode(get_user_type()); ?>,
+                    userName: <?php echo json_encode($current_user['full_name'] ?? 'Staff'); ?>,
+                    userAvatar: <?php echo json_encode(get_profile_image($current_user['profile_picture'] ?? '')); ?>,
+                    basePath: <?php echo json_encode(BASE_URL); ?>
+                });
+            } else {
+                setTimeout(initPFCall, 100);
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPFCall);
+        } else {
+            initPFCall();
+        }
+    })();
+</script>
 <script>
 window.baseUrl = '<?php echo BASE_URL; ?>';
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;
@@ -1033,6 +1058,10 @@ const REACTION_EMOJIS = {
 
 function initCallSystem() {
     if (window.__pfCallInitDone) return;
+    if (!window.PFCall || !window.PFCall.socket) {
+        setTimeout(initCallSystem, 100);
+        return;
+    }
     window.__pfCallInitDone = true;
 
     // Ensure activeId is synced for call events
