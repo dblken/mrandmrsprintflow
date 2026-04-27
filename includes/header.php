@@ -204,17 +204,26 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/printflow_call.css?v=<?php echo $ver; ?>">
     <script src="<?php echo $asset_base; ?>/assets/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.PFCall) {
-                window.PFCall.init({
-                    userId: <?php echo json_encode(get_user_id()); ?>,
-                    userType: <?php echo json_encode(get_user_type()); ?>,
-                    userName: <?php echo json_encode($current_user['full_name'] ?? 'User'); ?>,
-                    userAvatar: <?php echo json_encode($current_user['avatar'] ?? ''); ?>,
-                    basePath: <?php echo json_encode($base_path); ?>
-                });
+        (function() {
+            function initPFCall() {
+                if (window.PFCall && typeof window.PFCall.init === "function") {
+                    window.PFCall.init({
+                        userId: <?php echo json_encode(get_user_id()); ?>,
+                        userType: <?php echo json_encode(get_user_type()); ?>,
+                        userName: <?php echo json_encode($current_user['full_name'] ?? 'User'); ?>,
+                        userAvatar: <?php echo json_encode($current_user['avatar'] ?? ''); ?>,
+                        basePath: <?php echo json_encode($base_path); ?>
+                    });
+                } else {
+                    setTimeout(initPFCall, 100);
+                }
             }
-        });
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initPFCall);
+            } else {
+                initPFCall();
+            }
+        })();
     </script>
     <?php endif; ?>
 </head>

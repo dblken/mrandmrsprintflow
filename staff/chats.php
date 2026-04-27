@@ -1033,23 +1033,11 @@ const REACTION_EMOJIS = {
 
 function initCallSystem() {
     if (window.__pfCallInitDone) return;
-    if (!window.PFCall) {
-        console.warn('[PFCall] System object not found during init');
-        return;
-    }
     window.__pfCallInitDone = true;
 
     // Ensure activeId is synced for call events
     if (!window.PFCallState) window.PFCallState = {};
     window.PFCallState.activeId = activeId;
-
-    window.PFCall.initialize(
-        <?php echo get_user_id(); ?>,
-        'Staff',
-        '<?php echo str_replace("'", "\\'", $_SESSION['user_name'] ?? "Staff"); ?>',
-        '<?= addslashes(get_profile_image($current_user['profile_picture'] ?? null)) ?>',
-        window.baseUrl || ''
-    );
 
     // Real-time status updates
     window.PFCall.socket.on('user-status-change', (data) => {
@@ -1088,6 +1076,8 @@ window.addEventListener('PFCallDisconnected', () => {
 
 function initiateCall(type) {
     if (!activeId) return;
+    // activeId is synced via window.PFCallState
+    if (window.PFCallState) window.PFCallState.activeId = activeId;
 
     // Check if system is ready
     if (!window.PFCallReady || !window.PFCall || !window.PFCall.userId) {

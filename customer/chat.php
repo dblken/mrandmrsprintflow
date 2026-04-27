@@ -1803,10 +1803,9 @@ if (!window.__pfCustomerChatCloseMenusBound) {
 
 function initiateCall(type) {
     if (!activeId) return;
-    if (!window.PFCall || !window.PFCall.userId) {
-        // Initialize if not ready
-        window.PFCall.initialize(ME_ID, 'Customer', ME_NAME, ME_AVATAR, BASE);
-    }
+    // Sync activeId for call logging
+    if (!window.PFCallState) window.PFCallState = {};
+    window.PFCallState.activeId = activeId;
     const fd = new FormData(); fd.append('order_id', activeId);
     api('/public/api/chat/status.php','POST',fd).then(res => {
         if (!res || !res.partner) {
