@@ -210,7 +210,7 @@ if ($showLatestCustomizationOnly) {
         .toolbar-container {
             display: flex;
             flex-direction: row;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
             gap: 12px;
             overflow: visible;
@@ -238,6 +238,7 @@ if ($showLatestCustomizationOnly) {
             position: relative;
             z-index: 30;
             overflow: visible;
+            flex-wrap: nowrap;
         }
 
         .toolbar-group--actions .dropdown-panel {
@@ -327,25 +328,21 @@ if ($showLatestCustomizationOnly) {
         .toolbar-btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            min-height: 46px;
-            padding: 0 20px;
-            border: 1px solid #d9e2ec;
-            border-radius: 12px;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
             background: #fff;
-            color: #334155;
+            color: #374151;
             font-size: 13px;
             font-weight: 500;
-            line-height: 1;
-            letter-spacing: 0;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            transition: all 0.15s;
         }
         .toolbar-btn:hover {
-            border-color: #cbd5e1;
-            background: #f8fafc;
+            border-color: #9ca3af;
+            background: #f9fafb;
         }
         .toolbar-btn.active {
             border-color: #0d9488;
@@ -502,15 +499,13 @@ if ($showLatestCustomizationOnly) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 82px;
-            padding: 6px 14px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 700;
+            min-width: 76px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
             line-height: 1;
-            letter-spacing: 0.01em;
             text-align: center;
-            text-transform: uppercase;
             white-space: nowrap;
         }
         .source-badge-pill.online {
@@ -946,10 +941,10 @@ if ($showLatestCustomizationOnly) {
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <template x-if="['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span class="source-badge-pill pos">POS</span>
+                                            <span class="source-badge-pill pos">Pos</span>
                                         </template>
                                         <template x-if="!['pos','walk-in'].includes((jo.order_source || '').toLowerCase())">
-                                            <span class="source-badge-pill online">ONLINE</span>
+                                            <span class="source-badge-pill online">Online</span>
                                         </template>
                                     </td>
                                     <td class="px-4 py-4">

@@ -313,9 +313,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                 </td>
                 <td class="px-4 py-4 status-col-cell">
                     <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                        <span class="source-badge-pill pos">POS</span>
+                        <span class="source-badge-pill pos">Pos</span>
                     <?php else: ?>
-                        <span class="source-badge-pill online">ONLINE</span>
+                        <span class="source-badge-pill online">Online</span>
                     <?php endif; ?>
                 </td>
                 <td class="px-4 py-4">
@@ -458,6 +458,21 @@ $page_title = 'Orders - Staff';
         .toolbar-btn:hover { border-color: #9ca3af; background: #f9fafb; }
         .toolbar-btn.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
         .toolbar-btn svg { flex-shrink: 0; }
+        .toolbar-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: nowrap;
+        }
+        .toolbar-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+            margin-left: auto;
+        }
 
         /* ── Filter Panel ─── */
         .filter-panel {
@@ -707,14 +722,12 @@ $page_title = 'Orders - Staff';
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 82px;
-            padding: 6px 14px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 700;
+            min-width: 76px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
             line-height: 1;
-            letter-spacing: 0.01em;
-            text-transform: uppercase;
             white-space: nowrap;
             text-align: center;
         }
@@ -1818,7 +1831,7 @@ $page_title = 'Orders - Staff';
 
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
-                <div class="toolbar-container" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                <div class="toolbar-container">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
                     <div class="pf-custom-tabs" style="margin:0 auto; padding-bottom:0; border-bottom:0; justify-content:center; flex:1 1 auto;">
                         <template x-for="(label, key) in statusTabs" :key="key">
@@ -1831,7 +1844,7 @@ $page_title = 'Orders - Staff';
                             </button>
                         </template>
                     </div>
-                    <div class="toolbar-group" style="margin-left: auto;">
+                    <div class="toolbar-group">
 
                             <!-- Sort Button -->
                             <div style="position:relative;">
@@ -1965,9 +1978,9 @@ $page_title = 'Orders - Staff';
                                     </td>
                                     <td class="px-4 py-4 status-col-cell">
                                         <?php if (($order['order_source'] ?? '') === 'pos'): ?>
-                                            <span class="source-badge-pill pos">POS</span>
+                                            <span class="source-badge-pill pos">Pos</span>
                                         <?php else: ?>
-                                            <span class="source-badge-pill online">ONLINE</span>
+                                            <span class="source-badge-pill online">Online</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-4">
