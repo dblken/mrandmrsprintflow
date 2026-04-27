@@ -1547,19 +1547,19 @@ function appendMsgUI(m) {
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
         setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : '#64748b'), 50);
-    } else if (m.image_path) {
-        if (m.file_type === 'video') {
-            colHtml += `<div class="chat-video-wrapper" onclick="zoomVideo('${m.image_path.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:280px;background:#000;margin-bottom:4px;">
-                <video src="${m.image_path}" style="width:100%;max-width:280px;display:block;border-radius:12px;" preload="metadata" muted playsinline></video>
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-                    <div style="width:48px;height:48px;background:rgba(0,0,0,0.55);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                        <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
+    } else if (m.message_type === 'video' || m.file_type === 'video') {
+        const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+        colHtml += `<div class="chat-video-wrapper" onclick="zoomVideo('${videoSrc.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:280px;background:#000;margin-bottom:4px;">
+            <video src="${videoSrc}" style="width:100%;max-width:280px;display:block;border-radius:12px;" preload="metadata" muted playsinline></video>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                <div style="width:48px;height:48px;background:rgba(0,0,0,0.55);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </div>
-            </div>`;
-        } else {
-            colHtml += `<div class="chat-image-wrap" onclick="zoomImg('${m.image_path.replace(/'/g, "\\'")}')"><img src="${m.image_path}" onload="this.closest('.bubble-row').parentElement.scrollTop = this.closest('.bubble-row').parentElement.scrollHeight;"></div>`; 
-        }
+            </div>
+        </div>`;
+    } else if (m.message_type === 'image' || m.image_path) {
+        const imgSrc = resolveAppUrl(m.image_path || m.message_file || m.file_path);
+        colHtml += `<div class="chat-image-wrap" onclick="zoomImg('${imgSrc.replace(/'/g, "\\'")}')"><img src="${imgSrc}" onload="this.closest('.brow')?.parentElement?.scrollTo({top:this.closest('.brow').parentElement.scrollHeight});"></div>`; 
     }
     if (m.message && !isCallLog && m.message_type !== 'voice') colHtml += `<span>${escapeHtml(m.message)}</span>`;
     if (!m.is_system) colHtml += `<div class="reaction-display-container" id="reactions-for-${m.id}" style="display:none;"></div>`;

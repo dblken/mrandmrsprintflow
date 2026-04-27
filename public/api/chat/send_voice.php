@@ -37,34 +37,27 @@ if ($file['size'] > 10000000) {
     exit();
 }
 
-// Ensure directory exists - use chat_media which is known to work
-$upload_dir = __DIR__ . '/../../../uploads/chat_media/';
+// Ensure directory exists - standardized folder
+$upload_dir = __DIR__ . '/../../../uploads/chat/audio/';
 if (!is_dir($upload_dir)) {
-    if (!mkdir($upload_dir, 0755, true)) {
-        echo json_encode(['success' => false, 'error' => 'Could not create upload directory']);
-        exit();
-    }
+    mkdir($upload_dir, 0755, true);
 }
 
 $filename = uniqid() . ".webm";
 $target_path = $upload_dir . $filename;
 $base_path = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
-$relative_path = ($base_path === '' ? '' : $base_path) . '/uploads/chat_media/' . $filename;
+$relative_path = ($base_path === '' ? '' : $base_path) . '/uploads/chat/audio/' . $filename;
 
 if (move_uploaded_file($file['tmp_name'], $target_path)) {
     // Save to DB
-    // Use message_type = 'voice' (just updated enum)
-    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, message_file, file_type, read_receipt)
-            VALUES (?, ?, ?, '', 'voice', ?, 'none', 0)";
+    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, message_file, file_type, file_path, read_receipt)
+            VALUES (?, ?, ?, '', 'voice', ?, 'voice', ?, 0)";
     
-    // Fallback if voice type is rejected (though ALTER should have worked)
-    // Actually we keep it as 'voice' since the ALTER worked.
-    
-    if (db_execute($sql, 'isis', [$order_id, $db_sender, $user_id, $relative_path])) {
+    if (db_execute($sql, 'isiss', [$order_id, $db_sender, $user_id, $relative_path, $relative_path])) {
         printflow_notify_chat_message($order_id, $db_sender, 'voice');
         echo json_encode(['success' => true, 'file' => $relative_path]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Database insertion failed: ' . ($conn->error ?? 'unknown')]);
+        echo json_encode(['success' => false, 'error' => 'Database insertion failed']);
     }
 } else {
     $error_msg = error_get_last()['message'] ?? 'Check PHP upload limits or folder permissions';

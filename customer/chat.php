@@ -503,6 +503,18 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
 <div class="chat-shell">
+<!-- Lightbox / Modal Viewer (Part 4) -->
+<div id="chatLightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(10,15,30,0.97);z-index:9000;align-items:center;justify-content:center;padding:2rem;cursor:pointer;">
+    <div style="position:relative; max-width:95vw; max-height:95vh;display:flex;flex-direction:column;align-items:center;" onclick="event.stopPropagation()">
+        <img id="lightboxImg" src="" style="max-width:100%;max-height:80vh;border-radius:1rem;box-shadow:0 0 60px rgba(0,0,0,0.6);display:none;object-fit:contain;">
+        <video id="lightboxVideo" controls style="max-width:100%;max-height:80vh;border-radius:1rem;box-shadow:0 0 60px rgba(0,0,0,0.6);display:none;background:#000;outline:none;" preload="metadata"></video>
+        <div style="display:flex; justify-content:center; gap:1.5rem; margin-top:1.5rem;">
+            <a id="lightboxDownload" href="" download class="cs-h-btn" style="width:auto; padding:0 20px; background:#fff; color:#0a2530; font-weight:700; text-decoration:none;">Download</a>
+            <button onclick="closeLightbox()" class="cs-h-btn" style="width:auto; padding:0 20px; background:#fff; color:#0a2530; font-weight:700;">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="chat-root">
     <!-- ══ Sidebar ══ -->
     <aside class="cs-sidebar">
@@ -966,11 +978,27 @@ function appendMsgUI(m) {
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
         setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
-    } else {
+    } else if (m.message_type === 'video' || m.file_type === 'video') {
+        const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         contentHtml = `
-            ${m.image_path ? `<img class="chat-img" src="${m.image_path}" onclick="window.open(this.src)" style="max-width:250px; border-radius:12px; margin-bottom:5px; display:block; cursor:pointer;">` : ''}
+            <div class="chat-video-wrapper" onclick="zoomVideo('${videoSrc.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:250px;background:#000;margin-bottom:5px;">
+                <video src="${videoSrc}" style="width:100%;display:block;border-radius:12px;" preload="metadata" muted playsinline></video>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                    <div style="width:40px;height:40px;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                </div>
+            </div>
             ${m.message ? `<span>${esc(m.message)}</span>` : ''}
         `;
+    } else if (m.message_type === 'image' || m.image_path) {
+        const imgSrc = resolveAppUrl(m.image_path || m.message_file || m.file_path);
+        contentHtml = `
+            <img class="chat-img" src="${imgSrc}" onclick="zoomImg('${imgSrc.replace(/'/g, "\\'")}')" style="max-width:250px; border-radius:12px; margin-bottom:5px; display:block; cursor:pointer;">
+            ${m.message ? `<span>${esc(m.message)}</span>` : ''}
+        `;
+    } else {
+        contentHtml = `${m.message ? `<span>${esc(m.message)}</span>` : ''}`;
     }
 
     row.innerHTML = `
@@ -1620,6 +1648,19 @@ function initCustomerChatPage() {
     }
 
     loadConvs();
+}
+
+function zoomImg(src) {
+    const lb = document.getElementById('chatLightbox'), img = document.getElementById('lightboxImg'), vid = document.getElementById('lightboxVideo'), dl = document.getElementById('lightboxDownload');
+    img.src = src; dl.href = src; img.style.display = 'block'; vid.style.display = 'none'; lb.style.display = 'flex';
+}
+function zoomVideo(src) {
+    const lb = document.getElementById('chatLightbox'), img = document.getElementById('lightboxImg'), vid = document.getElementById('lightboxVideo'), dl = document.getElementById('lightboxDownload');
+    vid.src = src; dl.href = src; img.style.display = 'none'; vid.style.display = 'block'; lb.style.display = 'flex'; vid.play();
+}
+function closeLightbox() {
+    const lb = document.getElementById('chatLightbox'), vid = document.getElementById('lightboxVideo');
+    lb.style.display = 'none'; vid.pause(); vid.src = '';
 }
 
 if (document.readyState === 'loading') {

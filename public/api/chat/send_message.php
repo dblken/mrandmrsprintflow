@@ -66,27 +66,27 @@ if (isset($_FILES['image'])) {
 
         // Process file (up to 50MB) 
         // We use the 'chat' folder destination, let's keep allowed extensions explicit.
-        $upload = upload_file($single_file, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov'], 'chat_media', null, 50 * 1024 * 1024);
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $is_video = in_array($ext, ['mp4', 'webm', 'mov']);
+        $file_type = $is_video ? 'video' : 'image';
+        $dest_folder = $is_video ? 'chat/videos' : 'chat/images';
+
+        $upload = upload_file($single_file, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov'], $dest_folder, null, 50 * 1024 * 1024);
         if (!($upload['success'] ?? false)) continue;
 
         $image_path = (string)$upload['file_path'];
-        $ext = strtolower(pathinfo($image_path, PATHINFO_EXTENSION));
-        $file_type = in_array($ext, ['mp4', 'webm', 'mov']) ? 'video' : 'image';
+        $msg_type = $is_video ? 'video' : 'image';
 
         $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, image_path, file_type, file_path, message_file, file_name, file_size, read_receipt, reply_id)
                 VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, 0, ?)";
         
-        // For backwards compatibility we still update message_type and image_path. 
-        // message_type = 'image', but we have file_type = 'video' natively.
-        // Actually, let's use message_type = 'image', file_type = 'video'
-        
         if (db_execute($sql, 'isissssssii', [
             $order_id, $db_sender, $user_id, 
-            'image', // legacy message_type
-            $image_path, // legacy image_path
+            $msg_type, 
+            $image_path, 
             $file_type, 
             $image_path, 
-            $image_path, // message_file
+            $image_path, 
             $name, 
             $single_file['size'], 
             $reply_id

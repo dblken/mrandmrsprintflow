@@ -107,8 +107,9 @@ try {
                      WHERE jo.order_id = o.order_id AND jo.assigned_to IS NOT NULL
                      ORDER BY jo.updated_at DESC, jo.id DESC
                      LIMIT 1),
-                    (SELECT u.profile_picture FROM users u WHERE u.role = 'Staff' AND u.branch_id = o.branch_id AND u.status = 'Activated' ORDER BY u.user_id ASC LIMIT 1),
-                    NULL
+                    (SELECT u.profile_picture FROM users u WHERE u.role = 'Staff' AND u.branch_id = o.branch_id AND u.status = 'Activated' AND u.profile_picture IS NOT NULL ORDER BY u.user_id ASC LIMIT 1),
+                    (SELECT u.profile_picture FROM users u WHERE u.role = 'Staff' AND u.status = 'Activated' AND u.profile_picture IS NOT NULL ORDER BY u.user_id ASC LIMIT 1),
+                    ''
                ) AS staff_avatar,
                COALESCE(
                     (SELECT u.online_status FROM users u WHERE u.user_id = (SELECT m.sender_id FROM order_messages m WHERE m.order_id = o.order_id AND m.sender_id > 0 AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1)),
