@@ -1357,8 +1357,6 @@ function loadMsgs() {
                 } else {
                     scrollToBottom(true);
                 }
-                    scrollToBottom(true, false);
-                }
             }
             
             if (data.last_seen_message_id !== undefined) {

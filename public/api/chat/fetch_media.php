@@ -84,6 +84,12 @@ function pf_chat_media_public_url(?string $path): string {
 // Prepend BASE_URL if needed
 $results = [];
 foreach ($media as $item) {
+    $f_type = strtolower($item['file_type'] ?? '');
+    $m_type = strtolower($item['message_type'] ?? '');
+    
+    // STRICT VOICE FILTER: Never show voice messages in media gallery
+    if ($f_type === 'voice' || $m_type === 'voice') continue;
+
     $path = $item['media_path'] ?? '';
     if (!$path) continue;
     
@@ -91,15 +97,10 @@ foreach ($media as $item) {
     $clean_path = explode('?', $path)[0];
     $ext = strtolower(pathinfo($clean_path, PATHINFO_EXTENSION));
     
-    $f_type = strtolower($item['file_type'] ?? '');
-    $m_type = strtolower($item['message_type'] ?? '');
-    
     // Robust detection: prioritize extension
     if (in_array($ext, ['mp4', 'mov', 'avi'])) {
         $f_type = 'video';
     } elseif ($ext === 'webm') {
-        // .webm can be video or voice. If it's voice, skip it.
-        if ($f_type === 'voice' || $m_type === 'voice') continue;
         $f_type = 'video';
     } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
         $f_type = 'image';

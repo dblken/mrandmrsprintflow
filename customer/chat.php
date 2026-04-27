@@ -377,7 +377,12 @@ require_once __DIR__ . '/../includes/header.php';
         transform: translateX(100%);
     }
     #galleryPanel.show { display: flex; transform: translateX(0); }
-    .gal-head { padding: 1.5rem; border-bottom: 1px solid rgba(0,0,0,0.04); display: flex; align-items: center; justify-content: space-between; background: transparent; }
+    .gal-tabs { display: flex; padding: 0.5rem 1rem; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .gal-tab { 
+        flex: 1; padding: 8px; font-size: 0.75rem; font-weight: 700; text-align: center; 
+        border-radius: 12px; cursor: pointer; transition: all 0.2s; color: #64748b; border: 1px solid transparent;
+    }
+    .gal-tab.active { background: #fff; color: #0a2530; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
     .gal-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 1.5rem; align-content: flex-start; }
     .gal-item { aspect-ratio: 1; border-radius: 18px; overflow: hidden; cursor: pointer; position: relative; transition: all 0.3s; border: 1px solid rgba(0,0,0,0.05); background: #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .gal-item:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 24px rgba(0,0,0,0.1); border-color: var(--pf-cyan); }
@@ -584,7 +589,11 @@ require_once __DIR__ . '/../includes/header.php';
             <div id="messagesArea"></div>
 
             <div id="galleryPanel">
-                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#fff;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:var(--pf-dim);font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
+                <div class="gal-head"><span style="font-weight:800;font-size:1.1rem;color:#0f172a;">Shared Media</span><button onclick="closeGallery()" style="background:transparent;border:none;color:#64748b;font-size:1.5rem;cursor:pointer;"><i class="bi bi-x"></i></button></div>
+                <div class="gal-tabs">
+                    <div class="gal-tab active" id="galTabImg" onclick="switchGalleryTab('image')">Images</div>
+                    <div class="gal-tab" id="galTabVid" onclick="switchGalleryTab('video')">Videos</div>
+                </div>
                 <div class="gal-grid" id="galleryGrid"></div>
             </div>
 
@@ -1723,36 +1732,58 @@ function closeDetailsModal() {
     document.getElementById('detailsModal').classList.remove('active');
 }
 
+let activeGalleryTab = 'image';
+let sharedMedia = [];
+
+function switchGalleryTab(tab) {
+    activeGalleryTab = tab;
+    document.getElementById('galTabImg').classList.toggle('active', tab === 'image');
+    document.getElementById('galTabVid').classList.toggle('active', tab === 'video');
+    renderGallery();
+}
+
+function renderGallery() {
+    const grid = document.getElementById('galleryGrid');
+    if (!grid) return;
+    const filtered = sharedMedia.filter(m => m.file_type === activeGalleryTab);
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = `
+        <div style="grid-column: span 2; padding:5rem 1rem; text-align:center; color:rgba(0,0,0,0.25);">
+            <i class="bi bi-${activeGalleryTab === 'image' ? 'images' : 'play-btn'}" style="font-size:3rem; display:block; margin-bottom:1rem; opacity:0.15;"></i>
+            <div style="font-weight:800; font-size:0.9rem;">No shared ${activeGalleryTab}s</div>
+            <div style="font-size:0.75rem; opacity:0.6; margin-top:4px; font-weight:600;">Images and videos from this chat appear here.</div>
+        </div>`;
+        return;
+    }
+    
+    grid.innerHTML = filtered.map(m => {
+        const isVid = m.file_type === 'video';
+        const url = resolveAppUrl(m.message_file);
+        if (isVid) {
+            return `<div class="gal-item" onclick="zoomVideo('${url.replace(/'/g, "\\'")}')">
+                <video src="${url}#t=0.1" preload="metadata" muted></video>
+                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.15);">
+                    <i class="bi bi-play-circle-fill" style="color:#fff; font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
+                </div>
+            </div>`;
+        }
+        return `<div class="gal-item" onclick="zoomImg('${url.replace(/'/g, "\\'")}')">
+            <img src="${url}" loading="lazy">
+        </div>`;
+    }).join('');
+}
+
 function openGallery() {
     if (!activeId) return;
     const gallery = document.getElementById('galleryPanel'), grid = document.getElementById('galleryGrid');
-    grid.innerHTML = '<div style="grid-column: span 3; padding:3rem; text-align:center;"><i class="bi bi-hourglass-split animate-spin text-2xl text-white opacity-20"></i></div>';
+    grid.innerHTML = '<div style="grid-column: span 2; padding:3rem; text-align:center;"><i class="bi bi-hourglass-split animate-spin text-2xl text-slate-300"></i></div>';
     gallery.classList.add('show');
     api(`/public/api/chat/fetch_media.php?order_id=${activeId}`).then(res => {
-        if (!res.media || !res.media.length) { 
-            grid.innerHTML = `
-            <div style="grid-column: span 3; padding:5rem 1rem; text-align:center; color:rgba(255,255,255,0.3);">
-                <i class="bi bi-images" style="font-size:3rem; display:block; margin-bottom:1rem; opacity:0.2;"></i>
-                <div style="font-weight:700; font-size:0.9rem;">No shared media yet</div>
-                <div style="font-size:0.75rem; opacity:0.6; margin-top:4px;">Images and videos from this chat will appear here.</div>
-            </div>`; 
-            return; 
+        if (res.success) {
+            sharedMedia = res.media || [];
+            renderGallery();
         }
-        grid.innerHTML = res.media.map(m => {
-            const isVid = m.file_type === 'video';
-            const url = resolveAppUrl(m.message_file);
-            if (isVid) {
-                return `<div class="gal-item" onclick="zoomVideo('${url.replace(/'/g, "\\'")}')">
-                    <video src="${url}#t=0.1" preload="metadata" muted style="width:100%; height:100%; object-fit:cover;"></video>
-                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.2);">
-                        <i class="bi bi-play-circle-fill" style="color:#fff; font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
-                    </div>
-                </div>`;
-            }
-            return `<div class="gal-item" onclick="zoomImg('${url.replace(/'/g, "\\'")}')">
-                <img src="${url}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">
-            </div>`;
-        }).join('');
     });
 }
 
