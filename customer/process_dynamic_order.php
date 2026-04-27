@@ -166,6 +166,47 @@ if ($action === 'buy_now') {
     // Get customer info
     $customer = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0] ?? [];
     
+    // Server-side idempotency guard to prevent duplicate order creation
+    // from repeated buy-now submits.
+    $guard_form_snapshot = $form_data;
+    foreach ($guard_form_snapshot as $k => $v) {
+        if (is_array($v) && isset($v['type']) && $v['type'] === 'file') {
+            unset($guard_form_snapshot[$k]['tmp_path']);
+        }
+    }
+    ksort($guard_form_snapshot);
+    $guard_payload = [
+        'customer_id' => (int)$customer_id,
+        'product_id' => (int)$product_id,
+        'config_id' => (int)$config_id,
+        'quantity' => (int)$quantity,
+        'branch_id' => (int)$branch_id,
+        'form_data' => $guard_form_snapshot,
+    ];
+    $guard_fingerprint = hash('sha256', json_encode($guard_payload));
+    $guard_now = time();
+    $guard_window_secs = 30;
+    $last_guard = $_SESSION['dynamic_submit_guard'] ?? null;
+    if (
+        is_array($last_guard)
+        && ($last_guard['fingerprint'] ?? '') === $guard_fingerprint
+        && ($guard_now - (int)($last_guard['ts'] ?? 0)) <= $guard_window_secs
+    ) {
+        if (!empty($last_guard['order_id'])) {
+            $_SESSION['order_success'] = "Order #{$last_guard['order_id']} was already placed successfully.";
+            header("Location: orders.php");
+            exit;
+        }
+        $_SESSION['error'] = "Order submission is already in progress. Please wait a moment.";
+        header("Location: order_dynamic.php?product_id=" . $product_id);
+        exit;
+    }
+    $_SESSION['dynamic_submit_guard'] = [
+        'fingerprint' => $guard_fingerprint,
+        'ts' => $guard_now,
+        'order_id' => null,
+    ];
+
     // Create order
     $order_sql = "INSERT INTO orders (customer_id, branch_id, reference_id, order_date, total_amount, downpayment_amount, status, payment_status, payment_type, notes, order_type)
                   VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)";
@@ -183,6 +224,7 @@ if ($action === 'buy_now') {
     ]);
     
     if ($order_id) {
+        $_SESSION['dynamic_submit_guard']['order_id'] = (int)$order_id;
         // Prepare customization data
         $custom_data = [
             'Branch_ID' => $branch_id,
@@ -272,6 +314,7 @@ if ($action === 'buy_now') {
         header("Location: orders.php");
         exit;
     } else {
+        unset($_SESSION['dynamic_submit_guard']);
         $_SESSION['error'] = "Failed to place order. Please try again.";
         header("Location: order_dynamic.php?product_id=" . $product_id);
         exit;

@@ -87,6 +87,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         }
 
         $notes = $_POST['notes'] ?? null;
+
+        // Server-side idempotency guard to prevent duplicate orders
+        // when the customer double-clicks submit or retries quickly.
+        $guard_items = [];
+        foreach ($cart_items as $item) {
+            $custom = $item['customization'] ?? [];
+            if (is_array($custom)) {
+                ksort($custom);
+            }
+            $guard_items[] = [
+                'product_id' => (int)($item['product_id'] ?? 0),
+                'quantity' => (int)($item['quantity'] ?? 0),
+                'price' => (float)($item['price'] ?? 0),
+                'source_page' => (string)($item['source_page'] ?? ''),
+                'customization' => $custom,
+            ];
+        }
+        usort($guard_items, static function (array $a, array $b): int {
+            return [$a['product_id'], $a['quantity'], $a['price']] <=> [$b['product_id'], $b['quantity'], $b['price']];
+        });
+        $guard_payload = [
+            'customer_id' => (int)$customer_id,
+            'branch_id' => (int)$branch_id,
+            'notes' => trim((string)$notes),
+            'items' => $guard_items,
+        ];
+        $guard_fingerprint = hash('sha256', json_encode($guard_payload));
+        $guard_now = time();
+        $guard_window_secs = 30;
+        $last_guard = $_SESSION['checkout_submit_guard'] ?? null;
+        if (
+            is_array($last_guard)
+            && ($last_guard['fingerprint'] ?? '') === $guard_fingerprint
+            && ($guard_now - (int)($last_guard['ts'] ?? 0)) <= $guard_window_secs
+        ) {
+            if (!empty($last_guard['order_id'])) {
+                $_SESSION['success'] = "Order #{$last_guard['order_id']} was already placed successfully.";
+                redirect("order_details.php?id=" . (int)$last_guard['order_id']);
+            }
+            $error = "Order submission is already in progress. Please wait a moment.";
+            $skip_order_insert = true;
+        } else {
+            $_SESSION['checkout_submit_guard'] = [
+                'fingerprint' => $guard_fingerprint,
+                'ts' => $guard_now,
+                'order_id' => null,
+            ];
+            $skip_order_insert = false;
+        }
         
         // Determine order type based on cart items
         $order_type = 'product';
@@ -105,9 +154,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                       VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)";
         
         $status = 'Pending';
-        $order_id = db_execute($order_sql, 'iiiddssssss', [$customer_id, $branch_id, $reference_id, $total, $downpayment_amount, $status, $payment_status, $payment_type, $notes, $order_type]);
+        $order_id = $skip_order_insert
+            ? 0
+            : db_execute($order_sql, 'iiiddssssss', [$customer_id, $branch_id, $reference_id, $total, $downpayment_amount, $status, $payment_status, $payment_type, $notes, $order_type]);
         
         if ($order_id) {
+            $_SESSION['checkout_submit_guard']['order_id'] = (int)$order_id;
             // 2. Insert Order Items (design stored as LONGBLOB, never on disk)
             $inserted_order_item_ids = [];
             foreach ($cart_items as $pid => $item) {
@@ -270,6 +322,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             // Redirect to the new order's details page
             redirect("order_details.php?id=$order_id");
         } else {
+            if (!$skip_order_insert) {
+                unset($_SESSION['checkout_submit_guard']);
+            }
             $error = "Failed to place order. Please try again.";
         }
     } else {
