@@ -618,8 +618,6 @@ $current_user = get_logged_in_user();
         .gallery-header { padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
         .gallery-title { font-size: 0.95rem; font-weight: 800; color: #0f172a; }
         
-        .gallery-tabs { display: flex; padding: 0.75rem 1rem; gap: 8px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
-        .g-tab { 
         .gallery-panel {
             position: absolute; right: 0; top: 0; bottom: 0; width: 340px;
             background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(30px);

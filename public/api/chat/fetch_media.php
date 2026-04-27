@@ -86,21 +86,23 @@ $results = [];
 foreach ($media as $item) {
     $f_type = strtolower($item['file_type'] ?? '');
     $m_type = strtolower($item['message_type'] ?? '');
-    
-    // STRICT VOICE FILTER: Never show voice messages in media gallery
-    if ($f_type === 'voice' || $m_type === 'voice') continue;
-
     $path = $item['media_path'] ?? '';
+    
     if (!$path) continue;
     
     // Clean path from query strings or legacy tags
     $clean_path = explode('?', $path)[0];
     $ext = strtolower(pathinfo($clean_path, PATHINFO_EXTENSION));
     
+    // STRICT VOICE FILTER: Never show voice messages in media gallery
+    if ($f_type === 'voice' || $m_type === 'voice') continue;
+    if (in_array($ext, ['mp3', 'wav', 'ogg'])) continue;
+
     // Robust detection: prioritize extension
     if (in_array($ext, ['mp4', 'mov', 'avi'])) {
         $f_type = 'video';
     } elseif ($ext === 'webm') {
+        // Only count as video if not marked as voice in other ways
         $f_type = 'video';
     } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
         $f_type = 'image';
