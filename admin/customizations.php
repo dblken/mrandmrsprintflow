@@ -20,6 +20,20 @@ if (!isset($base_path)) {
 
 $current_user = get_logged_in_user();
 
+function admin_customization_order_code(array $row): string {
+    $orderId = (int)($row['order_id'] ?? 0);
+    if ($orderId > 0) {
+        return (string)(printflow_get_order_inventory_reference($orderId)['code'] ?? ('ORD-' . $orderId));
+    }
+
+    $jobId = (int)($row['id'] ?? 0);
+    if ($jobId > 0) {
+        return (string)(printflow_get_job_inventory_reference($jobId)['code'] ?? ('JOB-' . $jobId));
+    }
+
+    return 'N/A';
+}
+
 // Filters
 $search         = trim($_GET['search'] ?? '');
 $status_filter  = $_GET['status'] ?? '';
@@ -38,6 +52,20 @@ if ($branchId !== 'all') {
     $branch_filter = (int)$branchId;
 }
 
+// Keep dataset aligned with staff/customizations.php
+$jobCustomizationScopeSql = " AND (
+    jo.order_id IS NULL
+    OR EXISTS (
+        SELECT 1
+        FROM orders o_scope
+        JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
+        LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
+        WHERE o_scope.order_id = jo.order_id
+          AND o_scope.order_type = 'custom'
+          AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
+    )
+)";
+
 // Build query (branch from job row or linked store order)
 $sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.email AS customer_email,
                COALESCE(jo.branch_id, jo_ord.branch_id) AS branch_display_id,
@@ -46,8 +74,7 @@ $sql = "SELECT jo.*, CONCAT(c.first_name, ' ', c.last_name) AS customer_name, c.
         LEFT JOIN customers c ON jo.customer_id = c.customer_id
         LEFT JOIN orders jo_ord ON jo_ord.order_id = jo.order_id
         LEFT JOIN branches b ON b.id = COALESCE(jo.branch_id, jo_ord.branch_id)
-        WHERE 1=1
-        AND NOT (jo.status IN ('IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED') AND jo.payment_status != 'PAID')";
+        WHERE 1=1" . $jobCustomizationScopeSql;
 $params = []; $types = '';
 
 // ── Branch filter ──────────────────────────────────
@@ -104,6 +131,10 @@ $order_clause = match($sort_by) {
 };
 $sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $jobs = db_query($sql, $types ?: null, $params ?: null) ?: [];
+foreach ($jobs as &$jobRow) {
+    $jobRow['order_code'] = admin_customization_order_code($jobRow);
+}
+unset($jobRow);
 
 // AJAX check
 if (isset($_GET['ajax'])) {
@@ -112,7 +143,7 @@ if (isset($_GET['ajax'])) {
     <table class="w-full text-sm customs-table">
         <thead>
             <tr style="border-bottom: 1px solid #e5e7eb;">
-                <th class="text-left py-3" style="width:1%;">ID</th>
+                <th class="text-left py-3" style="width:1%;">Order Code</th>
                 <th class="text-left py-3">Customer</th>
                 <th class="text-left py-3">Service</th>
                 <th class="text-center py-3">Date Submitted</th>
@@ -131,7 +162,7 @@ if (isset($_GET['ajax'])) {
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
                                     <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>)">
-                        <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
+                        <td class="py-3 text-gray-900"><?php echo htmlspecialchars($jo['order_code'] ?? admin_customization_order_code($jo)); ?></td>
                         <td class="py-3">
                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
@@ -232,10 +263,10 @@ if ($branch_filter !== '') {
     $kpiTypes = 'i';
     $kpiParams = [(int)$branch_filter];
 }
-$kpi_total   = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE NOT (jo.status IN ('IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED') AND jo.payment_status != 'PAID')" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
-$kpi_pending = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status IN ('PENDING','APPROVED') AND NOT (jo.status IN ('IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED') AND jo.payment_status != 'PAID')" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
-$kpi_active  = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status = 'IN_PRODUCTION' AND jo.payment_status = 'PAID'" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
-$kpi_done    = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status = 'COMPLETED' AND jo.payment_status = 'PAID'" . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_total   = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE 1=1" . $jobCustomizationScopeSql . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_pending = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status IN ('PENDING','APPROVED')" . $jobCustomizationScopeSql . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_active  = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status IN ('IN_PRODUCTION','PROCESSING','PRINTING')" . $jobCustomizationScopeSql . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
+$kpi_done    = db_query("SELECT COUNT(*) as c FROM job_orders jo WHERE jo.status = 'COMPLETED'" . $jobCustomizationScopeSql . $kpiBranchSql, $kpiTypes ?: null, $kpiParams ?: null)[0]['c'] ?? 0;
 
 $page_title = 'Customizations - Admin | PrintFlow';
 
@@ -1013,7 +1044,7 @@ function custom_payment_badge($status) {
                     <table class="w-full text-sm customs-table">
                         <thead>
                             <tr style="border-bottom: 1px solid #e5e7eb;">
-                                <th class="text-left py-3" style="width:1%;">ID</th>
+                                <th class="text-left py-3" style="width:1%;">Order Code</th>
                                 <th class="text-left py-3">Customer</th>
                                 <th class="text-left py-3">Service</th>
                                 <th class="text-center py-3">Date Submitted</th>
@@ -1043,7 +1074,7 @@ function custom_payment_badge($status) {
                                     }
                                 ?>
                                     <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>)">
-                                        <td class="py-3 text-gray-900"><?php echo $jo['id']; ?></td>
+                                        <td class="py-3 text-gray-900"><?php echo htmlspecialchars($jo['order_code'] ?? admin_customization_order_code($jo)); ?></td>
                                         <td class="py-3">
                                             <div class="text-gray-900" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>">
                                                 <?php echo htmlspecialchars($jo['customer_name'] ?: 'Walk-in Customer'); ?>
