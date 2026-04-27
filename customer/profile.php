@@ -209,6 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $middle_name = sanitize($_POST['middle_name'] ?? '');
         $last_name = sanitize($_POST['last_name'] ?? '');
         $contact_number = sanitize($_POST['contact_number'] ?? '');
+        $contact_number = preg_replace('/\D/', '', $contact_number);
         $dob = sanitize($_POST['dob'] ?? '');
         $gender = sanitize($_POST['gender'] ?? '');
         
@@ -218,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         
         // Philippine/International Name Regex: letters and single space only, max 3 words
         $nameRegex = '/^[A-Za-z]+( [A-Za-z]+){0,2}$/';
-        $contactRegex = '/^\+?[0-9]{10,15}$/';
+        $contactRegex = '/^09\d{9}$/';
         
         // Backend strong validation
         if (empty($first_name) || !preg_match($nameRegex, $first_name)) {
@@ -228,9 +229,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         } elseif (empty($last_name) || !preg_match($nameRegex, $last_name)) {
             $error = 'Last name must contain only letters and at most 3 words.';
         } elseif (empty($contact_number) || !preg_match($contactRegex, $contact_number)) {
-            $error = 'Contact number must be a valid format (+XXXXXXXXXXX).';
-        } elseif (empty($dob) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || (strtotime($dob) > strtotime('-13 years'))) {
-            $error = 'Date of birth must be a valid date and you must be at least 13 years old.';
+            $error = 'Contact number must follow format 09XXXXXXXXX.';
+        } elseif (empty($dob) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+            $error = 'Date of birth must be a valid date.';
+        } else {
+            $bday_date = DateTime::createFromFormat('Y-m-d', $dob);
+            $bday_errors = DateTime::getLastErrors();
+            if (!$bday_date || ($bday_errors['warning_count'] ?? 0) > 0 || ($bday_errors['error_count'] ?? 0) > 0) {
+                $error = 'Date of birth must be a valid date.';
+            } else {
+                $today = new DateTime();
+                $age = $today->diff($bday_date)->y;
+                if ($bday_date > $today) {
+                    $error = 'Date of birth cannot be a future date.';
+                } elseif ($age < 13) {
+                    $error = 'You must be at least 13 years old.';
+                } elseif ($age > 100) {
+                    $error = 'Age must be 100 years old or younger.';
+                }
+            }
+        }
+
+        if (!$error && contact_phone_in_use_across_accounts($contact_number, $customer_id, null)) {
+            $error = 'This contact number is already used by another account.';
         } elseif (strip_tags($first_name) !== $first_name || strip_tags($last_name) !== $last_name || strip_tags($middle_name) !== $middle_name) {
             $error = 'Invalid characters detected in name fields.';
         } else {
@@ -432,6 +453,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_id'])) {
 }
 
 $max_birthday = date('Y-m-d', strtotime('-13 years'));
+$min_birthday = date('Y-m-d', strtotime('-100 years'));
+$contact_display = (string)($customer['contact_number'] ?? '');
+$contact_digits = preg_replace('/\D/', '', $contact_display);
+if (strlen($contact_digits) === 12 && strncmp($contact_digits, '63', 2) === 0) {
+    $contact_display = '0' . substr($contact_digits, 2);
+} elseif (strlen($contact_digits) === 10 && ($contact_digits[0] ?? '') === '9') {
+    $contact_display = '0' . $contact_digits;
+} elseif (strlen($contact_digits) === 11 && strncmp($contact_digits, '09', 2) === 0) {
+    $contact_display = $contact_digits;
+}
 $profile_completion_status = customer_profile_completion_status($customer_id);
 
 $page_title = 'My Profile - PrintFlow';
@@ -928,14 +959,14 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
                             <div class="pf-field-group">
                                 <label for="contact_number" class="pf-label">Contact Number</label>
-                                <input type="tel" id="contact_number" name="contact_number" class="pf-input validate-advanced-contact" placeholder="+639XXXXXXXXX" value="<?php echo htmlspecialchars($customer['contact_number'] ?? ''); ?>" maxlength="13" required>
+                                <input type="tel" id="contact_number" name="contact_number" class="pf-input validate-advanced-contact" placeholder="09XXXXXXXXX" value="<?php echo htmlspecialchars($contact_display); ?>" maxlength="11" inputmode="numeric" required>
                                 <div class="live-indicator" data-for="contact_number"></div>
                             </div>
                             <div class="pf-field-group">
                                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div>
                                         <label for="dob" class="pf-label">Birthday</label>
-                                        <input type="date" id="dob" name="dob" class="pf-input validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" max="<?php echo $max_birthday; ?>" required>
+                                        <input type="date" id="dob" name="dob" class="pf-input validate-advanced-dob" value="<?php echo htmlspecialchars($customer['dob'] ?? ''); ?>" min="<?php echo $min_birthday; ?>" max="<?php echo $max_birthday; ?>" required>
                                         <div class="live-indicator" data-for="dob"></div>
                                     </div>
                                     <div>
@@ -1530,8 +1561,8 @@ require_once __DIR__ . '/../includes/header.php';
         first_name: 'Letters only, max 3 words',
         middle_name: 'Letters only, max 3 words (optional)',
         last_name: 'Letters only, max 3 words',
-        contact_number: 'Format: valid phone number',
-        dob: 'You must be at least 13 years old'
+        contact_number: 'Format: 09XXXXXXXXX',
+        dob: 'Age 13-100 years old'
     };
 
     function updateIndicator(fieldId, isValid, message) {
@@ -1655,58 +1686,45 @@ require_once __DIR__ . '/../includes/header.php';
 
     // Contact Number Validation
     document.querySelectorAll('.validate-advanced-contact').forEach(input => {
-        const regexContact = /^\+?[0-9]{10,15}$/;
+        const regexContact = /^09\d{9}$/;
+
+        function normalizeContact(val) {
+            let digits = val.replace(/\D/g, '');
+            if (digits.startsWith('63')) {
+                digits = '0' + digits.slice(2);
+            } else if (digits.startsWith('9') && digits.length === 10) {
+                digits = '0' + digits;
+            }
+            if (digits.length > 11) digits = digits.slice(0, 11);
+            return digits;
+        }
 
         input.addEventListener('input', function() {
-            let val = this.value;
-            
-            // Re-enforce +63 if deleted, but allow empty while typing if necessary
-            // However, the rule says "Must start with +63"
-            if (val.length > 0 && !val.startsWith('+')) {
-                val = '+' + val.replace(/\+/g, '');
-            }
-            if (val.length > 1 && val !== '+' && val.charAt(1) !== '6') {
-                val = '+6' + val.substring(1).replace(/6/g, '');
-            }
-            // Strict digit restriction after +
-            val = val.substring(0, 1) + val.substring(1).replace(/[^0-9]/g, '');
-            
-            // Limit to 13 characters
-            if (val.length > 13) val = val.substring(0, 13);
-            
+            const val = normalizeContact(this.value);
             this.value = val;
 
-            const trimmed = val.trim();
-            if (trimmed.length === 0) {
+            if (val.length === 0) {
                 updateIndicator(this.id, false, 'This field is required');
                 return;
             }
 
-            if (!regexContact.test(trimmed)) {
-                updateIndicator(this.id, false, 'Invalid format (10-15 digits required)');
+            if (!regexContact.test(val)) {
+                updateIndicator(this.id, false, 'Use format 09XXXXXXXXX');
             } else {
                 updateIndicator(this.id, true);
             }
         });
 
         input.addEventListener('focus', function() {
-            if (this.value === '') {
-                this.value = '+639';
-                this.dispatchEvent(new Event('input'));
-            } else if (!regexContact.test(this.value.trim()) && indicators[this.id]) {
+            if (!regexContact.test(this.value.trim()) && indicators[this.id]) {
                 indicators[this.id].innerHTML = '<span class="hint">' + HINTS.contact_number + '</span>';
             }
         });
 
         input.addEventListener('paste', function(e) {
             e.preventDefault();
-            let paste = (e.clipboardData || window.clipboardData).getData('text');
-            // Basic normalization: remove spaces, handle 09 -> +639
-            paste = paste.replace(/\s/g, '');
-            if (paste.startsWith('09')) paste = '+63' + paste.substring(1);
-            if (paste.startsWith('9')) paste = '+63' + paste;
-            
-            this.value = paste;
+            const paste = (e.clipboardData || window.clipboardData).getData('text') || '';
+            this.value = normalizeContact(paste);
             this.dispatchEvent(new Event('input'));
         });
     });
@@ -1735,6 +1753,8 @@ require_once __DIR__ . '/../includes/header.php';
                 updateIndicator(this.id, false, 'Date cannot be in the future');
             } else if (age < 13) {
                 updateIndicator(this.id, false, 'You must be at least 13 years old');
+            } else if (age > 100) {
+                updateIndicator(this.id, false, 'Age must be 100 years old or younger');
             } else {
                 updateIndicator(this.id, true);
             }
