@@ -576,6 +576,42 @@ if ($showLatestCustomizationOnly) {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .status-col-cell {
+            text-align: center;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+        .status-col-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-width: 0;
+        }
+        .action-col-cell {
+            text-align: center;
+            white-space: nowrap;
+        }
+        .status-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            max-width: 100%;
+            white-space: nowrap;
+        }
+        .badge-pending { background:#fef9c3; color:#92400e; }
+        .badge-approved { background:#dbeafe; color:#1e40af; }
+        .badge-topay { background:#fef3c7; color:#b45309; }
+        .badge-verify { background:#fef9c3; color:#92400e; }
+        .badge-production { background:#d1fae5; color:#065f46; }
+        .badge-pickup { background:#ede9fe; color:#5b21b6; }
+        .badge-fulfilled { background:#dcfce7; color:#166534; }
+        .badge-cancelled { background:#fee2e2; color:#991b1b; }
         
         thead th { 
             font-size: 11px; 
@@ -862,11 +898,11 @@ if ($showLatestCustomizationOnly) {
                             <tr>
                                 <th class="pl-6 pr-4 py-4 w-[12%] border-b border-gray-100">Order Code</th>
                                 <th class="px-4 py-4 w-[30%] border-b border-gray-100">Customization Info</th>
-                                <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
+                                <th class="px-4 py-4 w-[20%] border-b border-gray-100 text-center">Status</th>
                                 <th class="px-4 py-4 w-[8%] border-b border-gray-100 text-center">Source</th>
                                 <th class="px-4 py-4 w-[16%] border-b border-gray-100">Customer</th>
                                 <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-right">Created</th>
-                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-center uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-center uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -887,8 +923,9 @@ if ($showLatestCustomizationOnly) {
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-center">
-                                        <div :class="{
+                                    <td class="px-4 py-4 status-col-cell">
+                                        <div class="status-col-inner">
+                                            <div :class="{
                                             'badge-fulfilled':  jo.status === 'COMPLETED',
                                             'badge-approved':   jo.status === 'APPROVED',
                                             'badge-topay':      jo.status === 'TO_PAY',
@@ -898,12 +935,13 @@ if ($showLatestCustomizationOnly) {
                                             'badge-pending':    jo.status === 'PENDING',
                                             'badge-cancelled':  jo.status === 'REJECTED' || jo.status === 'CANCELLED'
                                         }" class="status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Fulfilled' : 
-                                           (jo.status === 'APPROVED' ? 'Approved' : 
-                                           (jo.status === 'TO_PAY' ? 'To Pay' : 
-                                           (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
-                                           (jo.status === 'REJECTED' ? 'Rejected' : 
-                                           (jo.status === 'IN_PRODUCTION' ? 'Processing' : 
-                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'To Pickup' : jo.status))))))">
+                                           (jo.status === 'APPROVED' ? 'APPROVED' : 
+                                           (jo.status === 'TO_PAY' ? 'TO PAY' : 
+                                           (jo.status === 'VERIFY_PAY' ? 'TO VERIFY' : 
+                                           (jo.status === 'REJECTED' ? 'CANCELLED' : 
+                                           (jo.status === 'IN_PRODUCTION' ? 'IN PRODUCTION' : 
+                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'TO PICK UP' : jo.status))))))">
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 text-center">
@@ -924,7 +962,7 @@ if ($showLatestCustomizationOnly) {
                                         <div class="table-text-main truncate-ellipsis" :title="jo.created_at ? new Date(jo.created_at).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'}) : ''" x-text="jo.created_at ? new Date(jo.created_at).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'}) : ''"></div>
                                         <div class="table-text-sub uppercase truncate-ellipsis" :title="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''" x-text="jo.due_date ? 'Due ' + new Date(jo.due_date).toLocaleDateString() : ''"></div>
                                     </td>
-                                    <td class="px-4 py-4 text-center space-x-1">
+                                    <td class="px-4 py-4 action-col-cell">
                                         <button @click.stop="viewDetails(jo.id, jo.order_type || 'JOB')" class="table-action-btn">View</button>
                                     </td>
                                 </tr>

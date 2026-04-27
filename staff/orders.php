@@ -237,6 +237,26 @@ function staff_orders_display_status(string $status): string {
     return $status;
 }
 
+function staff_orders_status_pill_style(string $displayStatus): string {
+    return match (strtoupper(trim($displayStatus))) {
+        'TO VERIFY' => 'background:#fef9c3;color:#92400e;',
+        'APPROVED' => 'background:#dbeafe;color:#1e40af;',
+        'TO PAY' => 'background:#fef3c7;color:#b45309;',
+        'TO PICK UP' => 'background:#ede9fe;color:#5b21b6;',
+        'IN PRODUCTION' => 'background:#d1fae5;color:#065f46;',
+        'COMPLETED' => 'background:#dcfce7;color:#166534;',
+        'CANCELLED' => 'background:#fee2e2;color:#991b1b;',
+        'RATED' => 'background:#e9d5ff;color:#6b21a8;',
+        default => 'background:#f3f4f6;color:#374151;',
+    };
+}
+
+function staff_orders_status_pill_html(string $displayStatus): string {
+    $style = staff_orders_status_pill_style($displayStatus);
+    $label = htmlspecialchars(strtoupper(trim($displayStatus)));
+    return '<span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;' . $style . '">' . $label . '</span>';
+}
+
 function staff_orders_product_name(array $order): string {
     $display_items = (string)($order['item_names'] ?? '');
     if ($display_items === '') {
@@ -314,10 +334,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     $display_order_status = staff_orders_display_status((string)$order['status']);
                     ?>
                     <div class="status-col-inner">
-                        <?php echo status_badge($display_order_status, 'order'); ?>
+                        <?php echo staff_orders_status_pill_html($display_order_status); ?>
                         <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                             <div>
-                                <?php echo status_badge('Revision Submitted', 'order'); ?>
+                                <?php echo staff_orders_status_pill_html('Revision Submitted'); ?>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1963,10 +1983,10 @@ $page_title = 'Orders - Staff';
                                     <td class="px-4 py-4 text-center">
                                         <?php $display_order_status2 = staff_orders_display_status((string)$order['status']); ?>
                                         <div class="status-col-inner">
-                                            <?php echo status_badge($display_order_status2, 'order'); ?>
+                                            <?php echo staff_orders_status_pill_html($display_order_status2); ?>
                                             <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                                                 <div>
-                                                    <?php echo status_badge('Revision Submitted', 'order'); ?>
+                                                    <?php echo staff_orders_status_pill_html('Revision Submitted'); ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
