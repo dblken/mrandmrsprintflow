@@ -55,6 +55,20 @@ $tab_status_map = [
 $tab_status_map['production'] = ['In Production', 'Processing', 'Printing', 'Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'];
 $tab_status_map['pickup'] = ['Ready for Pickup', 'Approved Design'];
 
+function customer_orders_display_status(string $status): string {
+    $status = trim($status);
+    if ($status === 'Approved Design' || $status === 'To Receive') {
+        return 'Ready for Pickup';
+    }
+    if (in_array($status, ['Downpayment Submitted', 'Pending Verification'], true)) {
+        return 'To Verify';
+    }
+    if (in_array($status, ['Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'], true)) {
+        return 'In Production';
+    }
+    return $status;
+}
+
 // Statuses where price is hidden from customer
 $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
 
@@ -860,10 +874,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($orders as $index => $order): ?>
                         <?php 
                             // ... (logic remains same)
-                            $display_status = (string)$order['status'];
-                            if (in_array($display_status, ['Approved Design'], true)) {
-                                $display_status = 'Ready for Pickup';
-                            }
+                            $display_status = customer_orders_display_status((string)$order['status']);
                             $s = strtolower($display_status);
                             $st_cls = 'st-pending';
                             if (strpos($s, 'approved') !== false) $st_cls = 'st-approved';
@@ -1667,7 +1678,9 @@ async function refreshOrdersList() {
 // ── Polling Logic (Updated for New Classes) ───────────────────
 (function startOrdersPolling() {
     const activeTab = '<?php echo addslashes($active_tab); ?>';
+    const currentPage = <?php echo (int)$current_page; ?>;
     if (window.__ordersPollingInterval) return;
+    if (currentPage > 1) return;
 
     function notifyNewOrder(orderId) {
         const lastNotified = parseInt(localStorage.getItem('pf_last_order_notice_id') || '0', 10);
@@ -1679,13 +1692,23 @@ async function refreshOrdersList() {
         }
     }
 
-    const statusMap = {
-        'Pending': 'st-pending', 'Pending Approval': 'st-pending', 'Pending Review': 'st-pending',
-        'Approved': 'st-approved', 'To Pay': 'st-pending', 'To Verify': 'st-pending',
-        'In Production': 'st-production', 'Processing': 'st-production', 'Printing': 'st-production', 'Paid - In Process': 'st-production', 'Paid – In Process': 'st-production', 'Approved Design': 'st-ready',
-        'Ready for Pickup': 'st-ready', 'To Receive': 'st-ready', 'Completed': 'st-completed',
-        'To Rate': 'st-completed', 'Rated': 'st-completed', 'Rejected': 'st-cancelled', 'Cancelled': 'st-cancelled'
-    };
+    function normalizeDisplayStatus(status) {
+        const s = String(status || '').trim();
+        if (s === 'Approved Design' || s === 'To Receive') return 'Ready for Pickup';
+        if (s === 'Downpayment Submitted' || s === 'Pending Verification') return 'To Verify';
+        if (['Paid - In Process', 'Paid – In Process', 'Paid â€“ In Process'].includes(s)) return 'In Production';
+        return s;
+    }
+
+    function statusClassFor(status) {
+        const s = String(status || '').toLowerCase();
+        if (s.includes('rejected') || s.includes('cancelled')) return 'st-cancelled';
+        if (s.includes('completed') || s.includes('rated') || s.includes('to rate')) return 'st-completed';
+        if (s.includes('ready for pickup') || s.includes('to receive')) return 'st-ready';
+        if (s.includes('production') || s.includes('processing') || s.includes('printing')) return 'st-production';
+        if (s.includes('approved') && !s.includes('ready')) return 'st-approved';
+        return 'st-pending';
+    }
 
     const statusToTab = {
         'Pending': 'pending',
@@ -1715,14 +1738,14 @@ async function refreshOrdersList() {
     function shouldReloadForNewOrder(order) {
         if (!order) return false;
         if (activeTab === 'all') return true;
-        const mapped = statusToTab[order.status] || 'pending';
+        const mapped = statusToTab[normalizeDisplayStatus(order.status)] || 'pending';
         return mapped === activeTab;
     }
 
     function doesOrderBelongToActiveTab(order) {
         if (!order) return false;
         if (activeTab === 'all') return true;
-        const mapped = statusToTab[order.status] || 'pending';
+        const mapped = statusToTab[normalizeDisplayStatus(order.status)] || 'pending';
         if (activeTab === 'completed') {
             return mapped === 'completed' || mapped === 'torate';
         }
@@ -1736,26 +1759,13 @@ async function refreshOrdersList() {
             if (!data.success) return;
             const cards = Array.from(document.querySelectorAll('.ct-order-card'));
             const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
-            const newOrder = data.orders.find(order => !existingIds.has(order.order_id));
+            const highestVisibleId = cards.reduce((max, card) => {
+                const oid = parseInt(card.dataset.orderId, 10);
+                return Number.isNaN(oid) ? max : Math.max(max, oid);
+            }, 0);
+            const newOrder = data.orders.find(order => (order.order_id > highestVisibleId) && doesOrderBelongToActiveTab(order));
             if (newOrder && shouldReloadForNewOrder(newOrder)) {
                 notifyNewOrder(newOrder.order_id);
-                refreshOrdersList();
-                return;
-            }
-
-            const shouldRefreshForMissingVisibleOrder = data.orders.some(order => doesOrderBelongToActiveTab(order) && !existingIds.has(order.order_id));
-            if (shouldRefreshForMissingVisibleOrder) {
-                refreshOrdersList();
-                return;
-            }
-
-            const shouldRefreshForMovedOrder = cards.some(card => {
-                const orderId = parseInt(card.dataset.orderId, 10);
-                if (Number.isNaN(orderId)) return false;
-                const latest = data.orders.find(order => order.order_id === orderId);
-                return latest ? !doesOrderBelongToActiveTab(latest) : false;
-            });
-            if (shouldRefreshForMovedOrder) {
                 refreshOrdersList();
                 return;
             }
@@ -1766,16 +1776,12 @@ async function refreshOrdersList() {
                 const hadStatusChange = card.dataset.status !== order.status;
                 if (!hadStatusChange) return;
 
-                if (activeTab === 'all') {
-                    refreshOrdersList();
-                    return;
-                }
-
                 card.dataset.status = order.status;
                 const pill = card.querySelector('.status-pill');
                 if (pill) {
-                    pill.textContent = order.status;
-                    pill.className = 'status-pill ' + (statusMap[order.status] || 'st-pending');
+                    const displayStatus = normalizeDisplayStatus(order.status);
+                    pill.textContent = displayStatus;
+                    pill.className = 'status-pill ' + statusClassFor(displayStatus);
                 }
                 const timestampEl = card.querySelector('.timestamp-text');
                 if (timestampEl && order.display_timestamp_text) {
