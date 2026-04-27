@@ -291,7 +291,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         <?php echo htmlspecialchars($order['customer_name']); ?>
                     </div>
                 </td>
-                <td class="px-4 py-4 text-center">
+                <td class="px-4 py-4 status-col-cell">
                     <?php if (($order['order_source'] ?? '') === 'pos'): ?>
                         <span class="source-badge-pill pos">POS</span>
                     <?php else: ?>
@@ -313,7 +313,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
                     $display_order_status = staff_orders_display_status((string)$order['status']);
                     ?>
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                    <div class="status-col-inner">
                         <?php echo status_badge($display_order_status, 'order'); ?>
                         <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                             <div>
@@ -322,13 +322,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         <?php endif; ?>
                     </div>
                 </td>
-                <td class="px-4 py-4 text-right">
+                <td class="px-4 py-4 action-col-cell">
                     <div class="action-cell" style="justify-content:flex-end;">
                         <button
                             onclick="event.stopPropagation(); window.openStaffOrderManage(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['status']); ?>');"
                             class="table-action-btn alt"
                         >
-                            Manage
+                            View
                         </button>
                         <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                             onclick="event.stopPropagation();"
@@ -649,6 +649,26 @@ $page_title = 'Orders - Staff';
             border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
             color: #374151;
+        }
+        .status-col-cell {
+            text-align: center;
+            overflow: hidden;
+        }
+        .status-col-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+        }
+        .status-col-inner > * {
+            max-width: 100%;
+        }
+        .action-col-cell {
+            text-align: right;
+            white-space: nowrap;
         }
         .orders-table tbody tr { cursor: pointer; transition: background-color 0.18s ease, box-shadow 0.18s ease; }
         .orders-table tbody tr:hover { background: linear-gradient(90deg, rgba(6, 161, 161, 0.06) 0%, rgba(158, 215, 196, 0.12) 100%); }
@@ -1890,7 +1910,7 @@ $page_title = 'Orders - Staff';
                                 <th class="px-4 py-4 w-[12%] border-b border-gray-100">Date</th>
                                 <th class="px-4 py-4 w-[10%] border-b border-gray-100">Total</th>
                                 <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
-                                <th class="px-4 py-4 w-[9%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[11%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1923,7 +1943,7 @@ $page_title = 'Orders - Staff';
                                             <?php echo htmlspecialchars($order['customer_name']); ?>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-center">
+                                    <td class="px-4 py-4 status-col-cell">
                                         <?php if (($order['order_source'] ?? '') === 'pos'): ?>
                                             <span class="source-badge-pill pos">POS</span>
                                         <?php else: ?>
@@ -1942,7 +1962,7 @@ $page_title = 'Orders - Staff';
                                     </td>
                                     <td class="px-4 py-4 text-center">
                                         <?php $display_order_status2 = staff_orders_display_status((string)$order['status']); ?>
-                                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                                        <div class="status-col-inner">
                                             <?php echo status_badge($display_order_status2, 'order'); ?>
                                             <?php if (($order['design_status'] ?? '') === 'Revision Submitted'): ?>
                                                 <div>
@@ -1951,11 +1971,11 @@ $page_title = 'Orders - Staff';
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-right">
+                                    <td class="px-4 py-4 action-col-cell">
                                         <div class="action-cell" style="justify-content:flex-end;">
                                             <button onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)" 
                                                     class="table-action-btn alt">
-                                                Manage
+                                                View
                                             </button>
                                             <a href="<?php echo BASE_PATH; ?>/staff/chats.php?order_id=<?php echo $order['order_id']; ?>"
                                                onclick="event.stopPropagation();"
