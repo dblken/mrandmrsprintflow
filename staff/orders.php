@@ -96,10 +96,6 @@ $status_filter = $_GET['status'] ?? '';
 $date_from_filter = $_GET['date_from'] ?? '';
 $date_to_filter        = $_GET['date_to']   ?? '';
 $customer_filter       = $_GET['customer']  ?? '';
-$product_type_filter   = $_GET['product_type']   ?? '';
-$payment_status_filter = $_GET['payment_status'] ?? '';
-$min_price_filter      = $_GET['min_price']      ?? '';
-$max_price_filter      = $_GET['max_price']      ?? '';
 $sort_by               = $_GET['sort']           ?? 'newest';
 
 $active_filters = [];
@@ -107,11 +103,8 @@ if ($status_filter !== '')         $active_filters['status']         = $status_f
 if ($date_from_filter !== '')      $active_filters['date_from']      = $date_from_filter;
 if ($date_to_filter !== '')        $active_filters['date_to']        = $date_to_filter;
 if ($customer_filter !== '')       $active_filters['customer']       = $customer_filter;
-if ($product_type_filter !== '')   $active_filters['product_type']   = $product_type_filter;
-if ($payment_status_filter !== '') $active_filters['payment_status'] = $payment_status_filter;
-if ($min_price_filter !== '')      $active_filters['min_price']      = $min_price_filter;
-if ($max_price_filter !== '')      $active_filters['max_price']      = $max_price_filter;
 if ($sort_by !== 'newest')         $active_filters['sort']           = $sort_by;
+$active_filter_badge_count = count(array_filter([$status_filter, $customer_filter, $date_from_filter, $date_to_filter], function($v) { return $v !== null && $v !== ''; }));
 
 $sql_conditions = " AND o.order_type = 'product'";
 $params = [];
@@ -142,35 +135,22 @@ if ($date_to_filter !== '') {
     $params[] = $date_to_filter;
     $types .= 's';
 }
-if ($min_price_filter !== '') {
-    $sql_conditions .= " AND o.total_amount >= ?";
-    $params[] = (float)$min_price_filter;
-    $types .= 'd';
-}
-if ($max_price_filter !== '') {
-    $sql_conditions .= " AND o.total_amount <= ?";
-    $params[] = (float)$max_price_filter;
-    $types .= 'd';
-}
 if ($customer_filter !== '') {
-    $sql_conditions .= " AND (o.order_id LIKE ? OR CONCAT_WS(' ', c.first_name, c.last_name) LIKE ? OR (o.customer_id IS NULL AND 'Walk-in Customer (Guest)' LIKE ?))";
+    $sql_conditions .= " AND (
+        o.order_id LIKE ?
+        OR EXISTS (
+            SELECT 1
+            FROM order_items oi2
+            LEFT JOIN products p2 ON oi2.product_id = p2.product_id
+            WHERE oi2.order_id = o.order_id
+              AND (p2.name LIKE ? OR p2.sku LIKE ?)
+        )
+    )";
     $like = '%' . $customer_filter . '%';
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $types .= 'sss';
-}
-if ($payment_status_filter !== '') {
-    $sql_conditions .= " AND o.payment_status = ?";
-    $params[] = $payment_status_filter;
-    $types .= 's';
-}
-if ($product_type_filter !== '') {
-    $sql_conditions .= " AND EXISTS (SELECT 1 FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id AND (p.name LIKE ? OR oi.customization_data LIKE ?))";
-    $like = '%' . $product_type_filter . '%';
-    $params[] = $like;
-    $params[] = $like;
-    $types .= 'ss';
 }
 
 $sql = "SELECT o.*, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), 'Walk-in Customer (Guest)') as customer_name,
@@ -359,7 +339,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         'pagination' => $pagination, 
         'total'      => number_format($total_items),
         'counts'     => $all_counts,
-        'badge'      => count(array_filter([$status_filter, $customer_filter, $date_from_filter, $date_to_filter, $product_type_filter, $payment_status_filter, $min_price_filter, $max_price_filter], function($v) { return $v !== null && $v !== ''; }))
+        'badge'      => $active_filter_badge_count
     ]);
     exit;
 }
@@ -575,11 +555,24 @@ $page_title = 'Orders - Staff';
             margin-top: 12px;
         }
 
-        .staff-orders-table-card .filter-header {
-            color: #475569 !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            line-height: 1.2 !important;
+        .filter-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .filter-close-btn {
+            border: none;
+            background: transparent;
+            color: #374151;
+            cursor: pointer;
+            font-size: 26px;
+            line-height: 1;
+            padding: 0;
+            margin: -2px 0 0;
+        }
+        .filter-close-btn:hover {
+            color: #111827;
         }
 
         /* ── Sort Dropdown ─── */
@@ -1007,10 +1000,6 @@ $page_title = 'Orders - Staff';
             customer:       () => document.getElementById('fp_customer')?.value       || '',
             date_from:      () => document.getElementById('fp_date_from')?.value      || '',
             date_to:        () => document.getElementById('fp_date_to')?.value        || '',
-            product_type:   () => document.getElementById('fp_product_type')?.value   || '',
-            payment_status: () => document.getElementById('fp_payment_status')?.value || '',
-            min_price:      () => document.getElementById('fp_min_price')?.value      || '',
-            max_price:      () => document.getElementById('fp_max_price')?.value      || '',
         };
         for (const [key, getter] of Object.entries(fields)) {
             let val = (overrides[key] !== undefined) ? overrides[key] : getter();
@@ -1114,7 +1103,7 @@ $page_title = 'Orders - Staff';
             filterOpen: false,
             sortOpen:   false,
             activeSort: '<?php echo $sort_by; ?>',
-            hasActiveFilters: <?php echo count($active_filters) > 0 ? 'true' : 'false'; ?>,
+            hasActiveFilters: <?php echo $active_filter_badge_count > 0 ? 'true' : 'false'; ?>,
             activeTab: '<?php echo $status_filter ?: 'ALL'; ?>',
             tabCounts: <?php echo json_encode($all_counts); ?>,
             statusTabs: {
@@ -1823,13 +1812,16 @@ $page_title = 'Orders - Staff';
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                     Filter
                                     <template x-if="hasActiveFilters">
-                                        <span class="filter-badge"><?php echo count($active_filters); ?></span>
+                                        <span class="filter-badge"><?php echo $active_filter_badge_count; ?></span>
                                     </template>
                                 </button>
 
                                 <!-- Filter Panel -->
                                 <div class="dropdown-panel filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
-                                    <div class="filter-header">Filter</div>
+                                    <div class="filter-header">
+                                        <span>Filter</span>
+                                        <button type="button" class="filter-close-btn" @click="filterOpen = false" aria-label="Close filter">×</button>
+                                    </div>
                                     
                                     <!-- Date Range -->
                                     <div class="filter-section">
@@ -1861,42 +1853,10 @@ $page_title = 'Orders - Staff';
                                     <!-- Keyword Search -->
                                     <div class="filter-section">
                                         <div class="filter-section-head">
-                                            <span class="filter-label" style="margin:0;">Keyword search</span>
+                                            <span class="filter-label" style="margin:0;">Order code / Product name</span>
                                             <button @click="resetFilterField(['customer'])" class="filter-reset-link">Reset</button>
                                         </div>
-                                        <input type="text" id="fp_customer" class="filter-input" placeholder="Search..." value="<?php echo htmlspecialchars($customer_filter); ?>" @change="applyFilters()">
-                                    </div>
-
-                                    <div class="filter-section">
-                                        <div class="filter-section-head">
-                                            <span class="filter-label" style="margin:0;">Product type</span>
-                                            <button @click="resetFilterField(['product_type'])" class="filter-reset-link">Reset</button>
-                                        </div>
-                                        <input type="text" id="fp_product_type" class="filter-input" placeholder="e.g. Stickers, T-shirt..." value="<?php echo htmlspecialchars($product_type_filter); ?>" @change="applyFilters()">
-                                    </div>
-
-                                    <div class="filter-section">
-                                        <div class="filter-section-head">
-                                            <span class="filter-label" style="margin:0;">Payment status</span>
-                                            <button @click="resetFilterField(['payment_status'])" class="filter-reset-link">Reset</button>
-                                        </div>
-                                        <select id="fp_payment_status" class="filter-select" @change="applyFilters()">
-                                            <option value="">Any payment status</option>
-                                            <option value="Unpaid" <?php echo $payment_status_filter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
-                                            <option value="Partial" <?php echo $payment_status_filter === 'Partial' ? 'selected' : ''; ?>>Partial</option>
-                                            <option value="Paid" <?php echo $payment_status_filter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="filter-section">
-                                        <div class="filter-section-head">
-                                            <span class="filter-label" style="margin:0;">Price range</span>
-                                            <button @click="resetFilterField(['min_price','max_price'])" class="filter-reset-link">Reset</button>
-                                        </div>
-                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                                            <input type="number" id="fp_min_price" class="filter-input" placeholder="Min" value="<?php echo htmlspecialchars($min_price_filter); ?>" @change="applyFilters()">
-                                            <input type="number" id="fp_max_price" class="filter-input" placeholder="Max" value="<?php echo htmlspecialchars($max_price_filter); ?>" @change="applyFilters()">
-                                        </div>
+                                        <input type="text" id="fp_customer" class="filter-input" placeholder="Order code or product name..." value="<?php echo htmlspecialchars($customer_filter); ?>" @change="applyFilters()">
                                     </div>
 
                                     <div class="filter-footer">
@@ -1911,7 +1871,7 @@ $page_title = 'Orders - Staff';
                     <table class="orders-table">
                         <thead>
                             <tr>
-                                <th class="pl-6 pr-4 py-4 w-[19%] border-b border-gray-100">Order #</th>
+                                <th class="pl-6 pr-4 py-4 w-[19%] border-b border-gray-100">Order Code</th>
                                 <th class="px-4 py-4 w-[17%] border-b border-gray-100">Product Name</th>
                                 <th class="px-4 py-4 w-[16%] border-b border-gray-100">Customer</th>
                                 <th class="px-4 py-4 w-[9%] border-b border-gray-100 text-center">Source</th>
