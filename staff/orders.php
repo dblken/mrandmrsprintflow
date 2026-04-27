@@ -109,6 +109,16 @@ $active_filter_badge_count = count(array_filter([$status_filter, $customer_filte
 $sql_conditions = " AND o.order_type = 'product'";
 $params = [];
 $types = '';
+$order_code_search_sql = "CONCAT(
+    COALESCE(NULLIF((
+        SELECT GROUP_CONCAT(DISTINCT p2.sku ORDER BY p2.sku SEPARATOR '-')
+        FROM order_items oi2
+        LEFT JOIN products p2 ON oi2.product_id = p2.product_id
+        WHERE oi2.order_id = o.order_id
+    ), ''), 'ORD'),
+    '-',
+    o.order_id
+)";
 
 // Apply branch filtering
 $sql_conditions .= branch_where('o', $staffBranchId, $types, $params);
@@ -138,6 +148,7 @@ if ($date_to_filter !== '') {
 if ($customer_filter !== '') {
     $sql_conditions .= " AND (
         o.order_id LIKE ?
+        OR {$order_code_search_sql} LIKE ?
         OR EXISTS (
             SELECT 1
             FROM order_items oi2
@@ -150,7 +161,8 @@ if ($customer_filter !== '') {
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
-    $types .= 'sss';
+    $params[] = $like;
+    $types .= 'ssss';
 }
 
 $sql = "SELECT o.*, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), 'Walk-in Customer (Guest)') as customer_name,
