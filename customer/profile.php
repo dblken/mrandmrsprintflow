@@ -1690,10 +1690,20 @@ require_once __DIR__ . '/../includes/header.php';
 
         function normalizeContact(val) {
             let digits = val.replace(/\D/g, '');
+            if (digits === '') return '';
             if (digits.startsWith('63')) {
                 digits = '0' + digits.slice(2);
-            } else if (digits.startsWith('9') && digits.length === 10) {
+            } else if (digits.startsWith('9')) {
                 digits = '0' + digits;
+            } else if (!digits.startsWith('09')) {
+                if (digits.startsWith('0')) {
+                    digits = '09' + digits.slice(1);
+                } else {
+                    digits = '09' + digits;
+                }
+            }
+            if (!digits.startsWith('09')) {
+                digits = '09' + digits.replace(/^0+/, '');
             }
             if (digits.length > 11) digits = digits.slice(0, 11);
             return digits;
@@ -1716,6 +1726,12 @@ require_once __DIR__ . '/../includes/header.php';
         });
 
         input.addEventListener('focus', function() {
+            if (!this.value) {
+                this.value = '09';
+            } else {
+                this.value = normalizeContact(this.value);
+            }
+            this.dispatchEvent(new Event('input'));
             if (!regexContact.test(this.value.trim()) && indicators[this.id]) {
                 indicators[this.id].innerHTML = '<span class="hint">' + HINTS.contact_number + '</span>';
             }
