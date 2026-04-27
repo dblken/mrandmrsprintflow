@@ -504,7 +504,9 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     /* Pinned Messages Styles */
-    .pin-bar-active { background: rgba(14,165,233,0.06) !important; color: #0369a1 !important; cursor: pointer; }
+    .pinned-badge { position: absolute; bottom: -4px; right: -4px; width: 20px; height: 20px; background: #ef4444; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.3); z-index: 5; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .pinned-badge i { transform: rotate(45deg); }
+    .pin-bar-active { background: rgba(239,68,68,0.06) !important; color: #b91c1c !important; cursor: pointer; }
     .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
     .details-modal-overlay.active { display: flex !important; }
     .details-modal-panel { background: #fff; border-radius: 24px; width: 100%; max-width: 500px; max-height: 85vh; overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
@@ -1091,7 +1093,8 @@ function appendMsgUI(m) {
                 <div class="ab" onclick="initReply(${m.id},'${msgB64}')"><i class="bi bi-reply-fill"></i></div>
                 <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi bi-pin-angle"></i> Pin</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
             </div>
-            <div class="bubble">
+            <div class="bubble" style="position:relative;">
+                ${m.is_pinned ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
                 ${m.reply_id ? `<div style="background:#f1f5f9; padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
                 ${contentHtml}
                 <div class="react-display" id="rd-${m.id}" style="display:none;"></div>

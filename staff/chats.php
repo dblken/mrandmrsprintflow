@@ -470,10 +470,10 @@ $current_user = get_logged_in_user();
 
         .pinned-badge {
             position: absolute; bottom: -4px; right: -4px;
-            width: 20px; height: 20px; background: #0ea5e9;
+            width: 20px; height: 20px; background: #ef4444;
             color: #fff; border-radius: 50%; display: flex;
             align-items: center; justify-content: center; font-size: 10px;
-            border: 2px solid #fff; box-shadow: 0 4px 12px rgba(14,165,233,0.3);
+            border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.3);
             z-index: 5; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .pinned-badge i { transform: rotate(45deg); }
@@ -1392,12 +1392,33 @@ function openPinnedModal(pinned) {
     const modal = document.getElementById('pinnedModal');
     modal.classList.add('active');
     const list = document.getElementById('pinnedList');
-    list.innerHTML = pinned.map(m => `
-        <div onclick="goToMessage(${m.id}); document.getElementById('pinnedModal').classList.remove('active')" style="padding:12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;">
-            <div style="font-size:0.7rem; color:#000000; font-weight:800; margin-bottom:4px;">${m.sender_name} • ${m.created_at}</div>
-            <div style="font-size:0.95rem; color:#000000; line-height:1.4; word-break:break-word; overflow-wrap:anywhere;">${escapeHtml(m.message || (m.image_path ? '📸 Attachment' : 'Message'))}</div>
-        </div>
-    `).join('');
+    
+    list.innerHTML = pinned.map(m => {
+        let mediaHtml = '';
+        if (m.message_type === 'voice') {
+            const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+            mediaHtml = `<div style="margin-top:8px; background:#e2e8f0; padding:8px; border-radius:12px; display:flex; align-items:center; gap:10px;">
+                <audio controls src="${src}" style="height:30px; width:100%; outline:none;"></audio>
+            </div>`;
+        } else if (m.message_type === 'video' || m.file_type === 'video') {
+            const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+            mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#000;">
+                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"></video>
+            </div>`;
+        } else if (m.message_type === 'image' || m.image_path) {
+            const src = resolveAppUrl(m.image_path || m.message_file || m.file_path);
+            mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#f1f5f9;">
+                <img src="${src}" style="max-width:100%; max-height:200px; object-fit:contain; display:block;">
+            </div>`;
+        }
+
+        return `
+        <div style="padding:12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;" onclick="goToMessage(${m.id}); document.getElementById('pinnedModal').classList.remove('active')">
+            <div style="font-size:0.7rem; color:#000000; font-weight:800; margin-bottom:4px;">${m.sender_name} • ${formatTime(m.created_at)}</div>
+            ${m.message ? `<div style="font-size:0.95rem; color:#000000; line-height:1.4; word-break:break-word; overflow-wrap:anywhere;">${escapeHtml(m.message)}</div>` : ''}
+            ${mediaHtml}
+        </div>`;
+    }).join('');
 }
 
 function goToMessage(id) {
