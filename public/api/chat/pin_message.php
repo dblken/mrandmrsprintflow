@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
 require_once __DIR__ . '/../../../includes/branch_context.php';
-require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
+require_once __DIR__ . '/../../../includes/ensure_chat_schema.php';
 
 ob_start();
 header('Content-Type: application/json; charset=utf-8');

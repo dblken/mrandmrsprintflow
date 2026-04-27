@@ -5,7 +5,7 @@
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
 require_once __DIR__ . '/../../../includes/branch_context.php';
-require_once __DIR__ . '/../../../includes/ensure_order_messages.php';
+require_once __DIR__ . '/../../../includes/ensure_chat_schema.php';
 
 // Global Output Buffer to trap notices
 ob_start();

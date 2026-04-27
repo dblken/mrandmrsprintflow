@@ -9,6 +9,7 @@ ini_set('display_errors', 0); // Disable raw output to prevent JSON corruption
 try {
     require_once __DIR__ . '/../../../includes/auth.php';
     require_once __DIR__ . '/../../../includes/functions.php';
+    require_once __DIR__ . '/../../../includes/ensure_chat_schema.php';
 
     // Global Output Buffer to trap stray warnings/notices
     ob_start();
