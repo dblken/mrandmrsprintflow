@@ -55,25 +55,18 @@ if ($user_type !== 'Customer') {
 
 // 3. Prepare the forwarded message
 $db_sender = ($user_type === 'Customer') ? 'Customer' : 'Staff';
-$message_text = $orig['message'];
+$message_text = trim($orig['message'] ?? '');
 $message_type = $orig['message_type'];
 
-// If it's a text message, add [Forwarded] prefix if not already present
-if ($message_type === 'text' || $message_type === 'message') {
+// If the message is just the legacy fallback string, clear it for media messages
+if (($message_type !== 'text' && $message_type !== 'message') && $message_text === '[Forwarded Attachment]') {
+    $message_text = '';
+}
+
+// Add [Forwarded] prefix if not already present
+if (!empty($message_text)) {
     if (strpos($message_text, '[Forwarded]') === false) {
         $message_text = "[Forwarded]: " . $message_text;
-    }
-} else {
-    // For media, the message text might be empty or a caption.
-    // If it's empty, we can just say [Forwarded Attachment] in the text field if we want,
-    // but the actual media fields will carry the content.
-    if (empty($message_text)) {
-        // Optional: keep it empty or set to [Forwarded Attachment]
-        // Let's keep it consistent with the user's view if they add text.
-    } else {
-        if (strpos($message_text, '[Forwarded]') === false) {
-            $message_text = "[Forwarded]: " . $message_text;
-        }
     }
 }
 
@@ -84,7 +77,7 @@ $sql = "INSERT INTO order_messages (
             file_name, file_size, read_receipt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
 
-$success = db_execute($sql, 'isississssi', [
+$success = db_execute($sql, 'isisssssssi', [
     $target_order_id, 
     $db_sender, 
     $user_id, 
