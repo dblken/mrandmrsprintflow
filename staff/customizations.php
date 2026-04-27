@@ -365,6 +365,9 @@ if ($showLatestCustomizationOnly) {
         }
 
         .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
             min-width: 220px;
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -372,6 +375,7 @@ if ($showLatestCustomizationOnly) {
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
             padding: 8px;
             overflow: hidden;
+            z-index: 1200;
         }
 
         .sort-option {
@@ -2778,6 +2782,7 @@ window.pfCustomizationPreloadedOrders = (() => {
 
                 const searchLower = this.search.toLowerCase();
                 const matchSearch = !this.search ||
+                    ((this.getDisplayOrderCode(jo) || '').toLowerCase().includes(searchLower)) ||
                     (jo.job_title && jo.job_title.toLowerCase().includes(searchLower)) ||
                     (jo.service_type && jo.service_type.toLowerCase().includes(searchLower)) ||
                     (((jo.first_name || '') + ' ' + (jo.last_name || '')).toLowerCase().includes(searchLower)) ||

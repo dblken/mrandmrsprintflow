@@ -161,7 +161,7 @@ if (isset($_GET['ajax'])) {
                 <tr><td colspan="<?php echo $branchId === 'all' ? '8' : '9'; ?>" class="py-12 text-center text-gray-400">No customizations found</td></tr>
             <?php else: ?>
                 <?php foreach ($jobs as $jo): ?>
-                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>)">
+                                    <tr class="hover:bg-gray-50" style="border-bottom: 1px solid #f3f4f6; cursor:pointer;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)">
                         <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
                         <td class="py-3 text-gray-900">
                             <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
@@ -234,7 +234,7 @@ if (isset($_GET['ajax'])) {
                             </span>
                         </td>
                         <td class="py-3 text-right">
-                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">View</button>
+                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)" class="btn-action blue">View</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -697,11 +697,13 @@ function custom_payment_badge($status) {
                 showImageViewer: false,
                 currentImage: '',
 
-                openModal(id) {
+                modalOrderCode: '',
+                openModal(id, orderCode = '') {
                     this.showModal = true;
                     this.loading = true;
                     this.errorMsg = '';
                     this.job = null;
+                    this.modalOrderCode = String(orderCode || '').trim();
 
                     fetch('<?php echo $base_path; ?>/admin/job_orders_api.php?action=get_order&id=' + id)
                         .then(async (r) => {
@@ -1087,7 +1089,7 @@ function custom_payment_badge($status) {
                                         $order_count = db_query("SELECT COUNT(*) as c FROM orders WHERE customer_id = ?", "i", [$jo['customer_id']])[0]['c'] ?? 0;
                                     }
                                 ?>
-                                    <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>)">
+                                    <tr class="clickable-row" style="cursor:pointer;border-bottom: 1px solid #f3f4f6;" @click="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)">
                                         <?php $adminOrderCode = (string)($jo['order_code'] ?? admin_customization_order_code($jo)); ?>
                                         <td class="py-3 text-gray-900">
                                             <span class="order-code-text" title="<?php echo htmlspecialchars($adminOrderCode); ?>">
@@ -1161,7 +1163,7 @@ function custom_payment_badge($status) {
                                             </span>
                                         </td>
                                         <td class="py-3 text-right">
-                                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>)" class="btn-action blue">
+                                            <button type="button" @click.stop="openModal(<?php echo $jo['id']; ?>, <?php echo json_encode($adminOrderCode); ?>)" class="btn-action blue">
                                                 View
                                             </button>
                                         </td>
@@ -1202,7 +1204,7 @@ function custom_payment_badge($status) {
                 <!-- Header -->
                 <div style="padding:18px 24px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
                     <div>
-                        <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0 0 2px;" x-text="'Customization #' + job?.id"></h3>
+                        <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0 0 2px;" x-text="(job?.order_code || modalOrderCode || ('Customization #' + (job?.id ?? '')) )"></h3>
                         <div x-html="statusBadge(job?.status)" style="display:inline-block;"></div>
                     </div>
                     <button @click="showModal = false" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
