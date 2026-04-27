@@ -74,7 +74,8 @@ $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.e
         LEFT JOIN branches b ON o.branch_id = b.id
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.product_id
-        WHERE 1=1";
+        WHERE 1=1
+          AND o.order_type = 'product'";
 $params = [];
 $types = '';
 $order_code_search_sql = "CONCAT(
@@ -141,7 +142,8 @@ $count_sql = "SELECT COUNT(*) as total FROM (
     LEFT JOIN branches b ON o.branch_id = b.id
     LEFT JOIN order_items oi ON o.order_id = oi.order_id
     LEFT JOIN products p ON oi.product_id = p.product_id
-    WHERE 1=1";
+    WHERE 1=1
+      AND o.order_type = 'product'";
 
 if ($branch_filter !== '') {
     $count_sql .= " AND o.branch_id = " . (int)$branch_filter;
@@ -193,11 +195,10 @@ $orders = db_query($sql, $types, $params);
 // Get statistics (branch-aware)
 [$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
 
-$total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE 1=1 {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Completed' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$cancelled_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Cancelled' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.order_type = 'product' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.order_type = 'product' AND o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.order_type = 'product' AND o.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.order_type = 'product' AND o.status = 'Completed' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
 
 function admin_display_status(string $status): string {
     $toVerifyStatuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'];
@@ -1202,6 +1203,11 @@ if (isset($_GET['ajax'])) {
 
             <!-- KPI Summary Row (matches reports page style) -->
             <div class="kpi-row">
+                <div class="kpi-card indigo">
+                    <div class="kpi-label">TOTAL ORDERS</div>
+                    <div class="kpi-value"><?php echo number_format($total_count); ?></div>
+                    <div class="kpi-sub">Lifetime orders</div>
+                </div>
                 <div class="kpi-card amber">
                     <div class="kpi-label">TO VERIFY</div>
                     <div class="kpi-value"><?php echo number_format($pending_count); ?></div>
@@ -1216,11 +1222,6 @@ if (isset($_GET['ajax'])) {
                     <div class="kpi-label">COMPLETED</div>
                     <div class="kpi-value"><?php echo number_format($completed_count); ?></div>
                     <div class="kpi-sub">Processed successfully</div>
-                </div>
-                <div class="kpi-card" style="border-color:#fecaca;background:#fff7f7;">
-                    <div class="kpi-label">CANCELLED</div>
-                    <div class="kpi-value"><?php echo number_format($cancelled_count); ?></div>
-                    <div class="kpi-sub">Stopped orders</div>
                 </div>
             </div>
 
