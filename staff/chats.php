@@ -1770,7 +1770,7 @@ function openForwardModal() {
                 <div style="padding:1rem; border-bottom: 1px solid #f1f5f9;">
                     <div style="position:relative;">
                         <i class="bi bi-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.85rem;"></i>
-                        <input type="text" id="forwardSearch" placeholder="Search customer..." oninput="loadForwardList(this.value)" style="width:100%; padding-left:36px; border-radius:12px; border:1px solid #e2e8f0; background:#f8fafc; height:40px; font-size:0.85rem; color:#1e293b;">
+                        <input type="text" id="forwardSearch" placeholder="Search customer or order..." oninput="debounceForwardSearch(this.value)" style="width:100%; padding-left:36px; border-radius:12px; border:1px solid #e2e8f0; background:#f8fafc; height:40px; font-size:0.85rem; color:#1e293b;">
                     </div>
                 </div>
                 <div style="padding:0.75rem 1rem; background:#f8fafc; border-bottom: 1px solid #f1f5f9;">

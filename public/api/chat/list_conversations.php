@@ -29,11 +29,20 @@ try {
     $types = "";
     $search_clause = "";
     if ($q !== '') {
-        $search_clause = " AND (o.order_id LIKE ? OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.customization_data LIKE ?))";
         $q_param = "%$q%";
+        $search_clause = " AND (
+            o.order_id LIKE ? 
+            OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.customization_data LIKE ?)
+            OR EXISTS (SELECT 1 FROM customers c_search WHERE c_search.customer_id = o.customer_id AND (c_search.first_name LIKE ? OR c_search.last_name LIKE ?))
+            OR EXISTS (SELECT 1 FROM users u_search WHERE u_search.branch_id = o.branch_id AND (u_search.first_name LIKE ? OR u_search.last_name LIKE ?))
+        )";
         $params[] = $q_param;
         $params[] = $q_param;
-        $types .= "ss";
+        $params[] = $q_param;
+        $params[] = $q_param;
+        $params[] = $q_param;
+        $params[] = $q_param;
+        $types .= "ssssss";
     }
 
     if ($user_type === 'Customer') {

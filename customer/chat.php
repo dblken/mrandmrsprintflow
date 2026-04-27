@@ -638,7 +638,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="fwd-search-wrap">
                 <div style="position:relative;">
                     <i class="bi bi-search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--pf-cyan); opacity:0.6; font-size:0.9rem;"></i>
-                    <input type="text" id="fwdSearch" class="fwd-search-input" placeholder="Search orders..." oninput="loadFwdList(this.value)">
+                    <input type="text" id="fwdSearch" class="fwd-search-input" placeholder="Search orders or names..." oninput="debounceFwdSearch(this.value)">
                 </div>
             </div>
             <div class="fwd-preview-section">
@@ -1514,6 +1514,11 @@ function closeFwd() {
     const modal = document.getElementById('pfFwdModal');
     modal.classList.remove('show');
     modal.classList.add('hidden');
+}
+let fwdSearchTimer = null;
+function debounceFwdSearch(q) {
+    clearTimeout(fwdSearchTimer);
+    fwdSearchTimer = setTimeout(() => loadFwdList(q), 300);
 }
 function loadFwdList(q = '') {
     api(`/public/api/chat/list_conversations.php?archived=0&q=${encodeURIComponent(q)}`).then(res => {
