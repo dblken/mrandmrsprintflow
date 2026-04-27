@@ -620,21 +620,35 @@ $current_user = get_logged_in_user();
         
         .gallery-tabs { display: flex; padding: 0.75rem 1rem; gap: 8px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
         .g-tab { 
-            flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border-radius: 8px; 
-            cursor: pointer; transition: all 0.2s; color: #64748b; border: 1px solid transparent;
+        .gallery-panel {
+            position: absolute; right: 0; top: 0; bottom: 0; width: 340px;
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(30px);
+            border-left: 1px solid rgba(0,0,0,0.06); z-index: 1000;
+            display: none; flex-direction: column; 
+            box-shadow: -15px 0 40px rgba(0,0,0,0.12);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(100%);
         }
-        .g-tab.active { background: #fff; color: #0a2530; border-color: #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .gallery-panel.active { display: flex; transform: translateX(0); }
+        .gallery-header { padding: 1.5rem; border-bottom: 1px solid rgba(0,0,0,0.04); display: flex; align-items: center; justify-content: space-between; background: transparent; }
+        .gallery-title { font-weight: 800; font-size: 1.1rem; color: #0f172a; }
+        .gallery-tabs { display: flex; padding: 0.75rem 1rem; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.04); background: transparent; }
+        .g-tab { 
+            flex: 1; padding: 8px; font-size: 0.75rem; font-weight: 700; text-align: center; 
+            border-radius: 12px; cursor: pointer; transition: all 0.2s; color: #64748b; border: 1px solid transparent;
+        }
+        .g-tab.active { background: #fff; color: #0a2530; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
         
-        .gallery-content { flex: 1; overflow-y: auto; padding: 12px; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .gallery-content { flex: 1; overflow-y: auto; padding: 1.25rem; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-content: flex-start; }
         .gallery-item { 
-            aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f1f5f9; cursor: pointer; 
-            transition: all 0.2s; position: relative; border: 1px solid #f1f5f9;
+            aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: #f8fafc; cursor: pointer; 
+            transition: all 0.25s; position: relative; border: 1px solid rgba(0,0,0,0.04);
         }
-        .gallery-item:hover { transform: scale(0.96); filter: brightness(0.9); }
+        .gallery-item:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.12); border-color: var(--pf-cyan); }
         .gallery-item img, .gallery-item video { width: 100%; height: 100%; object-fit: cover; }
-        .gallery-item .vid-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-        .gallery-item .vid-icon svg { width: 24px; height: 24px; fill: #fff; opacity: 0.8; drop-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .gallery-item .vid-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(0,0,0,0.2); }
+        .gallery-item .vid-icon svg { width: 32px; height: 32px; fill: #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
 
         /* Unified Action Menu */
         .unified-menu { position: relative; }
@@ -1334,15 +1348,15 @@ function loadMsgs() {
             if (data.is_archived !== undefined) updateArchiveUI(data.is_archived);
             if (data.messages.length) {
                 if (isInitialLoad) {
-                    // Instant jump to last message
-                    const last = box.lastElementChild;
-                    if (last) {
-                        last.scrollIntoView({ block: 'end' });
-                        // Safety jumps for media/layout
-                        setTimeout(() => last.scrollIntoView({ block: 'end' }), 50);
-                        setTimeout(() => last.scrollIntoView({ block: 'end' }), 150);
-                    }
+                    // Instant jump to bottom for professional feel
+                    box.style.scrollBehavior = 'auto';
+                    box.scrollTop = box.scrollHeight;
+                    requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; box.style.scrollBehavior = 'smooth'; });
+                    // Backup for slow rendering media
+                    setTimeout(() => { box.scrollTop = box.scrollHeight; }, 100);
                 } else {
+                    scrollToBottom(true);
+                }
                     scrollToBottom(true, false);
                 }
             }

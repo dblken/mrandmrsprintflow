@@ -95,7 +95,11 @@ foreach ($media as $item) {
     $m_type = strtolower($item['message_type'] ?? '');
     
     // Robust detection: prioritize extension
-    if (in_array($ext, ['mp4', 'mov', 'avi', 'webm'])) {
+    if (in_array($ext, ['mp4', 'mov', 'avi'])) {
+        $f_type = 'video';
+    } elseif ($ext === 'webm') {
+        // .webm can be video or voice. If it's voice, skip it.
+        if ($f_type === 'voice' || $m_type === 'voice') continue;
         $f_type = 'video';
     } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
         $f_type = 'image';

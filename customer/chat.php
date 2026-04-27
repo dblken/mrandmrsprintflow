@@ -368,11 +368,21 @@ require_once __DIR__ . '/../includes/header.php';
     .selected .fwd-check-circle { background:var(--pf-cyan); border-color:var(--pf-cyan); }
 
     #galleryPanel {
-        position: absolute; right: 0; top: 0; bottom: 0; width: 320px;
-        background: #fff; border-left: 1px solid var(--pf-border); z-index: 50;
-        display: none; flex-direction: column; box-shadow: -10px 0 30px rgba(15,23,42,0.12);
+        position: absolute; right: 0; top: 0; bottom: 0; width: 340px;
+        background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(30px);
+        border-left: 1px solid rgba(0,0,0,0.06); z-index: 1000;
+        display: none; flex-direction: column; 
+        box-shadow: -15px 0 40px rgba(0,0,0,0.12);
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        transform: translateX(100%);
     }
-    #galleryPanel.show { display: flex; }
+    #galleryPanel.show { display: flex; transform: translateX(0); }
+    .gal-head { padding: 1.5rem; border-bottom: 1px solid rgba(0,0,0,0.04); display: flex; align-items: center; justify-content: space-between; background: transparent; }
+    .gal-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 1.5rem; align-content: flex-start; }
+    .gal-item { aspect-ratio: 1; border-radius: 18px; overflow: hidden; cursor: pointer; position: relative; transition: all 0.3s; border: 1px solid rgba(0,0,0,0.05); background: #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .gal-item:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 24px rgba(0,0,0,0.1); border-color: var(--pf-cyan); }
+    .gal-item img, .gal-item video { width: 100%; height: 100%; object-fit: cover; }
+    .gal-vid-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
 
     @media (max-width: 768px) {
         body.chat-page #main-content {
@@ -862,12 +872,30 @@ function updateArchUI(arch) {
     document.getElementById('archItem').innerHTML = arch ? '<i class="bi bi-arrow-up-circle"></i> Unarchive' : '<i class="bi bi-archive"></i> Archive';
 }
 
+function scrollToBottom(instant = false) {
+    const box = document.getElementById('messagesArea');
+    if (!box) return;
+    if (instant) {
+        box.style.scrollBehavior = 'auto';
+        box.scrollTop = box.scrollHeight;
+        box.style.scrollBehavior = 'smooth';
+    } else {
+        // Only auto-scroll if user is near bottom
+        const threshold = 150;
+        const isNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < threshold;
+        if (isNearBottom) {
+            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+        }
+    }
+}
+
 function loadMsgs() {
     if (!activeId) return;
+    const isFirstLoad = (lastId === 0);
     const box = document.getElementById('messagesArea');
     api(`/public/api/chat/fetch_messages.php?order_id=${activeId}&last_id=${lastId}&is_active=1`).then(res => {
         if (!res.success) return;
-        if (lastId === 0) box.innerHTML = '';
+        if (isFirstLoad) box.innerHTML = '';
         
         const rxMap = {};
         (res.reactions || []).forEach(r => { if (!rxMap[r.message_id]) rxMap[r.message_id] = []; rxMap[r.message_id].push(r); });
@@ -881,7 +909,16 @@ function loadMsgs() {
         document.getElementById('hOnline').style.display = res.partner.is_online ? 'inline-block' : 'none';
         updatePinnedBar(res.pinned_messages || []);
         if (res.last_seen_message_id) updateSeenIndicator(res.last_seen_message_id);
-        if (res.messages.length) box.scrollTo({top: box.scrollHeight, behavior: 'smooth'});
+        
+        if (res.messages.length) {
+            if (isFirstLoad) {
+                // Instant scroll to bottom on first load
+                requestAnimationFrame(() => scrollToBottom(true));
+            } else {
+                // Smooth scroll if already at bottom
+                scrollToBottom(false);
+            }
+        }
     });
 }
 
