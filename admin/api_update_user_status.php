@@ -87,17 +87,20 @@ if ($action === 'toggle_status') {
 
     // Birthday
     if (!empty($birthday)) {
-        try {
-            $bday_date = new DateTime($birthday);
+        $bday_date = DateTime::createFromFormat('Y-m-d', $birthday);
+        $bday_errors = DateTime::getLastErrors();
+        if (!$bday_date || ($bday_errors['warning_count'] ?? 0) > 0 || ($bday_errors['error_count'] ?? 0) > 0) {
+            $errors[] = 'Invalid birthday format';
+        } else {
             $today = new DateTime();
             $age = $today->diff($bday_date)->y;
             if ($bday_date > $today) {
                 $errors[] = 'Birthday cannot be a future date';
             } elseif ($age < 18) {
                 $errors[] = 'User must be at least 18 years old';
+            } elseif ($age > 70) {
+                $errors[] = 'User must be 70 years old or younger';
             }
-        } catch (Exception $e) {
-            $errors[] = 'Invalid birthday format';
         }
     } else {
         $errors[] = 'Birthday is required';

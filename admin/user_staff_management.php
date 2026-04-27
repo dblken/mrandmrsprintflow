@@ -100,13 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
     } elseif (!preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', trim($email))) {
         $error = 'Invalid email address.';
     } elseif (!empty($birthday)) {
-        $bday_date = new DateTime($birthday);
-        $today = new DateTime();
-        $age = $today->diff($bday_date)->y;
-        if ($bday_date > $today) {
-            $error = 'Birthday cannot be a future date';
-        } elseif ($age < 18) {
-            $error = 'User must be at least 18 years old';
+        $bday_date = DateTime::createFromFormat('Y-m-d', $birthday);
+        $bday_errors = DateTime::getLastErrors();
+        if (!$bday_date || ($bday_errors['warning_count'] ?? 0) > 0 || ($bday_errors['error_count'] ?? 0) > 0) {
+            $error = 'Invalid birthday format';
+        } else {
+            $today = new DateTime();
+            $age = $today->diff($bday_date)->y;
+            if ($bday_date > $today) {
+                $error = 'Birthday cannot be a future date';
+            } elseif ($age < 18) {
+                $error = 'User must be at least 18 years old';
+            } elseif ($age > 70) {
+                $error = 'User must be 70 years old or younger';
+            }
         }
     }
 
@@ -265,6 +272,7 @@ if (!empty($_SESSION['um_staff_create_success'])) {
 }
 
 $max_birthday = date('Y-m-d', strtotime('-18 years'));
+$min_birthday = date('Y-m-d', strtotime('-70 years'));
 
 $page_title = 'Team Management - Admin';
 
@@ -1058,7 +1066,7 @@ if (isset($_GET['ajax'])) {
                     <div class="mf-row">
                         <div class="mf-group" :class="{'is-invalid': errors.dob, 'is-valid': editModal.user.dob && !errors.dob}">
                             <label>Date of Birth *</label>
-                            <input type="date" x-model="editModal.user.dob" @change="validateField('dob')" required max="<?php echo $max_birthday; ?>">
+                            <input type="date" x-model="editModal.user.dob" @change="validateField('dob')" required min="<?php echo $min_birthday; ?>" max="<?php echo $max_birthday; ?>">
                             <div class="error-message" x-text="errors.dob"></div>
                         </div>
                         <div class="mf-group"><label>Gender</label>
@@ -1289,7 +1297,7 @@ if (isset($_GET['ajax'])) {
                 </div>
                 <div class="form-group">
                     <label>Birthday <span style="color:#ef4444">*</span></label>
-                    <input type="date" name="birthday" id="um-birthday" required max="<?php echo $max_birthday; ?>">
+                    <input type="date" name="birthday" id="um-birthday" required min="<?php echo $min_birthday; ?>" max="<?php echo $max_birthday; ?>">
                     <div id="um-birthday-error" class="error-message" style="display:none; color:#ef4444; font-size:11px; margin-top:4px; font-weight:500;"></div>
                 </div>
             </div>
@@ -1615,6 +1623,11 @@ function printflowInitUserStaffModal() {
                 errDiv.style.display = 'block';
                 submitBtn.disabled = true;
                 this.classList.add('is-invalid');
+            } else if (age > 70) {
+                errDiv.textContent = "Must be 70 years old or younger.";
+                errDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                this.classList.add('is-invalid');
             } else {
                 errDiv.style.display = 'none';
                 submitBtn.disabled = false;
@@ -1926,6 +1939,7 @@ function userManagement() {
                 
                 if (bday > today) this.errors.dob = "Cannot be future.";
                 else if (age < 18) this.errors.dob = "Min 18 years old.";
+                else if (age > 70) this.errors.dob = "Max 70 years old.";
                 else this.errors.dob = '';
             }
         },
