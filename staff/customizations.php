@@ -932,7 +932,7 @@ if ($showLatestCustomizationOnly) {
                                            (jo.status === 'APPROVED' ? 'Approved' : 
                                            (jo.status === 'TO_PAY' ? 'To Pay' : 
                                            (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
-                                           (jo.status === 'REJECTED' ? 'Cancelled' : 
+                                           (jo.status === 'REJECTED' ? 'Rejected' : 
                                            (jo.status === 'IN_PRODUCTION' ? 'In Production' : 
                                            (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'To Pickup' : jo.status))))))">
                                             </div>
