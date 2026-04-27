@@ -253,7 +253,7 @@ function staff_orders_status_pill_style(string $displayStatus): string {
 
 function staff_orders_status_pill_html(string $displayStatus): string {
     $style = staff_orders_status_pill_style($displayStatus);
-    $label = htmlspecialchars(strtoupper(trim($displayStatus)));
+    $label = htmlspecialchars(ucwords(strtolower(trim($displayStatus))));
     return '<span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;' . $style . '">' . $label . '</span>';
 }
 
@@ -328,7 +328,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                         <?php echo format_currency($order['total_amount']); ?>
                     </div>
                 </td>
-                <td class="px-4 py-4 text-center">
+                <td class="px-4 py-4 status-col-cell">
                     <?php
                     // Normalize status for product orders — production statuses should display as 'Ready for Pickup'
                     $display_order_status = staff_orders_display_status((string)$order['status']);
@@ -343,7 +343,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
                     </div>
                 </td>
                 <td class="px-4 py-4 action-col-cell">
-                    <div class="action-cell" style="justify-content:flex-end;">
+                    <div class="action-cell">
                         <button
                             onclick="event.stopPropagation(); window.openStaffOrderManage(<?php echo $order['order_id']; ?>, '<?php echo addslashes($order['status']); ?>');"
                             class="table-action-btn alt"
@@ -687,7 +687,7 @@ $page_title = 'Orders - Staff';
             max-width: 100%;
         }
         .action-col-cell {
-            text-align: right;
+            text-align: center;
             white-space: nowrap;
         }
         .orders-table tbody tr { cursor: pointer; transition: background-color 0.18s ease, box-shadow 0.18s ease; }
@@ -740,7 +740,7 @@ $page_title = 'Orders - Staff';
         }
         .orders-table tbody tr:hover .row-indicator { opacity: 1; }
 
-        .action-cell { display: flex; justify-content: flex-end; gap: 6px; }
+        .action-cell { display: flex; justify-content: center; gap: 6px; }
         .table-action-btn {
             display: inline-flex;
             align-items: center;
@@ -1006,10 +1006,10 @@ $page_title = 'Orders - Staff';
         };
         var style = map[val] || 'background: #F3F4F6; color: #374151;';
         var display = val;
-        if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'].includes(val)) display = 'TO VERIFY';
-        else if (val === 'Ready for Pickup' || val === 'To Pickup') display = 'TO PICK UP';
-        else if (val === 'Completed') display = 'COMPLETED';
-        else if (val === 'Cancelled') display = 'CANCELLED';
+        if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'].includes(val)) display = 'To Verify';
+        else if (val === 'Ready for Pickup' || val === 'To Pickup') display = 'To Pickup';
+        else if (val === 'Completed') display = 'Completed';
+        else if (val === 'Cancelled') display = 'Cancelled';
 
         return '<span class="px-3 py-1 text-xs rounded-full" style="' + style + ' display: inline-block; white-space: nowrap; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">' + display + '</span>';
     }
@@ -1923,14 +1923,14 @@ $page_title = 'Orders - Staff';
                     <table class="orders-table">
                         <thead>
                             <tr>
-                                <th class="pl-6 pr-4 py-4 w-[19%] border-b border-gray-100">Order Code</th>
-                                <th class="px-4 py-4 w-[17%] border-b border-gray-100">Product Name</th>
-                                <th class="px-4 py-4 w-[16%] border-b border-gray-100">Customer</th>
+                                <th class="pl-6 pr-4 py-4 w-[16%] border-b border-gray-100">Order Code</th>
+                                <th class="px-4 py-4 w-[16%] border-b border-gray-100">Product Name</th>
+                                <th class="px-4 py-4 w-[14%] border-b border-gray-100">Customer</th>
                                 <th class="px-4 py-4 w-[9%] border-b border-gray-100 text-center">Source</th>
-                                <th class="px-4 py-4 w-[12%] border-b border-gray-100">Date</th>
+                                <th class="px-4 py-4 w-[11%] border-b border-gray-100">Date</th>
                                 <th class="px-4 py-4 w-[10%] border-b border-gray-100">Total</th>
-                                <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
-                                <th class="px-4 py-4 w-[11%] border-b border-gray-100 text-right uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[14%] border-b border-gray-100 text-center">Status</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-center uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1980,7 +1980,7 @@ $page_title = 'Orders - Staff';
                                             <?php echo format_currency($order['total_amount']); ?>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-center">
+                                    <td class="px-4 py-4 status-col-cell">
                                         <?php $display_order_status2 = staff_orders_display_status((string)$order['status']); ?>
                                         <div class="status-col-inner">
                                             <?php echo staff_orders_status_pill_html($display_order_status2); ?>
@@ -1992,7 +1992,7 @@ $page_title = 'Orders - Staff';
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 action-col-cell">
-                                        <div class="action-cell" style="justify-content:flex-end;">
+                                        <div class="action-cell">
                                             <button onclick="event.stopPropagation(); openOrderModal(<?php echo $order['order_id']; ?>)" 
                                                     class="table-action-btn alt">
                                                 View

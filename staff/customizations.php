@@ -897,12 +897,12 @@ if ($showLatestCustomizationOnly) {
                         <thead class="bg-gray-50/50">
                             <tr>
                                 <th class="pl-6 pr-4 py-4 w-[12%] border-b border-gray-100">Order Code</th>
-                                <th class="px-4 py-4 w-[30%] border-b border-gray-100">Customization Info</th>
-                                <th class="px-4 py-4 w-[20%] border-b border-gray-100 text-center">Status</th>
+                                <th class="px-4 py-4 w-[28%] border-b border-gray-100">Customization Info</th>
+                                <th class="px-4 py-4 w-[18%] border-b border-gray-100 text-center">Status</th>
                                 <th class="px-4 py-4 w-[8%] border-b border-gray-100 text-center">Source</th>
-                                <th class="px-4 py-4 w-[16%] border-b border-gray-100">Customer</th>
-                                <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-right">Created</th>
-                                <th class="px-4 py-4 w-[12%] border-b border-gray-100 text-center uppercase tracking-widest text-[10px]">Action</th>
+                                <th class="px-4 py-4 w-[14%] border-b border-gray-100">Customer</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-right">Created</th>
+                                <th class="px-4 py-4 w-[10%] border-b border-gray-100 text-center uppercase tracking-widest text-[10px]">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -934,13 +934,13 @@ if ($showLatestCustomizationOnly) {
                                             'badge-pickup':     jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT',
                                             'badge-pending':    jo.status === 'PENDING',
                                             'badge-cancelled':  jo.status === 'REJECTED' || jo.status === 'CANCELLED'
-                                        }" class="status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Fulfilled' : 
-                                           (jo.status === 'APPROVED' ? 'APPROVED' : 
-                                           (jo.status === 'TO_PAY' ? 'TO PAY' : 
-                                           (jo.status === 'VERIFY_PAY' ? 'TO VERIFY' : 
-                                           (jo.status === 'REJECTED' ? 'CANCELLED' : 
-                                           (jo.status === 'IN_PRODUCTION' ? 'IN PRODUCTION' : 
-                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'TO PICK UP' : jo.status))))))">
+                                        }" class="status-badge-pill" x-text="jo.status === 'COMPLETED' ? 'Completed' : 
+                                           (jo.status === 'APPROVED' ? 'Approved' : 
+                                           (jo.status === 'TO_PAY' ? 'To Pay' : 
+                                           (jo.status === 'VERIFY_PAY' ? 'To Verify' : 
+                                           (jo.status === 'REJECTED' ? 'Cancelled' : 
+                                           (jo.status === 'IN_PRODUCTION' ? 'In Production' : 
+                                           (jo.status === 'TO_RECEIVE' || jo.status === 'READY_TO_COLLECT' ? 'To Pickup' : jo.status))))))">
                                             </div>
                                         </div>
                                     </td>
