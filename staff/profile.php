@@ -25,6 +25,18 @@ $_SESSION['user_status'] = $user['status'] ?? ($_SESSION['user_status'] ?? 'Pend
 $is_pending = ($user['status'] ?? '') === 'Pending';
 $needs_id = $is_pending && empty($user['id_validation_image'] ?? '');
 
+$max_birthday = date('Y-m-d', strtotime('-18 years'));
+$min_birthday = date('Y-m-d', strtotime('-70 years'));
+$contact_display = (string)($user['contact_number'] ?? '');
+$contact_digits = preg_replace('/\D/', '', $contact_display);
+if (strlen($contact_digits) === 12 && strncmp($contact_digits, '63', 2) === 0) {
+    $contact_display = '0' . substr($contact_digits, 2);
+} elseif (strlen($contact_digits) === 10 && ($contact_digits[0] ?? '') === '9') {
+    $contact_display = '0' . $contact_digits;
+} elseif (strlen($contact_digits) === 11 && strncmp($contact_digits, '09', 2) === 0) {
+    $contact_display = $contact_digits;
+}
+
 // Parse address for province/city/barangay
 $addressProvince = $addressCity = $addressBarangay = $addressLine = '';
 if (!empty($user['address'])) {
@@ -48,6 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $middle_name = sanitize($_POST['middle_name'] ?? '');
         $last_name = sanitize($_POST['last_name'] ?? '');
         $contact_number = preg_replace('/[^0-9]/', '', trim($_POST['contact_number'] ?? ''));
+        if (strlen($contact_number) === 12 && strncmp($contact_number, '63', 2) === 0) {
+            $contact_number = '0' . substr($contact_number, 2);
+        } elseif (strlen($contact_number) === 10 && ($contact_number[0] ?? '') === '9') {
+            $contact_number = '0' . $contact_number;
+        }
         $address_province = trim($_POST['address_province'] ?? '');
         $address_city = trim($_POST['address_city'] ?? '');
         $address_barangay = trim($_POST['address_barangay'] ?? '');
@@ -97,6 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $error = 'First name and last name are required';
         } elseif (empty($contact_number) || !preg_match('/^09\d{9}$/', $contact_number)) {
             $error = 'Valid contact number required (09XXXXXXXXX).';
+        } elseif (contact_phone_in_use_across_accounts($contact_number, null, $user_id)) {
+            $error = 'This contact number is already used by another account.';
         } else {
             $id_filename = $user['id_validation_image'] ?? null;
             if (!empty($_FILES['id_image']['tmp_name']) && $_FILES['id_image']['error'] === UPLOAD_ERR_OK) {
@@ -121,29 +140,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             if (!$error) {
                 $id_to_save = $id_filename ?? $user['id_validation_image'] ?? null;
                 $birthday = trim($_POST['birthday'] ?? '');
-                $result = db_execute(
-                    "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, birthday=?, address=?, gender=?, id_validation_image=?, profile_picture=?, updated_at=NOW() WHERE user_id=?",
-                    'sssssssssi',
-                    [$first_name, $middle_name, $last_name, $contact_number, $birthday, $address, $gender, $id_to_save, $profile_picture, $user_id]
-                );
-                if ($result) {
-                    $success = 'Profile updated successfully!';
-                    $_SESSION['user_name'] = $first_name . ' ' . $last_name;
-                    $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
-                    $_SESSION['user_status'] = $user['status'] ?? $_SESSION['user_status'];
-                    $is_pending = ($user['status'] ?? '') === 'Pending';
-                    $needs_id = false;
-                    if ($is_pending && $id_filename) {
-                        $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
-                        $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
-                        $admins = db_query("SELECT user_id, role FROM users WHERE role = 'Admin' AND status = 'Activated'");
-                        foreach ($admins as $a) {
-                            $recipType = $a['role'] ?? 'Admin';
-                            create_notification((int)$a['user_id'], $recipType, $msg, 'System', true, false, (int)$user_id);
+                if ($birthday === '') {
+                    $error = 'Birthday is required.';
+                } else {
+                    $bday_date = DateTime::createFromFormat('Y-m-d', $birthday);
+                    $bday_errors = DateTime::getLastErrors();
+                    if (!$bday_date || ($bday_errors['warning_count'] ?? 0) > 0 || ($bday_errors['error_count'] ?? 0) > 0) {
+                        $error = 'Invalid birthday format.';
+                    } else {
+                        $today = new DateTime();
+                        $age = $today->diff($bday_date)->y;
+                        if ($bday_date > $today) {
+                            $error = 'Birthday cannot be a future date.';
+                        } elseif ($age < 18) {
+                            $error = 'User must be at least 18 years old.';
+                        } elseif ($age > 70) {
+                            $error = 'User must be 70 years old or younger.';
                         }
                     }
-                } else {
-                    $error = 'Failed to update profile';
+                }
+                if (!$error) {
+                    $result = db_execute(
+                        "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, birthday=?, address=?, gender=?, id_validation_image=?, profile_picture=?, updated_at=NOW() WHERE user_id=?",
+                        'sssssssssi',
+                        [$first_name, $middle_name, $last_name, $contact_number, $birthday, $address, $gender, $id_to_save, $profile_picture, $user_id]
+                    );
+                    if ($result) {
+                        $success = 'Profile updated successfully!';
+                        $_SESSION['user_name'] = $first_name . ' ' . $last_name;
+                        $user = db_query("SELECT * FROM users WHERE user_id = ?", 'i', [$user_id])[0];
+                        $_SESSION['user_status'] = $user['status'] ?? $_SESSION['user_status'];
+                        $is_pending = ($user['status'] ?? '') === 'Pending';
+                        $needs_id = false;
+                        if ($is_pending && $id_filename) {
+                            $full_name = trim($first_name . ' ' . ($middle_name ?? '') . ' ' . $last_name);
+                            $msg = $full_name . ' (' . $user['email'] . ') has completed their profile and is ready for admin review.';
+                            $admins = db_query("SELECT user_id, role FROM users WHERE role = 'Admin' AND status = 'Activated'");
+                            foreach ($admins as $a) {
+                                $recipType = $a['role'] ?? 'Admin';
+                                create_notification((int)$a['user_id'], $recipType, $msg, 'System', true, false, (int)$user_id);
+                            }
+                        }
+                    } else {
+                        $error = 'Failed to update profile';
+                    }
                 }
             }
         }
@@ -402,13 +442,13 @@ $page_title = 'My Profile - Staff';
                                     </div>
                                     <div class="field-wrap">
                                         <label class="field-label">Contact Number</label>
-                                        <input type="tel" name="contact_number" id="profile_contact" class="form-input" placeholder="09XXXXXXXXX" maxlength="11" value="<?php echo htmlspecialchars($user['contact_number']??''); ?>">
+                                        <input type="tel" name="contact_number" id="profile_contact" class="form-input" placeholder="09XXXXXXXXX" maxlength="11" inputmode="numeric" required value="<?php echo htmlspecialchars($contact_display); ?>">
                                     </div>
                                     <div class="field-wrap">
                                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                             <div>
                                                 <label class="field-label">Birthday</label>
-                                                <input type="date" name="birthday" class="form-input" value="<?php echo htmlspecialchars($user['birthday']??''); ?>">
+                                                <input type="date" name="birthday" class="form-input" min="<?php echo $min_birthday; ?>" max="<?php echo $max_birthday; ?>" required value="<?php echo htmlspecialchars($user['birthday']??''); ?>">
                                             </div>
                                             <div>
                                                 <label class="field-label">Gender</label>
@@ -605,12 +645,64 @@ $page_title = 'My Profile - Staff';
     if (line) line.addEventListener('input', buildAddress);
 
     const contactInput = document.getElementById('profile_contact');
+    function normalizeContact(val) {
+        let v = val.replace(/\D/g, '');
+        if (v === '') return '';
+        if (v.startsWith('63')) v = '0' + v.slice(2);
+        else if (v.startsWith('9')) v = '0' + v;
+        if (!v.startsWith('09')) v = '09' + v.replace(/^0+/, '');
+        return v.slice(0, 11);
+    }
+    function setContactValidity() {
+        if (!contactInput) return;
+        if (!/^09\d{9}$/.test(contactInput.value)) {
+            contactInput.setCustomValidity('Use format 09XXXXXXXXX');
+        } else {
+            contactInput.setCustomValidity('');
+        }
+    }
     if (contactInput) {
-        contactInput.addEventListener('input', function() {
-            let v = this.value.replace(/\D/g, '');
-            if (v.length > 0 && !v.startsWith('09')) v = '09' + v.replace(/^0+/, '');
-            this.value = v.slice(0, 11);
+        contactInput.addEventListener('focus', function() {
+            if (!this.value) this.value = '09';
+            this.value = normalizeContact(this.value);
+            setContactValidity();
         });
+        contactInput.addEventListener('input', function() {
+            this.value = normalizeContact(this.value);
+            setContactValidity();
+        });
+        contactInput.addEventListener('blur', setContactValidity);
+    }
+
+    const birthdayInput = document.querySelector('input[name="birthday"]');
+    function setBirthdayValidity() {
+        if (!birthdayInput) return;
+        if (!birthdayInput.value) {
+            birthdayInput.setCustomValidity('');
+            return;
+        }
+        const dob = new Date(birthdayInput.value);
+        const today = new Date();
+        if (Number.isNaN(dob.getTime())) {
+            birthdayInput.setCustomValidity('Invalid birthday');
+            return;
+        }
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        if (dob > today) {
+            birthdayInput.setCustomValidity('Birthday cannot be in the future');
+        } else if (age < 18) {
+            birthdayInput.setCustomValidity('Must be at least 18 years old');
+        } else if (age > 70) {
+            birthdayInput.setCustomValidity('Must be 70 years old or younger');
+        } else {
+            birthdayInput.setCustomValidity('');
+        }
+    }
+    if (birthdayInput) {
+        birthdayInput.addEventListener('change', setBirthdayValidity);
+        birthdayInput.addEventListener('input', setBirthdayValidity);
     }
 
     const pfForm = document.getElementById('profileForm');
