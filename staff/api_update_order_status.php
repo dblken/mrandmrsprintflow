@@ -99,6 +99,9 @@ $chat_steps = [
 $chat_step = $chat_steps[$new_status] ?? null;
 if ($chat_step) {
     printflow_send_order_update($order_id, $chat_step);
+    if ($chat_step === 'completed') {
+        printflow_send_order_update($order_id, 'rate');
+    }
 }
 
 echo json_encode([

@@ -134,7 +134,7 @@ require_once __DIR__ . '/../includes/header.php';
     /* Bubbles & Grouping */
     .brow { display:flex; width:100%; align-items:flex-end; gap:8px; margin-bottom:12px; position:relative; transition: margin 0.2s; }
     .brow.self { flex-direction:row-reverse; }
-    .brow.system { justify-content:center; margin-bottom: 24px; }
+    .brow.system { justify-content:flex-start; margin-bottom: 16px; }
 
     .brow.grouped-msg { margin-bottom: 2px !important; }
     .brow.grouped-msg-next .b-meta { display: none !important; }
@@ -171,28 +171,33 @@ require_once __DIR__ . '/../includes/header.php';
     .call-log-title { font-weight:800; font-size:.92rem; line-height: 1.2; }
     .call-log-status { font-size:.75rem; font-weight:700; opacity:0.5; line-height: 1.2; }
 
-    .brow.system.order-update-card { justify-content:flex-end; margin:12px 0; }
-    .order-update-bubble { background:rgba(255,255,255,0.92); border:1px solid var(--pf-border); border-radius:18px; padding:1rem; max-width:320px; position:relative; box-shadow:0 4px 12px rgba(15,23,42,0.05); cursor:pointer; transition:all .2s cubic-bezier(.4,0,.2,1); }
-    .order-update-bubble:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,23,42,0.08); border-color:#0ea5a5; background:#fff; }
+    .brow.system.order-update-card { justify-content:flex-start; margin:10px 0; }
+    .order-update-bubble {
+        display:flex;
+        gap:12px;
+        align-items:flex-start;
+        width:min(100%, 420px);
+        background:linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border:1px solid #d9e6ee;
+        border-radius:18px 18px 18px 6px;
+        padding:12px;
+        position:relative;
+        box-shadow:0 10px 24px rgba(15,23,42,0.06);
+        cursor:pointer;
+        transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .order-update-bubble:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(15,23,42,0.1); border-color:#7dd3d8; }
     .order-update-bubble:active { transform:translateY(0); }
-    .order-update-label { font-size:.65rem; font-weight:800; letter-spacing:.05em; color:var(--pf-cyan); margin-bottom:10px; }
-    .order-update-content { display:flex; gap:12px; align-items:center; }
-    .order-thumb-wrap { width:50px; height:50px; border-radius:10px; overflow:hidden; background:#f1f5f9; border:1px solid var(--pf-border); flex-shrink:0; }
+    .order-update-bubble.read-only { cursor:default; }
+    .order-thumb-wrap { width:58px; height:58px; border-radius:14px; overflow:hidden; background:#eaf2f7; border:1px solid #d9e6ee; flex-shrink:0; }
     .order-thumb { width:100%; height:100%; object-fit:cover; display:block; }
     .order-text { flex:1; min-width:0; }
-    .order-title { font-size:.88rem; font-weight:800; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
-    .order-message { font-size:.78rem; color:var(--pf-dim); line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .order-update-time { font-size:.65rem; color:#94a3b8; text-align:right; margin-top:4px; font-weight:700; }
-    
-    .order-update-footer { margin-top: 12px; border-top: 1px solid var(--pf-border); padding-top: 10px; }
-    .feedback-btn { 
-        width: 100%; padding: 8px; border-radius: 10px; border: none; 
-        background: #0ea5a5; color: #fff; font-size: .8rem; font-weight: 800; 
-        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-        transition: all 0.2s;
-    }
-    .feedback-btn:hover { background: #0c8c8c; transform: scale(1.02); }
-    .feedback-btn i { font-size: 1rem; }
+    .order-update-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; background:#e6f8f7; color:#0f766e; font-size:.62rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px; }
+    .order-title { font-size:.9rem; font-weight:900; color:#0f172a; margin-bottom:4px; line-height:1.2; }
+    .order-message { font-size:.8rem; color:#475569; line-height:1.45; word-break:break-word; }
+    .order-update-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; }
+    .order-update-time { font-size:.68rem; color:#94a3b8; font-weight:800; }
+    .order-update-cta { font-size:.68rem; font-weight:900; color:#0891b2; text-transform:uppercase; letter-spacing:.06em; }
 
     /* Action Bar (Messenger Style) */
     .brow:hover .b-actions, .brow.has-active-menu .b-actions { opacity:1; pointer-events:auto; }
@@ -707,7 +712,11 @@ window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
 // --- PrintFlow Call System Initialization ---
 (function() {
     function initPFCall() {
+        if (window.__PFCallBootstrapped) {
+            return;
+        }
         if (window.PFCall && typeof window.PFCall.init === "function") {
+            window.__PFCallBootstrapped = true;
             window.PFCall.init({
                 userId: ME_ID,
                 userType: 'customer',
@@ -1027,6 +1036,46 @@ function goToMessage(id) {
     }
 }
 
+function getOrderUpdateActionLabel(actionType) {
+    switch (actionType) {
+        case 'to_payment': return 'Complete payment';
+        case 'retry_payment': return 'Retry payment';
+        case 'rate': return 'Rate order';
+        case 'pickup_details': return 'View details';
+        default: return 'View update';
+    }
+}
+
+function renderOrderUpdateMessage(m) {
+    const actionType = m.action_type || 'view_status';
+    const actionUrl = m.action_url || '';
+    const thumbnail = m.thumbnail || '';
+    const messageText = m.message || '';
+    let meta = {};
+    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
+    const productName = meta.product_name || 'Order update';
+    const orderId = Number(meta.order_id || activeId || 0);
+    const isInteractive = actionType === 'to_payment' || actionType === 'retry_payment' || actionType === 'rate' || actionType === 'pickup_details';
+
+    return `
+        <div class="b-col">
+            <div class="order-update-bubble ${isInteractive ? '' : 'read-only'}" onclick="handleOrderUpdateClick(${orderId}, '${actionType}', '${String(actionUrl).replace(/'/g, "\\'")}')">
+                <div class="order-thumb-wrap">
+                    <img src="${resolveAppUrl(thumbnail, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
+                </div>
+                <div class="order-text">
+                    <div class="order-update-badge">Order update</div>
+                    <div class="order-title">${esc(productName)}</div>
+                    <div class="order-message">${esc(messageText)}</div>
+                    <div class="order-update-meta">
+                        <span class="order-update-time">${fmtShort(m.created_at)}</span>
+                        ${isInteractive ? `<span class="order-update-cta">${esc(getOrderUpdateActionLabel(actionType))}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
 function appendMsgUI(m) {
     const box = document.getElementById('messagesArea');
     if (document.getElementById(`ms-${m.id}`)) return;
@@ -1056,46 +1105,8 @@ function appendMsgUI(m) {
 
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
-            const actionType  = m.action_type  || 'view_only';
-            const actionUrl   = m.action_url   || '';
-            const thumbnail   = m.thumbnail    || '';
-            const messageText = m.message      || '';
-            let meta = {};
-            try { meta = JSON.parse(m.meta_json || '{}'); } catch(e) {}
-            const productName = meta.product_name || 'Order Update';
-            const step = meta.step || 'unknown';
-            
             row.className = 'brow system order-update-card';
-            row.innerHTML = `
-                <div class="b-col">
-                    <div class="order-update-bubble" onclick="handleOrderUpdateClick('${step}', ${activeId})" title="Click to take action" style="cursor:${actionUrl ? 'pointer' : 'default'}">
-                        <div class="order-update-label">[ Order Update ]</div>
-                        <div class="order-update-content">
-                            <div class="order-thumb-wrap">
-                                <img src="${resolveAppUrl(thumbnail, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
-                            </div>
-                            <div class="order-text">
-                                <div class="order-title">${esc(productName)}</div>
-                                <div class="order-message">${esc(messageText)}</div>
-                            </div>
-                        </div>
-                        ${actionType === 'rate_order' ? `
-                            <div class="order-update-footer">
-                                <button class="feedback-btn" onclick="event.stopPropagation(); window.location.href='${actionUrl || 'rate_order.php?order_id=' + activeId}'">
-                                    <i class="bi bi-star-fill"></i> Leave a Review
-                                </button>
-                            </div>
-                        ` : ''}
-                        ${actionType === 'redirect_payment' || actionType === 'retry_payment' ? `
-                            <div class="order-update-footer">
-                                <button class="feedback-btn" style="background:var(--pf-cyan); color:#fff;" onclick="event.stopPropagation(); window.location.href='${actionUrl}'">
-                                    <i class="bi bi-credit-card-fill"></i> ${actionType === 'retry_payment' ? 'Re-upload Payment' : 'Proceed to Payment'}
-                                </button>
-                            </div>
-                        ` : ''}
-                        <div class="order-update-time">${fmtShort(m.created_at)}</div>
-                    </div>
-                </div>`;
+            row.innerHTML = renderOrderUpdateMessage(m);
             box.appendChild(row);
             return;
         }
@@ -1647,11 +1658,19 @@ async function doForward() {
     closeFwd(); loadConvs();
 }
 
-function handleOrderUpdateClick(step, orderId) {
-    if (step === 'approved_with_price') {
-        window.location.href = `payment.php?order_id=${orderId}`;
-    } else {
-        openOrderDetails(orderId);
+function handleOrderUpdateClick(orderId, actionType, actionUrl = '') {
+    if (!orderId) return;
+    switch (actionType) {
+        case 'to_payment':
+        case 'retry_payment':
+            window.location.href = actionUrl || `${BASE}/customer/payment.php?order_id=${orderId}`;
+            break;
+        case 'rate':
+            window.location.href = actionUrl || `${BASE}/customer/rate_order.php?order_id=${orderId}`;
+            break;
+        default:
+            openOrderDetails(orderId);
+            break;
     }
 }
 

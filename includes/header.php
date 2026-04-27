@@ -203,10 +203,14 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/printflow_call.css?v=<?php echo $ver; ?>">
     <script src="<?php echo $asset_base; ?>/assets/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
-    <script>
+        <script>
         (function() {
             function initPFCall() {
+                if (window.__PFCallBootstrapped) {
+                    return;
+                }
                 if (window.PFCall && typeof window.PFCall.init === "function") {
+                    window.__PFCallBootstrapped = true;
                     window.PFCall.init({
                         userId: <?php echo json_encode(get_user_id()); ?>,
                         userType: <?php echo json_encode(get_user_type()); ?>,

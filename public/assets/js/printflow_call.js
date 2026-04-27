@@ -109,11 +109,17 @@
         }
 
         init(config) {
-            if (this._initialized && this.userId === config.userId) {
+            if (window.__PFCallInitialized && this._initialized && this.userId === config.userId) {
                 console.log("[PFCall] Already initialized, verifying UI...");
                 this._ensureUI();
                 return;
             }
+            if (window.__PFCallInitialized && this.userId === config.userId) {
+                console.log("[PFCall] Already initialized - skipping");
+                this._ensureUI();
+                return;
+            }
+            window.__PFCallInitialized = true;
             this._initialized = true;
             console.log("[PFCall] Initializing system...");
 
@@ -135,6 +141,7 @@
             if (this.socket) return;
             if (typeof io === 'undefined') {
                 console.error("[PFCall] Socket.IO library (io) not found. Signaling disabled.");
+                window.PFCallSocketConnected = false;
                 return;
             }
 
@@ -150,15 +157,17 @@
                 query: { userId: this.userId, userType: this.userType },
                 secure: protocol === 'https:',
                 reconnection: true,
-                reconnectionAttempts: Infinity,
-                reconnectionDelay: 1000,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 2000,
                 reconnectionDelayMax: 5000,
-                timeout: 20000
+                timeout: 10000
             });
 
             this.socket.on('connect', () => {
                 console.log("[PFCall] Socket connected successfully.");
                 this.isSocketConnected = true;
+                window.PFCallSocketConnected = true;
+                window.dispatchEvent(new CustomEvent('PFCallConnected'));
                 this.socket.emit('register', {
                     userId: this.userId,
                     userType: this.userType,
@@ -167,7 +176,19 @@
                 });
             });
 
-            this.socket.on('disconnect', () => { this.isSocketConnected = false; });
+            this.socket.on('connect_error', () => {
+                this.isSocketConnected = false;
+                window.PFCallSocketConnected = false;
+                if (!window.__PFCallFallbackWarned) {
+                    window.__PFCallFallbackWarned = true;
+                    console.warn("Socket not available, switching to fallback mode");
+                }
+            });
+            this.socket.on('disconnect', () => {
+                this.isSocketConnected = false;
+                window.PFCallSocketConnected = false;
+                window.dispatchEvent(new CustomEvent('PFCallDisconnected'));
+            });
             this.socket.on('incomingCall', (data) => this._handleIncomingCall(data));
             this.socket.on('pf-call-accepted', () => this._onCallAccepted());
             this.socket.on('pf-call-rejected', () => this._onCallRejected());
@@ -180,6 +201,14 @@
 
         async startCall(targetId, targetType, targetName, targetAvatar, type = 'voice') {
             if (this.state !== PF_STATE.IDLE) return;
+            if (!this.socket || !this.isSocketConnected) {
+                if (!window.__PFCallFallbackWarned) {
+                    window.__PFCallFallbackWarned = true;
+                    console.warn("Socket not available, switching to fallback mode");
+                }
+                this._flashEnded('Calling is unavailable right now.');
+                return;
+            }
             this.state = PF_STATE.CALLING;
             this.partnerId = targetId;
             this.partnerType = targetType;

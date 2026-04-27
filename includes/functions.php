@@ -3309,7 +3309,17 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     $item = !empty($item) ? $item[0] : null;
 
     $base          = rtrim(BASE_URL, '/');
-    $product_name  = $item['product_name'] ?? 'Your Order';
+    $customization = [];
+    if (!empty($item['customization_data'])) {
+        $decoded_customization = json_decode((string)$item['customization_data'], true);
+        if (is_array($decoded_customization)) {
+            $customization = $decoded_customization;
+        }
+    }
+    $service_type = trim((string)($customization['service_type'] ?? ''));
+    $size_hint = trim((string)($customization['size'] ?? $customization['dimensions'] ?? ''));
+    $product_base = $service_type !== '' ? $service_type : (trim((string)($item['product_name'] ?? '')) ?: 'Your Order');
+    $product_name = $size_hint !== '' ? ($product_base . ' (' . $size_hint . ')') : $product_base;
     $amount        = number_format((float)($order['total_amount'] ?? 0), 2);
     $customer_name = trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')) ?: 'Customer';
 
@@ -3342,43 +3352,53 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     // 4. Step â†’ message, action_type, action_url
     $step_configs = [
         'inquiry' => [
-            'message'     => "{$customer_name} submitted an inquiry for \"{$product_name}\". Our team will review it shortly.",
-            'action_type' => 'view_only',
+            'message'     => "{$customer_name} inquired about \"{$product_name}\".",
+            'action_type' => 'view_inquiry',
             'action_url'  => '',
         ],
         'approved' => [
-            'message'     => "Your inquiry for \"{$product_name}\" has been reviewed. We are now preparing the final price.",
-            'action_type' => 'view_only',
+            'message'     => "Your inquiry for \"{$product_name}\" has been approved for pricing. We are now preparing your quotation.",
+            'action_type' => 'view_details',
             'action_url'  => '',
         ],
         'send_to_payment' => [
             'message'     => "Your order for \"{$product_name}\" is ready for payment (â‚±{$amount}). Tap this card to proceed.",
-            'action_type' => 'redirect_payment',
+            'action_type' => 'to_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
+        'payment_submitted' => [
+            'message'     => "We have received your payment. It is now under verification.",
+            'action_type' => 'verify_payment',
+            'action_url'  => '',
+        ],
         'payment_verified' => [
-            'message'     => "Your payment has been verified! Your order is now in production.",
-            'action_type' => 'view_only',
+            'message'     => "Your payment has been approved. We will now proceed with production.",
+            'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'payment_rejected' => [
-            'message'     => "Your payment proof was rejected. Please re-upload a valid proof of payment.",
+            'message'     => "Your payment was not approved. Please try again or update your payment details.",
             'action_type' => 'retry_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'in_production' => [
-            'message'     => "Great news! Your order is now being produced. We'll notify you when it's ready.",
-            'action_type' => 'view_only',
+            'message'     => "Your order is now in production. Our team is currently working on it.",
+            'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'ready_to_pickup' => [
-            'message'     => "Your order is ready for pickup! Please visit our store to claim your item.",
-            'action_type' => 'view_only',
+            'message'     => "Your order is ready for pickup. Please visit our store to claim it.",
+            'action_type' => 'pickup_details',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'     => "Your order has been completed. Thank you for choosing PrintFlow! We'd love to hear your feedback.",
-            'action_type' => 'rate_order',
+            'message'     => "Your order has been completed. Thank you for your purchase!",
+            'action_type' => 'rate',
+            'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
+        ],
+        'rate' => [
+            'message'     => "How was your experience? Please rate your order.",
+            'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
     ];
@@ -3387,6 +3407,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     $aliases = [
         'approved_with_price' => 'send_to_payment',
         'ready'               => 'ready_to_pickup',
+        'rate_order'          => 'rate',
     ];
     if (isset($aliases[$step])) {
         $step = $aliases[$step];
@@ -3394,9 +3415,13 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
 
     $config = $step_configs[$step] ?? [
         'message'     => "Your order status has been updated.",
-        'action_type' => 'view_only',
+        'action_type' => 'view_status',
         'action_url'  => '',
     ];
+
+    if ($step === 'send_to_payment') {
+        $config['message'] = "Your order is now ready for payment. Please proceed to complete your transaction.";
+    }
 
     $message     = $custom_text ?: $config['message'];
     $action_type = $config['action_type'];

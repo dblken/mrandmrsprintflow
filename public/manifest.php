@@ -8,14 +8,14 @@ require_once __DIR__ . '/../includes/shop_config.php';
 $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_path = $base_path . '/public/assets/images';
 $logo_version = rawurlencode(printflow_logo_version());
-$svg_logo_src = $base_path . '/public/app-icon.php?v=' . $logo_version;
+$png_logo_src = $base_path . '/public/app-icon.php?v=' . $logo_version;
 header('Content-Type: application/json');
 
 $manifest_icons = [
     [
-        'src' => $svg_logo_src,
-        'sizes' => 'any',
-        'type' => 'image/svg+xml',
+        'src' => $png_logo_src,
+        'sizes' => '512x512',
+        'type' => 'image/png',
         'purpose' => 'any maskable'
     ],
 ];
@@ -23,9 +23,9 @@ $manifest_icons = [
 $icon_sizes = ['72x72', '96x96', '128x128', '144x144', '152x152', '192x192', '384x384', '512x512'];
 foreach ($icon_sizes as $size) {
     $manifest_icons[] = [
-        'src' => $svg_logo_src,
+        'src' => $png_logo_src,
         'sizes' => $size,
-        'type' => 'image/svg+xml',
+        'type' => 'image/png',
         'purpose' => 'any maskable'
     ];
 }

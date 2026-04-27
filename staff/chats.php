@@ -136,46 +136,36 @@ $current_user = get_logged_in_user();
         .bubble-row.self .bubble-meta { justify-content: flex-end; }
 
         /* Order Update Message Styles */
-        .bubble-row.system.order-update.staff-view { justify-content: flex-end !important; margin: 12px 0; }
+        .bubble-row.system.order-update.staff-view { justify-content: flex-start !important; margin: 10px 0; }
         .order-update-bubble.staff {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid #e2e8f0;
-            border-radius: 18px;
-            padding: 1rem;
-            max-width: 320px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            width: min(100%, 420px);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            border: 1px solid #d9e6ee;
+            border-radius: 18px 18px 18px 6px;
+            padding: 12px;
             position: relative;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
         }
         .order-update-bubble.staff:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-            border-color: #06A1A1;
-            background: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.1);
+            border-color: #7dd3d8;
         }
         .order-update-bubble.staff:active {
             transform: translateY(0);
         }
-        .order-update-label {
-            font-size: 0.65rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #64748b;
-        }
-        .order-update-content {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
         .order-thumb-wrap {
-            width: 50px;
-            height: 50px;
-            border-radius: 10px;
+            width: 58px;
+            height: 58px;
+            border-radius: 14px;
             overflow: hidden;
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
+            background: #eaf2f7;
+            border: 1px solid #d9e6ee;
             flex-shrink: 0;
         }
         .order-thumb {
@@ -187,29 +177,51 @@ $current_user = get_logged_in_user();
             flex: 1;
             min-width: 0;
         }
+        .order-update-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #e6f8f7;
+            color: #0f766e;
+            font-size: 0.62rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
         .order-title {
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: #1e293b;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-bottom: 2px;
+            font-size: 0.9rem;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 4px;
+            line-height: 1.2;
         }
         .order-message {
-            font-size: 0.78rem;
-            color: #64748b;
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+            font-size: 0.8rem;
+            color: #475569;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+        .order-update-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
         }
         .order-update-time {
-            font-size: 0.65rem;
+            font-size: 0.68rem;
             color: #94a3b8;
-            text-align: right;
-            margin-top: 2px;
+            font-weight: 800;
+        }
+        .order-update-cta {
+            font-size: 0.68rem;
+            font-weight: 900;
+            color: #0891b2;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
         }
 
         /* Call Log Bubbles (Messenger Style) */
@@ -982,7 +994,11 @@ window.onerror = function(msg, url, line) {
 
 (function() {
     function initPFCall() {
+        if (window.__PFCallBootstrapped) {
+            return;
+        }
         if (window.PFCall && typeof window.PFCall.init === "function") {
+            window.__PFCallBootstrapped = true;
             window.PFCall.init({
                 userId: <?php echo json_encode(get_user_id()); ?>,
                 userType: <?php echo json_encode(get_user_type()); ?>,
@@ -1294,7 +1310,7 @@ function openChat(id, name, meta, archived, avatar = '') {
 
     loadMsgs();
     clearInterval(pollId);
-    pollId = setInterval(loadMsgs, 3000);
+    pollId = setInterval(loadMsgs, 2000);
     loadConvs();
     if (window.innerWidth < 1024) toggleSidebar(false);
 }
@@ -1484,30 +1500,24 @@ function appendMsgUI(m) {
 
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
-            let payload = {};
-            try { 
-                payload = JSON.parse(m.message || '{}'); 
-            } catch (e) {
-                payload = { text: m.message, step: 'unknown' };
-            }
-            const orderData = payload.order || {};
-            const displayText = payload.text || m.message;
-            
+            let meta = {};
+            try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
             row.className = 'bubble-row system order-update staff-view';
             row.innerHTML = `
                 <div class="msg-content-col">
                     <div class="order-update-bubble staff" onclick="openDetails(activeId)" title="Click to view order details">
-                        <div class="order-update-label">[ Order Update ]</div>
-                        <div class="order-update-content">
-                            <div class="order-thumb-wrap">
-                                <img src="${resolveAppUrl(orderData.image, DEFAULT_PROFILE_IMAGE)}" class="order-thumb" onerror="this.src='${DEFAULT_PROFILE_IMAGE}'" />
-                            </div>
-                            <div class="order-text">
-                                <div class="order-title">${escapeHtml(orderData.product_name || 'Order')}</div>
-                                <div class="order-message">${escapeHtml(displayText)}</div>
+                        <div class="order-thumb-wrap">
+                            <img src="${resolveAppUrl(m.thumbnail || `${window.baseUrl}/public/assets/images/services/default.png`, DEFAULT_PROFILE_IMAGE)}" class="order-thumb" onerror="this.onerror=null;this.src='${window.baseUrl}/public/assets/images/services/default.png'" />
+                        </div>
+                        <div class="order-text">
+                            <div class="order-update-badge">Order update</div>
+                            <div class="order-title">${escapeHtml(meta.product_name || 'Order')}</div>
+                            <div class="order-message">${escapeHtml(m.message || 'Order status updated')}</div>
+                            <div class="order-update-meta">
+                                <span class="order-update-time">${formatTime(m.created_at)}</span>
+                                <span class="order-update-cta">View details</span>
                             </div>
                         </div>
-                        <div class="order-update-time">${formatTime(m.created_at)}</div>
                     </div>
                 </div>
             `;

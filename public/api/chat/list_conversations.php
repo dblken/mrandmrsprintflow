@@ -53,6 +53,8 @@ try {
         $sql = "
         SELECT o.order_id, o.status, o.order_date, $archive_col as is_archived,
                (SELECT CASE 
+                    WHEN m.message_type = 'order_update' THEN (CASE WHEN JSON_VALID(m.message) THEN 'Order update' ELSE m.message END)
+                    WHEN m.message_type = 'order_update' THEN (CASE WHEN JSON_VALID(m.message) THEN 'Order update' ELSE m.message END)
                     WHEN m.message != '' THEN m.message 
                     WHEN m.message_type = 'image' THEN (CASE WHEN m.file_type = 'video' THEN '🎥 Video' ELSE '📸 Photo' END)
                     WHEN m.message_type = 'voice' THEN '🎤 Voice message'
@@ -150,6 +152,7 @@ try {
                c.online_status AS customer_status,
                $activity_sel
                (SELECT CASE 
+                    WHEN m.message_type = 'order_update' THEN (CASE WHEN JSON_VALID(m.message) THEN 'Order update' ELSE m.message END)
                     WHEN m.message != '' THEN m.message 
                     WHEN m.message_type = 'image' THEN (CASE WHEN m.file_type = 'video' THEN '🎥 Video' ELSE '📸 Photo' END)
                     WHEN m.message_type = 'voice' THEN '🎤 Voice message'

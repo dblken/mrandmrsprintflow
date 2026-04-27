@@ -99,6 +99,10 @@ if (!$is_job) {
 }
 
 if ($update_success) {
+    if (!$is_job) {
+        printflow_send_order_update($order_id, 'payment_submitted');
+    }
+
     // Keep linked production jobs in sync so staff Customizations → TO_VERIFY tab shows this row
     // (store payment only touched `orders`; merged list often hides ORDER when any JOB exists).
     if (!$is_job) {
