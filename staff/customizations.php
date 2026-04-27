@@ -594,10 +594,15 @@ if ($showLatestCustomizationOnly) {
         }
         .status-col-inner {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 6px;
             width: 100%;
             min-width: 0;
+        }
+        .status-col-inner > * {
+            max-width: 100%;
         }
         .action-col-cell {
             text-align: center;
@@ -617,8 +622,16 @@ if ($showLatestCustomizationOnly) {
             font-weight: 600;
             line-height: 1;
             white-space: nowrap;
+            max-width: 100%;
+        }
+        .order-code-cell,
+        .customization-info-cell {
+            min-width: 0;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+        .order-code-cell .table-text-main,
+        .customization-info-cell .table-text-main,
+        .customization-info-cell .table-text-sub {
             max-width: 100%;
         }
         .badge-pending { background:#fef9c3; color:#92400e; }
@@ -923,18 +936,18 @@ if ($showLatestCustomizationOnly) {
                         <tbody class="divide-y divide-gray-100">
                             <template x-for="jo in paginatedOrders" :key="(jo.order_type || 'JOB') + '-' + jo.id">
                                 <tr @click="viewDetails(jo.id, jo.order_type || 'JOB')" class="group transition-all relative cursor-pointer">
-                                    <td class="pl-6 pr-4 py-4 relative">
+                                    <td class="pl-6 pr-4 py-4 relative order-code-cell">
                                         <div class="row-indicator"></div>
                                         <span class="table-text-main truncate-ellipsis" :title="getDisplayOrderCode(jo)" x-text="getDisplayOrderCode(jo)"></span>
                                     </td>
-                                    <td class="px-4 py-4">
+                                    <td class="px-4 py-4 customization-info-cell">
                                         <div class="flex items-center gap-3">
                                             <div class="flex flex-col gap-0 min-w-0">
                                                 <div class="table-text-main truncate-ellipsis" :title="getRowDisplayName(jo)" x-text="getRowDisplayName(jo)"></div>
                                                 <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'×<span x-text="jo.height_ft"></span>' • <span x-text="jo.quantity"></span> pcs</div>
                                                 <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="false && jo.order_type !== 'SERVICE'"><span x-text="jo.width_ft"></span>'Ã—<span x-text="jo.height_ft"></span>' â€¢ <span x-text="jo.quantity"></span> pcs</div>
                                                 <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="jo.order_type !== 'SERVICE'" x-text="formatCustomizationInfo(jo)"></div>
-                                                <div class="table-text-sub uppercase tracking-wider" x-show="jo.order_type === 'SERVICE'">Service purchase</div>
+                                                <div class="table-text-sub uppercase tracking-wider truncate-ellipsis" x-show="jo.order_type === 'SERVICE'">Service purchase</div>
                                             </div>
                                         </div>
                                     </td>
