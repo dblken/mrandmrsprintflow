@@ -504,7 +504,7 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     /* Pinned Messages Styles */
-    .pinned-badge { position: absolute; bottom: -4px; right: -4px; width: 20px; height: 20px; background: #ef4444; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.3); z-index: 5; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .pinned-badge { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; background: #ef4444; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.4); z-index: 10; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .pinned-badge i { transform: rotate(45deg); }
     .pin-bar-active { background: rgba(239,68,68,0.06) !important; color: #b91c1c !important; cursor: pointer; }
     .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
@@ -906,7 +906,7 @@ function openPinnedModal(pinned) {
         div.id = 'pinnedModal';
         div.className = 'details-modal-overlay';
         div.innerHTML = `
-            <div class="details-modal-panel">
+            <div class="details-modal-panel" style="max-width:450px;">
                 <div class="details-modal-header">
                     <h2 style="font-size:1.1rem; font-weight:900; color:#1e293b; margin:0;">Pinned Messages</h2>
                     <button type="button" onclick="document.getElementById('pinnedModal').classList.remove('active')" style="border:none; background:transparent; cursor:pointer;">
@@ -1091,10 +1091,10 @@ function appendMsgUI(m) {
             <div class="b-actions">
                 <div class="ab" onclick="toggleReact(${m.id},event)" style="position:relative;"><i class="bi bi-emoji-smile"></i><div class="react-picker" id="rp-${m.id}">${Object.entries(EMOJIS).map(([k,v])=>`<span onclick="react(${m.id},'${k}')">${v}</span>`).join('')}</div></div>
                 <div class="ab" onclick="initReply(${m.id},'${msgB64}')"><i class="bi bi-reply-fill"></i></div>
-                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi bi-pin-angle"></i> Pin</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
+                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
             </div>
             <div class="bubble" style="position:relative;">
-                ${m.is_pinned ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
+                ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
                 ${m.reply_id ? `<div style="background:#f1f5f9; padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
                 ${contentHtml}
                 <div class="react-display" id="rd-${m.id}" style="display:none;"></div>
@@ -1221,12 +1221,7 @@ function renderReactions(id, rx) {
     el.style.display = 'flex';
 }
 
-function updatePinnedBar(pins) {
-    const bar = document.getElementById('pinnedBar');
-    if (!pins || !pins.length) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    document.getElementById('pinnedTxt').textContent = pins.length + ' pinned message' + (pins.length>1?'s':'');
-}
+
 
 function sendMsg() {
     if (pendingVoiceBlob) { sendVoice(); return; }
@@ -1477,7 +1472,23 @@ function onImgSelected() {
 function toggleReact(id, e) { e.stopPropagation(); const el = document.getElementById('rp-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
 function react(id, type) { const fd = new FormData(); fd.append('message_id',id); fd.append('reaction_type',type); api('/public/api/chat/react_message.php','POST',fd).then(r=>loadMsgs()); closeAllMenus(); }
 function toggleMore(id, e) { e.stopPropagation(); const el = document.getElementById('mm-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
-function pinMsg(id) { const fd = new FormData(); fd.append('message_id',id); api('/public/api/chat/pin_message.php','POST',fd).then(r=>loadMsgs()); closeAllMenus(); }
+function pinMsg(id) { 
+    const fd = new FormData(); 
+    fd.append('message_id', id); 
+    api('/public/api/chat/pin_message.php', 'POST', fd).then(r => {
+        lastId = 0; // Force full refresh to update pin indicators
+        loadMsgs();
+    }); 
+    closeAllMenus(); 
+}
+
+function goToMessage(id) {
+    const el = document.getElementById(`ms-${id}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.animation = 'highlightStaffMsg 2s ease';
+    }
+}
 
 let fwdMsgData = null, selectedFwd = [];
 function initFwd(id, msgB64) {

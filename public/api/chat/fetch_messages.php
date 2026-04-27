@@ -248,7 +248,7 @@ try {
     }
 
     // 6. Fetch all pinned messages for the Pinned Bar
-    $pinned_sql = "SELECT m.message_id as id, m.message, m.image_path, m.file_type, m.created_at,
+    $pinned_sql = "SELECT m.message_id as id, m.message, m.message_type, m.image_path, m.file_type, m.created_at,
                 CASE 
                     WHEN m.sender = 'Customer' THEN (SELECT CONCAT(first_name, ' ', last_name) FROM customers WHERE customer_id = m.sender_id)
                     WHEN m.sender = 'Staff' THEN (SELECT CONCAT(first_name, ' ', last_name) FROM users WHERE user_id = m.sender_id)
@@ -260,10 +260,16 @@ try {
     $pinned_messages_raw = db_query($pinned_sql, 'i', [$order_id]) ?: [];
     $pinned_messages = [];
     foreach ($pinned_messages_raw as $pm) {
-        if ($pm['image_path'] && !preg_match('#^https?://#i', $pm['image_path'])) {
-            if (strpos($pm['image_path'], '/printflow/') !== 0)
-                $pm['image_path'] = '/printflow/' . ltrim($pm['image_path'], '/');
+        $image_path = (string) ($pm['image_path'] ?? '');
+        if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
+            $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+            if ($image_path[0] !== '/') {
+                $image_path = $bp . '/' . $image_path;
+            } elseif ($bp !== '' && strpos($image_path, $bp . '/') !== 0) {
+                $image_path = $bp . $image_path;
+            }
         }
+        $pm['image_path'] = $image_path;
         $pm['created_at'] = date('M j, h:i A', strtotime($pm['created_at']));
         $pinned_messages[] = $pm;
     }

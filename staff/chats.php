@@ -469,12 +469,12 @@ $current_user = get_logged_in_user();
         @keyframes menuFade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .pinned-badge {
-            position: absolute; bottom: -4px; right: -4px;
-            width: 20px; height: 20px; background: #ef4444;
+            position: absolute; top: -10px; right: -10px;
+            width: 22px; height: 22px; background: #ef4444;
             color: #fff; border-radius: 50%; display: flex;
-            align-items: center; justify-content: center; font-size: 10px;
-            border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.3);
-            z-index: 5; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            align-items: center; justify-content: center; font-size: 11px;
+            border: 2px solid #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+            z-index: 10; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .pinned-badge i { transform: rotate(45deg); }
         .pin-bar-active { background: rgba(14,165,233,0.06) !important; color: #0369a1 !important; }
@@ -1524,7 +1524,7 @@ function appendMsgUI(m) {
                 <i class="bi bi-three-dots"></i>
                 <div class="m-more-menu" id="more-${m.id}">
                     <div class="m-menu-item" onclick="pinMessage(${m.id})">
-                        <i class="bi ${m.is_pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned ? 'Unpin' : 'Pin'}
+                        <i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}
                     </div>
                     <div class="m-menu-item" onclick="initForward(${m.id}, '${msgB64}', '${hasImg}')">
                         <i class="bi bi-arrow-right-short"></i> Forward
@@ -1533,7 +1533,7 @@ function appendMsgUI(m) {
             </div>
         </div>
         <div class="bubble" style="position:relative; ${isCallMsg ? 'max-width:none;' : ''}" id="bubble-${m.id}">
-            ${m.is_pinned ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
+            ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
             ${m.reply_id ? `<a href="javascript:void(0)" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior: 'smooth', block: 'center'})" class="reply-preview-bubble">↳ Replying: ${m.reply_image ? 'Photo' : (m.reply_message ? escapeHtml(m.reply_message) : 'Message')}</a>` : ''}
     `;
 
@@ -1696,6 +1696,7 @@ async function pinMessage(msgId) {
     fd.append('message_id', msgId);
     api('/public/api/chat/pin_message.php', 'POST', fd).then(res => {
         if (res.success) {
+            lastId = 0; // Force full refresh to update pin indicators
             loadMsgs();
             closeAllMenus();
         } else {
