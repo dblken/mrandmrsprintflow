@@ -431,6 +431,12 @@ $page_title = 'Dashboard - Admin | PrintFlow';
         /* Best Selling Services (ApexCharts) */
         .products-chart { height:300px; }
 
+        /* Top Performers toggle */
+        .performer-toggle { display:flex; gap:4px; background:#f3f4f6; padding:4px; border-radius:8px; }
+        .performer-btn { padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid transparent; cursor:pointer; transition:all 0.2s; color:#6b7280; background:transparent; line-height:1.4; }
+        .performer-btn.is-active { background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b; border-color:#e5e7eb; }
+        .performer-btn:focus-visible { outline:2px solid #53C5E0; outline-offset:2px; }
+
         /* 12-Month Trend */
         .trend12-chart { height:280px; }
 
@@ -832,12 +838,12 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                     <?php endif; ?>
                 </div>
 
-                <!-- Low Stock Alerts -->
+                <!-- Inventory Alerts -->
                 <div class="dash-card">
                     <div class="dash-card-title" style="justify-content: space-between;">
                         <span style="display: flex; align-items: center; gap: 8px;">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                            Low Stock Alerts
+                            Inventory Alerts
                         </span>
                         <?php if (!empty($low_stock)):
                             // Check if any item is out of stock (0)
@@ -862,6 +868,8 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                                 $limit = (float)$ls['low_limit'];
                                 $pct = $limit > 0 ? ($stock / $limit) * 100 : 0;
                                 $barClass = $stock <= 0 ? 'danger' : 'warning';
+                                $statusText = $stock <= 0 ? 'OUT OF STOCK' : 'LOW';
+                                $statusColor = $stock <= 0 ? '#ef4444' : '#d97706';
                             ?>
                             <tr>
                                 <td style="font-weight:600;" title="<?php echo htmlspecialchars($ls['material_name']); ?>">
@@ -874,7 +882,9 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                                 <td>
                                     <div style="display:flex; align-items:center; gap:6px;">
                                         <div class="stock-bar" style="width:50px;"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo min(100, max($pct, 10)); ?>%;"></div></div>
-                                        <span style="font-size:10px; font-weight:700; color:#ef4444;">LOW</span>
+                                        <span style="font-size:10px; font-weight:700; color:<?php echo $statusColor; ?>;">
+                                            <?php echo $statusText; ?>
+                                        </span>
                                     </div>
                                 </td>
                             </tr>
@@ -913,9 +923,9 @@ $page_title = 'Dashboard - Admin | PrintFlow';
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
                             Top Performers
                         </span>
-                        <div style="display: flex; gap: 4px; background: #f3f4f6; padding: 4px; border-radius: 8px;">
-                            <button @click="tab = 'products'" :style="tab === 'products' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Products</button>
-                            <button @click="tab = 'customers'" :style="tab === 'customers' ? 'background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.05); color:#00232b;' : 'color:#6b7280;'" style="padding:4px 12px; font-size:12px; font-weight:600; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s;">Customers</button>
+                        <div class="performer-toggle" role="tablist" aria-label="Top performers">
+                            <button type="button" class="performer-btn" :class="tab === 'products' ? 'is-active' : ''" @click="tab = 'products'" :aria-pressed="tab === 'products'">Products</button>
+                            <button type="button" class="performer-btn" :class="tab === 'customers' ? 'is-active' : ''" @click="tab = 'customers'" :aria-pressed="tab === 'customers'">Customers</button>
                         </div>
                     </div>
 
