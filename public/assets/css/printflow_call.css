@@ -2,9 +2,7 @@
 @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css");
 
 /**
- * PrintFlow Call UI v4.0 — Professional White Theme
- * =======================================
- * Premium, high-contrast light interface optimized for clarity and professionalism.
+ * PrintFlow Call UI v4.1 — Global & Stable
  */
 
 /* ── Base overlay ─────────────────────────────────────────────── */
@@ -13,7 +11,7 @@
     position: fixed;
     inset: 0;
     z-index: 99999;
-    background: rgba(255, 255, 255, 0.45); /* Elegant light overlay */
+    background: rgba(255, 255, 255, 0.45);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     align-items: center;
@@ -28,7 +26,52 @@
     display: flex;
 }
 
-/* ── Call card (Premium White Modal) ──────────────────────────────── */
+/* ── Messenger Style Toast ────────────────────────────────────── */
+#pf-call-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 100000;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 20px;
+    padding: 12px 16px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+#pf-call-toast.active {
+    display: flex;
+    transform: translateX(0);
+}
+
+.pf-toast-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.pf-toast-content { flex: 1; min-width: 0; }
+.pf-toast-name { font-weight: 800; font-size: 0.95rem; color: #0f172a; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-toast-status { font-size: 0.75rem; color: #64748b; font-weight: 600; }
+.pf-toast-actions { display: flex; gap: 8px; }
+.pf-toast-btn { width: 36px; height: 36px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.1rem; cursor: pointer; transition: transform 0.2s; }
+.pf-toast-btn:hover { transform: scale(1.1); }
+.pf-toast-accept { background: #10b981; }
+.pf-toast-reject { background: #f43f5e; }
+
+/* ── Call card ──────────────────────────────── */
 .pf-call-card {
     display: flex;
     flex-direction: column;
@@ -37,274 +80,75 @@
     background: #ffffff !important;
     border: 1px solid #e2e8f0;
     border-radius: 32px;
-    padding: 56px 40px 48px;
+    padding: 48px 32px;
     width: 100%;
     max-width: 400px;
-    box-shadow: 
-        0 25px 50px -12px rgba(0, 0, 0, 0.25),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     animation: pf-card-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative;
     z-index: 1;
 }
 
-/* ── Avatar Section ───────────────────────────────────────────── */
-.pf-avatar-ring {
-    position: relative;
-    width: 128px;
-    height: 128px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-}
+.pf-avatar-ring { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.pf-call-avatar-img { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); position: relative; z-index: 2; }
 
-.pf-call-avatar-img {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid #ffffff;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    position: relative;
-    z-index: 2;
-}
-
-/* Ripples for active calling */
-.pf-ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(13, 148, 136, 0.15);
-    opacity: 0;
-    pointer-events: none;
-}
-
-.pf-ripple-1 { width: 140px; height: 140px; }
-.pf-ripple-2 { width: 170px; height: 170px; }
-.pf-ripple-3 { width: 200px; height: 200px; }
-
+.pf-ripple { position: absolute; border-radius: 50%; background: rgba(13, 148, 136, 0.15); opacity: 0; pointer-events: none; }
+.pf-ripple-1 { width: 130px; height: 130px; }
+.pf-ripple-2 { width: 160px; height: 160px; }
+.pf-ripple-3 { width: 190px; height: 190px; }
 .pf-ripple-active .pf-ripple-1 { animation: pf-ripple-premium 2.5s ease-out infinite; }
 .pf-ripple-active .pf-ripple-2 { animation: pf-ripple-premium 2.5s ease-out 0.8s infinite; }
 .pf-ripple-active .pf-ripple-3 { animation: pf-ripple-premium 2.5s ease-out 1.6s infinite; }
 
-/* ── Typography (Professional Slate) ──────────────────────────────── */
 .pf-call-name {
-    font-size: 1.75rem;
+    font-size: 1.6rem;
     font-weight: 800;
     color: #1e293b !important;
-    letter-spacing: -0.02em;
     text-align: center;
     margin: 0;
     line-height: 1.2;
-}
-
-.pf-call-label {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #64748b !important;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 2px;
-}
-
-/* Professional Dot Pulse */
-.pf-call-overlay--calling  .pf-call-label::before,
-.pf-call-overlay--incoming .pf-call-label::before {
-    content: '';
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #0d9488;
-    animation: pf-pulse-dot-premium 1.5s infinite;
-}
-
-.pf-call-timer {
-    font-family: 'Inter', system-ui, sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0d9488;
-    letter-spacing: 1px;
-    background: #f0fdfa;
-    padding: 4px 16px;
-    border-radius: 99px;
-    margin-top: 8px;
-}
-
-/* ── Action Buttons ───────────────────────────────────────────── */
-.pf-call-actions {
-    display: flex;
-    gap: 24px;
-    justify-content: center;
-    align-items: flex-start;
-    margin-top: 24px;
-}
-
-.pf-btn-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.pf-btn {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-}
-
-.pf-btn i, .pf-btn svg {
-    color: #ffffff !important;
-}
-
-.pf-btn:hover { transform: translateY(-4px) scale(1.05); }
-.pf-btn:active { transform: scale(0.95); }
-
-/* Accept — Vibrant Emerald */
-.pf-btn-accept {
-    background: linear-gradient(135deg, #10b981, #059669);
-    box-shadow: 0 12px 24px rgba(16, 185, 129, 0.3);
-}
-
-/* Reject / End — Modern Rose/Red */
-.pf-btn-reject, .pf-btn-end {
-    background: linear-gradient(135deg, #f43f5e, #e11d48);
-    box-shadow: 0 12px 24px rgba(244, 63, 94, 0.3);
-}
-
-.pf-btn-end-large {
-    width: 80px;
-    height: 80px;
-}
-
-/* Mute — Professional Slate Gray */
-.pf-btn-mute {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-    box-shadow: none;
-}
-.pf-btn-mute i, .pf-btn-mute svg { color: #475569 !important; }
-.pf-btn-mute:hover { background: #e2e8f0; }
-
-.pf-btn-mute.muted {
-    background: #f43f5e;
-    border-color: #f43f5e;
-}
-.pf-btn-mute.muted i, .pf-btn-mute.muted svg { color: #ffffff !important; }
-
-.pf-btn-label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* ── Video Grid ────────────────────────────────────────────── */
-#pf-video-grid {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #0f172a;
-    z-index: 99998;
-    animation: pf-fade-in 0.5s ease;
-}
-
-#pf-remote-video {
+    word-break: break-word;
+    overflow-wrap: anywhere;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
-#pf-local-video {
-    position: absolute;
-    bottom: 32px;
-    right: 32px;
-    width: 180px;
-    height: 260px;
-    border-radius: 24px;
-    object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    z-index: 99999;
+.pf-call-label { font-size: 1rem; font-weight: 600; color: #64748b !important; display: flex; align-items: center; gap: 8px; }
+.pf-call-overlay--calling .pf-call-label::before,
+.pf-call-overlay--incoming .pf-call-label::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: #0d9488; animation: pf-pulse-dot-premium 1.5s infinite;
 }
 
-/* ── States ───────────────────────────────────────────────── */
-.pf-call-overlay--ended .pf-call-card {
-    border-top: 6px solid #f43f5e;
-}
-.pf-call-overlay--ended .pf-call-label {
-    color: #f43f5e !important;
-}
+.pf-call-timer { font-size: 1.2rem; font-weight: 700; color: #0d9488; background: #f0fdfa; padding: 4px 16px; border-radius: 99px; margin-top: 4px; }
+
+.pf-call-actions { display: flex; gap: 24px; margin-top: 24px; }
+.pf-btn-container { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pf-btn { width: 68px; height: 68px; border-radius: 50%; border: none; cursor: pointer; display: flex !important; align-items: center; justify-content: center; font-size: 1.8rem; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.pf-btn i, .pf-btn svg { color: #fff !important; }
+.pf-btn:hover { transform: translateY(-4px); }
+.pf-btn-accept { background: #10b981; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); }
+.pf-btn-reject, .pf-btn-end { background: #f43f5e; box-shadow: 0 10px 20px rgba(244, 63, 94, 0.3); }
+.pf-btn-mute { background: #f1f5f9; color: #475569; }
+.pf-btn-mute i, .pf-btn-mute svg { color: #475569 !important; }
+.pf-btn-mute.muted { background: #f43f5e; }
+.pf-btn-mute.muted i, .pf-btn-mute.muted svg { color: #fff !important; }
+.pf-btn-label { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
+
+#pf-video-grid { display: none; position: fixed; inset: 0; background: #000; z-index: 99998; }
+#pf-remote-video { width: 100%; height: 100%; object-fit: cover; }
+#pf-local-video { position: absolute; bottom: 32px; right: 32px; width: 160px; height: 220px; border-radius: 16px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3); }
 
 /* ── Animations ────────────────────────────────────────────── */
 @keyframes pf-overlay-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pf-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pf-card-in { 
-    from { opacity: 0; transform: scale(0.9) translateY(30px); } 
-    to { opacity: 1; transform: scale(1) translateY(0); } 
-}
-@keyframes pf-ripple-premium {
-    0% { transform: scale(1); opacity: 0.5; }
-    100% { transform: scale(1.6); opacity: 0; }
-}
-@keyframes pf-pulse-dot-premium {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.4); opacity: 0.5; }
-}
+@keyframes pf-card-in { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes pf-ripple-premium { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes pf-pulse-dot-premium { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } }
 
-/* ── Responsive ────────────────────────────────────────────── */
+/* ── Call History Bubbles ───────────────────── */
+.call-event-bubble { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; margin: 8px auto; background: #fff; border: 1px solid #e2e8f0; color: #475569; }
+.call-event-bubble.missed { color: #e11d48; background: #fff1f2; border-color: #fecdd3; }
+.call-event-bubble.ended { color: #0d9488; background: #f0fdfa; border-color: #ccfbf1; }
+
 @media (max-width: 480px) {
-    .pf-call-card { padding: 48px 24px 40px; max-width: 90vw; }
-    .pf-call-name { font-size: 1.5rem; }
-    .pf-btn { width: 64px; height: 64px; }
-}
-
-/* ── System Message Bubbles (White Theme Sync) ───────────────────── */
-.call-event-bubble {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 18px;
-    border-radius: 14px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    width: fit-content;
-    max-width: 300px;
-    margin: 8px auto;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    color: #475569;
-}
-
-.call-event-bubble.missed {
-    color: #e11d48;
-    background: #fff1f2;
-    border-color: #fecdd3;
-}
-
-.call-event-bubble.ended {
-    color: #0d9488;
-    background: #f0fdfa;
-    border-color: #ccfbf1;
-}
-
-/* Force Customer theme to use these light styles too */
-.customer-theme .pf-call-card, 
-.customer-theme .call-event-bubble {
-    background: #ffffff !important;
-    color: #1e293b !important;
+    .pf-call-card { padding: 40px 24px; max-width: 90vw; }
+    #pf-call-toast { left: 10px; right: 10px; max-width: none; min-width: 0; top: 10px; }
 }

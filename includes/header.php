@@ -197,6 +197,26 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
         /* Suppress browser-native :invalid styling globally — validation is JS-driven */
         input:invalid, select:invalid, textarea:invalid { box-shadow: none !important; outline-color: initial !important; }
     </style>
+    
+    <!-- PrintFlow Call & Signaling System (Global) -->
+    <?php if ($is_logged_in): ?>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/printflow_call.css?v=<?php echo $ver; ?>">
+    <script src="<?php echo $asset_base; ?>/assets/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.PFCall) {
+                window.PFCall.init({
+                    userId: <?php echo json_encode(get_user_id()); ?>,
+                    userType: <?php echo json_encode(get_user_type()); ?>,
+                    userName: <?php echo json_encode($current_user['full_name'] ?? 'User'); ?>,
+                    userAvatar: <?php echo json_encode($current_user['avatar'] ?? ''); ?>,
+                    basePath: <?php echo json_encode($base_path); ?>
+                });
+            }
+        });
+    </script>
+    <?php endif; ?>
 </head>
 <body class="bg-gray-50<?php echo !empty($use_landing_css) ? ' lp-page' : ''; ?><?php echo !empty($use_customer_css) ? ' customer-theme' : ''; ?><?php echo !empty($is_chat_page) ? ' chat-page' : ''; ?>">
     <!-- Skip to main content (accessibility) - hidden until focused -->

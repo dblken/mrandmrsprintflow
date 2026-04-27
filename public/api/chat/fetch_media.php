@@ -115,6 +115,14 @@ foreach ($media as $item) {
     if ($f_type !== 'image' && $f_type !== 'video') continue;
 
     $public_url = pf_chat_media_public_url($path);
+    
+    // Wrap video in proxy
+    if ($f_type === 'video' && !preg_match('#^https?://#i', $public_url)) {
+        $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+        $filename = basename($public_url);
+        $public_url = $bp . '/public/serve_chat_video.php?file=' . urlencode($filename);
+    }
+
     $results[] = [
         'message_file' => $public_url,
         'file_type' => $f_type

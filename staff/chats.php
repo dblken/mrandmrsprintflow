@@ -212,19 +212,19 @@ $current_user = get_logged_in_user();
             margin-top: 2px;
         }
 
-        /* Call Log Bubbles */
+        /* Call Log Bubbles (Messenger Style) */
         .call-log-bubble {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
-            border-radius: 20px;
+            padding: 12px 18px;
+            border-radius: 22px;
             font-size: 0.88rem;
             font-weight: 600;
             cursor: default;
             user-select: none;
             transition: all 0.2s;
-            max-width: 260px;
+            min-width: 180px;
             position: relative;
         }
         .bubble-row.other .call-log-bubble {
@@ -235,26 +235,26 @@ $current_user = get_logged_in_user();
         }
         .bubble-row.self .call-log-bubble {
             background: #ffffff;
-            color: #0a2530;
-            border: 1px solid rgba(10, 37, 48, 0.1);
+            color: #0f172a;
+            border: 1px solid rgba(0,0,0,0.08);
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
         .call-log-icon {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
         }
-        .bubble-row.other .call-log-icon { background: #f1f5f9; color: #64748b; }
-        .bubble-row.self .call-log-icon { background: #f1f5f9; color: #0a2530; }
+        .call-log-icon.missed { background: #fff1f2 !important; color: #e11d48 !important; }
+        .call-log-icon.ended { background: #f0fdfa !important; color: #0d9488 !important; }
         
-        .call-log-details { display: flex; flex-direction: column; gap: 1px; }
-        .call-log-title { font-weight: 800; font-size: 0.9rem; }
-        .call-log-status { font-size: 0.72rem; font-weight: 600; opacity: 0.6; }
+        .call-log-details { display: flex; flex-direction: column; gap: 0px; flex: 1; }
+        .call-log-title { font-weight: 800; font-size: 0.92rem; line-height: 1.2; }
+        .call-log-status { font-size: 0.75rem; font-weight: 700; opacity: 0.5; line-height: 1.2; }
 
         /* --- Messenger Layout --- */
         .msg-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e2e8f0; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; color: #475569; flex-shrink: 0; }
@@ -970,19 +970,8 @@ $current_user = get_logged_in_user();
     </div>
 </div>
 
-<!-- Socket.IO for WebRTC signaling -->
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<!-- Load call system assets -->
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css">
-<script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js"></script>
+<!-- Socket.IO and Call System now loaded globally via header.php -->
 <script>
-// Inject the socket server URL so PFCall connects to the right server on production
-window.PF_CALL_SERVER_URL = '<?php
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    // Use port 3000 on same host — Nginx/Apache proxy should forward /socket.io/ to this
-    echo rtrim($proto . '://' . $host, '/') . ':3000';
-?>';
 window.baseUrl = '<?php echo BASE_URL; ?>';
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;
@@ -1413,7 +1402,9 @@ function openPinnedModal(pinned) {
         } else if (m.message_type === 'video' || m.file_type === 'video') {
             const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
             mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#000;">
-                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"></video>
+                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"
+                    onerror="this.insertAdjacentHTML('afterend', '<div style=\'padding:10px; background:#f1f5f9; border-radius:8px; font-size:0.8rem; color:#64748b; text-align:center;\'><i class=\'bi bi-exclamation-triangle-fill\'></i> Video unavailable</div>'); this.style.display=\'none\';">
+                </video>
             </div>`;
         } else if (m.message_type === 'image' || m.image_path) {
             const src = resolveAppUrl(m.image_path || m.message_file || m.file_path);
@@ -1550,17 +1541,15 @@ function appendMsgUI(m) {
 
     if (isCallLog) {
         const isVideo = m.message.toLowerCase().includes('video');
-        const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy');
+        const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy') || m.message.toLowerCase().includes('no answer');
         const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
-        
-        let title = m.message;
         const statusText = m.is_self ? 'Outgoing' : 'Incoming';
 
         colHtml += `
             <div class="call-log-bubble">
-                <div class="call-log-icon" style="${isMissed ? 'color: #ef4444; background: #fef2f2;' : ''}">${icon}</div>
+                <div class="call-log-icon ${isMissed ? 'missed' : 'ended'}">${icon}</div>
                 <div class="call-log-details">
-                    <div class="call-log-title" style="${isMissed ? 'color: #ef4444;' : ''}">${escapeHtml(title)}</div>
+                    <div class="call-log-title" style="${isMissed ? 'color: #e11d48;' : 'color: #0d9488;'}">${escapeHtml(m.message)}</div>
                     <div class="call-log-status">${statusText}</div>
                 </div>
             </div>
@@ -1582,7 +1571,9 @@ function appendMsgUI(m) {
     } else if (m.message_type === 'video' || m.file_type === 'video') {
         const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         colHtml += `<div class="chat-video-wrapper" onclick="zoomVideo('${videoSrc.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:280px;background:#000;margin-bottom:4px;">
-            <video src="${videoSrc}" style="width:100%;max-width:280px;display:block;border-radius:12px;" preload="metadata" muted playsinline></video>
+            <video src="${videoSrc}" style="width:100%;max-width:280px;display:block;border-radius:12px;" preload="metadata" muted playsinline
+                onerror="this.insertAdjacentHTML('afterend', '<div style=\'padding:20px; color:#fff; font-size:0.8rem; text-align:center;\'><i class=\'bi bi-play-btn\'></i><br>Video unavailable</div>'); this.style.display=\'none\';">
+            </video>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                 <div style="width:48px;height:48px;background:rgba(0,0,0,0.55);border-radius:50%;display:flex;align-items:center;justify-content:center;">
                     <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -2142,7 +2133,9 @@ function renderMediaGrid() {
             </div>`;
         } else {
             return `<div class="gallery-item" onclick="zoomVideo('${m.message_file.replace(/'/g, "\\'")}')">
-                <video src="${m.message_file}#t=0.1" preload="metadata" muted></video>
+                <video src="${m.message_file}#t=0.1" preload="metadata" muted
+                    onerror="this.parentElement.innerHTML = '<div style=\'height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; font-size:0.7rem;\'><i class=\'bi bi-camera-video-off\' style=\'font-size:1.2rem;\'></i><span>Unavailable</span></div>';">
+                </video>
                 <div class="vid-icon"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
             </div>`;
         }

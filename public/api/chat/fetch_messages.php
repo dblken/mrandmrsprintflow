@@ -129,6 +129,14 @@ try {
                 $m_type = 'voice';
             }
 
+            // Wrap video path in proxy if it's a local video
+            $raw_m_file = (string)($msg['message_file'] ?? '');
+            if ($m_type === 'video' && $raw_m_file !== '' && !preg_match('#^https?://#i', $raw_m_file)) {
+                $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+                $filename = basename($raw_m_file);
+                $raw_m_file = $bp . '/public/serve_chat_video.php?file=' . urlencode($filename);
+            }
+
             $messages[] = [
                 'id' => $msg['message_id'],
                 'message' => $msg['message'] ?? '',

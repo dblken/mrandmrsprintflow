@@ -22,9 +22,7 @@ $disable_turbo = true;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-<!-- Load Socket.io and WebRTC Assets -->
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<link rel="stylesheet" href="<?= BASE_URL ?>/public/assets/css/printflow_call.css">
+<!-- Socket.IO and Call System now loaded globally via header.php -->
 
 <style>
     :root {
@@ -160,16 +158,18 @@ require_once __DIR__ . '/../includes/header.php';
     .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
 
-    /* Call Log Bubbles */
-    .call-log-bubble { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:20px; font-size:.88rem; font-weight:600; cursor:default; user-select:none; max-width:260px; }
-    .brow.other .call-log-bubble { background:#fff; color:#1e293b; border:1px solid var(--pf-border); }
-    .brow.self .call-log-bubble { background:#fff; color:#0a2530; border:1px solid rgba(10,37,48,0.1); }
-    .call-log-icon { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1.1rem; }
-    .brow.other .call-log-icon { background:#f1f5f9; color:#64748b; }
-    .brow.self .call-log-icon { background:#f1f5f9; color:#0a2530; }
-    .call-log-details { display:flex; flex-direction:column; gap:1px; }
-    .call-log-title { font-weight:800; font-size:.9rem; line-height: 1.2; }
-    .call-log-status { font-size:.72rem; font-weight:600; opacity:0.6; line-height: 1.2; }
+    /* Call Log Bubbles (Messenger Style) */
+    .call-log-bubble { display:flex; align-items:center; gap:12px; padding:12px 18px; border-radius:22px; font-size:.88rem; font-weight:600; cursor:default; user-select:none; min-width:180px; transition: all 0.2s; }
+    .brow.other .call-log-bubble { background:#fff; color:#1e293b; border:1px solid var(--pf-border); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+    .brow.self .call-log-bubble { background:#fff; color:#0f172a; border:1px solid rgba(0,0,0,0.08); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+    
+    .call-log-icon { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1.15rem; transition: all 0.2s; }
+    .call-log-icon.missed { background:#fff1f2 !important; color:#e11d48 !important; }
+    .call-log-icon.ended { background:#f0fdfa !important; color:#0d9488 !important; }
+    
+    .call-log-details { display:flex; flex-direction:column; gap:0px; flex: 1; }
+    .call-log-title { font-weight:800; font-size:.92rem; line-height: 1.2; }
+    .call-log-status { font-size:.75rem; font-weight:700; opacity:0.5; line-height: 1.2; }
 
     .brow.system.order-update-card { justify-content:flex-end; margin:12px 0; }
     .order-update-bubble { background:rgba(255,255,255,0.92); border:1px solid var(--pf-border); border-radius:18px; padding:1rem; max-width:320px; position:relative; box-shadow:0 4px 12px rgba(15,23,42,0.05); cursor:pointer; transition:all .2s cubic-bezier(.4,0,.2,1); }
@@ -978,7 +978,9 @@ function openPinnedModal(pinned) {
         } else if (m.message_type === 'video' || m.file_type === 'video') {
             const src = resolveAppUrl(m.message_file || m.file_path || m.image_path);
             mediaHtml = `<div style="margin-top:8px; border-radius:12px; overflow:hidden; background:#000;">
-                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"></video>
+                <video src="${src}" controls style="width:100%; max-height:200px; display:block;"
+                    onerror="this.insertAdjacentHTML('afterend', '<div style=\'padding:10px; background:#f1f5f9; border-radius:8px; font-size:0.8rem; color:#64748b; text-align:center;\'><i class=\'bi bi-exclamation-triangle-fill\'></i> Video unavailable</div>'); this.style.display=\'none\';">
+                </video>
             </div>`;
         } else if (m.message_type === 'image' || m.image_path) {
             const src = resolveAppUrl(m.image_path || m.message_file || m.file_path);
@@ -1080,16 +1082,15 @@ function appendMsgUI(m) {
     let contentHtml = '';
     if (isCallLog) {
         const isVideo = m.message.toLowerCase().includes('video');
-        const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy');
+        const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy') || m.message.toLowerCase().includes('no answer');
         const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
-        let title = m.message;
         const statusText = m.is_self ? 'Outgoing' : 'Incoming';
 
         contentHtml = `
             <div class="call-log-bubble">
-                <div class="call-log-icon" style="${isMissed ? 'color: #ef4444; background: #fef2f2;' : ''}">${icon}</div>
+                <div class="call-log-icon ${isMissed ? 'missed' : 'ended'}">${icon}</div>
                 <div class="call-log-details">
-                    <div class="call-log-title" style="${isMissed ? 'color: #ef4444;' : ''}">${esc(title)}</div>
+                    <div class="call-log-title" style="${isMissed ? 'color: #e11d48;' : 'color: #0d9488;'}">${esc(m.message)}</div>
                     <div class="call-log-status">${statusText}</div>
                 </div>
             </div>
@@ -1112,7 +1113,9 @@ function appendMsgUI(m) {
         const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         contentHtml = `
             <div class="chat-video-wrapper" onclick="zoomVideo('${videoSrc.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:250px;background:#000;margin-bottom:5px;">
-                <video src="${videoSrc}" style="width:100%;display:block;border-radius:12px;" preload="metadata" muted playsinline></video>
+                <video src="${videoSrc}" style="width:100%;display:block;border-radius:12px;" preload="metadata" muted playsinline
+                    onerror="this.insertAdjacentHTML('afterend', '<div style=\'padding:20px; color:#fff; font-size:0.8rem; text-align:center;\'><i class=\'bi bi-play-btn\'></i><br>Video unavailable</div>'); this.style.display=\'none\';">
+                </video>
                 <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="width:40px;height:40px;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;">
                         <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -1762,7 +1765,9 @@ function renderGallery() {
         const url = resolveAppUrl(m.message_file);
         if (isVid) {
             return `<div class="gal-item" onclick="zoomVideo('${url.replace(/'/g, "\\'")}')">
-                <video src="${url}#t=0.1" preload="metadata" muted></video>
+                <video src="${url}#t=0.1" preload="metadata" muted
+                    onerror="this.insertAdjacentHTML('afterend', '<div style=\'height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; font-size:0.7rem;\'><i class=\'bi bi-camera-video-off\' style=\'font-size:1.2rem;\'></i><span>Unavailable</span></div>\'); this.style.display=\'none\';">
+                </video>
                 <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.15);">
                     <i class="bi bi-play-circle-fill" style="color:#fff; font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
                 </div>
