@@ -975,29 +975,35 @@ $current_user = get_logged_in_user();
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css?v=1.1">
 <script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js?v=1.1" defer></script>
 <script>
-    (function() {
-        function initPFCall() {
-            if (window.PFCall && typeof window.PFCall.init === "function") {
-                window.PFCall.init({
-                    userId: <?php echo json_encode(get_user_id()); ?>,
-                    userType: <?php echo json_encode(get_user_type()); ?>,
-                    userName: <?php echo json_encode($current_user['full_name'] ?? 'Staff'); ?>,
-                    userAvatar: <?php echo json_encode(get_profile_image($current_user['profile_picture'] ?? '')); ?>,
-                    basePath: <?php echo json_encode(BASE_URL); ?>
-                });
-            } else {
-                setTimeout(initPFCall, 100);
-            }
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initPFCall);
+window.onerror = function(msg, url, line) {
+    console.error("[PrintFlow][JS] Error:", msg, "at", url, ":", line);
+    return false;
+};
+
+(function() {
+    function initPFCall() {
+        if (window.PFCall && typeof window.PFCall.init === "function") {
+            window.PFCall.init({
+                userId: <?php echo json_encode(get_user_id()); ?>,
+                userType: <?php echo json_encode(get_user_type()); ?>,
+                userName: <?php echo json_encode($current_user['full_name'] ?? 'Staff'); ?>,
+                userAvatar: <?php echo json_encode(get_profile_image($current_user['profile_picture'] ?? '')); ?>,
+                basePath: <?php echo json_encode(BASE_URL); ?>
+            });
+            document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
         } else {
-            initPFCall();
+            setTimeout(initPFCall, 100);
         }
-    })();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPFCall);
+    } else {
+        initPFCall();
+    }
+})();
 </script>
 <script>
-window.baseUrl = '<?php echo BASE_URL; ?>';
+window.baseUrl = <?= json_encode(BASE_URL); ?>;
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;
 let activeId = null;

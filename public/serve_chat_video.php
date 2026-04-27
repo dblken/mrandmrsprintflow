@@ -1,7 +1,6 @@
 <?php
 /**
  * Serve chat videos securely from the root uploads folder.
- * Supports Byte-Range requests for streaming large files.
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
@@ -11,102 +10,40 @@ if (!is_logged_in()) {
     exit('Forbidden');
 }
 
-$file = $_GET['file'] ?? '';
+$file = basename($_GET['file'] ?? '');
 if ($file === '') {
     http_response_code(400);
-    exit('Missing file parameter');
+    exit('Missing file');
 }
 
-// Security: Prevent directory traversal
-$file = basename($file);
-// Prioritize public/uploads as that's where the chat folder actually lives
-$fallbacks = [
-    __DIR__ . '/uploads/chat/videos/' . $file, // Relative to public/
-    __DIR__ . '/../uploads/chat/videos/' . $file, // Project root
+// Check multiple potential locations for the video
+$locations = [
+    __DIR__ . '/uploads/chat/videos/' . $file,
+    __DIR__ . '/../uploads/chat/videos/' . $file,
+    dirname(__DIR__) . '/uploads/chat/videos/' . $file
 ];
 
-$fullPath = '';
-foreach ($fallbacks as $path) {
-    if (is_file($path)) {
-        $fullPath = $path;
+$foundPath = null;
+foreach ($locations as $path) {
+    if (file_exists($path)) {
+        $foundPath = $path;
         break;
     }
 }
 
-if (!$fullPath) {
+if (!$foundPath) {
     http_response_code(404);
-    error_log("[PrintFlow][Video] File missing: " . $file);
-    exit('Video file missing');
+    error_log("[PrintFlow][Video] Not found: " . $file);
+    exit('Video not found');
 }
 
-if (!is_file($fullPath)) {
-    http_response_code(404);
-    error_log("[PrintFlow][Video] File missing: " . $fullPath);
-    exit('Video file missing');
-}
+$mime = 'video/mp4';
+$ext = strtolower(pathinfo($foundPath, PATHINFO_EXTENSION));
+if ($ext === 'webm') $mime = 'video/webm';
+if ($ext === 'mov') $mime = 'video/quicktime';
 
-if (!is_readable($fullPath)) {
-    http_response_code(503);
-    error_log("[PrintFlow][Video] Permission denied: " . $fullPath);
-    exit('Permission denied');
-}
-
-$size = filesize($fullPath);
-$start = 0;
-$end = $size - 1;
-
-$ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-$mime = match ($ext) {
-    'webm' => 'video/webm',
-    'mov' => 'video/quicktime',
-    'ogv' => 'video/ogg',
-    'avi' => 'video/x-msvideo',
-    default => 'video/mp4',
-};
-
-header('Content-Type: ' . $mime);
-header('Accept-Ranges: bytes');
-header('X-Content-Type-Options: nosniff');
-
-if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', (string)$_SERVER['HTTP_RANGE'], $matches)) {
-    $start = (int)$matches[1];
-    if ($matches[2] !== '') {
-        $end = (int)$matches[2];
-    }
-    if ($start > $end || $start >= $size) {
-        http_response_code(416);
-        header("Content-Range: bytes */{$size}");
-        exit;
-    }
-
-    http_response_code(206);
-    header("Content-Range: bytes {$start}-{$end}/{$size}");
-    header('Content-Length: ' . (($end - $start) + 1));
-} else {
-    header('Content-Length: ' . $size);
-}
-
-$fp = fopen($fullPath, 'rb');
-if ($fp === false) {
-    http_response_code(500);
-    exit('Unable to read video');
-}
-
-fseek($fp, $start);
-$remaining = $end - $start + 1;
-$chunkSize = 8192;
-
-while (!feof($fp) && $remaining > 0) {
-    $readLength = min($chunkSize, $remaining);
-    $buffer = fread($fp, $readLength);
-    if ($buffer === false) {
-        break;
-    }
-    echo $buffer;
-    flush();
-    $remaining -= strlen($buffer);
-}
-
-fclose($fp);
+header("Content-Type: $mime");
+header("Content-Length: " . filesize($foundPath));
+header("Accept-Ranges: bytes");
+readfile($foundPath);
 exit;
-?>

@@ -687,9 +687,14 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
 <script>
+window.onerror = function(msg, url, line) {
+    console.error("[PrintFlow][JS] Error:", msg, "at", url, ":", line);
+    return false;
+};
+
 window.PF_CALL_SERVER_URL = <?= json_encode(((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':3000') ?>;
 const BASE = <?= json_encode(BASE_URL) ?>;
-const ME_ID = <?= (int)$user_id ?>;
+const ME_ID = <?= json_encode((int)$user_id) ?>;
 const ME_NAME = <?= json_encode($user_name) ?>;
 const ME_AVATAR = <?= json_encode(get_profile_image($user_avatar)) ?>;
 const DEFAULT_PROFILE_IMAGE = `${BASE}/public/assets/uploads/profiles/default.png`;
@@ -698,6 +703,31 @@ const EMOJIS = {like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢',
 
 let activeId = null, lastId = 0, pollTimer = null;
 window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
+
+// --- PrintFlow Call System Initialization ---
+(function() {
+    function initPFCall() {
+        if (window.PFCall && typeof window.PFCall.init === "function") {
+            window.PFCall.init({
+                userId: ME_ID,
+                userType: 'customer',
+                userName: ME_NAME,
+                userAvatar: ME_AVATAR,
+                basePath: BASE
+            });
+            document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
+        } else {
+            setTimeout(initPFCall, 100);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPFCall);
+    } else {
+        initPFCall();
+    }
+})();
+
+
 let initialOrderHandled = false;
 
 let isArchView = false, isConvArch = false, uploads = [], pfc = null;

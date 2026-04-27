@@ -133,22 +133,31 @@
 
         _connectSocket() {
             if (this.socket) return;
-            if (typeof io === 'undefined') return;
+            if (typeof io === 'undefined') {
+                console.error("[PFCall] Socket.IO library (io) not found. Signaling disabled.");
+                return;
+            }
 
             const host = window.location.hostname;
             const protocol = window.location.protocol;
-            const isLocal = host === 'localhost' || host === '127.0.0.1';
-            const url = isLocal ? `${protocol}//${host}:3000` : `${protocol}//${host}`;
+            // Use port 3000 for signaling as per requirement
+            const url = `${protocol}//${host}:3000`;
+
+            console.log(`[PFCall] Connecting to signaling server: ${url}`);
 
             this.socket = io(url, {
                 transports: ['websocket', 'polling'],
                 query: { userId: this.userId, userType: this.userType },
                 secure: protocol === 'https:',
                 reconnection: true,
-                reconnectionAttempts: 10
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000
             });
 
             this.socket.on('connect', () => {
+                console.log("[PFCall] Socket connected successfully.");
                 this.isSocketConnected = true;
                 this.socket.emit('register', {
                     userId: this.userId,
@@ -189,10 +198,13 @@
             try {
                 this.localStream = await this._getMedia(type === 'video');
                 if (this.state !== PF_STATE.CALLING) return;
+                
+                this.activeOrderId = (window.PFCallState ? window.PFCallState.activeId : null) || (typeof activeId !== 'undefined' ? activeId : null);
+
                 this.socket.emit('callUser', {
                     toUserId: targetId, toUserType: targetType, type: type,
                     fromName: this.userName, fromAvatar: this.userAvatar,
-                    orderId: (window.PFCallState ? window.PFCallState.activeId : null)
+                    orderId: this.activeOrderId
                 });
             } catch (err) {
                 this._flashEnded('Camera/Mic access denied.');
@@ -209,6 +221,13 @@
             this.partnerType = data.fromUserType || data.callerType;
             this.callType = data.type || 'voice';
             this.isInitiator = false;
+            
+            // Critical: Store the orderId from the signaling payload
+            this.activeOrderId = data.orderId || null;
+            if (this.activeOrderId && window.PFCallState) {
+                window.PFCallState.activeId = this.activeOrderId;
+            }
+
             this.audio.play(this.basePath);
             if (!document.querySelector('.chat-page') || !this._tabActive) {
                 this._showToast(data);
@@ -278,8 +297,11 @@
         _onCallEnded() { this._flashEnded('Call ended.'); }
 
         _logCallEvent(type, duration = 0) {
-            const orderId = (window.PFCallState && window.PFCallState.activeId) || (typeof activeId !== 'undefined' ? activeId : null);
-            if (!orderId) return;
+            const orderId = this.activeOrderId || (window.PFCallState && window.PFCallState.activeId) || (typeof activeId !== 'undefined' ? activeId : null);
+            if (!orderId) {
+                console.warn("[PFCall] Cannot log call event: No orderId associated with this session.");
+                return;
+            }
             const fd = new FormData();
             fd.append('order_id', orderId);
             fd.append('event_type', type);
@@ -287,7 +309,12 @@
             fd.append('duration', duration);
             fd.append('caller_id', this.isInitiator ? this.userId : this.partnerId);
             fd.append('caller_type', this.isInitiator ? this.userType : this.partnerType);
-            fetch(`${this.basePath}/public/api/chat/send_call_event.php`, { method: 'POST', body: fd }).catch(() => {});
+            fetch(`${this.basePath}/public/api/chat/send_call_event.php`, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) console.error("[PFCall] Failed to log event:", res.error);
+                })
+                .catch(err => console.error("[PFCall] Network error logging event:", err));
         }
 
         $(id) { return document.getElementById(id); }

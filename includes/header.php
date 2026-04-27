@@ -214,6 +214,7 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
                         userAvatar: <?php echo json_encode($current_user['avatar'] ?? ''); ?>,
                         basePath: <?php echo json_encode($base_path); ?>
                     });
+                    document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
                 } else {
                     setTimeout(initPFCall, 100);
                 }
