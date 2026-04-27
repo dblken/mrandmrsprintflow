@@ -26,7 +26,7 @@ $branchCtx = init_branch_context(false); // analytics-style — allow All
 $branchId  = $branchCtx['selected_branch_id'];
 
 // Get filter parameters
-$status_filter  = $_GET['status']   ?? '';
+$status_filter  = trim((string)($_GET['status'] ?? ''));
 $search         = $_GET['search']   ?? '';
 $date_from      = $_GET['date_from'] ?? '';
 $date_to        = $_GET['date_to']   ?? '';
@@ -37,6 +37,33 @@ if ($branchId !== 'all') {
 }
 $page     = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
+
+function admin_order_status_groups(): array {
+    return [
+        'Pending' => ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'],
+        'Ready for Pickup' => ['Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design'],
+        'Completed' => ['Completed'],
+        'Cancelled' => ['Cancelled'],
+    ];
+}
+
+function admin_resolve_status_filter(string $statusFilter): string {
+    $statusFilter = trim($statusFilter);
+    if ($statusFilter === '') {
+        return '';
+    }
+
+    $normalized = strtolower($statusFilter);
+    return match ($normalized) {
+        'to verify', 'pending', 'pending orders' => 'Pending',
+        'to pick up', 'to pickup', 'ready for pickup', 'processing' => 'Ready for Pickup',
+        'completed' => 'Completed',
+        'cancelled', 'canceled' => 'Cancelled',
+        default => '',
+    };
+}
+
+$status_filter = admin_resolve_status_filter($status_filter);
 
 // Build query (always join branches)
 $sql = "SELECT o.*, CONCAT(c.first_name, ' ', c.last_name) as customer_name, c.email as customer_email, b.branch_name,
@@ -68,10 +95,17 @@ if ($branch_filter !== '') {
     $types .= 'i';
 }
 
-if (!empty($status_filter)) {
-    $sql .= " AND o.status = ?";
-    $params[] = $status_filter;
-    $types .= 's';
+if ($status_filter !== '') {
+    $statusGroups = admin_order_status_groups();
+    $allowedStatuses = $statusGroups[$status_filter] ?? [];
+    if (!empty($allowedStatuses)) {
+        $placeholders = implode(',', array_fill(0, count($allowedStatuses), '?'));
+        $sql .= " AND o.status IN ({$placeholders})";
+        foreach ($allowedStatuses as $allowedStatus) {
+            $params[] = $allowedStatus;
+            $types .= 's';
+        }
+    }
 }
 
 if (!empty($date_from)) {
@@ -113,8 +147,16 @@ if ($branch_filter !== '') {
     $count_sql .= " AND o.branch_id = " . (int)$branch_filter;
 }
 
-if (!empty($status_filter)) {
-    $count_sql .= " AND o.status = '" . $conn->real_escape_string($status_filter) . "'";
+if ($status_filter !== '') {
+    $statusGroups = admin_order_status_groups();
+    $allowedStatuses = $statusGroups[$status_filter] ?? [];
+    if (!empty($allowedStatuses)) {
+        $escapedStatuses = array_map(
+            static fn($s) => "'" . $conn->real_escape_string($s) . "'",
+            $allowedStatuses
+        );
+        $count_sql .= " AND o.status IN (" . implode(',', $escapedStatuses) . ")";
+    }
 }
 
 if (!empty($date_from)) {
@@ -152,10 +194,37 @@ $orders = db_query($sql, $types, $params);
 [$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
 
 $total_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE 1=1 {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Pending' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$processing_count = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Processing' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
-$ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Ready for Pickup' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$pending_count    = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status IN ('Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$ready_count      = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status IN ('Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design') {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
 $completed_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Completed' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+$cancelled_count  = db_query("SELECT COUNT(*) as count FROM orders o WHERE o.status = 'Cancelled' {$bSqlFrag}", $bT ?: null, $bP ?: null)[0]['count'] ?? 0;
+
+function admin_display_status(string $status): string {
+    $toVerifyStatuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'];
+    if (in_array($status, $toVerifyStatuses, true)) {
+        return 'TO VERIFY';
+    }
+    if (in_array($status, ['Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design'], true)) {
+        return 'TO PICK UP';
+    }
+    if ($status === 'Completed') {
+        return 'COMPLETED';
+    }
+    if ($status === 'Cancelled') {
+        return 'CANCELLED';
+    }
+    return strtoupper($status);
+}
+
+function admin_status_badge_style(string $displayStatus): string {
+    return match ($displayStatus) {
+        'TO VERIFY' => 'background:#fef3c7;color:#92400e;',
+        'TO PICK UP' => 'background:#dcfce7;color:#15803d;',
+        'COMPLETED' => 'background:#dcfce7;color:#166534;',
+        'CANCELLED' => 'background:#fecaca;color:#b91c1c;',
+        default => 'background:#f3f4f6;color:#374151;',
+    };
+}
 
 $page_title = 'Orders Management - Admin';
 
@@ -215,16 +284,10 @@ if (isset($_GET['ajax'])) {
                         <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                         <td>
                             <?php
-                                $sc = match($order['status']) {
-                                    'Pending'           => 'background:#fef3c7;color:#92400e;',
-                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
-                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
-                                    'Completed'         => 'background:#dcfce7;color:#166534;',
-                                    'Cancelled'         => 'background:#fecaca;color:#b91c1c;',
-                                    default             => 'background:#f3f4f6;color:#374151;'
-                                };
+                                $display_status = admin_display_status((string)($order['status'] ?? ''));
+                                $sc = admin_status_badge_style($display_status);
                             ?>
-                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($display_status); ?>"><?php echo htmlspecialchars($display_status); ?></span>
                         </td>
                         <td style="text-align:right;">
                             <button 
@@ -851,13 +914,24 @@ if (isset($_GET['ajax'])) {
                     },
 
                     statusBadge(status, type) {
+                        const normalizeOrderStatus = (raw) => {
+                            const s = String(raw || '');
+                            if (['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'Downpayment Submitted'].includes(s)) {
+                                return 'TO VERIFY';
+                            }
+                            if (['Ready for Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design'].includes(s)) {
+                                return 'TO PICK UP';
+                            }
+                            if (s === 'Completed') return 'COMPLETED';
+                            if (s === 'Cancelled') return 'CANCELLED';
+                            return s || 'N/A';
+                        };
                         const colors = {
                             order: {
-                                'Pending': 'background:#fef3c7;color:#92400e;',
-                                'Processing': 'background:#dbeafe;color:#1e40af;',
-                                'Ready for Pickup': 'background:#ede9fe;color:#5b21b6;',
-                                'Completed': 'background:#dcfce7;color:#166534;',
-                                'Cancelled': 'background:#fecaca;color:#b91c1c;'
+                                'TO VERIFY': 'background:#fef3c7;color:#92400e;',
+                                'TO PICK UP': 'background:#dcfce7;color:#15803d;',
+                                'COMPLETED': 'background:#dcfce7;color:#166534;',
+                                'CANCELLED': 'background:#fecaca;color:#b91c1c;'
                             },
                             payment: {
                                 'Pending': 'background:#fef3c7;color:#92400e;',
@@ -867,8 +941,9 @@ if (isset($_GET['ajax'])) {
                                 'Failed': 'background:#fee2e2;color:#991b1b;'
                             }
                         };
-                        const style = (colors[type] && colors[type][status]) || 'background:#f3f4f6;color:#374151;';
-                        return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${status || 'N/A'}</span>`;
+                        const displayStatus = (type === 'order') ? normalizeOrderStatus(status) : (status || 'N/A');
+                        const style = (colors[type] && colors[type][displayStatus]) || 'background:#f3f4f6;color:#374151;';
+                        return `<span style="display:inline-flex;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;${style}">${displayStatus}</span>`;
                     },
 
                     openModal(orderId) {
@@ -1127,25 +1202,25 @@ if (isset($_GET['ajax'])) {
 
             <!-- KPI Summary Row (matches reports page style) -->
             <div class="kpi-row">
-                <div class="kpi-card indigo">
-                    <div class="kpi-label">Total Orders</div>
-                    <div class="kpi-value"><?php echo number_format($total_count); ?></div>
-                    <div class="kpi-sub"><?php echo number_format($completed_count); ?> completed</div>
-                </div>
                 <div class="kpi-card amber">
-                    <div class="kpi-label">Pending Orders</div>
+                    <div class="kpi-label">TO VERIFY</div>
                     <div class="kpi-value"><?php echo number_format($pending_count); ?></div>
                     <div class="kpi-sub">Awaiting action</div>
                 </div>
-                <div class="kpi-card blue">
-                    <div class="kpi-label">Processing</div>
-                    <div class="kpi-value"><?php echo number_format($processing_count); ?></div>
-                    <div class="kpi-sub">In progress</div>
-                </div>
                 <div class="kpi-card emerald">
-                    <div class="kpi-label">Ready for Pickup</div>
+                    <div class="kpi-label">TO PICK UP</div>
                     <div class="kpi-value"><?php echo number_format($ready_count); ?></div>
                     <div class="kpi-sub">Awaiting customer</div>
+                </div>
+                <div class="kpi-card blue">
+                    <div class="kpi-label">COMPLETED</div>
+                    <div class="kpi-value"><?php echo number_format($completed_count); ?></div>
+                    <div class="kpi-sub">Processed successfully</div>
+                </div>
+                <div class="kpi-card" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="kpi-label">CANCELLED</div>
+                    <div class="kpi-value"><?php echo number_format($cancelled_count); ?></div>
+                    <div class="kpi-sub">Stopped orders</div>
                 </div>
             </div>
 
@@ -1229,11 +1304,10 @@ if (isset($_GET['ajax'])) {
                                     </div>
                                     <select id="fp_status" class="filter-select">
                                         <option value="">All statuses</option>
-                                        <option value="Pending"          <?php echo $status_filter === 'Pending'          ? 'selected' : ''; ?>>Pending</option>
-                                        <option value="Processing"       <?php echo $status_filter === 'Processing'       ? 'selected' : ''; ?>>Processing</option>
-                                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
-                                        <option value="Completed"        <?php echo $status_filter === 'Completed'        ? 'selected' : ''; ?>>Completed</option>
-                                        <option value="Cancelled"        <?php echo $status_filter === 'Cancelled'        ? 'selected' : ''; ?>>Cancelled</option>
+                                        <option value="Pending"          <?php echo $status_filter === 'Pending'          ? 'selected' : ''; ?>>TO VERIFY</option>
+                                        <option value="Ready for Pickup" <?php echo $status_filter === 'Ready for Pickup' ? 'selected' : ''; ?>>TO PICK UP</option>
+                                        <option value="Completed"        <?php echo $status_filter === 'Completed'        ? 'selected' : ''; ?>>COMPLETED</option>
+                                        <option value="Cancelled"        <?php echo $status_filter === 'Cancelled'        ? 'selected' : ''; ?>>CANCELLED</option>
                                     </select>
                                 </div>
 
@@ -1307,16 +1381,10 @@ if (isset($_GET['ajax'])) {
                                         <td style="color:#1f2937;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                                         <td>
                                             <?php
-                                                $sc = match($order['status']) {
-                                                    'Pending'           => 'background:#fef3c7;color:#92400e;',
-                                                    'Processing'        => 'background:#dbeafe;color:#1e40af;',
-                                                    'Ready for Pickup'  => 'background:#ede9fe;color:#5b21b6;',
-                                                    'Completed'         => 'background:#dcfce7;color:#166534;',
-                                                    'Cancelled'         => 'background:#fecaca;color:#b91c1c;',
-                                                    default             => 'background:#f3f4f6;color:#374151;'
-                                                };
+                                                $display_status = admin_display_status((string)($order['status'] ?? ''));
+                                                $sc = admin_status_badge_style($display_status);
                                             ?>
-                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($order['status']); ?>"><?php echo $order['status']; ?></span>
+                                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;<?php echo $sc; ?>" class="cell-ellipsis" title="<?php echo htmlspecialchars($display_status); ?>"><?php echo htmlspecialchars($display_status); ?></span>
                                         </td>
                                         <td style="text-align:right;" @click.stop>
                                             <button 
