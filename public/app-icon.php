@@ -66,5 +66,9 @@ if (function_exists('imagecreatetruecolor')) {
     exit;
 }
 
-// Ultimate fallback
+// Ultimate fallback: 1x1 transparent PNG (always valid)
+$png1x1 = base64_decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+);
+echo $png1x1;
 exit;

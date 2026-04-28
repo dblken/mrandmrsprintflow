@@ -39,6 +39,23 @@ function broadcastUserStatus(userId, userType, isOnline) {
     io.emit('user-status-change', { userId, userType, isOnline });
 }
 
+function getUserSockets(key) {
+    return activeUsers.get(key) || new Map();
+}
+
+function getFirstUserMeta(key) {
+    const sockets = activeUsers.get(key);
+    if (!sockets || !sockets.size) {
+        return null;
+    }
+
+    for (const meta of sockets.values()) {
+        return meta;
+    }
+
+    return null;
+}
+
 function getActiveCallByUser(key) {
     const callId = activeCalls.get(key);
     return callId ? activeCalls.get(callId) : null;
@@ -63,12 +80,14 @@ function clearActiveCall(callId) {
 }
 
 function relayToUser(targetKey, eventName, payload) {
-    const target = activeUsers.get(targetKey);
-    if (!target) {
+    const sockets = activeUsers.get(targetKey);
+    if (!sockets || !sockets.size) {
         return false;
     }
 
-    io.to(target.socketId).emit(eventName, payload);
+    for (const socketId of sockets.keys()) {
+        io.to(socketId).emit(eventName, payload);
+    }
     return true;
 }
 
@@ -97,19 +116,23 @@ io.on('connection', (socket) => {
         }
 
         const key = makeUserKey(userId, userType);
-        activeUsers.set(key, {
+        const sockets = activeUsers.get(key) || new Map();
+        sockets.set(socket.id, {
             socketId: socket.id,
             userId,
             userType,
             name: payload.name || '',
             avatar: payload.avatar || ''
         });
+        activeUsers.set(key, sockets);
 
         socket.data.userKey = key;
         socket.data.userId = userId;
         socket.data.userType = userType;
 
-        broadcastUserStatus(userId, userType, true);
+        if (sockets.size === 1) {
+            broadcastUserStatus(userId, userType, true);
+        }
         return key;
     };
 
@@ -157,7 +180,7 @@ io.on('connection', (socket) => {
 
         storeActiveCall(callId, call);
 
-        const caller = activeUsers.get(callerKey) || {};
+        const caller = getFirstUserMeta(callerKey) || {};
         const didRelay = relayToUser(calleeKey, 'incomingCall', {
             fromUserId: socket.data.userId,
             fromUserType: socket.data.userType,
@@ -232,10 +255,15 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const { userKey, userId, userType } = socket.data;
         if (userKey) {
-            const existing = activeUsers.get(userKey);
-            if (existing && existing.socketId === socket.id) {
-                activeUsers.delete(userKey);
-                broadcastUserStatus(userId, userType, false);
+            const sockets = activeUsers.get(userKey);
+            if (sockets) {
+                sockets.delete(socket.id);
+                if (sockets.size === 0) {
+                    activeUsers.delete(userKey);
+                    broadcastUserStatus(userId, userType, false);
+                } else {
+                    activeUsers.set(userKey, sockets);
+                }
             }
         }
 

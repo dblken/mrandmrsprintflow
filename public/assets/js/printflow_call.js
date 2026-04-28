@@ -21,6 +21,10 @@
         { urls: 'stun:stun1.l.google.com:19302' }
     ];
 
+    const PF_DEFAULT_AVATAR =
+        'data:image/svg+xml;charset=UTF-8,' +
+        encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="60" fill="#e2e8f0"/><circle cx="60" cy="44" r="22" fill="#94a3b8"/><path d="M28 100c7-18 22-28 32-28s25 10 32 28" fill="#94a3b8"/></svg>');
+
     class PFAudio {
         constructor() {
             this._el  = null;
@@ -81,6 +85,8 @@
 
             this.partnerId = null;
             this.partnerType = null;
+            this.partnerName = '';
+            this.partnerAvatar = '';
             this.callType = 'voice';
             this.isInitiator = false;
 
@@ -98,6 +104,7 @@
             this.audio = new PFAudio();
             this._tabActive = true;
             this._notification = null;
+            this._endedCleanupTimeout = null;
 
             this._initVisibilityTracker();
         }
@@ -105,7 +112,19 @@
         _initVisibilityTracker() {
             document.addEventListener('visibilitychange', () => {
                 this._tabActive = (document.visibilityState === 'visible');
+                if (this._tabActive) {
+                    this._ensureSocketConnection();
+                }
             });
+            window.addEventListener('pageshow', () => this._ensureSocketConnection());
+            window.addEventListener('focus', () => this._ensureSocketConnection());
+        }
+
+        _ensureSocketConnection() {
+            if (!this._initialized || !this.socket) return;
+            if (!this.isSocketConnected && typeof this.socket.connect === 'function') {
+                this.socket.connect();
+            }
         }
 
         init(config) {
@@ -196,9 +215,17 @@
             this.socket.on('pf-call-rejected', () => this._onCallRejected());
             this.socket.on('pf-call-ended', () => this._onCallEnded());
             this.socket.on('pf-call-busy', (data) => this._flashEnded(data.message || 'User is busy.'));
+            this.socket.on('pf-call-error', (data) => this._flashEnded(data.message || 'Calling failed.'));
             this.socket.on('pf-webrtc-offer', (data) => this._handleOffer(data));
             this.socket.on('pf-webrtc-answer', (data) => this._handleAnswer(data));
             this.socket.on('pf-ice-candidate', (data) => this._handleIceCandidate(data));
+        }
+
+        _normalizeAvatar(avatar, fallbackName = 'User') {
+            if (typeof avatar === 'string' && avatar.trim()) {
+                return avatar;
+            }
+            return PF_DEFAULT_AVATAR;
         }
 
         async startCall(targetId, targetType, targetName, targetAvatar, type = 'voice') {
@@ -214,9 +241,11 @@
             this.state = PF_STATE.CALLING;
             this.partnerId = targetId;
             this.partnerType = targetType;
+            this.partnerName = targetName || 'User';
+            this.partnerAvatar = this._normalizeAvatar(targetAvatar, this.partnerName);
             this.callType = type;
             this.isInitiator = true;
-            this._showOverlay(PF_STATE.CALLING, targetName, targetAvatar, `Calling... (${type})`);
+            this._showOverlay(PF_STATE.CALLING, this.partnerName, this.partnerAvatar, `Calling... (${type})`);
             this.audio.play(this.basePath);
 
             this._noAnswerTimeout = setTimeout(() => {
@@ -243,6 +272,9 @@
         }
 
         _handleIncomingCall(data) {
+            if (this.state === PF_STATE.ENDED) {
+                this._cleanUp();
+            }
             if (this.state !== PF_STATE.IDLE) {
                 this.socket.emit('pf-call-busy', { toUserId: data.fromUserId, toUserType: data.fromUserType });
                 return;
@@ -250,7 +282,9 @@
             this.state = PF_STATE.INCOMING;
             this.partnerId = data.fromUserId || data.callerId;
             this.partnerType = data.fromUserType || data.callerType;
-            this.callType = data.type || 'voice';
+            this.partnerName = data.fromName || 'User';
+            this.partnerAvatar = this._normalizeAvatar(data.fromAvatar, this.partnerName);
+            this.callType = data.callType || data.type || 'voice';
             this.isInitiator = false;
             
             // Critical: Store the orderId from the signaling payload
@@ -264,7 +298,7 @@
                 this._showToast(data);
                 this._showSystemNotification(data);
             } else {
-                this._showOverlay(PF_STATE.INCOMING, data.fromName, data.fromAvatar, `Incoming ${this.callType} call...`);
+                this._showOverlay(PF_STATE.INCOMING, this.partnerName, this.partnerAvatar, `Incoming ${this.callType} call...`);
             }
             this._noAnswerTimeout = setTimeout(() => {
                 if (this.state === PF_STATE.INCOMING) {
@@ -284,7 +318,7 @@
                 this.localStream = await this._getMedia(this.callType === 'video');
                 this.socket.emit('pf-accept-call', { toUserId: this.partnerId, toUserType: this.partnerType });
                 this.state = PF_STATE.IN_CALL;
-                this._showOverlay(PF_STATE.IN_CALL, null, null, 'Connected');
+                this._showOverlay(PF_STATE.IN_CALL, this.partnerName, this.partnerAvatar, 'Connected');
                 this._startTimer();
                 this._createPC();
             } catch (err) {
@@ -315,7 +349,7 @@
             clearTimeout(this._noAnswerTimeout);
             this.audio.stop();
             this.state = PF_STATE.IN_CALL;
-            this._showOverlay(PF_STATE.IN_CALL, null, null, 'Connected');
+            this._showOverlay(PF_STATE.IN_CALL, this.partnerName, this.partnerAvatar, 'Connected');
             this._startTimer();
             this._createPC();
             this.pc.createOffer().then(offer => {
@@ -429,8 +463,8 @@
         _showToast(data) {
             const toast = this.$('pf-call-toast');
             if (!toast) return;
-            this.$('pf-toast-name').textContent = data.fromName || 'User';
-            this.$('pf-toast-img').src = data.fromAvatar || '';
+            this.$('pf-toast-name').textContent = this.partnerName || data.fromName || 'User';
+            this.$('pf-toast-img').src = this.partnerAvatar || this._normalizeAvatar(data.fromAvatar);
             toast.classList.add('active');
         }
 
@@ -438,8 +472,8 @@
             if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
             const title = `Incoming ${this.callType === 'video' ? 'Video' : 'Voice'} Call`;
             const options = {
-                body: `${data.fromName || 'Someone'} is calling you on PrintFlow`,
-                icon: data.fromAvatar || `${this.basePath}/public/assets/images/icon-192.png`,
+                body: `${this.partnerName || data.fromName || 'Someone'} is calling you on PrintFlow`,
+                icon: this.partnerAvatar || this._normalizeAvatar(data.fromAvatar),
                 tag: 'pf-incoming-call',
                 renotify: true, requireInteraction: true, silent: true
             };
@@ -449,19 +483,37 @@
 
         _closeSystemNotification() { if (this._notification) { this._notification.close(); this._notification = null; } }
         _hideToast() { this.$('pf-call-toast')?.classList.remove('active'); }
-        _flashEnded(msg) { this._showOverlay(PF_STATE.ENDED, null, null, msg); setTimeout(() => this._cleanUp(), 2500); }
+        _flashEnded(msg) {
+            if (this._endedCleanupTimeout) {
+                clearTimeout(this._endedCleanupTimeout);
+            }
+            this.state = PF_STATE.ENDED;
+            this._showOverlay(PF_STATE.ENDED, this.partnerName, this.partnerAvatar, msg);
+            this._endedCleanupTimeout = setTimeout(() => this._cleanUp(), 2500);
+        }
 
         _cleanUp() {
+            clearTimeout(this._noAnswerTimeout);
+            this._noAnswerTimeout = null;
+            if (this._endedCleanupTimeout) {
+                clearTimeout(this._endedCleanupTimeout);
+                this._endedCleanupTimeout = null;
+            }
             this.state = PF_STATE.IDLE;
             this.audio.stop();
             this._stopTimer();
             this._hideToast();
+            this._closeSystemNotification();
             if (this.localStream) { this.localStream.getTracks().forEach(t => t.stop()); this.localStream = null; }
             if (this.pc) { this.pc.close(); this.pc = null; }
             this.iceQueue = [];
+            this.partnerId = null;
+            this.partnerType = null;
+            this.partnerName = '';
+            this.partnerAvatar = '';
             const overlay = this.$('pf-call-overlay');
             if (overlay) overlay.className = '';
-            this.$('pf-call-timer').style.display = 'none';
+            if (this.$('pf-call-timer')) this.$('pf-call-timer').style.display = 'none';
         }
 
         _startTimer() {

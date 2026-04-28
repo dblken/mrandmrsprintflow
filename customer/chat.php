@@ -742,7 +742,9 @@ window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
                 userAvatar: ME_AVATAR,
                 basePath: BASE
             });
+            window.PFCallReady = true;
             document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
+            window.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
         } else {
             setTimeout(initPFCall, 100);
         }
