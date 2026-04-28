@@ -803,13 +803,30 @@ if ($showLatestCustomizationOnly) {
                 gap: 8px !important;
                 margin: 4px 0 8px !important;
                 padding-top: 2px !important;
+                width: 100% !important;
             }
             .pf-custom-tabs::-webkit-scrollbar { display: none !important; }
 
+            .toolbar-group--tabs {
+                width: 100% !important;
+                overflow: visible !important;
+                display: block !important;
+            }
+
             .pill-tab {
-                padding: 6px 10px !important;
-                font-size: 9px !important;
+                padding: 6px 12px !important;
+                font-size: 10px !important;
                 flex-shrink: 0 !important;
+                white-space: nowrap !important;
+            }
+
+            /* Fix horizontal overflow */
+            .overflow-x-auto.-mx-6.px-6 {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                overflow-x: visible !important;
             }
 
             .pf-customizations-table-card thead {

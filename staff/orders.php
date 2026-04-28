@@ -402,12 +402,18 @@ $page_title = 'Orders - Staff';
             -webkit-overflow-scrolling: touch !important;
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
+            width: 100% !important;
         }
         .pf-custom-tabs::-webkit-scrollbar {
             display: none !important;
         }
         .pill-tab {
             flex-shrink: 0 !important;
+            white-space: nowrap !important;
+        }
+        .toolbar-group {
+            width: 100% !important;
+            overflow: visible !important;
         }
         .pill-tab { 
             position: relative;
@@ -1032,6 +1038,15 @@ $page_title = 'Orders - Staff';
                 margin-right: 12px !important;
                 flex-shrink: 0 !important;
                 padding-top: 2px !important;
+            }
+
+            /* Fix horizontal overflow */
+            .overflow-x-auto.-mx-6.px-6 {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                overflow-x: visible !important;
             }
             
             /* Specific label overrides since we hide the real header */
