@@ -184,6 +184,20 @@
         return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
     }
 
+    function getPushEnvironmentIssue() {
+        if (!('serviceWorker' in navigator)) return 'This browser does not support service workers.';
+        if (!('PushManager' in window)) return 'This browser does not support PushManager.';
+        if (typeof Notification === 'undefined') return 'This browser does not support notifications.';
+
+        var hostname = String(window.location.hostname || '').toLowerCase();
+        var isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+        if (!window.isSecureContext && !isLocalhost) {
+            return 'Background push requires HTTPS on this device. HTTP works only on true localhost.';
+        }
+
+        return '';
+    }
+
     function ensureServiceWorker() {
         if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
 
@@ -357,7 +371,8 @@
         btn.dataset.state = state;
 
         if (state === 'unsupported') {
-            btn.textContent = 'Notifications unsupported';
+            var issue = getPushEnvironmentIssue();
+            btn.textContent = issue ? 'HTTPS required for push' : 'Notifications unsupported';
             return;
         }
         if (state === 'blocked') {
@@ -647,6 +662,11 @@
             return;
         }
 
+        if (getPushEnvironmentIssue()) {
+            updatePushToggle(btn, 'unsupported');
+            return;
+        }
+
         if (Notification.permission === 'denied') {
             updatePushToggle(btn, 'blocked');
             return;
@@ -667,7 +687,7 @@
         var state = btn.dataset.state || 'disabled';
 
         if (state === 'unsupported') {
-            alert('This device/browser does not support push notifications.');
+            alert(getPushEnvironmentIssue() || 'This device/browser does not support push notifications.');
             return;
         }
         if (state === 'blocked') {
