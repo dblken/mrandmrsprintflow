@@ -34,6 +34,93 @@ try {
         exit;
     }
 
+    $current_user_type = ($user_type === 'Customer') ? 'customer' : 'staff';
+    $base_path = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+    $default_order_thumbnail = ($base_path !== '' ? $base_path : '') . '/public/assets/images/services/default.png';
+
+    $chat_public_url = static function (?string $path) use ($base_path): string {
+        $path = trim((string) $path);
+        if ($path === '' || preg_match('#^(https?:|data:)#i', $path)) {
+            return $path;
+        }
+
+        $path = str_replace('<?php echo $base_path; ?>', '', $path);
+        $path = preg_replace('#/+#', '/', $path);
+
+        if ($base_path === '' && strpos($path, '/printflow/') === 0) {
+            $path = substr($path, strlen('/printflow'));
+        }
+        if ($base_path !== '' && strpos($path, $base_path . '/') === 0) {
+            return $path;
+        }
+        if ($path !== '' && $path[0] === '/') {
+            return $base_path . $path;
+        }
+
+        return ($base_path === '' ? '' : $base_path) . '/' . ltrim($path, '/');
+    };
+
+    $resolve_sender_type = static function (string $sender, string $message_type, array $meta): ?string {
+        if ($sender === 'Customer') {
+            return 'customer';
+        }
+        if ($sender === 'Staff') {
+            return 'staff';
+        }
+        if ($message_type !== 'order_update') {
+            return null;
+        }
+
+        $meta_sender_type = strtolower(trim((string) ($meta['sender_type'] ?? $meta['origin_actor'] ?? '')));
+        if (in_array($meta_sender_type, ['customer', 'staff'], true)) {
+            return $meta_sender_type;
+        }
+
+        $step = strtolower(trim((string) ($meta['step'] ?? '')));
+        if (in_array($step, ['inquiry', 'payment_submitted'], true)) {
+            return 'customer';
+        }
+
+        return 'staff';
+    };
+
+    $resolve_order_update_status = static function (array $meta, array $order_state): string {
+        $explicit_status = trim((string) ($meta['order_status'] ?? ''));
+        if ($explicit_status !== '') {
+            return $explicit_status;
+        }
+
+        $step = strtolower(trim((string) ($meta['step'] ?? '')));
+        $step_status_map = [
+            'inquiry' => 'Pending',
+            'approved' => 'Approved',
+            'send_to_payment' => 'To Pay',
+            'payment_submitted' => 'Verify Payment',
+            'payment_verified' => 'Payment Verified',
+            'payment_rejected' => 'Payment Rejected',
+            'in_production' => 'In Production',
+            'ready_to_pickup' => 'Ready for Pickup',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'rate' => 'Completed',
+        ];
+        if (isset($step_status_map[$step])) {
+            return $step_status_map[$step];
+        }
+
+        return trim((string) ($order_state['status'] ?? '')) ?: 'Order update';
+    };
+
+    $order_state = [
+        'status' => '',
+        'payment_status' => '',
+    ];
+    $order_state_raw = db_query("SELECT status, payment_status FROM orders WHERE order_id = ?", 'i', [$order_id]);
+    if (!empty($order_state_raw)) {
+        $order_state['status'] = trim((string) ($order_state_raw[0]['status'] ?? ''));
+        $order_state['payment_status'] = trim((string) ($order_state_raw[0]['payment_status'] ?? ''));
+    }
+
     // 1. Fetch new messages
     $sql = "SELECT m.*, 
         p.message AS reply_message, 
@@ -70,10 +157,6 @@ try {
     if ($messages_raw) {
         foreach ($messages_raw as $msg) {
             $is_system = ($msg['sender'] === 'System');
-            $is_self = false;
-            if (!$is_system) {
-                $is_self = ($user_type === 'Customer') ? ($msg['sender'] === 'Customer') : ($msg['sender'] === 'Staff');
-            }
 
             $image_path = (string) ($msg['image_path'] ?? '');
             if ($image_path !== '' && !preg_match('#^https?://#i', $image_path)) {
@@ -129,6 +212,17 @@ try {
                 $m_type = 'voice';
             }
 
+            $meta_data = [];
+            if (!empty($msg['meta_json'])) {
+                $decoded_meta = json_decode((string) $msg['meta_json'], true);
+                if (is_array($decoded_meta)) {
+                    $meta_data = $decoded_meta;
+                }
+            }
+
+            $sender_type = $resolve_sender_type((string) $msg['sender'], (string) $m_type, $meta_data);
+            $is_self = $sender_type !== null ? ($sender_type === $current_user_type) : false;
+
             // Wrap video path in proxy if it's a local video
             $raw_m_file = (string)($msg['message_file'] ?? '');
             if ($m_type === 'video' && $raw_m_file !== '' && !preg_match('#^https?://#i', $raw_m_file)) {
@@ -137,8 +231,25 @@ try {
                 $raw_m_file = $bp . '/public/serve_chat_video.php?file=' . urlencode($filename);
             }
 
+            $thumbnail = $chat_public_url((string) ($msg['thumbnail'] ?? ''));
+
+            $order_update = null;
+            if ($m_type === 'order_update') {
+                $order_update = [
+                    'order_id' => (int) ($meta_data['order_id'] ?? $order_id),
+                    'product_name' => trim((string) ($meta_data['product_name'] ?? '')) ?: 'Order update',
+                    'status' => $resolve_order_update_status($meta_data, $order_state),
+                    'payment_status' => trim((string) ($meta_data['payment_status'] ?? $order_state['payment_status'])),
+                    'thumbnail' => $thumbnail !== '' ? $thumbnail : $default_order_thumbnail,
+                    'description' => $msg['message'] ?? '',
+                    'sender_type' => $sender_type,
+                ];
+            }
+
             $messages[] = [
                 'id' => $msg['message_id'],
+                'sender' => $msg['sender'],
+                'sender_type' => $sender_type,
                 'message' => $msg['message'] ?? '',
                 'message_type' => $m_type,
                 'image_path' => $image_path,
@@ -147,6 +258,7 @@ try {
                 'file_path' => $msg['file_path'] ?? null,
                 'file_name' => $msg['file_name'] ?? null,
                 'file_size' => $msg['file_size'] ?? null,
+                'created_at_full' => $msg['created_at'],
                 'created_at' => date('h:i A', strtotime($msg['created_at'])),
                 'is_self' => $is_self,
                 'status' => (int) $msg['read_receipt'], // 0=Sent, 1=Delivered, 2=Seen
@@ -160,10 +272,11 @@ try {
                 'sender_role' => $msg['sender_role'],
                 'sender_avatar' => $sender_avatar,
                 'is_pinned' => (bool) ($msg['is_pinned'] ?? false),
-                'thumbnail' => $msg['thumbnail'] ?? null,
+                'thumbnail' => $thumbnail,
                 'action_type' => $msg['action_type'] ?? null,
                 'action_url' => $msg['action_url'] ?? null,
-                'meta_json' => $msg['meta_json'] ?? null
+                'meta_json' => $msg['meta_json'] ?? null,
+                'order_update' => $order_update,
             ];
         }
     }
@@ -290,6 +403,7 @@ try {
     ob_end_clean();
     echo json_encode([
         'success' => true,
+        'current_user_type' => $current_user_type,
         'messages' => $messages,
         'reactions' => $reactions,
         'partner' => $partner,

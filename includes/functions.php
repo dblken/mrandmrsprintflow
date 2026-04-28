@@ -3396,6 +3396,11 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
             'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
+        'cancelled' => [
+            'message'     => "Your order has been cancelled. Please contact our team if you need help with the next step.",
+            'action_type' => 'view_status',
+            'action_url'  => '',
+        ],
         'rate' => [
             'message'     => "How was your experience? Please rate your order.",
             'action_type' => 'rate',
@@ -3439,6 +3444,23 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'rate' => 'staff',
     ];
     $origin_actor = $origin_actor_map[$step] ?? 'staff';
+    $session_user_type = function_exists('get_user_type') ? (string) get_user_type() : '';
+    $sender_type = $origin_actor;
+    if ($session_user_type === 'Customer') {
+        $sender_type = 'customer';
+    } elseif (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true)) {
+        $sender_type = 'staff';
+    }
+    $db_sender = $sender_type === 'customer' ? 'Customer' : 'Staff';
+    $sender_id = 0;
+    if ($sender_type === 'customer') {
+        $sender_id = (int) ($order['customer_id'] ?? 0);
+        if ($session_user_type === 'Customer' && function_exists('get_user_id')) {
+            $sender_id = (int) get_user_id();
+        }
+    } elseif ($session_user_type !== '' && function_exists('get_user_id')) {
+        $sender_id = max(0, (int) get_user_id());
+    }
 
     // 5. meta_json for extra context (used by frontend card renderer)
     $meta = json_encode([
@@ -3446,16 +3468,22 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'order_id'     => $order_id,
         'product_name' => $product_name,
         'amount'       => (float)($order['total_amount'] ?? 0),
-        'origin_actor' => $origin_actor,
+        'origin_actor' => $sender_type,
+        'sender_type'  => $sender_type,
+        'order_status' => (string) ($order['status'] ?? ''),
+        'payment_status' => (string) ($order['payment_status'] ?? ''),
+        'thumbnail'    => $thumbnail,
     ]);
 
     // 6. Insert into order_messages using dedicated schema columns
     $sql = "INSERT INTO order_messages
                 (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt)
-            VALUES (?, 'System', 0, ?, 'order_update', ?, ?, ?, ?, 0)";
+            VALUES (?, ?, ?, ?, 'order_update', ?, ?, ?, ?, 0)";
 
-    return db_execute($sql, 'isssss', [
+    return db_execute($sql, 'isissss', [
         $order_id,
+        $db_sender,
+        $sender_id,
         $message,
         $thumbnail,
         $action_type,

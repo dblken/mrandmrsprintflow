@@ -199,9 +199,20 @@ require_once __DIR__ . '/../includes/header.php';
     .order-thumb { width:100%; height:100%; object-fit:cover; display:block; }
     .order-text { flex:1; min-width:0; }
     .order-update-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; background:#e6f8f7; color:#0f766e; font-size:.62rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px; }
+    .order-update-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+    .order-update-head .order-update-badge { margin-bottom:0; }
+    .order-status-pill { display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; font-size:.66rem; font-weight:900; letter-spacing:.04em; white-space:nowrap; }
+    .order-status-pill.tone-pending { background:#fff7ed; color:#c2410c; }
+    .order-status-pill.tone-approved { background:#eff6ff; color:#1d4ed8; }
+    .order-status-pill.tone-payment { background:#eef2ff; color:#4338ca; }
+    .order-status-pill.tone-production { background:#ecfeff; color:#0f766e; }
+    .order-status-pill.tone-ready { background:#ecfccb; color:#3f6212; }
+    .order-status-pill.tone-complete { background:#dcfce7; color:#166534; }
+    .order-status-pill.tone-alert { background:#fef2f2; color:#b91c1c; }
+    .order-status-pill.tone-neutral { background:#f1f5f9; color:#475569; }
     .order-title { font-size:.9rem; font-weight:900; color:#0f172a; margin-bottom:4px; line-height:1.2; }
     .order-message { font-size:.8rem; color:#475569; line-height:1.45; word-break:break-word; }
-    .order-update-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; }
+    .order-update-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
     .order-update-time { font-size:.68rem; color:#94a3b8; font-weight:800; }
     .order-update-cta { font-size:.68rem; font-weight:900; color:#0891b2; text-transform:uppercase; letter-spacing:.06em; }
 
@@ -705,6 +716,7 @@ window.onerror = function(msg, url, line) {
 
 window.PF_CALL_SERVER_URL = <?= json_encode(((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':3000') ?>;
 const BASE = <?= json_encode(BASE_URL) ?>;
+const CURRENT_USER_TYPE = 'customer';
 const ME_ID = <?= json_encode((int)$user_id) ?>;
 const ME_NAME = <?= json_encode($user_name) ?>;
 const ME_AVATAR = <?= json_encode(get_profile_image($user_avatar)) ?>;
@@ -1043,44 +1055,80 @@ function goToMessage(id) {
 }
 
 function getOrderUpdateActionLabel(actionType) {
-    switch (actionType) {
-        case 'to_payment': return 'Complete payment';
-        case 'retry_payment': return 'Retry payment';
-        case 'rate': return 'Rate order';
-        case 'pickup_details': return 'View details';
-        default: return 'View update';
-    }
+    return 'Open order';
 }
 
-function getOrderUpdateSide(meta) {
-    const originActor = String(meta?.origin_actor || 'staff').toLowerCase();
-    return originActor === 'customer' ? 'self' : 'other';
+function normalizeSenderType(value) {
+    const senderType = String(value || '').toLowerCase();
+    return senderType === 'customer' || senderType === 'staff' ? senderType : '';
+}
+
+function getMessageSide(message) {
+    const senderType = normalizeSenderType(message?.sender_type);
+    if (senderType) {
+        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+    }
+    return (message?.is_system && message?.message_type !== 'order_update') ? 'system' : (message?.is_self ? 'self' : 'other');
+}
+
+function getMessageSenderKey(message) {
+    const senderType = normalizeSenderType(message?.sender_type);
+    if (senderType) {
+        return senderType;
+    }
+    if (message?.is_system && message?.message_type !== 'order_update') {
+        return 'system';
+    }
+    return String(message?.sender || '').toLowerCase() || (message?.is_self ? 'self' : 'other');
+}
+
+function getOrderStatusTone(statusText) {
+    const normalized = String(statusText || '').toLowerCase();
+    if (normalized.includes('cancel') || normalized.includes('reject')) return 'alert';
+    if (normalized.includes('complete')) return 'complete';
+    if (normalized.includes('pickup') || normalized.includes('receive') || normalized.includes('ready')) return 'ready';
+    if (normalized.includes('production')) return 'production';
+    if (normalized.includes('pay') || normalized.includes('verify')) return 'payment';
+    if (normalized.includes('approved')) return 'approved';
+    if (normalized.includes('pending') || normalized.includes('review') || normalized.includes('revision')) return 'pending';
+    return 'neutral';
+}
+
+function getOrderCardData(message) {
+    const orderUpdate = message.order_update || {};
+    let meta = {};
+    try { meta = JSON.parse(message.meta_json || '{}'); } catch (e) {}
+
+    return {
+        orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
+        productName: orderUpdate.product_name || meta.product_name || 'Order update',
+        statusLabel: orderUpdate.status || meta.order_status || orderUpdate.payment_status || meta.payment_status || 'Status updated',
+        thumbnail: orderUpdate.thumbnail || message.thumbnail || '',
+        messageText: orderUpdate.description || message.message || '',
+    };
 }
 
 function renderOrderUpdateMessage(m) {
     const actionType = m.action_type || 'view_status';
-    const actionUrl = m.action_url || '';
-    const thumbnail = m.thumbnail || '';
-    const messageText = m.message || '';
-    let meta = {};
-    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
-    const productName = meta.product_name || 'Order update';
-    const orderId = Number(meta.order_id || activeId || 0);
-    const isInteractive = true;
+    const orderCard = getOrderCardData(m);
+    const statusTone = getOrderStatusTone(orderCard.statusLabel);
 
     return `
         <div class="b-col">
-            <div class="order-update-bubble ${isInteractive ? '' : 'read-only'}" onclick="handleOrderUpdateClick(${orderId}, '${actionType}', '${String(actionUrl).replace(/'/g, "\\'")}')">
+            <div class="order-update-bubble" onclick="handleOrderUpdateClick(${orderCard.orderId})" onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();handleOrderUpdateClick(${orderCard.orderId});}" role="button" tabindex="0" title="Open order details">
                 <div class="order-thumb-wrap">
-                    <img src="${resolveAppUrl(thumbnail, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
+                    <img src="${resolveAppUrl(orderCard.thumbnail, `${BASE}/public/assets/images/services/default.png`)}" class="order-thumb" onerror="this.onerror=null;this.src='${BASE}/public/assets/images/services/default.png'">
                 </div>
                 <div class="order-text">
-                    <div class="order-update-badge">Order update</div>
-                    <div class="order-title">${esc(productName)}</div>
-                    <div class="order-message">${esc(messageText)}</div>
+                    <div class="order-update-head">
+                        <div class="order-update-badge">Order update</div>
+                        <div class="order-status-pill tone-${statusTone}">${esc(orderCard.statusLabel)}</div>
+                    </div>
+                    <div class="order-title">${esc(orderCard.productName)}</div>
+                    <div class="order-message">${esc(orderCard.messageText)}</div>
                     <div class="order-update-meta">
                         <span class="order-update-time">${fmtShort(m.created_at)}</span>
-                        ${isInteractive ? `<span class="order-update-cta">${esc(getOrderUpdateActionLabel(actionType))}</span>` : ''}
+                        <span class="order-update-cta">${esc(getOrderUpdateActionLabel(actionType))}</span>
                     </div>
                 </div>
             </div>
@@ -1093,21 +1141,36 @@ function appendMsgUI(m) {
 
     // Messenger Grouping Logic
     const prevRow = box.lastElementChild;
-    const currentMin = getMinute(m.created_at);
+    const messageTimeKey = m.created_at_full || m.created_at;
+    const currentMin = getMinute(messageTimeKey);
     const prevMin = prevRow ? getMinute(prevRow.getAttribute('data-time')) : null;
     
     const isCallLog = m.message_type === 'call_log' || m.message_type === 'call_event' || /voice call|video call|missed|declined|busy/i.test(m.message);
-    const rowClass = (m.is_system && !isCallLog) ? 'system' : (m.is_self ? 'self' : 'other');
-    
-    const isGrouped = prevRow && !m.is_system && 
-                      prevRow.getAttribute('data-sender') === (m.is_self ? 'self' : m.sender) && 
+    const rowSide = getMessageSide(m);
+    const senderKey = getMessageSenderKey(m);
+    const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
+    const isSelf = rowClass === 'self';
+
+    if (m.message_type === 'order_update') {
+        const row = document.createElement('div');
+        row.id = `ms-${m.id}`;
+        row.className = `brow order-update-card ${rowSide === 'system' ? 'other' : rowSide}`;
+        row.setAttribute('data-sender', senderKey);
+        row.setAttribute('data-time', messageTimeKey);
+        row.innerHTML = renderOrderUpdateMessage(m);
+        box.appendChild(row);
+        return;
+    }
+
+    const isGrouped = prevRow && !prevRow.classList.contains('order-update-card') && rowClass !== 'system' &&
+                      prevRow.getAttribute('data-sender') === senderKey &&
                       currentMin === prevMin;
 
     const row = document.createElement('div');
     row.id = `ms-${m.id}`;
     row.className = `brow ${rowClass}`;
-    row.setAttribute('data-sender', m.is_self ? 'self' : m.sender);
-    row.setAttribute('data-time', m.created_at);
+    row.setAttribute('data-sender', senderKey);
+    row.setAttribute('data-time', messageTimeKey);
 
     if (isGrouped) {
         prevRow.classList.add('grouped-msg');
@@ -1115,27 +1178,19 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system && !isCallLog) {
-        if (m.message_type === 'order_update') {
-            let meta = {};
-            try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
-            row.className = `brow order-update-card ${getOrderUpdateSide(meta)}`;
-            row.innerHTML = renderOrderUpdateMessage(m);
-            box.appendChild(row);
-            return;
-        }
         row.innerHTML = `<div class="b-col"><div class="bubble">${esc(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
 
     const msgB64 = btoa(unescape(encodeURIComponent(m.message || '')));
-    const avHtml = (!m.is_self) ? `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end;">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="border-radius:50%;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${(m.sender_name||'S')[0].toUpperCase()}</span>`}</div>` : '';
+    const avHtml = (!isSelf) ? `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end;">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="border-radius:50%;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${(m.sender_name||'S')[0].toUpperCase()}</span>`}</div>` : '';
     
     let contentHtml = '';
     if (isCallLog) {
         const isVideo = m.message.toLowerCase().includes('video');
         const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy') || m.message.toLowerCase().includes('no answer');
         const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
-        const statusText = m.is_self ? 'Outgoing' : 'Incoming';
+        const statusText = isSelf ? 'Outgoing' : 'Incoming';
 
         contentHtml = `
             <div class="call-log-bubble">
@@ -1159,7 +1214,7 @@ function appendMsgUI(m) {
             <span class="v-duration" id="v-dur-${m.id}">0:00</span>
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
-        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, m.is_self ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
+        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
     } else if (m.message_type === 'video' || m.file_type === 'video') {
         const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         contentHtml = `
@@ -1201,14 +1256,18 @@ function appendMsgUI(m) {
                 <div class="react-display" id="rd-${m.id}" style="display:none;"></div>
             </div>
             <div class="b-meta">${fmtShort(m.created_at)}</div>
-            ${m.is_self ? `<div class="seen-wrapper" id="sw-${m.id}"></div>` : ''}
+            ${isSelf ? `<div class="seen-wrapper" id="sw-${m.id}"></div>` : ''}
         </div>`;
     box.appendChild(row);
 }
 
 function getMinute(d) {
     if(!d) return null;
-    const date = new Date(d.replace(/-/g,'/'));
+    const raw = String(d);
+    let date = new Date(raw.replace(/-/g,'/'));
+    if (isNaN(date) && (raw.includes('AM') || raw.includes('PM'))) {
+        date = new Date(`${new Date().toDateString()} ${raw}`);
+    }
     if(isNaN(date)) return null;
     return date.getFullYear() + '-' + (date.getMonth()+1) + '-' + date.getDate() + ' ' + date.getHours() + ':' + date.getMinutes();
 }
@@ -1671,20 +1730,9 @@ async function doForward() {
     closeFwd(); loadConvs();
 }
 
-function handleOrderUpdateClick(orderId, actionType, actionUrl = '') {
+function handleOrderUpdateClick(orderId) {
     if (!orderId) return;
-    switch (actionType) {
-        case 'to_payment':
-        case 'retry_payment':
-            window.location.href = actionUrl || `${BASE}/customer/payment.php?order_id=${orderId}`;
-            break;
-        case 'rate':
-            window.location.href = actionUrl || `${BASE}/customer/rate_order.php?order_id=${orderId}`;
-            break;
-        default:
-            openOrderDetails(orderId);
-            break;
-    }
+    openOrderDetails(orderId);
 }
 
 function openOrderDetails(id) {
