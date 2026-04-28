@@ -507,12 +507,13 @@ $page_title = 'Dashboard - Manager | PrintFlow';
 
                 <!-- Inventory Alerts -->
                 <div class="dash-card">
-                    <div class="dash-card-title" style="justify-content:space-between;">
-                        <span style="display:flex; align-items:center; gap:8px;">
+                    <div class="dash-card-title" style="justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                             Inventory Alerts
                         </span>
                         <?php if (!empty($low_stock)):
+                            // Check if any item is out of stock (0)
                             $has_out_of_stock = false;
                             foreach ($low_stock as $ls) {
                                 if ((float)$ls['current_stock'] <= 0) {
@@ -532,13 +533,13 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                             <?php foreach ($low_stock as $ls):
                                 $stock = (float)$ls['current_stock'];
                                 $limit = (float)$ls['low_limit'];
-                                $pct   = $limit > 0 ? ($stock / $limit) * 100 : 0;
+                                $pct = $limit > 0 ? ($stock / $limit) * 100 : 0;
                                 $barClass = $stock <= 0 ? 'danger' : 'warning';
                                 $statusText = $stock <= 0 ? 'OUT OF STOCK' : 'LOW';
                                 $statusColor = $stock <= 0 ? '#ef4444' : '#d97706';
                             ?>
                             <tr>
-                                <td style="font-weight:600;">
+                                <td style="font-weight:600;" title="<?php echo htmlspecialchars($ls['material_name']); ?>">
                                     <?php echo mb_strlen($ls['material_name']) > 15 ? htmlspecialchars(mb_substr($ls['material_name'], 0, 15)) . '...' : htmlspecialchars($ls['material_name']); ?>
                                     <div style="font-size:10px; color:#9ca3af;"><?php echo htmlspecialchars($ls['category_name'] ?: 'General'); ?></div>
                                 </td>
@@ -548,7 +549,9 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                                 <td>
                                     <div style="display:flex; align-items:center; gap:6px;">
                                         <div class="stock-bar" style="width:50px;"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo min(100, max($pct, 10)); ?>%;"></div></div>
-                                        <span style="font-size:10px; font-weight:700; color:<?php echo $statusColor; ?>;"><?php echo $statusText; ?></span>
+                                        <span style="font-size:10px; font-weight:700; color:<?php echo $statusColor; ?>;">
+                                            <?php echo $statusText; ?>
+                                        </span>
                                     </div>
                                 </td>
                             </tr>
@@ -556,11 +559,9 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         </tbody>
                     </table>
                     <?php else: ?>
-                    <div class="dash-card-empty" style="color:#059669; font-size:13px;">
-                        <div>
-                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 6px; display:block;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            All stock levels are healthy!
-                        </div>
+                    <div style="text-align:center; color:#059669; padding:40px 0; font-size:13px;">
+                        <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 6px; display:block;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        All stock levels are healthy!
                     </div>
                     <?php endif; ?>
                 </div>
