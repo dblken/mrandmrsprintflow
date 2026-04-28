@@ -14,10 +14,21 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql mbstring zip
 
-# Fix MPM conflict and enable mod_rewrite
-# Disable conflicting MPMs and ensure prefork is enabled for mod_php compatibility
-RUN a2dismod mpm_event mpm_worker \
-    && a2enmod mpm_prefork rewrite
+# Forcefully disable event and worker MPMs by deleting their configuration files
+RUN rm -f /etc/apache2/mods-available/mpm_event.load \
+    /etc/apache2/mods-available/mpm_worker.load \
+    /etc/apache2/mods-enabled/mpm_event.load \
+    /etc/apache2/mods-enabled/mpm_worker.load \
+    /etc/apache2/mods-available/mpm_event.conf \
+    /etc/apache2/mods-available/mpm_worker.conf \
+    /etc/apache2/mods-enabled/mpm_event.conf \
+    /etc/apache2/mods-enabled/mpm_worker.conf
+
+# Ensure prefork and rewrite are enabled
+RUN a2enmod mpm_prefork rewrite
+
+# Make Apache use the PORT environment variable provided by Railway
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
 # Copy project files
 COPY . /var/www/html/
@@ -29,7 +40,6 @@ WORKDIR /var/www/html/
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Install PHP dependencies
-# Using --no-dev and --no-scripts to prevent memory or script execution issues during Railway build
 RUN composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
 
 # Fix permissions
