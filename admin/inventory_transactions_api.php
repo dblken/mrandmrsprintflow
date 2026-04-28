@@ -16,7 +16,7 @@ header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $user = get_logged_in_user();
-$branchCtx = init_branch_context(true);
+$branchCtx = init_branch_context(false);
 $selectedBranchId = $branchCtx['selected_branch_id'] ?? InventoryManager::getCurrentBranchId();
 $branchId = ($selectedBranchId === 'all') ? 0 : (int)$selectedBranchId;
 $inventory_branch_read_only = (($user['role'] ?? '') === 'Admin') && $branchId > 0 && !InventoryManager::isMainBranch($branchId);
