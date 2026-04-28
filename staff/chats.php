@@ -628,9 +628,28 @@ $current_user = get_logged_in_user();
         .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
 
         /* Responsive */
+        .mobile-chat-header { display: none; }
         @media (max-width: 1023px) {
-            .chat-app { grid-template-columns: 1fr; border-radius: 0; height: 100vh; }
-            .chat-sidebar { position: fixed; inset: 0; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s ease; }
+            .mobile-chat-header {
+                display: flex;
+                align-items: center;
+                padding: 12px 16px 12px 60px;
+                background: #fff;
+                border-bottom: 1px solid #f1f5f9;
+                min-height: 60px;
+                flex-shrink: 0;
+                position: relative;
+                z-index: 10;
+            }
+            .mobile-chat-header .page-title {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .main-content { margin-left: 0 !important; }
+            .chat-app { grid-template-columns: 1fr; border-radius: 0; height: calc(100dvh - 60px); }
+            .chat-sidebar { position: fixed; inset: 0; top: 60px; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s ease; }
             .chat-sidebar.active { transform: translateX(0); }
             .m-toggle { display: flex !important; margin-right: 0.5rem; }
         }
@@ -822,6 +841,9 @@ $current_user = get_logged_in_user();
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
     <div class="main-content">
+        <header class="mobile-chat-header">
+            <h1 class="page-title">Chats</h1>
+        </header>
         <div class="chat-app" id="chatApp">
             <!-- Sidebar -->
             <aside class="chat-sidebar" id="sidebar">
@@ -2939,4 +2961,5 @@ if (document.readyState === 'loading') {
 </script>
 </body>
 </html>
+
 
