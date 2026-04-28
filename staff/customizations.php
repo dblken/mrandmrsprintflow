@@ -699,6 +699,9 @@ if ($showLatestCustomizationOnly) {
 
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
         .modal-panel { background:#fff; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,0.25); width:100%; max-width:560px; max-height:88vh; overflow-y:auto; margin:16px; position:relative; }
+        .modal-wrap-text { max-width:100%; white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
+        .modal-header-copy { min-width:0; flex:1 1 auto; padding-right:12px; }
+        .modal-item-title { line-height:1.35; }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pf-tab-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         [x-cloak] { display: none !important; }
@@ -1315,10 +1318,10 @@ if ($showLatestCustomizationOnly) {
             <div x-show="!loadingDetails && currentJo.id">
 
                 <!-- Modal Header -->
-                <div style="padding:20px 24px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
-                    <div>
+                <div style="padding:20px 24px;border-bottom:1px solid #f3f4f6;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div class="modal-header-copy">
                         <h3 style="font-size:18px;font-weight:700;color:#1f2937;margin:0;" x-text="currentJo.order_code || getDisplayOrderCode(currentJo)"></h3>
-                        <p style="font-size:12px;color:#6b7280;margin:2px 0 0;" x-text="getCorrectServiceType(currentJo)"></p>
+                        <p class="modal-wrap-text" style="font-size:12px;color:#6b7280;margin:2px 0 0;" x-text="getCorrectServiceType(currentJo)"></p>
                     </div>
                     <button @click="closeDetailsModal()" style="background:transparent;border:none;cursor:pointer;color:#6b7280;">
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1349,7 +1352,7 @@ if ($showLatestCustomizationOnly) {
                             <label style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;display:block;margin-bottom:12px;">Order Details (Customer Specifications)</label>
                             <template x-for="(item, idx) in currentJo.items" :key="item.order_item_id || idx">
                                 <div style="margin-bottom:16px; padding:12px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
-                                    <div style="font-size:13px; font-weight:700; color:#1f2937; margin-bottom:10px;" x-text="getDynamicProductName(item) + ' × ' + item.quantity"></div>
+                                    <div class="modal-wrap-text modal-item-title" style="font-size:13px; font-weight:700; color:#1f2937; margin-bottom:10px;" x-text="getDynamicProductName(item) + ' × ' + item.quantity"></div>
                                     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
                                         <template x-for="([k, v]) in getDisplayableCustom(item.customization)" :key="k">
                                             <div style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; background:#fff; min-width:0; overflow-wrap:break-word;">
