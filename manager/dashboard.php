@@ -465,9 +465,12 @@ $page_title = 'Dashboard - Manager | PrintFlow';
 
                 <!-- Low Stock Alerts -->
                 <div class="dash-card">
-                    <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                        Low Stock Alerts
+                    <div class="dash-card-title" style="justify-content:space-between;">
+                        <span style="display:flex; align-items:center; gap:8px;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                            Low Stock Alerts
+                        </span>
+                        <a href="<?php echo htmlspecialchars((defined('BASE_PATH') ? BASE_PATH : '') . '/manager/inventory_items.php?stock_status=low_stock'); ?>" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all &rarr;</a>
                     </div>
                     <?php if (!empty($low_stock)): ?>
                     <table class="mini-table">
@@ -638,7 +641,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                                 <td style="font-weight:700; color:#00232b;"><?php echo $ro['order_id']; ?></td>
                                 <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name'] ?? 'N/A'); ?></td>
                                 <td><span class="badge <?php echo $sBadge; ?>"><?php echo $ro['status']; ?></span></td>
-                                <td style="text-align:right; font-weight:700;">â‚±<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
+                                <td style="text-align:right; font-weight:700;">&#8369;<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
