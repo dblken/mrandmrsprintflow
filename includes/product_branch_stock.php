@@ -120,6 +120,15 @@ function printflow_record_product_inventory_transaction(
     $normalizedRefType = strtoupper(trim($refType ?: 'PRODUCT'));
     $hasProductIdColumn = db_table_has_column('inventory_transactions', 'product_id');
 
+    if (($branchId === null || $branchId <= 0) && $normalizedRefType === 'ORDER' && $refId !== null && $refId > 0) {
+        $orderBranch = db_query(
+            'SELECT branch_id FROM orders WHERE order_id = ? LIMIT 1',
+            'i',
+            [$refId]
+        );
+        $branchId = (int)($orderBranch[0]['branch_id'] ?? 0);
+    }
+
     if ($branchId === null || $branchId <= 0) {
         if (function_exists('printflow_get_default_admin_branch_id')) {
             $branchId = (int)printflow_get_default_admin_branch_id();

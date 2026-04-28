@@ -50,6 +50,7 @@ try {
                 ? "(t.product_id IS NOT NULL AND t.product_id > 0)"
                 : "0";
             $legacyProductKindExpr = "(UPPER(t.ref_type) IN ('ORDER', 'PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT') AND p_item.product_id IS NOT NULL)";
+            $productLikeExpr = "({$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT', 'ORDER'))";
             $itemNameSql = "COALESCE({$productNameExpr}, {$legacyProductNameExpr}, NULLIF(TRIM(p_ref.name), ''), i.name, CASE WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', COALESCE(t.ref_id, t.item_id)) ELSE CONCAT('Item #', t.item_id) END)";
 
             $sql = "SELECT t.*, {$itemNameSql} as item_name, CASE
@@ -69,10 +70,15 @@ try {
                     WHERE 1=1";
             $params = [];
             $types = '';
-            [$branchSql, $branchTypes, $branchParams] = InventoryManager::branchClause('t.branch_id', $branchId);
-            $sql .= $branchSql;
-            $types .= $branchTypes;
-            $params = array_merge($params, $branchParams);
+            if ($branchId > 0) {
+                if (InventoryManager::isMainBranch($branchId)) {
+                    $sql .= " AND (t.branch_id = ? OR (t.branch_id IS NULL AND NOT {$productLikeExpr}))";
+                } else {
+                    $sql .= " AND t.branch_id = ?";
+                }
+                $types .= 'i';
+                $params[] = $branchId;
+            }
             
             $search     = sanitize($_GET['search'] ?? '');
             
