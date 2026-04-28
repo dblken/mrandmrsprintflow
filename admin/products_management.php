@@ -8,6 +8,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/branch_ui.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Admin', 'Manager']);
@@ -21,20 +22,11 @@ if (!isset($base_path)) {
 
 $current_user = get_logged_in_user();
 $is_manager = (($current_user['role'] ?? '') === 'Manager');
-$mgr_branch_id = 0;
-if ($is_manager) {
-    init_branch_context(false);
-    $mgr_branch_id = (int)(printflow_branch_filter_for_user() ?? ($_SESSION['branch_id'] ?? 0));
-    if ($mgr_branch_id < 1) {
-        $uid = (int)(get_user_id() ?? 0);
-        if ($uid > 0) {
-            $br = db_query('SELECT branch_id FROM users WHERE user_id = ? LIMIT 1', 'i', [$uid]);
-            if (!empty($br)) {
-                $mgr_branch_id = (int)($br[0]['branch_id'] ?? 0);
-            }
-        }
-    }
-}
+$branchCtx = init_branch_context(true);
+$selectedStockBranchId = (int)($branchCtx['selected_branch_id'] ?? 0);
+$mgr_branch_id = $is_manager ? $selectedStockBranchId : 0;
+$product_stock_branch_id = $selectedStockBranchId;
+$product_stock_uses_base = printflow_product_branch_uses_base_stock($product_stock_branch_id);
 printflow_ensure_product_branch_stock_table();
 
 $error = '';
@@ -180,10 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     $result = db_execute(
                         "INSERT INTO products (name, sku, category, description, price, stock_quantity, low_stock_level, status, photo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                         'ssssdiiis',
-                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path]
+                        [$name, $sku_val, $category, $description, $price, $product_stock_uses_base ? $stock_quantity : 0, $low_stock_level, $status, $photo_path]
                     );
 
                     if ($result) {
+                        if (!$product_stock_uses_base) {
+                            printflow_product_branch_stock_upsert((int)$result, $product_stock_branch_id, $stock_quantity, $low_stock_level);
+                        }
                         if ($stock_quantity > 0) {
                             printflow_record_product_inventory_transaction(
                                 (int)$result,
@@ -192,7 +187,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                                 'PRODUCT_CREATE',
                                 (int)$result,
                                 'Initial stock from Products Management creation',
-                                (int)(get_user_id() ?? 0)
+                                (int)(get_user_id() ?? 0),
+                                date('Y-m-d'),
+                                $product_stock_branch_id
                             );
                         }
                         $success = "Product '$name' created successfully!";
@@ -305,29 +302,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 [$product_id]
             );
             $oldProduct = $existingProduct[0] ?? null;
+            $oldStockQuantity = $product_stock_uses_base
+                ? (int)($oldProduct['stock_quantity'] ?? 0)
+                : (int)(printflow_product_effective_stock($product_id, $product_stock_branch_id)[0] ?? 0);
 
             // Handle photo upload (only if a new file is provided)
             $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
             
             if ($photo_path) {
-                // Update with new photo
-                $result = db_execute(
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdiiisi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path, $product_id]
-                );
+                if ($product_stock_uses_base) {
+                    $result = db_execute(
+                        "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
+                        'ssssdiiisi',
+                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $photo_path, $product_id]
+                    );
+                } else {
+                    $result = db_execute(
+                        "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, status = ?, photo_path = ?, updated_at = NOW() WHERE product_id = ?",
+                        'ssssdssi',
+                        [$name, $sku_val, $category, $description, $price, $status, $photo_path, $product_id]
+                    );
+                }
             } else {
-                // Update without changing photo
-                $result = db_execute(
-                    "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
-                    'ssssdiisi',
-                    [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $product_id]
-                );
+                if ($product_stock_uses_base) {
+                    $result = db_execute(
+                        "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, stock_quantity = ?, low_stock_level = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
+                        'ssssdiisi',
+                        [$name, $sku_val, $category, $description, $price, $stock_quantity, $low_stock_level, $status, $product_id]
+                    );
+                } else {
+                    $result = db_execute(
+                        "UPDATE products SET name = ?, sku = ?, category = ?, description = ?, price = ?, status = ?, updated_at = NOW() WHERE product_id = ?",
+                        'ssssdsi',
+                        [$name, $sku_val, $category, $description, $price, $status, $product_id]
+                    );
+                }
             }
 
             if ($result) {
+                if (!$product_stock_uses_base) {
+                    printflow_product_branch_stock_upsert($product_id, $product_stock_branch_id, $stock_quantity, $low_stock_level);
+                }
                 if ($oldProduct) {
-                    $oldStockQuantity = (int)($oldProduct['stock_quantity'] ?? 0);
                     $delta = $stock_quantity - $oldStockQuantity;
                     if ($delta !== 0) {
                         $direction = $delta > 0 ? 'IN' : 'OUT';
@@ -339,7 +355,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                             'PRODUCT_ADJUSTMENT',
                             $product_id,
                             "Products Management stock update for {$name}: {$oldStockQuantity} -> {$stock_quantity}",
-                            (int)(get_user_id() ?? 0)
+                            (int)(get_user_id() ?? 0),
+                            date('Y-m-d'),
+                            $product_stock_branch_id
                         );
                     }
                 }
@@ -479,11 +497,11 @@ $lowExpr    = 'COALESCE(p.low_stock_level, 10)';
 $sqlParams  = [];
 $sqlTypes   = '';
 
-if ($is_manager && $mgr_branch_id > 0) {
+if ($product_stock_branch_id > 0 && !$product_stock_uses_base) {
     $branchJoin = ' LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ? ';
     $stockExpr  = 'COALESCE(pbs.stock_quantity, 0)';
     $lowExpr    = 'COALESCE(pbs.low_stock_level, p.low_stock_level, 10)';
-    $sqlParams[] = $mgr_branch_id;
+    $sqlParams[] = $product_stock_branch_id;
     $sqlTypes   .= 'i';
 }
 
@@ -550,7 +568,7 @@ $sql .= " ORDER BY $order_clause LIMIT $per_page OFFSET $offset";
 $products = db_query($sql, $types ?: null, $params ?: null) ?: [];
 
 foreach ($products as &$pfProduct) {
-    if ($is_manager && $mgr_branch_id > 0) {
+    if ($product_stock_branch_id > 0 && !$product_stock_uses_base) {
         $pfProduct['stock_quantity'] = (int)($pfProduct['eff_stock_qty'] ?? $pfProduct['stock_quantity']);
         $pfProduct['low_stock_level'] = (int)($pfProduct['eff_low_stock'] ?? $pfProduct['low_stock_level'] ?? 10);
     }
@@ -564,14 +582,14 @@ $page_title = 'Products Management - Admin';
 $stat_total     = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived'")[0]['c'] ?? 0;
 $stat_active    = db_query("SELECT COUNT(*) as c FROM products WHERE status='Activated'")[0]['c'] ?? 0;
 $stat_inactive  = db_query("SELECT COUNT(*) as c FROM products WHERE status='Deactivated'")[0]['c'] ?? 0;
-if ($is_manager && $mgr_branch_id > 0) {
+if ($product_stock_branch_id > 0 && !$product_stock_uses_base) {
     $stat_low_stock = db_query(
         "SELECT COUNT(*) as c FROM products p
          LEFT JOIN product_branch_stock pbs ON pbs.product_id = p.product_id AND pbs.branch_id = ?
          WHERE p.status != 'Archived'
          AND COALESCE(pbs.stock_quantity, 0) <= COALESCE(pbs.low_stock_level, p.low_stock_level, 10)",
         'i',
-        [$mgr_branch_id]
+        [$product_stock_branch_id]
     )[0]['c'] ?? 0;
 } else {
     $stat_low_stock = db_query("SELECT COUNT(*) as c FROM products WHERE status != 'Archived' AND stock_quantity <= COALESCE(low_stock_level, 10)")[0]['c'] ?? 0;
