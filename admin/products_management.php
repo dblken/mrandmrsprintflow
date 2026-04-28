@@ -21,7 +21,7 @@ if (!isset($base_path)) {
 }
 
 $current_user = get_logged_in_user();
-$is_manager = (($current_user['role'] ?? '') === 'Manager');
+$is_manager = (get_user_type() === 'Manager');
 $branchCtx = init_branch_context(true);
 $selectedStockBranchId = (int)($branchCtx['selected_branch_id'] ?? 0);
 $mgr_branch_id = $is_manager ? $selectedStockBranchId : 0;
