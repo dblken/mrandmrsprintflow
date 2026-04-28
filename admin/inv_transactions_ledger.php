@@ -40,6 +40,12 @@ function pf_ledger_enrich_transaction_row(array $row): array {
     if ($refType === 'ORDER') {
         $orderRef = printflow_get_order_inventory_reference($refId);
         $referenceLabel = $orderRef['label'] ?? '';
+    } elseif ($refType === 'ORDER_PRODUCT') {
+        if (preg_match('/Order\s*#([A-Z0-9-]+)/i', (string)($row['notes'] ?? ''), $m)) {
+            $referenceLabel = 'Order #' . strtoupper(trim((string)$m[1]));
+        } else {
+            $referenceLabel = 'Product Order';
+        }
     } elseif ($refType === 'JOB_ORDER') {
         $customizationId = (int)($row['customization_ref_id'] ?? 0);
         if ($customizationId > 0) {
@@ -64,6 +70,7 @@ function pf_ledger_enrich_transaction_row(array $row): array {
 
 // Get filter parameters
 printflow_ensure_product_inventory_transaction_schema();
+$hasProductIdColumn = db_table_has_column('inventory_transactions', 'product_id');
 
 $item_id      = (int)($_GET['item_id'] ?? 0);
 $type_filter  = $_GET['type'] ?? '';
@@ -76,20 +83,28 @@ $page         = max(1, (int)($_GET['page'] ?? 1));
 $per_page     = 15;
 
 // Build Query - show only inventory material movements tied to job/customization work
-$itemNameSql = "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)";
+$productNameExpr = $hasProductIdColumn
+    ? "NULLIF(TRIM(p_direct.name), '')"
+    : "NULL";
+$productKindExpr = $hasProductIdColumn
+    ? "(t.product_id IS NOT NULL AND t.product_id > 0)"
+    : "0";
+$productRefExpr = "NULLIF(TRIM(p_ref.name), '')";
+$itemNameSql = "COALESCE({$productNameExpr}, {$productRefExpr}, i.name, CASE WHEN {$productKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', t.ref_id) ELSE CONCAT('Item #', t.item_id) END)";
 
 $sql = "SELECT t.*, 
                {$itemNameSql} as item_name, 
-               CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN 'product' ELSE 'material' END as ledger_item_kind,
+               CASE WHEN {$productKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN 'product' ELSE 'material' END as ledger_item_kind,
                COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                r.roll_code as roll_code,
                jo.id as job_ref_id,
                jo.order_id as job_order_store_order_id,
-               cust_map.customization_id as customization_ref_id
+                cust_map.customization_id as customization_ref_id
         FROM inventory_transactions t
         LEFT JOIN inv_items i ON t.item_id = i.id
-        LEFT JOIN products p ON t.product_id = p.product_id
+        " . ($hasProductIdColumn ? "LEFT JOIN products p_direct ON t.product_id = p_direct.product_id" : "") . "
+        LEFT JOIN products p_ref ON UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') AND t.ref_id = p_ref.product_id
         LEFT JOIN users u ON t.created_by = u.user_id
         LEFT JOIN inv_rolls r ON t.roll_id = r.id
         LEFT JOIN job_orders jo ON UPPER(t.ref_type) = 'JOB_ORDER' AND jo.id = t.ref_id

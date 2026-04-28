@@ -58,11 +58,19 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
     $branch_id = (int)$order_row[0]['branch_id'];
     $orderRef = printflow_get_order_inventory_reference($order_id);
     $orderLabel = $orderRef['label'] ?? ('Order #' . printflow_format_order_code($order_id, ''));
-    $items = db_query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", 'i', [$order_id]);
+    $items = db_query(
+        "SELECT oi.product_id, oi.quantity, p.name AS product_name
+         FROM order_items oi
+         LEFT JOIN products p ON p.product_id = oi.product_id
+         WHERE oi.order_id = ?",
+        'i',
+        [$order_id]
+    );
     
     foreach ($items as $item) {
         $pid = (int)($item['product_id'] ?? 0);
         $qty = (int)($item['quantity'] ?? 0);
+        $productName = (string)($item['product_name'] ?? ('Product #' . $pid));
         
         if ($pid > 0 && $qty > 0) {
             // Use branch-aware deduction
@@ -73,7 +81,7 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
                     (float)$qty,
                     'ORDER',
                     $order_id,
-                    "Automated deduction for {$orderLabel} completion",
+                    "{$orderLabel} completed - {$productName}",
                     (int)($_SESSION['user_id'] ?? 0),
                     date('Y-m-d'),
                     $branch_id

@@ -117,6 +117,8 @@ function printflow_record_product_inventory_transaction(
     $date = $date ?: date('Y-m-d');
     $userId = $userId ?: (int)($_SESSION['user_id'] ?? 0);
     $qty = abs((float)$quantity);
+    $normalizedRefType = strtoupper(trim($refType ?: 'PRODUCT'));
+    $hasProductIdColumn = db_table_has_column('inventory_transactions', 'product_id');
 
     if ($branchId === null || $branchId <= 0) {
         if (function_exists('printflow_get_default_admin_branch_id')) {
@@ -126,22 +128,36 @@ function printflow_record_product_inventory_transaction(
         }
     }
 
+    $storedRefType = $normalizedRefType;
+    $storedRefId = $refId;
+    if (!$hasProductIdColumn) {
+        if ($normalizedRefType === 'ORDER') {
+            $storedRefType = 'ORDER_PRODUCT';
+            $storedRefId = $productId;
+        } elseif ($storedRefId === null || $storedRefId <= 0) {
+            $storedRefId = $productId;
+        }
+    }
+
     $fields = [
         'item_id'          => ['type' => 'i', 'val' => 0],
-        'product_id'       => ['type' => 'i', 'val' => $productId],
         'direction'        => ['type' => 's', 'val' => $direction],
         'quantity'         => ['type' => 's', 'val' => (string)$qty],
         'uom'              => ['type' => 's', 'val' => 'pcs'],
-        'ref_type'         => ['type' => 's', 'val' => strtoupper(trim($refType ?: 'PRODUCT'))],
+        'ref_type'         => ['type' => 's', 'val' => $storedRefType],
         'notes'            => ['type' => 's', 'val' => $notes],
         'transaction_date' => ['type' => 's', 'val' => $date],
     ];
 
+    if ($hasProductIdColumn) {
+        $fields['product_id'] = ['type' => 'i', 'val' => $productId];
+    }
+
     if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
         $fields['branch_id'] = ['type' => 'i', 'val' => $branchId];
     }
-    if ($refId !== null) {
-        $fields['ref_id'] = ['type' => 'i', 'val' => $refId];
+    if ($storedRefId !== null) {
+        $fields['ref_id'] = ['type' => 'i', 'val' => $storedRefId];
     }
     if ($userId > 0) {
         $fields['created_by'] = ['type' => 'i', 'val' => $userId];

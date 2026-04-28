@@ -34,21 +34,29 @@ try {
             $sort_map = [
                 'id' => 't.id',
                 'transaction_date' => 't.transaction_date',
-                'item_name' => "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)",
+                'item_name' => 'item_name',
                 'direction' => 't.direction',
                 'quantity' => 't.quantity'
             ];
             $orderBy = $sort_map[$sort] ?? 't.transaction_date';
 
             printflow_ensure_product_inventory_transaction_schema();
-            $itemNameSql = "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)";
+            $hasProductIdColumn = db_table_has_column('inventory_transactions', 'product_id');
+            $productNameExpr = $hasProductIdColumn
+                ? "NULLIF(TRIM(p_direct.name), '')"
+                : "NULL";
+            $productKindExpr = $hasProductIdColumn
+                ? "(t.product_id IS NOT NULL AND t.product_id > 0)"
+                : "0";
+            $itemNameSql = "COALESCE({$productNameExpr}, NULLIF(TRIM(p_ref.name), ''), i.name, CASE WHEN {$productKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', t.ref_id) ELSE CONCAT('Item #', t.item_id) END)";
 
             $sql = "SELECT t.*, {$itemNameSql} as item_name, COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
                            CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                            r.roll_code as roll_code
                     FROM inventory_transactions t
                     LEFT JOIN inv_items i ON t.item_id = i.id
-                    LEFT JOIN products p ON t.product_id = p.product_id
+                    " . ($hasProductIdColumn ? "LEFT JOIN products p_direct ON t.product_id = p_direct.product_id" : "") . "
+                    LEFT JOIN products p_ref ON UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') AND t.ref_id = p_ref.product_id
                     LEFT JOIN users u ON t.created_by = u.user_id
                     LEFT JOIN inv_rolls r ON t.roll_id = r.id
                     WHERE 1=1";

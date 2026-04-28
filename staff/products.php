@@ -163,10 +163,19 @@ try {
 
         $inventory_ledger = db_query("
             SELECT t.transaction_date, t.direction, t.quantity, {$ledgerUomSelect}, t.ref_type, t.ref_id, t.notes,
-                   COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END) AS item_name
+                   COALESCE(
+                       " . (db_table_has_column('inventory_transactions', 'product_id') ? "NULLIF(TRIM(p_direct.name), '')," : "") . "
+                       NULLIF(TRIM(p_ref.name), ''),
+                       i.name,
+                       CASE
+                           WHEN UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', t.ref_id)
+                           ELSE CONCAT('Item #', t.item_id)
+                       END
+                   ) AS item_name
             FROM inventory_transactions t
             LEFT JOIN inv_items i ON i.id = t.item_id
-            LEFT JOIN products p ON p.product_id = t.product_id
+            " . (db_table_has_column('inventory_transactions', 'product_id') ? "LEFT JOIN products p_direct ON p_direct.product_id = t.product_id" : "") . "
+            LEFT JOIN products p_ref ON p_ref.product_id = t.ref_id AND UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT')
             {$ledgerBranchWhere}
             ORDER BY t.transaction_date DESC, t.id DESC
             LIMIT 12
