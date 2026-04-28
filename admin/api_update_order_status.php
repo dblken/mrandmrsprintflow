@@ -97,6 +97,8 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
     }
 
     $orderBranchId = (int)($order['branch_id'] ?? 0);
+    $orderRef = printflow_get_order_inventory_reference($order_id);
+    $orderLabel = $orderRef['label'] ?? ('Order #' . printflow_format_order_code($order_id, ''));
     // Branch-aware product stock deduction for regular order items.
     $productItems = db_query(
         "SELECT oi.product_id, oi.quantity, p.name AS product_name
@@ -123,9 +125,17 @@ if ($new_status === 'Completed' && $order['status'] !== 'Completed') {
             exit;
         }
 
-        // Standard product stock is tracked in products/product_branch_stock,
-        // not inv_items. Writing it into inventory_transactions causes the
-        // material ledger to mislabel product orders as unrelated inventory items.
+        printflow_record_product_inventory_transaction(
+            $productId,
+            'OUT',
+            (float)$qty,
+            'ORDER',
+            $order_id,
+            "{$orderLabel} completed - " . (string)($item['product_name'] ?? ('Product #' . $productId)),
+            (int)(get_user_id() ?? 0),
+            date('Y-m-d'),
+            $orderBranchId
+        );
     }
 }
 

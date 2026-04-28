@@ -184,6 +184,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     );
 
                     if ($result) {
+                        if ($stock_quantity > 0) {
+                            printflow_record_product_inventory_transaction(
+                                (int)$result,
+                                'IN',
+                                (float)$stock_quantity,
+                                'PRODUCT_CREATE',
+                                (int)$result,
+                                'Initial stock from Products Management creation',
+                                (int)(get_user_id() ?? 0)
+                            );
+                        }
                         $success = "Product '$name' created successfully!";
                     } else {
                         global $conn;
@@ -212,12 +223,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             } elseif ($low_stock_level > $stock_quantity) {
                 $error = 'Low stock level cannot exceed quantity.';
             } else {
-                $exists = db_query("SELECT product_id FROM products WHERE product_id = ? AND status != 'Archived' LIMIT 1", 'i', [$product_id]);
-                if ($exists === false) {
+                $existingProduct = db_query("SELECT product_id, name FROM products WHERE product_id = ? AND status != 'Archived' LIMIT 1", 'i', [$product_id]);
+                $existingStock = printflow_product_effective_stock($product_id, $mgr_branch_id);
+                $oldStockQuantity = (int)($existingStock[0] ?? 0);
+                if ($existingProduct === false) {
                     $error = 'Database error while verifying product.';
-                } elseif (count($exists) === 0) {
+                } elseif (count($existingProduct) === 0) {
                     $error = 'Product not found.';
                 } elseif (printflow_product_branch_stock_upsert($product_id, $mgr_branch_id, $stock_quantity, $low_stock_level)) {
+                    $delta = $stock_quantity - $oldStockQuantity;
+                    if ($delta !== 0) {
+                        $direction = $delta > 0 ? 'IN' : 'OUT';
+                        $qtyMoved = abs($delta);
+                        $productName = (string)($existingProduct[0]['name'] ?? ('Product #' . $product_id));
+                        printflow_record_product_inventory_transaction(
+                            $product_id,
+                            $direction,
+                            (float)$qtyMoved,
+                            'PRODUCT_ADJUSTMENT',
+                            $product_id,
+                            "Products Management branch stock update for {$productName}: {$oldStockQuantity} -> {$stock_quantity}",
+                            (int)(get_user_id() ?? 0),
+                            date('Y-m-d'),
+                            $mgr_branch_id
+                        );
+                    }
                     $success = 'Stock for your branch was updated successfully.';
                 } else {
                     global $conn;
@@ -269,6 +299,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
 
         if (!$error) {
         try {
+            $existingProduct = db_query(
+                "SELECT product_id, name, stock_quantity FROM products WHERE product_id = ? LIMIT 1",
+                'i',
+                [$product_id]
+            );
+            $oldProduct = $existingProduct[0] ?? null;
+
             // Handle photo upload (only if a new file is provided)
             $photo_path = handle_product_photo_upload($_FILES['photo'] ?? null);
             
@@ -289,6 +326,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             }
 
             if ($result) {
+                if ($oldProduct) {
+                    $oldStockQuantity = (int)($oldProduct['stock_quantity'] ?? 0);
+                    $delta = $stock_quantity - $oldStockQuantity;
+                    if ($delta !== 0) {
+                        $direction = $delta > 0 ? 'IN' : 'OUT';
+                        $qtyMoved = abs($delta);
+                        printflow_record_product_inventory_transaction(
+                            $product_id,
+                            $direction,
+                            (float)$qtyMoved,
+                            'PRODUCT_ADJUSTMENT',
+                            $product_id,
+                            "Products Management stock update for {$name}: {$oldStockQuantity} -> {$stock_quantity}",
+                            (int)(get_user_id() ?? 0)
+                        );
+                    }
+                }
                 $success = "Product '$name' updated successfully!";
             } else {
                 global $conn;

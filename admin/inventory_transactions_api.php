@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 require_once __DIR__ . '/../includes/branch_context.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Admin', 'Manager']);
 ob_end_clean();
@@ -33,17 +34,21 @@ try {
             $sort_map = [
                 'id' => 't.id',
                 'transaction_date' => 't.transaction_date',
-                'item_name' => 'i.name',
+                'item_name' => "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)",
                 'direction' => 't.direction',
                 'quantity' => 't.quantity'
             ];
             $orderBy = $sort_map[$sort] ?? 't.transaction_date';
 
-            $sql = "SELECT t.*, i.name as item_name, i.unit_of_measure as unit, 
+            printflow_ensure_product_inventory_transaction_schema();
+            $itemNameSql = "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)";
+
+            $sql = "SELECT t.*, {$itemNameSql} as item_name, COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
                            CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                            r.roll_code as roll_code
                     FROM inventory_transactions t
-                    JOIN inv_items i ON t.item_id = i.id
+                    LEFT JOIN inv_items i ON t.item_id = i.id
+                    LEFT JOIN products p ON t.product_id = p.product_id
                     LEFT JOIN users u ON t.created_by = u.user_id
                     LEFT JOIN inv_rolls r ON t.roll_id = r.id
                     WHERE 1=1";
@@ -73,7 +78,7 @@ try {
             }
             if ($search) {
                 $st = '%' . $search . '%';
-                $sql .= " AND (i.name LIKE ? OR t.notes LIKE ? OR CAST(t.ref_id AS CHAR) LIKE ?)";
+                $sql .= " AND ({$itemNameSql} LIKE ? OR t.notes LIKE ? OR CAST(t.ref_id AS CHAR) LIKE ?)";
                 $params[] = $st; $params[] = $st; $params[] = $st;
                 $types .= 'sss';
             }

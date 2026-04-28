@@ -57,6 +57,110 @@ function printflow_ensure_product_branch_stock_table(): void {
 }
 
 /**
+ * Ensure product-aware audit columns exist in inventory_transactions.
+ * Product stock movements share the ledger table, but must never rely on
+ * inv_items IDs because product IDs and material IDs are different domains.
+ */
+function printflow_ensure_product_inventory_transaction_schema(): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+
+    try {
+        $productCols = db_query("SHOW COLUMNS FROM inventory_transactions LIKE 'product_id'") ?: [];
+        if (empty($productCols)) {
+            db_execute("ALTER TABLE inventory_transactions ADD COLUMN product_id INT NULL AFTER item_id");
+        }
+    } catch (Throwable $e) {
+        // Allow page logic to continue even if the schema is already being
+        // changed by another request.
+    }
+
+    try {
+        $productIdx = db_query("SHOW INDEX FROM inventory_transactions WHERE Key_name = 'idx_inv_tx_product_date'") ?: [];
+        if (empty($productIdx)) {
+            db_execute("ALTER TABLE inventory_transactions ADD INDEX idx_inv_tx_product_date (product_id, transaction_date)");
+        }
+    } catch (Throwable $e) {
+        // Non-fatal. Reads can still work without this index.
+    }
+
+    $done = true;
+}
+
+/**
+ * Record a product stock movement into the shared inventory ledger safely.
+ */
+function printflow_record_product_inventory_transaction(
+    int $productId,
+    string $direction,
+    float $quantity,
+    string $refType = 'PRODUCT',
+    ?int $refId = null,
+    string $notes = '',
+    ?int $userId = null,
+    ?string $date = null,
+    ?int $branchId = null
+) {
+    printflow_ensure_product_inventory_transaction_schema();
+
+    if ($productId <= 0 || $quantity <= 0) {
+        return false;
+    }
+
+    $direction = strtoupper(trim($direction));
+    if (!in_array($direction, ['IN', 'OUT'], true)) {
+        return false;
+    }
+
+    $date = $date ?: date('Y-m-d');
+    $userId = $userId ?: (int)($_SESSION['user_id'] ?? 0);
+    $qty = abs((float)$quantity);
+
+    if ($branchId === null || $branchId <= 0) {
+        if (function_exists('printflow_get_default_admin_branch_id')) {
+            $branchId = (int)printflow_get_default_admin_branch_id();
+        } else {
+            $branchId = (int)($_SESSION['branch_id'] ?? 0);
+        }
+    }
+
+    $fields = [
+        'item_id'          => ['type' => 'i', 'val' => 0],
+        'product_id'       => ['type' => 'i', 'val' => $productId],
+        'direction'        => ['type' => 's', 'val' => $direction],
+        'quantity'         => ['type' => 's', 'val' => (string)$qty],
+        'uom'              => ['type' => 's', 'val' => 'pcs'],
+        'ref_type'         => ['type' => 's', 'val' => strtoupper(trim($refType ?: 'PRODUCT'))],
+        'notes'            => ['type' => 's', 'val' => $notes],
+        'transaction_date' => ['type' => 's', 'val' => $date],
+    ];
+
+    if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
+        $fields['branch_id'] = ['type' => 'i', 'val' => $branchId];
+    }
+    if ($refId !== null) {
+        $fields['ref_id'] = ['type' => 'i', 'val' => $refId];
+    }
+    if ($userId > 0) {
+        $fields['created_by'] = ['type' => 'i', 'val' => $userId];
+    }
+
+    $cols = array_keys($fields);
+    $placeholders = array_fill(0, count($fields), '?');
+    $types = implode('', array_column($fields, 'type'));
+    $values = array_column($fields, 'val');
+
+    return db_execute(
+        "INSERT INTO inventory_transactions (" . implode(', ', $cols) . ")
+         VALUES (" . implode(', ', $placeholders) . ")",
+        $types,
+        $values
+    );
+}
+
+/**
  * Effective quantity + low threshold for a product at a branch.
  *
  * @return array{0:int,1:int} [stock_quantity, low_stock_level]

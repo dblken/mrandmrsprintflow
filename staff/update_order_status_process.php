@@ -56,6 +56,8 @@ if (!$result) {
 // 3. Stock Deduction Logic
 if ($new_status === 'Completed' && $old_status !== 'Completed') {
     $branch_id = (int)$order_row[0]['branch_id'];
+    $orderRef = printflow_get_order_inventory_reference($order_id);
+    $orderLabel = $orderRef['label'] ?? ('Order #' . printflow_format_order_code($order_id, ''));
     $items = db_query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", 'i', [$order_id]);
     
     foreach ($items as $item) {
@@ -65,9 +67,17 @@ if ($new_status === 'Completed' && $old_status !== 'Completed') {
         if ($pid > 0 && $qty > 0) {
             // Use branch-aware deduction
             if (printflow_product_deduct_stock_for_branch($pid, $branch_id, $qty)) {
-                // Standard product stock is tracked separately from inv_items.
-                // Do not mirror it into inventory_transactions, or the material
-                // ledger can show the wrong inventory item label for the order.
+                printflow_record_product_inventory_transaction(
+                    $pid,
+                    'OUT',
+                    (float)$qty,
+                    'ORDER',
+                    $order_id,
+                    "Automated deduction for {$orderLabel} completion",
+                    (int)($_SESSION['user_id'] ?? 0),
+                    date('Y-m-d'),
+                    $branch_id
+                );
             }
         }
     }

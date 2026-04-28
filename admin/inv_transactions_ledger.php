@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/branch_ui.php';
+require_once __DIR__ . '/../includes/product_branch_stock.php';
 
 require_role(['Admin', 'Manager']);
 $current_user = get_logged_in_user();
@@ -62,6 +63,8 @@ function pf_ledger_enrich_transaction_row(array $row): array {
 }
 
 // Get filter parameters
+printflow_ensure_product_inventory_transaction_schema();
+
 $item_id      = (int)($_GET['item_id'] ?? 0);
 $type_filter  = $_GET['type'] ?? '';
 $search       = trim($_GET['search'] ?? '');
@@ -73,16 +76,20 @@ $page         = max(1, (int)($_GET['page'] ?? 1));
 $per_page     = 15;
 
 // Build Query - show only inventory material movements tied to job/customization work
+$itemNameSql = "COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END)";
+
 $sql = "SELECT t.*, 
-               i.name as item_name, 
-               COALESCE(i.unit_of_measure, 'pcs') as unit, 
+               {$itemNameSql} as item_name, 
+               CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN 'product' ELSE 'material' END as ledger_item_kind,
+               COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                r.roll_code as roll_code,
                jo.id as job_ref_id,
                jo.order_id as job_order_store_order_id,
                cust_map.customization_id as customization_ref_id
         FROM inventory_transactions t
-        INNER JOIN inv_items i ON t.item_id = i.id
+        LEFT JOIN inv_items i ON t.item_id = i.id
+        LEFT JOIN products p ON t.product_id = p.product_id
         LEFT JOIN users u ON t.created_by = u.user_id
         LEFT JOIN inv_rolls r ON t.roll_id = r.id
         LEFT JOIN job_orders jo ON UPPER(t.ref_type) = 'JOB_ORDER' AND jo.id = t.ref_id
@@ -115,7 +122,7 @@ if ($type_filter) {
 }
 if ($search) {
     $st = '%' . $search . '%';
-    $sql .= " AND (i.name LIKE ? OR t.notes LIKE ? OR t.ref_type LIKE ? OR t.ref_id LIKE ? OR t.id LIKE ?)";
+    $sql .= " AND ({$itemNameSql} LIKE ? OR t.notes LIKE ? OR t.ref_type LIKE ? OR t.ref_id LIKE ? OR t.id LIKE ?)";
     $params[] = $st; $params[] = $st; $params[] = $st; $params[] = $st; $params[] = $st;
     $types .= 'sssss';
 }
@@ -135,7 +142,7 @@ $offset = ($page - 1) * $per_page;
 
 $orderBy = match($sort) {
     'id' => 't.id',
-    'item_name' => 'i.name',
+    'item_name' => $itemNameSql,
     'direction' => 't.direction',
     'quantity' => 't.quantity',
     default => 't.transaction_date'
@@ -181,7 +188,7 @@ if (isset($_GET['ajax'])) {
             <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)">
                 <td style="font-family:monospace;font-size:12px;color:#111827;">#TX-<?php echo $t['id']; ?></td>
                 <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
-                <td class="truncate" style="font-weight:500;color:#111827;text-transform:capitalize;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
+                <td class="truncate" style="font-weight:500;color:#111827;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
                     <?php echo htmlspecialchars($t['item_name']); ?>
                     <?php if ($t['roll_code']): ?>
                         <span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: <?php echo htmlspecialchars($t['roll_code']); ?></span>
@@ -664,7 +671,7 @@ if (isset($_GET['ajax'])) {
                                     <tr style="cursor:pointer;" onclick="viewTransaction(<?php echo pf_ledger_tx_json_attr($t); ?>)">
                                         <td style="font-family:monospace;font-size:12px;color:#111827;">#TX-<?php echo $t['id']; ?></td>
                                         <td style="color:#6b7280;"><?php echo $t['transaction_date']; ?></td>
-                                        <td class="truncate" style="font-weight:500;color:#111827;text-transform:capitalize;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
+                                        <td class="truncate" style="font-weight:500;color:#111827;" title="<?php echo htmlspecialchars($t['item_name']); ?>">
                                             <?php echo htmlspecialchars($t['item_name']); ?>
                                             <?php if ($t['roll_code']): ?>
                                                 <span style="display:block;font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;text-transform:uppercase;">Roll: <?php echo htmlspecialchars($t['roll_code']); ?></span>
@@ -709,7 +716,7 @@ if (isset($_GET['ajax'])) {
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
             <div style="grid-column:span 2; background:#f9fafb; padding:16px; border-radius:12px; border:1px solid #f3f4f6;">
-                <div style="font-size:11px; font-weight:700; color:#111827; text-transform:uppercase; margin-bottom:4px;">Material</div>
+                <div style="font-size:11px; font-weight:700; color:#111827; text-transform:uppercase; margin-bottom:4px;">Item</div>
                 <div style="font-weight:700; color:#111827; overflow-wrap:break-word; word-break:break-word; hyphens:auto;" id="viewModalItem"></div>
             </div>
             <div>
@@ -1040,7 +1047,7 @@ if (isset($_GET['ajax'])) {
         document.getElementById('viewModalRef').textContent = t.reference_label || ('#TX-' + t.id);
         document.getElementById('viewModalDate').textContent = t.transaction_date;
         document.getElementById('viewModalItem').textContent = t.item_name;
-        document.getElementById('viewModalItem').style.textTransform = 'capitalize';
+        document.getElementById('viewModalItem').style.textTransform = 'none';
         
         let typeStr = (t.ref_type || t.direction || 'MOVEMENT').replace('_',' ').toLowerCase();
         if (typeStr === 'joborder' || typeStr === 'job order') typeStr = 'customization';

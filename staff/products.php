@@ -14,6 +14,7 @@ require_role('Staff');
 require_once __DIR__ . '/../includes/staff_pending_check.php';
 
 printflow_ensure_product_branch_stock_table();
+printflow_ensure_product_inventory_transaction_schema();
 $staffBranchId = printflow_branch_filter_for_user() ?? (int)($_SESSION['branch_id'] ?? 1);
 $staffBranchNameRow = db_query('SELECT branch_name FROM branches WHERE id = ? LIMIT 1', 'i', [$staffBranchId]);
 $staffBranchName = trim((string)($staffBranchNameRow[0]['branch_name'] ?? 'Assigned Branch'));
@@ -162,9 +163,10 @@ try {
 
         $inventory_ledger = db_query("
             SELECT t.transaction_date, t.direction, t.quantity, {$ledgerUomSelect}, t.ref_type, t.ref_id, t.notes,
-                   i.name AS item_name
+                   COALESCE(NULLIF(TRIM(p.name), ''), i.name, CASE WHEN t.product_id IS NOT NULL AND t.product_id > 0 THEN CONCAT('Product #', t.product_id) ELSE CONCAT('Item #', t.item_id) END) AS item_name
             FROM inventory_transactions t
-            INNER JOIN inv_items i ON i.id = t.item_id
+            LEFT JOIN inv_items i ON i.id = t.item_id
+            LEFT JOIN products p ON p.product_id = t.product_id
             {$ledgerBranchWhere}
             ORDER BY t.transaction_date DESC, t.id DESC
             LIMIT 12
