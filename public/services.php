@@ -16,6 +16,34 @@ if ($header_path && file_exists($header_path)) {
     require_once __DIR__ . '/../includes/header.php';
 }
 require_once __DIR__ . '/../includes/db.php';
+
+function public_services_store_image_url(string $base_path): string
+{
+    $root = dirname(__DIR__);
+    $base_path = rtrim($base_path, '/');
+    $candidates = [
+        '/uploads/designs/store_pict.jpg',
+        '/uploads/designs/store_pict.jpeg',
+        '/uploads/designs/store_pict.png',
+        '/public/uploads/designs/store_pict.jpg',
+        '/public/uploads/designs/store_pict.jpeg',
+        '/public/uploads/designs/store_pict.png',
+        '/public/assets/uploads/designs/store_pict.jpg',
+        '/public/assets/uploads/designs/store_pict.jpeg',
+        '/public/assets/uploads/designs/store_pict.png',
+        '/public/assets/uploads/profiles/default.png',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (file_exists($root . $candidate)) {
+            return $base_path . $candidate;
+        }
+    }
+
+    return $base_path . '/public/assets/uploads/profiles/default.png';
+}
+
+$store_image_url = public_services_store_image_url($base_path ?? '');
 ?>
 
 <!-- ============================================================
@@ -274,7 +302,7 @@ require_once __DIR__ . '/../includes/db.php';
             <!-- Left: feature visual box -->
             <div class="lp-order-1">
                 <div class="lp-feature-box lp-services-feature-box" style="padding-top: 0; padding-bottom: 2rem; overflow: hidden;">
-                    <img src="../uploads/designs/store_pict.jpg" alt="Our Store" class="lp-feature-box-image" style="width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 1.5rem; display: block;">
+                    <img src="<?php echo htmlspecialchars($store_image_url); ?>" alt="Our Store" class="lp-feature-box-image" style="width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; margin-bottom: 1.5rem; display: block;" onerror="this.onerror=null;this.src='<?php echo htmlspecialchars(rtrim($base_path ?? '', '/')); ?>/public/assets/uploads/profiles/default.png';">
                     <h3 class="lp-feature-box-title" style="padding: 0 1.5rem;">Trusted Customer Support</h3>
                     <p style="font-size:.95rem; color:var(--lp-muted); margin-top:.75rem; line-height:1.6; padding: 0 1.5rem;">Every order undergoes a strict quality-check before it leaves our shop — or we reprint it at no extra cost.</p>
                     <div class="lp-services-feature-stats" style="display:flex; justify-content:center; gap:2rem; margin-top:2rem; padding: 1.5rem; border-top:1px solid var(--lp-border);">
@@ -330,10 +358,17 @@ require_once __DIR__ . '/../includes/db.php';
                     </li>
                 </ul>
 
-                <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary lp-mt" style="display:inline-flex;">
-                    Start Your Order
-                    <svg style="width:1.1rem;height:1.1rem; margin-left:.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                </a>
+                <?php if (!is_logged_in()): ?>
+                    <a href="#" data-auth-modal="login" class="lp-btn lp-btn-primary lp-mt" style="display:inline-flex;">
+                        Start Your Order
+                        <svg style="width:1.1rem;height:1.1rem; margin-left:.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                <?php else: ?>
+                    <a href="<?php echo $base_path; ?>/public/products.php" class="lp-btn lp-btn-primary lp-mt" style="display:inline-flex;">
+                        Start Your Order
+                        <svg style="width:1.1rem;height:1.1rem; margin-left:.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                <?php endif; ?>
             </div>
 
         </div>
