@@ -21,9 +21,7 @@ require_once __DIR__ . '/../includes/functions.php';
 function public_services_store_image_url(string $base_path): string
 {
     $base_path = rtrim($base_path, '/');
-
-    // Force the canonical store image path requested by the client.
-    return $base_path . '/uploads/store_pict.jpg';
+    return $base_path . '/public/store-image.php?v=' . time();
 }
 
 $store_image_url = public_services_store_image_url($base_path ?? '');

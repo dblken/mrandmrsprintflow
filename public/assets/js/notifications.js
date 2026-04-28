@@ -191,6 +191,13 @@
             });
     }
 
+    function listServiceWorkerRegistrations() {
+        if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker.getRegistrations !== 'function') {
+            return Promise.resolve([]);
+        }
+        return navigator.serviceWorker.getRegistrations().catch(function() { return []; });
+    }
+
     function fetchVapidPublicKey() {
         return fetch(API_VAPID_PUB, { credentials: 'include' })
             .then(function(res) { return res.ok ? res.json() : null; })
@@ -244,9 +251,19 @@
                     if (!shouldRetry) {
                         throw err;
                     }
-                    return resetServiceWorkerAndRetry().then(function(newReg) {
-                        return createFreshSubscription(newReg, isUserAction, true);
-                    });
+                    return listServiceWorkerRegistrations()
+                        .then(function(regs) {
+                            return Promise.all((regs || []).map(function(r) {
+                                if (!r || typeof r.unregister !== 'function') return Promise.resolve(false);
+                                return r.unregister().catch(function() { return false; });
+                            }));
+                        })
+                        .then(function() {
+                            return resetServiceWorkerAndRetry();
+                        })
+                        .then(function(newReg) {
+                            return createFreshSubscription(newReg, isUserAction, true);
+                        });
                 });
             });
         });
@@ -454,7 +471,7 @@
                         });
                     }
 
-                    return createFreshSubscription(reg, isUserAction);
+                    return createFreshSubscription(reg, isUserAction, false);
                 });
             })
             .catch(function(err) {
