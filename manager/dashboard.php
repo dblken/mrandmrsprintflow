@@ -19,6 +19,7 @@ require_role('Manager');
 // ── Branch Context (Manager is always locked to their branch) ────
 $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id']; // always an int for Manager
+$basePath  = defined('BASE_PATH') ? BASE_PATH : '';
 
 // Build reusable branch SQL parts
 $bTypes = ''; $bParams = [];
@@ -340,15 +341,21 @@ $page_title = 'Dashboard - Manager | PrintFlow';
 
             <!-- KPI Summary Row -->
             <div class="kpi-row">
-                <div class="kpi-card indigo">
-                    <div class="kpi-label">Branch Customers</div>
-                    <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
-                    <div class="kpi-sub">Distinct customers</div>
-                </div>
+                <a class="kpi-card indigo kpi-card--link"
+                   href="<?php echo htmlspecialchars($basePath . '/manager/customers.php'); ?>"
+                   aria-label="View branch customers"
+                   title="View customers">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Branch Customers</span>
+                        <span class="kpi-value"><?php echo number_format($total_customers); ?></span>
+                        <span class="kpi-sub">Distinct customers</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details &rarr;</span>
+                    </span>
+                </a>
                 <a class="kpi-card emerald kpi-card--link"
-                   href="<?php echo htmlspecialchars((defined('BASE_PATH') ? BASE_PATH : '') . '/manager/reports.php'); ?>"
+                   href="<?php echo htmlspecialchars($basePath . '/manager/reports.php'); ?>"
                    aria-label="View branch revenue reports"
-                   title="View reports">
+                   title="View revenue report">
                     <span class="kpi-card-inner">
                         <span class="kpi-label">Branch Revenue</span>
                     <div class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></div>
@@ -356,51 +363,63 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         <span class="kpi-card-cta" aria-hidden="true">View details →</span>
                     </span>
                 </a>
-                <div class="kpi-card amber">
-                    <div class="kpi-label">Total Orders</div>
-                    <div class="kpi-value"><?php echo number_format($total_orders); ?></div>
-                    <div class="kpi-sub">This branch</div>
-                </div>
-                <div class="kpi-card rose">
-                    <div class="kpi-label">Pending Orders</div>
-                    <div class="kpi-value"><?php echo number_format($pending_orders); ?></div>
-                    <div class="kpi-sub">Awaiting processing</div>
-                </div>
+                <a class="kpi-card amber kpi-card--link"
+                   href="<?php echo htmlspecialchars($basePath . '/manager/orders.php'); ?>"
+                   aria-label="View branch orders"
+                   title="View orders">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Total Orders</span>
+                        <span class="kpi-value"><?php echo number_format($total_orders); ?></span>
+                        <span class="kpi-sub">This branch</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details &rarr;</span>
+                    </span>
+                </a>
+                <a class="kpi-card rose kpi-card--link"
+                   href="<?php echo htmlspecialchars($basePath . '/manager/orders.php?status=Pending'); ?>"
+                   aria-label="View pending branch orders"
+                   title="View pending orders">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Pending Orders</span>
+                        <span class="kpi-value"><?php echo number_format($pending_orders); ?></span>
+                        <span class="kpi-sub">Awaiting processing</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details &rarr;</span>
+                    </span>
+                </a>
             </div>
 
-            <!-- Sales Chart + Order Status -->
-            <div class="dash-grid">
-                <!-- Sales Revenue -->
-                <div class="dash-card dash-full">
-                    <div class="dash-card-title chart-header-row">
+            <!-- Sales Revenue (Full Width) -->
+            <div class="ana-card dash-full" style="margin-bottom:28px;">
+                <div class="ana-hd chart-header-row" style="margin-bottom:0;">
                         <span class="chart-title-nowrap">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#53C5E0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                             Branch Revenue
+                            <span class="chart-badge">Live Period</span>
                         </span>
                         <div class="chart-filters">
                             <label class="chart-filter-label">Period</label>
-                            <select id="dash-chart-period" class="chart-select">
+                            <select id="dash-chart-period" class="chart-select chart-select-period">
                                 <option value="today">Today</option>
                                 <option value="weekly">Weekly</option>
                                 <option value="monthly" selected>Monthly</option>
                                 <option value="6months">Last 6 Months</option>
                                 <option value="yearly">Yearly</option>
                             </select>
-                            <span id="dash-year-month" style="display:flex; gap:8px; align-items:center;">
-                                <select id="dash-chart-month" class="chart-select" style="display:none;">
+                            <span id="dash-year-month" class="chart-filter-group">
+                                <select id="dash-chart-month" class="chart-select chart-select-month" style="display:none;" title="Month">
                                     <?php foreach (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $i => $m): ?>
                                     <option value="<?php echo $i+1; ?>" <?php echo ($i+1)==date('n')?'selected':''; ?>><?php echo $m; ?></option>
                                     <?php endforeach; ?>
                                 </select>
-                                <select id="dash-chart-year" class="chart-select">
+                                <select id="dash-chart-year" class="chart-select chart-select-year" title="Year">
                                     <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
                                     <option value="<?php echo $y; ?>" <?php echo $y==date('Y')?'selected':''; ?>><?php echo $y; ?></option>
                                     <?php endfor; ?>
                                 </select>
                             </span>
                         </div>
-                    </div>
-                    <div class="chart-wrap" id="dash-sales-chart-wrap">
+                </div>
+                <div class="ana-bd">
+                    <div class="chart-wrap ch-box" id="dash-sales-chart-wrap" style="height:320px;">
                         <div class="chart-loading" id="dash-sales-loading">
                             <div class="chart-loading-spinner"></div>
                         </div>
@@ -411,9 +430,10 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         <div class="pf-wide-chart-canvas"><canvas id="salesChart"></canvas></div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Order Status Breakdown -->
-                <div class="dash-card" style="display:none;">
+            <div class="dash-grid">
+                <div class="dash-card">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Order Status Breakdown
@@ -463,14 +483,25 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                     <?php endif; ?>
                 </div>
 
-                <!-- Low Stock Alerts -->
+                <!-- Inventory Alerts -->
                 <div class="dash-card">
                     <div class="dash-card-title" style="justify-content:space-between;">
                         <span style="display:flex; align-items:center; gap:8px;">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                            Low Stock Alerts
+                            Inventory Alerts
                         </span>
-                        <a href="<?php echo htmlspecialchars((defined('BASE_PATH') ? BASE_PATH : '') . '/manager/inventory_items.php?stock_status=low_stock'); ?>" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all &rarr;</a>
+                        <?php if (!empty($low_stock)):
+                            $has_out_of_stock = false;
+                            foreach ($low_stock as $ls) {
+                                if ((float)$ls['current_stock'] <= 0) {
+                                    $has_out_of_stock = true;
+                                    break;
+                                }
+                            }
+                            $stock_filter = $has_out_of_stock ? 'out' : 'low';
+                        ?>
+                        <a href="<?php echo htmlspecialchars($basePath . '/manager/inventory_items.php?stock_status=' . $stock_filter); ?>" style="font-size:13px; font-weight:600; color:#0d9488; text-decoration:none;">See all &rarr;</a>
+                        <?php endif; ?>
                     </div>
                     <?php if (!empty($low_stock)): ?>
                     <table class="mini-table">
@@ -481,6 +512,8 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                                 $limit = (float)$ls['low_limit'];
                                 $pct   = $limit > 0 ? ($stock / $limit) * 100 : 0;
                                 $barClass = $stock <= 0 ? 'danger' : 'warning';
+                                $statusText = $stock <= 0 ? 'OUT OF STOCK' : 'LOW';
+                                $statusColor = $stock <= 0 ? '#ef4444' : '#d97706';
                             ?>
                             <tr>
                                 <td style="font-weight:600;">
@@ -493,7 +526,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                                 <td>
                                     <div style="display:flex; align-items:center; gap:6px;">
                                         <div class="stock-bar" style="width:50px;"><div class="stock-bar-fill <?php echo $barClass; ?>" style="width:<?php echo min(100, max($pct, 10)); ?>%;"></div></div>
-                                        <span style="font-size:10px; font-weight:700; color:#ef4444;">LOW</span>
+                                        <span style="font-size:10px; font-weight:700; color:<?php echo $statusColor; ?>;"><?php echo $statusText; ?></span>
                                     </div>
                                 </td>
                             </tr>
@@ -511,7 +544,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 </div>
             </div>
 
-            <div class="dash-grid">
+            <div class="dash-grid" style="display:none;">
                 <div class="dash-card" style="display:none;">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -733,6 +766,23 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 revenueValue.textContent = normalizePesoText(revenueValue.textContent);
             }
             document.querySelectorAll('.dash-card.dash-full .mini-table tbody td:last-child').forEach(function (cell) {
+                cell.textContent = normalizePesoText(cell.textContent);
+            });
+        }
+
+        function normalizePesoText(raw) {
+            var text = String(raw || '').trim();
+            if (!text) return text;
+            var numeric = text.replace(/^[^0-9-]+/, '');
+            return numeric ? ('₱' + numeric) : text;
+        }
+
+        function normalizeDashboardCurrency() {
+            var revenueValue = document.querySelector('.kpi-card.emerald .kpi-value');
+            if (revenueValue) {
+                revenueValue.textContent = normalizePesoText(revenueValue.textContent);
+            }
+            document.querySelectorAll('.mini-table tbody td:last-child').forEach(function (cell) {
                 cell.textContent = normalizePesoText(cell.textContent);
             });
         }
