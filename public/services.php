@@ -16,12 +16,32 @@ if ($header_path && file_exists($header_path)) {
     require_once __DIR__ . '/../includes/header.php';
 }
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 function public_services_store_image_url(string $base_path): string
 {
     $root = dirname(__DIR__);
     $base_path = rtrim($base_path, '/');
+    $shop_cfg_path = $root . '/public/assets/uploads/shop_config.json';
+
+    if (file_exists($shop_cfg_path)) {
+        $shop_cfg = json_decode((string)file_get_contents($shop_cfg_path), true);
+        if (is_array($shop_cfg)) {
+            $configured = trim((string)($shop_cfg['store_image'] ?? ''));
+            if ($configured !== '') {
+                $configured_rel = '/' . ltrim($configured, '/');
+                if (file_exists($root . $configured_rel)) {
+                    return $base_path . $configured_rel;
+                }
+            }
+        }
+    }
+
     $candidates = [
+        '/uploads/store_pict.jpg',
+        '/uploads/store_pict.jpeg',
+        '/uploads/store_pict.png',
+        '/uploads/store_pict.webp',
         '/uploads/designs/store_pict.jpg',
         '/uploads/designs/store_pict.jpeg',
         '/uploads/designs/store_pict.png',

@@ -24,7 +24,9 @@ $error   = '';
 // Directories
 $qr_dir   = __DIR__ . '/../public/assets/uploads/qr/';
 $logo_dir = __DIR__ . '/../public/assets/uploads/';
+$store_img_dir = __DIR__ . '/../uploads/';
 if (!is_dir($qr_dir)) mkdir($qr_dir, 0755, true);
+if (!is_dir($store_img_dir)) mkdir($store_img_dir, 0755, true);
 
 // Helper: load json config
 function load_cfg($path) {
@@ -110,8 +112,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 $shop_cfg['logo'] = $fname;
             }
         }
+        if (!empty($_FILES['store_image']['name'])) {
+            $ext = strtolower(pathinfo($_FILES['store_image']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['jpg','jpeg','png','webp'])) {
+                $fname = 'store_pict.' . $ext;
+                if (move_uploaded_file($_FILES['store_image']['tmp_name'], $store_img_dir . $fname)) {
+                    $shop_cfg['store_image'] = '/uploads/' . $fname;
+                } else {
+                    $error = 'Store image upload failed. Please try again.';
+                }
+            } else {
+                $error = 'Invalid store image type. Use JPG, PNG, or WebP.';
+            }
+        }
         save_cfg($logo_dir . 'shop_config.json', $shop_cfg);
-        $success = 'General settings saved!';
+        if ($error === '') {
+            $success = 'General settings saved!';
+        }
     }
 
     // Save footer
@@ -354,6 +371,25 @@ $page_title = 'Settings - Admin';
                             <?php endif; ?>
                             <input type="file" name="shop_logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
                             <p style="font-size:11px;color:#9ca3af;margin-top:4px;">🔵 Recommended: <strong>500×500 px</strong> square image (PNG/WebP with transparent background). Displayed as a circle.</p>
+                        </div>
+                        <div class="f-group">
+                            <label>Store Image (Services Page)</label>
+                            <?php
+                                $store_image_preview = trim((string)($shop_cfg['store_image'] ?? ''));
+                                if ($store_image_preview === '') {
+                                    foreach (['/uploads/store_pict.jpg', '/uploads/store_pict.jpeg', '/uploads/store_pict.png', '/uploads/store_pict.webp'] as $candidate_store) {
+                                        if (file_exists(__DIR__ . '/..' . $candidate_store)) {
+                                            $store_image_preview = $candidate_store;
+                                            break;
+                                        }
+                                    }
+                                }
+                            ?>
+                            <?php if ($store_image_preview !== ''): ?>
+                                <img src="<?php echo $base_path . htmlspecialchars($store_image_preview); ?>?t=<?php echo time(); ?>" style="width:100%;max-width:280px;height:180px;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb;display:block;margin-bottom:10px;" alt="Store Image">
+                            <?php endif; ?>
+                            <input type="file" name="store_image" accept="image/png,image/jpeg,image/webp">
+                            <p style="font-size:11px;color:#9ca3af;margin-top:4px;">Shown on Services page ("Our Store" image). Recommended at least 800×800 px.</p>
                         </div>
                         <div class="f-group" id="group_shop_name">
                             <label>Shop Name</label>
