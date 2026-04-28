@@ -741,8 +741,8 @@ $current_user = get_logged_in_user();
                 transform: none;
                 margin-top: 6px;
                 margin-bottom: 6px;
-                opacity: 1;
-                pointer-events: auto;
+                opacity: 0;
+                pointer-events: none;
                 align-self: flex-start;
                 order: 3;
                 flex-wrap: nowrap;
@@ -756,10 +756,14 @@ $current_user = get_logged_in_user();
             .bubble-row.self .msg-action-bar {
                 align-self: flex-end;
             }
+            .bubble-row.has-active-menu .msg-action-bar {
+                opacity: 1;
+                pointer-events: auto;
+            }
             .reaction-picker {
-                left: 0;
+                left: 50%;
                 right: auto;
-                transform: none;
+                transform: translateX(-50%);
                 bottom: calc(100% + 8px);
                 margin-bottom: 0;
                 padding: 8px 10px;
@@ -770,8 +774,8 @@ $current_user = get_logged_in_user();
                 border-radius: 20px;
             }
             .bubble-row.self .reaction-picker {
-                left: auto;
-                right: 0;
+                left: 50%;
+                right: auto;
             }
             .m-more-menu {
                 right: 0;
@@ -1958,6 +1962,7 @@ function appendMsgUI(m) {
     row.setAttribute('data-is-self', isSelf ? '1' : '0');
     row.setAttribute('data-status', m.status);
     box.appendChild(row);
+    bindMobileMessageHold(row);
 
     if ((m.image_path || m.message_file) && document.getElementById('mediaGallery')?.classList.contains('active')) loadMedia();
 }
@@ -2328,9 +2333,10 @@ function openDetails(id) {
         const c = data.customer || {};
         const o = data.order || {};
         const it = data.items || [];
+        const compact = window.matchMedia('(max-width: 1023px)').matches;
         
         let h = `
-        <div class="details-sidebar" style="gap:1rem;">
+        <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #f1f5f9;padding:1rem;' : ''}">
             <!-- Customer Info -->
             <div class="pf-mini-card" style="padding:0.75rem;">
                 <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
@@ -2373,8 +2379,8 @@ function openDetails(id) {
             </div>
         </div>
 
-        <div class="details-main" style="padding-left:1rem;">
-            <div style="font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem;">Production Roadmap Details</div>
+        <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
+            <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
             <div style="display:flex; flex-direction:column; gap:0.75rem;">
                 ${it.length ? it.map(i => {
                     const specs = i.customization || {};
@@ -2645,6 +2651,46 @@ function initRecordingEvents() {
     }
 }
 
+function bindMobileMessageHold(row) {
+    if (!row || row.dataset.mobileHoldBound === '1' || !window.matchMedia('(max-width: 1023px)').matches) return;
+    row.dataset.mobileHoldBound = '1';
+    let holdTimer = null;
+    let holdTriggered = false;
+    const target = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
+    if (!target) return;
+
+    const startHold = (event) => {
+        if (event.target.closest('.msg-action-bar, .reaction-picker, .m-more-menu, .reaction-display, a, button, audio, video')) return;
+        holdTriggered = false;
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+            holdTriggered = true;
+            closeAllMenus();
+            row.classList.add('has-active-menu');
+        }, 450);
+    };
+
+    const clearHold = () => clearTimeout(holdTimer);
+
+    target.addEventListener('touchstart', startHold, { passive: true });
+    target.addEventListener('touchend', clearHold);
+    target.addEventListener('touchcancel', clearHold);
+    target.addEventListener('touchmove', clearHold);
+    target.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        closeAllMenus();
+        row.classList.add('has-active-menu');
+    });
+
+    row.addEventListener('click', (event) => {
+        if (holdTriggered) {
+            event.preventDefault();
+            event.stopPropagation();
+            holdTriggered = false;
+        }
+    }, true);
+}
+
 window.startRecording = async function() {
     if (mediaRecorder && mediaRecorder.state === "recording") return;
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
@@ -2753,7 +2799,7 @@ function updateVoiceProgress(id) {
     const canvas = document.getElementById(`v-canvas-${id}`);
     const dur = document.getElementById(`v-dur-${id}`);
     if (!audio || !canvas) return;
-    if (!audio.duration || !waveformCache[audio.src]) return;
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0 || !waveformCache[audio.src]) return;
     const percent = audio.currentTime / audio.duration;
     if (dur) dur.textContent = formatAudioTime(audio.currentTime);
     drawWaveformWithProgress(canvas, audio, percent);
@@ -2843,7 +2889,7 @@ function initVoiceDuration(id) {
 
 function seekVoice(id, event) {
     const audio = document.getElementById(`v-audio-${id}`);
-    if (!audio || !audio.duration) return;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
     const container = event.currentTarget;
     const rect = container.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -2857,9 +2903,10 @@ function handleVoiceAudioError(id) {
 }
 
 function formatAudioTime(seconds) {
-    if (isNaN(seconds)) return '0:00';
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
+    const n = Number(seconds);
+    if (!Number.isFinite(n) || n < 0) return '0:00';
+    const min = Math.floor(n / 60);
+    const sec = Math.floor(n % 60);
     return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
@@ -2987,9 +3034,10 @@ function sendAudio() {
 }
 
 function formatAudioTime(s) {
-    if (isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const rs = Math.floor(s % 60);
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < 0) return '0:00';
+    const m = Math.floor(n / 60);
+    const rs = Math.floor(n % 60);
     return `${m}:${rs < 10 ? '0' : ''}${rs}`;
 }
 

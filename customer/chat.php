@@ -567,6 +567,51 @@ require_once __DIR__ . '/../includes/header.php';
             padding: 1rem;
         }
 
+        .b-actions {
+            position: static;
+            transform: none;
+            margin-top: 6px;
+            align-self: flex-start;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brow.self .b-actions,
+        .brow.other .b-actions {
+            left: auto;
+            right: auto;
+        }
+
+        .brow.self .b-actions {
+            align-self: flex-end;
+        }
+
+        .brow.has-active-menu .b-actions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .react-picker {
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%);
+            top: auto !important;
+            bottom: calc(100% + 8px) !important;
+            margin: 0 !important;
+            padding: 8px 10px;
+            gap: 6px;
+            height: auto;
+            max-width: min(260px, calc(100vw - 48px));
+            flex-wrap: wrap;
+            border-radius: 20px;
+        }
+
+        .more-menu {
+            left: auto;
+            right: 0;
+            width: 148px;
+        }
+
         #welcome {
             display: none !important;
         }
@@ -1293,6 +1338,7 @@ function appendMsgUI(m) {
             ${isSelf ? `<div class="seen-wrapper" id="sw-${m.id}"></div>` : ''}
         </div>`;
     box.appendChild(row);
+    bindMobileMessageHold(row);
 }
 
 function getMinute(d) {
@@ -1659,7 +1705,7 @@ window.toggleVoicePlayer = function(id, src) {
 window.updateVoiceProgress = function(id) {
     const audio = document.getElementById(`v-audio-${id}`), cvs = document.getElementById(`v-canvas-${id}`), dur = document.getElementById(`v-dur-${id}`);
     if(!audio || !cvs) return;
-    if (!audio.duration || !vCache[audio.src]) return;
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0 || !vCache[audio.src]) return;
     const prog = audio.currentTime / audio.duration;
     if (dur) dur.textContent = fmtDuration(audio.currentTime);
     const row = cvs.closest('.brow');
@@ -1667,14 +1713,28 @@ window.updateVoiceProgress = function(id) {
     drawDataToCanvas(cvs.id, vCache[audio.src], isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)', prog);
 };
 window.resetVoicePlayer = id => { const i = document.getElementById(`v-icon-${id}`); if(i) i.className="bi bi-play-fill"; };
-window.initVoiceDuration = id => { const a = document.getElementById(`v-audio-${id}`), d = document.getElementById(`v-dur-${id}`); if(a && d) d.textContent = fmtDuration(a.duration); };
-window.seekVoice = (id, e) => { const a = document.getElementById(`v-audio-${id}`); if(!a || !a.duration) return; const rect = e.currentTarget.getBoundingClientRect(); a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration; };
+window.initVoiceDuration = id => {
+    const a = document.getElementById(`v-audio-${id}`), d = document.getElementById(`v-dur-${id}`);
+    if(a && d) d.textContent = fmtDuration(a.duration);
+};
+window.seekVoice = (id, e) => {
+    const a = document.getElementById(`v-audio-${id}`);
+    if(!a || !Number.isFinite(a.duration) || a.duration <= 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
+};
 window.handleVoiceAudioError = id => {
     const duration = document.getElementById(`v-dur-${id}`);
     if (duration) duration.textContent = '0:00';
 };
 
-function fmtDuration(s) { if(isNaN(s)) return '0:00'; const m = Math.floor(s/60), sec = Math.floor(s%60); return `${m}:${sec.toString().padStart(2,'0')}`; }
+function fmtDuration(s) {
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < 0) return '0:00';
+    const m = Math.floor(n / 60);
+    const sec = Math.floor(n % 60);
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+}
 
 // Gallery & Misc
 function onImgSelected() {
@@ -1689,6 +1749,45 @@ function onImgSelected() {
 function toggleReact(id, e) { e.stopPropagation(); const el = document.getElementById('rp-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
 function react(id, type) { const fd = new FormData(); fd.append('message_id',id); fd.append('reaction_type',type); api('/public/api/chat/react_message.php','POST',fd).then(r=>loadMsgs()); closeAllMenus(); }
 function toggleMore(id, e) { e.stopPropagation(); const el = document.getElementById('mm-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
+function bindMobileMessageHold(row) {
+    if (!row || row.dataset.mobileHoldBound === '1' || !window.matchMedia('(max-width: 768px)').matches) return;
+    row.dataset.mobileHoldBound = '1';
+    let holdTimer = null;
+    let holdTriggered = false;
+    const target = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
+    if (!target) return;
+
+    const startHold = (event) => {
+        if (event.target.closest('.b-actions, .react-picker, .more-menu, .react-display, a, button, audio, video')) return;
+        holdTriggered = false;
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+            holdTriggered = true;
+            closeAllMenus();
+            row.classList.add('has-active-menu');
+        }, 450);
+    };
+
+    const clearHold = () => clearTimeout(holdTimer);
+
+    target.addEventListener('touchstart', startHold, { passive: true });
+    target.addEventListener('touchend', clearHold);
+    target.addEventListener('touchcancel', clearHold);
+    target.addEventListener('touchmove', clearHold);
+    target.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        closeAllMenus();
+        row.classList.add('has-active-menu');
+    });
+
+    row.addEventListener('click', (event) => {
+        if (holdTriggered) {
+            event.preventDefault();
+            event.stopPropagation();
+            holdTriggered = false;
+        }
+    }, true);
+}
 function pinMsg(id) { 
     const fd = new FormData(); 
     fd.append('message_id', id); 
@@ -1812,8 +1911,9 @@ function openOrderDetails(id) {
         const items = data.items || [];
         const actionUrl = o.manage_url || `${BASE}/customer/orders.php?highlight=${o.order_id}`;
         const actionLabel = o.manage_url ? 'MANAGE ORDER' : 'VIEW ORDER';
+        const compact = window.matchMedia('(max-width: 768px)').matches;
         body.innerHTML = `
-            <div class="details-sidebar" style="gap:1rem;">
+            <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #eef2f7;padding:1rem;' : ''}">
                 <div class="pf-mini-card" style="padding:.75rem;">
                     <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
                     <div style="display:flex; align-items:center; gap:.75rem;">
@@ -1846,8 +1946,8 @@ function openOrderDetails(id) {
                      <a href="${actionUrl}" style="display:block; text-align:center; background:#0ea5a5; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
                 </div>
             </div>
-            <div class="details-main" style="padding-left:1rem;">
-                <div style="font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem;">Production Roadmap Details</div>
+            <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
+                <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
                 <div style="display:flex; flex-direction:column; gap:.75rem;">
                     ${items.length ? items.map(it => {
                         const specs = it.customization || {};
@@ -1962,7 +2062,10 @@ function toggleHMenu(e) { e.stopPropagation(); document.getElementById('hDropdow
 function closeAllMenus() { document.querySelectorAll('.react-picker,.more-menu,.h-dropdown').forEach(el=>el.classList.remove('show')); }
 if (!window.__pfCustomerChatCloseMenusBound) {
     window.__pfCustomerChatCloseMenusBound = true;
-    window.addEventListener('click', closeAllMenus);
+    window.addEventListener('click', () => {
+        document.querySelectorAll('.brow').forEach(row => row.classList.remove('has-active-menu'));
+        closeAllMenus();
+    });
 }
 
 function initiateCall(type) {
