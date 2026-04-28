@@ -535,6 +535,38 @@ require_once __DIR__ . '/../includes/header.php';
             max-width: 100%;
         }
 
+        .details-modal-overlay {
+            padding: 0.75rem;
+            align-items: center;
+        }
+
+        .details-modal-panel {
+            max-width: 100%;
+            max-height: calc(100dvh - 1.5rem);
+            border-radius: 24px;
+        }
+
+        .details-modal-header {
+            padding: 1rem 1.1rem;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .details-modal-content {
+            grid-template-columns: 1fr;
+            overflow-y: auto;
+        }
+
+        .details-sidebar {
+            border-right: none;
+            border-bottom: 1px solid #eef2f7;
+            padding: 1rem;
+        }
+
+        .details-main {
+            padding: 1rem;
+        }
+
         #welcome {
             display: none !important;
         }
@@ -1297,16 +1329,34 @@ function initRecordingEvents() {
     if (!micBtn || micBtn.dataset.pfRecordingInit === '1') return;
     micBtn.dataset.pfRecordingInit = '1';
 
-    // Reset potential duplicate listeners
-    micBtn.onmousedown = micBtn.ontouchstart = null;
+    const start = (e) => { e.preventDefault(); window.startRecording(); };
+    if (window.PointerEvent) {
+        micBtn.addEventListener("pointerdown", start);
+    } else {
+        micBtn.addEventListener("mousedown", start);
+        micBtn.addEventListener("touchstart", start, { passive: false });
+    }
 
-    micBtn.onmousedown = (e) => { e.preventDefault(); window.startRecording(); };
-    micBtn.ontouchstart = (e) => { e.preventDefault(); window.startRecording(); };
-    
-    // Global window releases
-    window.onmouseup = window.ontouchend = () => {
-        if (mediaRecorder && mediaRecorder.state === "recording") window.stopRecording();
-    };
+    if (!window.__pfCustomerChatRecordingReleaseBound) {
+        window.__pfCustomerChatRecordingReleaseBound = true;
+        const stop = () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                window.stopRecording();
+            }
+        };
+        if (window.PointerEvent) {
+            window.addEventListener("pointerup", stop);
+            window.addEventListener("pointercancel", stop);
+        } else {
+            window.addEventListener("mouseup", stop);
+            window.addEventListener("touchend", stop);
+            window.addEventListener("touchcancel", stop);
+        }
+        window.addEventListener("blur", stop);
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) stop();
+        });
+    }
 }
 
 window.startRecording = async function() {
@@ -1317,8 +1367,11 @@ window.startRecording = async function() {
     }
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
+        const recorderOptions = MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? { mimeType: 'audio/webm;codecs=opus' }
+            : undefined;
+        mediaRecorder = recorderOptions ? new MediaRecorder(stream, recorderOptions) : new MediaRecorder(stream);
+        mediaRecorder.start(250);
         audioChunks = [];
         let seconds = 0;
 
@@ -1338,7 +1391,9 @@ window.startRecording = async function() {
             if (seconds >= MAX_REC_DURATION) stopRecording();
         }, 1000);
 
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.ondataavailable = e => {
+            if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
         mediaRecorder.onstop = showVoicePreview;
         startVisualizer(stream);
     } catch (e) {
@@ -1560,7 +1615,7 @@ async function drawWaveformFromUrl(url, canvasId, color) {
     if (vCache[url]) { drawDataToCanvas(canvasId, vCache[url], color); return; }
     let aCtx = null;
     try {
-        const r = await fetch(url);
+        const r = await fetch(url, { cache: 'no-store' });
         if (!r.ok) return;
         const buf = await r.arrayBuffer();
         if (!buf.byteLength) return;

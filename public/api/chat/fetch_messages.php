@@ -223,12 +223,17 @@ try {
             $sender_type = $resolve_sender_type((string) $msg['sender'], (string) $m_type, $meta_data);
             $is_self = $sender_type !== null ? ($sender_type === $current_user_type) : false;
 
-            // Wrap video path in proxy if it's a local video
+            // Wrap locally stored media in proxy endpoints so playback works even
+            // when direct /uploads access is blocked or rewritten by hosting rules.
             $raw_m_file = (string)($msg['message_file'] ?? '');
             if ($m_type === 'video' && $raw_m_file !== '' && !preg_match('#^https?://#i', $raw_m_file)) {
                 $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
                 $filename = basename($raw_m_file);
                 $raw_m_file = $bp . '/public/serve_chat_video.php?file=' . urlencode($filename);
+            } elseif ($m_type === 'voice' && $raw_m_file !== '' && !preg_match('#^https?://#i', $raw_m_file)) {
+                $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+                $filename = basename($raw_m_file);
+                $raw_m_file = $bp . '/public/serve_chat_audio.php?file=' . urlencode($filename);
             }
 
             $thumbnail = $chat_public_url((string) ($msg['thumbnail'] ?? ''));

@@ -688,23 +688,36 @@ $current_user = get_logged_in_user();
                 min-height: 0;
                 width: 100%;
             }
-            .chat-app.mobile-list-view .chat-sidebar { display: flex; }
-            .chat-app.mobile-list-view .chat-window { display: none; }
-            .chat-app.mobile-thread-view .chat-sidebar { display: none; }
-            .chat-app.mobile-thread-view .chat-window { display: flex; }
+            .chat-app.mobile-list-view .chat-sidebar { display: flex !important; }
+            .chat-app.mobile-list-view .chat-window { display: none !important; }
+            .chat-app.mobile-thread-view .chat-sidebar { display: none !important; }
+            .chat-app.mobile-thread-view .chat-window { display: flex !important; }
             .mobile-thread-back {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 flex-shrink: 0;
             }
+            #welcomeScreen {
+                display: none !important;
+            }
             .window-header {
                 padding: 0.875rem 1rem;
                 gap: 0.75rem;
+                align-items: center;
+            }
+            .window-title-area {
+                display: none;
+            }
+            .window-header #activeAvatar {
+                width: 38px;
+                height: 38px;
+                border-radius: 12px;
             }
             .header-actions {
                 gap: 6px;
                 flex-shrink: 0;
+                margin-left: auto;
             }
             .h-btn {
                 width: 36px;
@@ -714,8 +727,83 @@ $current_user = get_logged_in_user();
             #messagesArea {
                 padding: 1rem 0.85rem 1.25rem;
             }
+            #pinnedBar {
+                padding: 8px 0.85rem !important;
+            }
             .window-footer {
                 padding: 0.75rem;
+            }
+            .msg-content-col {
+                max-width: 100% !important;
+            }
+            .msg-action-bar {
+                position: static;
+                transform: none;
+                margin-top: 6px;
+                margin-bottom: 6px;
+                opacity: 1;
+                pointer-events: auto;
+                align-self: flex-start;
+                order: 3;
+                flex-wrap: nowrap;
+                z-index: 5;
+            }
+            .bubble-row.self .msg-action-bar,
+            .bubble-row.other .msg-action-bar {
+                left: auto;
+                right: auto;
+            }
+            .bubble-row.self .msg-action-bar {
+                align-self: flex-end;
+            }
+            .reaction-picker {
+                left: 0;
+                right: auto;
+                transform: none;
+                bottom: calc(100% + 8px);
+                margin-bottom: 0;
+                padding: 8px 10px;
+                gap: 6px;
+                height: auto;
+                max-width: min(260px, calc(100vw - 48px));
+                flex-wrap: wrap;
+                border-radius: 20px;
+            }
+            .bubble-row.self .reaction-picker {
+                left: auto;
+                right: 0;
+            }
+            .m-more-menu {
+                right: 0;
+                left: auto;
+                width: 148px;
+            }
+            .reaction-display-container {
+                margin-top: 8px;
+            }
+            .details-modal-overlay {
+                padding: 0.75rem;
+            }
+            .details-modal-panel {
+                max-height: calc(100dvh - 1.5rem);
+                border-radius: 24px;
+            }
+            .details-modal-header {
+                padding: 1rem 1.1rem;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .details-modal-content {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+            .details-sidebar {
+                border-right: none;
+                border-bottom: 1px solid #f1f5f9;
+                padding: 1rem;
+            }
+            .details-main {
+                padding: 1rem;
             }
             .gallery-panel {
                 position: fixed !important;
@@ -958,9 +1046,6 @@ $current_user = get_logged_in_user();
                 <div id="chatInterface" class="chat-interface-wrapper" style="display:none;">
                     <!-- Header -->
                     <header class="window-header">
-                        <button type="button" class="h-btn mobile-thread-back" onclick="showConversationList()" aria-label="Back to conversations">
-                            <i class="bi bi-arrow-left"></i>
-                        </button>
                         <div class="conv-avatar cursor-pointer" id="activeAvatar" onclick="if(activeId) openDetails(activeId)">?</div>
                         <div class="window-title-area cursor-pointer" onclick="if(activeId) openDetails(activeId)">
                             <h3 class="window-title">
@@ -2535,14 +2620,28 @@ function initRecordingEvents() {
     micBtn.dataset.pfRecordingInit = '1';
 
     const start = (e) => { e.preventDefault(); window.startRecording(); };
-    micBtn.addEventListener("mousedown", start);
-    micBtn.addEventListener("touchstart", start, { passive: false });
+    if (window.PointerEvent) {
+        micBtn.addEventListener("pointerdown", start);
+    } else {
+        micBtn.addEventListener("mousedown", start);
+        micBtn.addEventListener("touchstart", start, { passive: false });
+    }
 
     if (!window.__pfStaffChatRecordingReleaseBound) {
         window.__pfStaffChatRecordingReleaseBound = true;
         const stop = () => { if (mediaRecorder && mediaRecorder.state === "recording") window.stopRecording(); };
-        window.addEventListener("mouseup", stop);
-        window.addEventListener("touchend", stop);
+        if (window.PointerEvent) {
+            window.addEventListener("pointerup", stop);
+            window.addEventListener("pointercancel", stop);
+        } else {
+            window.addEventListener("mouseup", stop);
+            window.addEventListener("touchend", stop);
+            window.addEventListener("touchcancel", stop);
+        }
+        window.addEventListener("blur", stop);
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) stop();
+        });
     }
 }
 
@@ -2554,8 +2653,11 @@ window.startRecording = async function() {
     }
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
+        const recorderOptions = MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? { mimeType: 'audio/webm;codecs=opus' }
+            : undefined;
+        mediaRecorder = recorderOptions ? new MediaRecorder(stream, recorderOptions) : new MediaRecorder(stream);
+        mediaRecorder.start(250);
         audioChunks = [];
         let seconds = 0;
 
@@ -2575,7 +2677,9 @@ window.startRecording = async function() {
             if (seconds >= MAX_DURATION) window.stopRecording();
         }, 1000);
 
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.ondataavailable = e => {
+            if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
         mediaRecorder.onstop = () => { stopVoiceVisualizer(); showVoicePreview(); };
         startVoiceVisualizer(stream);
     } catch (e) {
