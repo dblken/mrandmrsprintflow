@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/branch_context.php';
 
 require_role(['Admin', 'Manager']);
 // Ensure $base_path is defined
@@ -96,6 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_action']) && verif
 
 $current_user = get_logged_in_user();
 $can_manage_customer_verification = (($current_user['role'] ?? '') === 'Admin');
+$viewerBranch = printflow_branch_filter_for_user();
+$branchId = $viewerBranch ?? 'all';
 
 if (function_exists('printflow_ensure_customers_auth_provider_column')) {
     printflow_ensure_customers_auth_provider_column();
@@ -163,10 +166,13 @@ $sort_by = $_GET['sort']    ?? 'newest';
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 10;
 
-// Build query
-$sql = "SELECT * FROM customers WHERE 1=1";
-$params = [];
-$types = '';
+// Build query (branch-scoped for manager/staff)
+[$custBranchSql, $custBranchTypes, $custBranchParams] = ($viewerBranch)
+    ? branch_customers_belong_where_sql((int)$viewerBranch, 'customers')
+    : ['', '', []];
+$sql = "SELECT * FROM customers WHERE 1=1" . $custBranchSql;
+$params = $custBranchParams;
+$types = $custBranchTypes;
 
 if (!empty($search)) {
     $search_term = '%' . $search . '%';
@@ -307,30 +313,61 @@ if (isset($_GET['ajax'])) {
 }
 
 // ── KPI Queries ──────────────────────────────────────
+if ($viewerBranch) {
+    $bid = (int)$viewerBranch;
+    [$w, $t, $p] = branch_customers_belong_where_sql($bid, 'c');
 
-// 1. Total Customers
-$total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0);
+    // 1. Total Customers (branch-scoped)
+    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers c WHERE 1=1" . $w, $t, $p)[0]['count'] ?? 0);
 
-// 2. New This Month
-$new_this_month = (int)(db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0);
+    // 2. New This Month (branch-scoped)
+    $new_this_month = (int)(db_query(
+        "SELECT COUNT(*) as count FROM customers c WHERE MONTH(c.created_at) = MONTH(CURRENT_DATE()) AND YEAR(c.created_at) = YEAR(CURRENT_DATE())" . $w,
+        $t, $p
+    )[0]['count'] ?? 0);
 
-// 3. Active (Last 30 Days)
-$active_30_days = (int)(db_query("
-    SELECT COUNT(DISTINCT customer_id) as count FROM (
-        SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-        UNION
-        SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
-    ) active_customers
-")[0]['count'] ?? 0);
+    // 3. Active (Last 30 Days, branch-scoped)
+    $active_30_days = (int)(db_query("
+        SELECT COUNT(DISTINCT customer_id) as count FROM (
+            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND branch_id = ?
+            UNION
+            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL AND branch_id = ?
+        ) active_customers
+    ", 'ii', [$bid, $bid])[0]['count'] ?? 0);
 
-// 4. Average Spent per Customer
-$total_revenue_stats = (float)(db_query("
-    SELECT COALESCE(SUM(amount), 0) as total FROM (
-        SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
-        UNION ALL
-        SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
-    ) rev
-")[0]['total'] ?? 0);
+    // 4. Average Spent per Customer (branch-scoped)
+    $total_revenue_stats = (float)(db_query("
+        SELECT COALESCE(SUM(amount), 0) as total FROM (
+            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid' AND branch_id = ?
+            UNION ALL
+            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL AND branch_id = ?
+        ) rev
+    ", 'ii', [$bid, $bid])[0]['total'] ?? 0);
+} else {
+    // 1. Total Customers
+    $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers")[0]['count'] ?? 0);
+
+    // 2. New This Month
+    $new_this_month = (int)(db_query("SELECT COUNT(*) as count FROM customers WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())")[0]['count'] ?? 0);
+
+    // 3. Active (Last 30 Days)
+    $active_30_days = (int)(db_query("
+        SELECT COUNT(DISTINCT customer_id) as count FROM (
+            SELECT customer_id FROM orders WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+            UNION
+            SELECT customer_id FROM job_orders WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND customer_id IS NOT NULL
+        ) active_customers
+    ")[0]['count'] ?? 0);
+
+    // 4. Average Spent per Customer
+    $total_revenue_stats = (float)(db_query("
+        SELECT COALESCE(SUM(amount), 0) as total FROM (
+            SELECT total_amount as amount FROM orders WHERE payment_status = 'Paid'
+            UNION ALL
+            SELECT amount_paid as amount FROM job_orders WHERE payment_status = 'PAID' AND customer_id IS NOT NULL
+        ) rev
+    ")[0]['total'] ?? 0);
+}
 
 $avg_spent = $total_customers > 0 ? ($total_revenue_stats / $total_customers) : 0;
 
@@ -1056,9 +1093,9 @@ $page_title = 'Customers Management - Admin';
             <!-- KPI Summary Row -->
             <div class="kpi-row">
                 <div class="kpi-card indigo">
-                    <div class="kpi-label">Total Customers</div>
+                    <div class="kpi-label"><?php echo $viewerBranch ? 'Branch Customers' : 'Total Customers'; ?></div>
                     <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
-                    <div class="kpi-sub">Registered accounts</div>
+                    <div class="kpi-sub"><?php echo $viewerBranch ? 'Distinct customers' : 'Registered accounts'; ?></div>
                 </div>
                 <div class="kpi-card emerald">
                     <div class="kpi-label">New This Month</div>
