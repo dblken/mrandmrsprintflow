@@ -150,7 +150,7 @@
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const url = isLocalhost 
                 ? 'http://localhost:3000' 
-                : 'https://noble-dedication-production-40ab.up.railway.app';
+                : 'https://mrandmrsprintflow-production.up.railway.app';
 
             console.log(`[PFCall] Connecting to signaling server: ${url}`);
 
