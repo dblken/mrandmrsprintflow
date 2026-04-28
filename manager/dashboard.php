@@ -212,29 +212,19 @@ try {
 
 // ── Low Stock Alerts ──────────────────────────────────────────
 try {
-    // Use branch stock table so manager sees only assigned-branch product stock.
-    printflow_ensure_product_branch_stock_table();
+    require_once __DIR__ . '/../includes/InventoryManager.php';
     $all_items = db_query(
-        "SELECT
-            p.product_id,
-            p.name AS material_name,
-            COALESCE(p.category, 'General') AS category_name,
-            COALESCE(pbs.low_stock_level, 0) AS low_limit,
-            COALESCE(pbs.stock_quantity, 0) AS current_stock
-         FROM products p
-         INNER JOIN product_branch_stock pbs
-                 ON pbs.product_id = p.product_id
-                AND pbs.branch_id = ?
-         WHERE p.status = 'Activated'
-           AND COALESCE(pbs.low_stock_level, 0) > 0",
-        'i',
-        [(int)$branchId]
+        "SELECT i.id, i.name as material_name, i.reorder_level as low_limit, i.unit_of_measure as unit,
+                ic.name as category_name
+         FROM inv_items i
+         LEFT JOIN inv_categories ic ON i.category_id = ic.id
+         WHERE i.status = 'ACTIVE' AND i.reorder_level > 0"
     ) ?: [];
     $low_stock = [];
     foreach ($all_items as $item) {
-        $soh = (float)($item['current_stock'] ?? 0);
+        $soh = InventoryManager::getStockOnHand((int)$item['id'], (int)$branchId);
         if ($soh <= $item['low_limit']) {
-            $item['unit'] = 'pcs';
+            $item['current_stock'] = $soh;
             $item['ratio'] = ((float)$item['low_limit'] > 0) ? ($soh / (float)$item['low_limit']) : 0;
             $low_stock[] = $item;
         }
@@ -268,6 +258,19 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:auto; }
+        a.kpi-card.kpi-card--link { display:block; text-decoration:none; color:inherit; cursor:pointer; box-shadow:0 1px 3px rgba(0,35,43,.06); transition:transform .25s ease, box-shadow .25s ease, filter .2s ease, opacity .2s ease; }
+        a.kpi-card.kpi-card--link:hover { transform:scale(1.02); box-shadow:0 10px 28px rgba(0,35,43,.12); }
+        a.kpi-card.kpi-card--link:focus { outline:none; }
+        a.kpi-card.kpi-card--link:focus-visible { outline:2px solid #53C5E0; outline-offset:3px; }
+        a.kpi-card.kpi-card--link:active { transform:scale(0.99); box-shadow:0 4px 14px rgba(0,35,43,.08); }
+        .kpi-card--link .kpi-card-inner { position:relative; display:block; padding-bottom:0; }
+        .kpi-card--link .kpi-label, .kpi-card--link .kpi-value, .kpi-card--link .kpi-sub { display:block; }
+        .kpi-card-cta { position:static; display:block; margin-top:8px; font-size:11px; font-weight:600; color:#6b7280; letter-spacing:.02em; transition:opacity .25s ease, color .25s ease; }
+        @media (hover: hover) {
+            a.kpi-card.kpi-card--link .kpi-card-cta { opacity:0.4; }
+            a.kpi-card.kpi-card--link:hover .kpi-card-cta,
+            a.kpi-card.kpi-card--link:focus-visible .kpi-card-cta { opacity:1; color:#00232b; }
+        }
         .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:stretch; }
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
         .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; display:flex; flex-direction:column; height:100%; min-width:0; }
@@ -342,11 +345,17 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                     <div class="kpi-value"><?php echo number_format($total_customers); ?></div>
                     <div class="kpi-sub">Distinct customers</div>
                 </div>
-                <div class="kpi-card emerald">
-                    <div class="kpi-label">Branch Revenue</div>
+                <a class="kpi-card emerald kpi-card--link"
+                   href="<?php echo htmlspecialchars((defined('BASE_PATH') ? BASE_PATH : '') . '/manager/reports.php'); ?>"
+                   aria-label="View branch revenue reports"
+                   title="View reports">
+                    <span class="kpi-card-inner">
+                        <span class="kpi-label">Branch Revenue</span>
                     <div class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></div>
-                    <div class="kpi-sub">Orders + customization</div>
-                </div>
+                        <span class="kpi-sub">Orders + customization</span>
+                        <span class="kpi-card-cta" aria-hidden="true">View details →</span>
+                    </span>
+                </a>
                 <div class="kpi-card amber">
                     <div class="kpi-label">Total Orders</div>
                     <div class="kpi-value"><?php echo number_format($total_orders); ?></div>
@@ -707,11 +716,30 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             }, 40);
             return;
         }
+
+        function normalizePesoText(raw) {
+            var text = String(raw || '').trim();
+            if (!text) return text;
+            var numeric = text.replace(/^[^0-9-]+/, '');
+            return numeric ? ('₱' + numeric) : text;
+        }
+
+        function normalizeDashboardCurrency() {
+            var revenueValue = document.querySelector('.kpi-card.emerald .kpi-value');
+            if (revenueValue) {
+                revenueValue.textContent = normalizePesoText(revenueValue.textContent);
+            }
+            document.querySelectorAll('.dash-card.dash-full .mini-table tbody td:last-child').forEach(function (cell) {
+                cell.textContent = normalizePesoText(cell.textContent);
+            });
+        }
+
         window.printflowTeardownDashboardCharts();
         window.__pfDashRevealIOs = [];
         dashCtrl = new AbortController();
         var sig = { signal: dashCtrl.signal };
         var DASH_BRANCH_ID = <?php echo (int)$branchId; ?>;
+        normalizeDashboardCurrency();
         // Keep this palette aligned with Admin Reports "Revenue Distribution" chart.
         var ADMIN_REVENUE_DISTRIBUTION_PALETTE = ['#00232b', '#53C5E0', '#0F4C5C', '#3498DB', '#6C5CE7', '#3A86A8', '#8ED6E6', '#6B7C85', '#F39C12', '#2ECC71'];
 
