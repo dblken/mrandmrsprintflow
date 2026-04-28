@@ -719,6 +719,164 @@ if ($showLatestCustomizationOnly) {
             }
         }
 
+        /* Mobile Fixes for Staff Customizations */
+        @media (max-width: 768px) {
+            .main-content header {
+                padding: 16px 20px 12px !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                margin-bottom: 4px !important;
+            }
+
+            #mobileBurger {
+                position: static !important;
+                margin-bottom: 8px !important;
+                margin-left: -4px !important;
+            }
+
+            .page-title {
+                font-size: 20px !important;
+            }
+
+            .page-subtitle {
+                font-size: 12px !important;
+            }
+
+            .main-content main {
+                padding: 0 16px 24px !important;
+            }
+
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                margin-bottom: 16px !important;
+            }
+
+            .kpi-card {
+                padding: 14px !important;
+                border-radius: 12px !important;
+            }
+
+            .kpi-label {
+                font-size: 10px !important;
+            }
+
+            .kpi-value {
+                font-size: 18px !important;
+            }
+
+            .kpi-sub {
+                font-size: 9px !important;
+            }
+
+            .toolbar-container {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 14px !important;
+                padding: 4px 0 !important;
+            }
+
+            .toolbar-group--actions {
+                margin-left: 0 !important;
+                justify-content: flex-start !important;
+                gap: 8px !important;
+                overflow-x: auto !important;
+                padding-bottom: 4px !important;
+                scrollbar-width: none;
+            }
+            .toolbar-group--actions::-webkit-scrollbar { display: none; }
+
+            .toolbar-btn {
+                padding: 6px 12px !important;
+                font-size: 12px !important;
+                height: 34px !important;
+                min-height: 34px !important;
+            }
+
+            .pf-custom-tabs {
+                margin: 4px 0 8px !important;
+                padding-top: 2px !important;
+            }
+
+            .pill-tab {
+                padding: 6px 10px !important;
+                font-size: 9px !important;
+            }
+
+            /* Modal Responsiveness */
+            .modal-panel {
+                margin: 10px !important;
+                max-height: 94vh !important;
+            }
+
+            .modal-body {
+                padding: 16px !important;
+            }
+
+            /* Table Card Layout for Mobile */
+            .pf-customizations-table-card table, 
+            .pf-customizations-table-card thead, 
+            .pf-customizations-table-card tbody, 
+            .pf-customizations-table-card th, 
+            .pf-customizations-table-card td, 
+            .pf-customizations-table-card tr {
+                display: block !important;
+            }
+
+            .pf-customizations-table-card thead {
+                display: none !important;
+            }
+
+            .pf-customizations-table-card tr {
+                margin-bottom: 12px !important;
+                border: 1px solid #f3f4f6 !important;
+                border-radius: 12px !important;
+                padding: 8px !important;
+                background: #fff !important;
+                position: relative !important;
+            }
+
+            .pf-customizations-table-card td {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                text-align: right !important;
+                padding: 8px 12px !important;
+                border-bottom: 1px solid #f9fafb !important;
+                min-height: 40px !important;
+                text-transform: none !important;
+            }
+
+            .pf-customizations-table-card td:last-child {
+                border-bottom: none !important;
+            }
+
+            .pf-customizations-table-card td::before {
+                content: attr(data-label) !important;
+                font-weight: 700 !important;
+                text-transform: uppercase !important;
+                font-size: 10px !important;
+                color: #6b7280 !important;
+                text-align: left !important;
+                margin-right: 12px !important;
+            }
+
+            .pf-customizations-table-card td.status-col-cell,
+            .pf-customizations-table-card td.action-col-cell {
+                justify-content: flex-end !important;
+            }
+
+            .pf-customizations-table-card td.status-col-cell::before,
+            .pf-customizations-table-card td.action-col-cell::before {
+                margin-right: auto !important;
+            }
+
+            .table-action-btn {
+                width: 100% !important;
+                padding: 8px !important;
+            }
+        }
     </style>
 </head>
 <body data-base-url="<?php echo htmlspecialchars(BASE_URL); ?>" data-csrf="<?php echo htmlspecialchars(generate_csrf_token()); ?>" data-user-type="<?php echo htmlspecialchars($_SESSION['user_type'] ?? 'Staff'); ?>">
