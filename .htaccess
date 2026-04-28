@@ -26,8 +26,8 @@ AddType text/css .css
     RewriteCond %{HTTP_HOST} ^www\.mrandmrsprintflow\.com$ [NC]
     RewriteRule ^ https://mrandmrsprintflow.com%{REQUEST_URI} [R=301,L]
 
-    # Serve static assets directly (CSS, JS, images, fonts)
-    RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)$ [NC]
+    # Serve static assets directly (CSS, JS, images, fonts, video, audio)
+    RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot|mp4|webm|ogg|mp3|wav|avi)$ [NC]
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 

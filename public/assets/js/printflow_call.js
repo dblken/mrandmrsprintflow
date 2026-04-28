@@ -157,7 +157,7 @@
             this.socket = io(url, {
                 transports: ['websocket', 'polling'],
                 query: { userId: this.userId, userType: this.userType },
-                secure: protocol === 'https:',
+                secure: url.startsWith('https'),
                 reconnection: true,
                 reconnectionAttempts: 5,
                 reconnectionDelay: 2000,
