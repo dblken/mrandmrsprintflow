@@ -139,6 +139,11 @@ function printflow_record_product_inventory_transaction(
 
     $storedRefType = $normalizedRefType;
     $storedRefId = $refId;
+
+    if (in_array($normalizedRefType, ['PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT'], true) && $branchId > 0) {
+        $storedRefId = ($branchId * 1000000) + $productId;
+    }
+
     if (!$hasProductIdColumn) {
         if ($normalizedRefType === 'ORDER') {
             $storedRefType = 'ORDER_PRODUCT';
@@ -203,10 +208,10 @@ function printflow_record_product_inventory_transaction(
     if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
         $legacyFields['branch_id'] = ['type' => 'i', 'val' => $branchId];
     }
-    if ($refId !== null) {
-        $legacyFields['ref_id'] = ['type' => 'i', 'val' => $refId];
-    } elseif ($storedRefId !== null) {
+    if ($storedRefId !== null) {
         $legacyFields['ref_id'] = ['type' => 'i', 'val' => $storedRefId];
+    } elseif ($refId !== null) {
+        $legacyFields['ref_id'] = ['type' => 'i', 'val' => $refId];
     }
     if ($userId > 0) {
         $legacyFields['created_by'] = ['type' => 'i', 'val' => $userId];
