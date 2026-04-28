@@ -14,8 +14,10 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql mbstring zip
 
-# Enable Apache rewrite (optional but useful)
-RUN a2enmod rewrite
+# Fix MPM conflict and enable mod_rewrite
+# Disable conflicting MPMs and ensure prefork is enabled for mod_php compatibility
+RUN a2dismod mpm_event mpm_worker \
+    && a2enmod mpm_prefork rewrite
 
 # Copy project files
 COPY . /var/www/html/
