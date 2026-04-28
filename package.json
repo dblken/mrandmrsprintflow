@@ -10,10 +10,25 @@
         "build:phone": "cd phone-verify-app && npm run build"
     },
     "dependencies": {
-        "express": "^4.21.2",
-        "socket.io": "^4.8.1"
+        "express": "^4.22.1",
+        "socket.io": "^4.8.3"
     },
     "devDependencies": {
         "tailwindcss": "^3.4.15"
-    }
+    },
+    "directories": {
+        "doc": "docs"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dblken/mrandmrsprintflow.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "bugs": {
+        "url": "https://github.com/dblken/mrandmrsprintflow/issues"
+    },
+    "homepage": "https://github.com/dblken/mrandmrsprintflow#readme"
 }
