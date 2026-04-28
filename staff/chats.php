@@ -28,6 +28,17 @@ $current_user = get_logged_in_user();
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
         .hidden { display: none !important; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
         /* Full View Chat App - No White Spaces */
         body, html { height: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #fff !important; }
         .dashboard-container { height: 100% !important; min-height: 100% !important; }
@@ -629,10 +640,13 @@ $current_user = get_logged_in_user();
 
         /* Responsive */
         .mobile-chat-header { display: none; }
+        .mobile-thread-back { display: none; }
         @media (max-width: 1023px) {
             .mobile-chat-header {
                 display: flex;
                 align-items: center;
+                justify-content: space-between;
+                gap: 12px;
                 padding: 12px 16px 12px 60px;
                 background: #fff;
                 border-bottom: 1px solid #f1f5f9;
@@ -640,6 +654,13 @@ $current_user = get_logged_in_user();
                 flex-shrink: 0;
                 position: relative;
                 z-index: 10;
+            }
+            .mobile-chat-header .header-left {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 0;
+                flex: 1;
             }
             .mobile-chat-header .page-title {
                 margin: 0;
@@ -649,8 +670,60 @@ $current_user = get_logged_in_user();
             }
             .main-content { margin-left: 0 !important; }
             .chat-app { grid-template-columns: 1fr; border-radius: 0; height: calc(100dvh - 60px); }
-            .chat-sidebar { position: fixed; inset: 0; top: 60px; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s ease; }
-            .chat-sidebar.active { transform: translateX(0); }
+            .chat-sidebar {
+                position: relative;
+                inset: auto;
+                top: auto;
+                z-index: 3;
+                transform: none;
+                transition: none;
+                border-right: none;
+                height: 100%;
+                width: 100%;
+                background: #fff;
+            }
+            .chat-window {
+                display: none;
+                height: 100%;
+                min-height: 0;
+                width: 100%;
+            }
+            .chat-app.mobile-list-view .chat-sidebar { display: flex; }
+            .chat-app.mobile-list-view .chat-window { display: none; }
+            .chat-app.mobile-thread-view .chat-sidebar { display: none; }
+            .chat-app.mobile-thread-view .chat-window { display: flex; }
+            .mobile-thread-back {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .window-header {
+                padding: 0.875rem 1rem;
+                gap: 0.75rem;
+            }
+            .header-actions {
+                gap: 6px;
+                flex-shrink: 0;
+            }
+            .h-btn {
+                width: 36px;
+                height: 36px;
+                border-radius: 12px;
+            }
+            #messagesArea {
+                padding: 1rem 0.85rem 1.25rem;
+            }
+            .window-footer {
+                padding: 0.75rem;
+            }
+            .gallery-panel {
+                position: fixed !important;
+                inset: 60px 0 0 0 !important;
+                width: auto !important;
+                max-width: none !important;
+                z-index: 1200 !important;
+            }
             .m-toggle { display: flex !important; margin-right: 0.5rem; }
         }
         /* Modal Explicit States & Premium Layout */
@@ -842,9 +915,14 @@ $current_user = get_logged_in_user();
 
     <div class="main-content">
         <header class="mobile-chat-header">
-            <h1 class="page-title">Chats</h1>
+            <div class="header-left">
+                <button type="button" class="h-btn mobile-thread-back" id="mobileBackBtn" onclick="showConversationList()" aria-label="Back to conversations">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <h1 class="page-title" id="mobilePageTitle">Chats</h1>
+            </div>
         </header>
-        <div class="chat-app" id="chatApp">
+        <div class="chat-app mobile-list-view" id="chatApp">
             <!-- Sidebar -->
             <aside class="chat-sidebar" id="sidebar">
                 <div class="sidebar-top">
@@ -880,6 +958,9 @@ $current_user = get_logged_in_user();
                 <div id="chatInterface" class="chat-interface-wrapper" style="display:none;">
                     <!-- Header -->
                     <header class="window-header">
+                        <button type="button" class="h-btn mobile-thread-back" onclick="showConversationList()" aria-label="Back to conversations">
+                            <i class="bi bi-arrow-left"></i>
+                        </button>
                         <div class="conv-avatar cursor-pointer" id="activeAvatar" onclick="if(activeId) openDetails(activeId)">?</div>
                         <div class="window-title-area cursor-pointer" onclick="if(activeId) openDetails(activeId)">
                             <h3 class="window-title">
@@ -1315,6 +1396,42 @@ function switchMainTab(arch) {
     loadConvs();
 }
 
+function isMobileChatView() {
+    return window.innerWidth < 1024;
+}
+
+function updateMobileChatChrome() {
+    const app = document.getElementById('chatApp');
+    const title = document.getElementById('mobilePageTitle');
+    const backButtons = document.querySelectorAll('.mobile-thread-back');
+    if (!app || !title || !backButtons.length) return;
+
+    const inThread = app.classList.contains('mobile-thread-view');
+    title.textContent = inThread && activeId
+        ? (document.getElementById('activeName')?.textContent || 'Conversation')
+        : 'Chats';
+
+    backButtons.forEach(btn => {
+        btn.style.display = isMobileChatView() && inThread ? 'inline-flex' : 'none';
+    });
+}
+
+function showConversationList() {
+    const app = document.getElementById('chatApp');
+    if (!app || !isMobileChatView()) return;
+    app.classList.remove('mobile-thread-view');
+    app.classList.add('mobile-list-view');
+    updateMobileChatChrome();
+}
+
+function showConversationThread() {
+    const app = document.getElementById('chatApp');
+    if (!app || !isMobileChatView()) return;
+    app.classList.remove('mobile-list-view');
+    app.classList.add('mobile-thread-view');
+    updateMobileChatChrome();
+}
+
 // --- Unified Menu ---
 function toggleMenu(e) {
     if (e) e.stopPropagation();
@@ -1373,7 +1490,7 @@ function openChat(id, name, meta, archived, avatar = '') {
     clearInterval(pollId);
     pollId = setInterval(loadMsgs, 2000);
     loadConvs();
-    if (window.innerWidth < 1024) toggleSidebar(false);
+    showConversationThread();
 }
 
 function updateArchiveUI(isArchived) {
@@ -2925,6 +3042,12 @@ function initStaffChatPage() {
     if (window.__pfStaffChatInitialized) return;
     window.__pfStaffChatInitialized = true;
 
+    if (isMobileChatView()) {
+        showConversationList();
+    } else {
+        updateMobileChatChrome();
+    }
+
     initRecordingEvents();
     loadConvs();
     listId = setInterval(loadConvs, 10000);
@@ -2945,6 +3068,19 @@ function initStaffChatPage() {
             closeLightbox();
             closeDetailsModal();
             closeForwardModal();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (isMobileChatView()) {
+            if (activeId && window.staffUiOpened) showConversationThread();
+            else showConversationList();
+        } else {
+            const app = document.getElementById('chatApp');
+            if (app) {
+                app.classList.remove('mobile-list-view', 'mobile-thread-view');
+            }
+            updateMobileChatChrome();
         }
     });
 
