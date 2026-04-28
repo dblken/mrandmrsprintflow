@@ -23,6 +23,7 @@ if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
 
 $email = trim($_POST['email'] ?? '');
 $password = $_POST['password'] ?? '';
+$remember_me = isset($_POST['remember_me']) && (string)$_POST['remember_me'] === '1';
 
 if (empty($email) || empty($password)) {
     echo json_encode([
@@ -36,7 +37,7 @@ if (empty($email) || empty($password)) {
     exit;
 }
 
-$result = login($email, $password, false);
+$result = login($email, $password, $remember_me);
 
 if ($result['success']) {
     echo json_encode([

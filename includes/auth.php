@@ -55,6 +55,278 @@ if (!function_exists('printflow_email_lower')) {
     }
 }
 
+if (!defined('PRINTFLOW_REMEMBER_TOKEN_COOKIE')) {
+    define('PRINTFLOW_REMEMBER_TOKEN_COOKIE', 'PRINTFLOWREMEMBERTOKEN');
+}
+
+if (!defined('PRINTFLOW_REMEMBER_TOKEN_BYTES')) {
+    define('PRINTFLOW_REMEMBER_TOKEN_BYTES', 32);
+}
+
+if (!defined('PRINTFLOW_REMEMBER_SELECTOR_BYTES')) {
+    define('PRINTFLOW_REMEMBER_SELECTOR_BYTES', 12);
+}
+
+if (!function_exists('printflow_ensure_remember_tokens_table')) {
+    function printflow_ensure_remember_tokens_table(): void {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        db_execute(
+            "CREATE TABLE IF NOT EXISTS remember_tokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                selector VARCHAR(64) NOT NULL UNIQUE,
+                token_hash VARCHAR(128) NOT NULL,
+                user_id INT NOT NULL,
+                user_type VARCHAR(32) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                user_agent VARCHAR(255) DEFAULT NULL,
+                ip_address VARCHAR(45) DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_user (user_id, user_type),
+                KEY idx_expires (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+}
+
+if (!function_exists('printflow_remember_cookie_value')) {
+    function printflow_remember_cookie_value(string $selector, string $validator): string {
+        return $selector . ':' . $validator;
+    }
+}
+
+if (!function_exists('printflow_parse_remember_cookie')) {
+    function printflow_parse_remember_cookie(string $raw): ?array {
+        $parts = explode(':', $raw, 2);
+        if (count($parts) !== 2) {
+            return null;
+        }
+        $selector = trim($parts[0]);
+        $validator = trim($parts[1]);
+        if ($selector === '' || $validator === '') {
+            return null;
+        }
+        if (!ctype_xdigit($selector) || !ctype_xdigit($validator)) {
+            return null;
+        }
+        return ['selector' => strtolower($selector), 'validator' => strtolower($validator)];
+    }
+}
+
+if (!function_exists('printflow_set_remember_token_cookie')) {
+    function printflow_set_remember_token_cookie(string $value, int $expiresAt): void {
+        setcookie(PRINTFLOW_REMEMBER_TOKEN_COOKIE, $value, [
+            'expires' => $expiresAt,
+            'path' => '/',
+            'domain' => '',
+            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+if (!function_exists('printflow_clear_remember_token_cookie')) {
+    function printflow_clear_remember_token_cookie(): void {
+        setcookie(PRINTFLOW_REMEMBER_TOKEN_COOKIE, '', [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'domain' => '',
+            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+if (!function_exists('printflow_store_remember_token')) {
+    function printflow_store_remember_token(int $user_id, string $user_type, int $days): void {
+        printflow_ensure_remember_tokens_table();
+        $selector = bin2hex(random_bytes(PRINTFLOW_REMEMBER_SELECTOR_BYTES));
+        $validator = bin2hex(random_bytes(PRINTFLOW_REMEMBER_TOKEN_BYTES));
+        $tokenHash = hash('sha256', $validator);
+        $expiresAtTs = time() + max(1, $days) * 86400;
+        $expiresAt = date('Y-m-d H:i:s', $expiresAtTs);
+        db_execute(
+            "INSERT INTO remember_tokens (selector, token_hash, user_id, user_type, expires_at, user_agent, ip_address)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            'ssissss',
+            [
+                $selector,
+                $tokenHash,
+                $user_id,
+                $user_type,
+                $expiresAt,
+                substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
+            ]
+        );
+        printflow_set_remember_token_cookie(
+            printflow_remember_cookie_value($selector, $validator),
+            $expiresAtTs
+        );
+    }
+}
+
+if (!function_exists('printflow_clear_remember_token')) {
+    function printflow_clear_remember_token(): void {
+        printflow_ensure_remember_tokens_table();
+        $raw = (string)($_COOKIE[PRINTFLOW_REMEMBER_TOKEN_COOKIE] ?? '');
+        $parsed = printflow_parse_remember_cookie($raw);
+        if ($parsed !== null) {
+            db_execute(
+                "DELETE FROM remember_tokens WHERE selector = ?",
+                's',
+                [$parsed['selector']]
+            );
+        }
+        printflow_clear_remember_token_cookie();
+    }
+}
+
+if (!function_exists('printflow_hydrate_user_session')) {
+    function printflow_hydrate_user_session(int $user_id, string $user_type, array $row): array {
+        if ($user_type === 'Customer') {
+            $_SESSION['user_id'] = $user_id;
+            $_SESSION['user_type'] = 'Customer';
+            $_SESSION['user_name'] = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
+            $_SESSION['user_email'] = (string)($row['email'] ?? '');
+            if (function_exists('load_customer_cart_into_session')) {
+                load_customer_cart_into_session($user_id);
+            }
+            return [
+                'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php',
+            ];
+        }
+
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['user_type'] = $user_type;
+        $_SESSION['user_name'] = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
+        $_SESSION['user_email'] = (string)($row['email'] ?? '');
+        $_SESSION['user_status'] = (string)($row['status'] ?? '');
+        $_SESSION['branch_id'] = $row['branch_id'] ?? null;
+
+        if ($user_type === 'Manager' || $user_type === 'Staff') {
+            $_SESSION['selected_branch_id'] = $row['branch_id'] ?? null;
+        } else {
+            $_SESSION['selected_branch_id'] = printflow_get_default_admin_branch_id();
+        }
+
+        $redirect = AUTH_REDIRECT_BASE . '/admin/dashboard.php';
+        if ($user_type === 'Manager') {
+            $redirect = AUTH_REDIRECT_BASE . '/manager/dashboard.php';
+        } elseif ($user_type === 'Staff') {
+            $status = (string)($row['status'] ?? '');
+            $redirect = $status === 'Pending'
+                ? AUTH_REDIRECT_BASE . '/staff/profile.php'
+                : AUTH_REDIRECT_BASE . '/staff/dashboard.php';
+        }
+
+        return ['redirect' => $redirect];
+    }
+}
+
+if (!function_exists('printflow_attempt_auto_login_via_remember_token')) {
+    function printflow_attempt_auto_login_via_remember_token(): void {
+        if (is_logged_in()) {
+            return;
+        }
+
+        $raw = (string)($_COOKIE[PRINTFLOW_REMEMBER_TOKEN_COOKIE] ?? '');
+        if ($raw === '') {
+            return;
+        }
+
+        $parsed = printflow_parse_remember_cookie($raw);
+        if ($parsed === null) {
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        printflow_ensure_remember_tokens_table();
+        db_execute("DELETE FROM remember_tokens WHERE expires_at <= NOW()");
+
+        $rows = db_query(
+            "SELECT * FROM remember_tokens WHERE selector = ? LIMIT 1",
+            's',
+            [$parsed['selector']]
+        );
+        if (empty($rows)) {
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        $tokenRow = $rows[0];
+        $tokenHash = hash('sha256', $parsed['validator']);
+        if (!hash_equals((string)($tokenRow['token_hash'] ?? ''), $tokenHash)) {
+            db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        $userId = (int)($tokenRow['user_id'] ?? 0);
+        $userType = (string)($tokenRow['user_type'] ?? '');
+        if ($userId <= 0 || $userType === '') {
+            db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        if ($userType === 'Customer') {
+            $userRows = db_query("SELECT * FROM customers WHERE customer_id = ? LIMIT 1", 'i', [$userId]);
+            if (empty($userRows)) {
+                db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+                printflow_clear_remember_token_cookie();
+                return;
+            }
+            $customer = $userRows[0];
+            $status = isset($customer['status']) ? (string)$customer['status'] : 'Activated';
+            if (in_array($status, ['Disabled', 'Suspended'], true)) {
+                db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+                printflow_clear_remember_token_cookie();
+                return;
+            }
+            SessionManager::regenerate();
+            printflow_hydrate_user_session($userId, 'Customer', $customer);
+            SessionManager::applyRememberMe(REMEMBER_ME_CUSTOMER_DAYS);
+            SessionManager::commit();
+            return;
+        }
+
+        $userRows = db_query("SELECT * FROM users WHERE user_id = ? LIMIT 1", 'i', [$userId]);
+        if (empty($userRows)) {
+            db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        $user = $userRows[0];
+        $status = (string)($user['status'] ?? '');
+        $role = (string)($user['role'] ?? '');
+        if (!in_array($status, ['Activated', 'Pending'], true) || !in_array($role, ['Admin', 'Manager', 'Staff'], true)) {
+            db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        $branchIssue = printflow_get_branch_access_issue($role, $user['branch_id'] ?? null);
+        if ($branchIssue !== null) {
+            db_execute("DELETE FROM remember_tokens WHERE selector = ?", 's', [$parsed['selector']]);
+            printflow_clear_remember_token_cookie();
+            return;
+        }
+
+        SessionManager::regenerate();
+        printflow_hydrate_user_session($userId, $role, $user);
+        SessionManager::applyRememberMe(REMEMBER_ME_STAFF_DAYS);
+        SessionManager::commit();
+    }
+}
+
 /**
  * Add customers.auth_provider (password | google) when missing.
  */
@@ -277,10 +549,12 @@ function printflow_enforce_restricted_branch_session(): void {
 
     $GLOBALS['printflow_forced_logout_reason'] = $issue['reason'];
     $GLOBALS['printflow_forced_logout_message'] = $issue['message'];
+    printflow_clear_remember_token();
     SessionManager::clearRememberMe();
     SessionManager::destroy();
 }
 
+printflow_attempt_auto_login_via_remember_token();
 printflow_enforce_restricted_branch_session();
 
 /**
@@ -408,7 +682,9 @@ function login_user($email, $password, $remember_me = false) {
     SessionManager::regenerate();
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_STAFF_DAYS);
+        printflow_store_remember_token((int)$user['user_id'], (string)$user['role'], REMEMBER_ME_STAFF_DAYS);
     } else {
+        printflow_clear_remember_token();
         SessionManager::clearRememberMe();
     }
     SessionManager::commit();
@@ -474,7 +750,9 @@ function login_customer($email, $password, $remember_me = false) {
     SessionManager::regenerate();
     if ($remember_me) {
         SessionManager::applyRememberMe(REMEMBER_ME_CUSTOMER_DAYS);
+        printflow_store_remember_token((int)$customer['customer_id'], 'Customer', REMEMBER_ME_CUSTOMER_DAYS);
     } else {
+        printflow_clear_remember_token();
         SessionManager::clearRememberMe();
     }
     // Load persisted cart from database
