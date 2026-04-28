@@ -1589,7 +1589,7 @@ function startVisualizer(stream) {
     source.connect(analyser);
     const data = new Uint8Array(analyser.frequencyBinCount);
     function draw() {
-        animationId = requestAnimationFrame(draw);
+        if (!analyser) return;
         analyser.getByteFrequencyData(data);
         ctx.clearRect(0,0,canvas.width,canvas.height);
         const w = (canvas.width / data.length) * 2.5;
@@ -1600,6 +1600,7 @@ function startVisualizer(stream) {
             ctx.fillRect(x, canvas.height - h, w, h);
             x += w + 1;
         }
+        animationId = requestAnimationFrame(draw);
     }
     draw();
 }

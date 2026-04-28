@@ -2549,7 +2549,7 @@ function startVoiceVisualizer(stream) {
     const dataArray = new Uint8Array(bufferLength);
 
     function draw() {
-        animationId = requestAnimationFrame(draw);
+        if (!analyser) return;
         analyser.getByteFrequencyData(dataArray);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2562,6 +2562,7 @@ function startVoiceVisualizer(stream) {
             ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
             x += barWidth + 1;
         }
+        animationId = requestAnimationFrame(draw);
     }
     draw();
 }
@@ -2727,7 +2728,7 @@ window.startRecording = async function() {
         mediaRecorder.ondataavailable = e => {
             if (e.data && e.data.size > 0) audioChunks.push(e.data);
         };
-        mediaRecorder.onstop = () => { stopVoiceVisualizer(); showVoicePreview(); };
+        mediaRecorder.onstop = showVoicePreview;
         startVoiceVisualizer(stream);
     } catch (e) {
         showToast("Microphone access denied", "error");
