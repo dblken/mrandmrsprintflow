@@ -30,6 +30,20 @@ $reports_href_base = rtrim(AUTH_REDIRECT_BASE, '/') . '/admin/reports.php';
 $branchCtx = init_branch_context(false);
 $branchId  = $branchCtx['selected_branch_id'];   // 'all' | int
 $branchName = $branchCtx['branch_name'];
+if ($is_manager) {
+    $forcedBranch = (int)(printflow_branch_filter_for_user() ?? ($_SESSION['branch_id'] ?? 0));
+    if ($forcedBranch > 0) {
+        $branchId = $forcedBranch;
+        $branchCtx['selected_branch_id'] = $branchId;
+        foreach (($branchCtx['branches_list'] ?? []) as $b) {
+            if ((int)($b['id'] ?? 0) === $branchId) {
+                $branchCtx['branch_name'] = $b['branch_name'];
+                $branchName = $b['branch_name'];
+                break;
+            }
+        }
+    }
+}
 [$bSql, $bTypes, $bParams] = branch_where_parts('o', $branchId);
 
 // ── Date range ────────────────────────────────────────────────────────────────
