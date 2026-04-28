@@ -1923,7 +1923,8 @@ function appendMsgUI(m) {
             </div>
         `;
     } else if (m.message_type === 'voice') {
-        const audioSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path) + '?v=' + Date.now();
+        const _audioBase = resolveAppUrl(m.message_file || m.file_path || m.image_path);
+        const audioSrc = _audioBase + (_audioBase.includes('?') ? '&' : '?') + 'v=' + Date.now();
         colHtml += `
         <div class="voice-bubble-player" id="voice-p-${m.id}">
             <button class="play-pause-btn" onclick="toggleVoicePlayer(${m.id}, '${audioSrc}')">
