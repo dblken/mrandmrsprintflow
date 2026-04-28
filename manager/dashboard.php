@@ -249,21 +249,22 @@ $page_title = 'Dashboard - Manager | PrintFlow';
     <?php render_branch_css(); ?>
     <style>
         /* KPI Row */
-        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; align-items:stretch; }
+        .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
         @media (max-width:768px) { .kpi-row { grid-template-columns:repeat(2, 1fr); } }
-        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; height:100%; display:flex; flex-direction:column; }
+        .kpi-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
         .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
         .kpi-card.indigo::before { background:linear-gradient(90deg,#00232b,#53C5E0); }
         .kpi-card.emerald::before { background:linear-gradient(90deg,#059669,#34d399); }
         .kpi-card.amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
-        .kpi-sub { font-size:12px; color:#6b7280; margin-top:auto; }
-        a.kpi-card.kpi-card--link { display:block; text-decoration:none; color:inherit; cursor:pointer; box-shadow:0 1px 3px rgba(0,35,43,.06); transition:transform .25s ease, box-shadow .25s ease, filter .2s ease, opacity .2s ease; }
+        .kpi-sub { font-size:12px; color:#6b7280; margin-top:4px; }
+        a.kpi-card.kpi-card--link { display:block; text-decoration:none; color:inherit; cursor:pointer; box-shadow:0 1px 3px rgba(0,35,43,.06); transition:transform .25s ease, box-shadow .25s ease, filter .2s ease, opacity .2s ease; -webkit-tap-highlight-color: rgba(83, 197, 224, 0.25); }
         a.kpi-card.kpi-card--link:hover { transform:scale(1.02); box-shadow:0 10px 28px rgba(0,35,43,.12); }
         a.kpi-card.kpi-card--link:focus { outline:none; }
         a.kpi-card.kpi-card--link:focus-visible { outline:2px solid #53C5E0; outline-offset:3px; }
         a.kpi-card.kpi-card--link:active { transform:scale(0.99); box-shadow:0 4px 14px rgba(0,35,43,.08); }
+        a.kpi-card.kpi-card--link.is-kpi-navigating { pointer-events:none; opacity:0.92; }
         .kpi-card--link .kpi-card-inner { position:relative; display:block; padding-bottom:0; }
         .kpi-card--link .kpi-label, .kpi-card--link .kpi-value, .kpi-card--link .kpi-sub { display:block; }
         .kpi-card-cta { position:static; display:block; margin-top:8px; font-size:11px; font-weight:600; color:#6b7280; letter-spacing:.02em; transition:opacity .25s ease, color .25s ease; }
@@ -271,6 +272,9 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             a.kpi-card.kpi-card--link .kpi-card-cta { opacity:0.4; }
             a.kpi-card.kpi-card--link:hover .kpi-card-cta,
             a.kpi-card.kpi-card--link:focus-visible .kpi-card-cta { opacity:1; color:#00232b; }
+        }
+        @media (hover: none) {
+            a.kpi-card.kpi-card--link .kpi-card-cta { opacity:0.75; }
         }
         .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:stretch; }
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
@@ -370,7 +374,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                    title="View revenue report">
                     <span class="kpi-card-inner">
                         <span class="kpi-label">Branch Revenue</span>
-                    <div class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></div>
+                        <span class="kpi-value">₱<?php echo number_format((float)$total_revenue, 2); ?></span>
                         <span class="kpi-sub">Orders + customization</span>
                         <span class="kpi-card-cta" aria-hidden="true">View details →</span>
                     </span>
