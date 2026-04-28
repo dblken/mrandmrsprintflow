@@ -650,19 +650,70 @@ $base_url = '/printflow';
 $url_products = $base_path . '/public/products.php';
 $is_logged_in = true;
 
-// ── 17. Seasonal event insights ───────────────────────────────────────────────
-$month_now = (int)date('n');
+// ── 17. Demand signals (data-driven) ─────────────────────────────────────────
 $seasonal_events = [
-    ['months'=>[3,4,5],  'icon'=>'', 'event'=>'Graduation Season',    'services'=>['Tarpaulin Printing','Layouts / Graphic Layout Services']],
-    ['months'=>[4,5],    'icon'=>'', 'event'=>'Election Season',       'services'=>['Tarpaulin Printing','Reflectorized Stickers / Signages']],
-    ['months'=>[11,12],  'icon'=>'', 'event'=>'Holiday Season',        'services'=>['Souvenirs','Stickers on Sintraboard']],
-    ['months'=>[2],      'icon'=>'', 'event'=> "Valentine's Season",   'services'=>['Stickers','Transparent Stickers']],
-    ['months'=>[6,10],   'icon'=>'', 'event'=>'School Opening Season', 'services'=>['Layouts / Graphic Layout Services','T-shirt Printing']],
-    ['months'=>[7,8,9],  'icon'=>'', 'event'=>'Midyear Peak',          'services'=>['Decals / Stickers (Print & Cut)','Sintraboard Standees']],
+    ['event'=>'Graduation Season',    'services'=>['Tarpaulin Printing','Layouts / Graphic Layout Services']],
+    ['event'=>'Election Season',       'services'=>['Tarpaulin Printing','Reflectorized Stickers / Signages']],
+    ['event'=>'Holiday Season',        'services'=>['Souvenirs','Stickers on Sintraboard']],
+    ['event'=>"Valentine's Season",   'services'=>['Stickers','Transparent Stickers']],
+    ['event'=>'School Opening Season', 'services'=>['Layouts / Graphic Layout Services','T-shirt Printing']],
+    ['event'=>'Midyear Peak',          'services'=>['Decals / Stickers (Print & Cut)','Sintraboard Standees']],
 ];
 $active_events = [];
-foreach ($seasonal_events as $ev) {
-    if (in_array($month_now, $ev['months'])) $active_events[] = $ev;
+if (!$gaBranchEmpty && $from !== '' && $toEnd !== '') {
+    $min_units = 20;
+    $min_uplift_pct = 25;
+    $days = max(1, (int)((strtotime($to) - strtotime($from)) / 86400) + 1);
+    $prevFrom = date('Y-m-d', strtotime($from) - $days * 86400);
+    $prevToEnd = date('Y-m-d', strtotime($from) - 86400) . ' 23:59:59';
+
+    $getServiceQty = function (array $services, string $rangeFrom, string $rangeToEnd) use ($globalAnalyticsBranchId): int {
+        if (empty($services)) return 0;
+        $placeholders = implode(',', array_fill(0, count($services), '?'));
+        $types = str_repeat('s', count($services));
+        $params = $services;
+
+        $oParams = array_merge([$rangeFrom, $rangeToEnd], $params);
+        $oTypes = 'ss' . $types;
+        [$bO, $bOT, $bOP] = branch_where_parts('o', $globalAnalyticsBranchId);
+        $oRows = db_query(
+            "SELECT COALESCE(SUM(oi.quantity),0) as qty
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.product_id
+             JOIN orders o ON oi.order_id = o.order_id
+             WHERE o.payment_status = 'Paid'
+               AND o.order_date BETWEEN ? AND ?
+               AND p.name IN ($placeholders) $bO",
+            $oTypes . $bOT,
+            array_merge($oParams, $bOP)
+        );
+        $orderQty = (int)($oRows[0]['qty'] ?? 0);
+
+        $jParams = array_merge([$rangeFrom, $rangeToEnd], $params);
+        $jTypes = 'ss' . $types;
+        [$bJ, $bJT, $bJP] = branch_where_parts('jo', $globalAnalyticsBranchId);
+        $jRows = db_query(
+            "SELECT COALESCE(SUM(COALESCE(jo.quantity, 1)),0) as qty
+             FROM job_orders jo
+             WHERE (jo.payment_status = 'PAID' OR jo.status = 'COMPLETED')
+               AND jo.created_at BETWEEN ? AND ?
+               AND COALESCE(NULLIF(TRIM(jo.service_type), ''), 'Customization') IN ($placeholders) $bJ",
+            $jTypes . $bJT,
+            array_merge($jParams, $bJP)
+        );
+        $jobQty = (int)($jRows[0]['qty'] ?? 0);
+
+        return $orderQty + $jobQty;
+    };
+
+    foreach ($seasonal_events as $ev) {
+        $currQty = $getServiceQty($ev['services'], $from, $toEnd);
+        $prevQty = $getServiceQty($ev['services'], $prevFrom, $prevToEnd);
+        $deltaPct = $prevQty > 0 ? round((($currQty - $prevQty) / $prevQty) * 100, 1) : null;
+        if ($currQty >= $min_units && ($deltaPct === null ? $prevQty === 0 : $deltaPct >= $min_uplift_pct)) {
+            $active_events[] = $ev + ['curr' => $currQty, 'prev' => $prevQty, 'delta' => $deltaPct];
+        }
+    }
 }
 
 // ── 18. Auto insights ─────────────────────────────────────────────────────────
@@ -687,7 +738,11 @@ if (!$gaBranchEmpty) {
 }
 foreach ($active_events as $ev) {
     $svcs = implode(' and ', array_map(fn($s)=>"<strong>$s</strong>", $ev['services']));
-    $insights[] = "<strong>{$ev['event']}</strong> is active — expect increased demand for {$svcs}.";
+    if ($ev['delta'] !== null) {
+        $insights[] = "<strong>{$ev['event']}</strong> demand is up <strong>{$ev['delta']}%</strong> vs previous period ({$ev['curr']} units) — services include {$svcs}.";
+    } else {
+        $insights[] = "<strong>{$ev['event']}</strong> demand appeared this period ({$ev['curr']} units) — services include {$svcs}.";
+    }
 }
 
 $page_title = 'Reports & Analytics — Admin';
