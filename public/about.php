@@ -451,7 +451,7 @@ function about_icon(string $icon): string {
 
                     ['title'=>'State-of-the-Art Equipment','desc'=>'We invest in the latest printing technology to guarantee crisp, vivid results every time.'],
 
-                    ['title'=>'Eco-Friendly Materials','desc'=>'We use sustainable inks and materials whenever possible to reduce our environmental footprint.'],
+                    ['title'=>'Quality Assurance & Precision','desc'=>'Every order goes through strict quality checks to ensure accuracy, durability, and a flawless finish before release.'],
 
                     ['title'=>'Custom Sizes & Formats','desc'=>'No standard size? No problem. We accommodate virtually any dimension or specification.'],
 
