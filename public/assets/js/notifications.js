@@ -57,6 +57,7 @@
     var API_PUSH_TEST          = buildAppUrl('public/api/push/test.php');
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
     var API_LIST               = buildAppUrl('public/api/notifications/list.php');
+    var PUSH_CLIENT_VERSION    = 'v16';
 
     var USER_TYPE = (window.PFConfig && window.PFConfig.userType) ? window.PFConfig.userType : 'Customer';
 
@@ -133,6 +134,30 @@
 
     function getAutoRestoreKey() {
         return AUTO_RESTORE_KEY + ':' + getAuthSessionKey();
+    }
+
+    function getPushVersionKey() {
+        return 'pf_push_subscription_version:' + getAuthSessionKey();
+    }
+
+    function getStoredPushVersion() {
+        try {
+            return localStorage.getItem(getPushVersionKey()) || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function rememberPushVersion() {
+        try {
+            localStorage.setItem(getPushVersionKey(), PUSH_CLIENT_VERSION);
+        } catch (e) {}
+    }
+
+    function clearPushVersion() {
+        try {
+            localStorage.removeItem(getPushVersionKey());
+        } catch (e) {}
     }
 
     function markSeen(id) {
@@ -232,14 +257,55 @@
             credentials: 'include',
             headers: { 'Accept': 'application/json' }
         })
-        .then(function(res) { return res.ok ? res.json() : null; })
-        .then(function(data) {
-            if (!data || !data.success) {
-                return false;
-            }
-            return true;
+        .then(function(res) {
+            return res.json().catch(function() { return null; }).then(function(data) {
+                if (!res.ok) {
+                    throw new Error((data && (data.error || data.message)) || ('Test push failed with status ' + res.status));
+                }
+                return data;
+            });
         })
-        .catch(function() { return false; });
+        .then(function(data) {
+            if (!data) {
+                return { ok: false, error: 'No response from push test.' };
+            }
+            return {
+                ok: !!data.success,
+                error: data.error || '',
+                dispatch: data.dispatch || null
+            };
+        })
+        .catch(function(err) {
+            return {
+                ok: false,
+                error: (err && err.message) ? err.message : 'Push test failed.'
+            };
+        });
+    }
+
+    function unregisterSubscriptionOnServer(existing) {
+        if (!existing || !existing.endpoint) return Promise.resolve({});
+        return sendSubscription({ endpoint: existing.endpoint }, 'unsubscribe').catch(function() {
+            return {};
+        });
+    }
+
+    function refreshSubscription(reg, isUserAction) {
+        return reg.pushManager.getSubscription().then(function(existing) {
+            var cleanup = existing
+                ? existing.unsubscribe().catch(function() { return false; }).then(function() {
+                    return unregisterSubscriptionOnServer(existing);
+                })
+                : Promise.resolve({});
+
+            return cleanup.then(function() {
+                clearPushVersion();
+                return createFreshSubscription(reg, isUserAction, false).then(function(sub) {
+                    if (sub) rememberPushVersion();
+                    return sub;
+                });
+            });
+        });
     }
 
     function createFreshSubscription(reg, isUserAction, didRetry) {
@@ -477,18 +543,22 @@
             .then(function(reg) {
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
+                        if (getStoredPushVersion() !== PUSH_CLIENT_VERSION) {
+                            return refreshSubscription(reg, isUserAction);
+                        }
+
                         return sendSubscription(existing, 'subscribe').then(function() {
+                            rememberPushVersion();
                             return existing;
                         }).catch(function() {
-                            return existing.unsubscribe().catch(function() {
-                                return false;
-                            }).then(function() {
-                                return createFreshSubscription(reg, isUserAction);
-                            });
+                            return refreshSubscription(reg, isUserAction);
                         });
                     }
 
-                    return createFreshSubscription(reg, isUserAction, false);
+                    return createFreshSubscription(reg, isUserAction, false).then(function(sub) {
+                        if (sub) rememberPushVersion();
+                        return sub;
+                    });
                 });
             })
             .catch(function(err) {
@@ -511,19 +581,25 @@
             .then(function(reg) {
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
+                        if (getStoredPushVersion() !== PUSH_CLIENT_VERSION) {
+                            return refreshSubscription(reg, false).then(function(sub) {
+                                if (sub) {
+                                    try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
+                                }
+                                return sub;
+                            });
+                        }
+
                         return sendSubscription(existing, 'subscribe').then(function() {
+                            rememberPushVersion();
                             try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
                             return existing;
                         }).catch(function() {
-                            return existing.unsubscribe().catch(function() {
-                                return false;
-                            }).then(function() {
-                                return createFreshSubscription(reg, false).then(function(sub) {
-                                    if (sub) {
-                                        try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
-                                    }
-                                    return sub;
-                                });
+                            return refreshSubscription(reg, false).then(function(sub) {
+                                if (sub) {
+                                    try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
+                                }
+                                return sub;
                             });
                         });
                     }
@@ -552,9 +628,8 @@
                 return reg.pushManager.getSubscription().then(function(existing) {
                     if (!existing) return false;
                     return existing.unsubscribe().then(function() {
-                        return sendSubscription({ endpoint: existing.endpoint }, 'unsubscribe').catch(function() {
-                            return {};
-                        }).then(function() {
+                        return unregisterSubscriptionOnServer(existing).then(function() {
+                            clearPushVersion();
                             return true;
                         });
                     });
@@ -611,10 +686,36 @@
             if (sub) clearPermissionPromptDismissal();
             updatePushToggle(btn, sub ? 'enabled' : 'disabled');
             if (sub) {
-                triggerTestPush().then(function(ok) {
-                    if (!ok) {
-                        alert('Notifications were enabled, but test push failed. Check browser background notification settings for this site.');
+                triggerTestPush().then(function(result) {
+                    if (result && result.ok) {
+                        return;
                     }
+
+                    ensureServiceWorker()
+                        .then(function(reg) {
+                            return refreshSubscription(reg, true);
+                        })
+                        .then(function(refreshedSub) {
+                            updatePushToggle(btn, refreshedSub ? 'enabled' : 'disabled');
+                            if (!refreshedSub) {
+                                throw new Error('This browser could not refresh its push subscription.');
+                            }
+                            return triggerTestPush();
+                        })
+                        .then(function(retryResult) {
+                            if (retryResult && retryResult.ok) {
+                                alert('Notifications were repaired on this device. Please lock the device or background the app and test again.');
+                                return;
+                            }
+
+                            var retryDispatch = retryResult && retryResult.dispatch
+                                ? (' Sent: ' + (retryResult.dispatch.sent || 0) + ', failed: ' + (retryResult.dispatch.failed || 0) + ', expired: ' + (retryResult.dispatch.expired || 0) + '.')
+                                : '';
+                            throw new Error((retryResult && retryResult.error ? retryResult.error : 'Background push test still failed after refreshing this device subscription.') + retryDispatch);
+                        })
+                        .catch(function(err) {
+                            alert('Notifications were enabled, but this device still did not confirm background delivery. ' + (err && err.message ? err.message : 'Please check browser and OS background notification settings.'));
+                        });
                 });
             }
         });

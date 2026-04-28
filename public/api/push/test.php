@@ -29,7 +29,7 @@ $base = function_exists('printflow_notification_base_path') ? printflow_notifica
 $payload = [
     'title' => 'PrintFlow Test Notification',
     'body' => 'Push is working on this device. You should also receive this when app/browser is inactive.',
-    'tag' => 'pf-test-' . $user_id,
+    'tag' => 'pf-test-' . $user_id . '-' . time(),
     'url' => rtrim($base, '/') . '/public/index.php',
     'icon' => rtrim($base, '/') . '/public/assets/images/icon-192.png',
     'badge' => rtrim($base, '/') . '/public/assets/images/icon-72.png',
@@ -37,7 +37,10 @@ $payload = [
 
 $dispatch = push_dispatch_user($user_id, $user_type, $payload);
 
+$success = ((int)($dispatch['sent'] ?? 0) > 0);
+
 echo json_encode([
-    'success' => ((int)($dispatch['sent'] ?? 0) > 0),
+    'success' => $success,
+    'error' => $success ? '' : ((string)($dispatch['last_error'] ?? '') ?: 'push_not_delivered'),
     'dispatch' => $dispatch,
 ]);

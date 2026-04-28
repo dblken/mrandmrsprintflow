@@ -127,7 +127,15 @@ async function subscribeToPushNotifications() {
                 var permission = await Notification.requestPermission();
 
                 if (permission === 'granted') {
-                    var vapidPublicKey = 'YOUR_VAPID_PUBLIC_KEY';
+                    var vapidResponse = await fetch((window.PFConfig?.basePath || '') + '/public/api/push/vapid_public_key.php', {
+                        credentials: 'include'
+                    });
+                    var vapidData = await vapidResponse.json().catch(function() { return null; });
+                    var vapidPublicKey = vapidData && vapidData.public_key ? String(vapidData.public_key) : '';
+
+                    if (!vapidPublicKey) {
+                        throw new Error('Push VAPID public key is not configured.');
+                    }
 
                     subscription = await registration.pushManager.subscribe({
                         userVisibleOnly: true,
@@ -161,12 +169,20 @@ function urlBase64ToUint8Array(base64String) {
 
 async function sendSubscriptionToServer(subscription) {
     try {
-        var response = await fetch((window.PFConfig?.basePath || '') + '/api/push-subscribe.php', {
+        var payload = subscription && typeof subscription.toJSON === 'function'
+            ? subscription.toJSON()
+            : subscription;
+
+        payload = payload || {};
+        payload.action = 'subscribe';
+
+        var response = await fetch((window.PFConfig?.basePath || '') + '/public/api/push/subscribe.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(subscription)
+            credentials: 'include',
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
