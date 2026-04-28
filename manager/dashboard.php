@@ -268,12 +268,14 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         .kpi-card.rose::before { background:linear-gradient(90deg,#e11d48,#fb7185); }
         .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9ca3af; margin-bottom:6px; }
         .kpi-sub { font-size:12px; color:#6b7280; margin-top:auto; }
-        .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+        .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:stretch; }
         @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
-        .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; }
+        .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; display:flex; flex-direction:column; height:100%; min-width:0; }
         .dash-card-title { font-size:15px; font-weight:700; color:#1f2937; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
         .dash-card-title svg { width:18px; height:18px; color:#53C5E0; }
         .dash-full { grid-column: 1 / -1; }
+        .dash-card-body-fill { flex:1 1 auto; min-height:0; }
+        .dash-card-empty { flex:1 1 auto; display:flex; align-items:center; justify-content:center; text-align:center; }
         .mini-table { width:100%; border-collapse:collapse; font-size:13px; }
         .mini-table th { text-align:left; padding:8px 10px; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:#9ca3af; border-bottom:1px solid #f3f4f6; }
         .mini-table td { padding:8px 10px; border-bottom:1px solid #f9fafb; }
@@ -402,13 +404,13 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 </div>
 
                 <!-- Order Status Breakdown -->
-                <div class="dash-card">
+                <div class="dash-card" style="display:none;">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Order Status Breakdown
                     </div>
-                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;"><canvas id="statusChart"></canvas></div>
-                    <div id="status-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
+                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;"><canvas id="statusChartLegacy"></canvas></div>
+                    <div id="status-legend-legacy" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
                 </div>
             </div>
 
@@ -418,10 +420,14 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 <div class="dash-card">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        Recent Orders
+                        Order Status Breakdown
                     </div>
+                    <div class="chart-wrap dash-card-body-fill">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div id="status-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:10px 10px 0;"></div>
                     <?php if (!empty($recent_orders)): ?>
-                    <table class="mini-table">
+                    <table class="mini-table" style="display:none;">
                         <thead><tr><th>ID</th><th>Customer</th><th>Status</th><th style="text-align:right;">Amount</th></tr></thead>
                         <tbody>
                             <?php foreach ($recent_orders as $ro):
@@ -444,7 +450,7 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         </tbody>
                     </table>
                     <?php else: ?>
-                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No orders yet</div>
+                    <div style="display:none; text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No orders yet</div>
                     <?php endif; ?>
                 </div>
 
@@ -483,16 +489,18 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         </tbody>
                     </table>
                     <?php else: ?>
-                    <div style="text-align:center; color:#059669; padding:40px 0; font-size:13px;">
-                        <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 6px; display:block;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        All stock levels are healthy!
+                    <div class="dash-card-empty" style="color:#059669; font-size:13px;">
+                        <div>
+                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 6px; display:block;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            All stock levels are healthy!
+                        </div>
                     </div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <div class="dash-grid">
-                <div class="dash-card">
+                <div class="dash-card" style="display:none;">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         Top Customer Locations
@@ -594,6 +602,41 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                         <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No customer sales data yet</div>
                         <?php endif; ?>
                     </div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card dash-full">
+                    <div class="dash-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        Recent Orders
+                    </div>
+                    <?php if (!empty($recent_orders)): ?>
+                    <table class="mini-table">
+                        <thead><tr><th>ID</th><th>Customer</th><th>Status</th><th style="text-align:right;">Amount</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($recent_orders as $ro):
+                                $sBadge = match($ro['status']) {
+                                    'Completed'        => 'badge-green',
+                                    'Processing'       => 'badge-blue',
+                                    'Pending'          => 'badge-yellow',
+                                    'Ready for Pickup' => 'badge-blue',
+                                    'Cancelled'        => 'badge-red',
+                                    default            => 'badge-gray'
+                                };
+                            ?>
+                            <tr>
+                                <td style="font-weight:700; color:#00232b;"><?php echo $ro['order_id']; ?></td>
+                                <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name'] ?? 'N/A'); ?></td>
+                                <td><span class="badge <?php echo $sBadge; ?>"><?php echo $ro['status']; ?></span></td>
+                                <td style="text-align:right; font-weight:700;">â‚±<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php else: ?>
+                    <div class="dash-card-empty" style="color:#9ca3af; font-size:13px;">No orders yet</div>
+                    <?php endif; ?>
                 </div>
             </div>
         </main>
