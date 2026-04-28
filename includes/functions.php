@@ -341,6 +341,16 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                         . ' subscriptions=' . (int)($dispatch['subscriptions'] ?? 0)
                         . ' failed=' . (int)($dispatch['failed'] ?? 0)
                         . ' error=' . (string)($dispatch['last_error'] ?? ''));
+
+                    // Fallback for shared-hosting setups where cron is unavailable:
+                    // opportunistically process pending queue immediately.
+                    if (function_exists('printflow_process_push_queue')) {
+                        try {
+                            printflow_process_push_queue(10);
+                        } catch (Throwable $queueError) {
+                            error_log('[push] Queue fallback failed: ' . $queueError->getMessage());
+                        }
+                    }
                 }
             }
         }

@@ -209,12 +209,19 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
         ];
     }
 
+    $base = function_exists('printflow_notification_base_path')
+        ? printflow_notification_base_path()
+        : '/printflow';
+    if ($base === '') {
+        $base = '';
+    }
+
     // Defaults
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '/printflow/public/assets/images/icon-192.png',
-        'badge' => '/printflow/public/assets/images/icon-72.png',
-        'url'   => '/printflow/',
+        'icon'  => $base . '/public/assets/images/icon-192.png',
+        'badge' => $base . '/public/assets/images/icon-72.png',
+        'url'   => $base . '/',
     ];
 
     $sent = 0;
@@ -231,8 +238,18 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
             if ($ok) {
                 $sent++;
             } else {
-                $failed++;
-                $lastError = 'push_send_failed';
+                // One immediate retry helps with intermittent push gateway failures.
+                $okRetry = $wp->send(
+                    ['endpoint' => $row['endpoint'], 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key']],
+                    $payload,
+                    $ttl
+                );
+                if ($okRetry) {
+                    $sent++;
+                } else {
+                    $failed++;
+                    $lastError = 'push_send_failed';
+                }
             }
         } catch (RuntimeException $e) {
             if ($e->getMessage() === 'subscription_expired') {
@@ -283,11 +300,18 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
     );
     if (empty($rows)) return 0;
 
+    $base = function_exists('printflow_notification_base_path')
+        ? printflow_notification_base_path()
+        : '/printflow';
+    if ($base === '') {
+        $base = '';
+    }
+
     $payload += [
         'title' => 'PrintFlow',
-        'icon'  => '/printflow/public/assets/images/icon-192.png',
-        'badge' => '/printflow/public/assets/images/icon-72.png',
-        'url'   => '/printflow/',
+        'icon'  => $base . '/public/assets/images/icon-192.png',
+        'badge' => $base . '/public/assets/images/icon-72.png',
+        'url'   => $base . '/',
     ];
 
     $sent = 0;
