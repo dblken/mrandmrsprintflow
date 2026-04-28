@@ -61,7 +61,10 @@ if (isset($_GET['action'])) {
     
     if ($action === 'mark_all_read') {
         db_execute("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", 'i', [$admin_id]);
-        redirect('<?php echo $base_path; ?>/admin/notifications.php?success=All notifications marked as read');
+        $redirect_base = $viewer_role === 'Manager'
+            ? $base_url . '/manager/notifications.php'
+            : $base_url . '/admin/notifications.php';
+        redirect($redirect_base . '?success=' . urlencode('All notifications marked as read'));
     }
     
 

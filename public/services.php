@@ -20,47 +20,10 @@ require_once __DIR__ . '/../includes/functions.php';
 
 function public_services_store_image_url(string $base_path): string
 {
-    $root = dirname(__DIR__);
     $base_path = rtrim($base_path, '/');
-    $shop_cfg_path = $root . '/public/assets/uploads/shop_config.json';
 
-    if (file_exists($shop_cfg_path)) {
-        $shop_cfg = json_decode((string)file_get_contents($shop_cfg_path), true);
-        if (is_array($shop_cfg)) {
-            $configured = trim((string)($shop_cfg['store_image'] ?? ''));
-            if ($configured !== '') {
-                $configured_rel = '/' . ltrim($configured, '/');
-                if (file_exists($root . $configured_rel)) {
-                    return $base_path . $configured_rel;
-                }
-            }
-        }
-    }
-
-    $candidates = [
-        '/uploads/store_pict.jpg',
-        '/uploads/store_pict.jpeg',
-        '/uploads/store_pict.png',
-        '/uploads/store_pict.webp',
-        '/uploads/designs/store_pict.jpg',
-        '/uploads/designs/store_pict.jpeg',
-        '/uploads/designs/store_pict.png',
-        '/public/uploads/designs/store_pict.jpg',
-        '/public/uploads/designs/store_pict.jpeg',
-        '/public/uploads/designs/store_pict.png',
-        '/public/assets/uploads/designs/store_pict.jpg',
-        '/public/assets/uploads/designs/store_pict.jpeg',
-        '/public/assets/uploads/designs/store_pict.png',
-        '/public/assets/uploads/profiles/default.png',
-    ];
-
-    foreach ($candidates as $candidate) {
-        if (file_exists($root . $candidate)) {
-            return $base_path . $candidate;
-        }
-    }
-
-    return $base_path . '/public/assets/uploads/profiles/default.png';
+    // Force the canonical store image path requested by the client.
+    return $base_path . '/uploads/store_pict.jpg';
 }
 
 $store_image_url = public_services_store_image_url($base_path ?? '');

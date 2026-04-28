@@ -172,6 +172,25 @@
         });
     }
 
+    function resetServiceWorkerAndRetry() {
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
+
+        return navigator.serviceWorker.getRegistration(SW_SCOPE)
+            .then(function(reg) {
+                if (!reg) return null;
+                return reg.unregister().catch(function() { return false; });
+            })
+            .then(function() {
+                return navigator.serviceWorker.register(SW_PATH, {
+                    scope: SW_SCOPE,
+                    updateViaCache: 'none'
+                });
+            })
+            .then(function() {
+                return navigator.serviceWorker.ready;
+            });
+    }
+
     function fetchVapidPublicKey() {
         return fetch(API_VAPID_PUB, { credentials: 'include' })
             .then(function(res) { return res.ok ? res.json() : null; })
@@ -199,7 +218,7 @@
         });
     }
 
-    function createFreshSubscription(reg, isUserAction) {
+    function createFreshSubscription(reg, isUserAction, didRetry) {
         return fetchVapidPublicKey().then(function(pubKey) {
             if (!pubKey) {
                 if (isUserAction) alert('Push is not configured yet.');
@@ -218,6 +237,15 @@
                 }).then(function(sub) {
                     return sendSubscription(sub, 'subscribe').then(function() {
                         return sub;
+                    });
+                }).catch(function(err) {
+                    var msg = String((err && err.message) || '').toLowerCase();
+                    var shouldRetry = !didRetry && (msg.indexOf('registration failed') !== -1 || msg.indexOf('push service error') !== -1);
+                    if (!shouldRetry) {
+                        throw err;
+                    }
+                    return resetServiceWorkerAndRetry().then(function(newReg) {
+                        return createFreshSubscription(newReg, isUserAction, true);
                     });
                 });
             });
