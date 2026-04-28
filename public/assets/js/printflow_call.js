@@ -93,6 +93,8 @@
             this.pc = null;
             this.localStream = null;
             this.iceQueue = [];
+            this.isMuted = false;
+            this.isCameraOff = false;
 
             this._timerInt = null;
             this._timerStart = 0;
@@ -228,6 +230,15 @@
             return PF_DEFAULT_AVATAR;
         }
 
+        _getPartnerDisplayName(name) {
+            const raw = (typeof name === 'string' ? name.trim() : '') || this.partnerName || '';
+            if (!raw) return 'User';
+            if (/^(staff|customer|user)$/i.test(raw)) {
+                return this.partnerName && !/^(staff|customer|user)$/i.test(this.partnerName) ? this.partnerName : raw;
+            }
+            return raw;
+        }
+
         async startCall(targetId, targetType, targetName, targetAvatar, type = 'voice') {
             if (this.state !== PF_STATE.IDLE) return;
             if (!this.socket || !this.isSocketConnected) {
@@ -241,7 +252,7 @@
             this.state = PF_STATE.CALLING;
             this.partnerId = targetId;
             this.partnerType = targetType;
-            this.partnerName = targetName || 'User';
+            this.partnerName = this._getPartnerDisplayName(targetName);
             this.partnerAvatar = this._normalizeAvatar(targetAvatar, this.partnerName);
             this.callType = type;
             this.isInitiator = true;
@@ -282,7 +293,7 @@
             this.state = PF_STATE.INCOMING;
             this.partnerId = data.fromUserId || data.callerId;
             this.partnerType = data.fromUserType || data.callerType;
-            this.partnerName = data.fromName || 'User';
+            this.partnerName = this._getPartnerDisplayName(data.fromName);
             this.partnerAvatar = this._normalizeAvatar(data.fromAvatar, this.partnerName);
             this.callType = data.callType || data.type || 'voice';
             this.isInitiator = false;
@@ -384,6 +395,62 @@
 
         $(id) { return document.getElementById(id); }
 
+        _updateControlButtons() {
+            const muteBtn = this.$('pf-btn-mute');
+            const muteLabel = this.$('pf-btn-mute-label');
+            const muteIcon = this.$('pf-btn-mute-icon');
+            if (muteBtn && muteLabel && muteIcon) {
+                muteBtn.classList.toggle('muted', this.isMuted);
+                muteLabel.textContent = this.isMuted ? 'Unmute' : 'Mute';
+                muteIcon.className = this.isMuted ? 'bi bi-mic-mute-fill' : 'bi bi-mic-fill';
+            }
+
+            const cameraWrap = this.$('pf-act-camera');
+            const cameraBtn = this.$('pf-btn-camera');
+            const cameraLabel = this.$('pf-btn-camera-label');
+            const cameraIcon = this.$('pf-btn-camera-icon');
+            if (cameraWrap) {
+                cameraWrap.style.display = this.callType === 'video' ? 'flex' : 'none';
+            }
+            if (cameraBtn && cameraLabel && cameraIcon) {
+                cameraBtn.classList.toggle('muted', this.isCameraOff);
+                cameraLabel.textContent = this.isCameraOff ? 'Camera On' : 'Camera Off';
+                cameraIcon.className = this.isCameraOff ? 'bi bi-camera-video-off-fill' : 'bi bi-camera-video-fill';
+            }
+        }
+
+        toggleMute() {
+            if (!this.localStream) return;
+            const audioTracks = this.localStream.getAudioTracks();
+            if (!audioTracks.length) return;
+            this.isMuted = !this.isMuted;
+            audioTracks.forEach(track => {
+                track.enabled = !this.isMuted;
+            });
+            this._updateControlButtons();
+        }
+
+        toggleCamera() {
+            if (this.callType !== 'video' || !this.localStream) return;
+            const videoTracks = this.localStream.getVideoTracks();
+            if (!videoTracks.length) return;
+            this.isCameraOff = !this.isCameraOff;
+            videoTracks.forEach(track => {
+                track.enabled = !this.isCameraOff;
+            });
+            this._updateLocalVideoState();
+            this._updateControlButtons();
+        }
+
+        _updateLocalVideoState() {
+            const local = this.$('pf-local-video');
+            const placeholder = this.$('pf-local-video-placeholder');
+            if (!local || !placeholder) return;
+            const shouldShowPlaceholder = this.callType === 'video' && this.isCameraOff;
+            placeholder.classList.toggle('active', shouldShowPlaceholder);
+            local.classList.toggle('pf-local-video-hidden', shouldShowPlaceholder);
+        }
+
         _buildUI() {
             if (this.$('pf-call-overlay')) return;
             const overlay = document.createElement('div');
@@ -391,7 +458,21 @@
             overlay.innerHTML = `
                 <div id="pf-video-grid">
                     <video id="pf-remote-video" autoplay playsinline></video>
-                    <video id="pf-local-video" autoplay playsinline muted></video>
+                    <div class="pf-video-topbar" id="pf-video-topbar">
+                        <div class="pf-video-partner">
+                            <img id="pf-video-avatar" src="${PF_DEFAULT_AVATAR}" class="pf-video-avatar">
+                            <div class="pf-video-partner-meta">
+                                <div id="pf-video-name" class="pf-video-name">User</div>
+                                <div id="pf-video-label" class="pf-video-label">Connecting...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pf-local-video-shell">
+                        <video id="pf-local-video" autoplay playsinline muted></video>
+                        <div id="pf-local-video-placeholder" class="pf-local-video-placeholder">
+                            <i class="bi bi-camera-video-off-fill"></i>
+                        </div>
+                    </div>
                 </div>
                 <div class="pf-call-card">
                     <div class="pf-avatar-ring" id="pf-avatar-ring">
@@ -415,6 +496,14 @@
                         <div class="pf-btn-container" id="pf-act-end" style="display:none;">
                             <button class="pf-btn pf-btn-end" onclick="window.PFCall.endCall()"><i class="bi bi-telephone-x-fill"></i></button>
                             <span class="pf-btn-label">End</span>
+                        </div>
+                        <div class="pf-btn-container" id="pf-act-mute" style="display:none;">
+                            <button class="pf-btn pf-btn-mute" id="pf-btn-mute" onclick="window.PFCall.toggleMute()"><i id="pf-btn-mute-icon" class="bi bi-mic-fill"></i></button>
+                            <span class="pf-btn-label" id="pf-btn-mute-label">Mute</span>
+                        </div>
+                        <div class="pf-btn-container" id="pf-act-camera" style="display:none;">
+                            <button class="pf-btn pf-btn-mute" id="pf-btn-camera" onclick="window.PFCall.toggleCamera()"><i id="pf-btn-camera-icon" class="bi bi-camera-video-fill"></i></button>
+                            <span class="pf-btn-label" id="pf-btn-camera-label">Camera Off</span>
                         </div>
                     </div>
                 </div>
@@ -446,18 +535,29 @@
         _showOverlay(state, name, avatar, label) {
             const overlay = this.$('pf-call-overlay');
             if (!overlay) return;
+            const displayName = this._getPartnerDisplayName(name);
+            const displayAvatar = this._normalizeAvatar(avatar, displayName);
             overlay.className = `pf-call-overlay--${state}`;
-            if (name) this.$('pf-call-name').textContent = name;
-            if (avatar) this.$('pf-call-avatar').src = avatar;
-            if (label) this.$('pf-call-label').textContent = label;
+            this.$('pf-call-name').textContent = displayName;
+            this.$('pf-call-avatar').src = displayAvatar;
+            this.$('pf-video-name').textContent = displayName;
+            this.$('pf-video-avatar').src = displayAvatar;
+            if (label) {
+                this.$('pf-call-label').textContent = label;
+                this.$('pf-video-label').textContent = label;
+            }
             const ring = this.$('pf-avatar-ring');
             if (state === PF_STATE.CALLING || state === PF_STATE.INCOMING) ring.classList.add('pf-ripple-active');
             else ring.classList.remove('pf-ripple-active');
             this.$('pf-act-reject').style.display = (state === PF_STATE.INCOMING) ? 'flex' : 'none';
             this.$('pf-act-accept').style.display = (state === PF_STATE.INCOMING) ? 'flex' : 'none';
             this.$('pf-act-end').style.display = (state === PF_STATE.CALLING || state === PF_STATE.IN_CALL) ? 'flex' : 'none';
-            if (this.callType === 'video' && state === PF_STATE.IN_CALL) this.$('pf-video-grid').style.display = 'block';
-            else this.$('pf-video-grid').style.display = 'none';
+            this.$('pf-act-mute').style.display = (state === PF_STATE.CALLING || state === PF_STATE.IN_CALL) ? 'flex' : 'none';
+            const isVideoInCall = this.callType === 'video' && state === PF_STATE.IN_CALL;
+            this.$('pf-video-grid').style.display = isVideoInCall ? 'block' : 'none';
+            this.$('pf-video-topbar').style.display = isVideoInCall ? 'flex' : 'none';
+            this._updateControlButtons();
+            this._updateLocalVideoState();
         }
 
         _showToast(data) {
@@ -507,6 +607,8 @@
             if (this.localStream) { this.localStream.getTracks().forEach(t => t.stop()); this.localStream = null; }
             if (this.pc) { this.pc.close(); this.pc = null; }
             this.iceQueue = [];
+            this.isMuted = false;
+            this.isCameraOff = false;
             this.partnerId = null;
             this.partnerType = null;
             this.partnerName = '';
@@ -514,6 +616,11 @@
             const overlay = this.$('pf-call-overlay');
             if (overlay) overlay.className = '';
             if (this.$('pf-call-timer')) this.$('pf-call-timer').style.display = 'none';
+            if (this.$('pf-video-grid')) this.$('pf-video-grid').style.display = 'none';
+            if (this.$('pf-remote-video')) this.$('pf-remote-video').srcObject = null;
+            if (this.$('pf-local-video')) this.$('pf-local-video').srcObject = null;
+            this._updateControlButtons();
+            this._updateLocalVideoState();
         }
 
         _startTimer() {
@@ -550,7 +657,16 @@
                 const remote = this.$('pf-remote-video');
                 if (remote && e.streams[0]) remote.srcObject = e.streams[0];
             };
-            if (this.localStream) this.localStream.getTracks().forEach(t => this.pc.addTrack(t, this.localStream));
+            if (this.localStream) {
+                const local = this.$('pf-local-video');
+                if (local) {
+                    local.srcObject = this.localStream;
+                    local.muted = true;
+                }
+                this.localStream.getTracks().forEach(t => this.pc.addTrack(t, this.localStream));
+            }
+            this._updateControlButtons();
+            this._updateLocalVideoState();
         }
 
         _handleOffer(data) {
