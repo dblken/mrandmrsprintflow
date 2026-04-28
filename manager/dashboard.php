@@ -390,33 +390,33 @@ $page_title = 'Dashboard - Manager | PrintFlow';
             <!-- Sales Revenue (Full Width) -->
             <div class="ana-card dash-full" style="margin-bottom:28px;">
                 <div class="ana-hd chart-header-row" style="margin-bottom:0;">
-                        <span class="chart-title-nowrap">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;color:#53C5E0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                            Branch Revenue
-                            <span class="chart-badge">Live Period</span>
-                        </span>
-                        <div class="chart-filters">
-                            <label class="chart-filter-label">Period</label>
-                            <select id="dash-chart-period" class="chart-select chart-select-period">
-                                <option value="today">Today</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly" selected>Monthly</option>
-                                <option value="6months">Last 6 Months</option>
-                                <option value="yearly">Yearly</option>
+                    <h3 class="chart-title-nowrap">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        Branch Revenue
+                        <span class="chart-badge">Live Period</span>
+                    </h3>
+                    <div class="chart-filters">
+                        <label class="chart-filter-label">Period</label>
+                        <select id="dash-chart-period" class="chart-select chart-select-period">
+                            <option value="today">Today</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly" selected>Monthly</option>
+                            <option value="6months">Last 6 Months</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                        <span id="dash-year-month" class="chart-filter-group">
+                            <select id="dash-chart-month" class="chart-select chart-select-month" style="display:none;" title="Month">
+                                <?php foreach (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $i => $m): ?>
+                                <option value="<?php echo $i+1; ?>" <?php echo ($i+1)==date('n')?'selected':''; ?>><?php echo $m; ?></option>
+                                <?php endforeach; ?>
                             </select>
-                            <span id="dash-year-month" class="chart-filter-group">
-                                <select id="dash-chart-month" class="chart-select chart-select-month" style="display:none;" title="Month">
-                                    <?php foreach (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $i => $m): ?>
-                                    <option value="<?php echo $i+1; ?>" <?php echo ($i+1)==date('n')?'selected':''; ?>><?php echo $m; ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <select id="dash-chart-year" class="chart-select chart-select-year" title="Year">
-                                    <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
-                                    <option value="<?php echo $y; ?>" <?php echo $y==date('Y')?'selected':''; ?>><?php echo $y; ?></option>
-                                    <?php endfor; ?>
-                                </select>
-                            </span>
-                        </div>
+                            <select id="dash-chart-year" class="chart-select chart-select-year" title="Year">
+                                <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
+                                <option value="<?php echo $y; ?>" <?php echo $y==date('Y')?'selected':''; ?>><?php echo $y; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </span>
+                    </div>
                 </div>
                 <div class="ana-bd">
                     <div class="chart-wrap ch-box" id="dash-sales-chart-wrap" style="height:320px;">
@@ -432,54 +432,64 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                 </div>
             </div>
 
+            <!-- Order Status + Top Location -->
             <div class="dash-grid">
+                <!-- Order Status Breakdown -->
                 <div class="dash-card">
                     <div class="dash-card-title">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Order Status Breakdown
                     </div>
-                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;"><canvas id="statusChartLegacy"></canvas></div>
-                    <div id="status-legend-legacy" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
+                    <div style="position:relative; height:240px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div id="status-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:0 10px;"></div>
+                </div>
+
+                <!-- Top Customer Locations -->
+                <div class="dash-card">
+                    <div class="dash-card-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Top Customer Locations
+                    </div>
+                    <?php if (!empty($customer_locations)): ?>
+                    <?php $max_orders = max(array_column($customer_locations, 'orders')); ?>
+                    <div class="loc-list">
+                        <?php foreach (array_slice($customer_locations, 0, 5) as $index => $loc):
+                            $pct = $max_orders > 0 ? ($loc['orders'] / $max_orders) * 100 : 0;
+                        ?>
+                        <div class="loc-row">
+                            <div class="loc-header">
+                                <div class="loc-name">
+                                    <span class="loc-rank">#<?php echo $index + 1; ?></span>
+                                    <span class="loc-city"><?php echo htmlspecialchars(trim($loc['city'])); ?></span>
+                                </div>
+                                <div class="loc-value"><?php echo $loc['orders']; ?></div>
+                            </div>
+                            <div class="loc-bar-wrap">
+                                <div class="loc-bar" style="width:<?php echo $pct; ?>%;"></div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="dash-card-empty" style="color:#9ca3af; font-size:13px;">No location data yet</div>
+                    <?php endif; ?>
                 </div>
             </div>
 
-            <!-- Recent Orders + Low Stock -->
+            <!-- Best Selling Services + Inventory Alerts -->
             <div class="dash-grid">
-                <!-- Recent Orders -->
+                <!-- Best Selling Services -->
                 <div class="dash-card">
                     <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        Order Status Breakdown
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
+                        Best Selling Services
                     </div>
-                    <div class="chart-wrap dash-card-body-fill">
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                    <div id="status-legend" style="font-size:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:10px 10px 0;"></div>
-                    <?php if (!empty($recent_orders)): ?>
-                    <table class="mini-table" style="display:none;">
-                        <thead><tr><th>ID</th><th>Customer</th><th>Status</th><th style="text-align:right;">Amount</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($recent_orders as $ro):
-                                $sBadge = match($ro['status']) {
-                                    'Completed'        => 'badge-green',
-                                    'Processing'       => 'badge-blue',
-                                    'Pending'          => 'badge-yellow',
-                                    'Ready for Pickup' => 'badge-blue',
-                                    'Cancelled'        => 'badge-red',
-                                    default            => 'badge-gray'
-                                };
-                            ?>
-                            <tr>
-                                <td style="font-weight:700; color:#00232b;"><?php echo $ro['order_id']; ?></td>
-                                <td style="font-weight:500;"><?php echo htmlspecialchars($ro['customer_name'] ?? 'N/A'); ?></td>
-                                <td><span class="badge <?php echo $sBadge; ?>"><?php echo $ro['status']; ?></span></td>
-                                <td style="text-align:right; font-weight:700;">₱<?php echo number_format((float)$ro['total_amount'], 2); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                    <?php if (!empty($top_products_full)): ?>
+                    <div class="products-chart"><div id="productsChart"></div></div>
                     <?php else: ?>
-                    <div style="display:none; text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No orders yet</div>
+                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product data</div>
                     <?php endif; ?>
                 </div>
 
@@ -540,43 +550,6 @@ $page_title = 'Dashboard - Manager | PrintFlow';
                             All stock levels are healthy!
                         </div>
                     </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <div class="dash-grid" style="display:none;">
-                <div class="dash-card" style="display:none;">
-                    <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Top Customer Locations
-                    </div>
-                    <?php if (!empty($customer_locations)): ?>
-                    <?php $max_orders = max(array_column($customer_locations, 'orders')); ?>
-                    <div class="loc-list">
-                        <?php foreach (array_slice($customer_locations, 0, 5) as $index => $loc): $pct = $max_orders > 0 ? ($loc['orders'] / $max_orders) * 100 : 0; ?>
-                        <div class="loc-row">
-                            <div class="loc-header">
-                                <div class="loc-name"><span class="loc-rank">#<?php echo $index + 1; ?></span><span class="loc-city"><?php echo htmlspecialchars(trim($loc['city'])); ?></span></div>
-                                <div class="loc-value"><?php echo $loc['orders']; ?></div>
-                            </div>
-                            <div class="loc-bar-wrap"><div class="loc-bar" style="width:<?php echo $pct; ?>%;"></div></div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php else: ?>
-                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No location data yet</div>
-                    <?php endif; ?>
-                </div>
-
-                <div class="dash-card">
-                    <div class="dash-card-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
-                        Best Selling Services
-                    </div>
-                    <?php if (!empty($top_products_full)): ?>
-                    <div class="products-chart"><div id="productsChart"></div></div>
-                    <?php else: ?>
-                    <div style="text-align:center; color:#9ca3af; padding:40px 0; font-size:13px;">No product data</div>
                     <?php endif; ?>
                 </div>
             </div>
