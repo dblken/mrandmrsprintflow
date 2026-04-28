@@ -73,8 +73,9 @@ function public_product_image_url(array $product, string $base_path): string
         }
 
         $clean = '/' . ltrim($raw, '/');
-        if ($base_path !== '' && (strncmp($clean, rtrim($base_path, '/', strlen(rtrim($base_path, '/')) === 0) . '/')) {
-            $clean = substr($clean, strlen(rtrim($base_path, '/')));
+        $trimmed_base = rtrim($base_path, '/');
+        if ($trimmed_base !== '' && strncmp($clean, $trimmed_base . '/', strlen($trimmed_base) + 1) === 0) {
+            $clean = substr($clean, strlen($trimmed_base));
         }
 
         foreach ([
