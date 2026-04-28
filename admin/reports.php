@@ -2533,7 +2533,7 @@ $dashData = [
                 <div style="margin-bottom:14px;">
                     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.5);margin-bottom:8px;">Active Seasonal Events</div>
                     <?php foreach ($active_events as $ev): ?>
-                    <span class="ev-badge"><?php echo $ev['icon']; ?> <?php echo htmlspecialchars($ev['event']); ?></span>
+                    <span class="ev-badge"><?php echo htmlspecialchars($ev['event']); ?></span>
                     <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
