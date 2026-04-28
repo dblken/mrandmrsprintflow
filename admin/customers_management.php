@@ -320,11 +320,31 @@ if ($viewerBranch) {
     // 1. Total Customers (branch-scoped)
     $total_customers = (int)(db_query("SELECT COUNT(*) as count FROM customers c WHERE 1=1" . $w, $t, $p)[0]['count'] ?? 0);
 
-    // 2. New This Month (branch-scoped)
-    $new_this_month = (int)(db_query(
-        "SELECT COUNT(*) as count FROM customers c WHERE MONTH(c.created_at) = MONTH(CURRENT_DATE()) AND YEAR(c.created_at) = YEAR(CURRENT_DATE())" . $w,
-        $t, $p
-    )[0]['count'] ?? 0);
+    // 2. Returning Customers (branch-scoped)
+    $new_this_month = (int)(db_query("
+        SELECT COUNT(DISTINCT cur.customer_id) as count
+        FROM (
+            SELECT customer_id FROM orders
+            WHERE order_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND branch_id = ?
+            UNION
+            SELECT customer_id FROM job_orders
+            WHERE created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND customer_id IS NOT NULL AND branch_id = ?
+        ) cur
+        WHERE (
+            EXISTS (
+                SELECT 1 FROM orders o
+                WHERE o.customer_id = cur.customer_id
+                  AND o.branch_id = ?
+                  AND o.order_date < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')
+            )
+            OR EXISTS (
+                SELECT 1 FROM job_orders jo
+                WHERE jo.customer_id = cur.customer_id
+                  AND jo.branch_id = ?
+                  AND jo.created_at < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')
+            )
+        )
+    ", 'iiii', [$bid, $bid, $bid, $bid])[0]['count'] ?? 0);
 
     // 3. Active (Last 30 Days, branch-scoped)
     $active_30_days = (int)(db_query("
@@ -1098,9 +1118,9 @@ $page_title = 'Customers Management - Admin';
                     <div class="kpi-sub"><?php echo $viewerBranch ? 'Distinct customers' : 'Registered accounts'; ?></div>
                 </div>
                 <div class="kpi-card emerald">
-                    <div class="kpi-label">New This Month</div>
+                    <div class="kpi-label"><?php echo $viewerBranch ? 'Returning Customers' : 'New This Month'; ?></div>
                     <div class="kpi-value"><?php echo number_format($new_this_month); ?></div>
-                    <div class="kpi-sub">Recent registrations</div>
+                    <div class="kpi-sub"><?php echo $viewerBranch ? 'Repeat buyers this month' : 'Recent registrations'; ?></div>
                 </div>
                 <div class="kpi-card amber">
                     <div class="kpi-label">Active Customers</div>
