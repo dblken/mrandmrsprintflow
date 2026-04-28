@@ -17,9 +17,18 @@ if ($file === '') {
 }
 
 $locations = [
+    // Common locations for audio uploads
     __DIR__ . '/uploads/chat/audio/' . $file,
     __DIR__ . '/../uploads/chat/audio/' . $file,
     dirname(__DIR__) . '/uploads/chat/audio/' . $file,
+    // Some deployments store webm/voice files in a "videos" folder
+    __DIR__ . '/uploads/chat/videos/' . $file,
+    __DIR__ . '/../uploads/chat/videos/' . $file,
+    dirname(__DIR__) . '/uploads/chat/videos/' . $file,
+    // Fallback to any chat uploads folder sibling
+    __DIR__ . '/uploads/chat/' . $file,
+    __DIR__ . '/../uploads/chat/' . $file,
+    dirname(__DIR__) . '/uploads/chat/' . $file,
 ];
 
 $foundPath = null;
