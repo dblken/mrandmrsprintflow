@@ -1063,7 +1063,10 @@ window.onerror = function(msg, url, line) {
                 userAvatar: <?php echo json_encode(get_profile_image($current_user['profile_picture'] ?? '')); ?>,
                 basePath: <?php echo json_encode(BASE_URL); ?>
             });
-            document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
+            window.PFCallReady = true;
+            const readyEvent = new CustomEvent('PFCallGlobalReady');
+            document.dispatchEvent(readyEvent);
+            window.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
         } else {
             setTimeout(initPFCall, 100);
         }
@@ -1138,7 +1141,7 @@ const REACTION_EMOJIS = {
 
 function initCallSystem() {
     if (window.__pfCallInitDone) return;
-    if (!window.PFCall || !window.PFCall.socket) {
+    if (!window.PFCall || typeof window.PFCall.startCall !== 'function') {
         setTimeout(initCallSystem, 100);
         return;
     }
@@ -1189,7 +1192,7 @@ function initiateCall(type) {
     if (window.PFCallState) window.PFCallState.activeId = activeId;
 
     // Check if system is ready
-    if (!window.PFCallReady || !window.PFCall || !window.PFCall.userId) {
+    if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
         console.warn('[PFCall] System not ready, waiting for initialization before starting call...');
         
         // Attempt manual recovery if possible
@@ -1201,7 +1204,7 @@ function initiateCall(type) {
             console.log('[PFCall] System ready, retrying call...');
             initiateCall(type);
         };
-        document.addEventListener('PFCallGlobalReady', handler, { once: true });
+        window.addEventListener('PFCallGlobalReady', handler, { once: true });
         return;
     }
 
@@ -2946,7 +2949,7 @@ function initStaffChatPage() {
     });
 
     // Initialize call system immediately so socket is ready before first call
-    if (window.PFCallReady) {
+    if (window.PFCall && typeof window.PFCall.startCall === 'function') {
         initCallSystem();
     } else {
         window.addEventListener('PFCallGlobalReady', initCallSystem, { once: true });
