@@ -97,7 +97,11 @@ $itemNameSql = "COALESCE({$productNameExpr}, {$legacyProductNameExpr}, {$product
 $sql = "SELECT t.*, 
                {$itemNameSql} as item_name, 
                CASE WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN 'product' ELSE 'material' END as ledger_item_kind,
-               COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
+               CASE
+                   WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT')
+                       THEN 'pcs'
+                   ELSE COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs')
+               END as unit, 
                CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                r.roll_code as roll_code,
                jo.id as job_ref_id,

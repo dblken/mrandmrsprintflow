@@ -52,7 +52,11 @@ try {
             $legacyProductKindExpr = "(UPPER(t.ref_type) IN ('ORDER', 'PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT') AND p_item.product_id IS NOT NULL)";
             $itemNameSql = "COALESCE({$productNameExpr}, {$legacyProductNameExpr}, NULLIF(TRIM(p_ref.name), ''), i.name, CASE WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', COALESCE(t.ref_id, t.item_id)) ELSE CONCAT('Item #', t.item_id) END)";
 
-            $sql = "SELECT t.*, {$itemNameSql} as item_name, COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
+            $sql = "SELECT t.*, {$itemNameSql} as item_name, CASE
+                           WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT')
+                               THEN 'pcs'
+                           ELSE COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs')
+                       END as unit, 
                            CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
                            r.roll_code as roll_code
                     FROM inventory_transactions t

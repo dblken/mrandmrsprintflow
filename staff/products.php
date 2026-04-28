@@ -162,7 +162,13 @@ try {
         $ledgerUomSelect = $hasTxUom ? 't.unit_of_measure' : "'UNIT' AS unit_of_measure";
 
         $inventory_ledger = db_query("
-            SELECT t.transaction_date, t.direction, t.quantity, {$ledgerUomSelect}, t.ref_type, t.ref_id, t.notes,
+            SELECT t.transaction_date, t.direction, t.quantity,
+                   CASE
+                       WHEN UPPER(t.ref_type) IN ('ORDER', 'PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT')
+                           THEN 'pcs'
+                       ELSE {$ledgerUomSelect}
+                   END AS unit_of_measure,
+                   t.ref_type, t.ref_id, t.notes,
                    COALESCE(
                        " . (db_table_has_column('inventory_transactions', 'product_id') ? "NULLIF(TRIM(p_direct.name), '')," : "") . "
                        NULLIF(TRIM(p_item.name), ''),
