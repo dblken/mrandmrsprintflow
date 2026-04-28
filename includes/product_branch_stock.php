@@ -11,6 +11,16 @@ if (!defined('PRODUCT_BRANCH_STOCK_LOADED')) {
 
 require_once __DIR__ . '/db.php';
 
+function printflow_generate_product_inventory_ref_id(int $branchId = 0): int {
+    static $sequence = 0;
+    $sequence = ($sequence + 1) % 10;
+
+    $branchPart = max(0, min(99, $branchId));
+    $timePart = (int)date('His');
+
+    return (int)(($branchPart * 10000000) + ($timePart * 10) + $sequence);
+}
+
 /**
  * The main branch (Cabuyao) keeps its canonical stock in products.stock_quantity.
  */
@@ -140,8 +150,8 @@ function printflow_record_product_inventory_transaction(
     $storedRefType = $normalizedRefType;
     $storedRefId = $refId;
 
-    if (in_array($normalizedRefType, ['PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT'], true) && $branchId > 0) {
-        $storedRefId = ($branchId * 1000000) + $productId;
+    if (in_array($normalizedRefType, ['PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT'], true)) {
+        $storedRefId = printflow_generate_product_inventory_ref_id($branchId);
     }
 
     if (!$hasProductIdColumn) {
