@@ -391,20 +391,23 @@ $page_title = 'Orders - Staff';
     <style>
         /* ── Tabs for Status Filtering ─── */
         .pf-custom-tabs {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid #f1f5f9;
-            padding-bottom: 16px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* Hide scrollbar Firefox */
-            -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 10px !important;
+            margin-bottom: 24px !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding-bottom: 16px !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
         }
         .pf-custom-tabs::-webkit-scrollbar {
-            display: none; /* Hide scrollbar Chrome/Safari */
+            display: none !important;
+        }
+        .pill-tab {
+            flex-shrink: 0 !important;
         }
         .pill-tab { 
             position: relative;

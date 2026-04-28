@@ -795,13 +795,25 @@ if ($showLatestCustomizationOnly) {
             }
 
             .pf-custom-tabs {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                scrollbar-width: none !important;
+                gap: 8px !important;
                 margin: 4px 0 8px !important;
                 padding-top: 2px !important;
             }
+            .pf-custom-tabs::-webkit-scrollbar { display: none !important; }
 
             .pill-tab {
                 padding: 6px 10px !important;
                 font-size: 9px !important;
+                flex-shrink: 0 !important;
+            }
+
+            .pf-customizations-table-card thead {
+                display: none !important;
             }
 
             /* Modal Responsiveness */
