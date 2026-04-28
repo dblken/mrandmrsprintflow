@@ -145,10 +145,12 @@
                 return;
             }
 
-            const host = window.location.hostname;
-            const protocol = window.location.protocol;
-            // Use port 3000 for signaling as per requirement
-            const url = `${protocol}//${host}:3000`;
+            // In production, point this to your separate Railway Node.js service URL.
+            // Replace '<railway-node-service-url>' with the actual URL provided by Railway.
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const url = isLocalhost 
+                ? 'http://localhost:3000' 
+                : 'https://printflow-socket.up.railway.app'; // Default fallback, user must update this!
 
             console.log(`[PFCall] Connecting to signaling server: ${url}`);
 
