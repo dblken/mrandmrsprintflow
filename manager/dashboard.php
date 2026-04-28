@@ -277,6 +277,13 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         .dash-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; display:flex; flex-direction:column; height:100%; min-width:0; }
         .dash-card-title { font-size:15px; font-weight:700; color:#1f2937; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
         .dash-card-title svg { width:18px; height:18px; color:#53C5E0; }
+        .ana-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:box-shadow .2s; display:flex; flex-direction:column; padding:0; }
+        .ana-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .ana-hd { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #f3f4f6; gap:10px; flex-wrap:wrap; flex-shrink:0; }
+        .ana-hd h3 { margin:0; font-size:14px; font-weight:700; color:#1f2937; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+        .ana-hd h3 svg { width:16px; height:16px; color:#53C5E0; flex-shrink:0; }
+        .ana-bd { padding:20px; flex:1; display:flex; flex-direction:column; min-height:0; }
+        .ch-box { width:100%; position:relative; }
         .dash-full { grid-column: 1 / -1; }
         .dash-card-body-fill { flex:1 1 auto; min-height:0; }
         .dash-card-empty { flex:1 1 auto; display:flex; align-items:center; justify-content:center; text-align:center; }
@@ -291,11 +298,16 @@ $page_title = 'Dashboard - Manager | PrintFlow';
         @keyframes chart-spin { to { transform:rotate(360deg); } }
         .chart-nodata { position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:#9ca3af; font-size:13px; z-index:1; }
         .chart-nodata.visible { display:flex; }
-        .chart-select { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-weight:600; background:#fff; color:#374151; }
+        .chart-select { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-weight:600; background:#fff; color:#374151; width:auto; min-width:4em; max-width:100%; }
+        .chart-select-period { min-width:160px; }
+        .chart-select-month { min-width:92px; }
+        .chart-select-year { min-width:88px; }
         .chart-header-row { justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:12px; margin-bottom:14px; }
         .chart-title-nowrap { white-space:nowrap; flex-shrink:0; display:flex; align-items:center; gap:8px; }
         .chart-filters { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; flex-shrink:0; }
         .chart-filter-label { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
+        .chart-filter-group { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+        .chart-badge { margin-left:8px; padding:3px 8px; background:#EBF8FF; color:#2C5282; border-radius:6px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
         .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
         .badge-green { background:#d1fae5; color:#065f46; }
         .badge-yellow { background:#fef3c7; color:#92400e; }
