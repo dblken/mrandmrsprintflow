@@ -653,12 +653,12 @@ $is_logged_in = true;
 // ── 17. Seasonal event insights ───────────────────────────────────────────────
 $month_now = (int)date('n');
 $seasonal_events = [
-    ['months'=>[3,4,5],  'icon'=>'🎓','event'=>'Graduation Season',    'services'=>['Tarpaulin Printing','Layouts / Graphic Layout Services']],
-    ['months'=>[4,5],    'icon'=>'🗳️','event'=>'Election Season',       'services'=>['Tarpaulin Printing','Reflectorized Stickers / Signages']],
-    ['months'=>[11,12],  'icon'=>'🎄','event'=>'Holiday Season',        'services'=>['Souvenirs','Stickers on Sintraboard']],
-    ['months'=>[2],      'icon'=>'💝','event'=> "Valentine's Season",   'services'=>['Stickers','Transparent Stickers']],
-    ['months'=>[6,10],   'icon'=>'📚','event'=>'School Opening Season', 'services'=>['Layouts / Graphic Layout Services','T-shirt Printing']],
-    ['months'=>[7,8,9],  'icon'=>'🌞','event'=>'Midyear Peak',          'services'=>['Decals / Stickers (Print & Cut)','Sintraboard Standees']],
+    ['months'=>[3,4,5],  'icon'=>'', 'event'=>'Graduation Season',    'services'=>['Tarpaulin Printing','Layouts / Graphic Layout Services']],
+    ['months'=>[4,5],    'icon'=>'', 'event'=>'Election Season',       'services'=>['Tarpaulin Printing','Reflectorized Stickers / Signages']],
+    ['months'=>[11,12],  'icon'=>'', 'event'=>'Holiday Season',        'services'=>['Souvenirs','Stickers on Sintraboard']],
+    ['months'=>[2],      'icon'=>'', 'event'=> "Valentine's Season",   'services'=>['Stickers','Transparent Stickers']],
+    ['months'=>[6,10],   'icon'=>'', 'event'=>'School Opening Season', 'services'=>['Layouts / Graphic Layout Services','T-shirt Printing']],
+    ['months'=>[7,8,9],  'icon'=>'', 'event'=>'Midyear Peak',          'services'=>['Decals / Stickers (Print & Cut)','Sintraboard Standees']],
 ];
 $active_events = [];
 foreach ($seasonal_events as $ev) {
@@ -687,7 +687,7 @@ if (!$gaBranchEmpty) {
 }
 foreach ($active_events as $ev) {
     $svcs = implode(' and ', array_map(fn($s)=>"<strong>$s</strong>", $ev['services']));
-    $insights[] = "{$ev['icon']} <strong>{$ev['event']}</strong> is active — expect increased demand for {$svcs}.";
+    $insights[] = "<strong>{$ev['event']}</strong> is active — expect increased demand for {$svcs}.";
 }
 
 $page_title = 'Reports & Analytics — Admin';
@@ -2540,7 +2540,7 @@ $dashData = [
 
                 <div class="fc-row">
                     <div class="fc-chip">
-                        <div class="fc-lbl">📈 Predicted Revenue</div>
+                        <div class="fc-lbl">Predicted Revenue</div>
                         <div class="fc-val">₱<?php echo number_format($forecast_revenue,0); ?></div>
                         <div class="fc-sub"><?php echo $next_month_label; ?></div>
                     </div>
@@ -2557,7 +2557,7 @@ $dashData = [
                     </div>
                     <?php endif; ?>
                     <div class="fc-chip">
-                        <div class="fc-lbl">💰 Avg Order Value</div>
+                        <div class="fc-lbl">Avg Order Value</div>
                         <div class="fc-val">₱<?php echo number_format($avg_val,0); ?></div>
                         <div class="fc-sub">This period</div>
                     </div>
