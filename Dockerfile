@@ -1,6 +1,8 @@
 FROM php:8.2-apache
 
-# Install dependencies
+# =========================
+# SYSTEM DEPENDENCIES
+# =========================
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -12,32 +14,37 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install gd pdo pdo_mysql mbstring zip
 
 # =========================
-# 🔥 FIX MPM PROPERLY
+# 🔥 FIX APACHE MPM (CRITICAL)
 # =========================
-RUN a2dismod mpm_event || true \
-    && a2dismod mpm_worker || true \
-    && a2enmod mpm_prefork
+RUN a2dismod mpm_event || true
+RUN a2dismod mpm_worker || true
+RUN a2enmod mpm_prefork
 
-# Enable rewrite
+# Enable required Apache modules
 RUN a2enmod rewrite
 
 # =========================
-# 🔥 FIX PORT (RAILWAY SAFE)
+# 🔥 FIX RAILWAY PORT (IMPORTANT FIX)
 # =========================
 RUN sed -i "s/80/\${PORT}/g" /etc/apache2/sites-available/000-default.conf \
     && sed -i "s/80/\${PORT}/g" /etc/apache2/ports.conf
 
-# Copy app
+# =========================
+# APP FILES
+# =========================
 COPY . /var/www/html/
-
 WORKDIR /var/www/html/
 
-# Composer
+# =========================
+# COMPOSER
+# =========================
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 RUN composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
 
-# Permissions
+# =========================
+# PERMISSIONS
+# =========================
 RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
