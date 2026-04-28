@@ -814,67 +814,140 @@ if ($showLatestCustomizationOnly) {
                 padding: 16px !important;
             }
 
-            /* Table Card Layout for Mobile */
-            .pf-customizations-table-card table, 
-            .pf-customizations-table-card thead, 
-            .pf-customizations-table-card tbody, 
-            .pf-customizations-table-card th, 
-            .pf-customizations-table-card td, 
+            /* Improved Table Card Layout for Mobile */
             .pf-customizations-table-card tr {
-                display: block !important;
-            }
-
-            .pf-customizations-table-card thead {
-                display: none !important;
-            }
-
-            .pf-customizations-table-card tr {
-                margin-bottom: 12px !important;
-                border: 1px solid #f3f4f6 !important;
-                border-radius: 12px !important;
-                padding: 8px !important;
+                margin-bottom: 16px !important;
+                border: 1px solid #eef2f3 !important;
+                border-radius: 14px !important;
+                padding: 12px !important;
                 background: #fff !important;
                 position: relative !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
             }
 
             .pf-customizations-table-card td {
                 display: flex !important;
                 justify-content: space-between !important;
-                align-items: center !important;
-                text-align: right !important;
-                padding: 8px 12px !important;
+                align-items: flex-start !important;
+                padding: 4px 0 !important;
                 border-bottom: 1px solid #f9fafb !important;
-                min-height: 40px !important;
-                text-transform: none !important;
+                min-height: 0 !important;
+                text-align: left !important;
             }
 
             .pf-customizations-table-card td:last-child {
                 border-bottom: none !important;
+                padding-top: 8px !important;
             }
 
+            /* Main Title Row (Customization Info) */
+            .pf-customizations-table-card td.customization-info-cell {
+                order: 1 !important;
+                border-bottom: none !important;
+                padding-top: 10px !important;
+                padding-bottom: 10px !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+            .pf-customizations-table-card td.customization-info-cell::before {
+                display: none !important;
+            }
+            .pf-customizations-table-card td.customization-info-cell .table-text-main {
+                font-size: 16px !important;
+                font-weight: 800 !important;
+                color: #1f2937 !important;
+            }
+
+            /* Header Row (Code + Status) */
+            .pf-customizations-table-card td.order-code-cell {
+                order: 0 !important;
+                background: #f8fafc !important;
+                margin: -12px -12px 4px -12px !important;
+                padding: 12px !important;
+                border-top-left-radius: 14px !important;
+                border-top-right-radius: 14px !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+            }
+            .pf-customizations-table-card td.order-code-cell .row-indicator {
+                top: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 4px !important;
+                border-radius: 4px 0 0 4px !important;
+            }
+
+            .pf-customizations-table-card td.status-col-cell {
+                order: 2 !important;
+            }
+
+            /* Compact Other Rows */
             .pf-customizations-table-card td::before {
                 content: attr(data-label) !important;
                 font-weight: 700 !important;
                 text-transform: uppercase !important;
-                font-size: 10px !important;
-                color: #6b7280 !important;
-                text-align: left !important;
+                font-size: 9px !important;
+                color: #94a3b8 !important;
                 margin-right: 12px !important;
+                flex-shrink: 0 !important;
+                padding-top: 2px !important;
             }
 
-            .pf-customizations-table-card td.status-col-cell,
-            .pf-customizations-table-card td.action-col-cell {
-                justify-content: flex-end !important;
+            .pf-customizations-table-card td .table-text-main {
+                font-size: 13px !important;
             }
-
-            .pf-customizations-table-card td.status-col-cell::before,
-            .pf-customizations-table-card td.action-col-cell::before {
-                margin-right: auto !important;
+            .pf-customizations-table-card td .table-text-sub {
+                font-size: 11px !important;
             }
 
             .table-action-btn {
                 width: 100% !important;
-                padding: 8px !important;
+                padding: 10px !important;
+                font-weight: 700 !important;
+                border-radius: 10px !important;
+            }
+
+            /* Button Wrap and spacing fix */
+            .pf-entry-btn {
+                white-space: normal !important;
+                height: auto !important;
+                min-height: 42px !important;
+                padding: 8px 16px !important;
+                line-height: 1.2 !important;
+                text-align: center !important;
+                justify-content: center !important;
+                width: 100% !important;
+            }
+
+            .pf-entry-btn.pf-entry-in {
+                margin-bottom: 8px !important;
+            }
+
+            /* Modal Footer Stacking */
+            [style*="justify-content:space-between;align-items:center;gap:8px;"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 12px !important;
+                padding: 20px !important;
+            }
+
+            [style*="flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1;"] {
+                width: 100% !important;
+            }
+
+            [style*="display:flex;gap:8px; flex-wrap:wrap; align-items:center;"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 10px !important;
+                width: 100% !important;
+            }
+
+            [style*="display:flex; gap:8px;"] {
+                flex-direction: column !important;
+                gap: 10px !important;
+                width: 100% !important;
             }
         }
     </style>
