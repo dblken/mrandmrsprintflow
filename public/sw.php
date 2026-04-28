@@ -21,7 +21,7 @@ header('Service-Worker-Allowed: /');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v16';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -279,13 +279,20 @@ self.addEventListener('push', (event) => {
                 matchingVisibleClient.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
             }
 
+            const resolvedTag = payload.tag
+                ? String(payload.tag)
+                : ('pf-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
             const primaryOptions = {
                 body:    payload.body,
                 icon:    payload.icon,
                 badge:   payload.badge,
                 image:   payload.image || undefined,
-                tag:     payload.tag,
-                renotify: false,
+                // Ensure each push can trigger a visible popup even when app/browser is inactive.
+                tag:     resolvedTag,
+                renotify: true,
+                requireInteraction: true,
+                silent: false,
                 data:    { url: normalizeTargetUrl(payload.url) },
             };
 
