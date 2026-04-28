@@ -45,10 +45,12 @@ try {
             $productNameExpr = $hasProductIdColumn
                 ? "NULLIF(TRIM(p_direct.name), '')"
                 : "NULL";
+            $legacyProductNameExpr = "NULLIF(TRIM(p_item.name), '')";
             $productKindExpr = $hasProductIdColumn
                 ? "(t.product_id IS NOT NULL AND t.product_id > 0)"
                 : "0";
-            $itemNameSql = "COALESCE({$productNameExpr}, NULLIF(TRIM(p_ref.name), ''), i.name, CASE WHEN {$productKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', t.ref_id) ELSE CONCAT('Item #', t.item_id) END)";
+            $legacyProductKindExpr = "(UPPER(t.ref_type) IN ('ORDER', 'PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT') AND p_item.product_id IS NOT NULL)";
+            $itemNameSql = "COALESCE({$productNameExpr}, {$legacyProductNameExpr}, NULLIF(TRIM(p_ref.name), ''), i.name, CASE WHEN {$productKindExpr} OR {$legacyProductKindExpr} OR UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') THEN CONCAT('Product #', COALESCE(t.ref_id, t.item_id)) ELSE CONCAT('Item #', t.item_id) END)";
 
             $sql = "SELECT t.*, {$itemNameSql} as item_name, COALESCE(NULLIF(TRIM(i.unit_of_measure), ''), NULLIF(TRIM(t.uom), ''), 'pcs') as unit, 
                            CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
@@ -56,6 +58,7 @@ try {
                     FROM inventory_transactions t
                     LEFT JOIN inv_items i ON t.item_id = i.id
                     " . ($hasProductIdColumn ? "LEFT JOIN products p_direct ON t.product_id = p_direct.product_id" : "") . "
+                    LEFT JOIN products p_item ON UPPER(t.ref_type) IN ('ORDER', 'PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT') AND t.item_id = p_item.product_id
                     LEFT JOIN products p_ref ON UPPER(t.ref_type) IN ('PRODUCT_CREATE', 'PRODUCT_ADJUSTMENT', 'ORDER_PRODUCT') AND t.ref_id = p_ref.product_id
                     LEFT JOIN users u ON t.created_by = u.user_id
                     LEFT JOIN inv_rolls r ON t.roll_id = r.id
