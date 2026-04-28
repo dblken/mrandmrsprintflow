@@ -39,19 +39,64 @@ $bSql = branch_where('o', $branchId, $bTypes, $bParams);
 
 // ── KPI: Total Customers ──────────────────────────────
 try {
-    $total_customers = db_query("SELECT COUNT(*) as cnt FROM customers")[0]['cnt'] ?? 0;
+    if ($branchId === 'all') {
+        $total_customers = db_query("SELECT COUNT(*) as cnt FROM customers")[0]['cnt'] ?? 0;
+    } else {
+        [$bSqlFrag, $bT, $bP] = branch_where_parts('o', $branchId);
+        [$jSqlFrag, $jT, $jP] = branch_where_parts('jo', $branchId);
+        $customerTypes = ($bT ?: '') . ($jT ?: '');
+        $customerParams = array_merge($bP ?: [], $jP ?: []);
+        $total_customers = db_query(
+            "SELECT COUNT(DISTINCT src.customer_id) as cnt
+             FROM (
+                 SELECT o.customer_id
+                 FROM orders o
+                 WHERE o.customer_id IS NOT NULL {$bSqlFrag}
+                 UNION
+                 SELECT jo.customer_id
+                 FROM job_orders jo
+                 WHERE jo.customer_id IS NOT NULL {$jSqlFrag}
+             ) src",
+            $customerTypes ?: null, $customerParams ?: null
+        )[0]['cnt'] ?? 0;
+    }
 } catch (Exception $e) { $total_customers = 0; }
 
-// ── KPI: Total Revenue (Paid orders, branch-filtered) ─
+// ── KPI: Total Revenue (Orders + customizations, branch-filtered) ─
 try {
-    $rev_sql    = "SELECT COALESCE(SUM(o.total_amount),0) as total FROM orders o WHERE o.payment_status = 'Paid'" . $bSql;
-    $total_revenue = db_query($rev_sql, $bTypes ?: null, $bParams ?: null)[0]['total'] ?? 0;
+    [$bSqlO, $bTO, $bPO] = branch_where_parts('o', $branchId);
+    [$bSqlJ, $bTJ, $bPJ] = branch_where_parts('j', $branchId);
+    $store_revenue = db_query(
+        "SELECT COALESCE(SUM(o.total_amount),0) as total
+         FROM orders o
+         WHERE (o.payment_status = 'Paid' OR o.status = 'Completed') {$bSqlO}",
+        $bTO ?: null,
+        $bPO ?: null
+    )[0]['total'] ?? 0;
+    $custom_revenue = db_query(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(j.amount_paid,0), j.estimated_total, 0)),0) as total
+         FROM job_orders j
+         WHERE (j.payment_status = 'PAID' OR j.status = 'COMPLETED') {$bSqlJ}",
+        $bTJ ?: null,
+        $bPJ ?: null
+    )[0]['total'] ?? 0;
+    $total_revenue = (float)$store_revenue + (float)$custom_revenue;
 } catch (Exception $e) { $total_revenue = 0; }
 
 // ── KPI: Total Orders (branch-filtered) ───────────────
 try {
-    $ord_sql = "SELECT COUNT(*) as cnt FROM orders o WHERE 1=1" . $bSql;
-    $total_orders = db_query($ord_sql, $bTypes ?: null, $bParams ?: null)[0]['cnt'] ?? 0;
+    [$bSqlFrag, $bT3, $bP3] = branch_where_parts('o', $branchId);
+    [$jSqlFrag, $jT3, $jP3] = branch_where_parts('j', $branchId);
+    $orderTypes = ($bT3 ?: '') . ($jT3 ?: '');
+    $orderParams = array_merge($bP3 ?: [], $jP3 ?: []);
+    $total_orders = db_query(
+        "SELECT (
+             (SELECT COUNT(*) FROM orders o WHERE 1=1 {$bSqlFrag}) +
+             (SELECT COUNT(*) FROM job_orders j WHERE 1=1 {$jSqlFrag})
+         ) AS cnt",
+        $orderTypes ?: null,
+        $orderParams ?: null
+    )[0]['cnt'] ?? 0;
 } catch (Exception $e) { $total_orders = 0; }
 
 // ── KPI: Pending Orders (branch-filtered) ────────────
