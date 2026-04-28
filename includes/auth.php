@@ -119,10 +119,17 @@ if (!function_exists('printflow_parse_remember_cookie')) {
 
 if (!function_exists('printflow_set_remember_token_cookie')) {
     function printflow_set_remember_token_cookie(string $value, int $expiresAt): void {
+        $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+        $host = preg_replace('/:\d+$/', '', $host);
+        $domain = '';
+        if ($host !== '' && $host !== 'localhost' && !filter_var($host, FILTER_VALIDATE_IP) && substr_count($host, '.') >= 1) {
+            $domain = $host;
+        }
+
         setcookie(PRINTFLOW_REMEMBER_TOKEN_COOKIE, $value, [
             'expires' => $expiresAt,
             'path' => '/',
-            'domain' => '',
+            'domain' => $domain,
             'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
             'httponly' => true,
             'samesite' => 'Lax',
@@ -132,14 +139,31 @@ if (!function_exists('printflow_set_remember_token_cookie')) {
 
 if (!function_exists('printflow_clear_remember_token_cookie')) {
     function printflow_clear_remember_token_cookie(): void {
-        setcookie(PRINTFLOW_REMEMBER_TOKEN_COOKIE, '', [
-            'expires' => time() - 3600,
-            'path' => '/',
-            'domain' => '',
-            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+        $host = preg_replace('/:\d+$/', '', $host);
+        $domains = [''];
+        if ($host !== '' && $host !== 'localhost' && !filter_var($host, FILTER_VALIDATE_IP)) {
+            $domains[] = $host;
+            $domains[] = '.' . ltrim($host, '.');
+            $parts = explode('.', $host);
+            if (count($parts) >= 2) {
+                $apex = $parts[count($parts) - 2] . '.' . $parts[count($parts) - 1];
+                $domains[] = $apex;
+                $domains[] = '.' . $apex;
+            }
+        }
+        $domains = array_values(array_unique($domains));
+
+        foreach ($domains as $domain) {
+            setcookie(PRINTFLOW_REMEMBER_TOKEN_COOKIE, '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'domain' => $domain,
+                'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
     }
 }
 

@@ -2,13 +2,12 @@
 /**
  * Logout handler — destroys session fully and redirects to home.
  */
-require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 SessionManager::start();
 
 // Log the logout action before destroying session data
 if (isset($_SESSION['user_id'])) {
-    require_once __DIR__ . '/../includes/db.php';
     $uid = (int)$_SESSION['user_id'];
     $utype = $_SESSION['user_type'] ?? 'Unknown';
     try {
@@ -16,6 +15,10 @@ if (isset($_SESSION['user_id'])) {
     } catch (Throwable $e) {
         // Logging failure must never block logout
     }
+}
+
+if (function_exists('printflow_clear_remember_token')) {
+    printflow_clear_remember_token();
 }
 
 SessionManager::destroy();
