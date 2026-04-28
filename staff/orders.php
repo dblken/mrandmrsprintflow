@@ -392,12 +392,19 @@ $page_title = 'Orders - Staff';
         /* ── Tabs for Status Filtering ─── */
         .pf-custom-tabs {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
             gap: 10px;
             margin-bottom: 24px;
             border-bottom: 1px solid #f1f5f9;
             padding-bottom: 16px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Hide scrollbar Firefox */
+            -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+        }
+        .pf-custom-tabs::-webkit-scrollbar {
+            display: none; /* Hide scrollbar Chrome/Safari */
         }
         .pill-tab { 
             position: relative;
@@ -464,7 +471,7 @@ $page_title = 'Orders - Staff';
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 16px;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
         }
         .toolbar-group {
             display: inline-flex;
@@ -848,6 +855,189 @@ $page_title = 'Orders - Staff';
         .om-body { padding: 24px; }
         .om-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 700px) { .om-grid { grid-template-columns: 1fr; } }
+
+        /* Mobile Fixes for Staff Orders */
+        @media (max-width: 768px) {
+            .main-content header {
+                padding: 16px 20px 12px !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                margin-bottom: 4px !important;
+            }
+
+            #mobileBurger {
+                position: static !important;
+                margin-bottom: 8px !important;
+                margin-left: -4px !important;
+            }
+
+            .page-title {
+                font-size: 20px !important;
+            }
+
+            .main-content main {
+                padding: 0 16px 24px !important;
+            }
+
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                margin-bottom: 16px !important;
+            }
+
+            .kpi-card {
+                padding: 14px !important;
+                border-radius: 12px !important;
+            }
+
+            .toolbar-container {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 14px !important;
+            }
+
+            .toolbar-group {
+                margin-left: 0 !important;
+                justify-content: flex-start !important;
+                width: 100% !important;
+            }
+
+            .toolbar-btn {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 10px !important;
+            }
+
+            /* Table Card Layout for Mobile */
+            .orders-table, 
+            .orders-table thead, 
+            .orders-table tbody, 
+            .orders-table th, 
+            .orders-table td, 
+            .orders-table tr {
+                display: block !important;
+                width: 100% !important;
+            }
+
+            .orders-table thead {
+                display: none !important;
+            }
+
+            .orders-table tr {
+                margin-bottom: 16px !important;
+                border: 1px solid #eef2f3 !important;
+                border-radius: 14px !important;
+                padding: 12px !important;
+                background: #fff !important;
+                position: relative !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 6px !important;
+                cursor: pointer !important;
+            }
+
+            .orders-table td {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-start !important;
+                padding: 4px 0 !important;
+                border-bottom: 1px solid #f9fafb !important;
+                min-height: 0 !important;
+                text-align: left !important;
+                white-space: normal !important;
+            }
+
+            .orders-table td:last-child {
+                border-bottom: none !important;
+                padding-top: 8px !important;
+            }
+
+            /* Main Title Row (Product/Customer Name) */
+            .orders-table td:nth-child(2) {
+                order: 1 !important;
+                border-bottom: none !important;
+                padding-top: 8px !important;
+                padding-bottom: 8px !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+            .orders-table td:nth-child(2)::before {
+                display: none !important;
+            }
+            .orders-table td:nth-child(2) .table-text-main {
+                font-size: 15px !important;
+                font-weight: 700 !important;
+                color: #111827 !important;
+                white-space: normal !important;
+            }
+
+            /* Header Row (Code + Status) */
+            .orders-table td:first-child {
+                order: 0 !important;
+                background: #f8fafc !important;
+                margin: -12px -12px 4px -12px !important;
+                padding: 12px !important;
+                border-top-left-radius: 14px !important;
+                border-top-right-radius: 14px !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+            }
+            .orders-table td:first-child::before {
+                content: "Order" !important;
+                color: #64748b !important;
+            }
+            .orders-table td:first-child .row-indicator {
+                top: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 4px !important;
+                border-radius: 4px 0 0 4px !important;
+            }
+
+            .orders-table td.status-col-cell {
+                order: 3 !important;
+            }
+
+            /* Action Buttons Fix */
+            .orders-table td.action-col-cell {
+                order: 10 !important;
+                padding-top: 12px !important;
+            }
+            .orders-table td.action-col-cell::before {
+                display: none !important;
+            }
+            .action-cell {
+                width: 100% !important;
+                gap: 10px !important;
+            }
+            .table-action-btn {
+                flex: 1 !important;
+                padding: 10px !important;
+                font-size: 13px !important;
+                font-weight: 700 !important;
+                border-radius: 10px !important;
+            }
+
+            /* Labels */
+            .orders-table td::before {
+                content: attr(data-label) !important;
+                font-weight: 700 !important;
+                text-transform: uppercase !important;
+                font-size: 9px !important;
+                color: #94a3b8 !important;
+                margin-right: 12px !important;
+                flex-shrink: 0 !important;
+                padding-top: 2px !important;
+            }
+            
+            /* Specific label overrides since we hide the real header */
+            .orders-table td:nth-child(3)::before { content: "Customer" !important; }
+            .orders-table td:nth-child(4)::before { content: "Source" !important; }
+            .orders-table td:nth-child(5)::before { content: "Date" !important; }
+            .orders-table td:nth-child(6)::before { content: "Total" !important; }
+            .orders-table td:nth-child(7)::before { content: "Status" !important; }
+        }
 
         .om-card {
             background: #f8fafc; border: 1px solid #e2e8f0;
