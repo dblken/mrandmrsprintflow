@@ -263,6 +263,7 @@ try {
                 'file_path' => $msg['file_path'] ?? null,
                 'file_name' => $msg['file_name'] ?? null,
                 'file_size' => $msg['file_size'] ?? null,
+                'duration' => $msg['duration'] ?? null,
                 'created_at_full' => $msg['created_at'],
                 'created_at' => date('h:i A', strtotime($msg['created_at'])),
                 'is_self' => $is_self,

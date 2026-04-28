@@ -49,13 +49,35 @@ $base_path = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BA
 $relative_path = ($base_path === '' ? '' : $base_path) . '/uploads/chat/audio/' . $filename;
 
 if (move_uploaded_file($file['tmp_name'], $target_path)) {
-    // Save to DB
-    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, message_file, file_type, file_path, read_receipt)
-            VALUES (?, ?, ?, '', 'voice', ?, 'voice', ?, 0)";
+    // Calculate duration using getID3 or estimate from file size
+    $duration = 0;
     
-    if (db_execute($sql, 'isiss', [$order_id, $db_sender, $user_id, $relative_path, $relative_path])) {
+    // Try to get actual duration using getID3 if available
+    if (class_exists('getID3')) {
+        try {
+            $getID3 = new getID3();
+            $file_info = $getID3->analyze($target_path);
+            if (isset($file_info['playtime_seconds'])) {
+                $duration = round($file_info['playtime_seconds'], 1);
+            }
+        } catch (Exception $e) {
+            // Fallback to file size estimation
+        }
+    }
+    
+    // Fallback: estimate duration from file size (WebM audio ~16KB/sec)
+    if ($duration <= 0) {
+        $file_size = filesize($target_path);
+        $duration = max(1, round($file_size / 16000, 1)); // Estimate based on typical WebM compression
+    }
+    
+    // Save to DB with duration
+    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, message_file, file_type, file_path, duration, read_receipt)
+            VALUES (?, ?, ?, '', 'voice', ?, 'voice', ?, ?, 0)";
+    
+    if (db_execute($sql, 'isissd', [$order_id, $db_sender, $user_id, $relative_path, $relative_path, $duration])) {
         printflow_notify_chat_message($order_id, $db_sender, 'voice');
-        echo json_encode(['success' => true, 'file' => $relative_path]);
+        echo json_encode(['success' => true, 'file' => $relative_path, 'duration' => $duration]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Database insertion failed']);
     }

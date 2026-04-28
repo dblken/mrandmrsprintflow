@@ -1290,10 +1290,10 @@ function appendMsgUI(m) {
             <div class="v-waveform-container" onclick="seekVoice(${m.id}, event)">
                 <canvas class="v-waveform-canvas" id="v-canvas-${m.id}"></canvas>
             </div>
-            <span class="v-duration" id="v-dur-${m.id}">0:00</span>
+            <span class="v-duration" id="v-dur-${m.id}">${m.duration > 0 ? fmtDuration(m.duration) : '0:00'}</span>
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
-        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)'), 50);
+        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, isSelf ? 'rgba(255,255,255,0.7)' : 'rgba(83,197,224,0.7)', m.id), 50);
     } else if (m.message_type === 'video' || m.file_type === 'video') {
         const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         contentHtml = `
@@ -1656,7 +1656,7 @@ async function drawWaveformPreview(blob, canvasId) {
 
 // Voice Player Shared Logic
 const vCache = {};
-async function drawWaveformFromUrl(url, canvasId, color) {
+async function drawWaveformFromUrl(url, canvasId, color, msgId = null) {
     if (!url) return;
     if (vCache[url]) { drawDataToCanvas(canvasId, vCache[url], color); return; }
     let aCtx = null;
@@ -1677,6 +1677,10 @@ async function drawWaveformFromUrl(url, canvasId, color) {
         const mult = peak ? Math.pow(peak, -1) : 1;
         vCache[url] = data.map(n => n * mult);
         drawDataToCanvas(canvasId, vCache[url], color);
+        if (msgId) {
+            const dur = document.getElementById(`v-dur-${msgId}`);
+            if (dur && audioBuf.duration > 0) dur.textContent = fmtDuration(audioBuf.duration);
+        }
     } catch(e) {
         return;
     } finally {

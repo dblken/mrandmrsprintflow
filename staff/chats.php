@@ -1933,10 +1933,10 @@ function appendMsgUI(m) {
             <div class="v-waveform-container" onclick="seekVoice(${m.id}, event)">
                 <canvas class="v-waveform-canvas" id="v-canvas-${m.id}"></canvas>
             </div>
-            <span class="v-duration" id="v-dur-${m.id}">0:00</span>
+            <span class="v-duration" id="v-dur-${m.id}">${m.duration > 0 ? formatAudioTime(m.duration) : '0:00'}</span>
             <audio id="v-audio-${m.id}" src="${audioSrc}" ontimeupdate="updateVoiceProgress(${m.id})" onended="resetVoicePlayer(${m.id})" onloadedmetadata="initVoiceDuration(${m.id})" onerror="handleVoiceAudioError(${m.id})"></audio>
         </div>`;
-        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, isSelf ? 'rgba(255,255,255,0.7)' : '#64748b'), 50);
+        setTimeout(() => drawWaveformFromUrl(audioSrc, `v-canvas-${m.id}`, isSelf ? 'rgba(255,255,255,0.7)' : '#64748b', m.id), 50);
     } else if (m.message_type === 'video' || m.file_type === 'video') {
         const videoSrc = resolveAppUrl(m.message_file || m.file_path || m.image_path);
         colHtml += `<div class="chat-video-wrapper" onclick="zoomVideo('${videoSrc.replace(/'/g, "\\'")}')" style="position:relative;cursor:pointer;border-radius:12px;overflow:hidden;max-width:280px;background:#000;margin-bottom:4px;">
@@ -2808,7 +2808,7 @@ function updateVoiceProgress(id) {
 
 const waveformCache = {};
 
-async function drawWaveformFromUrl(url, canvasId, color) {
+async function drawWaveformFromUrl(url, canvasId, color, msgId = null) {
     if (!url) return;
     if (waveformCache[url]) {
         drawRawToCanvas(canvasId, waveformCache[url], color);
@@ -2840,6 +2840,10 @@ async function drawWaveformFromUrl(url, canvasId, color) {
         const normalizedData = filteredData.map(n => n * multiplier);
         waveformCache[url] = normalizedData;
         drawRawToCanvas(canvasId, normalizedData, color);
+        if (msgId) {
+            const dur = document.getElementById(`v-dur-${msgId}`);
+            if (dur && audioBuffer.duration > 0) dur.textContent = formatAudioTime(audioBuffer.duration);
+        }
     } catch(e) {
         return;
     } finally {
@@ -2885,7 +2889,29 @@ function resetVoicePlayer(id) {
 function initVoiceDuration(id) {
     const audio = document.getElementById(`v-audio-${id}`);
     const dur = document.getElementById(`v-dur-${id}`);
-    if (audio && dur) dur.textContent = formatAudioTime(audio.duration);
+    if (!audio || !dur) return;
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        dur.textContent = formatAudioTime(audio.duration);
+    } else {
+        // WebM files from MediaRecorder often lack duration metadata
+        // Fallback: measure by playing to end (silent)
+        const originalVolume = audio.volume;
+        audio.volume = 0;
+        audio.play().then(() => {
+            audio.addEventListener('durationchange', function handler() {
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                    dur.textContent = formatAudioTime(audio.duration);
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = originalVolume;
+                    audio.removeEventListener('durationchange', handler);
+                }
+            });
+        }).catch(() => {
+            dur.textContent = '—';
+            audio.volume = originalVolume;
+        });
+    }
 }
 
 function seekVoice(id, event) {

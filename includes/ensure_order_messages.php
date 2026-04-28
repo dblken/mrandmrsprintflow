@@ -40,6 +40,9 @@ if (empty($existing['file_size'])) {
 if (empty($existing['file_name'])) {
     @$conn->query("ALTER TABLE order_messages ADD COLUMN file_name VARCHAR(255) NULL AFTER file_size");
 }
+if (empty($existing['duration'])) {
+    @$conn->query("ALTER TABLE order_messages ADD COLUMN duration FLOAT DEFAULT NULL AFTER file_name");
+}
 if (empty($existing['message_file'])) {
     @$conn->query("ALTER TABLE order_messages ADD COLUMN message_file VARCHAR(255) NULL AFTER image_path");
 }
