@@ -10,6 +10,7 @@ if (!defined('PRODUCT_BRANCH_STOCK_LOADED')) {
 }
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/InventoryManager.php';
 
 function printflow_generate_product_inventory_ref_id(int $branchId = 0): int {
     static $sequence = 0;
@@ -76,6 +77,8 @@ function printflow_ensure_product_inventory_transaction_schema(): void {
     if ($done) {
         return;
     }
+
+    InventoryManager::ensureBranchScopedSchema();
 
     try {
         $productCols = db_query("SHOW COLUMNS FROM inventory_transactions LIKE 'product_id'") ?: [];
