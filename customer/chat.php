@@ -171,7 +171,9 @@ require_once __DIR__ . '/../includes/header.php';
     .call-log-title { font-weight:800; font-size:.92rem; line-height: 1.2; }
     .call-log-status { font-size:.75rem; font-weight:700; opacity:0.5; line-height: 1.2; }
 
-    .brow.system.order-update-card { justify-content:flex-start; margin:10px 0; }
+    .brow.order-update-card { margin:10px 0; }
+    .brow.order-update-card.other { justify-content:flex-start; }
+    .brow.order-update-card.self { justify-content:flex-end; }
     .order-update-bubble {
         display:flex;
         gap:12px;
@@ -185,6 +187,10 @@ require_once __DIR__ . '/../includes/header.php';
         box-shadow:0 10px 24px rgba(15,23,42,0.06);
         cursor:pointer;
         transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .brow.self.order-update-card .order-update-bubble {
+        border-radius:18px 18px 6px 18px;
+        background:linear-gradient(180deg, #f3fbff 0%, #e8f7ff 100%);
     }
     .order-update-bubble:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(15,23,42,0.1); border-color:#7dd3d8; }
     .order-update-bubble:active { transform:translateY(0); }
@@ -1046,6 +1052,11 @@ function getOrderUpdateActionLabel(actionType) {
     }
 }
 
+function getOrderUpdateSide(meta) {
+    const originActor = String(meta?.origin_actor || 'staff').toLowerCase();
+    return originActor === 'customer' ? 'self' : 'other';
+}
+
 function renderOrderUpdateMessage(m) {
     const actionType = m.action_type || 'view_status';
     const actionUrl = m.action_url || '';
@@ -1055,7 +1066,7 @@ function renderOrderUpdateMessage(m) {
     try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
     const productName = meta.product_name || 'Order update';
     const orderId = Number(meta.order_id || activeId || 0);
-    const isInteractive = actionType === 'to_payment' || actionType === 'retry_payment' || actionType === 'rate' || actionType === 'pickup_details';
+    const isInteractive = true;
 
     return `
         <div class="b-col">
@@ -1105,7 +1116,9 @@ function appendMsgUI(m) {
 
     if (m.is_system && !isCallLog) {
         if (m.message_type === 'order_update') {
-            row.className = 'brow system order-update-card';
+            let meta = {};
+            try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
+            row.className = `brow order-update-card ${getOrderUpdateSide(meta)}`;
             row.innerHTML = renderOrderUpdateMessage(m);
             box.appendChild(row);
             return;

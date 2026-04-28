@@ -136,7 +136,9 @@ $current_user = get_logged_in_user();
         .bubble-row.self .bubble-meta { justify-content: flex-end; }
 
         /* Order Update Message Styles */
-        .bubble-row.system.order-update.staff-view { justify-content: flex-start !important; margin: 10px 0; }
+        .bubble-row.order-update.staff-view { margin: 10px 0; }
+        .bubble-row.order-update.staff-view.other { justify-content: flex-start !important; }
+        .bubble-row.order-update.staff-view.self { justify-content: flex-end !important; }
         .order-update-bubble.staff {
             display: flex;
             gap: 12px;
@@ -150,6 +152,10 @@ $current_user = get_logged_in_user();
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
             cursor: pointer;
             transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+        .bubble-row.self.order-update.staff-view .order-update-bubble.staff {
+            border-radius: 18px 18px 6px 18px;
+            background: linear-gradient(180deg, #f3fbff 0%, #e8f7ff 100%);
         }
         .order-update-bubble.staff:hover {
             transform: translateY(-1px);
@@ -1502,7 +1508,9 @@ function appendMsgUI(m) {
         if (m.message_type === 'order_update') {
             let meta = {};
             try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
-            row.className = 'bubble-row system order-update staff-view';
+            const originActor = String(meta.origin_actor || 'staff').toLowerCase();
+            const sideClass = originActor === 'customer' ? 'other' : 'self';
+            row.className = `bubble-row order-update staff-view ${sideClass}`;
             row.innerHTML = `
                 <div class="msg-content-col">
                     <div class="order-update-bubble staff" onclick="openDetails(activeId)" title="Click to view order details">

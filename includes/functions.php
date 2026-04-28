@@ -3426,6 +3426,19 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     $message     = $custom_text ?: $config['message'];
     $action_type = $config['action_type'];
     $action_url  = $config['action_url'];
+    $origin_actor_map = [
+        'inquiry' => 'customer',
+        'payment_submitted' => 'customer',
+        'approved' => 'staff',
+        'send_to_payment' => 'staff',
+        'payment_verified' => 'staff',
+        'payment_rejected' => 'staff',
+        'in_production' => 'staff',
+        'ready_to_pickup' => 'staff',
+        'completed' => 'staff',
+        'rate' => 'staff',
+    ];
+    $origin_actor = $origin_actor_map[$step] ?? 'staff';
 
     // 5. meta_json for extra context (used by frontend card renderer)
     $meta = json_encode([
@@ -3433,6 +3446,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'order_id'     => $order_id,
         'product_name' => $product_name,
         'amount'       => (float)($order['total_amount'] ?? 0),
+        'origin_actor' => $origin_actor,
     ]);
 
     // 6. Insert into order_messages using dedicated schema columns
