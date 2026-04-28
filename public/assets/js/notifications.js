@@ -54,6 +54,7 @@
     var SW_SCOPE               = buildAppUrl('') || '/';
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
     var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
+    var API_PUSH_TEST          = buildAppUrl('public/api/push/test.php');
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
     var API_LIST               = buildAppUrl('public/api/notifications/list.php');
 
@@ -223,6 +224,22 @@
                 return data;
             });
         });
+    }
+
+    function triggerTestPush() {
+        return fetch(API_PUSH_TEST, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(data) {
+            if (!data || !data.success) {
+                return false;
+            }
+            return true;
+        })
+        .catch(function() { return false; });
     }
 
     function createFreshSubscription(reg, isUserAction, didRetry) {
@@ -593,6 +610,13 @@
         subscribeToPush(true).then(function(sub) {
             if (sub) clearPermissionPromptDismissal();
             updatePushToggle(btn, sub ? 'enabled' : 'disabled');
+            if (sub) {
+                triggerTestPush().then(function(ok) {
+                    if (!ok) {
+                        alert('Notifications were enabled, but test push failed. Check browser background notification settings for this site.');
+                    }
+                });
+            }
         });
     }
 
