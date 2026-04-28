@@ -180,7 +180,7 @@ function printflow_record_product_inventory_transaction(
         $fields['product_id'] = ['type' => 'i', 'val' => $productId];
     }
 
-    if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
+    if ($branchId > 0) {
         $fields['branch_id'] = ['type' => 'i', 'val' => $branchId];
     }
     if ($storedRefId !== null) {
@@ -218,7 +218,7 @@ function printflow_record_product_inventory_transaction(
         'transaction_date' => ['type' => 's', 'val' => $date],
     ];
 
-    if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
+    if ($branchId > 0) {
         $legacyFields['branch_id'] = ['type' => 'i', 'val' => $branchId];
     }
     if ($storedRefId !== null) {
