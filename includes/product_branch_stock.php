@@ -168,12 +168,58 @@ function printflow_record_product_inventory_transaction(
     $types = implode('', array_column($fields, 'type'));
     $values = array_column($fields, 'val');
 
-    return db_execute(
+    $result = db_execute(
         "INSERT INTO inventory_transactions (" . implode(', ', $cols) . ")
          VALUES (" . implode(', ', $placeholders) . ")",
         $types,
         $values
     );
+
+    if ($result !== false) {
+        return $result;
+    }
+
+    // Compatibility fallback for older/live ledger schemas that still expect
+    // product rows to use item_id = product_id, as in the older ledger fetch.
+    $legacyFields = [
+        'item_id'          => ['type' => 'i', 'val' => $productId],
+        'direction'        => ['type' => 's', 'val' => $direction],
+        'quantity'         => ['type' => 's', 'val' => (string)$qty],
+        'uom'              => ['type' => 's', 'val' => 'pcs'],
+        'ref_type'         => ['type' => 's', 'val' => $normalizedRefType === 'ORDER' ? 'ORDER' : $storedRefType],
+        'notes'            => ['type' => 's', 'val' => $notes],
+        'transaction_date' => ['type' => 's', 'val' => $date],
+    ];
+
+    if (db_table_has_column('inventory_transactions', 'branch_id') && $branchId > 0) {
+        $legacyFields['branch_id'] = ['type' => 'i', 'val' => $branchId];
+    }
+    if ($refId !== null) {
+        $legacyFields['ref_id'] = ['type' => 'i', 'val' => $refId];
+    } elseif ($storedRefId !== null) {
+        $legacyFields['ref_id'] = ['type' => 'i', 'val' => $storedRefId];
+    }
+    if ($userId > 0) {
+        $legacyFields['created_by'] = ['type' => 'i', 'val' => $userId];
+    }
+
+    $legacyCols = array_keys($legacyFields);
+    $legacyPlaceholders = array_fill(0, count($legacyFields), '?');
+    $legacyTypes = implode('', array_column($legacyFields, 'type'));
+    $legacyValues = array_column($legacyFields, 'val');
+
+    $legacyResult = db_execute(
+        "INSERT INTO inventory_transactions (" . implode(', ', $legacyCols) . ")
+         VALUES (" . implode(', ', $legacyPlaceholders) . ")",
+        $legacyTypes,
+        $legacyValues
+    );
+
+    if ($legacyResult === false) {
+        error_log('Product inventory ledger insert failed for product #' . $productId . ' (' . $normalizedRefType . ')');
+    }
+
+    return $legacyResult;
 }
 
 /**
