@@ -40,9 +40,51 @@ foreach ($locations as $path) {
 }
 
 if (!$foundPath) {
-    http_response_code(404);
-    error_log('[PrintFlow][Audio] Not found: ' . $file);
-    exit('Audio not found');
+    // Attempt a limited recursive search in common uploads roots as a fallback.
+    $searchRoots = [
+        __DIR__ . '/uploads',
+        __DIR__ . '/../uploads',
+        dirname(__DIR__) . '/uploads',
+    ];
+
+    $found = null;
+    $maxDepth = 4;
+    $searchAttempts = [];
+
+    $finder = function ($dir, $target, $depth) use (&$finder, &$found, &$searchAttempts, $maxDepth) {
+        if ($found !== null) return;
+        if ($depth > $maxDepth) return;
+        if (!is_dir($dir)) return;
+        $items = @scandir($dir);
+        if ($items === false) return;
+        foreach ($items as $it) {
+            if ($it === '.' || $it === '..') continue;
+            $p = $dir . '/' . $it;
+            $searchAttempts[] = $p;
+            if (is_file($p) && basename($p) === $target) {
+                $found = $p;
+                return;
+            }
+            if (is_dir($p)) {
+                $finder($p, $target, $depth + 1);
+                if ($found !== null) return;
+            }
+        }
+    };
+
+    foreach ($searchRoots as $root) {
+        $finder($root, $file, 0);
+        if ($found !== null) {
+            $foundPath = $found;
+            break;
+        }
+    }
+
+    if (!$foundPath) {
+        http_response_code(404);
+        error_log('[PrintFlow][Audio] Not found: ' . $file . ' — attempted paths: ' . implode(', ', array_slice($searchAttempts, 0, 100)));
+        exit('Audio not found');
+    }
 }
 
 $mime = 'audio/webm';
