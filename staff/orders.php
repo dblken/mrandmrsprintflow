@@ -279,7 +279,7 @@ function staff_orders_product_name(array $order): string {
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     ob_start();
     if (empty($orders)) {
-        echo '<tr><td colspan="8" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;"><div style="font-size:24px; margin-bottom:8px;">📁</div>No orders found matching your filters.</td></tr>';
+        echo '<tr><td colspan="8" style="text-align:center; padding: 48px; color:#64748b; font-size:14px; font-weight:600;">No orders found matching your filters.</td></tr>';
     } else {
         foreach ($orders as $order) {
             ?>
@@ -1620,7 +1620,6 @@ $page_title = 'Orders - Staff';
         const confirmed = await pfConfirm({
             title: 'Complete Order',
             text: 'Mark this order as COMPLETED? This will deduct items from stock and finalize the order.',
-            icon: '📦',
             iconBg: '#ecfdf5',
             iconColor: '#10b981',
             confirmText: 'Yes, Complete',
@@ -1640,7 +1639,7 @@ $page_title = 'Orders - Staff';
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
-                showStatusOverlay('🎉', res.message);
+                showStatusOverlay('', res.message);
                 setTimeout(function() { 
                     closeOrderModal(); 
                     fetchUpdatedTable(); 
@@ -1661,7 +1660,6 @@ $page_title = 'Orders - Staff';
         const confirmed = await pfConfirm({
             title: 'Verify Payment',
             text: 'Are you sure you want to approve this payment proof? The order will move to TO PICK UP.',
-            icon: '📄',
             iconBg: '#f0fdf4',
             iconColor: '#16a34a',
             confirmText: 'Yes, Approve',
@@ -1680,7 +1678,7 @@ $page_title = 'Orders - Staff';
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
-                showStatusOverlay('✅', 'Payment Verified!');
+                showStatusOverlay('', 'Payment Verified!');
                 setTimeout(function() { openOrderModal(orderId); fetchUpdatedTable(); }, 1200);
             } else {
                 alert(res.error || 'Failed to verify payment');
@@ -1729,7 +1727,7 @@ $page_title = 'Orders - Staff';
         .then(function(res) {
             if (res.success) {
                 closePaymentRejectionModal();
-                showStatusOverlay('❌', 'Payment Rejected');
+                showStatusOverlay('', 'Payment Rejected');
                 setTimeout(function() { openOrderModal(orderId); fetchUpdatedTable(); }, 1200);
             } else {
                 alert(res.error || 'Failed to reject payment');
@@ -1769,7 +1767,7 @@ $page_title = 'Orders - Staff';
             if (res.success) {
                 // After setting price, also move to "Ready for Pickup" or "To Pay"
                 // For POS, let's just refresh the modal
-                showStatusOverlay('✅', 'Price set successfully!');
+                showStatusOverlay('', 'Price set successfully!');
                 setTimeout(function() { openOrderModal(orderId); fetchUpdatedTable(); }, 1200);
             } else {
                 alert(res.error || 'Failed to update price');
@@ -1802,7 +1800,7 @@ $page_title = 'Orders - Staff';
         var payBlock = '';
         if (d.payment_proof && d.payment_proof !== 'null' && d.payment_proof !== 'undefined') {
             payBlock = '<div style="margin-top:20px; padding:16px; border-radius:12px; border:1px solid #e2e8f0; background:#f0fdf4;">' +
-                '<label style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;display:block;margin-bottom:12px;">📄 Payment Proof</label>' +
+                '<label style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;display:block;margin-bottom:12px;">Payment Proof</label>' +
                 '<a href="' + d.payment_proof + '" target="_blank" style="display:block;border-radius:10px;overflow:hidden;border:2px solid #bbf7d0;background:#fff;">' +
                 '<img src="' + d.payment_proof + '" alt="Payment Proof" style="width:100%;height:auto;display:block;max-height:400px;object-fit:contain;"></a></div>';
         }
