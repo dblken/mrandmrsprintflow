@@ -295,7 +295,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
         .filter-bar .input-field, .filter-bar select { width: auto; min-width: 140px; height: 34px !important; font-size: 12px; }
 
         /* Full Width Card Adjustments */
-        .card { padding: 20px; border-radius: 16px; margin-bottom: 16px; height: 100%; border: 1px solid #f1f5f9; position: relative; }
+        .card { padding: 20px; border-radius: 16px; margin-bottom: 16px; height: 100%; border: 1px solid #f1f5f9; position: relative; min-width: 0; }
         .grid-cols-3 { display: grid; grid-template-columns: 7fr 3fr; gap: 16px; width: 100%; }
         @media (max-width: 1024px) { .grid-cols-3 { grid-template-columns: 1fr; } }
 
