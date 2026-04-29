@@ -289,7 +289,7 @@ if ($action === 'verify_payment') {
         $conn->commit();
         
         echo json_encode(['success' => true]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if (($conn->in_transaction ?? false)) {
             $conn->rollback();
         }
@@ -378,7 +378,7 @@ elseif ($action === 'reject_payment') {
         }
         
         echo json_encode(['success' => true]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         echo json_encode(['success' => false, 'error' => 'Database error during rejection: ' . $e->getMessage()]);
     }
 

@@ -18,7 +18,8 @@ require_once __DIR__ . '/functions.php';
  * @param array $meta Optional metadata as associative array
  * @return int|bool Message ID or false on failure
  */
-function printflow_send_order_update($order_id, $message, $action_type, $thumbnail = '', $action_url = '', $meta = []) {
+if (!function_exists('printflow_send_order_update')) {
+function printflow_send_order_update($order_id, $message, $action_type = 'view_status', $thumbnail = '', $action_url = '', $meta = []) {
     if (!$order_id) return false;
 
     // Resolve base path for relative thumbnails
@@ -43,7 +44,8 @@ function printflow_send_order_update($order_id, $message, $action_type, $thumbna
         $thumbnail = $base . "/public/assets/images/services/default.png";
     } else {
         // Ensure thumbnail has base path if it's relative
-        if (!preg_match('#^https?://#i', $thumbnail) && !str_starts_with($thumbnail, $base) && !str_starts_with($thumbnail, '/')) {
+        $is_absolute = (preg_match('#^https?://#i', $thumbnail) || ($base !== '' && strpos($thumbnail, $base) === 0) || strpos($thumbnail, '/') === 0);
+        if (!$is_absolute) {
             $thumbnail = $base . '/' . $thumbnail;
         }
     }
@@ -57,15 +59,16 @@ function printflow_send_order_update($order_id, $message, $action_type, $thumbna
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())";
     
     $params = [$order_id, $sender, $sender_id, $message, $message_type, $thumbnail, $action_type, $action_url, $meta_json];
-    $res = db_execute($sql, "isiisssss", $params);
+    $res = db_execute($sql, "isissssss", $params);
 
     if ($res) {
         // Also trigger real-time notification via existing system if any
         if (function_exists('printflow_notify_chat_message')) {
-            printflow_notify_chat_message($order_id, $res);
+            printflow_notify_chat_message($order_id, 'System');
         }
         return $res;
     }
 
     return false;
+}
 }

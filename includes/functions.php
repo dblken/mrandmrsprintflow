@@ -206,11 +206,31 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                     $vals = $m[1] ?? [];
                     if (!in_array('Rating', $vals)) $vals[] = 'Rating';
                     if (!in_array('Review', $vals)) $vals[] = 'Review';
-                    $escaped = array_map(fn($v) => "'" . str_replace("'", "\\'", $v) . "'", $vals);
+                    $escaped = array_map(function($v) { return "'" . str_replace("'", "\\'", $v) . "'"; }, $vals);
                     db_execute("ALTER TABLE notifications MODIFY COLUMN type ENUM(" . implode(",", $escaped) . ") DEFAULT 'System'");
                 }
             }
-        } catch (Throwable $e) { error_log("Failed to ensure notification enum: " . $e->getMessage()); }
+
+            // Ensure data_id column exists
+            $has_data_id = db_query("SHOW COLUMNS FROM notifications LIKE 'data_id'");
+            if (empty($has_data_id)) {
+                db_execute("ALTER TABLE notifications ADD COLUMN data_id INT DEFAULT 0 AFTER type");
+            }
+
+            // Ensure is_read, send_email, send_sms exist
+            $has_is_read = db_query("SHOW COLUMNS FROM notifications LIKE 'is_read'");
+            if (empty($has_is_read)) {
+                db_execute("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0 AFTER data_id");
+            }
+            $has_send_email = db_query("SHOW COLUMNS FROM notifications LIKE 'send_email'");
+            if (empty($has_send_email)) {
+                db_execute("ALTER TABLE notifications ADD COLUMN send_email TINYINT(1) DEFAULT 0 AFTER is_read");
+            }
+            $has_send_sms = db_query("SHOW COLUMNS FROM notifications LIKE 'send_sms'");
+            if (empty($has_send_sms)) {
+                db_execute("ALTER TABLE notifications ADD COLUMN send_sms TINYINT(1) DEFAULT 0 AFTER send_email");
+            }
+        } catch (Throwable $e) { error_log("Failed to ensure notification schema: " . $e->getMessage()); }
         $enums_checked = true;
     }
 
@@ -3300,7 +3320,11 @@ function pf_admin_url(string $script, array $query = [], ?string $fragment = nul
  * @param string $custom_text  Optional override message text
  * @return bool|int
  */
-function printflow_send_order_update($order_id, $step, $custom_text = '') {
+if (!function_exists('printflow_send_order_update')) {
+    require_once __DIR__ . '/order_chat_system.php';
+}
+
+function printflow_send_order_update_legacy($order_id, $step, $custom_text = '') {
     $order_id = (int)$order_id;
     if ($order_id <= 0) return false;
 
