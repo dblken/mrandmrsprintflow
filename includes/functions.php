@@ -557,23 +557,11 @@ function notify_staff_new_order(int $order_id, string $customer_first_name, int 
     // Notify shop users (existing notification system)
     notify_shop_users($msg, 'Order', false, false, $order_id);
 
-    // Also insert an order chat message so it appears in staff chat immediately
-    try {
-        $sender_id = (int)($customer_id ?? 0);
-        // If no customer_id provided, try to resolve from orders table
-        if ($sender_id <= 0) {
-            $r = db_query("SELECT customer_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
-            $sender_id = (int)($r[0]['customer_id'] ?? 0);
-        }
-
-        if ($sender_id > 0) {
-            $insert_sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Customer', ?, ?, 'order_card', 0)";
-            db_execute($insert_sql, 'iis', [$order_id, $sender_id, $msg]);
-        }
-    } catch (Throwable $e) {
-        // Non-fatal: log but don't break order flow
-        error_log("notify_staff_new_order: failed to insert order chat message for order {$order_id}: " . $e->getMessage());
-    }
+    // Previously we also inserted an `order_messages` entry here which caused
+    // duplicate "order_card" chat messages because other order-update helpers
+    // (e.g. `printflow_send_order_update`) also create an order card. To avoid
+    // duplicate messages, we now only send notifications and let the dedicated
+    // order update system insert chat messages where appropriate.
 }
 
 /**
@@ -3522,7 +3510,40 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'button_label'   => $button_label,
     ]);
 
-    // 6. Insert into order_messages using dedicated schema columns
+    // 6. Avoid duplicate/legacy order_card messages for the same order.
+    // If this is an 'inquiry' step, remove legacy messages that use the
+    // old "sent an inquiry for" wording to prevent unrelated duplicates
+    // from showing up in the chat UI.
+    if ($step === 'inquiry') {
+        try {
+            db_execute(
+                "DELETE FROM order_messages WHERE order_id = ? AND message LIKE ? AND message_type = 'order_card'",
+                'is',
+                [$order_id, '%sent an inquiry for%']
+            );
+        } catch (Throwable $e) {
+            // Non-fatal - continue
+        }
+    }
+
+    // Prevent inserting the same order update repeatedly: look for an
+    // existing recent order message of the same type and similar text.
+    try {
+        $shortText = mb_substr((string)$message, 0, 80);
+        $existing = db_query(
+            "SELECT message_id FROM order_messages WHERE order_id = ? AND message_type = ? AND message LIKE ? ORDER BY created_at DESC LIMIT 1",
+            'iss',
+            [$order_id, $message_type, $shortText . '%']
+        );
+        if (!empty($existing) && !empty($existing[0]['message_id'])) {
+            // Return existing message id to indicate no new insert performed
+            return (int)$existing[0]['message_id'];
+        }
+    } catch (Throwable $e) {
+        // On error, fall back to inserting the message
+    }
+
+    // 7. Insert into order_messages using dedicated schema columns
     $sql = "INSERT INTO order_messages
                 (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
