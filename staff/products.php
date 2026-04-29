@@ -408,66 +408,38 @@ $page_title = 'Products & Inventory - Staff';
             .products-view-modal-body {
                 padding: 18px;
             }
-            
-            /* Responsive Table (Card Stack Layout) */
-            .products-table thead {
-                display: none;
-            }
-            .products-table, .products-table tbody, .products-table tr, .products-table td {
-                display: block;
+            .products-table {
                 width: 100%;
+                min-width: 0;
+                table-layout: fixed;
             }
-            .products-table tr {
-                background: #fff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                margin-bottom: 12px;
-                padding: 12px;
-                position: relative;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            }
+            .products-table th,
             .products-table td {
-                padding: 6px 0;
-                border: none;
-                text-align: left;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                min-height: 32px;
-                min-width: 0;
-                gap: 12px;
+                padding-left: 6px;
+                padding-right: 6px;
             }
-            .products-table td::before {
-                content: attr(data-label);
-                font-weight: 700;
-                font-size: 11px;
-                color: #64748b;
-                text-transform: uppercase;
-                margin-right: 12px;
-                flex-shrink: 0;
-                width: 80px;
+            .products-table th:nth-child(1),
+            .products-table td:nth-child(1) {
+                width: 104px;
             }
-            .products-table td[data-label="Name"],
-            .products-table td[data-label="Category"] {
-                justify-content: flex-start;
+            .products-table th:nth-child(2),
+            .products-table td:nth-child(2) {
+                width: auto;
+                max-width: none;
             }
-            .products-table td[data-label="Name"] > .truncate-ellipsis,
-            .products-table td[data-label="Category"] > .truncate-ellipsis {
-                flex: 1 1 auto;
-                min-width: 0;
-                max-width: calc(100% - 92px);
+            .products-table th:nth-child(2) .truncate-ellipsis,
+            .products-table td:nth-child(2) .truncate-ellipsis {
+                max-width: 100%;
             }
-            .products-table td:last-child {
-                border-top: 1px solid #f1f5f9;
-                margin-top: 8px;
-                padding-top: 12px;
-                justify-content: center;
-            }
-            .products-table td:last-child::before {
+            .products-table th:nth-child(3),
+            .products-table td:nth-child(3),
+            .products-table th:nth-child(4),
+            .products-table td:nth-child(4),
+            .products-table th:nth-child(5),
+            .products-table td:nth-child(5),
+            .products-table th:nth-child(6),
+            .products-table td:nth-child(6) {
                 display: none;
-            }
-            .table-action-btn {
-                width: 100%;
             }
 
             /* Readonly Inventory Tables Mobile */
