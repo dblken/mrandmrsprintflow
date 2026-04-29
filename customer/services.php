@@ -153,7 +153,7 @@ function render_service_card($srv) {
     // If sold is 0 but there are reviews, use review_count as minimum sold
     $display_sold = ($sold <= 0 && $rcount > 0) ? $rcount : $sold;
     ?>
-    <div class="shopee-card" onclick="openServiceModal(<?php echo $srv['id']; ?>, <?php echo $json_name; ?>, <?php echo $json_category; ?>, <?php echo $json_images; ?>, <?php echo $json_link; ?>, true, '', '', <?php echo $json_modal_text; ?>, <?php echo $ravg; ?>, <?php echo $rcount; ?>)">
+    <div class="shopee-card" onclick="window.location.href=<?php echo $json_link; ?>;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=<?php echo $json_link; ?>;}" role="link" tabindex="0" aria-label="Order <?php echo htmlspecialchars($srv['name']); ?>">
         <?php if ($is_video): ?>
             <video
                 src="<?php echo htmlspecialchars($img); ?>"

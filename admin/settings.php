@@ -21,6 +21,16 @@ $current_user = get_logged_in_user();
 $success = '';
 $error   = '';
 
+$saved_messages = [
+    'payment_methods' => 'Payment methods updated!',
+    'general' => 'General settings saved!',
+    'footer' => 'Footer info saved!',
+    'about' => 'About page content saved!',
+];
+if (isset($_GET['saved']) && isset($saved_messages[$_GET['saved']])) {
+    $success = $saved_messages[$_GET['saved']];
+}
+
 // Directories
 $qr_dir   = __DIR__ . '/../public/assets/uploads/qr/';
 $logo_dir = __DIR__ . '/../public/assets/uploads/';
@@ -70,6 +80,12 @@ $about_cfg  = load_cfg($logo_dir . 'about_config.json');
 // Load branches for address selector
 $branches = db_query("SELECT id, branch_name AS name FROM branches ORDER BY branch_name") ?: [];
 // Per-branch addresses stored in footer_cfg['branch_addresses'] = [['branch_id'=>1,'address'=>'...']]
+
+function settings_redirect_after_save($savedKey) {
+    $query = ['saved' => $savedKey];
+    header('Location: settings.php?' . http_build_query($query));
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_token'] ?? '')) {
 
@@ -122,8 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             }
         }
         if (save_cfg($qr_dir . 'payment_methods.json', $pm_cfg)) {
-            $success = 'Payment methods updated!';
-            $payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
+            settings_redirect_after_save('payment_methods');
         } else {
             $error = 'Payment methods could not be saved. Please try again.';
         }
@@ -154,8 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             }
         }
         if ($error === '' && save_cfg($logo_dir . 'shop_config.json', $shop_cfg)) {
-            $success = 'General settings saved!';
-            $shop_cfg = load_cfg($logo_dir . 'shop_config.json');
+            settings_redirect_after_save('general');
         } elseif ($error === '') {
             $error = 'General settings could not be saved. Please try again.';
         }
@@ -195,8 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $footer_cfg['social_links'] = $socials;
 
         if (save_cfg($logo_dir . 'footer_config.json', $footer_cfg)) {
-            $success = 'Footer info saved!';
-            $footer_cfg = load_cfg($logo_dir . 'footer_config.json');
+            settings_redirect_after_save('footer');
         } else {
             $error = 'Footer info could not be saved. Please try again.';
         }
@@ -248,8 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             'team_members'  => $team,
         ];
         if (save_cfg($logo_dir . 'about_config.json', $about_cfg)) {
-            $success = 'About page content saved!';
-            $about_cfg = load_cfg($logo_dir . 'about_config.json');
+            settings_redirect_after_save('about');
         } else {
             $error = 'About page content could not be saved. Please try again.';
         }
