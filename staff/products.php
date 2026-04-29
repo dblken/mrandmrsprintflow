@@ -395,6 +395,84 @@ $page_title = 'Products & Inventory - Staff';
             .products-view-modal-body {
                 padding: 18px;
             }
+            
+            /* Responsive Table (Card Stack Layout) */
+            .products-table thead {
+                display: none;
+            }
+            .products-table, .products-table tbody, .products-table tr, .products-table td {
+                display: block;
+                width: 100%;
+            }
+            .products-table tr {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                margin-bottom: 12px;
+                padding: 12px;
+                position: relative;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }
+            .products-table td {
+                padding: 6px 0;
+                border: none;
+                text-align: left;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                min-height: 32px;
+            }
+            .products-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 11px;
+                color: #64748b;
+                text-transform: uppercase;
+                margin-right: 12px;
+                flex-shrink: 0;
+                width: 80px;
+            }
+            .products-table td:last-child {
+                border-top: 1px solid #f1f5f9;
+                margin-top: 8px;
+                padding-top: 12px;
+                justify-content: center;
+            }
+            .products-table td:last-child::before {
+                display: none;
+            }
+            .table-action-btn {
+                width: 100%;
+            }
+
+            /* Readonly Inventory Tables Mobile */
+            .staff-products-readonly-grid table thead {
+                display: none;
+            }
+            .staff-products-readonly-grid table, .staff-products-readonly-grid tbody, .staff-products-readonly-grid tr, .staff-products-readonly-grid td {
+                display: block;
+                width: 100%;
+            }
+            .staff-products-readonly-grid tr {
+                border-bottom: 1px solid #eef2f7;
+                padding: 12px 0;
+            }
+            .staff-products-readonly-grid td {
+                padding: 4px 0;
+                border: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .staff-products-readonly-grid td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 11px;
+                color: #64748b;
+                text-transform: uppercase;
+                margin-right: 12px;
+                flex-shrink: 0;
+            }
         }
         @media (max-width: 960px) {
             .staff-products-readonly-grid {
@@ -591,19 +669,19 @@ $page_title = 'Products & Inventory - Staff';
                                     data-category="<?php echo htmlspecialchars(strtolower($product['category'])); ?>"
                                     data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
                                     onclick="openViewModal(this)">
-                                    <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                    <td style="font-weight:500;">
-                                        <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['name']); ?>">
+                                    <td data-label="SKU" style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
+                                    <td data-label="Name" style="font-weight:500; min-width: 0; flex: 1;">
+                                        <div class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($product['name']); ?>">
                                             <?php echo htmlspecialchars($product['name']); ?>
                                         </div>
                                     </td>
-                                    <td>
-                                        <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['category']); ?>">
+                                    <td data-label="Category" style="min-width: 0; flex: 1;">
+                                        <div class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($product['category']); ?>">
                                             <?php echo htmlspecialchars($product['category']); ?>
                                         </div>
                                     </td>
-                                    <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
-                                    <td>
+                                    <td data-label="Price" style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
+                                    <td data-label="Stock">
                                         <?php $productLowLevel = (int)($product['low_stock_level'] ?? 10); ?>
                                         <?php if ((int)$product['stock_quantity'] <= $productLowLevel): ?>
                                             <span style="color:#dc2626; font-weight:700;"><?php echo $product['stock_quantity']; ?></span>
@@ -612,7 +690,7 @@ $page_title = 'Products & Inventory - Staff';
                                             <span style="color:#16a34a;"><?php echo $product['stock_quantity']; ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
+                                    <td data-label="Action">
                                         <button
                                             type="button"
                                             class="table-action-btn"
@@ -656,22 +734,22 @@ $page_title = 'Products & Inventory - Staff';
                                         <?php $itemStock = (float)($item['current_stock'] ?? 0); ?>
                                         <?php $itemReorder = (float)($item['reorder_level'] ?? 0); ?>
                                         <tr>
-                                            <td>
-                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($item['name']); ?>">
+                                            <td data-label="Item" style="min-width: 0; flex: 1;">
+                                                <span class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($item['name']); ?>">
                                                     <?php echo htmlspecialchars($item['name']); ?>
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td data-label="Unit">
                                                 <span class="inventory-chip <?php echo !empty($item['track_by_roll']) ? 'roll' : 'unit'; ?>">
                                                     <?php echo !empty($item['track_by_roll']) ? 'ROLL' : htmlspecialchars(strtoupper((string)($item['unit_of_measure'] ?? 'UNIT'))); ?>
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td data-label="Stock">
                                                 <span class="<?php echo $itemStock <= $itemReorder ? 'stock-value-low' : 'stock-value-ok'; ?>">
                                                     <?php echo rtrim(rtrim(number_format($itemStock, 2), '0'), '.'); ?>
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td data-label="Status">
                                                 <?php
                                                 if ($itemStock <= 0) {
                                                     echo '<span class="inventory-chip out">OUT</span>';
@@ -713,23 +791,23 @@ $page_title = 'Products & Inventory - Staff';
                                 <?php else: ?>
                                     <?php foreach ($inventory_ledger as $entry): ?>
                                         <tr>
-                                            <td>
-                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars(format_datetime($entry['transaction_date'])); ?>">
+                                            <td data-label="Date">
+                                                <span class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars(format_datetime($entry['transaction_date'])); ?>">
                                                     <?php echo htmlspecialchars(format_datetime($entry['transaction_date'])); ?>
                                                 </span>
                                             </td>
-                                            <td>
-                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars($entry['item_name']); ?>">
+                                            <td data-label="Item" style="min-width: 0; flex: 1;">
+                                                <span class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($entry['item_name']); ?>">
                                                     <?php echo htmlspecialchars($entry['item_name']); ?>
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td data-label="Type">
                                                 <span class="inventory-chip <?php echo strtoupper((string)$entry['direction']) === 'IN' ? 'in' : 'out'; ?>">
                                                     <?php echo htmlspecialchars(strtoupper((string)$entry['direction'])); ?>
                                                 </span>
                                             </td>
-                                            <td>
-                                                <span class="truncate-ellipsis" title="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float)$entry['quantity'], 2), '0'), '.') . ' ' . ($entry['unit_of_measure'] ?? '')); ?>">
+                                            <td data-label="Qty">
+                                                <span class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float)$entry['quantity'], 2), '0'), '.') . ' ' . ($entry['unit_of_measure'] ?? '')); ?>">
                                                     <?php echo htmlspecialchars(rtrim(rtrim(number_format((float)$entry['quantity'], 2), '0'), '.') . ' ' . ($entry['unit_of_measure'] ?? '')); ?>
                                                 </span>
                                             </td>
