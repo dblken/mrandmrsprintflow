@@ -806,6 +806,7 @@ $current_user = get_logged_in_user();
             .details-modal-panel {
                 max-height: calc(100dvh - 1.5rem);
                 border-radius: 24px;
+                overflow: hidden;
             }
             .details-modal-header {
                 padding: 1rem 1.1rem;
@@ -815,14 +816,17 @@ $current_user = get_logged_in_user();
             .details-modal-content {
                 grid-template-columns: 1fr;
                 overflow-y: auto;
+                overflow-x: hidden;
             }
             .details-sidebar {
                 border-right: none;
                 border-bottom: 1px solid #f1f5f9;
                 padding: 1rem;
+                overflow: visible;
             }
             .details-main {
                 padding: 1rem;
+                overflow: visible;
             }
             .details-main-heading {
                 padding-bottom: 0.75rem;
