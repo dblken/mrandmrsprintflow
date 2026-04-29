@@ -1240,11 +1240,10 @@ require_once __DIR__ . '/../includes/header.php';
             display: flex !important;
             align-items: flex-start !important;
             justify-content: space-between !important;
-            gap: 1.25rem !important;
+            gap: 1rem !important;
             width: 100% !important;
             min-width: 0 !important;
-            padding: 1rem 1.15rem !important;
-            min-height: 5rem !important;
+            padding: 0.8rem 0.9rem !important;
             border: 1px solid rgba(83, 197, 224, 0.18) !important;
             border-radius: 12px !important;
             background: rgba(255, 255, 255, 0.03) !important;
@@ -1258,8 +1257,6 @@ require_once __DIR__ . '/../includes/header.php';
             font-size: 0.76rem !important;
             line-height: 1.3 !important;
             margin-bottom: 0 !important;
-            max-width: 42% !important;
-            padding-top: 0.1rem !important;
         }
         .review-order-item .review-detail-value,
         .review-order-item .review-total-value {
@@ -1268,8 +1265,6 @@ require_once __DIR__ . '/../includes/header.php';
             text-align: right !important;
             margin-bottom: 0 !important;
             overflow-wrap: anywhere !important;
-            max-width: 58% !important;
-            padding-left: 0.5rem !important;
         }
         .review-order-item .review-total-value {
             max-width: 10rem !important;
