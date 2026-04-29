@@ -220,6 +220,35 @@ try {
                 }
             }
 
+            // Ensure meta_data includes useful defaults for legacy rows
+            if (empty($meta_data) || !is_array($meta_data)) {
+                $meta_data = is_array($meta_data) ? $meta_data : [];
+            }
+            // If action_url or amount are missing, try to infer from orders table
+            if (empty($meta_data['action_url']) || !isset($meta_data['amount'])) {
+                try {
+                    $ord = db_query("SELECT total_amount FROM orders WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
+                    if (!empty($ord) && isset($ord[0]['total_amount'])) {
+                        if (!isset($meta_data['amount']) || $meta_data['amount'] === null) {
+                            $meta_data['amount'] = (float) $ord[0]['total_amount'];
+                        }
+                    }
+                } catch (Throwable $e) {
+                    // ignore - leave values as-is
+                }
+                // If message suggests a payment request, set payment action URL
+                $lowerMsg = strtolower((string)($msg['message'] ?? ''));
+                $looksLikePay = strpos($lowerMsg, 'ready for payment') !== false || strpos($lowerMsg, 'proceed to complete your transaction') !== false || strpos($lowerMsg, 'proceed to payment') !== false;
+                if ($looksLikePay && empty($meta_data['action_url'])) {
+                    $bp = defined('BASE_PATH') ? rtrim(BASE_PATH, '/') : '';
+                    $meta_data['action_url'] = ($bp === '' ? '' : $bp) . '/customer/payment.php?order_id=' . $order_id;
+                    // also set a sensible button_label
+                    if (empty($meta_data['button_label'])) {
+                        $meta_data['button_label'] = 'Proceed to Payment';
+                    }
+                }
+            }
+
             $sender_type = $resolve_sender_type((string) $msg['sender'], (string) $m_type, $meta_data);
             $is_self = $sender_type !== null ? ($sender_type === $current_user_type) : false;
 
@@ -293,8 +322,8 @@ try {
                 'is_pinned' => (bool) ($msg['is_pinned'] ?? false),
                 'thumbnail' => $thumbnail,
                 'action_type' => $msg['action_type'] ?? null,
-                'action_url' => $msg['action_url'] ?? null,
-                'meta_json' => $msg['meta_json'] ?? null,
+                'action_url' => $meta_data['action_url'] ?? ($msg['action_url'] ?? null),
+                'meta_json' => !empty($meta_data) ? json_encode($meta_data) : ($msg['meta_json'] ?? null),
                 'order_update' => $order_update,
                 'service_name' => $order_card_service_name,
                 'customer_name' => $order_card_customer_name,
