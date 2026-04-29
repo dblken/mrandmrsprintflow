@@ -869,6 +869,21 @@ require_once __DIR__ . '/../includes/header.php';
     .im-table td {
         display: block;
         width: 100%;
+        box-sizing: border-box;
+    }
+    .im-table colgroup {
+        display: none;
+    }
+    .im-table th:first-child,
+    .im-table td:first-child,
+    .im-table th:nth-child(2),
+    .im-table td:nth-child(2),
+    .im-table th:nth-child(3),
+    .im-table td:nth-child(3),
+    .im-table th:nth-child(4),
+    .im-table td:nth-child(4) {
+        width: 100% !important;
+        max-width: 100% !important;
     }
     .im-table {
         table-layout: auto;
