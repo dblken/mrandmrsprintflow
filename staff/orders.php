@@ -971,240 +971,65 @@ $page_title = 'Orders - Staff';
             }
 
             /* ── CRITICAL: Contain the whole card and table ── */
-            .staff-orders-table-card {
-                padding: 10px !important;
-                overflow: hidden !important;
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
+            .staff-orders-table-card { padding: 10px !important; overflow: hidden !important; max-width: 100vw !important; width: 100% !important; box-sizing: border-box !important; }
 
             /* Kill the global min-width that causes overflow */
-            .orders-table {
-                display: block !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                min-width: 0 !important;
-                table-layout: auto !important;
-                border-collapse: collapse !important;
-                overflow: hidden !important;
-                box-sizing: border-box !important;
-            }
-
-            .orders-table thead {
-                display: none !important;
-            }
-
-            .orders-table tbody {
-                display: block !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                min-width: 0 !important;
-            }
+            html.printflow-staff .orders-table, .orders-table { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow: hidden !important; box-sizing: border-box !important; }
+            html.printflow-staff .orders-table thead, .orders-table thead { display: none !important; }
+            html.printflow-staff .orders-table tbody, .orders-table tbody { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow: hidden !important; }
 
             /* Each order row = a card */
-            .orders-table tr {
-                display: flex !important;
-                flex-direction: column !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                min-width: 0 !important;
-                box-sizing: border-box !important;
-                margin-bottom: 12px !important;
-                border: 1px solid #e2e8f0 !important;
-                border-radius: 12px !important;
-                background: #fff !important;
-                overflow: hidden !important;
-                box-shadow: 0 1px 6px rgba(0,0,0,0.05) !important;
-                cursor: pointer !important;
-                padding: 0 !important;
-                gap: 0 !important;
-            }
+            html.printflow-staff .orders-table tr, .orders-table tr { display: flex !important; flex-direction: column !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; margin-bottom: 10px !important; border: 1px solid #e2e8f0 !important; border-radius: 10px !important; background: #fff !important; overflow: hidden !important; padding: 0 !important; gap: 0 !important; }
 
             /* Every cell: full-width, contained, never overflows */
-            .orders-table td {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                min-width: 0 !important;
-                box-sizing: border-box !important;
-                padding: 7px 12px !important;
-                border-bottom: 1px solid #f1f5f9 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                font-size: 13px !important;
-            }
-
-            .orders-table td:last-child {
-                border-bottom: none !important;
-            }
-
-            /* Force every text/span element inside td to clip — NOT divs used as flex containers */
-            html.printflow-staff .orders-table td > span,
-            html.printflow-staff .orders-table td > .order-info-cell > .order-id-wrap > span:first-child,
-            html.printflow-staff .orders-table td .table-text-sub,
-            html.printflow-staff .orders-table td .order-items-sub {
-                min-width: 0 !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                white-space: nowrap !important;
-                max-width: 100% !important;
-                display: block !important;
-            }
+            html.printflow-staff .orders-table td, .orders-table td { display: flex !important; align-items: center !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; padding: 6px 12px !important; border-bottom: 1px solid #f1f5f9 !important; overflow: hidden !important; font-size: 12px !important; color: #374151 !important; }
+            html.printflow-staff .orders-table td:last-child, .orders-table td:last-child { border-bottom: none !important; }
 
             /* ── Row 0: Order ID (header bar of card) ── */
-            .orders-table td:first-child {
-                order: 0 !important;
-                background: #f8fafc !important;
-                padding: 9px 12px !important;
-                border-bottom: 1px solid #e8eef3 !important;
-                font-weight: 700 !important;
-                color: #1e293b !important;
-                font-size: 13px !important;
-            }
-            .orders-table td:first-child::before {
-                content: "#" !important;
-                color: #94a3b8 !important;
-                font-size: 11px !important;
-                font-weight: 700 !important;
-                margin-right: 4px !important;
-                flex-shrink: 0 !important;
-            }
-            .orders-table td:first-child .row-indicator {
-                top: 0 !important;
-                bottom: 0 !important;
-                left: 0 !important;
-                width: 4px !important;
-                border-radius: 0 !important;
-                opacity: 1 !important;
-            }
+            html.printflow-staff .orders-table td:first-child, .orders-table td:first-child { order: 0 !important; background: #f8fafc !important; padding: 8px 12px !important; font-weight: 700 !important; color: #1e293b !important; gap: 6px !important; }
+            .orders-table td:first-child::before { content: none !important; }
+            .orders-table td:first-child .row-indicator { top: 0 !important; bottom: 0 !important; left: 0 !important; width: 3px !important; border-radius: 0 !important; opacity: 1 !important; }
 
             /* ── Row 1: Product name – single line with ellipsis ── */
-            html.printflow-staff .orders-table td:nth-child(2),
-            .orders-table td:nth-child(2) {
-                order: 1 !important;
-                padding: 8px 12px !important;
-                border-bottom: 1px solid #f1f5f9 !important;
-                overflow: hidden !important;
-                white-space: nowrap !important;
-                max-width: 100% !important;
-            }
-            html.printflow-staff .orders-table td:nth-child(2)::before,
-            .orders-table td:nth-child(2)::before {
-                display: none !important;
-            }
-            html.printflow-staff .orders-table td:nth-child(2) .table-text-main,
-            .orders-table td:nth-child(2) .table-text-main {
-                font-size: 13px !important;
-                font-weight: 700 !important;
-                color: #111827 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                max-width: 100% !important;
-                width: 100% !important;
-                display: block !important;
-            }
+            html.printflow-staff .orders-table td:nth-child(2), .orders-table td:nth-child(2) { order: 1 !important; padding: 7px 12px !important; overflow: hidden !important; }
+            html.printflow-staff .orders-table td:nth-child(2)::before, .orders-table td:nth-child(2)::before { display: none !important; }
+            html.printflow-staff .orders-table td:nth-child(2) .table-text-main, .orders-table td:nth-child(2) .table-text-main { font-size: 12px !important; font-weight: 600 !important; color: #111827 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 220px !important; width: 100% !important; display: block !important; }
 
             /* ── Row 2: Customer name ── */
-            html.printflow-staff .orders-table td:nth-child(3),
-            .orders-table td:nth-child(3) { order: 2 !important; overflow: hidden !important; }
-            html.printflow-staff .orders-table td:nth-child(3) .table-text-main,
-            .orders-table td:nth-child(3) .table-text-main {
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                max-width: 100% !important;
-                width: 100% !important;
-                display: block !important;
-            }
+            html.printflow-staff .orders-table td:nth-child(3), .orders-table td:nth-child(3) { order: 2 !important; overflow: hidden !important; }
+            html.printflow-staff .orders-table td:nth-child(3)::before, .orders-table td:nth-child(3)::before { content: "Customer  " !important; font-size: 9px !important; font-weight: 700 !important; text-transform: uppercase !important; color: #94a3b8 !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-right: 4px !important; }
+            html.printflow-staff .orders-table td:nth-child(3) .table-text-main, .orders-table td:nth-child(3) .table-text-main { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 160px !important; width: 100% !important; display: block !important; }
 
-            /* ── Row 3: Source badge ── */
-            .orders-table td:nth-child(4) { order: 3 !important; }
+            /* ── HIDE Source and Date ── */
+            html.printflow-staff .orders-table td:nth-child(4), .orders-table td:nth-child(4), html.printflow-staff .orders-table td:nth-child(5), .orders-table td:nth-child(5) { display: none !important; }
 
-            /* ── Row 4: Date ── */
-            .orders-table td:nth-child(5) { order: 4 !important; }
+            /* ── Row 3: Amount ── */
+            html.printflow-staff .orders-table td:nth-child(6), .orders-table td:nth-child(6) { order: 3 !important; overflow: hidden !important; }
+            .orders-table td:nth-child(6)::before { content: "Amount  " !important; font-size: 9px !important; font-weight: 700 !important; text-transform: uppercase !important; color: #94a3b8 !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-right: 4px !important; }
 
-            /* ── Row 5: Amount ── */
-            .orders-table td:nth-child(6) { order: 5 !important; }
+            /* ── Row 4: Status ── */
+            html.printflow-staff .orders-table td.status-col-cell, .orders-table td.status-col-cell { order: 4 !important; justify-content: flex-start !important; gap: 6px !important; overflow: hidden !important; }
+            .orders-table td.status-col-cell::before { content: "Status  " !important; font-size: 9px !important; font-weight: 700 !important; text-transform: uppercase !important; color: #94a3b8 !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-right: 4px !important; }
 
-            /* ── Row 6: Status ── */
-            .orders-table td.status-col-cell {
-                order: 6 !important;
-                justify-content: space-between !important;
-            }
-
-            /* ── Row 7: Action buttons — ALWAYS both visible, never cut off ── */
-            .orders-table td.action-col-cell {
-                order: 10 !important;
-                padding: 10px 12px !important;
-                border-top: 1px solid #e8eef3 !important;
-                border-bottom: none !important;
-                overflow: visible !important;
-                white-space: normal !important;
-            }
-            .orders-table td.action-col-cell::before {
-                display: none !important;
-            }
-            .action-cell {
-                display: flex !important;
-                width: 100% !important;
-                gap: 8px !important;
-                flex-wrap: nowrap !important;
-            }
-            .table-action-btn {
-                flex: 1 1 0 !important;
-                min-width: 0 !important;
-                max-width: 50% !important;
-                padding: 9px 4px !important;
-                font-size: 12px !important;
-                font-weight: 700 !important;
-                border-radius: 8px !important;
-                text-align: center !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-            }
-
-            /* Generic label prefix for rows */
-            .orders-table td::before {
-                content: attr(data-label) " " !important;
-                font-size: 9px !important;
-                font-weight: 700 !important;
-                text-transform: uppercase !important;
-                color: #94a3b8 !important;
-                margin-right: 6px !important;
-                flex-shrink: 0 !important;
-                white-space: nowrap !important;
-            }
-
-            /* Named labels */
-            .orders-table td:nth-child(3)::before { content: "Customer  " !important; }
-            .orders-table td:nth-child(4)::before { content: "Source  " !important; }
-            .orders-table td:nth-child(5)::before { content: "Date  " !important; }
-            .orders-table td:nth-child(6)::before { content: "Amount  " !important; }
-            .orders-table td:nth-child(7)::before { content: "Status  " !important; }
-
-            .pf-custom-tabs {
-                padding-bottom: 10px !important;
-                margin-bottom: 14px !important;
-            }
-
-            /* Prevent tab overflow */
-            .pf-custom-tabs .pill-tab {
-                max-width: 90px !important;
-            }
-            .pf-custom-tabs .pill-tab > :first-child {
-                max-width: 60px !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                white-space: nowrap !important;
+            /* ── Row 5: Action buttons — ALWAYS both visible ── */
+            html.printflow-staff .orders-table td.action-col-cell, .orders-table td.action-col-cell { order: 10 !important; padding: 8px 10px !important; border-top: 1px solid #e8eef3 !important; border-bottom: none !important; overflow: visible !important; }
+            .orders-table td.action-col-cell::before { display: none !important; }
+            .action-cell { display: flex !important; width: 100% !important; gap: 6px !important; flex-wrap: nowrap !important; }
+            
+            /* High specificity to force View + Message onto one line equally */
+            html.printflow-staff .orders-table .action-cell .table-action-btn, 
+            html.printflow-staff .orders-table .action-cell a.table-action-btn, 
+            .orders-table .action-cell .table-action-btn, 
+            .orders-table .action-cell a.table-action-btn { 
+                display: inline-flex !important; align-items: center !important; justify-content: center !important; 
+                flex: 1 1 0 !important; width: calc(50% - 3px) !important; max-width: calc(50% - 3px) !important; 
+                min-width: 0 !important; padding: 8px 4px !important; font-size: 12px !important; 
+                font-weight: 600 !important; border-radius: 8px !important; white-space: nowrap !important; 
+                overflow: hidden !important; text-overflow: ellipsis !important; min-height: 36px !important; 
+                box-sizing: border-box !important; 
             }
         }
+
 
         .om-card {
             background: #f8fafc; border: 1px solid #e2e8f0;
