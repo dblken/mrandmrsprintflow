@@ -847,98 +847,182 @@ if ($showLatestCustomizationOnly) {
             }
 
             /* Improved Table Card Layout for Mobile */
-            .pf-customizations-table-card tr {
-                margin-bottom: 16px !important;
-                border: 1px solid #eef2f3 !important;
-                border-radius: 14px !important;
-                padding: 12px !important;
-                background: #fff !important;
-                position: relative !important;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-            }
-
-            .pf-customizations-table-card td {
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: flex-start !important;
-                padding: 4px 0 !important;
-                border-bottom: 1px solid #f9fafb !important;
-                min-height: 0 !important;
-                text-align: left !important;
-            }
-
-            .pf-customizations-table-card td:last-child {
-                border-bottom: none !important;
-                padding-top: 8px !important;
-            }
-
-            /* Main Title Row (Customization Info) */
-            .pf-customizations-table-card td.customization-info-cell {
-                order: 1 !important;
-                border-bottom: none !important;
-                padding-top: 10px !important;
-                padding-bottom: 10px !important;
-                flex-direction: column !important;
-                align-items: flex-start !important;
-            }
-            .pf-customizations-table-card td.customization-info-cell::before {
-                display: none !important;
-            }
-            .pf-customizations-table-card td.customization-info-cell .table-text-main {
-                font-size: 16px !important;
-                font-weight: 800 !important;
-                color: #1f2937 !important;
-            }
-
-            /* Header Row (Code + Status) */
-            .pf-customizations-table-card td.order-code-cell {
-                order: 0 !important;
-                background: #f8fafc !important;
-                margin: -12px -12px 4px -12px !important;
-                padding: 12px !important;
-                border-top-left-radius: 14px !important;
-                border-top-right-radius: 14px !important;
-                border-bottom: 1px solid #f1f5f9 !important;
-            }
-            .pf-customizations-table-card td.order-code-cell .row-indicator {
-                top: 0 !important;
-                bottom: 0 !important;
-                left: 0 !important;
-                width: 4px !important;
-                border-radius: 4px 0 0 4px !important;
-            }
-
-            .pf-customizations-table-card td.status-col-cell {
-                order: 2 !important;
-            }
-
-            /* Compact Other Rows */
-            .pf-customizations-table-card td::before {
-                content: attr(data-label) !important;
-                font-weight: 700 !important;
-                text-transform: uppercase !important;
-                font-size: 9px !important;
-                color: #94a3b8 !important;
-                margin-right: 12px !important;
-                flex-shrink: 0 !important;
-                padding-top: 2px !important;
-            }
-
-            .pf-customizations-table-card td .table-text-main {
-                font-size: 13px !important;
-            }
-            .pf-customizations-table-card td .table-text-sub {
-                font-size: 11px !important;
-            }
-
-            .table-action-btn {
+            /* Stop horizontal scroll at table wrapper */
+            .pf-staff-customizations-root .overflow-x-auto {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
                 width: 100% !important;
-                padding: 10px !important;
-                font-weight: 700 !important;
-                border-radius: 10px !important;
+                box-sizing: border-box !important;
+            }
+
+            html .pf-staff-customizations-root table, 
+            .pf-staff-customizations-root table { 
+                display: block !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                min-width: 0 !important; 
+                overflow: hidden !important; 
+                box-sizing: border-box !important; 
+            }
+            html .pf-staff-customizations-root thead, 
+            .pf-staff-customizations-root thead { 
+                display: none !important; 
+            }
+            html .pf-staff-customizations-root tbody, 
+            .pf-staff-customizations-root tbody { 
+                display: block !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                min-width: 0 !important; 
+                overflow: hidden !important; 
+            }
+
+            /* Each job row = a card */
+            html .pf-staff-customizations-root tr, 
+            .pf-staff-customizations-root tr { 
+                display: flex !important; 
+                flex-direction: column !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                min-width: 0 !important; 
+                box-sizing: border-box !important; 
+                margin-bottom: 10px !important; 
+                border: 1px solid #e2e8f0 !important; 
+                border-radius: 10px !important; 
+                background: #fff !important; 
+                overflow: hidden !important; 
+                padding: 0 !important; 
+                gap: 0 !important; 
+            }
+
+            /* Every cell */
+            html .pf-staff-customizations-root td, 
+            .pf-staff-customizations-root td { 
+                display: flex !important; 
+                align-items: center !important; 
+                justify-content: space-between !important;
+                width: 100% !important; 
+                max-width: 100% !important; 
+                min-width: 0 !important; 
+                box-sizing: border-box !important; 
+                padding: 6px 12px !important; 
+                border-bottom: 1px solid #f1f5f9 !important; 
+                overflow: hidden !important; 
+                font-size: 12px !important; 
+                color: #374151 !important; 
+            }
+            html .pf-staff-customizations-root td:last-child, 
+            .pf-staff-customizations-root td:last-child { 
+                border-bottom: none !important; 
+            }
+
+            /* ── Row 0: Order Code ── */
+            html .pf-staff-customizations-root td:nth-child(1), 
+            .pf-staff-customizations-root td:nth-child(1) { 
+                order: 0 !important; 
+                background: #f8fafc !important; 
+                padding: 8px 12px !important; 
+                font-weight: 700 !important; 
+                color: #1e293b !important; 
+                gap: 6px !important; 
+            }
+            .pf-staff-customizations-root td:nth-child(1)::before { content: none !important; }
+
+            /* ── Row 1: Info ── */
+            html .pf-staff-customizations-root td:nth-child(2), 
+            .pf-staff-customizations-root td:nth-child(2) { 
+                order: 1 !important; 
+                padding: 7px 12px !important; 
+                overflow: hidden !important; 
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+            html .pf-staff-customizations-root td:nth-child(2)::before, 
+            .pf-staff-customizations-root td:nth-child(2)::before { display: none !important; }
+            html .pf-staff-customizations-root td:nth-child(2) .table-text-main, 
+            .pf-staff-customizations-root td:nth-child(2) .table-text-main { 
+                font-size: 12px !important; 
+                font-weight: 600 !important; 
+                color: #111827 !important; 
+                white-space: nowrap !important; 
+                overflow: hidden !important; 
+                text-overflow: ellipsis !important; 
+                max-width: 250px !important; 
+                width: 100% !important; 
+                display: block !important; 
+            }
+            html .pf-staff-customizations-root td:nth-child(2) .table-text-sub, 
+            .pf-staff-customizations-root td:nth-child(2) .table-text-sub { 
+                font-size: 10px !important; 
+                white-space: nowrap !important; 
+                overflow: hidden !important; 
+                text-overflow: ellipsis !important; 
+                max-width: 250px !important; 
+                width: 100% !important; 
+                display: block !important; 
+            }
+
+            /* ── Row 2: Customer ── */
+            html .pf-staff-customizations-root td:nth-child(5), 
+            .pf-staff-customizations-root td:nth-child(5) { 
+                order: 2 !important; 
+                overflow: hidden !important; 
+            }
+            html .pf-staff-customizations-root td:nth-child(5)::before, 
+            .pf-staff-customizations-root td:nth-child(5)::before { 
+                content: "Customer  " !important; font-size: 9px !important; 
+                font-weight: 700 !important; text-transform: uppercase !important; 
+                color: #94a3b8 !important; flex-shrink: 0 !important; 
+                white-space: nowrap !important; margin-right: 4px !important; 
+            }
+            html .pf-staff-customizations-root td:nth-child(5) .table-text-main, 
+            .pf-staff-customizations-root td:nth-child(5) .table-text-main { 
+                white-space: nowrap !important; overflow: hidden !important; 
+                text-overflow: ellipsis !important; max-width: 160px !important; 
+                width: 100% !important; display: block !important; 
+            }
+
+            /* ── HIDE Source and Date/Created ── */
+            html .pf-staff-customizations-root td:nth-child(4), 
+            .pf-staff-customizations-root td:nth-child(4), 
+            html .pf-staff-customizations-root td:nth-child(6), 
+            .pf-staff-customizations-root td:nth-child(6) { display: none !important; }
+
+            /* ── Row 4: Status ── */
+            html .pf-staff-customizations-root td:nth-child(3), 
+            .pf-staff-customizations-root td:nth-child(3) { 
+                order: 4 !important; 
+                justify-content: flex-start !important; 
+                gap: 6px !important; 
+                overflow: hidden !important; 
+            }
+            .pf-staff-customizations-root td:nth-child(3)::before { 
+                content: "Status  " !important; font-size: 9px !important; 
+                font-weight: 700 !important; text-transform: uppercase !important; 
+                color: #94a3b8 !important; flex-shrink: 0 !important; 
+                white-space: nowrap !important; margin-right: 4px !important; 
+            }
+
+            /* ── Row 5: Action buttons ── */
+            html .pf-staff-customizations-root td:nth-child(7), 
+            .pf-staff-customizations-root td:nth-child(7) { 
+                order: 10 !important; 
+                padding: 10px 12px !important; 
+                border-top: 1px solid #e8eef3 !important; 
+                border-bottom: none !important; 
+                overflow: visible !important; 
+            }
+            .pf-staff-customizations-root td:nth-child(7)::before { display: none !important; }
+            html .pf-staff-customizations-root td:nth-child(7) .table-action-btn, 
+            .pf-staff-customizations-root td:nth-child(7) .table-action-btn { 
+                display: flex !important; align-items: center !important; justify-content: center !important; 
+                width: 100% !important; max-width: 100% !important; 
+                min-width: 0 !important; padding: 10px 4px !important; font-size: 12px !important; 
+                font-weight: 700 !important; border-radius: 8px !important; white-space: nowrap !important; 
+                overflow: hidden !important; text-overflow: ellipsis !important; min-height: 36px !important; 
+                box-sizing: border-box !important; 
             }
 
             /* Button Wrap and spacing fix */
