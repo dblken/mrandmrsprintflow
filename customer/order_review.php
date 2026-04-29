@@ -592,7 +592,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                                 }
                             }
                         }
-                        notify_staff_new_order($order_id, $customer_name);
+                        notify_staff_new_order($order_id, $customer_name, $customer_id);
                         printflow_send_order_update($order_id, 'inquiry');
                     }
                     

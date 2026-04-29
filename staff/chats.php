@@ -1996,7 +1996,21 @@ function appendMsgUI(m) {
             ${m.reply_id ? `<a href="javascript:void(0)" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior: 'smooth', block: 'center'})" class="reply-preview-bubble">↳ Replying: ${m.reply_image ? 'Photo' : (m.reply_message ? escapeHtml(m.reply_message) : 'Message')}</a>` : ''}
     `;
 
-    if (isCallLog) {
+    if (m.message_type === 'order_card') {
+        const orderIdForCard = m.order_id || m.orderId || m.order || null;
+        const thumb = m.image_path || m.file_path || '';
+        colHtml += `
+            <div class="order-card" data-order-id="${orderIdForCard}" style="display:flex;gap:10px;align-items:center;cursor:pointer;">
+                <div style="width:64px;height:64px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center;border:1px solid #e6eef2;">
+                    ${thumb ? `<img src="${resolveAppUrl(thumb)}" style="width:100%;height:100%;object-fit:cover;">` : '<span style="font-size:24px;">🛒</span>'}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:800;color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.service_name || m.message || 'New Order')}</div>
+                    <div style="font-size:0.85rem;color:#6b7280; margin-top:4px;">${escapeHtml(m.message || (m.customer_name ? 'New order from ' + m.customer_name : 'New order received'))}</div>
+                </div>
+            </div>
+        `;
+    } else if (isCallLog) {
         const isVideo = m.message.toLowerCase().includes('video');
         const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy') || m.message.toLowerCase().includes('no answer');
         const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
@@ -3365,6 +3379,28 @@ if (document.readyState === 'loading') {
 } else {
     initStaffChatPage();
 }
+
+// Global click handler for clickable order cards in chat
+document.addEventListener('click', function(e) {
+    try {
+        var el = e.target;
+        while (el && el !== document) {
+            if (el.classList && el.classList.contains('order-card')) {
+                var orderId = el.dataset ? el.dataset.orderId : el.getAttribute('data-order-id');
+                if (orderId) {
+                    if (typeof openDetails === 'function') {
+                        openDetails(orderId);
+                    } else if (typeof fetch === 'function') {
+                        fetch('/public/api/chat/order_details.php?order_id=' + encodeURIComponent(orderId))
+                            .then(r => r.json()).then(data => { if (data.success) console.log('Order details:', data); });
+                    }
+                }
+                return;
+            }
+            el = el.parentNode;
+        }
+    } catch (err) { console.error('order-card click handler error', err); }
+});
 </script>
 </body>
 </html>

@@ -547,7 +547,7 @@ function printflow_notification_target_url_for_user(string $userType, array $not
 /**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
-function notify_staff_new_order(int $order_id, string $customer_first_name): void {
+function notify_staff_new_order(int $order_id, string $customer_first_name, int $customer_id = 0): void {
     $preview = printflow_order_notification_preview($order_id);
     $service_name = $preview['display_name'] ?? 'Product Order';
     $kind_label = trim((string)($preview['item_kind'] ?? ''));
@@ -557,7 +557,26 @@ function notify_staff_new_order(int $order_id, string $customer_first_name): voi
         ? "{$name} placed a {$kind_label} order for {$service_name}"
         : "{$name} placed an order for {$service_name}";
 
+    // Notify shop users (existing notification system)
     notify_shop_users($msg, 'Order', false, false, $order_id);
+
+    // Also insert an order chat message so it appears in staff chat immediately
+    try {
+        $sender_id = (int)($customer_id ?? 0);
+        // If no customer_id provided, try to resolve from orders table
+        if ($sender_id <= 0) {
+            $r = db_query("SELECT customer_id FROM orders WHERE order_id = ? LIMIT 1", 'i', [$order_id]);
+            $sender_id = (int)($r[0]['customer_id'] ?? 0);
+        }
+
+        if ($sender_id > 0) {
+            $insert_sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Customer', ?, ?, 'order_card', 0)";
+            db_execute($insert_sql, 'iis', [$order_id, $sender_id, $msg]);
+        }
+    } catch (Throwable $e) {
+        // Non-fatal: log but don't break order flow
+        error_log("notify_staff_new_order: failed to insert order chat message for order {$order_id}: " . $e->getMessage());
+    }
 }
 
 /**

@@ -303,7 +303,7 @@ if ($action === 'buy_now') {
         $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
         if (empty($customer_name)) $customer_name = 'Customer';
         
-        notify_staff_new_order((int)$order_id, $customer_name);
+        notify_staff_new_order((int)$order_id, $customer_name, $customer_id);
         printflow_send_order_update((int)$order_id, 'inquiry');
         
         // Log activity
