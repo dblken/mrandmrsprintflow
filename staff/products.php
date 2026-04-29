@@ -226,12 +226,24 @@ $page_title = 'Products & Inventory - Staff';
             table-layout: fixed;
             width: 100%;
         }
+        .products-table th,
+        .products-table td {
+            overflow: hidden;
+        }
         .products-table th:nth-child(1) { width: 90px; }
         .products-table th:nth-child(2) { width: 160px; }
         .products-table th:nth-child(3) { width: 120px; }
         .products-table th:nth-child(4) { width: 100px; }
         .products-table th:nth-child(5) { width: 80px; }
         .products-table th:nth-child(6) { width: 80px; }
+        .products-table td:nth-child(2),
+        .products-table td:nth-child(3) {
+            max-width: 0;
+        }
+        .products-table td:nth-child(2) > .truncate-ellipsis,
+        .products-table td:nth-child(3) > .truncate-ellipsis {
+            max-width: 100%;
+        }
 
         .truncate-ellipsis {
             display: block;
@@ -649,7 +661,7 @@ $page_title = 'Products & Inventory - Staff';
                 </div>
 
                 <!-- Products Table -->
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" style="max-width:100%; overflow-x:auto;">
                     <table class="products-table">
                         <thead>
                             <tr>
@@ -683,13 +695,13 @@ $page_title = 'Products & Inventory - Staff';
                                     data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
                                     onclick="openViewModal(this)">
                                     <td data-label="SKU" style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                    <td data-label="Name" style="font-weight:500; min-width: 0; flex: 1;">
-                                        <div class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($product['name']); ?>">
+                                    <td data-label="Name" style="font-weight:500; min-width:0; max-width:0;">
+                                        <div class="truncate-ellipsis" style="width:100%; max-width:100%;" title="<?php echo htmlspecialchars($product['name']); ?>">
                                             <?php echo htmlspecialchars($product['name']); ?>
                                         </div>
                                     </td>
-                                    <td data-label="Category" style="min-width: 0; flex: 1;">
-                                        <div class="truncate-ellipsis" style="max-width: 100%;" title="<?php echo htmlspecialchars($product['category']); ?>">
+                                    <td data-label="Category" style="min-width:0; max-width:0;">
+                                        <div class="truncate-ellipsis" style="width:100%; max-width:100%;" title="<?php echo htmlspecialchars($product['category']); ?>">
                                             <?php echo htmlspecialchars($product['category']); ?>
                                         </div>
                                     </td>
