@@ -906,9 +906,10 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .im-table td:not(:first-child) {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 1rem;
+        min-height: 4rem;
     }
     .im-table td:not(:first-child)::before {
         content: attr(data-label);
@@ -926,10 +927,14 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .im-qty-value,
     .im-total-value {
+        display: block;
+        flex: 1 1 auto;
         font-size: 0.95rem;
         text-align: right;
         margin-left: auto;
-        max-width: 58%;
+        max-width: none;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
     .im-item-title {
         font-size: 0.92rem;
