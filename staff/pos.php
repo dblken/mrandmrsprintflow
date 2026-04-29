@@ -968,6 +968,36 @@ try {
         .success-icon svg {
             display: block;
         }
+
+        /* Mobile & Tablet Responsive Layout */
+        @media (max-width: 1024px) {
+            .pos-wrapper {
+                flex-direction: column !important;
+                overflow-y: auto !important;
+                display: flex !important;
+            }
+            .pos-products-area {
+                flex: none !important;
+                height: 55vh;
+                border-right: none;
+                border-bottom: 4px solid #e2e8f0;
+            }
+            .pos-cart-area {
+                width: 100%;
+                border-left: none;
+                flex: none !important;
+                height: auto;
+            }
+            .pos-cart-list {
+                min-height: 350px;
+            }
+            .pos-search-header {
+                flex-wrap: wrap;
+            }
+            .pos-category-select {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
