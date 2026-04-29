@@ -11,6 +11,24 @@ if (!isset($is_logged_in) && function_exists('is_logged_in')) {
     $is_logged_in = false;
 }
 
+$_ft_request_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+$_ft_current_script_name = strtolower(basename($_ft_request_path));
+$_ft_current_script_dir = strtolower(basename(trim(str_replace('\\', '/', dirname($_ft_request_path)), '/')));
+if ($_ft_current_script_name === '' || substr($_ft_current_script_name, -4) !== '.php') {
+    $_ft_current_script_name = strtolower(basename($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
+}
+if ($_ft_current_script_dir === '.' || $_ft_current_script_dir === '/' || $_ft_current_script_dir === '\\') {
+    $_ft_current_script_dir = '';
+}
+
+$_ft_is_logged_in_customer = $is_logged_in && function_exists('get_user_type') && get_user_type() === 'Customer';
+$_ft_customer_footer_pages = ['services.php', 'products.php'];
+$_ft_show_footer = !$_ft_is_logged_in_customer
+    || (
+        in_array($_ft_current_script_name, $_ft_customer_footer_pages, true)
+        && in_array($_ft_current_script_dir, ['public', 'customer'], true)
+    );
+
 // Load configs for the footer
 $_ft_shop_path   = __DIR__ . '/../public/assets/uploads/shop_config.json';
 $_ft_footer_path = __DIR__ . '/../public/assets/uploads/footer_config.json';
@@ -117,6 +135,7 @@ function _ft_detect_social(string $url): array {
             .ft-grid > div { padding: 0 0.5rem; text-align: left; }
         }
     </style>
+    <?php if ($_ft_show_footer): ?>
     <footer class="ft-footer">
         <div class="ft-wrap">
             <div class="ft-grid">
@@ -219,6 +238,7 @@ function _ft_detect_social(string $url): array {
             </div>
         </div>
     </footer>
+    <?php endif; ?>
 
     <?php if (!$is_logged_in): ?>
     <?php
