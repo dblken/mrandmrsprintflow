@@ -792,26 +792,25 @@ $current_user = get_logged_in_user();
             }
             .msg-content-col {
                 max-width: 100% !important;
+                overflow: visible;
             }
             .msg-action-bar {
-                position: static;
-                transform: none;
-                margin-top: 6px;
-                margin-bottom: 6px;
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                margin: 0;
                 opacity: 0;
                 pointer-events: none;
-                align-self: flex-start;
-                order: 3;
                 flex-wrap: nowrap;
-                z-index: 5;
+                z-index: 25;
+                padding: 2px 4px;
+                gap: 2px;
             }
-            .bubble-row.self .msg-action-bar,
             .bubble-row.other .msg-action-bar {
-                left: auto;
-                right: auto;
+                left: calc(100% + 8px);
             }
             .bubble-row.self .msg-action-bar {
-                align-self: flex-end;
+                right: calc(100% + 8px);
             }
             .bubble-row.has-active-menu .msg-action-bar {
                 opacity: 1;
@@ -2394,7 +2393,7 @@ function toggleMoreMenu(msgId, e, triggerEl) {
     }
 }
 
-function positionFloatingMenu(menu, trigger, options = {}) {
+        function positionFloatingMenu(menu, trigger, options = {}) {
     if (!menu || !trigger) return;
     const gap = options.gap ?? 10;
     const preferred = options.preferred || 'bottom';
@@ -2410,6 +2409,7 @@ function positionFloatingMenu(menu, trigger, options = {}) {
         return;
     }
 
+    const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble');
     menu.style.position = 'fixed';
     menu.style.left = '50%';
     menu.style.right = 'auto';
@@ -2419,20 +2419,21 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     menu.style.visibility = 'hidden';
 
     const triggerRect = trigger.getBoundingClientRect();
+    const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
     const menuRect = menu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const menuHeight = menuRect.height || 56;
     const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
-    let left = triggerRect.left + (triggerRect.width / 2);
+    let left = anchorRect.left + (anchorRect.width / 2);
     left = Math.max((menuWidth / 2) + 12, Math.min(left, viewportWidth - (menuWidth / 2) - 12));
 
-    const spaceAbove = triggerRect.top;
-    const spaceBelow = viewportHeight - triggerRect.bottom;
+    const spaceAbove = anchorRect.top;
+    const spaceBelow = viewportHeight - anchorRect.bottom;
     const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
     const top = shouldOpenAbove
-        ? Math.max(12, triggerRect.top - menuHeight - gap)
-        : Math.min(viewportHeight - menuHeight - 12, triggerRect.bottom + gap);
+        ? Math.max(12, anchorRect.top - menuHeight - gap)
+        : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
 
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
