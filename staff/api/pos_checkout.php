@@ -251,6 +251,14 @@ try {
             $has_service = true;
             break;
         }
+        // Fallback: check products_cache for product_type
+        $pid = (int)($item['id'] ?? 0);
+        if ($pid > 0 && isset($products_cache[$pid])) {
+            if (($products_cache[$pid]['product_type'] ?? 'fixed') === 'custom') {
+                $has_service = true;
+                break;
+            }
+        }
     }
     $order_type = $has_service ? 'custom' : 'product';
     $reference_id = $items[0]['id'] ?? null;
@@ -279,7 +287,18 @@ try {
         $prod_name = $p['name'] ?? 'Product';
 
         $name = $item['name'] ?? $prod_name;
-        $is_service = isset($item['is_service']) && $item['is_service'];
+        
+        // Detect if this specific item is a service or customized product
+        $is_service = (isset($item['is_service']) && $item['is_service']);
+        if (!$is_service && $product_id > 0 && isset($products_cache[$product_id])) {
+            if (($products_cache[$product_id]['product_type'] ?? 'fixed') === 'custom') {
+                $is_service = true;
+            }
+        }
+        
+        // Determine if we should keep the product_id (only for actual products in the DB)
+        $is_actual_product = isset($products_cache[$product_id]);
+
         $custom_details = $item['customization'] ?? [];
         if (!is_array($custom_details)) $custom_details = [];
         $customization_json = json_encode($custom_details ?: new stdClass());
@@ -287,7 +306,7 @@ try {
         $item_result = db_execute(
             "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data) VALUES (?, ?, ?, ?, ?)",
             'iiids',
-            [$order_id, $is_service ? null : $product_id, $qty, $price, $customization_json]
+            [$order_id, $is_actual_product ? $product_id : null, $qty, $price, $customization_json]
         );
 
         if (!$item_result) {

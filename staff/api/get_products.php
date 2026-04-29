@@ -57,6 +57,7 @@ try {
             p.sku, 
             p.category, 
             p.price, 
+            p.product_type,
             ({$stockSel}) as stock_quantity, 
             ({$lowSel}) as low_stock_level,
             p.product_image 
