@@ -86,7 +86,7 @@ if (isset($data['action']) && $data['action'] === 'create_pending_customization'
         // Will be updated to 'Paid' when checkout completes
         $order_result = db_execute(
             "INSERT INTO orders (customer_id, branch_id, reference_id, total_amount, status, payment_status, payment_method, order_date, updated_at, order_type, order_source) 
-             VALUES (?, ?, ?, 0, 'Approved', 'Unpaid', 'Cash', NOW(), NOW(), 'product', 'pos')",
+             VALUES (?, ?, ?, 0, 'Approved', 'Unpaid', 'Cash', NOW(), NOW(), 'custom', 'pos')",
             'iii',
             [$customer_id, $branch_id, $product_id]
         );
@@ -244,8 +244,15 @@ try {
     $branch_id = (int)($_SESSION['branch_id'] ?? 1);
     if ($branch_id < 1) $branch_id = 1;
 
-    // Determine order_type (Always 'product' for POS as per user request to show in orders.php)
-    $order_type = 'product';
+    // Determine order_type based on cart content
+    $has_service = false;
+    foreach ($items as $item) {
+        if (isset($item['is_service']) && $item['is_service']) {
+            $has_service = true;
+            break;
+        }
+    }
+    $order_type = $has_service ? 'custom' : 'product';
     $reference_id = $items[0]['id'] ?? null;
 
     $order_result = db_execute(
