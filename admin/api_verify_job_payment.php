@@ -330,7 +330,23 @@ elseif ($action === 'reject_payment') {
         }
         if (!empty($job['customer_id'])) {
             $data_id = (int)($job['order_id'] ?: $job_id);
-            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was rejected. Please review and re-upload.", 'Payment Issue', true, true, $data_id);
+            $rejection_message = "Your payment proof for Custom Job #{$job_id} was rejected. Reason: {$reason}. Please review and re-upload.";
+            create_notification((int)$job['customer_id'], 'Customer', $rejection_message, 'Payment Issue', true, true, $data_id);
+        }
+        
+        // Send order update message for rejection
+        if (!empty($job['order_id'])) {
+            require_once __DIR__ . '/../includes/order_chat_system.php';
+            $rejection_message = "Your payment proof was rejected. Reason: {$reason}. Please resubmit your payment proof.";
+            $meta = [
+                'order_id' => (int)$job['order_id'],
+                'job_id' => $job_id,
+                'order_status' => 'Rejected',
+                'payment_status' => 'Rejected',
+                'rejection_reason' => $reason,
+                'step' => 'payment_rejected'
+            ];
+            printflow_send_order_update((int)$job['order_id'], $rejection_message, 'retry_payment', '', '', $meta);
         }
         
         echo json_encode(['success' => true]);

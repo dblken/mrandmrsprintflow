@@ -93,7 +93,7 @@ try {
 
             $msg = $isPlainProductOrder 
                 ? "Your payment has been approved, and your order is now ready for pickup!" 
-                : "Your payment has been approved, and our team is currently working on it.";
+                : "Your payment has been approved. We will now proceed with processing your order.";
             
             if (!empty($order['customer_id'])) {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
