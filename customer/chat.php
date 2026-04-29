@@ -561,38 +561,6 @@ require_once __DIR__ . '/../includes/header.php';
             max-width: 100%;
         }
 
-        .details-modal-overlay {
-            padding: 0.75rem;
-            align-items: center;
-        }
-
-        .details-modal-panel {
-            max-width: 100%;
-            max-height: calc(100dvh - 1.5rem);
-            border-radius: 24px;
-        }
-
-        .details-modal-header {
-            padding: 1rem 1.1rem;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .details-modal-content {
-            grid-template-columns: 1fr;
-            overflow-y: auto;
-        }
-
-        .details-sidebar {
-            border-right: none;
-            border-bottom: 1px solid #eef2f7;
-            padding: 1rem;
-        }
-
-        .details-main {
-            padding: 1rem;
-        }
-
         .b-actions {
             position: static;
             transform: none;
@@ -649,7 +617,7 @@ require_once __DIR__ . '/../includes/header.php';
     .pin-bar-active { background: rgba(239,68,68,0.06) !important; color: #b91c1c !important; cursor: pointer; }
     .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
     .details-modal-overlay.active { display: flex !important; }
-    .details-modal-panel { background: #fff; border-radius: 24px; width: 100%; max-width: 500px; max-height: 85vh; overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+    .details-modal-panel { background: #fff; border-radius: 32px; width: min(100%, 1100px); max-height: min(88vh, 920px); overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
     .details-modal-header { padding: 1.25rem 2rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; background: #fff; z-index: 10; flex-shrink: 0; }
     @keyframes highlightStaffMsg { 0% { background: rgba(14,165,233,0.2); } 100% { background: transparent; } }
 </style>
