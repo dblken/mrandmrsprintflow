@@ -254,6 +254,21 @@ if (empty($items_to_review)) {
     redirect('products.php');
 }
 
+$review_has_product = false;
+$review_has_service = false;
+foreach ($items_to_review as $item) {
+    if (review_item_is_product($item)) {
+        $review_has_product = true;
+    } else {
+        $review_has_service = true;
+    }
+}
+
+if ($review_has_product && $review_has_service) {
+    $_SESSION['error'] = 'Products and services must be checked out separately.';
+    redirect('cart.php');
+}
+
 $customer_id = get_user_id();
 $customer    = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0] ?? [];
 $customer_type = $customer['customer_type'] ?? 'new';

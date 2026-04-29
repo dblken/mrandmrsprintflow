@@ -1262,7 +1262,7 @@ function recalculateTotal() {
         const checkbox = row.querySelector('.item-checkbox');
         if (checkbox.checked) {
             const isCustom = row.dataset.custom === '1';
-            const itemOrigin = row.querySelector('[style*="text-transform:uppercase"]')?.textContent?.trim();
+            const itemOrigin = (row.dataset.itemOrigin || '').trim();
             
             // Track if we have products or services
             if (itemOrigin === 'Product') {
@@ -1327,7 +1327,7 @@ function proceedToReview() {
     let hasService = false;
     selectedRows.forEach(checkbox => {
         const row = checkbox.closest('.cart-row');
-        const itemOrigin = row.querySelector('[style*="text-transform:uppercase"]')?.textContent?.trim();
+        const itemOrigin = (row.dataset.itemOrigin || '').trim();
         if (itemOrigin === 'Product') hasProduct = true;
         if (itemOrigin === 'Service') hasService = true;
     });
