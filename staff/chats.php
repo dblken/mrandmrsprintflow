@@ -869,6 +869,19 @@ $current_user = get_logged_in_user();
             }
             .m-toggle { display: flex !important; margin-right: 0.5rem; }
         }
+
+        /* Ensure single-column order details on small mobile (match customer view) */
+        @media (max-width: 768px) {
+            .details-modal-overlay { padding: .75rem; align-items: flex-end; }
+            .details-modal-panel { max-height: calc(100dvh - 1.5rem); border-radius: 24px; overflow: hidden; }
+            .details-modal-content { display: flex !important; flex-direction: column !important; grid-template-columns: 1fr !important; overflow-y: auto; }
+            .details-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid #eef2f7 !important; padding: 1rem !important; overflow: visible !important; }
+            .details-main { width: 100% !important; padding: 1rem !important; overflow: visible !important; }
+            .details-main-heading { padding-bottom: .75rem; margin-bottom: .85rem; border-bottom: 1px solid #f1f5f9; }
+            .detail-order-top { grid-template-columns: 1fr !important; }
+            .detail-order-thumb { width: 100% !important; max-width: 240px !important; height: auto !important; aspect-ratio: 1 / 1; }
+            .detail-order-price { min-width: 0 !important; width: 100% !important; text-align: left !important; }
+        }
         /* Modal Explicit States & Premium Layout */
         .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
         .details-modal-overlay.active { display: flex !important; }
