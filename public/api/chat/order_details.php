@@ -64,6 +64,55 @@ function pf_chat_order_public_url(?string $path): string {
     return ($base === '' ? '' : $base) . '/' . ltrim($path, '/');
 }
 
+function pf_chat_order_product_image_url(?string $raw, int $product_id = 0): ?string {
+    $raw = trim((string)$raw);
+    $base = rtrim(defined('BASE_PATH') ? BASE_PATH : (defined('AUTH_REDIRECT_BASE') ? AUTH_REDIRECT_BASE : '/printflow'), '/');
+
+    $resolve_existing = static function (string $relative) use ($base): ?string {
+        $relative = '/' . ltrim($relative, '/');
+        $full = dirname(__DIR__, 3) . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        if (is_file($full)) {
+            return ($base === '' ? '' : $base) . $relative;
+        }
+        return null;
+    };
+
+    if ($raw !== '') {
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+
+        $clean = '/' . ltrim($raw, '/');
+        if ($base !== '' && strncmp($clean, $base . '/', strlen($base) + 1) === 0) {
+            $clean = substr($clean, strlen($base));
+            $clean = '/' . ltrim((string)$clean, '/');
+        }
+
+        foreach ([
+            $clean,
+            '/uploads/products/' . basename($clean),
+            '/public/assets/uploads/products/' . basename($clean),
+            '/public/images/products/' . basename($clean),
+        ] as $candidate) {
+            $resolved = $resolve_existing($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    if ($product_id > 0) {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $resolved = $resolve_existing('/public/images/products/product_' . $product_id . '.' . $ext);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    return null;
+}
+
 // Get customer info (join from customers table)
 $customer = [];
 $customer_id = (int)($order['customer_id'] ?? 0);
@@ -134,7 +183,7 @@ foreach ($items ?: [] as $item) {
         || (in_array('design_file', $order_item_cols, true) && !empty($item['design_file']))) {
         $design_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id']);
     } elseif (!empty($item['product_image'])) {
-        $design_url = pf_chat_order_public_url((string)$item['product_image']);
+        $design_url = pf_chat_order_product_image_url((string)$item['product_image'], (int)($item['product_id'] ?? 0));
     }
     if (in_array('reference_image_file', $order_item_cols, true) && !empty($item['reference_image_file'])) {
         $ref_url = pf_chat_order_public_url('/public/serve_design.php?type=order_item&id=' . (int)$item['order_item_id'] . '&field=reference');
