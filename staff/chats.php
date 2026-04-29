@@ -536,6 +536,7 @@ $current_user = get_logged_in_user();
         }
         .m-menu-item:hover { background: #f1f5f9; color: #0a2530; }
         .m-menu-item i { font-size: 1rem; opacity: 0.7; }
+        .m-menu-item.danger { color: #0f172a; }
 
         /* Character Counter */
         .char-counter {
@@ -817,26 +818,49 @@ $current_user = get_logged_in_user();
                 pointer-events: auto;
             }
             .reaction-picker {
+                position: fixed;
                 left: 50%;
                 right: auto;
+                top: auto;
+                bottom: auto;
                 transform: translateX(-50%);
-                bottom: calc(100% + 8px);
-                margin-bottom: 0;
-                padding: 8px 10px;
-                gap: 6px;
+                margin: 0;
+                padding: 10px 12px;
+                gap: 8px;
                 height: auto;
-                max-width: min(260px, calc(100vw - 48px));
-                flex-wrap: wrap;
-                border-radius: 20px;
+                width: min(300px, calc(100vw - 24px));
+                max-width: calc(100vw - 24px);
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overflow-y: hidden;
+                border-radius: 22px;
+                -webkit-overflow-scrolling: touch;
             }
             .bubble-row.self .reaction-picker {
                 left: 50%;
                 right: auto;
             }
             .m-more-menu {
-                right: 0;
-                left: auto;
-                width: 148px;
+                position: fixed;
+                left: 50%;
+                right: auto;
+                top: auto;
+                bottom: auto;
+                transform: translateX(-50%);
+                width: min(190px, calc(100vw - 32px));
+                max-width: calc(100vw - 32px);
+                border-radius: 18px;
+                padding: 8px 0;
+                margin-top: 0;
+                box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+            }
+            .m-menu-item {
+                min-height: 44px;
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+            .reaction-btn {
+                flex: 0 0 auto;
             }
             .reaction-display-container {
                 margin-top: 8px;
@@ -2341,18 +2365,9 @@ function togglePicker(msgId, e) {
         picker.classList.add('active');
         const row = document.getElementById(`ms-${msgId}`);
         if (row) row.classList.add('has-active-menu');
-        
-        // Smart Position
-        const rect = picker.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight) {
-            picker.style.bottom = '100%';
-            picker.style.top = 'auto';
-            picker.style.marginBottom = '12px';
-        } else {
-            picker.style.bottom = 'auto';
-            picker.style.top = 'calc(100% + 12px)';
-            picker.style.marginTop = '0';
-        }
+
+        const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || picker.parentElement;
+        positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 });
     }
 }
 
@@ -2366,21 +2381,77 @@ function toggleMoreMenu(msgId, e) {
         menu.classList.add('active');
         const row = document.getElementById(`ms-${msgId}`);
         if (row) row.classList.add('has-active-menu');
-
-        const rect = menu.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight) {
-            menu.style.bottom = 'calc(100% + 10px)';
-            menu.style.top = 'auto';
-        } else {
-            menu.style.bottom = 'auto';
-            menu.style.top = '100%';
-        }
+        const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || menu.parentElement;
+        positionFloatingMenu(menu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 });
     }
 }
 
+function positionFloatingMenu(menu, trigger, options = {}) {
+    if (!menu || !trigger) return;
+    const gap = options.gap ?? 10;
+    const preferred = options.preferred || 'bottom';
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+
+    if (!isMobile) {
+        menu.style.position = 'absolute';
+        menu.style.left = '';
+        menu.style.right = preferred === 'bottom' ? '0' : '';
+        menu.style.top = preferred === 'bottom' ? '100%' : '';
+        menu.style.bottom = preferred === 'top' ? 'calc(100% + 10px)' : '';
+        menu.style.transform = '';
+        return;
+    }
+
+    menu.style.position = 'fixed';
+    menu.style.left = '50%';
+    menu.style.right = 'auto';
+    menu.style.top = '0';
+    menu.style.bottom = 'auto';
+    menu.style.transform = 'translateX(-50%)';
+    menu.style.visibility = 'hidden';
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
+    const menuHeight = menuRect.height || 56;
+
+    let left = triggerRect.left + (triggerRect.width / 2) - (menuWidth / 2);
+    left = Math.max(12, Math.min(left, viewportWidth - menuWidth - 12));
+
+    const spaceAbove = triggerRect.top;
+    const spaceBelow = viewportHeight - triggerRect.bottom;
+    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    const top = shouldOpenAbove
+        ? Math.max(12, triggerRect.top - menuHeight - gap)
+        : Math.min(viewportHeight - menuHeight - 12, triggerRect.bottom + gap);
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.transform = 'none';
+    menu.style.visibility = 'visible';
+}
+
 function closeAllMenus() {
-    document.querySelectorAll('.reaction-picker').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.m-more-menu').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.reaction-picker').forEach(p => {
+        p.classList.remove('active');
+        p.style.left = '';
+        p.style.right = '';
+        p.style.top = '';
+        p.style.bottom = '';
+        p.style.transform = '';
+        p.style.visibility = '';
+    });
+    document.querySelectorAll('.m-more-menu').forEach(m => {
+        m.classList.remove('active');
+        m.style.left = '';
+        m.style.right = '';
+        m.style.top = '';
+        m.style.bottom = '';
+        m.style.transform = '';
+        m.style.visibility = '';
+    });
     document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
 }
 
