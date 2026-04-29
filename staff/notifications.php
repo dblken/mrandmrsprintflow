@@ -383,6 +383,112 @@ $page_title = 'Notifications - Staff';
         }
         .empty-notif-title { font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 6px; }
         .empty-notif-text { font-size: 13px; color: #9ca3af; }
+        @media (max-width: 768px) {
+            .main-content > header {
+                margin-bottom: 18px !important;
+                gap: 12px !important;
+                align-items: stretch !important;
+            }
+            .page-title {
+                font-size: 20px;
+                line-height: 1.2;
+            }
+            .page-subtitle {
+                font-size: 13px;
+                line-height: 1.45;
+                max-width: 32ch;
+            }
+            .notif-top-actions {
+                width: 100%;
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px !important;
+            }
+            .notif-top-actions > * {
+                min-width: 0;
+                justify-content: center;
+                text-align: center;
+            }
+            .notif-top-actions > *:last-child:nth-child(odd) {
+                grid-column: 1 / -1;
+            }
+            .toolbar-container {
+                gap: 12px !important;
+            }
+            .toolbar-group {
+                width: 100%;
+                margin-left: 0 !important;
+                justify-content: flex-end;
+            }
+            .filter-panel {
+                right: 0;
+                left: auto;
+                width: min(320px, calc(100vw - 36px));
+                max-width: calc(100vw - 36px);
+            }
+            .notif-card {
+                border-radius: 18px;
+            }
+            #notifications-container {
+                padding: 0 14px 10px !important;
+            }
+            .notif-group-label {
+                font-size: 10px;
+                letter-spacing: 0.08em;
+                padding: 14px 0 6px;
+            }
+            .notif-item {
+                display: grid;
+                grid-template-columns: 8px 40px minmax(0, 1fr);
+                gap: 10px;
+                padding: 14px 0;
+                align-items: start;
+            }
+            .notif-item:hover {
+                margin: 0 -14px;
+                padding: 14px;
+                border-radius: 12px;
+            }
+            .notif-dot {
+                margin-top: 7px;
+            }
+            .notif-icon-wrap {
+                width: 40px;
+                height: 40px;
+                border-radius: 12px;
+            }
+            .notif-body {
+                padding-left: 10px !important;
+            }
+            .notif-msg {
+                font-size: 12.5px;
+                line-height: 1.45;
+                margin-bottom: 6px;
+            }
+            .notif-time {
+                font-size: 11px;
+                gap: 5px;
+            }
+            .type-pill,
+            .notif-item-kind-pill {
+                font-size: 10px;
+                min-height: 20px;
+                padding: 0 8px;
+            }
+            .notif-actions-wrap {
+                grid-column: 3;
+                padding-top: 8px;
+            }
+            .notif-action-btn {
+                width: 100%;
+                min-height: 34px;
+                justify-content: center;
+                font-size: 11.5px;
+            }
+            #nt-pagination {
+                padding: 0 14px 16px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -396,7 +502,7 @@ $page_title = 'Notifications - Staff';
                 <h1 class="page-title">Notifications</h1>
                 <p class="page-subtitle">Stay updated with system alerts and order events</p>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
+            <div class="notif-top-actions" style="display:flex;gap:8px;align-items:center;">
                 <button type="button" id="pf-push-toggle" class="btn-secondary" style="height:38px;padding:0 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;position:relative;z-index:5;pointer-events:auto;" onclick="return window.PFNotifications && window.PFNotifications.handlePushToggleClick ? (window.PFNotifications.handlePushToggleClick(this), false) : false;">
                     Enable notifications
                 </button>
@@ -480,7 +586,7 @@ $page_title = 'Notifications - Staff';
                     </div>
                 </div>
 
-                <div class="card" style="padding:0;overflow:hidden;">
+                <div class="card notif-card" style="padding:0;overflow:hidden;">
                     <div style="padding:0 20px 12px;" id="notifications-container">
                     <?php if (empty($notifications)): ?>
                         <div class="empty-notif">
