@@ -266,8 +266,8 @@ $page_title = 'My Profile - Staff';
     .profile-grid-main { grid-template-columns: 1fr; gap: 2rem; }
     .profile-container { padding: 1.5rem; }
     .profile-sidebar-wrap {
-        position: static;
-        top: auto;
+        position: static !important;
+        top: auto !important;
     }
 }
 
