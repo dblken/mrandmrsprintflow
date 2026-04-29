@@ -426,6 +426,8 @@ function _ft_detect_social(string $url): array {
             width: calc(100vw - 24px) !important;
             right: 12px !important;
             bottom: 70px !important;
+            max-height: 68dvh !important;
+            height: auto !important;
         }
     }
     </style>

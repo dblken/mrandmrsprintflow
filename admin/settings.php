@@ -33,7 +33,33 @@ function load_cfg($path) {
     return file_exists($path) ? (json_decode(file_get_contents($path), true) ?: []) : [];
 }
 function save_cfg($path, $data) {
-    file_put_contents($path, json_encode($data));
+    $dir = dirname($path);
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return false;
+    }
+
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        error_log('Failed to encode settings JSON for ' . $path . ': ' . json_last_error_msg());
+        return false;
+    }
+
+    $tmp = $path . '.tmp';
+    if (file_put_contents($tmp, $json, LOCK_EX) === false) {
+        error_log('Failed to write temp settings file: ' . $tmp);
+        return false;
+    }
+
+    if (!rename($tmp, $path)) {
+        @unlink($tmp);
+        error_log('Failed to replace settings file: ' . $path);
+        return false;
+    }
+
+    return true;
+}
+function cfg_text($input) {
+    return trim(str_replace(["\r\n", "\r"], "\n", (string)$input));
 }
 
 $payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
@@ -95,10 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 ];
             }
         }
-        save_cfg($qr_dir . 'payment_methods.json', $pm_cfg);
-        $success = 'Payment methods updated!';
-        // Reload
-        $payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
+        if (save_cfg($qr_dir . 'payment_methods.json', $pm_cfg)) {
+            $success = 'Payment methods updated!';
+            $payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
+        } else {
+            $error = 'Payment methods could not be saved. Please try again.';
+        }
     }
 
     // Save general + logo
@@ -125,18 +153,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 $error = 'Invalid store image type. Use JPG, PNG, or WebP.';
             }
         }
-        save_cfg($logo_dir . 'shop_config.json', $shop_cfg);
-        if ($error === '') {
+        if ($error === '' && save_cfg($logo_dir . 'shop_config.json', $shop_cfg)) {
             $success = 'General settings saved!';
+            $shop_cfg = load_cfg($logo_dir . 'shop_config.json');
+        } elseif ($error === '') {
+            $error = 'General settings could not be saved. Please try again.';
         }
     }
 
     // Save footer
     if (isset($_POST['save_footer'])) {
-        $footer_cfg['tagline'] = sanitize($_POST['footer_tagline'] ?? '');
-        $footer_cfg['hours']   = sanitize($_POST['footer_hours'] ?? '');
-        $footer_cfg['email']   = sanitize($_POST['footer_email'] ?? '');
-        $footer_cfg['phone']   = sanitize($_POST['footer_phone'] ?? '');
+        $footer_cfg['tagline'] = cfg_text($_POST['footer_tagline'] ?? '');
+        $footer_cfg['hours']   = cfg_text($_POST['footer_hours'] ?? '');
+        $footer_cfg['email']   = cfg_text($_POST['footer_email'] ?? '');
+        $footer_cfg['phone']   = cfg_text($_POST['footer_phone'] ?? '');
 
         // Per-branch addresses
         $ba_ids  = $_POST['ba_branch_id'] ?? [];
@@ -146,26 +176,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $bid = (int)$bid;
             $addr = trim($ba_addrs[$bi] ?? '');
             if ($bid > 0 && $addr !== '') {
-                $branch_addresses[] = ['branch_id' => $bid, 'address' => sanitize($addr)];
+                $branch_addresses[] = ['branch_id' => $bid, 'address' => cfg_text($addr)];
             }
         }
         $footer_cfg['branch_addresses'] = $branch_addresses;
 
         // Services: raw textarea, one per line
         $svcs_raw = $_POST['footer_services'] ?? '';
-        $footer_cfg['services'] = array_values(array_filter(array_map('trim', explode("\n", $svcs_raw))));
+        $footer_cfg['services'] = array_values(array_filter(array_map('cfg_text', explode("\n", str_replace("\r", '', $svcs_raw)))));
 
         // Social links: URL only — name auto-detected by frontend
         $social_urls = $_POST['social_url'] ?? [];
         $socials = [];
         foreach ($social_urls as $u) {
-            $u = trim($u);
-            if ($u !== '') $socials[] = ['url' => sanitize($u)];
+            $u = cfg_text($u);
+            if ($u !== '') $socials[] = ['url' => $u];
         }
         $footer_cfg['social_links'] = $socials;
 
-        save_cfg($logo_dir . 'footer_config.json', $footer_cfg);
-        $success = 'Footer info saved!';
+        if (save_cfg($logo_dir . 'footer_config.json', $footer_cfg)) {
+            $success = 'Footer info saved!';
+            $footer_cfg = load_cfg($logo_dir . 'footer_config.json');
+        } else {
+            $error = 'Footer info could not be saved. Please try again.';
+        }
     }
 
     // Save About Page Config
@@ -175,9 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $v_descs  = $_POST['about_value_desc'] ?? [];
         $v_icons  = $_POST['about_value_icon'] ?? [];
         foreach ($v_titles as $i => $vt) {
-            $vt = sanitize($vt);
+            $vt = cfg_text($vt);
             if ($vt !== '') {
-                $values[] = ['title' => $vt, 'desc' => sanitize($v_descs[$i] ?? ''), 'icon' => sanitize($v_icons[$i] ?? 'star')];
+                $values[] = ['title' => $vt, 'desc' => cfg_text($v_descs[$i] ?? ''), 'icon' => cfg_text($v_icons[$i] ?? 'star')];
             }
         }
         $team = [];
@@ -185,9 +219,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $t_roles  = $_POST['about_team_role'] ?? [];
         $t_photos = $_POST['about_team_photo'] ?? [];
         foreach ($t_names as $i => $tn) {
-            $tn = sanitize($tn);
+            $tn = cfg_text($tn);
             if ($tn !== '') {
-                $photo = sanitize($t_photos[$i] ?? '');
+                $photo = cfg_text($t_photos[$i] ?? '');
                 if (!empty($_FILES['about_team_photo_upload']['name'][$i])) {
                     $ext = strtolower(pathinfo($_FILES['about_team_photo_upload']['name'][$i], PATHINFO_EXTENSION));
                     if (in_array($ext, ['jpg','jpeg','png','webp'])) {
@@ -198,24 +232,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                         $photo = $fname;
                     }
                 }
-                $team[] = ['name' => $tn, 'role' => sanitize($t_roles[$i] ?? ''), 'photo' => $photo];
+                $team[] = ['name' => $tn, 'role' => cfg_text($t_roles[$i] ?? ''), 'photo' => $photo];
             }
         }
         $about_cfg = [
-            'tagline'       => sanitize($_POST['about_tagline'] ?? ''),
-            'hero_subtitle' => sanitize($_POST['about_hero_subtitle'] ?? ''),
-            'mission'       => sanitize($_POST['about_mission'] ?? ''),
-            'vision'        => sanitize($_POST['about_vision'] ?? ''),
-            'founding_year' => sanitize($_POST['about_founding_year'] ?? ''),
-            'team_size'     => sanitize($_POST['about_team_size'] ?? ''),
-            'projects_done' => sanitize($_POST['about_projects_done'] ?? ''),
-            'happy_clients' => sanitize($_POST['about_happy_clients'] ?? ''),
+            'tagline'       => cfg_text($_POST['about_tagline'] ?? ''),
+            'hero_subtitle' => cfg_text($_POST['about_hero_subtitle'] ?? ''),
+            'mission'       => cfg_text($_POST['about_mission'] ?? ''),
+            'vision'        => cfg_text($_POST['about_vision'] ?? ''),
+            'founding_year' => cfg_text($_POST['about_founding_year'] ?? ''),
+            'team_size'     => cfg_text($_POST['about_team_size'] ?? ''),
+            'projects_done' => cfg_text($_POST['about_projects_done'] ?? ''),
+            'happy_clients' => cfg_text($_POST['about_happy_clients'] ?? ''),
             'values'        => $values,
             'team_members'  => $team,
         ];
-        save_cfg($logo_dir . 'about_config.json', $about_cfg);
-        $success = 'About page content saved!';
-        $about_cfg = load_cfg($logo_dir . 'about_config.json');
+        if (save_cfg($logo_dir . 'about_config.json', $about_cfg)) {
+            $success = 'About page content saved!';
+            $about_cfg = load_cfg($logo_dir . 'about_config.json');
+        } else {
+            $error = 'About page content could not be saved. Please try again.';
+        }
     }
 }
 
@@ -472,7 +509,7 @@ $page_title = 'Settings - Admin';
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
                         Footer Information
                     </div>
-                    <form method="POST">
+                    <form method="POST" data-turbo="false">
                         <?php echo csrf_field(); ?>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
 
@@ -572,7 +609,7 @@ Stickers &amp; Decals"><?php
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
                         About Page Content
                     </div>
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" enctype="multipart/form-data" data-turbo="false">
                         <?php echo csrf_field(); ?>
 
                         <!-- Hero -->
