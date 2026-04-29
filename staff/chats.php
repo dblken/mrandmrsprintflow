@@ -513,12 +513,12 @@ $current_user = get_logged_in_user();
         .reaction-picker {
             display: none; position: absolute; bottom: 100%; left: 50%;
             transform: translateX(-50%); background: #ffffff;
-            padding: 0 18px; border-radius: 999px;
+            padding: 8px 16px; border-radius: 999px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.1); z-index: 500;
-            gap: 12px; border: 1px solid #e2e8f0;
+            gap: 8px; border: 1px solid #e2e8f0;
             width: max-content; pointer-events: auto;
             align-items: center; justify-content: center;
-            margin-bottom: 48px; height: 50px;
+            margin-bottom: 48px; height: 48px;
         }
         .reaction-picker.active { display: flex; animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
@@ -582,10 +582,12 @@ $current_user = get_logged_in_user();
         @keyframes pickerPop { from { opacity: 0; transform: translateX(-50%) scale(0.8) translateY(10px); } to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); } }
 
         .reaction-btn {
-            background: none; border: none; font-size: 1.6rem; cursor: pointer;
-            transition: transform 0.2s; padding: 0; line-height: 1;
+            background: none; border: none; font-size: 1.75rem; cursor: pointer;
+            transition: transform 0.2s; padding: 4px; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; border-radius: 50%;
         }
-        .reaction-btn:hover { transform: scale(1.35) translateY(-4px); }
+        .reaction-btn:hover { transform: scale(1.2); background: #f8fafc; }
 
         .reaction-display-container { margin-top: 6px; display: none; }
         .reaction-display {
