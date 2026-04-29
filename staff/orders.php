@@ -884,43 +884,44 @@ $page_title = 'Orders - Staff';
             }
 
             .main-content main {
-                padding: 0 12px 24px !important;
+                padding: 0 10px 24px !important;
+                /* Hard-lock the content area width */
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+                box-sizing: border-box !important;
             }
 
             /* ── KPI: 2 columns × 2 rows ── */
             .kpi-row {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
-                gap: 10px !important;
+                gap: 8px !important;
                 margin-bottom: 16px !important;
             }
 
             .kpi-card {
-                padding: 12px 14px !important;
+                padding: 12px !important;
                 border-radius: 12px !important;
                 min-width: 0 !important;
                 width: 100% !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
             }
 
-            /* Compact KPI text so numbers fit cleanly */
             .kpi-card .kpi-value {
-                font-size: 22px !important;
+                font-size: 20px !important;
                 overflow-wrap: anywhere !important;
                 word-break: break-all !important;
             }
 
-            .kpi-card .kpi-label {
-                font-size: 10px !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-            }
-
+            .kpi-card .kpi-label,
             .kpi-card .kpi-sub {
                 font-size: 10px !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
+                display: block !important;
+                max-width: 100% !important;
             }
 
             /* ── Toolbar ── */
@@ -943,90 +944,105 @@ $page_title = 'Orders - Staff';
             }
 
             .toolbar-btn {
-                padding: 8px 12px !important;
+                padding: 7px 10px !important;
                 font-size: 12px !important;
             }
 
-            /* ── Order Table: Card Layout ── */
-            /* Prevent global staff_theme.php min-width from overriding card layout */
-            html.printflow-staff .orders-table,
-            html.printflow-staff .orders-table thead,
-            html.printflow-staff .orders-table tbody,
-            html.printflow-staff .orders-table th,
-            html.printflow-staff .orders-table td,
-            html.printflow-staff .orders-table tr {
-                min-width: 0 !important;
-                white-space: normal !important;
+            /* ── CRITICAL: Contain the whole card and table ── */
+            .staff-orders-table-card {
+                padding: 10px !important;
+                overflow: hidden !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
             }
 
-            .orders-table,
-            .orders-table thead,
-            .orders-table tbody,
-            .orders-table th,
-            .orders-table td,
-            .orders-table tr {
+            /* Kill the global min-width that causes overflow */
+            .orders-table {
                 display: block !important;
                 width: 100% !important;
+                max-width: 100% !important;
                 min-width: 0 !important;
+                table-layout: auto !important;
+                border-collapse: collapse !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
             }
 
             .orders-table thead {
                 display: none !important;
             }
 
-            /* Wrap tbody so it doesn't cause overflow */
             .orders-table tbody {
-                overflow: visible !important;
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
             }
 
+            /* Each order row = a card */
             .orders-table tr {
-                margin-bottom: 14px !important;
-                border: 1px solid #e8eef3 !important;
-                border-radius: 14px !important;
-                padding: 0 !important;
-                background: #fff !important;
-                position: relative !important;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 0 !important;
-                cursor: pointer !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                margin-bottom: 12px !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
+                background: #fff !important;
                 overflow: hidden !important;
+                box-shadow: 0 1px 6px rgba(0,0,0,0.05) !important;
+                cursor: pointer !important;
+                padding: 0 !important;
+                gap: 0 !important;
             }
 
+            /* Every cell: full-width, contained, never overflows */
             .orders-table td {
                 display: flex !important;
-                justify-content: space-between !important;
                 align-items: center !important;
-                padding: 8px 14px !important;
-                border-bottom: 1px solid #f3f6f9 !important;
-                min-height: 0 !important;
-                text-align: left !important;
-                white-space: normal !important;
-                min-width: 0 !important;
+                justify-content: space-between !important;
                 width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
                 box-sizing: border-box !important;
+                padding: 7px 12px !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                font-size: 13px !important;
             }
 
             .orders-table td:last-child {
                 border-bottom: none !important;
             }
 
-            /* Row 0: Order ID header bar */
+            /* Force every text element inside td to clip with ellipsis */
+            .orders-table td * {
+                min-width: 0 !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+                max-width: 100% !important;
+            }
+
+            /* ── Row 0: Order ID (header bar of card) ── */
             .orders-table td:first-child {
                 order: 0 !important;
                 background: #f8fafc !important;
-                padding: 10px 14px !important;
+                padding: 9px 12px !important;
                 border-bottom: 1px solid #e8eef3 !important;
-                border-radius: 0 !important;
+                font-weight: 700 !important;
+                color: #1e293b !important;
+                font-size: 13px !important;
             }
             .orders-table td:first-child::before {
-                content: "ORDER" !important;
+                content: "#" !important;
                 color: #94a3b8 !important;
-                font-size: 9px !important;
+                font-size: 11px !important;
                 font-weight: 700 !important;
-                text-transform: uppercase !important;
-                margin-right: 8px !important;
+                margin-right: 4px !important;
                 flex-shrink: 0 !important;
             }
             .orders-table td:first-child .row-indicator {
@@ -1038,33 +1054,28 @@ $page_title = 'Orders - Staff';
                 opacity: 1 !important;
             }
 
-            /* Row 1: Product name – full width, prominent */
+            /* ── Row 1: Product name – show with ellipsis ── */
             .orders-table td:nth-child(2) {
                 order: 1 !important;
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 2px !important;
-                padding: 10px 14px !important;
-                border-bottom: 1px solid #f3f6f9 !important;
+                padding: 9px 12px !important;
+                border-bottom: 1px solid #f1f5f9 !important;
             }
             .orders-table td:nth-child(2)::before {
                 display: none !important;
             }
             .orders-table td:nth-child(2) .table-text-main {
-                font-size: 14px !important;
+                font-size: 13px !important;
                 font-weight: 700 !important;
                 color: #111827 !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                max-width: 100% !important;
+                max-width: calc(100vw - 50px) !important;
                 display: block !important;
             }
 
-            /* Row 2: Customer name */
-            .orders-table td:nth-child(3) {
-                order: 2 !important;
-            }
+            /* ── Row 2: Customer name ── */
+            .orders-table td:nth-child(3) { order: 2 !important; }
             .orders-table td:nth-child(3) .table-text-main {
                 white-space: nowrap !important;
                 overflow: hidden !important;
@@ -1073,96 +1084,89 @@ $page_title = 'Orders - Staff';
                 display: block !important;
             }
 
-            /* Row 3: Source badge */
-            .orders-table td:nth-child(4) {
-                order: 3 !important;
-            }
+            /* ── Row 3: Source badge ── */
+            .orders-table td:nth-child(4) { order: 3 !important; }
 
-            /* Row 4: Date */
-            .orders-table td:nth-child(5) {
-                order: 4 !important;
-            }
+            /* ── Row 4: Date ── */
+            .orders-table td:nth-child(5) { order: 4 !important; }
 
-            /* Row 5: Amount */
-            .orders-table td:nth-child(6) {
-                order: 5 !important;
-            }
+            /* ── Row 5: Amount ── */
+            .orders-table td:nth-child(6) { order: 5 !important; }
 
-            /* Row 6: Status */
+            /* ── Row 6: Status ── */
             .orders-table td.status-col-cell {
                 order: 6 !important;
                 justify-content: space-between !important;
-                text-align: left !important;
             }
 
-            /* Row 7: Action buttons – always fully visible */
+            /* ── Row 7: Action buttons — ALWAYS both visible, never cut off ── */
             .orders-table td.action-col-cell {
                 order: 10 !important;
-                padding: 10px 14px 12px !important;
-                border-top: 2px solid #f1f5f9 !important;
+                padding: 10px 12px !important;
+                border-top: 1px solid #e8eef3 !important;
                 border-bottom: none !important;
+                overflow: visible !important;
+                white-space: normal !important;
             }
             .orders-table td.action-col-cell::before {
                 display: none !important;
             }
             .action-cell {
-                width: 100% !important;
                 display: flex !important;
-                gap: 10px !important;
+                width: 100% !important;
+                gap: 8px !important;
+                flex-wrap: nowrap !important;
             }
             .table-action-btn {
-                flex: 1 !important;
-                padding: 10px 8px !important;
-                font-size: 13px !important;
-                font-weight: 700 !important;
-                border-radius: 10px !important;
+                flex: 1 1 0 !important;
                 min-width: 0 !important;
+                max-width: 50% !important;
+                padding: 9px 4px !important;
+                font-size: 12px !important;
+                font-weight: 700 !important;
+                border-radius: 8px !important;
                 text-align: center !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
 
-            /* Generic label for data cells */
+            /* Generic label prefix for rows */
             .orders-table td::before {
-                content: attr(data-label) !important;
+                content: attr(data-label) " " !important;
+                font-size: 9px !important;
                 font-weight: 700 !important;
                 text-transform: uppercase !important;
-                font-size: 9px !important;
                 color: #94a3b8 !important;
-                margin-right: 12px !important;
+                margin-right: 6px !important;
                 flex-shrink: 0 !important;
+                white-space: nowrap !important;
             }
 
-            /* Fix horizontal overflow at container level */
-            .overflow-x-auto.-mx-6.px-6 {
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-                overflow-x: visible !important;
-            }
-
-            /* Override global table scroll for orders card layout */
-            html.printflow-staff .staff-orders-table-card table,
-            .staff-orders-table-card .orders-table {
-                min-width: 0 !important;
-                width: 100% !important;
-            }
-
-            /* Specific data-label content */
-            .orders-table td:nth-child(3)::before { content: "Customer" !important; }
-            .orders-table td:nth-child(4)::before { content: "Source" !important; }
-            .orders-table td:nth-child(5)::before { content: "Date" !important; }
-            .orders-table td:nth-child(6)::before { content: "Amount" !important; }
-            .orders-table td:nth-child(7)::before { content: "Status" !important; }
-
-            /* Card itself should never overflow viewport */
-            .staff-orders-table-card {
-                overflow: visible !important;
-                padding: 12px !important;
-            }
+            /* Named labels */
+            .orders-table td:nth-child(3)::before { content: "Customer  " !important; }
+            .orders-table td:nth-child(4)::before { content: "Source  " !important; }
+            .orders-table td:nth-child(5)::before { content: "Date  " !important; }
+            .orders-table td:nth-child(6)::before { content: "Amount  " !important; }
+            .orders-table td:nth-child(7)::before { content: "Status  " !important; }
 
             .pf-custom-tabs {
                 padding-bottom: 10px !important;
-                margin-bottom: 16px !important;
+                margin-bottom: 14px !important;
+            }
+
+            /* Prevent tab overflow */
+            .pf-custom-tabs .pill-tab {
+                max-width: 90px !important;
+            }
+            .pf-custom-tabs .pill-tab > :first-child {
+                max-width: 60px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
             }
         }
 
