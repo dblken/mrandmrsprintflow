@@ -89,9 +89,9 @@ if ($initials === '') {
         #main-header .pf-badge { position: absolute; top: -6px; right: -6px; background: #53C5E0; color: #0a2530; font-size: .65rem; font-weight: 900; border-radius: 9999px; min-width: 18px; height: 18px; padding: 0 4px; display: flex !important; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(83,197,224,.4); line-height: 1; border: 1.5px solid #0a2530; z-index: 10; pointer-events: none; }
         #main-header .pf-notif-dropdown { position: absolute; top: calc(100% + 10px); right: 0; width: 320px; max-height: 480px; background: var(--pf-notif-bg); border: 1px solid var(--pf-notif-border); border-radius: 16px; box-shadow: var(--pf-notif-shadow); display: none !important; flex-direction: column; overflow: hidden; z-index: 1002; }
         #main-header .pf-notif-dropdown.open { display: flex !important; }
-        /* Mobile: position notification dropdown to the right edge */
+        /* Mobile: position notification dropdown to the viewport right edge */
         @media (max-width: 768px) {
-            #main-header .pf-notif-dropdown { right: -10px; width: 300px; }
+            #main-header .pf-notif-dropdown { right: 12px; width: min(320px, calc(100vw - 24px)); max-width: calc(100vw - 24px); }
         }
         #main-header .pf-notif-header { padding: 16px 20px; border-bottom: 1px solid var(--pf-notif-item-border); display: flex; align-items: center; justify-content: space-between; background: var(--pf-notif-header-bg); }
         #main-header .pf-notif-header span { font-size: 0.72rem; font-weight: 800; color: var(--pf-notif-header-text); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -1033,6 +1033,29 @@ if ($initials === '') {
     }
 
     // ── Notifications dropdown ───────────────────────────────────
+    function positionNotifMenu(btn, menu) {
+        if (!btn || !menu) return;
+        if (window.innerWidth > 768) {
+            menu.style.position = 'absolute';
+            menu.style.top = 'calc(100% + 10px)';
+            menu.style.right = '0';
+            menu.style.left = 'auto';
+            menu.style.width = '320px';
+            menu.style.maxWidth = '';
+            return;
+        }
+
+        var rect = btn.getBoundingClientRect();
+        var menuWidth = Math.min(320, Math.max(260, window.innerWidth - 24));
+        var top = rect.bottom + 10;
+        menu.style.position = 'fixed';
+        menu.style.top = Math.max(12, top) + 'px';
+        menu.style.right = '12px';
+        menu.style.left = 'auto';
+        menu.style.width = menuWidth + 'px';
+        menu.style.maxWidth = 'calc(100vw - 24px)';
+    }
+
     var notifWraps = document.querySelectorAll('[data-pf-notif-wrap]');
     for (var k = 0; k < notifWraps.length; k++) {
         (function(wrap){
@@ -1045,6 +1068,7 @@ if ($initials === '') {
                 if (otherProfile) otherProfile.classList.remove('open');
                 var isOpen = menu.classList.toggle('open');
                 if (isOpen) {
+                    positionNotifMenu(btn, menu);
                     if (window.PFNotifications && typeof window.PFNotifications.loadDropdown === 'function') {
                         window.PFNotifications.loadDropdown();
                     } else {
@@ -1058,6 +1082,9 @@ if ($initials === '') {
                 }
             });
             document.addEventListener('click', function(ev){ if (!wrap.contains(ev.target)) menu.classList.remove('open'); });
+            window.addEventListener('resize', function() {
+                if (menu.classList.contains('open')) positionNotifMenu(btn, menu);
+            });
         })(notifWraps[k]);
     }
 

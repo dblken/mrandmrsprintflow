@@ -459,19 +459,37 @@ function _ft_detect_social(string $url): array {
         (function() {
             var scrollTop = document.getElementById('lp-scroll-top');
             if (!scrollTop) return;
+            var scrollHideTimer = null;
 
-            function updateScrollVisibility() {
+            function showScrollTopWhileScrolling() {
                 if (window.scrollY > 200) {
                     scrollTop.classList.remove('ft-bubble-hidden');
-                } else {
-                    scrollTop.classList.add('ft-bubble-hidden');
+                    if (scrollHideTimer) {
+                        clearTimeout(scrollHideTimer);
+                    }
+                    scrollHideTimer = setTimeout(function() {
+                        scrollTop.classList.add('ft-bubble-hidden');
+                    }, 700);
                 }
             }
 
-            setTimeout(updateScrollVisibility, 100);
-            window.addEventListener('scroll', updateScrollVisibility, { passive: true });
+            scrollTop.classList.add('ft-bubble-hidden');
+            window.addEventListener('scroll', function() {
+                if (window.scrollY <= 200) {
+                    if (scrollHideTimer) {
+                        clearTimeout(scrollHideTimer);
+                    }
+                    scrollTop.classList.add('ft-bubble-hidden');
+                    return;
+                }
+                showScrollTopWhileScrolling();
+            }, { passive: true });
             scrollTop.addEventListener('click', function(e) {
                 e.preventDefault();
+                if (scrollHideTimer) {
+                    clearTimeout(scrollHideTimer);
+                }
+                scrollTop.classList.add('ft-bubble-hidden');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         })();
