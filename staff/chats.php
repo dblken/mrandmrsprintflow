@@ -637,6 +637,21 @@ $current_user = get_logged_in_user();
         }
         .btn-send:hover { opacity: 0.9; transform: scale(1.05); box-shadow: 0 4px 12px rgba(10,37,48,0.2); }
         .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+        .details-main-heading { position: sticky; top: 0; z-index: 2; background: #fff; padding: 0 0 1rem; font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+        .details-items { display: flex; flex-direction: column; gap: 1rem; }
+        .detail-order-card { background: #fff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 1rem; box-shadow: 0 12px 32px rgba(15,23,42,0.04); }
+        .detail-order-top { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 1rem; align-items: start; }
+        .detail-order-thumb { width: 112px; height: 112px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .detail-order-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .detail-order-body { min-width: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+        .detail-order-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .detail-order-title { font-size: 1.05rem; font-weight: 900; color: #1e293b; line-height: 1.2; word-break: break-word; }
+        .detail-order-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .detail-order-chip { background: #f1f5f9; color: #475569; border-radius: 999px; padding: 0.35rem 0.7rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em; }
+        .detail-order-chip.category { background: #ecfeff; color: #0f766e; text-transform: uppercase; }
+        .detail-order-price { min-width: 120px; text-align: right; }
+        .detail-order-price .pf-spec-key { margin-bottom: 2px; font-size: 9px; }
+        .detail-order-price strong { display: block; font-size: 1.05rem; font-weight: 900; color: #06A1A1; line-height: 1.2; word-break: break-word; }
 
         /* Responsive */
         .mobile-chat-header { display: none; }
@@ -808,6 +823,25 @@ $current_user = get_logged_in_user();
             }
             .details-main {
                 padding: 1rem;
+            }
+            .details-main-heading {
+                padding-bottom: 0.75rem;
+                margin-bottom: 0.85rem;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .detail-order-top {
+                grid-template-columns: 1fr;
+            }
+            .detail-order-thumb {
+                width: 100%;
+                max-width: 240px;
+                height: auto;
+                aspect-ratio: 1 / 1;
+            }
+            .detail-order-price {
+                min-width: 0;
+                width: 100%;
+                text-align: left;
             }
             .gallery-panel {
                 position: fixed !important;
@@ -2381,8 +2415,8 @@ function openDetails(id) {
         </div>
 
         <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
-            <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
-            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div class="details-main-heading" style="${compact ? 'padding:0 0 0.85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
+            <div class="details-items">
                 ${it.length ? it.map(i => {
                     const specs = i.customization || {};
                     const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
@@ -2432,7 +2466,7 @@ function openDetails(id) {
                             </div>
                         </div>
                     </div>`;
-                }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Production Roadmap is currently empty.</div>'}
+                }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
             </div>
         </div>`;
         body.innerHTML = h;
@@ -2939,6 +2973,7 @@ function formatAudioTime(seconds) {
 }
 
 let pendingVoiceBlob = null;
+let isSendingMessage = false;
 
 function sendMsg() {
     const btn = document.getElementById('btnSend');
@@ -2955,9 +2990,10 @@ function sendMsg() {
         return;
     }
 
-    if ((!txt && !uploadFiles.length) || (btn && btn.disabled)) return;
+    if ((!txt && !uploadFiles.length) || isSendingMessage || !activeId || (btn && btn.disabled)) return;
 
     // Visual feedback
+    isSendingMessage = true;
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
@@ -2984,7 +3020,11 @@ function sendMsg() {
                 showToast(r.error || 'Failed to send message', "error");
             }
         })
+        .catch(err => {
+            showToast(err?.message || 'Failed to send message', "error");
+        })
         .finally(() => {
+            isSendingMessage = false;
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-send-fill"></i>';

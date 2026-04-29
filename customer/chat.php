@@ -371,9 +371,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     .details-modal-overlay { display:none !important; position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:3000; align-items:center; justify-content:center; padding:1.5rem; backdrop-filter:blur(8px); }
     .details-modal-overlay.active { display:flex !important; }
-    .details-modal-panel { background:#fff; border-radius:32px; width:100%; max-width:840px; max-height:85vh; overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
+    .details-modal-panel { background:#fff; border-radius:32px; width:min(100%, 1100px); max-height:min(88vh, 920px); overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
     .details-modal-header { padding:1.25rem 2rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fff; flex-shrink:0; }
-    .details-modal-content { display:grid; grid-template-columns:260px 1fr; flex:1; overflow:hidden; }
+    .details-modal-content { display:grid; grid-template-columns:minmax(250px, 290px) minmax(0, 1fr); flex:1; overflow:hidden; min-height:0; }
     .details-sidebar { background:linear-gradient(180deg,#f8fbff 0%, #f1f5f9 100%); border-right:1px solid #eef2f7; padding:1.5rem; overflow-y:auto; }
     .details-main { padding:1.5rem; overflow-y:auto; background:#fff; }
     .pf-mini-card { background:#fff; border-radius:20px; padding:1.25rem; border:1px solid #eef2f6; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02); }
@@ -381,6 +381,21 @@ require_once __DIR__ . '/../includes/header.php';
     .pf-spec-box { background:#f8fafc; border:1px solid #f1f5f9; padding:8px 10px; border-radius:12px; overflow:hidden; min-width:0; }
     .pf-spec-key { font-size:8px; font-weight:900; color:#94a3b8; text-transform:uppercase; margin-bottom:3px; letter-spacing:.05em; }
     .pf-spec-val { font-size:10.5px; font-weight:800; color:#1e293b; line-height:1.3; overflow-wrap:break-word; }
+    .details-main-heading { position:sticky; top:0; z-index:2; background:#fff; padding:0 0 1rem; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem; }
+    .details-items { display:flex; flex-direction:column; gap:1rem; }
+    .detail-order-card { background:#fff; border:1px solid #f1f5f9; border-radius:20px; padding:1rem; box-shadow:0 12px 32px rgba(15,23,42,0.04); }
+    .detail-order-top { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:1rem; align-items:start; }
+    .detail-order-thumb { width:112px; height:112px; border-radius:16px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .detail-order-thumb img { width:100%; height:100%; object-fit:cover; }
+    .detail-order-body { min-width:0; display:flex; flex-direction:column; gap:.9rem; }
+    .detail-order-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+    .detail-order-title { font-size:1.05rem; font-weight:900; color:#1e293b; line-height:1.2; word-break:break-word; }
+    .detail-order-meta { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+    .detail-order-chip { background:#f1f5f9; color:#475569; border-radius:999px; padding:.35rem .7rem; font-size:.72rem; font-weight:800; letter-spacing:.02em; }
+    .detail-order-chip.category { background:#ecfeff; color:#0f766e; text-transform:uppercase; }
+    .detail-order-price { min-width:120px; text-align:right; }
+    .detail-order-price .pf-spec-key { margin-bottom:2px; font-size:9px; }
+    .detail-order-price strong { display:block; font-size:1.05rem; font-weight:900; color:#0ea5a5; line-height:1.2; word-break:break-word; }
     .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid var(--pf-border); display:flex; justify-content:flex-end; gap:12px; }
 
     .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:#fff; border:1px solid var(--pf-border); }
@@ -428,6 +443,17 @@ require_once __DIR__ . '/../includes/header.php';
             border-radius: 0;
             box-shadow: none;
         }
+        .details-modal-overlay { padding:.75rem; align-items:flex-end; }
+        .details-modal-panel { max-height:min(92vh, 920px); border-radius:24px 24px 0 0; }
+        .details-modal-header,
+        .details-main,
+        .details-sidebar { padding:1rem; }
+        .details-modal-content { grid-template-columns:1fr; }
+        .details-sidebar { border-right:none; border-bottom:1px solid #eef2f7; }
+        .details-main-heading { padding-bottom:.75rem; margin-bottom:.85rem; border-bottom:1px solid #f1f5f9; }
+        .detail-order-top { grid-template-columns:1fr; }
+        .detail-order-thumb { width:100%; max-width:240px; height:auto; aspect-ratio:1 / 1; }
+        .detail-order-price { min-width:0; width:100%; text-align:left; }
 
         .cs-sidebar,
         .cs-window {
@@ -801,7 +827,7 @@ const DEFAULT_PROFILE_IMAGE = `${BASE}/public/assets/uploads/profiles/default.pn
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;
 const EMOJIS = {like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢', angry:'😡'};
 
-let activeId = null, lastId = 0, pollTimer = null;
+let activeId = null, lastId = 0, pollTimer = null, isSendingMessage = false;
 window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
 
 // --- PrintFlow Call System Initialization ---
@@ -1489,8 +1515,13 @@ function renderReactions(id, rx) {
 function sendMsg() {
     if (pendingVoiceBlob) { sendVoice(); return; }
     const input = document.getElementById('customerMsgInput'), txt = input.value.trim();
-    if (!txt && !uploads.length) return;
     const btn = document.getElementById('customerSendBtn');
+    if ((!txt && !uploads.length) || isSendingMessage || !activeId || (btn && btn.disabled)) return;
+    if (txt.length > 500) {
+        showToast('Message cannot exceed 500 characters.', 'warning');
+        return;
+    }
+    isSendingMessage = true;
     btn.disabled = true;
     const fd = new FormData(); fd.append('order_id', activeId);
     if (txt) fd.append('message', txt);
@@ -1502,10 +1533,17 @@ function sendMsg() {
             document.getElementById('customerImgPreview').style.display='none'; 
             cancelReply();
             loadMsgs(); 
+        } else {
+            showToast(res.error || 'Failed to send message.', 'error');
         }
+    }).catch(err => {
+        showToast(err?.message || 'Failed to send message.', 'error');
+    }).finally(() => {
+        isSendingMessage = false;
         btn.disabled = false;
-        document.getElementById('customerCharCount').textContent = '0/500';
+        document.getElementById('customerCharCount').textContent = input.value.length + '/500';
         input.style.height = 'auto';
+        input.focus();
     });
 }
 
@@ -1951,9 +1989,9 @@ function openOrderDetails(id) {
                      <a href="${actionUrl}" style="display:block; text-align:center; background:#0ea5a5; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
                 </div>
             </div>
-            <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
-                <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
-                <div style="display:flex; flex-direction:column; gap:.75rem;">
+            <div class="details-main">
+                <div class="details-main-heading" style="${compact ? 'padding:0 0 .85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
+                <div class="details-items">
                     ${items.length ? items.map(it => {
                         const specs = it.customization || {};
                         const entries = Object.entries(specs).filter(([k, v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
@@ -1963,36 +2001,36 @@ function openOrderDetails(id) {
                         if (!it.design_url && placement.includes('Sleeve')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
                         if (!it.design_url && placement.includes('Upper')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
                         return `
-                        <div style="background:#fff; border:1px solid #f1f5f9; border-radius:16px; padding:1rem;">
-                            <div style="display:flex; align-items:flex-start; gap:1rem;">
-                                <div style="width:96px; height:96px; border-radius:14px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                    <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${BASE}/public/assets/images/services/default.png';">
+                        <div class="detail-order-card">
+                            <div class="detail-order-top">
+                                <div class="detail-order-thumb">
+                                    <img src="${displayImg}" alt="${esc(it.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${BASE}/public/assets/images/services/default.png';">
                                 </div>
-                                <div style="flex:1; min-width:0;">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:6px;">
-                                        <div style="min-width:0;">
-                                            <div style="font-size:1.1rem; font-weight:900; color:#1e293b; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(it.product_name || 'Order Item')}">${esc(it.product_name || 'Order Item')}</div>
-                                            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-                                                <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${esc(it.category || 'Service')}</span>
-                                                <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${it.quantity}</span>
+                                <div class="detail-order-body">
+                                    <div class="detail-order-summary">
+                                        <div style="min-width:0; flex:1;">
+                                            <div class="detail-order-title" title="${esc(it.product_name || 'Order Item')}">${esc(it.product_name || 'Order Item')}</div>
+                                            <div class="detail-order-meta" style="margin-top:.65rem;">
+                                                <span class="detail-order-chip category">${esc(it.category || 'Service')}</span>
+                                                <span class="detail-order-chip">Units: ${it.quantity}</span>
                                             </div>
                                         </div>
-                                        <div style="text-align:right; flex-shrink:0;">
-                                             <div class="pf-spec-key" style="margin:0; font-size:9px;">Total</div>
-                                             <div style="font-size:1.1rem; font-weight:900; color:#0ea5a5;">${it.subtotal || 'TBA'}</div>
+                                        <div class="detail-order-price">
+                                             <div class="pf-spec-key">Total</div>
+                                             <strong>${it.subtotal || 'TBA'}</strong>
                                         </div>
                                     </div>
-                                    <div class="pf-spec-grid" style="margin-top:1rem; gap:6px;">
+                                    <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
                                         ${entries.map(([k, v]) => `
-                                            <div class="pf-spec-box" style="padding:6px 8px; border-radius:8px;">
+                                            <div class="pf-spec-box">
                                                 <div class="pf-spec-key" style="font-size:8px;">${esc(k.replace(/_/g, ' ').replace('shirt ', ''))}</div>
-                                                <div class="pf-spec-val" style="word-break:break-all; font-size:11px;">${esc(String(v))}</div>
+                                                <div class="pf-spec-val" style="font-size:11px;">${esc(String(v))}</div>
                                             </div>`).join('')}
                                     </div>
                                 </div>
                             </div>
                         </div>`;
-                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Production Roadmap is currently empty.</div>'}
+                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
                 </div>
             </div>`;
     }).catch(err => {
