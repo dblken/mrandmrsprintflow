@@ -1259,7 +1259,11 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        const alignment = senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        console.log('Current User:', CURRENT_USER_TYPE);
+        console.log('Sender:', senderType);
+        console.log('Alignment:', alignment);
+        return alignment;
     }
     return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }

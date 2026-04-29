@@ -1999,7 +1999,11 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === 'staff' ? 'self' : 'other';
+        const alignment = (senderType === CURRENT_USER_TYPE) ? 'self' : 'other';
+        console.log('Current User:', CURRENT_USER_TYPE);
+        console.log('Sender:', senderType);
+        console.log('Alignment:', alignment);
+        return alignment;
     }
     return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }
@@ -2185,7 +2189,7 @@ function appendMsgUI(m) {
         console.log("Order Card Rendered:", data);
         console.log("Image path:", data.image);
         colHtml += `
-            <div class="chat-message left">
+            <div class="msg-content-col">
                 <div class="order-card" data-order-id="${data.order_id}">
                     <img src="${data.image}" class="order-img" onerror="this.onerror=null;this.src='/public/default.png'">
                     <div class="order-info">
