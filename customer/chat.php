@@ -1259,9 +1259,9 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === 'staff' ? 'self' : 'other';
+        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
     }
-    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.sender === 'staff' || message?.is_self === false ? 'other' : 'self');
+    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }
 
 function getMessageSenderKey(message) {
