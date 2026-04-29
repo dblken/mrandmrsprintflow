@@ -3407,7 +3407,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'in_production' => [
-            'message'      => "Your order is now in production. Our team is currently working on it.",
+            'message'      => "Your payment has been approved. We will now proceed with processing your order.",
             'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
